@@ -1,0 +1,661 @@
+/**
+ * CompetitionDetailScreen - View and manage competition details
+ *
+ * Features tabbed interface:
+ * - Details: Competition info and current round
+ * - Rounds: List all rounds with actions
+ * - Players: List competition players
+ * - Teams: List competition teams
+ * - Leaderboard: Competition standings
+ */
+
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { Text, Button, ActivityIndicator, Icon } from 'react-native-paper';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
+import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
+import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
+import { UpgradePrompt } from '@/components/subscription';
+import type { UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
+import { supabase } from '@/services/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useCompetitionLeaderboard, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
+import { useTeams, useUpdateTeamName } from '@/hooks/useTeams';
+import { useRemoveCompetitionPlayer } from '@/hooks/useRemoveCompetitionPlayer';
+import { scoringPairsKeys } from '@/hooks/queryKeys';
+import { getRoundScoringPairs } from '@/services/scoringPairs';
+import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
+import {
+  DetailsTab,
+  RoundsTab,
+  PlayersTab,
+  TeamsTab,
+  LeaderboardTab,
+  type RoundWithCourse,
+  type CompetitionPlayer,
+  type CompetitionData,
+} from '@/components/competitions/detail';
+import type { Competition } from '@/types/database.types';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
+
+type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard';
+
+/**
+ * Fetch competition details including rounds and players
+ */
+async function fetchCompetitionDetails(competitionId: string): Promise<CompetitionData> {
+  // Fetch competition
+  const { data: competition, error: competitionError } = await supabase
+    .from('competitions')
+    .select('*')
+    .eq('id', competitionId)
+    .single();
+
+  if (competitionError) {
+    throw new Error(`Failed to fetch competition: ${competitionError.message}`);
+  }
+
+  // Fetch rounds with course and venue details
+  const { data: rounds, error: roundsError } = await supabase
+    .from('rounds')
+    .select(`
+      *,
+      courses (
+        *,
+        venues (
+          city,
+          state
+        )
+      )
+    `)
+    .eq('competition_id', competitionId)
+    .order('round_number', { ascending: true });
+
+  if (roundsError) {
+    throw new Error(`Failed to fetch rounds: ${roundsError.message}`);
+  }
+
+  // Fetch players
+  const { data: players, error: playersError } = await supabase
+    .from('competition_players')
+    .select(`
+      player_id,
+      status,
+      players!player_id (
+        id,
+        name,
+        email,
+        handicap,
+        photo_url
+      )
+    `)
+    .eq('competition_id', competitionId)
+    .eq('status', 'accepted');
+
+  if (playersError) {
+    throw new Error(`Failed to fetch players: ${playersError.message}`);
+  }
+
+  // Transform rounds data
+  const transformedRounds: RoundWithCourse[] = (rounds || []).map((round: any) => ({
+    ...round,
+    course: round.courses || null,
+  }));
+
+  // Transform players data
+  const transformedPlayers: CompetitionPlayer[] = (players || []).map((cp: any) => ({
+    player_id: cp.player_id,
+    status: cp.status,
+    player: cp.players || null,
+  }));
+
+  return {
+    competition: competition as Competition,
+    rounds: transformedRounds,
+    players: transformedPlayers,
+  };
+}
+
+/**
+ * Hook to fetch competition details
+ */
+function useCompetitionDetails(competitionId: string) {
+  return useQuery({
+    queryKey: ['competition', competitionId, 'details'],
+    queryFn: () => fetchCompetitionDetails(competitionId),
+    enabled: !!competitionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+  });
+}
+
+/**
+ * Get current player's position and points from leaderboard
+ */
+function getCurrentPlayerStanding(
+  leaderboard: CompetitionLeaderboardEntry[] | undefined,
+  currentPlayerId: string | undefined
+): { position: number; points: number } | null {
+  if (!leaderboard || !currentPlayerId) return null;
+
+  // Find the entry for the current player (check individual entries, not team entries)
+  const playerEntry = leaderboard.find(
+    (entry) => !entry.isTeam && entry.participantId === currentPlayerId
+  );
+
+  if (!playerEntry) return null;
+
+  return {
+    position: playerEntry.position,
+    points: playerEntry.totalPoints,
+  };
+}
+
+export default function CompetitionDetailScreen({ navigation, route }: Props) {
+  const colors = useThemeColors();
+  const { id } = route.params;
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabValue>('details');
+
+  // Delete competition state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Add players bottom sheet state
+  const [showAddPlayersSheet, setShowAddPlayersSheet] = useState(false);
+
+  // Upgrade prompt state for round limits
+  const [showRoundUpgradePrompt, setShowRoundUpgradePrompt] = useState(false);
+
+  // Upgrade prompt state for player limits
+  const [showPlayerUpgradePrompt, setShowPlayerUpgradePrompt] = useState(false);
+
+  // Subscription context for tier limit checks
+  const { checkCanAddRound, checkCanAddPlayer } = useSubscriptionContext();
+  const tierLimits = useTierLimits();
+
+  // Fetch competition details
+  const {
+    data: competitionData,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useCompetitionDetails(id);
+
+  // Fetch leaderboard data (individuals filter for current standing)
+  const {
+    data: leaderboard,
+    refetch: refetchLeaderboard,
+  } = useCompetitionLeaderboard(id, { filter: 'individuals' });
+
+  // Fetch teams data
+  const {
+    data: teams,
+    isLoading: isLoadingTeams,
+    refetch: refetchTeams,
+  } = useTeams(id);
+
+  // Team name update hook
+  const { mutate: updateTeamNameMutation } = useUpdateTeamName();
+
+  // Player removal hook
+  const {
+    state: removePlayerState,
+    removePlayer: initiateRemovePlayer,
+  } = useRemoveCompetitionPlayer({
+    competitionId: id,
+    onSuccess: (playerId, affectedRoundIds) => {
+      // Refresh data after removal
+      refetch();
+      refetchLeaderboard();
+      refetchTeams();
+
+      // Notify organizer about affected rounds
+      if (affectedRoundIds.length > 0) {
+        Alert.alert(
+          'Player Removed',
+          `The player has been removed. ${affectedRoundIds.length} round${affectedRoundIds.length !== 1 ? 's' : ''} had scoring pair assignments that were deleted. Please re-configure scoring pairs for affected rounds.`,
+          [{ text: 'OK' }]
+        );
+      }
+    },
+    onError: (error) => {
+      Alert.alert('Error', error.message || 'Failed to remove player');
+    },
+  });
+
+  // Get rounds that require scoring pairs (only when user is organizer)
+  const roundsRequiringScoringPairs = useMemo(() => {
+    if (!competitionData?.rounds) return [];
+    return competitionData.rounds.filter((r) => r.scoring_pairs_required);
+  }, [competitionData?.rounds]);
+
+  // Fetch scoring pairs status for rounds that require them
+  const scoringPairsQueries = useQueries({
+    queries: roundsRequiringScoringPairs.map((round) => ({
+      queryKey: scoringPairsKeys.list(round.id),
+      queryFn: () => getRoundScoringPairs(round.id),
+      enabled: !!round.id,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    })),
+  });
+
+  // Build a map of roundId -> hasPairs (true if pairs exist)
+  const scoringPairsStatus = useMemo(() => {
+    const status: Record<string, boolean> = {};
+    roundsRequiringScoringPairs.forEach((round, index) => {
+      const query = scoringPairsQueries[index];
+      status[round.id] = (query?.data?.length ?? 0) > 0;
+    });
+    return status;
+  }, [roundsRequiringScoringPairs, scoringPairsQueries]);
+
+  // Check if current user is the organizer
+  const isOrganizer = useMemo(() => {
+    if (!competitionData?.competition || !user) return false;
+    return competitionData.competition.organizer_id === user.id;
+  }, [competitionData?.competition, user]);
+
+  // Get current player's standing (for non-organizers)
+  const currentStanding = useMemo(
+    () => getCurrentPlayerStanding(leaderboard, user?.id),
+    [leaderboard, user?.id]
+  );
+
+  // Handle navigation
+  const handleBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const handleEdit = useCallback(() => {
+    navigation.navigate('EditCompetition', { id });
+  }, [navigation, id]);
+
+  const handleAddRound = useCallback(() => {
+    // Get current round count from competition data
+    const currentRoundCount = competitionData?.rounds?.length ?? 0;
+
+    // Check if user can add another round based on their subscription tier
+    const access = checkCanAddRound(id, currentRoundCount);
+
+    if (!access.allowed) {
+      // Show upgrade prompt instead of navigating
+      setShowRoundUpgradePrompt(true);
+      return;
+    }
+
+    // Allowed - navigate to add round screen
+    navigation.navigate('AddRound', { competitionId: id });
+  }, [navigation, id, competitionData?.rounds?.length, checkCanAddRound]);
+
+  const handleAddPlayers = useCallback(() => {
+    // Get current player count from competition data
+    const currentPlayerCount = competitionData?.players?.length ?? 0;
+
+    // Check if user can add more players based on their subscription tier
+    const access = checkCanAddPlayer(id, currentPlayerCount);
+
+    if (!access.allowed) {
+      // Show upgrade prompt instead of opening bottom sheet
+      setShowPlayerUpgradePrompt(true);
+      return;
+    }
+
+    // Allowed - open the add players bottom sheet
+    setShowAddPlayersSheet(true);
+  }, [id, competitionData?.players?.length, checkCanAddPlayer]);
+
+  const handleRemovePlayer = useCallback(
+    (playerId: string, playerName: string) => {
+      initiateRemovePlayer(playerId, playerName);
+    },
+    [initiateRemovePlayer]
+  );
+
+  const handleScoreRound = useCallback(
+    (roundId: string) => {
+      navigation.navigate('Scorecard', { roundId, competitionId: id });
+    },
+    [navigation, id]
+  );
+
+  const handleViewRound = useCallback(
+    (roundId: string) => {
+      navigation.navigate('ViewRound', { roundId, competitionId: id });
+    },
+    [navigation, id]
+  );
+
+  const handleManageTeams = useCallback(() => {
+    navigation.navigate('TeamManagement', { competitionId: id });
+  }, [navigation, id]);
+
+  const handleUpdateTeamName = useCallback(
+    (teamId: string, newName: string) => {
+      updateTeamNameMutation(
+        { teamId, competitionId: id, name: newName },
+        {
+          onError: (error) => {
+            Alert.alert('Error', error.message || 'Failed to update team name');
+          },
+        }
+      );
+    },
+    [updateTeamNameMutation, id]
+  );
+
+  const handleManageScoringPairs = useCallback(
+    (roundId: string) => {
+      navigation.navigate('ScoringPairs', { roundId, competitionId: id });
+    },
+    [navigation, id]
+  );
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    refetchLeaderboard();
+    refetchTeams();
+  }, [refetch, refetchLeaderboard, refetchTeams]);
+
+  const handleDeleteCompetition = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      // Use the soft_delete_competition database function
+      // This sets deleted_at on the competition and all related data
+      // Note: Type assertion needed as generated types may not include this function yet
+      const { error } = await supabase.rpc(
+        'soft_delete_competition' as never,
+        { p_competition_id: id } as never
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      // Invalidate competitions list cache (both myCompetitions and joinedCompetitions)
+      queryClient.invalidateQueries({ queryKey: ['myCompetitions'] });
+      queryClient.invalidateQueries({ queryKey: ['joinedCompetitions'] });
+
+      // Close dialog and navigate back
+      setShowDeleteDialog(false);
+      navigation.goBack();
+    } catch (error: any) {
+      setIsDeleting(false);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to delete competition. Please try again.'
+      );
+    }
+  }, [id, navigation, queryClient]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading competition...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !competitionData) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
+        <Icon source="alert-circle-outline" size={64} color={colors.error} />
+        <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load competition</Text>
+        <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+          {error?.message || 'Competition not found'}
+        </Text>
+        <Button
+          mode="contained"
+          onPress={() => refetch()}
+          style={styles.retryButton}
+          buttonColor={colors.primary}
+          textColor={colors.white}
+        >
+          Retry
+        </Button>
+      </View>
+    );
+  }
+
+  const { competition, rounds, players } = competitionData;
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <PageHeader
+        title={competition.name}
+        showBack
+        onBack={handleBack}
+        rightActions={
+          isOrganizer
+            ? [
+                {
+                  icon: 'delete-outline',
+                  onPress: () => setShowDeleteDialog(true),
+                  accessibilityLabel: 'Delete competition',
+                  color: colors.error,
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* Tab Bar */}
+      <Tabs
+        tabs={[
+          { key: 'details', label: 'Details' },
+          { key: 'rounds', label: 'Rounds' },
+          { key: 'players', label: 'Players' },
+          ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
+          { key: 'leaderboard', label: 'Leaderboard' },
+        ]}
+        selectedTab={activeTab}
+        onTabChange={setActiveTab}
+        scrollable
+        style={styles.tabContainer}
+      />
+
+      {/* Tab Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + spacing.lg },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {activeTab === 'details' && (
+          <DetailsTab
+            competition={competition}
+            rounds={rounds}
+            playerCount={players.length}
+            currentStanding={currentStanding}
+            isOrganizer={isOrganizer}
+            onEdit={handleEdit}
+          />
+        )}
+
+        {activeTab === 'rounds' && (
+          <RoundsTab
+            rounds={rounds}
+            isOrganizer={isOrganizer}
+            onAddRound={handleAddRound}
+            onScoreRound={handleScoreRound}
+            onViewRound={handleViewRound}
+            onManageScoringPairs={handleManageScoringPairs}
+            scoringPairsStatus={scoringPairsStatus}
+            colors={colors}
+          />
+        )}
+
+        {activeTab === 'players' && (
+          <PlayersTab
+            players={players}
+            currentUserId={user?.id}
+            isOrganizer={isOrganizer}
+            onAddPlayers={handleAddPlayers}
+            onRemovePlayer={handleRemovePlayer}
+            removingPlayerId={
+              removePlayerState.isChecking || removePlayerState.isRemoving
+                ? null // We don't track specific player during check/remove since Alert handles loading
+                : null
+            }
+            colors={colors}
+          />
+        )}
+
+        {activeTab === 'teams' && competition.team_mode !== 'none' && (
+          <TeamsTab
+            teams={teams || []}
+            teamMode={competition.team_mode}
+            isLoading={isLoadingTeams}
+            isOrganizer={isOrganizer}
+            canEditTeamNames={isOrganizer}
+            onManageTeams={handleManageTeams}
+            onUpdateTeamName={handleUpdateTeamName}
+            colors={colors}
+          />
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <LeaderboardTab
+            competitionId={id}
+            teamMode={competition.team_mode}
+            rounds={rounds}
+            currentUserId={user?.id}
+          />
+        )}
+      </ScrollView>
+
+      {/* Add Players Bottom Sheet */}
+      <AddPlayersBottomSheet
+        visible={showAddPlayersSheet}
+        onClose={() => setShowAddPlayersSheet(false)}
+        competitionId={id}
+        existingPlayerIds={players.map((p) => p.player_id)}
+        maxPlayers={tierLimits?.maxPlayersPerCompetition ?? undefined}
+        currentPlayerCount={players.length}
+      />
+
+      {/* Round Limit Upgrade Prompt */}
+      <UpgradePrompt
+        visible={showRoundUpgradePrompt}
+        config={{
+          feature: 'add_round',
+          title: 'Round Limit Reached',
+          message: 'Upgrade your subscription to add more rounds to your competitions.',
+          targetTier: 'social',
+          benefits: [
+            'Add more rounds to your competitions',
+            'Up to 3 rounds on Social',
+            'Up to 10 rounds on Premium',
+          ],
+        }}
+        onUpgrade={() => {
+          setShowRoundUpgradePrompt(false);
+          navigation.navigate('Subscription');
+        }}
+        onDismiss={() => setShowRoundUpgradePrompt(false)}
+      />
+
+      {/* Player Limit Upgrade Prompt */}
+      <UpgradePrompt
+        visible={showPlayerUpgradePrompt}
+        config={{
+          feature: 'add_player',
+          title: 'Player Limit Reached',
+          message: 'Upgrade your subscription to add more players to your competitions.',
+          targetTier: 'social',
+          benefits: [
+            'Add more players to competitions',
+            'Up to 16 players on Social',
+            'Up to 40 players on Premium',
+          ],
+        }}
+        onUpgrade={() => {
+          setShowPlayerUpgradePrompt(false);
+          navigation.navigate('Subscription');
+        }}
+        onDismiss={() => setShowPlayerUpgradePrompt(false)}
+      />
+
+      {/* Delete Competition Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showDeleteDialog}
+        title="Delete Competition"
+        message="Are you sure you want to delete this competition? All rounds, scores, and player data will be permanently removed. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        icon="alert-circle-outline"
+        onConfirm={handleDeleteCompetition}
+        onCancel={() => setShowDeleteDialog(false)}
+        loading={isDeleting}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  tabContainer: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+  },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.md,
+  },
+  errorTitle: {
+    ...typography.h3,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  errorMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  retryButton: {
+    borderRadius: borderRadius.md,
+  },
+});

@@ -1,0 +1,241 @@
+/**
+ * CourseSelectionModal - Full-screen modal for selecting a course
+ */
+
+import React, { useCallback } from 'react';
+import { View, StyleSheet, FlatList, Pressable, Modal } from 'react-native';
+import { Text, IconButton, Searchbar, ActivityIndicator, Icon, Surface } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { VenueCard } from '@/components/courses/VenueCard';
+import type { VenueCourseDisplayItem } from '@/hooks/useVenues';
+import type { CourseSelectionModalProps } from '../types';
+
+export const CourseSelectionModal = React.memo(function CourseSelectionModal({
+  visible,
+  displayItems,
+  favoriteCourses,
+  courseSearchQuery,
+  isLoading,
+  isSearching,
+  onCourseSelect,
+  onSearchChange,
+  onClose,
+}: CourseSelectionModalProps) {
+  const colors = useThemeColors();
+  const isDark = useIsDark();
+  const insets = useSafeAreaInsets();
+
+  const renderVenueItem = useCallback(
+    ({ item }: { item: VenueCourseDisplayItem }) => (
+      <VenueCard item={item} onCourseSelect={onCourseSelect} showFavoriteButton={false} selectionMode />
+    ),
+    [onCourseSelect]
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View
+        style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}
+      >
+        {/* Modal Header */}
+        <View
+          style={[
+            styles.modalHeader,
+            {
+              backgroundColor: isDark ? colors.gray100 : colors.surface,
+              borderBottomColor: colors.gray200,
+            },
+          ]}
+        >
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
+          <IconButton icon="close" onPress={onClose} iconColor={colors.textPrimary} />
+        </View>
+
+        {/* Search Bar */}
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: isDark ? colors.gray100 : colors.surface },
+          ]}
+        >
+          <Searchbar
+            placeholder="Search courses..."
+            value={courseSearchQuery}
+            onChangeText={onSearchChange}
+            style={[styles.searchBar, { backgroundColor: colors.gray100 }]}
+            inputStyle={styles.searchInput}
+            iconColor={colors.primary}
+          />
+        </View>
+
+        {/* Favorites Section */}
+        {favoriteCourses.length > 0 && courseSearchQuery.length < 2 && (
+          <View
+            style={[
+              styles.favoritesSection,
+              {
+                backgroundColor: isDark ? colors.gray100 : colors.surface,
+                borderBottomColor: colors.gray200,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Favourites</Text>
+            <FlatList
+              horizontal
+              data={favoriteCourses}
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.favoritesContainer}
+              renderItem={({ item }) => (
+                <Pressable onPress={() => onCourseSelect(item, item.venue)}>
+                  <Surface
+                    style={[
+                      styles.favoriteChip,
+                      { backgroundColor: isDark ? colors.gray100 : colors.surface },
+                    ]}
+                    elevation={1}
+                  >
+                    <Icon source="star" size={14} color={colors.warning} />
+                    <Text
+                      style={[styles.favoriteChipText, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {item.name === item.venue.name
+                        ? item.name
+                        : `${item.name} @ ${item.venue.name}`}
+                    </Text>
+                  </Surface>
+                </Pressable>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Loading State */}
+        {(isLoading || isSearching) && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Loading courses...
+            </Text>
+          </View>
+        )}
+
+        {/* Venue/Course List */}
+        <FlatList
+          data={displayItems}
+          keyExtractor={(item) => item.venue.id}
+          renderItem={renderVenueItem}
+          contentContainerStyle={styles.courseList}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+          ListEmptyComponent={
+            !isLoading && !isSearching ? (
+              <View style={styles.emptyState}>
+                <Icon source="golf" size={48} color={colors.gray400} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {courseSearchQuery.length >= 2 ? 'No venues found' : 'No venues available'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
+                  {courseSearchQuery.length >= 2
+                    ? 'Try a different search term'
+                    : 'Add venues from the Courses tab'}
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      </View>
+    </Modal>
+  );
+});
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    ...typography.h4,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  searchBar: {
+    borderRadius: borderRadius.md,
+    elevation: 0,
+  },
+  searchInput: {
+    ...typography.body,
+  },
+  favoritesSection: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  sectionTitle: {
+    ...typography.smallBold,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  favoritesContainer: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  favoriteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    gap: spacing.xs,
+    marginRight: spacing.sm,
+    ...shadows.sm,
+  },
+  favoriteChipText: {
+    ...typography.small,
+    maxWidth: 120,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.small,
+  },
+  courseList: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  listSeparator: {
+    height: spacing.sm,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+  },
+  emptyText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    ...typography.small,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+});

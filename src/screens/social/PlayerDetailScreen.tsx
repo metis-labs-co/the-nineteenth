@@ -1,0 +1,670 @@
+/**
+ * PlayerDetailScreen - View a friend's profile and statistics
+ *
+ * Shows:
+ * - Player profile header (avatar, name, email, handicap)
+ * - Overview stats (rounds, competitions, wins)
+ * - Score distribution (eagles, birdies, pars, bogeys, etc.)
+ * - Best performances
+ * - Recent activity
+ * - Compare Stats button (navigates to CompareStatsScreen)
+ */
+
+import React, { useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
+import { Text, Icon, Avatar } from 'react-native-paper';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
+import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
+import { usePlayer } from '@/hooks/usePlayer';
+import { useAuth } from '@/hooks/useAuth';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { PageHeader } from '@/components/common/PageHeader';
+import { SectionHeader } from '@/components/social';
+import { StatCard, ScoreDistributionBar } from '@/components/statistics';
+import { FeatureLockButton } from '@/components/subscription/FeatureLockButton';
+import { formatDateAustralian } from '@/utils/formatting';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'PlayerDetail'>;
+
+// =====================================================
+// MAIN COMPONENT
+// =====================================================
+
+export default function PlayerDetailScreen({ navigation, route }: Props) {
+  const colors = useThemeColors();
+  const isDark = useIsDark();
+  const { id: playerId } = route.params;
+  const { user } = useAuth();
+
+  // Card background for dark mode
+  const cardBg = isDark ? colors.gray100 : colors.white;
+
+  // Fetch player profile
+  const {
+    data: player,
+    isLoading: isLoadingPlayer,
+    error: playerError,
+    refetch: refetchPlayer,
+  } = usePlayer(playerId);
+
+  // Fetch player statistics
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+    error: statsError,
+    refetch: refetchStats,
+    isRefetching,
+  } = usePlayerStatistics(playerId);
+
+  const isLoading = isLoadingPlayer || isLoadingStats;
+  const error = playerError || statsError;
+
+  const handleGoBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const handleRefresh = useCallback(() => {
+    refetchPlayer();
+    refetchStats();
+  }, [refetchPlayer, refetchStats]);
+
+  const handleCompareStats = useCallback(() => {
+    if (user?.id && playerId) {
+      navigation.navigate('CompareStats', {
+        playerId1: user.id,
+        playerId2: playerId,
+      });
+    }
+  }, [navigation, user?.id, playerId]);
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <PageHeader
+          title="Player Profile"
+          variant="centered"
+          showBack
+          onBack={handleGoBack}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading player profile...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error || !player) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <PageHeader
+          title="Player Profile"
+          variant="centered"
+          showBack
+          onBack={handleGoBack}
+        />
+        <View style={styles.errorContainer}>
+          <Icon source="alert-circle" size={48} color={colors.error} />
+          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load player</Text>
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            {error instanceof Error ? error.message : 'An error occurred'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={handleRefresh}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading player"
+          >
+            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Check if player has stats
+  const hasStats = stats && stats.roundsPlayed > 0;
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <PageHeader
+        title="Player Profile"
+        variant="centered"
+        showBack
+        onBack={handleGoBack}
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* Player Profile Card */}
+        <View style={[styles.profileCard, { backgroundColor: cardBg }, shadows.sm]}>
+          {player.photo_url ? (
+            <Avatar.Image
+              size={80}
+              source={{ uri: player.photo_url }}
+              style={{ backgroundColor: colors.primary }}
+            />
+          ) : (
+            <Avatar.Icon
+              size={80}
+              icon="account"
+              style={{ backgroundColor: colors.primary }}
+            />
+          )}
+          <Text style={[styles.playerName, { color: colors.textPrimary }]}>{player.name}</Text>
+          <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
+          {player.handicap !== null && player.handicap !== undefined && (
+            <View style={[styles.handicapBadge, { backgroundColor: colors.primaryLighter }]}>
+              <Text style={[styles.handicapText, { color: colors.primaryDark }]}>
+                HC: {player.handicap}
+              </Text>
+            </View>
+          )}
+
+          {/* Compare Stats Button */}
+          <FeatureLockButton
+            feature="compare_stats"
+            onPress={handleCompareStats}
+            onUpgradePress={() => navigation.navigate('Subscription')}
+            upgradeConfig={{
+              feature: 'compare_stats',
+              title: 'Compare Stats',
+              message: 'Upgrade to compare your statistics with friends and see how you stack up.',
+              targetTier: 'social',
+              benefits: [
+                'Compare stats with any friend',
+                'Side-by-side performance analysis',
+                'Score distribution comparison',
+                'Head-to-head records',
+              ],
+            }}
+            accessibilityLabel="Compare your stats with this player"
+          >
+            <View style={[styles.compareButton, { backgroundColor: colors.primary }]}>
+              <Icon source="chart-bar" size={20} color={colors.white} />
+              <Text style={[styles.compareButtonText, { color: colors.white }]}>Compare Stats</Text>
+            </View>
+          </FeatureLockButton>
+        </View>
+
+        {/* No Stats Message */}
+        {!hasStats ? (
+          <View style={styles.noStatsContainer}>
+            <Icon source="chart-line" size={48} color={colors.gray300} />
+            <Text style={[styles.noStatsTitle, { color: colors.textPrimary }]}>No statistics yet</Text>
+            <Text style={[styles.noStatsMessage, { color: colors.textSecondary }]}>
+              {player.name} hasn't completed any rounds yet. Statistics will appear once they start
+              playing.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Overview Stats */}
+            <SectionHeader title="Overview" icon="golf" />
+            <View style={styles.statsGrid}>
+              <StatCard
+                title="Rounds Played"
+                value={stats.roundsPlayed}
+                icon="flag-checkered"
+                iconColor={colors.primary}
+              />
+              <StatCard
+                title="Competitions"
+                value={stats.competitionsEntered}
+                icon="trophy-outline"
+                iconColor={colors.warning}
+              />
+              <StatCard
+                title="Wins"
+                value={stats.competitionsWon}
+                icon="trophy"
+                iconColor={colors.success}
+              />
+              <StatCard
+                title="Holes Played"
+                value={stats.holesPlayed}
+                icon="golf-tee"
+                iconColor={colors.info}
+              />
+            </View>
+
+            {/* Averages */}
+            <SectionHeader title="Averages" icon="chart-line" />
+            <View style={styles.statsGrid}>
+              <StatCard
+                title="Avg Score"
+                value={stats.averageGrossScore || '-'}
+                subtitle="per round"
+                icon="counter"
+                iconColor={colors.primary}
+              />
+              <StatCard
+                title="Avg Points"
+                value={stats.averageStablefordPoints || '-'}
+                subtitle="Stableford"
+                icon="star"
+                iconColor={colors.warning}
+              />
+              <StatCard
+                title="Per Hole"
+                value={stats.averageScorePerHole.toFixed(2) || '-'}
+                subtitle="strokes"
+                icon="target"
+                iconColor={colors.info}
+              />
+              <StatCard
+                title="Par or Better"
+                value={`${stats.parOrBetterPercentage}%`}
+                subtitle="of holes"
+                icon="check-circle"
+                iconColor={colors.success}
+              />
+            </View>
+
+            {/* Score Distribution */}
+            <SectionHeader title="Score Distribution" icon="chart-bar" />
+            <View style={[styles.distributionCard, { backgroundColor: cardBg }, shadows.sm]}>
+              <ScoreDistributionBar
+                label="Eagles"
+                count={stats.scoreDistribution.eagles}
+                total={stats.totalScoreDistribution}
+                color={colors.eagle}
+              />
+              <ScoreDistributionBar
+                label="Birdies"
+                count={stats.scoreDistribution.birdies}
+                total={stats.totalScoreDistribution}
+                color={colors.birdie}
+              />
+              <ScoreDistributionBar
+                label="Pars"
+                count={stats.scoreDistribution.pars}
+                total={stats.totalScoreDistribution}
+                color={colors.par}
+              />
+              <ScoreDistributionBar
+                label="Bogeys"
+                count={stats.scoreDistribution.bogeys}
+                total={stats.totalScoreDistribution}
+                color={colors.bogey}
+              />
+              <ScoreDistributionBar
+                label="Double Bogeys"
+                count={stats.scoreDistribution.doubleBogeys}
+                total={stats.totalScoreDistribution}
+                color={colors.doubleBogey}
+              />
+              <ScoreDistributionBar
+                label="Triple+"
+                count={stats.scoreDistribution.triplePlus}
+                total={stats.totalScoreDistribution}
+                color={colors.error}
+              />
+            </View>
+
+            {/* Best Performances */}
+            <SectionHeader title="Best Performances" icon="medal" />
+            <View style={[styles.performanceCard, { backgroundColor: cardBg }, shadows.sm]}>
+              {stats.bestRound && (
+                <View style={styles.performanceRow}>
+                  <View
+                    style={[
+                      styles.performanceIcon,
+                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                    ]}
+                  >
+                    <Icon source="trophy" size={20} color={colors.success} />
+                  </View>
+                  <View style={styles.performanceDetails}>
+                    <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>
+                      Best Gross Score
+                    </Text>
+                    <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>
+                      {stats.bestRound.totalGross} strokes
+                    </Text>
+                    <Text style={[styles.performanceSubtitle, { color: colors.textSecondary }]}>
+                      {stats.bestRound.courseName} • {formatDateAustralian(stats.bestRound.date)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {stats.bestStablefordRound && (
+                <View style={styles.performanceRow}>
+                  <View
+                    style={[
+                      styles.performanceIcon,
+                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                    ]}
+                  >
+                    <Icon source="star" size={20} color={colors.warning} />
+                  </View>
+                  <View style={styles.performanceDetails}>
+                    <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>
+                      Best Stableford
+                    </Text>
+                    <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>
+                      {stats.bestStablefordRound.totalPoints} points
+                    </Text>
+                    <Text style={[styles.performanceSubtitle, { color: colors.textSecondary }]}>
+                      {stats.bestStablefordRound.courseName} •{' '}
+                      {formatDateAustralian(stats.bestStablefordRound.date)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {stats.birdieOrBetterPercentage > 0 && (
+                <View style={styles.performanceRow}>
+                  <View
+                    style={[
+                      styles.performanceIcon,
+                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                    ]}
+                  >
+                    <Icon source="bird" size={20} color={colors.birdie} />
+                  </View>
+                  <View style={styles.performanceDetails}>
+                    <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>
+                      Birdie Rate
+                    </Text>
+                    <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>
+                      {stats.birdieOrBetterPercentage}%
+                    </Text>
+                    <Text style={[styles.performanceSubtitle, { color: colors.textSecondary }]}>
+                      {stats.scoreDistribution.eagles + stats.scoreDistribution.birdies} birdies or
+                      better
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Recent Rounds */}
+            {stats.recentRounds.length > 0 && (
+              <>
+                <SectionHeader title="Recent Activity" icon="history" />
+                <View style={[styles.recentCard, { backgroundColor: cardBg }, shadows.sm]}>
+                  {stats.recentRounds.map((round, index) => (
+                    <View
+                      key={round.roundId}
+                      style={[
+                        styles.recentRow,
+                        { borderBottomColor: colors.borderLight },
+                        index === stats.recentRounds.length - 1 && styles.recentRowLast,
+                      ]}
+                    >
+                      <View style={styles.recentDate}>
+                        <Text style={[styles.recentDateText, { color: colors.textSecondary }]}>
+                          {formatDateAustralian(round.date)}
+                        </Text>
+                      </View>
+                      <View style={styles.recentDetails}>
+                        <Text
+                          style={[styles.recentCourse, { color: colors.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {round.courseName}
+                        </Text>
+                        <Text
+                          style={[styles.recentCompetition, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {round.competitionName}
+                        </Text>
+                      </View>
+                      <View style={styles.recentScores}>
+                        <Text style={[styles.recentGross, { color: colors.textPrimary }]}>
+                          {round.totalGross}
+                        </Text>
+                        <Text style={[styles.recentPoints, { color: colors.primary }]}>
+                          {round.totalPoints} pts
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Footer spacing */}
+        <View style={styles.footer} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// =====================================================
+// STYLES
+// =====================================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.massive,
+  },
+
+  // Profile Card
+  profileCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  playerName: {
+    ...typography.h2,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  playerEmail: {
+    ...typography.small,
+    marginBottom: spacing.md,
+  },
+  handicapBadge: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.lg,
+  },
+  handicapText: {
+    ...typography.bodyBold,
+  },
+  compareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    minHeight: 44,
+  },
+  compareButtonText: {
+    ...typography.bodyBold,
+  },
+
+  // No Stats State
+  noStatsContainer: {
+    alignItems: 'center',
+    padding: spacing.xxxl,
+    marginTop: spacing.xl,
+  },
+  noStatsTitle: {
+    ...typography.h3,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  noStatsMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+
+  // Stats Grid
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -spacing.xs,
+  },
+
+  // Distribution
+  distributionCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+  },
+
+  // Performance Card
+  performanceCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+  },
+  performanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  performanceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  performanceDetails: {
+    flex: 1,
+  },
+  performanceLabel: {
+    ...typography.caption,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  performanceValue: {
+    ...typography.h3,
+    marginTop: 2,
+  },
+  performanceSubtitle: {
+    ...typography.small,
+    marginTop: 2,
+  },
+
+  // Recent Card
+  recentCard: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+  },
+  recentRowLast: {
+    borderBottomWidth: 0,
+  },
+  recentDate: {
+    width: 80,
+  },
+  recentDateText: {
+    ...typography.small,
+  },
+  recentDetails: {
+    flex: 1,
+    marginHorizontal: spacing.md,
+  },
+  recentCourse: {
+    ...typography.bodyBold,
+  },
+  recentCompetition: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+  recentScores: {
+    alignItems: 'flex-end',
+  },
+  recentGross: {
+    ...typography.h4,
+  },
+  recentPoints: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+
+  // Footer
+  footer: {
+    height: spacing.xxxl,
+  },
+
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xxxl,
+  },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.lg,
+  },
+
+  // Error State
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xxxl,
+  },
+  errorTitle: {
+    ...typography.h3,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  retryButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  retryButtonText: {
+    ...typography.bodyBold,
+  },
+});

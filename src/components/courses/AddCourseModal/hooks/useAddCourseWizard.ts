@@ -1,0 +1,396 @@
+/**
+ * useAddCourseWizard - Custom hook for managing AddCourseModal wizard state
+ *
+ * Handles:
+ * - Multi-step navigation
+ * - Form data for all steps
+ * - Validation logic
+ * - Submission to API
+ */
+
+import { useState, useCallback, useMemo } from 'react';
+import { useCreateVenueWithCourse } from '@/hooks/useVenues';
+import type { Course, Venue, Hole, TeeBox } from '@/types/database.types';
+import type { AustralianState } from '@/types/database.types';
+import {
+  type WizardState,
+  type HoleFormData,
+  type TeeFormData,
+  type TeeColor,
+  getDefaultWizardState,
+  generateId,
+} from '../types';
+
+interface UseAddCourseWizardProps {
+  onClose: () => void;
+  onVenueCreated: (venue: Venue, course: Course) => void;
+}
+
+interface UseAddCourseWizardReturn {
+  // State
+  currentStep: number;
+  wizardData: WizardState;
+  isPending: boolean;
+
+  // Validation
+  isStep1Valid: boolean;
+  isStep2Valid: boolean;
+  isStep3Valid: boolean;
+  canProceed: boolean;
+  progress: number;
+  duplicateSiValues: number[];
+
+  // Navigation
+  handleNext: () => void;
+  handleBack: () => void;
+  handleClose: () => void;
+
+  // Step 1 handlers
+  handleVenueNameChange: (text: string) => void;
+  handleCityChange: (text: string) => void;
+  handleStateChange: (state: AustralianState | null) => void;
+
+  // Step 2 handlers
+  handleCourseNameChange: (text: string) => void;
+  handleAddTee: () => string;
+  handleUpdateTee: (teeId: string, updates: Partial<TeeFormData>) => void;
+  handleDeleteTee: (teeId: string) => void;
+
+  // Step 3 handlers
+  handleHoleChange: (holeIndex: number, updates: Partial<HoleFormData>) => void;
+  handleHoleYardageChange: (holeIndex: number, teeId: string, yardage: string) => void;
+  handleNextHole: () => void;
+  handlePrevHole: () => void;
+  handleJumpToHole: (index: number) => void;
+
+  // Submission
+  handleCreate: () => Promise<void>;
+}
+
+export function useAddCourseWizard({
+  onClose,
+  onVenueCreated,
+}: UseAddCourseWizardProps): UseAddCourseWizardReturn {
+  const createVenueWithCourse = useCreateVenueWithCourse();
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [wizardData, setWizardData] = useState<WizardState>(getDefaultWizardState);
+
+  // =====================================================
+  // VALIDATION
+  // =====================================================
+
+  const isStep1Valid = useMemo(() => {
+    return wizardData.step1.venueName.trim().length >= 2;
+  }, [wizardData.step1.venueName]);
+
+  const isStep2Valid = useMemo(() => {
+    const hasCourseName = wizardData.step2.courseName.trim().length >= 2;
+    const hasAtLeastOneTee = wizardData.step2.tees.length > 0;
+    const allTeesHaveNames = wizardData.step2.tees.every((t) => t.name.trim().length > 0);
+    return hasCourseName && hasAtLeastOneTee && allTeesHaveNames;
+  }, [wizardData.step2]);
+
+  const isStep3Valid = useMemo(() => {
+    const allHolesComplete = wizardData.step3.holes.every(
+      (h) => h.par && h.strokeIndex >= 1 && h.strokeIndex <= 18
+    );
+    const siValues = wizardData.step3.holes.map((h) => h.strokeIndex);
+    const uniqueSiValues = new Set(siValues);
+    const siUnique = uniqueSiValues.size === 18;
+    return allHolesComplete && siUnique;
+  }, [wizardData.step3.holes]);
+
+  const duplicateSiValues = useMemo(() => {
+    const siCount: Record<number, number[]> = {};
+    wizardData.step3.holes.forEach((h) => {
+      if (!siCount[h.strokeIndex]) {
+        siCount[h.strokeIndex] = [];
+      }
+      siCount[h.strokeIndex].push(h.number);
+    });
+    return Object.entries(siCount)
+      .filter(([_, holes]) => holes.length > 1)
+      .map(([si]) => parseInt(si, 10));
+  }, [wizardData.step3.holes]);
+
+  const progress = useMemo(() => {
+    return (currentStep / 3) * 100;
+  }, [currentStep]);
+
+  const canProceed =
+    (currentStep === 1 && isStep1Valid) ||
+    (currentStep === 2 && isStep2Valid) ||
+    (currentStep === 3 && isStep3Valid);
+
+  // =====================================================
+  // NAVIGATION HANDLERS
+  // =====================================================
+
+  const handleClose = useCallback(() => {
+    setWizardData(getDefaultWizardState());
+    setCurrentStep(1);
+    onClose();
+  }, [onClose]);
+
+  const handleNext = useCallback(() => {
+    if (currentStep < 3) {
+      if (currentStep === 1 && !wizardData.step2.courseName) {
+        setWizardData((prev) => ({
+          ...prev,
+          step2: {
+            ...prev.step2,
+            courseName: prev.step1.venueName,
+          },
+        }));
+      }
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [currentStep, wizardData.step2.courseName]);
+
+  const handleBack = useCallback(() => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  }, [currentStep]);
+
+  // =====================================================
+  // STEP 1 HANDLERS
+  // =====================================================
+
+  const handleVenueNameChange = useCallback((text: string) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step1: { ...prev.step1, venueName: text },
+    }));
+  }, []);
+
+  const handleCityChange = useCallback((text: string) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step1: { ...prev.step1, city: text },
+    }));
+  }, []);
+
+  const handleStateChange = useCallback((state: AustralianState | null) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step1: { ...prev.step1, state },
+    }));
+  }, []);
+
+  // =====================================================
+  // STEP 2 HANDLERS
+  // =====================================================
+
+  const handleCourseNameChange = useCallback((text: string) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step2: { ...prev.step2, courseName: text },
+    }));
+  }, []);
+
+  const handleAddTee = useCallback(() => {
+    const newTee: TeeFormData = {
+      id: generateId(),
+      name: '',
+      color: 'white' as TeeColor,
+    };
+    setWizardData((prev) => ({
+      ...prev,
+      step2: { ...prev.step2, tees: [...prev.step2.tees, newTee] },
+    }));
+    return newTee.id;
+  }, []);
+
+  const handleUpdateTee = useCallback((teeId: string, updates: Partial<TeeFormData>) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step2: {
+        ...prev.step2,
+        tees: prev.step2.tees.map((t) => (t.id === teeId ? { ...t, ...updates } : t)),
+      },
+    }));
+  }, []);
+
+  const handleDeleteTee = useCallback((teeId: string) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step2: {
+        ...prev.step2,
+        tees: prev.step2.tees.filter((t) => t.id !== teeId),
+      },
+      step3: {
+        ...prev.step3,
+        holes: prev.step3.holes.map((h) => {
+          const { [teeId]: _, ...remainingYardages } = h.yardages;
+          return { ...h, yardages: remainingYardages };
+        }),
+      },
+    }));
+  }, []);
+
+  // =====================================================
+  // STEP 3 HANDLERS
+  // =====================================================
+
+  const handleHoleChange = useCallback((holeIndex: number, updates: Partial<HoleFormData>) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step3: {
+        ...prev.step3,
+        holes: prev.step3.holes.map((h, i) => (i === holeIndex ? { ...h, ...updates } : h)),
+      },
+    }));
+  }, []);
+
+  const handleHoleYardageChange = useCallback(
+    (holeIndex: number, teeId: string, yardage: string) => {
+      const numericYardage = parseInt(yardage, 10) || 0;
+      setWizardData((prev) => ({
+        ...prev,
+        step3: {
+          ...prev.step3,
+          holes: prev.step3.holes.map((h, i) =>
+            i === holeIndex ? { ...h, yardages: { ...h.yardages, [teeId]: numericYardage } } : h
+          ),
+        },
+      }));
+    },
+    []
+  );
+
+  const handleNextHole = useCallback(() => {
+    setWizardData((prev) => ({
+      ...prev,
+      step3: {
+        ...prev.step3,
+        currentHoleIndex: Math.min(prev.step3.currentHoleIndex + 1, 17),
+      },
+    }));
+  }, []);
+
+  const handlePrevHole = useCallback(() => {
+    setWizardData((prev) => ({
+      ...prev,
+      step3: {
+        ...prev.step3,
+        currentHoleIndex: Math.max(prev.step3.currentHoleIndex - 1, 0),
+      },
+    }));
+  }, []);
+
+  const handleJumpToHole = useCallback((index: number) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step3: {
+        ...prev.step3,
+        currentHoleIndex: index,
+      },
+    }));
+  }, []);
+
+  // =====================================================
+  // SUBMISSION
+  // =====================================================
+
+  const handleCreate = useCallback(async () => {
+    if (!isStep1Valid || !isStep2Valid || !isStep3Valid) return;
+
+    try {
+      const tees: TeeBox[] = wizardData.step2.tees.map((t) => {
+        const totalYardage = wizardData.step3.holes.reduce((sum, h) => {
+          return sum + (h.yardages[t.id] || 0);
+        }, 0);
+        return {
+          name: t.name,
+          color: t.color,
+          totalYardage,
+        };
+      });
+
+      const holes: Hole[] = wizardData.step3.holes.map((h) => {
+        const yardages: Record<string, number> = {};
+        wizardData.step2.tees.forEach((t) => {
+          if (h.yardages[t.id]) {
+            yardages[t.color] = h.yardages[t.id];
+          }
+        });
+        return {
+          number: h.number as Hole['number'],
+          par: h.par,
+          strokeIndex: h.strokeIndex,
+          yardages,
+        };
+      });
+
+      const { venue, course } = await createVenueWithCourse.mutateAsync({
+        venue: {
+          name: wizardData.step1.venueName.trim(),
+          city: wizardData.step1.city.trim() || null,
+          state: wizardData.step1.state,
+          total_holes: 18,
+        },
+        course: {
+          name: wizardData.step2.courseName.trim(),
+          holes,
+          tees,
+        },
+      });
+
+      onVenueCreated(venue, course);
+      handleClose();
+    } catch (error) {
+      console.error('Failed to create venue/course:', error);
+    }
+  }, [
+    wizardData,
+    isStep1Valid,
+    isStep2Valid,
+    isStep3Valid,
+    createVenueWithCourse,
+    onVenueCreated,
+    handleClose,
+  ]);
+
+  return {
+    // State
+    currentStep,
+    wizardData,
+    isPending: createVenueWithCourse.isPending,
+
+    // Validation
+    isStep1Valid,
+    isStep2Valid,
+    isStep3Valid,
+    canProceed,
+    progress,
+    duplicateSiValues,
+
+    // Navigation
+    handleNext,
+    handleBack,
+    handleClose,
+
+    // Step 1 handlers
+    handleVenueNameChange,
+    handleCityChange,
+    handleStateChange,
+
+    // Step 2 handlers
+    handleCourseNameChange,
+    handleAddTee,
+    handleUpdateTee,
+    handleDeleteTee,
+
+    // Step 3 handlers
+    handleHoleChange,
+    handleHoleYardageChange,
+    handleNextHole,
+    handlePrevHole,
+    handleJumpToHole,
+
+    // Submission
+    handleCreate,
+  };
+}

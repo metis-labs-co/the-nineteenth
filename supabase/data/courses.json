@@ -1,0 +1,5598 @@
+[
+  {
+    "id": "c1111111-1111-1111-1111-111111111111",
+    "name": "South/North Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "blue": 296
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "blue": 478
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "blue": 418
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "blue": 357
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "blue": 326
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 6,
+        "yardages": {
+          "blue": 152
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 7,
+        "yardages": {
+          "blue": 364
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 8,
+        "yardages": {
+          "blue": 171
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "blue": 495
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "blue": 386
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 5,
+        "number": 11,
+        "yardages": {
+          "blue": 502
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "blue": 394
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 3,
+        "number": 13,
+        "yardages": {
+          "blue": 176
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "blue": 537
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "blue": 343
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "blue": 351
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 17,
+        "yardages": {
+          "blue": 144
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "blue": 414
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": null,
+    "slope_rating": null,
+    "course_rating": null,
+    "created_at": "2025-12-08 16:39:15.520693+00",
+    "updated_at": "2025-12-08 16:39:15.520693+00",
+    "venue_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Starting on the South Nine, finishing on the North Nine. The original championship layout."
+  },
+  {
+    "id": "c2222222-2222-2222-2222-222222222222",
+    "name": "North/East Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "blue": 386
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "blue": 502
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "blue": 394
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "blue": 176
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "blue": 537
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "blue": 343
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 7,
+        "yardages": {
+          "blue": 351
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 8,
+        "yardages": {
+          "blue": 144
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "blue": 414
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 5,
+        "number": 10,
+        "yardages": {
+          "blue": 467
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "blue": 381
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "blue": 137
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "blue": 503
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "blue": 347
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "blue": 310
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "blue": 168
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "blue": 386
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "blue": 316
+        },
+        "strokeIndex": 11
+      }
+    ],
+    "tees": null,
+    "slope_rating": null,
+    "course_rating": null,
+    "created_at": "2025-12-08 16:39:15.520693+00",
+    "updated_at": "2025-12-08 16:39:15.520693+00",
+    "venue_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Starting on the North Nine, finishing on the East Nine."
+  },
+  {
+    "id": "c3333333-3333-3333-3333-333333333333",
+    "name": "East/South Course",
+    "holes": [
+      {
+        "par": 5,
+        "number": 1,
+        "yardages": {
+          "blue": 467
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "blue": 381
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "blue": 137
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "blue": 503
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "blue": 347
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "blue": 310
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "blue": 168
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "blue": 386
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "blue": 316
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "blue": 296
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 5,
+        "number": 11,
+        "yardages": {
+          "blue": 478
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "blue": 418
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "blue": 357
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "blue": 326
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "blue": 152
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "blue": 364
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 3,
+        "number": 17,
+        "yardages": {
+          "blue": 171
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "blue": 495
+        },
+        "strokeIndex": 12
+      }
+    ],
+    "tees": null,
+    "slope_rating": null,
+    "course_rating": null,
+    "created_at": "2025-12-08 16:39:15.520693+00",
+    "updated_at": "2025-12-08 16:39:15.520693+00",
+    "venue_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Starting on the East Nine, finishing on the South Nine."
+  },
+  {
+    "id": "c0000001-0000-0000-0000-000000000001",
+    "name": "Kingston Heath Golf Club",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 392,
+          "white": 418
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 297,
+          "white": 351
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 209,
+          "white": 269
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 323,
+          "white": 357
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 3,
+        "number": 5,
+        "yardages": {
+          "red": 144,
+          "white": 173
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 349,
+          "white": 393
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 5,
+        "number": 7,
+        "yardages": {
+          "red": 443,
+          "white": 462
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 319,
+          "white": 398
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 273,
+          "white": 330
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 3,
+        "number": 10,
+        "yardages": {
+          "red": 99,
+          "white": 127
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 335,
+          "white": 380
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 5,
+        "number": 12,
+        "yardages": {
+          "red": 444,
+          "white": 509
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 273,
+          "white": 324
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 430,
+          "white": 516
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "red": 113,
+          "white": 142
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "red": 341,
+          "white": 391
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 391,
+          "white": 421
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 324,
+          "white": 391
+        },
+        "strokeIndex": 6
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 129,
+        "courseRating": 72,
+        "totalYardage": 6352
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 136,
+        "courseRating": 75.6,
+        "totalYardage": 5499
+      }
+    ],
+    "slope_rating": "129.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "cc879726-7081-472a-babc-dd18193085d5",
+    "description": null
+  },
+  {
+    "id": "c0000002-0000-0000-0000-000000000002",
+    "name": "Royal Melbourne Golf Club - Composite",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 393,
+          "blue": 429
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 445,
+          "blue": 480
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 298,
+          "blue": 333
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 395,
+          "blue": 440
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 5,
+        "yardages": {
+          "red": 156,
+          "blue": 176
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 388,
+          "blue": 428
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 128,
+          "blue": 148
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 282,
+          "blue": 317
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 410,
+          "blue": 455
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 431,
+          "blue": 476
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 394,
+          "blue": 439
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "red": 388,
+          "blue": 433
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 319,
+          "blue": 354
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 464,
+          "blue": 504
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 343,
+          "blue": 383
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 171,
+          "blue": 201
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 17,
+        "yardages": {
+          "red": 523,
+          "blue": 568
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 387,
+          "blue": 432
+        },
+        "strokeIndex": 18
+      }
+    ],
+    "tees": [
+      {
+        "name": "Championship",
+        "color": "blue",
+        "slopeRating": 110,
+        "courseRating": 70,
+        "totalYardage": 6996
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 110,
+        "courseRating": 70,
+        "totalYardage": 5849
+      }
+    ],
+    "slope_rating": "110.0",
+    "course_rating": "70.0",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "1de03386-c397-4410-a621-8a98252038f3",
+    "description": null
+  },
+  {
+    "id": "c0000003-0000-0000-0000-000000000003",
+    "name": "Victoria Golf Club",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 210,
+          "blue": 233
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 353,
+          "blue": 392
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 307,
+          "blue": 401
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 119,
+          "blue": 164
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 323,
+          "blue": 398
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 306,
+          "blue": 398
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 146,
+          "blue": 165
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 413,
+          "blue": 448
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 497,
+          "blue": 559
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 313,
+          "blue": 348
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 303,
+          "blue": 370
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "red": 343,
+          "blue": 390
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 365,
+          "blue": 392
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 14,
+        "yardages": {
+          "red": 110,
+          "blue": 142
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 271,
+          "blue": 289
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 144,
+          "blue": 178
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 17,
+        "yardages": {
+          "red": 481,
+          "blue": 550
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 412,
+          "blue": 461
+        },
+        "strokeIndex": 18
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "blue",
+        "slopeRating": 113,
+        "courseRating": 70,
+        "totalYardage": 6278
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 113,
+        "courseRating": 70,
+        "totalYardage": 5416
+      }
+    ],
+    "slope_rating": "113.0",
+    "course_rating": "70.0",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "edf4ab5a-a657-4fd5-8c7b-2258de02615f",
+    "description": null
+  },
+  {
+    "id": "c0000004-0000-0000-0000-000000000004",
+    "name": "The Australian Golf Club",
+    "holes": [
+      {
+        "par": 5,
+        "number": 1,
+        "yardages": {
+          "red": 403,
+          "blue": 455,
+          "black": 455,
+          "white": 442
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 3,
+        "number": 2,
+        "yardages": {
+          "red": 146,
+          "blue": 168,
+          "black": 194,
+          "white": 162
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 291,
+          "blue": 343,
+          "black": 343,
+          "white": 325
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 102,
+          "blue": 159,
+          "black": 186,
+          "white": 141
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "red": 453,
+          "blue": 542,
+          "black": 551,
+          "white": 492
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 366,
+          "blue": 386,
+          "black": 386,
+          "white": 379
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 7,
+        "yardages": {
+          "red": 307,
+          "blue": 382,
+          "black": 382,
+          "white": 358
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 374,
+          "blue": 405,
+          "black": 405,
+          "white": 392
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 305,
+          "blue": 405,
+          "black": 422,
+          "white": 396
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 309,
+          "blue": 378,
+          "black": 378,
+          "white": 363
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 11,
+        "yardages": {
+          "red": 120,
+          "blue": 175,
+          "black": 175,
+          "white": 155
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "red": 278,
+          "blue": 370,
+          "black": 385,
+          "white": 356
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 323,
+          "blue": 349,
+          "black": 349,
+          "white": 344
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 463,
+          "blue": 510,
+          "black": 510,
+          "white": 487
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "red": 155,
+          "blue": 188,
+          "black": 188,
+          "white": 174
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "red": 353,
+          "blue": 387,
+          "black": 438,
+          "white": 375
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 309,
+          "blue": 392,
+          "black": 392,
+          "white": 371
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 430,
+          "blue": 478,
+          "black": 478,
+          "white": 463
+        },
+        "strokeIndex": 17
+      }
+    ],
+    "tees": [
+      {
+        "name": "Championship",
+        "color": "black",
+        "slopeRating": 140,
+        "courseRating": 76,
+        "totalYardage": 6617
+      },
+      {
+        "name": "Men",
+        "color": "blue",
+        "slopeRating": 138,
+        "courseRating": 75,
+        "totalYardage": 6472
+      },
+      {
+        "name": "Club",
+        "color": "white",
+        "slopeRating": 132,
+        "courseRating": 73,
+        "totalYardage": 6175
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 136,
+        "courseRating": 75,
+        "totalYardage": 5487
+      }
+    ],
+    "slope_rating": "138.0",
+    "course_rating": "75.0",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "b9b81e2f-e9e9-4fb7-9523-ff5901de64f2",
+    "description": null
+  },
+  {
+    "id": "c0000005-0000-0000-0000-000000000005",
+    "name": "Royal Adelaide Golf Club",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 330,
+          "white": 342
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 413,
+          "white": 465
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 247,
+          "white": 260
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 340,
+          "white": 374
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 349,
+          "white": 373
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 374,
+          "white": 393
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 120,
+          "white": 145
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 277,
+          "white": 322
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 450,
+          "white": 449
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 290,
+          "white": 334
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 303,
+          "white": 350
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 155,
+          "white": 201
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 339,
+          "white": 354
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 14,
+        "yardages": {
+          "red": 332,
+          "white": 385
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 5,
+        "number": 15,
+        "yardages": {
+          "red": 420,
+          "white": 450
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 132,
+          "white": 153
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 383,
+          "white": 390
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 323,
+          "white": 369
+        },
+        "strokeIndex": 11
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 130,
+        "courseRating": 72,
+        "totalYardage": 6109
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 136,
+        "courseRating": 75,
+        "totalYardage": 5577
+      }
+    ],
+    "slope_rating": "130.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "d5a4accc-301f-4c5a-bdf5-1f823b657325",
+    "description": null
+  },
+  {
+    "id": "c0000006-0000-0000-0000-000000000006",
+    "name": "The Dunes Golf Links",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "black": 447
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "black": 416
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "black": 162
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "black": 339
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "black": 517
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 3,
+        "number": 6,
+        "yardages": {
+          "black": 211
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 5,
+        "number": 7,
+        "yardages": {
+          "black": 571
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "black": 429
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "black": 411
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "black": 388
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "black": 341
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 5,
+        "number": 12,
+        "yardages": {
+          "black": 587
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 3,
+        "number": 13,
+        "yardages": {
+          "black": 175
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "black": 387
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "black": 472
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 5,
+        "number": 16,
+        "yardages": {
+          "black": 552
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 17,
+        "yardages": {
+          "black": 196
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "black": 447
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Championship",
+        "color": "black",
+        "slopeRating": 148,
+        "courseRating": 75.2,
+        "totalYardage": 7048
+      }
+    ],
+    "slope_rating": "148.0",
+    "course_rating": "75.2",
+    "created_at": "2025-12-08 14:27:14.750462+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "d2241cc5-8c2f-4fbc-af1a-5ee995b6bcdd",
+    "description": null
+  },
+  {
+    "id": "85291894-e242-476d-a11d-ff4302db0acf",
+    "name": "West Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 355,
+          "blue": 427,
+          "white": 400
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 445,
+          "blue": 502,
+          "white": 480
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 290,
+          "blue": 333,
+          "white": 315
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 420,
+          "blue": 470,
+          "white": 450
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 5,
+        "yardages": {
+          "red": 135,
+          "blue": 176,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 375,
+          "blue": 428,
+          "white": 410
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 115,
+          "blue": 148,
+          "white": 135
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 330,
+          "blue": 379,
+          "white": 360
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 360,
+          "blue": 415,
+          "white": 395
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 270,
+          "blue": 312,
+          "white": 295
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 5,
+        "number": 12,
+        "yardages": {
+          "red": 420,
+          "blue": 476,
+          "white": 455
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 3,
+        "number": 13,
+        "yardages": {
+          "red": 115,
+          "blue": 147,
+          "white": 135
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 315,
+          "blue": 362,
+          "white": 345
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 5,
+        "number": 15,
+        "yardages": {
+          "red": 410,
+          "blue": 467,
+          "white": 445
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 160,
+          "blue": 210,
+          "white": 190
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 385,
+          "blue": 439,
+          "white": 420
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 375,
+          "blue": 432,
+          "white": 410
+        },
+        "strokeIndex": 6
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 135,
+        "courseRating": 74,
+        "totalYardage": 6578
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 130,
+        "courseRating": 72,
+        "totalYardage": 6235
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 132,
+        "courseRating": 74.5,
+        "totalYardage": 5675
+      }
+    ],
+    "slope_rating": "135.0",
+    "course_rating": "74.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "1de03386-c397-4410-a621-8a98252038f3",
+    "description": "Ranked No. 1 in Australia and consistently in World Top 10. Features dramatic undulations, bold bunkering, native grasses framing each hole, and beautifully contoured greens. Designed by Dr. Alister MacKenzie."
+  },
+  {
+    "id": "df35721a-0d3e-4ba7-83aa-b0f7e35e15a0",
+    "name": "East Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 350,
+          "blue": 385,
+          "black": 405
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 385,
+          "blue": 420,
+          "black": 442
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 125,
+          "blue": 150,
+          "black": 165
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 410,
+          "blue": 445,
+          "black": 468
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 340,
+          "blue": 375,
+          "black": 395
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 6,
+        "yardages": {
+          "red": 480,
+          "blue": 520,
+          "black": 545
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 145,
+          "blue": 170,
+          "black": 185
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 370,
+          "blue": 405,
+          "black": 425
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 460,
+          "blue": 495,
+          "black": 520
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 355,
+          "blue": 390,
+          "black": 410
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 400,
+          "blue": 435,
+          "black": 455
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 135,
+          "blue": 160,
+          "black": 175
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 345,
+          "blue": 380,
+          "black": 400
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 495,
+          "blue": 535,
+          "black": 560
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 405,
+          "blue": 440,
+          "black": 460
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "red": 365,
+          "blue": 400,
+          "black": 420
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 3,
+        "number": 17,
+        "yardages": {
+          "red": 120,
+          "blue": 140,
+          "black": 155
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 470,
+          "blue": 510,
+          "black": 535
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Black",
+        "color": "black",
+        "slopeRating": 138,
+        "courseRating": 75.5,
+        "totalYardage": 6720
+      },
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 133,
+        "courseRating": 73.5,
+        "totalYardage": 6355
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 135,
+        "courseRating": 75,
+        "totalYardage": 5855
+      }
+    ],
+    "slope_rating": "138.0",
+    "course_rating": "75.5",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "1de03386-c397-4410-a621-8a98252038f3",
+    "description": "World Top 100 course complementing the West with superb bunkering and smaller, beautifully constructed greens. Designed by Alex Russell."
+  },
+  {
+    "id": "4e1367c6-c37e-4230-9497-6614915c9f0a",
+    "name": "Kingston Heath",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 392,
+          "white": 418
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 297,
+          "white": 351
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 209,
+          "white": 269
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 323,
+          "white": 357
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 3,
+        "number": 5,
+        "yardages": {
+          "red": 144,
+          "white": 173
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 349,
+          "white": 393
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 5,
+        "number": 7,
+        "yardages": {
+          "red": 443,
+          "white": 462
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 319,
+          "white": 398
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 273,
+          "white": 330
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 3,
+        "number": 10,
+        "yardages": {
+          "red": 99,
+          "white": 127
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 335,
+          "white": 380
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 5,
+        "number": 12,
+        "yardages": {
+          "red": 444,
+          "white": 509
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 273,
+          "white": 324
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 430,
+          "white": 516
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "red": 113,
+          "white": 142
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "red": 341,
+          "white": 391
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 391,
+          "white": 421
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 324,
+          "white": 391
+        },
+        "strokeIndex": 6
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 129,
+        "courseRating": 72,
+        "totalYardage": 6352
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 136,
+        "courseRating": 75.6,
+        "totalYardage": 5499
+      }
+    ],
+    "slope_rating": "129.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "cc879726-7081-472a-babc-dd18193085d5",
+    "description": "Consistently ranked in top 3 courses in Australia and top 20 in the world. Features superb conditioning, incomparable MacKenzie bunkering, and unique 19th hole."
+  },
+  {
+    "id": "671a48cf-5931-4da6-979c-334b17fb02e1",
+    "name": "Metropolitan",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 355,
+          "blue": 410,
+          "white": 390
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 470,
+          "blue": 525,
+          "white": 505
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 480,
+          "blue": 535,
+          "white": 515
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 335,
+          "blue": 390,
+          "white": 370
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 133,
+        "courseRating": 73,
+        "totalYardage": 6430
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 128,
+        "courseRating": 71.5,
+        "totalYardage": 6090
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 130,
+        "courseRating": 73.5,
+        "totalYardage": 5600
+      }
+    ],
+    "slope_rating": "133.0",
+    "course_rating": "73.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "10b87d70-6674-4866-90f1-860640b2004d",
+    "description": "One of the finest championship courses in Australia. Greg Norman called the fairways the best he had played anywhere in the world."
+  },
+  {
+    "id": "e5ed8188-e0a7-4bc7-8c1f-6a82db442e89",
+    "name": "Victoria",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 210,
+          "white": 233
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 355,
+          "white": 392
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 365,
+          "white": 401
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 140,
+          "white": 164
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 360,
+          "white": 398
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 360,
+          "white": 398
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 140,
+          "white": 165
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 420,
+          "white": 448
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 510,
+          "white": 559
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 315,
+          "white": 348
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 335,
+          "white": 370
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 12,
+        "yardages": {
+          "red": 355,
+          "white": 390
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 355,
+          "white": 392
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 3,
+        "number": 14,
+        "yardages": {
+          "red": 120,
+          "white": 142
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 260,
+          "white": 289
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 150,
+          "white": 178
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 5,
+        "number": 17,
+        "yardages": {
+          "red": 505,
+          "white": 550
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 425,
+          "white": 461
+        },
+        "strokeIndex": 18
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 132,
+        "courseRating": 71.1,
+        "totalYardage": 6278
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 130,
+        "courseRating": 74,
+        "totalYardage": 5680
+      }
+    ],
+    "slope_rating": "132.0",
+    "course_rating": "71.1",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "edf4ab5a-a657-4fd5-8c7b-2258de02615f",
+    "description": "Consistently ranked among Australia's best. Features lightning-fast greens and some of the best bunkering in Australia. Home course of Peter Thomson."
+  },
+  {
+    "id": "414142fb-3eb0-4307-9ed0-f9656e8bb76b",
+    "name": "North Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 325,
+          "blue": 380,
+          "white": 360
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 385,
+          "blue": 440,
+          "white": 420
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 475,
+          "blue": 530,
+          "white": 510
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 380,
+          "blue": 435,
+          "white": 415
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 345,
+          "blue": 400,
+          "white": 380
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 5,
+        "number": 14,
+        "yardages": {
+          "red": 490,
+          "blue": 545,
+          "white": 525
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 355,
+          "blue": 410,
+          "white": 390
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 290,
+          "blue": 345,
+          "white": 325
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 134,
+        "courseRating": 73.3,
+        "totalYardage": 6355
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 129,
+        "courseRating": 71.5,
+        "totalYardage": 6015
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 128,
+        "courseRating": 73,
+        "totalYardage": 5525
+      }
+    ],
+    "slope_rating": "134.0",
+    "course_rating": "73.3",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "ff5633c9-358f-4066-b2f7-a93cb2168599",
+    "description": "Sandbelt course featuring excellent variety with elevation changes, irregular greens, heathland vegetation. Ranked among Australia's Top 10."
+  },
+  {
+    "id": "25b513eb-847f-4de8-a63b-4917b5810451",
+    "name": "South Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 335,
+          "blue": 390,
+          "white": 370
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 480,
+          "blue": 535,
+          "white": 515
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 140,
+          "blue": 180,
+          "white": 165
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 345,
+          "blue": 400,
+          "white": 380
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 425,
+          "blue": 480,
+          "white": 460
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 130,
+        "courseRating": 72.5,
+        "totalYardage": 6200
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 125,
+        "courseRating": 70.5,
+        "totalYardage": 5860
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 124,
+        "courseRating": 72,
+        "totalYardage": 5370
+      }
+    ],
+    "slope_rating": "130.0",
+    "course_rating": "72.5",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "ff5633c9-358f-4066-b2f7-a93cb2168599",
+    "description": "Longer, flatter than North with stunning views. Creek lines and dry stone walls characterize the layout."
+  },
+  {
+    "id": "9fce9d9b-2f4d-4a21-a66f-6c591a492601",
+    "name": "Yarra Yarra",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 340,
+          "white": 375
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 375,
+          "white": 410
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 140,
+          "white": 165
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 400,
+          "white": 435
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "red": 470,
+          "white": 505
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 330,
+          "white": 365
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 120,
+          "white": 145
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 360,
+          "white": 395
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 455,
+          "white": 490
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 345,
+          "white": 380
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 385,
+          "white": 420
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 150,
+          "white": 175
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 480,
+          "white": 515
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 410,
+          "white": 445
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 320,
+          "white": 355
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 130,
+          "white": 155
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 350,
+          "white": 385
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 305,
+          "white": 340
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 128,
+        "courseRating": 72,
+        "totalYardage": 6055
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 126,
+        "courseRating": 74,
+        "totalYardage": 5565
+      }
+    ],
+    "slope_rating": "128.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "56f4b07c-fd74-4c73-9451-cc5ee5256c2f",
+    "description": "Melbourne Sandbelt course with distinct shift between intimate front nine and roomier back nine. Large, fast, undulating greens. Restored by Tom Doak in 2017."
+  },
+  {
+    "id": "6dc679d4-46ab-4c9a-a4bd-b2b69da1317f",
+    "name": "Woodlands",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 320,
+          "white": 355
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 360,
+          "white": 395
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 130,
+          "white": 155
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 4,
+        "yardages": {
+          "red": 385,
+          "white": 420
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 5,
+        "number": 5,
+        "yardages": {
+          "red": 450,
+          "white": 485
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 335,
+          "white": 370
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 115,
+          "white": 140
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 350,
+          "white": 385
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 435,
+          "white": 470
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 310,
+          "white": 345
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 370,
+          "white": 405
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 140,
+          "white": 165
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 460,
+          "white": 495
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 390,
+          "white": 425
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 325,
+          "white": 360
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 120,
+          "white": 145
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 345,
+          "white": 380
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 300,
+          "white": 335
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 133,
+        "courseRating": 72,
+        "totalYardage": 6030
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 130,
+        "courseRating": 74,
+        "totalYardage": 5540
+      }
+    ],
+    "slope_rating": "133.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "e7b058a8-eb1b-4e7e-9149-c22137539668",
+    "description": "Often called Melbourne's most underrated course. Known for pure bent grass greens, strategic bunkering, excellent one-shotters."
+  },
+  {
+    "id": "03d53774-5629-4347-849c-3196a36e8da7",
+    "name": "Barwon Heads",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 350,
+          "white": 385
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 320,
+          "white": 355
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 125,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 460,
+          "white": 495
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 380,
+          "white": 415
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 305,
+          "white": 340
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 140,
+          "white": 165
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 370,
+          "white": 405
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 295,
+          "white": 330
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 340,
+          "white": 375
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 11,
+        "yardages": {
+          "red": 445,
+          "white": 480
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 110,
+          "white": 135
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 365,
+          "white": 400
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 330,
+          "white": 365
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "red": 130,
+          "white": 155
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 16,
+        "yardages": {
+          "red": 440,
+          "white": 475
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 385,
+          "white": 420
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 300,
+          "white": 335
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Men",
+        "color": "white",
+        "slopeRating": 125,
+        "courseRating": 71.8,
+        "totalYardage": 6180
+      },
+      {
+        "name": "Ladies",
+        "color": "red",
+        "slopeRating": 123,
+        "courseRating": 73.5,
+        "totalYardage": 5590
+      }
+    ],
+    "slope_rating": "125.0",
+    "course_rating": "71.8",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "1e03c167-663c-4222-94f2-3532c45ed11e",
+    "description": "Classic links course on Bellarine Peninsula. Bouncy, firm and fast links turf with windswept greens. Crowned Best Golf Town in Australia."
+  },
+  {
+    "id": "14f2fa89-02be-49d3-9122-27b946f06f88",
+    "name": "The Dunes Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 480,
+          "blue": 535,
+          "white": 515
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 355,
+          "blue": 410,
+          "white": 390
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 470,
+          "blue": 525,
+          "white": 505
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 385,
+          "blue": 440,
+          "white": 420
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 380,
+          "blue": 435,
+          "white": 415
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 490,
+          "blue": 545,
+          "white": 525
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 148,
+        "courseRating": 74.5,
+        "totalYardage": 6525
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 143,
+        "courseRating": 72.5,
+        "totalYardage": 6185
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 140,
+        "courseRating": 74,
+        "totalYardage": 5695
+      }
+    ],
+    "slope_rating": "148.0",
+    "course_rating": "74.5",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "d2241cc5-8c2f-4fbc-af1a-5ee995b6bcdd",
+    "description": "Victoria's #1 public access course. Authentic links golf with dramatic dune formations. Nick Faldo praised Hole 13; Tom Watson called Hole 17 exquisite."
+  },
+  {
+    "id": "f22b2415-091d-4495-9a0f-27dfe6ad3957",
+    "name": "Old Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 440,
+          "blue": 495,
+          "white": 475
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 305,
+          "blue": 360,
+          "white": 340
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 300,
+          "blue": 355,
+          "white": 335
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 135,
+        "courseRating": 72,
+        "totalYardage": 6185
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 130,
+        "courseRating": 70,
+        "totalYardage": 5845
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 128,
+        "courseRating": 72,
+        "totalYardage": 5355
+      }
+    ],
+    "slope_rating": "135.0",
+    "course_rating": "72.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "73ee0ee0-3337-40eb-ba26-2404e566f2ad",
+    "description": "True test of golf with strategic ball positioning essential. Features large tiered greens, coastal views, extreme elevation changes."
+  },
+  {
+    "id": "db78c365-c003-4f8c-99c5-852c711db844",
+    "name": "Moonah Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 480,
+          "blue": 535,
+          "white": 515
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 405,
+          "blue": 460,
+          "white": 440
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 155,
+          "blue": 195,
+          "white": 180
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 380,
+          "blue": 435,
+          "white": 415
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 490,
+          "blue": 545,
+          "white": 525
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 410,
+          "blue": 465,
+          "white": 445
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 360,
+          "blue": 415,
+          "white": 395
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 450,
+          "blue": 505,
+          "white": 485
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 140,
+        "courseRating": 73.6,
+        "totalYardage": 6650
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 135,
+        "courseRating": 71.5,
+        "totalYardage": 6290
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 132,
+        "courseRating": 73,
+        "totalYardage": 5800
+      }
+    ],
+    "slope_rating": "140.0",
+    "course_rating": "73.6",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "73ee0ee0-3337-40eb-ba26-2404e566f2ad",
+    "description": "Built in spirit of traditional links on former cattle ranching land. Features rolling terrain, dramatic bunkering, Bass Strait views. Designed by Greg Norman."
+  },
+  {
+    "id": "77ab1785-f565-4f34-aae0-dc4c4d1a5b62",
+    "name": "Gunnamatta Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 345,
+          "blue": 400,
+          "white": 380
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 490,
+          "blue": 545,
+          "white": 525
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 155,
+          "blue": 195,
+          "white": 180
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 415,
+          "blue": 470,
+          "white": 450
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 335,
+          "blue": 390,
+          "white": 370
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 475,
+          "blue": 530,
+          "white": 510
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 160,
+          "blue": 200,
+          "white": 185
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 500,
+          "blue": 555,
+          "white": 535
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 410,
+          "blue": 465,
+          "white": 445
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 325,
+          "blue": 380,
+          "white": 360
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 128,
+        "courseRating": 75,
+        "totalYardage": 6745
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 123,
+        "courseRating": 73,
+        "totalYardage": 6405
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 120,
+        "courseRating": 74.5,
+        "totalYardage": 5915
+      }
+    ],
+    "slope_rating": "128.0",
+    "course_rating": "75.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "73ee0ee0-3337-40eb-ba26-2404e566f2ad",
+    "description": "Situated near Gunnamatta Beach, embracing natural cup and bowl undulations. Generous fairway width with imaginative green shapes. Designed by Tom Doak."
+  },
+  {
+    "id": "06151d62-2837-4426-a1be-1d996b3eb4e2",
+    "name": "Open Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 365,
+          "black": 420,
+          "white": 400
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 510,
+          "black": 565,
+          "white": 545
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 420,
+          "black": 475,
+          "white": 455
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 155,
+          "black": 195,
+          "white": 180
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 375,
+          "black": 430,
+          "white": 410
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 340,
+          "black": 395,
+          "white": 375
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 135,
+          "black": 175,
+          "white": 160
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 490,
+          "black": 545,
+          "white": 525
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 405,
+          "black": 460,
+          "white": 440
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 350,
+          "black": 405,
+          "white": 385
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 400,
+          "black": 455,
+          "white": 435
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 170,
+          "black": 210,
+          "white": 195
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 505,
+          "black": 560,
+          "white": 540
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 425,
+          "black": 480,
+          "white": 460
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 335,
+          "black": 390,
+          "white": 370
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 145,
+          "black": 185,
+          "white": 170
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 380,
+          "black": 435,
+          "white": 415
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 480,
+          "black": 535,
+          "white": 515
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Black",
+        "color": "black",
+        "slopeRating": 113,
+        "courseRating": 77.4,
+        "totalYardage": 7315
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 108,
+        "courseRating": 75,
+        "totalYardage": 6975
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 105,
+        "courseRating": 76.5,
+        "totalYardage": 6485
+      }
+    ],
+    "slope_rating": "113.0",
+    "course_rating": "77.4",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "a92c529b-0ba5-41ea-85d4-83e992f60b71",
+    "description": "Only course in Australia designed specifically to host Australian Open. Stadium layout with spectator viewing platforms. Designed by Peter Thomson."
+  },
+  {
+    "id": "06fe85b0-67c6-404d-8ee4-400441aaf6b6",
+    "name": "Legends Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 380,
+          "blue": 435,
+          "white": 415
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 325,
+          "blue": 380,
+          "white": 360
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 450,
+          "blue": 505,
+          "white": 485
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 140,
+          "blue": 180,
+          "white": 165
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 475,
+          "blue": 530,
+          "white": 510
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 120,
+          "blue": 160,
+          "white": 145
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 5,
+        "number": 18,
+        "yardages": {
+          "red": 440,
+          "blue": 495,
+          "white": 475
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 141,
+        "courseRating": 74.1,
+        "totalYardage": 6440
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 136,
+        "courseRating": 72,
+        "totalYardage": 6100
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 133,
+        "courseRating": 73.5,
+        "totalYardage": 5610
+      }
+    ],
+    "slope_rating": "141.0",
+    "course_rating": "74.1",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "a92c529b-0ba5-41ea-85d4-83e992f60b71",
+    "description": "More forgiving than Open Course, weaving through mature Moonah trees. Each hole named after a golfing legend. Designed by Ross Perrett and Peter Thomson."
+  },
+  {
+    "id": "abc4da6f-e9c8-4e91-85c5-f2a230514ec1",
+    "name": "Beach Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 330,
+          "blue": 385,
+          "white": 365
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 440,
+          "blue": 495,
+          "white": 475
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 465,
+          "blue": 520,
+          "white": 500
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 395,
+          "blue": 450,
+          "white": 430
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 305,
+          "blue": 360,
+          "white": 340
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 300,
+          "blue": 355,
+          "white": 335
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 136,
+        "courseRating": 73,
+        "totalYardage": 6185
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 131,
+        "courseRating": 71,
+        "totalYardage": 5845
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 128,
+        "courseRating": 72.5,
+        "totalYardage": 5355
+      }
+    ],
+    "slope_rating": "136.0",
+    "course_rating": "73.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "ea8a80e8-e302-4989-82d8-05fcf2076130",
+    "description": "Links style course with arguably the best collection of Par 3s in Australia. Host of Victorian Open. Designed by Tony Cashmore."
+  },
+  {
+    "id": "35c5b135-a7f0-4f45-8d84-b026214b7542",
+    "name": "Creek Course",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 320,
+          "blue": 375,
+          "white": 355
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 4,
+        "number": 2,
+        "yardages": {
+          "red": 360,
+          "blue": 415,
+          "white": 395
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 3,
+        "number": 3,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 4,
+        "yardages": {
+          "red": 450,
+          "blue": 505,
+          "white": 485
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 385,
+          "blue": 440,
+          "white": 420
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 300,
+          "blue": 355,
+          "white": 335
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 8,
+        "yardages": {
+          "red": 370,
+          "blue": 425,
+          "white": 405
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 5,
+        "number": 9,
+        "yardages": {
+          "red": 455,
+          "blue": 510,
+          "white": 490
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 4,
+        "number": 11,
+        "yardages": {
+          "red": 365,
+          "blue": 420,
+          "white": 400
+        },
+        "strokeIndex": 4
+      },
+      {
+        "par": 3,
+        "number": 12,
+        "yardages": {
+          "red": 140,
+          "blue": 180,
+          "white": 165
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 13,
+        "yardages": {
+          "red": 460,
+          "blue": 515,
+          "white": 495
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 15,
+        "yardages": {
+          "red": 300,
+          "blue": 355,
+          "white": 335
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 16,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 335,
+          "blue": 390,
+          "white": 370
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 290,
+          "blue": 345,
+          "white": 325
+        },
+        "strokeIndex": 14
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 139,
+        "courseRating": 72.5,
+        "totalYardage": 6135
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 134,
+        "courseRating": 70.5,
+        "totalYardage": 5795
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 131,
+        "courseRating": 72,
+        "totalYardage": 5305
+      }
+    ],
+    "slope_rating": "139.0",
+    "course_rating": "72.5",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "ea8a80e8-e302-4989-82d8-05fcf2076130",
+    "description": "Parkland layout regularly compared to Melbourne's best Sandbelt courses. Co-designed by Nick Faldo."
+  },
+  {
+    "id": "c2091c1f-8e7d-4398-abb0-d08ca809cc4e",
+    "name": "St Andrews Beach",
+    "holes": [
+      {
+        "par": 4,
+        "number": 1,
+        "yardages": {
+          "red": 340,
+          "blue": 395,
+          "white": 375
+        },
+        "strokeIndex": 9
+      },
+      {
+        "par": 5,
+        "number": 2,
+        "yardages": {
+          "red": 475,
+          "blue": 530,
+          "white": 510
+        },
+        "strokeIndex": 5
+      },
+      {
+        "par": 4,
+        "number": 3,
+        "yardages": {
+          "red": 415,
+          "blue": 470,
+          "white": 450
+        },
+        "strokeIndex": 1
+      },
+      {
+        "par": 3,
+        "number": 4,
+        "yardages": {
+          "red": 135,
+          "blue": 175,
+          "white": 160
+        },
+        "strokeIndex": 15
+      },
+      {
+        "par": 4,
+        "number": 5,
+        "yardages": {
+          "red": 360,
+          "blue": 415,
+          "white": 395
+        },
+        "strokeIndex": 7
+      },
+      {
+        "par": 4,
+        "number": 6,
+        "yardages": {
+          "red": 310,
+          "blue": 365,
+          "white": 345
+        },
+        "strokeIndex": 11
+      },
+      {
+        "par": 3,
+        "number": 7,
+        "yardages": {
+          "red": 115,
+          "blue": 155,
+          "white": 140
+        },
+        "strokeIndex": 17
+      },
+      {
+        "par": 5,
+        "number": 8,
+        "yardages": {
+          "red": 460,
+          "blue": 515,
+          "white": 495
+        },
+        "strokeIndex": 13
+      },
+      {
+        "par": 4,
+        "number": 9,
+        "yardages": {
+          "red": 390,
+          "blue": 445,
+          "white": 425
+        },
+        "strokeIndex": 3
+      },
+      {
+        "par": 4,
+        "number": 10,
+        "yardages": {
+          "red": 325,
+          "blue": 380,
+          "white": 360
+        },
+        "strokeIndex": 10
+      },
+      {
+        "par": 3,
+        "number": 11,
+        "yardages": {
+          "red": 145,
+          "blue": 185,
+          "white": 170
+        },
+        "strokeIndex": 16
+      },
+      {
+        "par": 5,
+        "number": 12,
+        "yardages": {
+          "red": 470,
+          "blue": 525,
+          "white": 505
+        },
+        "strokeIndex": 8
+      },
+      {
+        "par": 4,
+        "number": 13,
+        "yardages": {
+          "red": 400,
+          "blue": 455,
+          "white": 435
+        },
+        "strokeIndex": 2
+      },
+      {
+        "par": 4,
+        "number": 14,
+        "yardages": {
+          "red": 315,
+          "blue": 370,
+          "white": 350
+        },
+        "strokeIndex": 12
+      },
+      {
+        "par": 3,
+        "number": 15,
+        "yardages": {
+          "red": 125,
+          "blue": 165,
+          "white": 150
+        },
+        "strokeIndex": 18
+      },
+      {
+        "par": 4,
+        "number": 16,
+        "yardages": {
+          "red": 350,
+          "blue": 405,
+          "white": 385
+        },
+        "strokeIndex": 6
+      },
+      {
+        "par": 4,
+        "number": 17,
+        "yardages": {
+          "red": 295,
+          "blue": 350,
+          "white": 330
+        },
+        "strokeIndex": 14
+      },
+      {
+        "par": 4,
+        "number": 18,
+        "yardages": {
+          "red": 375,
+          "blue": 430,
+          "white": 410
+        },
+        "strokeIndex": 4
+      }
+    ],
+    "tees": [
+      {
+        "name": "Blue",
+        "color": "blue",
+        "slopeRating": 139,
+        "courseRating": 71,
+        "totalYardage": 6330
+      },
+      {
+        "name": "White",
+        "color": "white",
+        "slopeRating": 134,
+        "courseRating": 69,
+        "totalYardage": 5990
+      },
+      {
+        "name": "Red",
+        "color": "red",
+        "slopeRating": 131,
+        "courseRating": 70.5,
+        "totalYardage": 5500
+      }
+    ],
+    "slope_rating": "139.0",
+    "course_rating": "71.0",
+    "created_at": "2025-12-10 17:05:32.859132+00",
+    "updated_at": "2025-12-10 17:05:32.859132+00",
+    "venue_id": "fa8c08b8-29c4-4445-af04-3bb82b6c817c",
+    "description": "Tom Doak's first Australian mainland design. #1 public access course on Australian mainland. Includes Australia's longest par-4."
+  }
+]

@@ -1,0 +1,420 @@
+/**
+ * RootNavigator - Main navigation structure
+ *
+ * Handles authentication state and routing between:
+ * - Auth Stack (Login, Signup)
+ * - Main Tabs (Home, Competitions, Profile)
+ * - Detail Screens (Competition, Scorecard, etc.)
+ */
+
+import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { NavigationContainer, Theme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { RootStackParamList } from './types';
+import { useAuth } from '@/hooks/useAuth';
+import { useThemeColors } from '@/context/ThemeContext';
+import { NotificationProvider } from '@/context/NotificationContext';
+
+// Auth Screens
+import LoginScreen from '@/screens/auth/LoginScreen';
+import SignupScreen from '@/screens/auth/SignupScreen';
+
+// Main Tab Navigator
+import MainTabNavigator from './MainTabNavigator';
+
+// Admin Screens
+import CreateCompetitionScreen from '@/screens/admin/CreateCompetitionScreen';
+import EditCompetitionScreen from '@/screens/admin/EditCompetitionScreen';
+import AddRoundScreen from '@/screens/admin/AddRoundScreen';
+import EditRoundScreen from '@/screens/admin/EditRoundScreen';
+import TeamManagementScreen from '@/screens/admin/TeamManagementScreen';
+import ScoringPairsScreen from '@/screens/admin/ScoringPairsScreen';
+
+// Competition Detail Screen (moved from admin)
+import CompetitionDetailScreen from '@/screens/competitions/CompetitionDetailScreen';
+
+// Competition Screens (Player View)
+import ViewRoundScreen from '@/screens/rounds/ViewRoundScreen';
+import LeaderboardScreen from '@/screens/competitions/LeaderboardScreen';
+import JoinCompetitionScreen from '@/screens/competitions/JoinCompetitionScreen';
+
+// Scoring Screens
+import ScorecardEntryScreen from '@/screens/scoring/ScorecardEntryScreen';
+import ReviewScorecardScreen from '@/screens/scoring/ReviewScorecardScreen';
+import PlayerScorecardScreen from '@/screens/scoring/PlayerScorecardScreen';
+import MatchPlayScoringScreen from '@/screens/scoring/MatchPlayScoringScreen';
+
+// Profile Screens
+import EditProfileScreen from '@/screens/profile/EditProfileScreen';
+import MyStatisticsScreen from '@/screens/profile/MyStatisticsScreen';
+import SettingsScreen from '@/screens/profile/SettingsScreen';
+import HelpAndSupportScreen from '@/screens/profile/HelpAndSupportScreen';
+
+// Onboarding Screen
+import OnboardingScreen from '@/screens/onboarding/OnboardingScreen';
+
+// Social Screens
+import FriendsScreen from '@/screens/social/FriendsScreen';
+import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
+import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
+
+// Course & Venue Screens
+import VenueScreen from '@/screens/courses/VenueScreen';
+import CourseDetailScreen from '@/screens/courses/CourseDetailScreen';
+
+// Notifications
+import NotificationsScreen from '@/screens/notifications/NotificationsScreen';
+
+// Subscription
+import SubscriptionScreen from '@/screens/subscription/SubscriptionScreen';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+interface RootNavigatorProps {
+  theme: Theme;
+}
+
+export default function RootNavigator({ theme }: RootNavigatorProps) {
+  const { isAuthenticated, isInitializing, isLoading, player } = useAuth();
+  const colors = useThemeColors();
+
+  // Check if onboarding is needed (user hasn't set handicap yet)
+  // Only check when player data is loaded (player is not null/undefined)
+  const needsOnboarding = isAuthenticated && player && player.handicap_updated_at === null;
+
+  // Debug logging for onboarding flow (only in development)
+  if (__DEV__) {
+    console.log('[RootNavigator] Auth state:', {
+      isAuthenticated,
+      isInitializing,
+      isLoading,
+      playerExists: !!player,
+      playerId: player?.id,
+      handicap: player?.handicap,
+      handicap_updated_at: player?.handicap_updated_at,
+      needsOnboarding,
+    });
+  }
+
+  // Show loading screen while:
+  // 1. Auth is still initializing (waiting for first auth state)
+  // 2. User is authenticated but player data is still loading
+  if (isInitializing || (isAuthenticated && isLoading)) {
+    if (__DEV__) {
+      console.log('[RootNavigator] Showing loading screen');
+    }
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer theme={theme}>
+      <NotificationProvider>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        >
+        {!isAuthenticated ? (
+          // Auth screens - shown when user is NOT authenticated
+          <>
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{
+                title: 'Login',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="Signup"
+              component={SignupScreen}
+              options={{
+                title: 'Sign Up',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+          </>
+        ) : needsOnboarding ? (
+          // Onboarding screen - shown for users who haven't set handicap
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
+        ) : (
+          // Main app screens - shown when user IS authenticated
+          <>
+            {/* Main Tab Navigator - Contains Home, Competitions, Profile tabs */}
+            <Stack.Screen
+              name="MainTabs"
+              component={MainTabNavigator}
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+
+            {/* Competition Screens */}
+            <Stack.Screen
+              name="CreateCompetition"
+              component={CreateCompetitionScreen}
+              options={{
+                title: 'Create Competition',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="CompetitionDetail"
+              component={CompetitionDetailScreen}
+              options={{
+                title: 'Competition',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="EditCompetition"
+              component={EditCompetitionScreen}
+              options={{
+                title: 'Edit Competition',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="AddRound"
+              component={AddRoundScreen}
+              options={{
+                title: 'Add Round',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="EditRound"
+              component={EditRoundScreen}
+              options={{
+                title: 'Edit Round',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="ViewRound"
+              component={ViewRoundScreen}
+              options={{
+                title: 'Round',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="TeamManagement"
+              component={TeamManagementScreen}
+              options={{
+                title: 'Manage Teams',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ScoringPairs"
+              component={ScoringPairsScreen}
+              options={{
+                title: 'Scoring Pairs',
+                headerShown: false,
+              }}
+            />
+
+            {/* Player Screens */}
+            <Stack.Screen
+              name="Leaderboard"
+              component={LeaderboardScreen}
+              options={{
+                title: 'Leaderboard',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="JoinCompetition"
+              component={JoinCompetitionScreen}
+              options={{
+                title: 'Join Competition',
+                headerShown: false,
+              }}
+            />
+
+            {/* Scorecard Screens */}
+            <Stack.Screen
+              name="Scorecard"
+              component={ScorecardEntryScreen}
+              options={{
+                title: 'Scorecard',
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ReviewScorecard"
+              component={ReviewScorecardScreen}
+              options={{
+                title: 'Review Scorecard',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="PlayerScorecard"
+              component={PlayerScorecardScreen}
+              options={{
+                title: 'Player Scorecard',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="MatchPlayScoring"
+              component={MatchPlayScoringScreen}
+              options={{
+                title: 'Match Play',
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+
+            {/* Profile Screens */}
+            <Stack.Screen
+              name="EditProfile"
+              component={EditProfileScreen}
+              options={{
+                title: 'Edit Profile',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="MyStatistics"
+              component={MyStatisticsScreen}
+              options={{
+                title: 'My Statistics',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{
+                title: 'Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="HelpAndSupport"
+              component={HelpAndSupportScreen}
+              options={{
+                title: 'Help & Support',
+                headerShown: false,
+              }}
+            />
+
+            {/* Friends Screens */}
+            <Stack.Screen
+              name="Friends"
+              component={FriendsScreen}
+              options={{
+                title: 'Friends',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="PlayerDetail"
+              component={PlayerDetailScreen}
+              options={{
+                title: 'Player Profile',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="CompareStats"
+              component={CompareStatsScreen}
+              options={{
+                title: 'Compare Stats',
+                headerShown: false,
+              }}
+            />
+
+            {/* Venue & Course Screens */}
+            <Stack.Screen
+              name="Venue"
+              component={VenueScreen}
+              options={{
+                title: 'Venue',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="Course"
+              component={CourseDetailScreen}
+              options={{
+                title: 'Course',
+                headerShown: false,
+              }}
+            />
+
+            {/* Notifications Screen */}
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{
+                title: 'Notifications',
+                headerShown: false,
+              }}
+            />
+
+            {/* Subscription Screen */}
+            <Stack.Screen
+              name="Subscription"
+              component={SubscriptionScreen}
+              options={{
+                title: 'Subscription',
+                headerShown: false,
+              }}
+            />
+          </>
+        )}
+        </Stack.Navigator>
+      </NotificationProvider>
+    </NavigationContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
