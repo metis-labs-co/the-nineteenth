@@ -4,11 +4,11 @@
     "lastUpdated": "2025-12-11",
     "totalCourses": 150,
     "existingInDb": 0,
-    "dataComplete": 50,
+    "dataComplete": 60,
     "dataPartial": 0,
-    "dataNone": 100,
+    "dataNone": 90,
     "venueIdPrefix": "f2a3b4c5-d6e7-8901-abcd-500000000",
-    "nextVenueIdNumber": 851,
+    "nextVenueIdNumber": 861,
     "sources": [
       "Golfify.io",
       "18birdies.com",
@@ -50,8 +50,8 @@
       "regions": ["Surfers Paradise", "Broadbeach", "Robina", "Coolangatta", "Hinterland"],
       "estimatedCourses": 22,
       "priority": "high",
-      "status": "pending",
-      "notes": "Premium Gold Coast courses including RACV Royal Pines, Sanctuary Cove, Palmer Colonial"
+      "status": "complete",
+      "notes": "10 courses with data. Premium courses not on golfify.io: RACV Royal Pines, Sanctuary Cove (Palms/Pines), Hope Island Resort, Links Hope Island"
     },
     {
       "batch": 5,
