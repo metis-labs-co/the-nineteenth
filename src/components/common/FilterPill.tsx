@@ -71,7 +71,7 @@ export const FilterPill = React.memo(function FilterPill({
       style={[
         styles.pill,
         {
-          backgroundColor: selected ? `${colors.primary}15` : colors.gray100,
+          backgroundColor: selected ? `${colors.primary}15` : colors.surfaceVariant,
           borderColor: selected ? colors.primary : colors.gray200,
         },
         disabled && styles.pillDisabled,

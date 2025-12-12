@@ -107,7 +107,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
               <View style={styles.teeEditContainer}>
                 <View style={styles.teeNameRow}>
                   <View
-                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(newTeeColor) }]}
+                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(newTeeColor), borderColor: colors.borderLight }]}
                   />
                   <TextInput
                     style={[
@@ -168,7 +168,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
               <View style={styles.teeDisplayContainer}>
                 <View style={styles.teeInfo}>
                   <View
-                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(tee.color) }]}
+                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(tee.color), borderColor: colors.borderLight }]}
                   />
                   <Text style={[styles.teeName, { color: colors.textPrimary }]}>
                     {tee.name || 'Unnamed Tee'}
@@ -263,7 +263,6 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   teeNameInput: {
     flex: 1,

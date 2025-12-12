@@ -1,180 +1,28 @@
 // src/constants/theme.ts
 // Design tokens for The Nineteenth
 // Use these throughout the app for consistent styling
+//
+// COLOR PALETTES are now generated from the active brand configuration.
+// To change the app's brand/colors, edit src/config/brands/index.ts
+
+import { activeBrand } from '@/config/brands';
+import { generateLightColors, generateDarkColors } from './colors';
 
 // ============================================================================
-// COLOR PALETTES - Light & Dark Mode
+// COLOR PALETTES - Generated from Brand Config
 // ============================================================================
 
 /**
  * Light mode color palette
+ * Generated from the active brand configuration
  */
-export const lightColors = {
-  // Primary (Blue)
-  primary: '#3b82f6',
-  primaryDark: '#2563eb',
-  primaryLight: '#60a5fa',
-  primaryLighter: '#93c5fd',
-
-  // Grays
-  white: '#ffffff',
-  gray50: '#f9fafb',
-  gray100: '#f3f4f6',
-  gray200: '#e5e7eb',
-  gray300: '#d1d5db',
-  gray400: '#9ca3af',
-  gray500: '#6b7280',
-  gray600: '#4b5563',
-  gray700: '#374151',
-  gray800: '#1f2937',
-  gray900: '#111827',
-  black: '#000000',
-
-  // Semantic Colors
-  success: '#22c55e',
-  successLight: '#86efac',
-  successDark: '#16a34a',
-
-  warning: '#f59e0b',
-  warningLight: '#fbbf24',
-  warningDark: '#d97706',
-
-  error: '#ef4444',
-  errorLight: '#fca5a5',
-  errorDark: '#dc2626',
-
-  info: '#3b82f6',
-  infoLight: '#93c5fd',
-  infoDark: '#2563eb',
-
-  // Golf-Specific Colors
-  birdie: '#22c55e',     // Green - 1 under par
-  par: '#3b82f6',        // Blue - even par
-  bogey: '#f59e0b',      // Orange - 1 over par
-  doubleBogey: '#ef4444', // Red - 2+ over par
-  eagle: '#10b981',      // Emerald - 2 under par
-
-  // Golf Score Backgrounds (light tints for scorecard cells)
-  eagleBackground: '#d1fae5',   // Emerald 100
-  birdieBackground: '#dcfce7',  // Green 100
-  parBackground: '#dbeafe',     // Blue 100
-  bogeyBackground: '#fef3c7',   // Amber 100
-  doubleBogeyBackground: '#fee2e2', // Red 100
-
-  // Status Badge Backgrounds (very light tints)
-  successBackground: '#f0fdf4', // Green 50
-  warningBackground: '#fffbeb', // Amber 50
-  errorBackground: '#fef2f2',   // Red 50
-  primaryBackground: '#eff6ff', // Blue 50
-
-  // Backgrounds
-  background: '#f9fafb',
-  surface: '#ffffff',
-  surfaceVariant: '#f3f4f6',
-  surfaceElevated: '#ffffff',
-  surfaceSelected: '#ffffff',     // Selected tab/item background
-
-  // Borders
-  border: '#e5e7eb',
-  borderStrong: '#d1d5db',
-  borderLight: '#f3f4f6',
-
-  // Text
-  textPrimary: '#111827',
-  textSecondary: '#6b7280',
-  textTertiary: '#9ca3af',
-  textDisabled: '#9ca3af',
-  textInverse: '#ffffff',
-
-  // Overlays
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  scrim: 'rgba(0, 0, 0, 0.3)',
-};
+export const lightColors = generateLightColors(activeBrand);
 
 /**
  * Dark mode color palette
+ * Generated from the active brand configuration
  */
-export const darkColors = {
-  // Primary (Blue) - slightly brighter for dark backgrounds
-  primary: '#60a5fa',
-  primaryDark: '#3b82f6',
-  primaryLight: '#93c5fd',
-  primaryLighter: '#bfdbfe',
-
-  // Grays (inverted)
-  white: '#000000',       // Semantic: "lightest" color
-  gray50: '#111827',
-  gray100: '#1f2937',
-  gray200: '#374151',
-  gray300: '#4b5563',
-  gray400: '#6b7280',
-  gray500: '#9ca3af',
-  gray600: '#d1d5db',
-  gray700: '#e5e7eb',
-  gray800: '#f3f4f6',
-  gray900: '#f9fafb',
-  black: '#ffffff',       // Semantic: "darkest" color
-
-  // Semantic Colors - adjusted for dark backgrounds
-  success: '#4ade80',
-  successLight: '#166534',
-  successDark: '#86efac',
-
-  warning: '#fbbf24',
-  warningLight: '#78350f',
-  warningDark: '#fcd34d',
-
-  error: '#f87171',
-  errorLight: '#7f1d1d',
-  errorDark: '#fca5a5',
-
-  info: '#60a5fa',
-  infoLight: '#1e3a5f',
-  infoDark: '#93c5fd',
-
-  // Golf-Specific Colors - adjusted for dark backgrounds
-  birdie: '#4ade80',     // Brighter green
-  par: '#60a5fa',        // Brighter blue
-  bogey: '#fbbf24',      // Brighter orange
-  doubleBogey: '#f87171', // Brighter red
-  eagle: '#34d399',      // Brighter emerald
-
-  // Golf Score Backgrounds (darker tints for scorecard cells in dark mode)
-  eagleBackground: '#064e3b',   // Emerald 900
-  birdieBackground: '#14532d',  // Green 900
-  parBackground: '#1e3a5f',     // Blue 900
-  bogeyBackground: '#78350f',   // Amber 900
-  doubleBogeyBackground: '#7f1d1d', // Red 900
-
-  // Status Badge Backgrounds (dark mode tints with ~10-15% opacity feel)
-  successBackground: '#052e16', // Green 950
-  warningBackground: '#451a03', // Amber 950
-  errorBackground: '#450a0a',   // Red 950
-  primaryBackground: '#172554', // Blue 950
-
-  // Backgrounds
-  background: '#0f172a',      // Slate 900
-  surface: '#1e293b',         // Slate 800
-  surfaceVariant: '#334155',  // Slate 700
-  surfaceElevated: '#1e293b', // Elevated surfaces
-  surfaceSelected: '#0c1929', // Dark blue-black for selected tabs
-
-  // Borders
-  border: '#334155',
-  borderStrong: '#475569',
-  borderLight: '#1e293b',
-
-  // Text
-  textPrimary: '#f1f5f9',
-  textSecondary: '#94a3b8',
-  textTertiary: '#64748b',
-  textDisabled: '#475569',
-  textInverse: '#0f172a',
-
-  // Overlays
-  overlay: 'rgba(0, 0, 0, 0.7)',
-  scrim: 'rgba(0, 0, 0, 0.5)',
-};
+export const darkColors = generateDarkColors(activeBrand);
 
 // Type for color palette
 export type ColorPalette = typeof lightColors;
@@ -184,6 +32,10 @@ export type ColorPalette = typeof lightColors;
  * This export is maintained for backward compatibility.
  */
 export const colors = lightColors;
+
+// ============================================================================
+// STATIC TOKENS - These do not change with brand
+// ============================================================================
 
 export const spacing = {
   xs: 4,
@@ -221,7 +73,7 @@ export const typography = {
     fontWeight: '600' as const,
     lineHeight: 26,
   },
-  
+
   // Body text
   body: {
     fontSize: 16,
@@ -233,7 +85,7 @@ export const typography = {
     fontWeight: '600' as const,
     lineHeight: 24,
   },
-  
+
   // Small text
   small: {
     fontSize: 14,
@@ -245,7 +97,7 @@ export const typography = {
     fontWeight: '600' as const,
     lineHeight: 20,
   },
-  
+
   // Tiny text
   caption: {
     fontSize: 12,
@@ -257,7 +109,7 @@ export const typography = {
     fontWeight: '600' as const,
     lineHeight: 16,
   },
-  
+
   // Large display text
   display: {
     fontSize: 40,
@@ -349,16 +201,16 @@ export const layout = {
   screenPadding: spacing.lg,
   screenPaddingHorizontal: spacing.lg,
   screenPaddingVertical: spacing.lg,
-  
+
   // Content width (for tablets/web)
   maxContentWidth: 640,
-  
+
   // Common heights
   headerHeight: 60,
   tabBarHeight: 60,
   buttonHeight: 44,
   inputHeight: 48,
-  
+
   // Common widths
   scoreButtonSize: 48,
   avatarSize: 40,

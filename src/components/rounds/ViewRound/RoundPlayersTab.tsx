@@ -171,33 +171,33 @@ const PlayerCard = React.memo(function PlayerCard({
               <ScoreBadge
                 count={stats.eagles}
                 label="Eagle"
-                backgroundColor="#FEF3C7"
+                backgroundColor={colors.eagleBackground}
                 colors={colors}
               />
             )}
             <ScoreBadge
               count={stats.birdies}
               label="Birdie"
-              backgroundColor="#DCFCE7"
+              backgroundColor={colors.birdieBackground}
               colors={colors}
             />
             <ScoreBadge
               count={stats.pars}
               label="Par"
-              backgroundColor={colors.gray100}
+              backgroundColor={colors.parBackground}
               colors={colors}
             />
             <ScoreBadge
               count={stats.bogeys}
               label="Bogey"
-              backgroundColor="#FEE2E2"
+              backgroundColor={colors.bogeyBackground}
               colors={colors}
             />
             {stats.doublePlus > 0 && (
               <ScoreBadge
                 count={stats.doublePlus}
                 label="2+"
-                backgroundColor="#FECACA"
+                backgroundColor={colors.doubleBogeyBackground}
                 colors={colors}
               />
             )}

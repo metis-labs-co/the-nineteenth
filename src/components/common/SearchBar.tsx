@@ -10,16 +10,22 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useIsDark, useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   accessibilityLabel?: string;
+  /** Hide the outer container border */
+  hideBorder?: boolean;
+  /** Custom background color for the input wrapper */
+  inputBackgroundColor?: string;
+  /** Style overrides for the outer container */
+  containerStyle?: object;
 }
 
 export function SearchBar({
@@ -27,21 +33,30 @@ export function SearchBar({
   onChangeText,
   placeholder = 'Search...',
   accessibilityLabel = 'Search',
+  hideBorder = false,
+  inputBackgroundColor,
+  containerStyle,
 }: SearchBarProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
     <View
       style={[
         styles.searchSection,
         {
-          backgroundColor: isDark ? colors.gray100 : colors.white,
-          borderBottomColor: colors.gray100,
+          backgroundColor: colors.surface,
+          borderBottomColor: hideBorder ? 'transparent' : colors.gray100,
+          borderBottomWidth: hideBorder ? 0 : 1,
         },
+        containerStyle,
       ]}
     >
-      <View style={[styles.searchInputWrapper, { backgroundColor: colors.gray50 }]}>
+      <View
+        style={[
+          styles.searchInputWrapper,
+          { backgroundColor: inputBackgroundColor ?? colors.surfaceVariant },
+        ]}
+      >
         <Icon source="magnify" size={20} color={colors.gray400} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary }]}
@@ -55,14 +70,15 @@ export function SearchBar({
           accessibilityLabel={accessibilityLabel}
         />
         {value.length > 0 && (
-          <Pressable
+          <TouchableOpacity
             onPress={() => onChangeText('')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
           >
             <Icon source="close-circle" size={20} color={colors.gray400} />
-          </Pressable>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -73,7 +89,6 @@ const styles = StyleSheet.create({
   searchSection: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
   },
   searchInputWrapper: {
     flexDirection: 'row',

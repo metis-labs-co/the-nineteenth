@@ -210,6 +210,13 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     });
   }, [navigation, roundId, competitionId]);
 
+  const handlePlayerPress = useCallback((playerId: string) => {
+    navigation.navigate('PlayerScorecard', {
+      playerId,
+      roundId,
+    });
+  }, [navigation, roundId]);
+
   // Delete handlers
   const handleDeletePress = useCallback(() => {
     setShowDeleteDialog(true);
@@ -362,8 +369,8 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -381,6 +388,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             scorecards={scorecards || []}
             roundPlayers={roundPlayers || []}
             holes={round.course?.holes || null}
+            onPlayerPress={handlePlayerPress}
           />
         )}
         {/* Commented out for trial - keeping for potential future use */}

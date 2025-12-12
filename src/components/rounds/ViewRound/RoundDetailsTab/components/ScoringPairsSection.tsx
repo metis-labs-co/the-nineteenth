@@ -1,0 +1,448 @@
+/**
+ * ScoringPairsSection - Displays scoring pairs for premium feature
+ */
+
+import React, { useMemo } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon, Avatar } from 'react-native-paper';
+import { GolfBallLoader } from '@/components/common';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { Pill } from '@/components/common/Pill';
+import { useScoringPairs } from '@/hooks/useScoringPairs';
+import type { RootStackParamList } from '@/navigation/types';
+import type { ScoringPairWithPlayers } from '@/types/database.types';
+import type { ScoringPairsSectionProps } from '../types';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+/**
+ * Get initials for avatar fallback
+ */
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+export function ScoringPairsSection({
+  roundId,
+  scoringPairsRequired,
+  isPremium,
+  cardBackground,
+  onManagePress,
+}: ScoringPairsSectionProps) {
+  const colors = useThemeColors();
+  const navigation = useNavigation<NavigationProp>();
+
+  // Fetch scoring pairs for this round
+  const { data: scoringPairs, isLoading } = useScoringPairs(roundId);
+
+  // Group pairs to show reciprocal pairs once (A<->B instead of A->B and B->A)
+  const displayPairs = useMemo((): { pairs: ScoringPairWithPlayers[]; type: 'reciprocal' | 'circular' } => {
+    if (!scoringPairs || scoringPairs.length === 0) {
+      return { pairs: [], type: 'circular' };
+    }
+
+    // Check if pairs are reciprocal (every A->B has a B->A)
+    const pairMap = new Map<string, ScoringPairWithPlayers>();
+    for (const pair of scoringPairs) {
+      pairMap.set(`${pair.scorer_id}-${pair.player_id}`, pair);
+    }
+
+    const isReciprocal = scoringPairs.every((pair) =>
+      pairMap.has(`${pair.player_id}-${pair.scorer_id}`)
+    );
+
+    if (isReciprocal) {
+      // Show each pair only once
+      const seen = new Set<string>();
+      const grouped: ScoringPairWithPlayers[] = [];
+
+      for (const pair of scoringPairs) {
+        const key = [pair.scorer_id, pair.player_id].sort().join('-');
+        if (!seen.has(key)) {
+          seen.add(key);
+          grouped.push(pair);
+        }
+      }
+      return { pairs: grouped, type: 'reciprocal' };
+    }
+
+    return { pairs: scoringPairs, type: 'circular' };
+  }, [scoringPairs]);
+
+  const handleUpgradePress = () => {
+    navigation.navigate('Subscription');
+  };
+
+  // Not premium - show locked state
+  if (!isPremium) {
+    return (
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+          Scoring Pairs
+        </Text>
+        <TouchableOpacity
+          style={[styles.lockedCard, { backgroundColor: cardBackground, borderColor: colors.border }]}
+          onPress={handleUpgradePress}
+          activeOpacity={0.7}
+        >
+          <View style={styles.lockedContent}>
+            <View style={[styles.lockedIconContainer, { backgroundColor: colors.gray200 }]}>
+              <Icon source="lock" size={24} color={colors.gray500} />
+            </View>
+            <View style={styles.lockedTextContainer}>
+              <View style={styles.lockedLabelRow}>
+                <Text style={[styles.lockedLabel, { color: colors.textSecondary }]}>
+                  Scoring Pairs
+                </Text>
+                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
+                </View>
+              </View>
+              <Text style={[styles.lockedDescription, { color: colors.textTertiary }]}>
+                Upgrade to designate who scores each player
+              </Text>
+            </View>
+          </View>
+          <Icon source="chevron-right" size={24} color={colors.gray400} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Premium user - show scoring pairs section
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+          Scoring Pairs
+        </Text>
+        {onManagePress && (
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: colors.primaryLighter }]}
+            onPress={onManagePress}
+            accessibilityLabel="Manage scoring pairs"
+            accessibilityRole="button"
+            activeOpacity={0.7}
+          >
+            <Icon source="cog" size={16} color={colors.primary} />
+            <Text style={[styles.editButtonText, { color: colors.primary }]}>Manage</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={[styles.scoringPairsCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+        {/* Status Row */}
+        <View style={styles.scoringPairsStatusRow}>
+          <View style={styles.scoringPairsStatusLeft}>
+            <View style={[
+              styles.scoringPairsIconContainer,
+              { backgroundColor: scoringPairsRequired ? colors.primaryLighter : colors.gray200 }
+            ]}>
+              <Icon
+                source="account-switch"
+                size={20}
+                color={scoringPairsRequired ? colors.primary : colors.gray500}
+              />
+            </View>
+            <View style={styles.scoringPairsStatusText}>
+              <Text style={[styles.scoringPairsLabel, { color: colors.textPrimary }]}>
+                {scoringPairsRequired ? 'Enabled' : 'Disabled'}
+              </Text>
+              <Text style={[styles.scoringPairsDescription, { color: colors.textSecondary }]}>
+                {scoringPairsRequired
+                  ? 'Designated markers score each player'
+                  : 'Players can score themselves'}
+              </Text>
+            </View>
+          </View>
+          <Pill
+            label={scoringPairsRequired ? 'Required' : 'Optional'}
+            variant={scoringPairsRequired ? 'primary' : 'default'}
+            size="sm"
+          />
+        </View>
+
+        {/* Pairs List (only show if enabled and has pairs) */}
+        {scoringPairsRequired && (
+          <>
+            <View style={[styles.scoringPairsDivider, { backgroundColor: colors.border }]} />
+
+            {isLoading ? (
+              <View style={styles.scoringPairsLoading}>
+                <GolfBallLoader size="sm" />
+                <Text style={[styles.scoringPairsLoadingText, { color: colors.textSecondary }]}>
+                  Loading pairs...
+                </Text>
+              </View>
+            ) : displayPairs.pairs.length > 0 ? (
+              <View style={styles.scoringPairsList}>
+                <View style={styles.scoringPairsListHeader}>
+                  <Text style={[styles.scoringPairsListTitle, { color: colors.textSecondary }]}>
+                    {displayPairs.type === 'reciprocal' ? 'Reciprocal Pairs' : 'Circular Chain'}
+                  </Text>
+                  <Text style={[styles.scoringPairsCount, { color: colors.textTertiary }]}>
+                    {displayPairs.pairs.length} {displayPairs.pairs.length === 1 ? 'pair' : 'pairs'}
+                  </Text>
+                </View>
+                {displayPairs.pairs.map((pair, index) => (
+                  <View
+                    key={pair.id}
+                    style={[
+                      styles.scoringPairRow,
+                      { backgroundColor: colors.gray50 },
+                      index === displayPairs.pairs.length - 1 && styles.scoringPairRowLast,
+                    ]}
+                  >
+                    {/* Scorer */}
+                    <View style={styles.scoringPairPlayer}>
+                      {pair.scorer?.photo_url ? (
+                        <Avatar.Image size={32} source={{ uri: pair.scorer.photo_url }} />
+                      ) : (
+                        <Avatar.Text
+                          size={32}
+                          label={getInitials(pair.scorer?.name || '?')}
+                          style={{ backgroundColor: colors.primary }}
+                          labelStyle={{ color: colors.white, fontSize: 12 }}
+                        />
+                      )}
+                      <Text
+                        style={[styles.scoringPairName, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {pair.scorer?.name || 'Unknown'}
+                      </Text>
+                    </View>
+
+                    {/* Arrow */}
+                    <View style={styles.scoringPairArrow}>
+                      <Icon
+                        source={displayPairs.type === 'reciprocal' ? 'swap-horizontal' : 'arrow-right'}
+                        size={18}
+                        color={colors.textTertiary}
+                      />
+                    </View>
+
+                    {/* Player being scored */}
+                    <View style={styles.scoringPairPlayer}>
+                      {pair.player?.photo_url ? (
+                        <Avatar.Image size={32} source={{ uri: pair.player.photo_url }} />
+                      ) : (
+                        <Avatar.Text
+                          size={32}
+                          label={getInitials(pair.player?.name || '?')}
+                          style={{ backgroundColor: colors.primary }}
+                          labelStyle={{ color: colors.white, fontSize: 12 }}
+                        />
+                      )}
+                      <Text
+                        style={[styles.scoringPairName, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {pair.player?.name || 'Unknown'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.scoringPairsEmpty}>
+                <Icon source="account-question" size={24} color={colors.gray400} />
+                <Text style={[styles.scoringPairsEmptyText, { color: colors.textSecondary }]}>
+                  No scoring pairs assigned yet
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  // Section
+  section: {
+    marginBottom: spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.h4,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  editButtonText: {
+    ...typography.smallBold,
+  },
+
+  // Locked State
+  lockedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    ...shadows.sm,
+  },
+  lockedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  lockedIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockedTextContainer: {
+    flex: 1,
+  },
+  lockedLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  lockedLabel: {
+    ...typography.bodyBold,
+  },
+  lockedDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  premiumBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  premiumBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+
+  // Premium State
+  scoringPairsCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  scoringPairsStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+  },
+  scoringPairsStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  scoringPairsIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoringPairsStatusText: {
+    flex: 1,
+  },
+  scoringPairsLabel: {
+    ...typography.bodyBold,
+  },
+  scoringPairsDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  scoringPairsDivider: {
+    height: 1,
+    marginHorizontal: spacing.md,
+  },
+  scoringPairsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  scoringPairsLoadingText: {
+    ...typography.small,
+  },
+  scoringPairsList: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  scoringPairsListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  scoringPairsListTitle: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+  },
+  scoringPairsCount: {
+    ...typography.caption,
+  },
+  scoringPairRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  scoringPairRowLast: {
+    marginBottom: 0,
+  },
+  scoringPairPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  scoringPairName: {
+    ...typography.small,
+    fontWeight: '500',
+    flex: 1,
+  },
+  scoringPairArrow: {
+    paddingHorizontal: spacing.sm,
+  },
+  scoringPairsEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  scoringPairsEmptyText: {
+    ...typography.small,
+  },
+});
+
+export default ScoringPairsSection;

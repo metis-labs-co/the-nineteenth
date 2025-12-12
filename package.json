@@ -1,6 +1,6 @@
 {
   "name": "the-nineteenth",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -71,6 +71,7 @@
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "babel-plugin-module-resolver": "^5.0.0",
+    "babel-preset-expo": "^54.0.8",
     "eslint": "^8.56.0",
     "eslint-config-expo": "^10.0.0",
     "eslint-config-prettier": "^9.1.0",

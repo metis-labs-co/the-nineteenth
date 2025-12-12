@@ -4,11 +4,11 @@
     "lastUpdated": "2025-12-11",
     "totalCourses": 150,
     "existingInDb": 0,
-    "dataComplete": 60,
+    "dataComplete": 80,
     "dataPartial": 0,
-    "dataNone": 90,
+    "dataNone": 70,
     "venueIdPrefix": "f2a3b4c5-d6e7-8901-abcd-500000000",
-    "nextVenueIdNumber": 861,
+    "nextVenueIdNumber": 881,
     "sources": [
       "Golfify.io",
       "18birdies.com",
@@ -59,8 +59,8 @@
       "regions": ["Noosa", "Maroochydore", "Caloundra", "Hinterland"],
       "estimatedCourses": 18,
       "priority": "high",
-      "status": "pending",
-      "notes": "Includes Pelican Waters, Noosa Springs, Twin Waters"
+      "status": "complete",
+      "notes": "8 courses with data. Missing: Horton Park, Mt Coolum, Pomona, Cooloola (404s). Maleny is 9 holes only."
     },
     {
       "batch": 6,
@@ -68,26 +68,26 @@
       "regions": ["Toowoomba", "Warwick", "Dalby", "Stanthorpe"],
       "estimatedCourses": 12,
       "priority": "medium",
-      "status": "pending",
-      "notes": "Regional centers on Darling Downs"
+      "status": "complete",
+      "notes": "1 course with data (City Golf Club). Most Darling Downs courses already in Batches 2-3 (Warwick, Dalby, Roma, Chinchilla, Clifton, Oakey, Laidley). Remaining are 9-holes or placeholder data."
     },
     {
       "batch": 7,
       "name": "Tropical North",
-      "regions": ["Cairns", "Port Douglas", "Townsville", "Palm Cove"],
+      "regions": ["Cairns", "Port Douglas", "Townsville", "Palm Cove", "Whitsundays"],
       "estimatedCourses": 15,
       "priority": "high",
-      "status": "pending",
-      "notes": "Resort destinations including Paradise Palms, Mirage"
+      "status": "complete",
+      "notes": "6 courses with data. Most North QLD courses already in Batch 3 (Paradise Palms, Cairns GC, Townsville GC, Atherton, Innisfail, Ayr, Proserpine). Added: Mirage CC, Mossman, Hamilton Island, Mareeba, Ingham, Gordonvale."
     },
     {
       "batch": 8,
       "name": "Central & Wide Bay",
-      "regions": ["Rockhampton", "Bundaberg", "Hervey Bay", "Gladstone", "Mackay"],
+      "regions": ["Rockhampton", "Bundaberg", "Hervey Bay", "Gladstone", "Mackay", "Bowen Basin"],
       "estimatedCourses": 14,
       "priority": "medium",
-      "status": "pending",
-      "notes": "Central Queensland regional courses"
+      "status": "complete",
+      "notes": "5 courses with data. Most Central QLD courses already in Batch 3 (Rockhampton, Bundaberg, Bargara, Gladstone, Mackay). Added: Hervey Bay, Coral Cove, Emu Park, Sarina, Moranbah."
     }
   ],
   "batch1Courses": [
@@ -218,21 +218,129 @@
     "Clermont Golf Club (9 holes)",
     "Rosewood Golf Club (NSW data)"
   ],
-  "batch4Courses": [],
-  "batch4Complete": false,
-  "batch4Skipped": [],
-  "batch5Courses": [],
-  "batch5Complete": false,
-  "batch5Skipped": [],
-  "batch6Courses": [],
-  "batch6Complete": false,
-  "batch6Skipped": [],
-  "batch7Courses": [],
-  "batch7Complete": false,
-  "batch7Skipped": [],
-  "batch8Courses": [],
-  "batch8Complete": false,
-  "batch8Skipped": [],
+  "batch4Courses": [
+    "The Glades Golf Club",
+    "Lakelands Golf Club",
+    "Emerald Lakes Golf Club",
+    "Palm Meadows Golf Course",
+    "Surfers Paradise Golf Club",
+    "Southport Golf Club",
+    "Parkwood International Golf Course",
+    "Gold Coast Burleigh Golf Club",
+    "Helensvale Golf Club",
+    "Palmer Gold Coast"
+  ],
+  "batch4Complete": true,
+  "batch4Skipped": [
+    "RACV Royal Pines Resort (404 - multiple slug attempts)",
+    "Sanctuary Cove Golf Club - The Palms (404 - multiple slug attempts)",
+    "Sanctuary Cove Golf Club - The Pines (404 - multiple slug attempts)",
+    "Hope Island Resort Golf Club (404 - multiple slug attempts)",
+    "Links Hope Island (404 - multiple slug attempts)",
+    "Burleigh Golf Club (404 - 9 holes)",
+    "Nerang Golf Club (404 - 9 holes)",
+    "Currumbin Valley Golf Club (404 - 9 holes)"
+  ],
+  "batch5Courses": [
+    "Pelican Waters Golf Club",
+    "Noosa Springs Golf & Spa Resort",
+    "Twin Waters Golf Club",
+    "Headland Golf Club",
+    "Caloundra Golf Club",
+    "Nambour Golf Club",
+    "Cooroy Golf Club",
+    "Beerwah Golf Club"
+  ],
+  "batch5Complete": true,
+  "batch5Skipped": [
+    "Horton Park Golf Club (404 - multiple slug attempts)",
+    "Mt Coolum Golf Club (404)",
+    "Pomona Golf Club (404 - 9 holes)",
+    "Cooloola Golf Club (404 - 9 holes)",
+    "Maleny Golf Club (9 holes only - not included)"
+  ],
+  "batch6Courses": [
+    "City Golf Club (Toowoomba)"
+  ],
+  "batch6Complete": true,
+  "batch6Skipped": [
+    "Toowoomba Golf Club (404)",
+    "Middle Ridge Golf Club (404)",
+    "Stanthorpe Golf Club (404)",
+    "Gatton Golf Club (404)",
+    "Highfields Golf Club (404)",
+    "Warwick Golf Club (already in Batch 2)",
+    "Dalby Golf Club (already in Batch 2)",
+    "Roma Golf Club (already in Batch 2)",
+    "Chinchilla Golf Club (already in Batch 2)",
+    "Clifton Golf Club (already in Batch 3)",
+    "Oakey Golf Club (already in Batch 3)",
+    "Laidley Golf Club (already in Batch 2)",
+    "Pittsworth Golf Club (9 holes)",
+    "Millmerran Golf Club (9 holes)",
+    "Crows Nest Golf Club (9 holes)",
+    "Allora Golf Club (9 holes)",
+    "Cecil Plains Golf Club (9 holes - placeholder data)",
+    "Inglewood Golf Club (9 holes)",
+    "Jandowae Golf Club (9 holes - placeholder data)",
+    "Texas Golf Club (placeholder data)",
+    "Wandoan Golf Club (placeholder data)",
+    "Esk Golf Club (9 holes - placeholder data)"
+  ],
+  "batch7Courses": [
+    "Mirage Country Club",
+    "Mossman Golf Club",
+    "Hamilton Island Golf Club",
+    "Mareeba Golf Club",
+    "Ingham Golf Club",
+    "Gordonvale Golf Club"
+  ],
+  "batch7Complete": true,
+  "batch7Skipped": [
+    "Paradise Palms Golf Course (already in Batch 3)",
+    "Cairns Golf Club (already in Batch 3)",
+    "Townsville Golf Club (already in Batch 3)",
+    "Atherton Golf Club (already in Batch 3)",
+    "Innisfail Golf Club (already in Batch 3)",
+    "Ayr Golf Club (already in Batch 3)",
+    "Proserpine Golf Club (already in Batch 3)",
+    "Half Moon Bay Golf Club (404 - multiple slug attempts)",
+    "Port Douglas Golf Club (404 - multiple slug attempts)",
+    "Palmer Sea Reef Golf Course (404 - multiple slug attempts)",
+    "Rowes Bay Golf Club (404 - multiple slug attempts)",
+    "Magnetic Island Golf Club (9 holes)",
+    "Bowen Golf Club (9 holes)",
+    "Charters Towers Golf Club (9 holes - placeholder data)",
+    "Babinda Golf Club (9 holes)",
+    "Clermont Golf Club (9 holes)",
+    "Mount Isa Golf Club (placeholder data)"
+  ],
+  "batch8Courses": [
+    "Hervey Bay Golf Club",
+    "Coral Cove Golf Club",
+    "Emu Park Golf Club",
+    "Sarina Golf Club",
+    "Moranbah Golf Club"
+  ],
+  "batch8Complete": true,
+  "batch8Skipped": [
+    "Rockhampton Golf Club (already in Batch 3)",
+    "Bundaberg Golf Club (already in Batch 3)",
+    "Bargara Golf Club (already in Batch 3)",
+    "Gladstone Golf Club (already in Batch 3)",
+    "Mackay Golf Club (already in Batch 3)",
+    "Maryborough Golf Club (already in Batch 2)",
+    "Capricorn Golf Club (404 - multiple slug attempts)",
+    "Gympie Golf Club (404 - multiple slug attempts)",
+    "Whitsunday Golf Club (404 - multiple slug attempts)",
+    "Dysart Golf Club (9 holes)",
+    "Middlemount Golf Club (9 holes)",
+    "Gayndah Golf Club (9 holes)",
+    "Mundubbera Golf Club (9 holes)",
+    "Miriam Vale Golf Club (9 holes - placeholder data)",
+    "Biggenden Golf Club (9 holes - placeholder data)",
+    "Mount Morgan Golf Club (9 holes - placeholder data)"
+  ],
   "courses": [
     {
       "name": "Royal Queensland Golf Club",

@@ -9,7 +9,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LineChart } from 'react-native-gifted-charts';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -39,8 +39,6 @@ export const PerformanceChart = React.memo(function PerformanceChart({
   rounds,
 }: PerformanceChartProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-  const cardBg = isDark ? colors.gray100 : colors.white;
 
   // Format date for chart labels (DD/MM)
   const formatDateLabel = (dateString: string) => {
@@ -78,7 +76,7 @@ export const PerformanceChart = React.memo(function PerformanceChart({
 
   if (rounds.length < 2) {
     return (
-      <View style={[styles.card, { backgroundColor: cardBg }, shadows.sm]}>
+      <View style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
         <View style={styles.emptyState}>
           <Icon source="chart-line" size={32} color={colors.textTertiary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -90,7 +88,7 @@ export const PerformanceChart = React.memo(function PerformanceChart({
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: cardBg }, shadows.sm]}>
+    <View style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
       {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
@@ -152,7 +150,7 @@ export const PerformanceChart = React.memo(function PerformanceChart({
                 <View
                   style={[
                     styles.tooltip,
-                    { backgroundColor: isDark ? colors.gray200 : colors.gray100 },
+                    { backgroundColor: colors.surfaceVariant },
                   ]}
                 >
                   <Text style={[styles.tooltipText, { color: colors.textPrimary }]}>

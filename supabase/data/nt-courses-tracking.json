@@ -1,0 +1,62 @@
+{
+  "state": "NT",
+  "state_name": "Northern Territory",
+  "total_courses_estimated": 5,
+  "courses_completed": 5,
+  "last_updated": "2025-12-11",
+  "batches": [
+    {
+      "batch_number": 1,
+      "name": "Darwin & Top End",
+      "migration_file": "20250320000001_nt_batch_01_darwin.sql",
+      "status": "complete",
+      "courses": [
+        {
+          "name": "Darwin Golf Club",
+          "slug": "darwin-golf-club",
+          "city": "Darwin",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000970",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Palmerston Golf & Country Club",
+          "slug": "palmerston-golf-country-club",
+          "city": "Palmerston",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000971",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Gardens Park Golf Links",
+          "slug": "gardens-park-golf-links",
+          "city": "Darwin",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000972",
+          "holes": 9,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Alice Springs Golf Club",
+          "slug": "alice-springs-golf-club",
+          "city": "Alice Springs",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000973",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Humpty Doo & Rural Area Golf Club",
+          "slug": "humpty-doo-rural-area-golf-club",
+          "city": "Humpty Doo",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000974",
+          "holes": 9,
+          "data_source": "golfify.io"
+        }
+      ]
+    }
+  ]
+}

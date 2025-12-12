@@ -7,16 +7,12 @@ import {
   View,
   StyleSheet,
   Modal,
-  Pressable,
+  TouchableOpacity,
   FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Text,
-  Searchbar,
-  ActivityIndicator,
-  Icon,
-} from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
+import { LoadingSpinner, SearchBar } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCourses, useSearchCourses, type CourseWithFavorite } from '@/hooks/useCourses';
@@ -65,40 +61,25 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
   // Render course item
   const renderCourseItem = useCallback(
     ({ item }: { item: CourseWithFavorite }) => {
-      const locationText = '';
-      const isFromApi = false;
-
       return (
-        <Pressable onPress={() => handleSelect(item)}>
+        <TouchableOpacity
+          onPress={() => handleSelect(item)}
+          activeOpacity={0.7}
+          accessibilityLabel={`Select ${item.name}`}
+          accessibilityRole="button"
+        >
           <View style={[styles.courseCard, { backgroundColor: colors.white }]}>
             <View style={styles.courseCardContent}>
               <View style={[styles.courseIconContainer, { backgroundColor: colors.primaryLighter }]}>
                 <Icon source="golf" size={24} color={colors.primary} />
               </View>
               <View style={styles.courseInfo}>
-                <View style={styles.courseNameRow}>
-                  <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.sourceBadge,
-                      { backgroundColor: isFromApi ? colors.infoLight : colors.gray200 },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.sourceBadgeText,
-                        { color: isFromApi ? colors.infoDark : colors.gray600 },
-                      ]}
-                    >
-                      {isFromApi ? 'API' : 'Manual'}
-                    </Text>
-                  </View>
-                </View>
-                {locationText && (
-                  <Text style={[styles.courseLocation, { color: colors.textSecondary }]}>
-                    {locationText}
+                <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {item.description && (
+                  <Text style={[styles.courseLocation, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {item.description}
                   </Text>
                 )}
                 {item.holes && item.holes.length > 0 && (
@@ -113,7 +94,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
               </View>
             </View>
           </View>
-        </Pressable>
+        </TouchableOpacity>
       );
     },
     [handleSelect, colors]
@@ -130,30 +111,28 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
         {/* Modal Header */}
         <View style={[styles.modalHeader, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
-          <Pressable onPress={handleClose} style={styles.modalCloseButton}>
+          <TouchableOpacity
+            onPress={handleClose}
+            style={styles.modalCloseButton}
+            activeOpacity={0.7}
+            accessibilityLabel="Close course selection"
+            accessibilityRole="button"
+          >
             <Icon source="close" size={24} color={colors.textPrimary} />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
-          <Searchbar
-            placeholder="Search courses..."
-            value={searchQuery}
-            onChangeText={onSearchQueryChange}
-            style={[styles.searchBar, { backgroundColor: colors.gray100 }]}
-            inputStyle={styles.searchInput}
-            iconColor={colors.gray400}
-          />
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={onSearchQueryChange}
+          placeholder="Search courses..."
+        />
 
         {/* Course List */}
         {isLoadingCourses || isSearching ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading courses...
-            </Text>
+            <LoadingSpinner size="lg" message="Loading courses..." />
           </View>
         ) : displayCourses.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -197,16 +176,6 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchContainer: {
-    padding: spacing.md,
-  },
-  searchBar: {
-    borderRadius: borderRadius.md,
-    elevation: 0,
-  },
-  searchInput: {
-    ...typography.body,
   },
   loadingContainer: {
     flex: 1,
@@ -257,23 +226,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  courseNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   courseName: {
     ...typography.bodyBold,
-    flex: 1,
-  },
-  sourceBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  sourceBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   courseLocation: {
     ...typography.small,

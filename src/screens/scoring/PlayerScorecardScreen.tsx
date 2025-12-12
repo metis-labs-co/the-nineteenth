@@ -22,7 +22,8 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Surface, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -37,11 +38,9 @@ import {
   spacing,
   typography,
   borderRadius,
-  shadows,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader } from '@/components/common/PageHeader';
-import type { Hole, Player, Scorecard, HoleScore } from '@/types';
+import type { Hole } from '@/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlayerScorecard'>;
 
@@ -424,8 +423,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   if (isLoading || !isInitialized) {
     return (
       <SafeAreaView style={[styles.centeredContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading scorecard...</Text>
+        <LoadingSpinner size="lg" message="Loading scorecard..." />
       </SafeAreaView>
     );
   }
@@ -466,7 +464,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         />
         <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>No Scores Yet</Text>
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-          {player.name} hasn't recorded any scores for this round yet.
+          {player.name} hasn&apos;t recorded any scores for this round yet.
         </Text>
         <TouchableOpacity
           style={[styles.errorButton, { backgroundColor: colors.primary }]}
@@ -520,14 +518,14 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
         showsVerticalScrollIndicator={true}
       >
         {/* Scorecard Table */}
-        <Surface style={[styles.tableContainer, { backgroundColor: colors.surface }]} elevation={1}>
+        <View style={[styles.tableContainer, { backgroundColor: colors.surface }]}>
           {/* Header */}
           {renderHeaderRow()}
 
@@ -541,7 +539,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
 
           {/* Total */}
           {renderTotalRow()}
-        </Surface>
+        </View>
 
       </ScrollView>
     </SafeAreaView>

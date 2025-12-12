@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Platform, ScrollView, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import {
   Button,
   Text,
-  Surface,
   Avatar,
-  Searchbar,
-  ActivityIndicator,
   Chip,
   Icon,
   Divider,
 } from 'react-native-paper';
+import { LoadingSpinner, SearchBar } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type PlayerFormData } from '@/schemas/competition';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
@@ -45,7 +43,6 @@ export default function AddPlayersStep({
 }: AddPlayersStepProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const { player: currentPlayer, user } = useAuth();
   const { data: friends = [], isLoading: isLoadingFriends } = useFriends();
 
@@ -182,15 +179,13 @@ export default function AddPlayersStep({
 
       return (
         <React.Fragment key={friend.id}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.friendCard,
-              pressed && { backgroundColor: colors.gray50 },
-            ]}
+          <TouchableOpacity
+            style={styles.friendCard}
             onPress={() => toggleFriendSelection(friend.id)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: isSelected }}
             accessibilityLabel={`${isSelected ? 'Remove' : 'Add'} ${friend.name}`}
+            activeOpacity={0.7}
           >
             <View style={styles.friendCardContent}>
               {/* Avatar */}
@@ -237,7 +232,7 @@ export default function AddPlayersStep({
                 )}
               </View>
             </View>
-          </Pressable>
+          </TouchableOpacity>
           {!isLast && <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />}
         </React.Fragment>
       );
@@ -311,25 +306,25 @@ export default function AddPlayersStep({
 
           {/* Warning when approaching limit */}
           {isApproachingLimit && (
-            <Surface style={[styles.warningBox, { backgroundColor: colors.warningLight }]} elevation={0}>
+            <View style={[styles.warningBox, { backgroundColor: colors.warningLight }]}>
               <Icon source="alert-circle-outline" size={18} color={colors.warning} />
               <Text style={[styles.warningText, { color: colors.warning }]}>
                 Approaching player limit ({selectedPlayers.length}/{effectiveMaxPlayers})
               </Text>
-            </Surface>
+            </View>
           )}
 
           {/* Warning at limit */}
           {isAtLimit && (
-            <Surface style={[styles.warningBox, { backgroundColor: colors.errorLight }]} elevation={0}>
+            <View style={[styles.warningBox, { backgroundColor: colors.errorLight }]}>
               <Icon source="alert-circle" size={18} color={colors.error} />
               <Text style={[styles.warningText, { color: colors.error }]}>
                 Player limit reached. Upgrade to add more players.
               </Text>
-            </Surface>
+            </View>
           )}
 
-          <Surface style={[styles.selectedSection, { backgroundColor: isDark ? colors.gray100 : colors.white }]} elevation={0}>
+          <View style={[styles.selectedSection, { backgroundColor: colors.surface }]}>
             {selectedPlayers.length === 0 ? (
               <Text style={[styles.emptySelection, { color: colors.textSecondary }]}>No players selected yet</Text>
             ) : (
@@ -345,34 +340,17 @@ export default function AddPlayersStep({
             {selectedPlayers.length === 1 && (
               <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>Select at least 1 friend to continue</Text>
             )}
-          </Surface>
+          </View>
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchSection, { backgroundColor: isDark ? colors.gray100 : colors.white, borderBottomColor: colors.gray100 }]}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: colors.gray50 }]}>
-            <Icon source="magnify" size={20} color={colors.gray400} />
-            <Searchbar
-              placeholder="Search friends..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.searchBar}
-              inputStyle={styles.searchInput}
-              iconColor="transparent"
-              icon={() => null}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable
-                onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-              >
-                <Icon source="close-circle" size={20} color={colors.gray400} />
-              </Pressable>
-            )}
-          </View>
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search friends..."
+          accessibilityLabel="Search friends"
+          containerStyle={styles.searchSection}
+        />
 
         {/* Friends List Header */}
         <View style={styles.section}>
@@ -383,7 +361,7 @@ export default function AddPlayersStep({
           {/* Loading State */}
           {isLoadingFriends && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
+              <LoadingSpinner size="lg" />
             </View>
           )}
 
@@ -406,14 +384,14 @@ export default function AddPlayersStep({
                 <Icon source="account-question" size={48} color={colors.gray300} />
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No friends found</Text>
                 <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
-                  No friends match "{searchQuery}"
+                  No friends match &quot;{searchQuery}&quot;
                 </Text>
               </View>
             )}
 
           {/* Friends List */}
           {!isLoadingFriends && filteredFriends.length > 0 && (
-            <View style={[styles.friendsContainer, { backgroundColor: isDark ? colors.gray100 : colors.white }]}>
+            <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
               {filteredFriends.map((friend, index) =>
                 renderFriendCard(friend, index, index === filteredFriends.length - 1)
               )}
@@ -423,7 +401,7 @@ export default function AddPlayersStep({
       </ScrollView>
 
       {/* Action Buttons - Sticky Footer */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: isDark ? colors.gray100 : colors.white, borderTopColor: colors.gray200 }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.surface, borderTopColor: colors.gray200 }]}>
         <Button
           mode="outlined"
           onPress={onBack}
@@ -544,27 +522,7 @@ const styles = StyleSheet.create({
 
   // Search
   searchSection: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
     marginTop: spacing.lg,
-  },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  searchBar: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  searchInput: {
-    ...typography.body,
-    marginLeft: -spacing.md,
   },
 
   // Friends list

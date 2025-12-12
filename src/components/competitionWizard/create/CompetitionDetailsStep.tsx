@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, ScrollView, LayoutAnimation, UIManager } from 'react-native';
-import { TextInput, Button, Text, Surface, SegmentedButtons } from 'react-native-paper';
+import { Button, Text, SegmentedButtons } from 'react-native-paper';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,8 +11,8 @@ import {
   type CompetitionType,
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
-import { DatePicker } from '@/components/common/DatePicker';
+import { useThemeColors } from '@/context/ThemeContext';
+import { DatePicker, FormInput } from '@/components/common';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -38,7 +38,6 @@ export default function CompetitionDetailsStep({
   onBack,
 }: CompetitionDetailsStepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
 
   const {
@@ -85,62 +84,43 @@ export default function CompetitionDetailsStep({
         </Text>
 
         {/* Form Section */}
-        <Surface style={[styles.formSection, { backgroundColor: isDark ? colors.gray100 : colors.surface }]} elevation={1}>
+        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
           {/* Competition Name */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Competition Name *</Text>
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  placeholder="e.g., Summer Classic 2025"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  mode="outlined"
-                  error={!!errors.name}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={errors.name ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.name ? colors.error : colors.primary}
-                  textColor={colors.textPrimary}
-                />
-              )}
-            />
-            {errors.name && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.name.message}</Text>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Competition Name"
+                placeholder="e.g., Summer Classic 2025"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.name?.message}
+                autoCapitalize="words"
+                returnKeyType="next"
+                required
+              />
             )}
-          </View>
+          />
 
           {/* Description */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Description (Optional)</Text>
-            <Controller
-              control={control}
-              name="description"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  placeholder="Add a description for your competition..."
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  mode="outlined"
-                  error={!!errors.description}
-                  multiline
-                  numberOfLines={4}
-                  style={[styles.input, styles.textArea, { backgroundColor: colors.surface }]}
-                  outlineColor={errors.description ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.description ? colors.error : colors.primary}
-                  textColor={colors.textPrimary}
-                />
-              )}
-            />
-            {errors.description && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.description.message}</Text>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Description (Optional)"
+                placeholder="Add a description for your competition..."
+                value={value || ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.description?.message}
+                multiline
+                numberOfLines={4}
+              />
             )}
-          </View>
+          />
 
           {/* Competition Type */}
           <View style={styles.fieldContainer}>
@@ -178,36 +158,23 @@ export default function CompetitionDetailsStep({
           </View>
 
           {/* Invite Code */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Invite Code (Optional)</Text>
-            <Controller
-              control={control}
-              name="inviteCode"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  placeholder="e.g., SUMMER2025"
-                  value={value}
-                  onChangeText={(text) => onChange(text.toUpperCase().replace(/[^A-Z0-9-_]/g, ''))}
-                  onBlur={onBlur}
-                  mode="outlined"
-                  error={!!errors.inviteCode}
-                  autoCapitalize="characters"
-                  returnKeyType="next"
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={errors.inviteCode ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.inviteCode ? colors.error : colors.primary}
-                  textColor={colors.textPrimary}
-                />
-              )}
-            />
-            {errors.inviteCode ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.inviteCode.message}</Text>
-            ) : (
-              <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-                Custom code for players to join. Leave blank to auto-generate.
-              </Text>
+          <Controller
+            control={control}
+            name="inviteCode"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Invite Code (Optional)"
+                placeholder="e.g., SUMMER2025"
+                value={value || ''}
+                onChangeText={(text) => onChange(text.toUpperCase().replace(/[^A-Z0-9-_]/g, ''))}
+                onBlur={onBlur}
+                error={errors.inviteCode?.message}
+                hint={!errors.inviteCode ? 'Custom code for players to join. Leave blank to auto-generate.' : undefined}
+                autoCapitalize="characters"
+                returnKeyType="next"
+              />
             )}
-          </View>
+          />
 
           {/* Start Date */}
           <Controller
@@ -247,11 +214,11 @@ export default function CompetitionDetailsStep({
               )}
             />
           )}
-        </Surface>
+        </View>
       </ScrollView>
 
       {/* Action Buttons - Sticky Footer */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: isDark ? colors.gray100 : colors.surface, borderTopColor: colors.gray200 }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.surface, borderTopColor: colors.gray200 }]}>
         <Button
           mode="outlined"
           onPress={onBack}
@@ -303,15 +270,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...typography.smallBold,
     marginBottom: spacing.xs,
-  },
-  input: {
-  },
-  textArea: {
-    minHeight: 100,
-  },
-  errorText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
   },
   fieldHint: {
     ...typography.caption,

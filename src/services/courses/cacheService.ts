@@ -10,7 +10,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import type { Course, LegacyCourse, AustralianState } from '@/types/database.types';
+import type { LegacyCourse, AustralianState } from '@/types/database.types';
 
 // =====================================================
 // CONSTANTS

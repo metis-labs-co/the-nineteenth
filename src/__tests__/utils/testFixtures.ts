@@ -11,13 +11,9 @@ import type {
   Scorecard,
   Team,
   TeamWithMembers,
-  TeamMember,
   RoundResult,
   PointSystemConfig,
   HoleScore,
-  GameType,
-  TeamMode,
-  TeamFormat,
 } from '@/types/database.types';
 
 // ============================================================================

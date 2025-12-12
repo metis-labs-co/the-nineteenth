@@ -20,7 +20,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
-import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useStatsVisibility } from '@/store/settingsStore';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -72,8 +72,7 @@ interface StatsDiff {
 export default function CompareStatsScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { playerId1, playerId2 } = route.params;
-  const { checkFeature, tier } = useSubscriptionContext();
-  const limits = useTierLimits();
+  const { checkFeature } = useSubscriptionContext();
 
   // Get stats visibility settings
   const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
@@ -169,7 +168,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   // Loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={[]}>
         <PageHeader
           variant="centered"
           title="Compare Stats"
@@ -184,7 +183,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   // Error state
   if (!player1 || !player2) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={[]}>
         <PageHeader
           variant="centered"
           title="Compare Stats"
@@ -206,7 +205,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   const hasStats2 = stats2 && stats2.roundsPlayed > 0;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={[]}>
       <PageHeader
         variant="centered"
         title="Compare Stats"
@@ -248,7 +247,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
           {hasStats1 && hasStats2 && stats1 && stats2 && diffs && (
             <>
               {/* Overview Comparison */}
-              <SectionHeader title="Overview" icon="golf" />
+              <SectionHeader title="Overview" icon="golf" primaryIcon={false} style={{ marginTop: spacing.xl }} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Rounds"
@@ -281,7 +280,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Averages Comparison */}
-              <SectionHeader title="Averages" icon="chart-line" />
+              <SectionHeader title="Averages" icon="chart-line" primaryIcon={false} style={{ marginTop: spacing.xl }} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Avg Score"
@@ -319,7 +318,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Score Distribution Comparison */}
-              <SectionHeader title="Score Distribution" icon="chart-bar" />
+              <SectionHeader title="Score Distribution" icon="chart-bar" primaryIcon={false} style={{ marginTop: spacing.xl }} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <DistributionComparison
                   label="Eagles"
@@ -364,7 +363,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Performance Records */}
-              <SectionHeader title="Best Performances" icon="medal" />
+              <SectionHeader title="Best Performances" icon="medal" primaryIcon={false} style={{ marginTop: spacing.xl }} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Best Score"
@@ -403,7 +402,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               {/* Game Stats (Putting, FIR, GIR) - Shown based on settings */}
               {(showPutts || showFairwayHit || showGreenInRegulation) && (
                 <>
-                  <SectionHeader title="Game Stats" icon="golf" />
+                  <SectionHeader title="Game Stats" icon="golf" primaryIcon={false} style={{ marginTop: spacing.xl }} />
                   <View style={[styles.card, { backgroundColor: colors.surface }]}>
                     {/* Putting Comparison */}
                     {showPutts && (

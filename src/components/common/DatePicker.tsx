@@ -4,9 +4,9 @@ import {
   StyleSheet,
   Platform,
   Modal,
-  Pressable,
+  TouchableOpacity,
 } from 'react-native';
-import { TextInput, Button, Text, Surface } from 'react-native-paper';
+import { TextInput, Button, Text } from 'react-native-paper';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -83,7 +83,7 @@ export function DatePicker({
   icon,
 }: DatePickerProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
+  const isDark = useIsDark(); // Needed for native DateTimePicker component
   const [showPicker, setShowPicker] = useState(false);
 
   // Get the current Date value for the picker
@@ -149,7 +149,7 @@ export function DatePicker({
         </Text>
       )}
 
-      <Pressable onPress={openPicker} disabled={disabled}>
+      <TouchableOpacity onPress={openPicker} disabled={disabled} activeOpacity={0.7}>
         <TextInput
           placeholder={displayPlaceholder}
           value={value}
@@ -178,7 +178,7 @@ export function DatePicker({
             )
           }
         />
-      </Pressable>
+      </TouchableOpacity>
 
       {error ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
@@ -192,13 +192,12 @@ export function DatePicker({
       {showPicker &&
         (Platform.OS === 'ios' ? (
           <Modal transparent animationType="fade" visible={showPicker}>
-            <View style={styles.pickerModalOverlay}>
-              <Surface
+            <View style={[styles.pickerModalOverlay, { backgroundColor: colors.overlay }]}>
+              <View
                 style={[
                   styles.pickerModalContent,
-                  { backgroundColor: isDark ? colors.gray100 : colors.surface },
+                  { backgroundColor: colors.surface },
                 ]}
-                elevation={4}
               >
                 <View
                   style={[
@@ -218,10 +217,10 @@ export function DatePicker({
                   minimumDate={mode === 'date' && minimumDate ? startOfDay(minimumDate) : undefined}
                   maximumDate={mode === 'date' ? maximumDate : undefined}
                   is24Hour={mode === 'time'}
-                  textColor={isDark ? '#ffffff' : colors.textPrimary}
+                  textColor={isDark ? colors.white : colors.textPrimary}
                   themeVariant={isDark ? 'dark' : 'light'}
                 />
-              </Surface>
+              </View>
             </View>
           </Modal>
         ) : (
@@ -258,7 +257,6 @@ const styles = StyleSheet.create({
   },
   pickerModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   pickerModalContent: {

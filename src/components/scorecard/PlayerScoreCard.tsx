@@ -13,8 +13,8 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Surface, Icon } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -151,17 +151,17 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   }, [disabled, onStatsUpdate, currentScore?.putts]);
 
   return (
-    <Surface style={[styles.card, { backgroundColor: colors.gray100 }]} elevation={1}>
+    <View style={[styles.card, { backgroundColor: colors.gray100 }]}>
       {/* Player Header */}
       <View style={styles.header}>
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.playerInfo,
             onPlayerPress && styles.playerInfoTappable,
-            pressed && onPlayerPress && { backgroundColor: colors.gray100 },
           ]}
           onPress={handlePlayerPress}
           disabled={!onPlayerPress}
+          activeOpacity={0.7}
           accessibilityLabel={`View ${player.name}'s scorecard`}
           accessibilityRole="button"
           accessibilityHint="Opens the player's detailed scorecard"
@@ -170,7 +170,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             {player.name}
           </Text>
           <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {handicap}</Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
@@ -192,16 +192,16 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
       <View style={styles.controlsContainer}>
         {/* Pick Up Button */}
         <View style={styles.actionButtonContainer}>
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.actionButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handlePickUp}
             disabled={disabled}
+            activeOpacity={0.7}
             accessibilityLabel="Pick up ball"
             accessibilityRole="button"
             accessibilityHint="Marks that you picked up your ball on this hole"
@@ -215,27 +215,27 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             >
               P
             </Text>
-          </Pressable>
+          </TouchableOpacity>
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>PICK UP</Text>
         </View>
 
         {/* Score Stepper */}
         <View style={styles.stepperContainer}>
           {/* Minus Button */}
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.stepperButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handleDecrement}
             disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
+            activeOpacity={0.7}
             accessibilityLabel="Decrease score"
             accessibilityRole="button"
           >
             <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</Text>
-          </Pressable>
+          </TouchableOpacity>
 
           {/* Current Score Display */}
           <View style={styles.scoreDisplay}>
@@ -245,34 +245,34 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           </View>
 
           {/* Plus Button */}
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.stepperButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
-              pressed && !isPickedUp && styles.buttonPressed,
               (disabled || isPickedUp) && styles.buttonDisabled,
             ]}
             onPress={handleIncrement}
             disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
+            activeOpacity={0.7}
             accessibilityLabel="Increase score"
             accessibilityRole="button"
           >
             <Text style={[styles.stepperButtonText, { color: colors.textPrimary }, isPickedUp && styles.disabledText]}>+</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Par Button */}
         <View style={styles.actionButtonContainer}>
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.actionButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               selectedScore === currentHole.par && { backgroundColor: colors.primary, borderColor: colors.primary },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handleParSelect}
             disabled={disabled}
+            activeOpacity={0.7}
             accessibilityLabel={`Score par ${currentHole.par}`}
             accessibilityRole="button"
             accessibilityHint={`Sets your score to par which is ${currentHole.par}`}
@@ -286,7 +286,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             >
               {currentHole.par}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>PAR</Text>
         </View>
       </View>
@@ -303,16 +303,16 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             {/* FIR Toggle (only for par 4s and 5s) */}
             {showFIR && (
               <View style={styles.checkboxContainer}>
-                <Pressable
-                  style={({ pressed }) => [
+                <TouchableOpacity
+                  style={[
                     styles.checkbox,
                     { borderColor: colors.gray300, backgroundColor: colors.white },
                     currentScore?.fairwayHit === true && { backgroundColor: colors.success, borderColor: colors.success },
-                    pressed && styles.buttonPressed,
                     disabled && styles.buttonDisabled,
                   ]}
                   onPress={handleFairwayToggle}
                   disabled={disabled}
+                  activeOpacity={0.7}
                   accessibilityLabel="Fairway in regulation"
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: currentScore?.fairwayHit === true }}
@@ -323,7 +323,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
                   {currentScore?.fairwayHit !== true && (
                     <Icon source="check" size={24} color={colors.gray300} />
                   )}
-                </Pressable>
+                </TouchableOpacity>
                 <Text style={[styles.checkboxLabel, { color: colors.textSecondary }]}>FIR</Text>
               </View>
             )}
@@ -331,16 +331,16 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             {/* GIR Toggle */}
             {showGreenInRegulation && (
               <View style={styles.checkboxContainer}>
-                <Pressable
-                  style={({ pressed }) => [
+                <TouchableOpacity
+                  style={[
                     styles.checkbox,
                     { borderColor: colors.gray300, backgroundColor: colors.white },
                     currentScore?.greenInRegulation === true && { backgroundColor: colors.success, borderColor: colors.success },
-                    pressed && styles.buttonPressed,
                     disabled && styles.buttonDisabled,
                   ]}
                   onPress={handleGIRToggle}
                   disabled={disabled}
+                  activeOpacity={0.7}
                   accessibilityLabel="Green in regulation"
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: currentScore?.greenInRegulation === true }}
@@ -351,7 +351,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
                   {currentScore?.greenInRegulation !== true && (
                     <Icon source="check" size={24} color={colors.gray300} />
                   )}
-                </Pressable>
+                </TouchableOpacity>
                 <Text style={[styles.checkboxLabel, { color: colors.textSecondary }]}>GIR</Text>
               </View>
             )}
@@ -360,20 +360,20 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             {showPutts && (
               <View style={styles.puttsContainer}>
                 <View style={styles.puttsStepperRow}>
-                  <Pressable
-                    style={({ pressed }) => [
+                  <TouchableOpacity
+                    style={[
                       styles.puttsButton,
                       { borderColor: colors.gray300, backgroundColor: colors.white },
-                      pressed && styles.buttonPressed,
                       (disabled || (currentScore?.putts ?? 0) <= 0) && styles.buttonDisabled,
                     ]}
                     onPress={handlePuttsDecrement}
                     disabled={disabled || (currentScore?.putts ?? 0) <= 0}
+                    activeOpacity={0.7}
                     accessibilityLabel="Decrease putts"
                     accessibilityRole="button"
                   >
                     <Text style={[styles.puttsButtonText, { color: colors.textPrimary }]}>−</Text>
-                  </Pressable>
+                  </TouchableOpacity>
 
                   <View style={styles.puttsDisplay}>
                     <Text style={[styles.puttsDisplayText, { color: colors.textPrimary }]}>
@@ -381,20 +381,20 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
                     </Text>
                   </View>
 
-                  <Pressable
-                    style={({ pressed }) => [
+                  <TouchableOpacity
+                    style={[
                       styles.puttsButton,
                       { borderColor: colors.gray300, backgroundColor: colors.white },
-                      pressed && styles.buttonPressed,
                       (disabled || (currentScore?.putts ?? 0) >= MAX_PUTTS) && styles.buttonDisabled,
                     ]}
                     onPress={handlePuttsIncrement}
                     disabled={disabled || (currentScore?.putts ?? 0) >= MAX_PUTTS}
+                    activeOpacity={0.7}
                     accessibilityLabel="Increase putts"
                     accessibilityRole="button"
                   >
                     <Text style={[styles.puttsButtonText, { color: colors.textPrimary }]}>+</Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
                 <Text style={[styles.checkboxLabel, { color: colors.textSecondary }]}>PUTTS</Text>
               </View>
@@ -402,7 +402,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           </View>
         </>
       )}
-    </Surface>
+    </View>
   );
 });
 

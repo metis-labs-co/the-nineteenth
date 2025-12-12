@@ -6,7 +6,7 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import type { Scorecard, HoleScore, Player, Hole, PendingSync } from '@/types';
+import type { Scorecard, HoleScore, Hole, PendingSync } from '@/types';
 import { dbLogger } from '@/utils/debugLogger';
 
 const DB_NAME = 'the_nineteenth.db';

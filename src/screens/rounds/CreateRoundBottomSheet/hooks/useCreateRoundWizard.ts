@@ -313,7 +313,7 @@ export function useCreateRoundWizard({
         data.selectedCourse.courseName,
         data.selectedPartners,
         data.selectedTee ?? undefined,
-        data.selectedMatchType,
+        data.selectedMatchType ?? undefined,
         scoringPairsConfig
       );
 

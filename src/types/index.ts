@@ -17,7 +17,6 @@ import type {
   RoundStatus as DBRoundStatus,
   ScorecardStatus as DBScorecardStatus,
   InvitationStatus as DBInviteStatus,
-  CourseSource as DBCourseSource,
   // Import for internal use in this file
   Hole,
   TeeBox,

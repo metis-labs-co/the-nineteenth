@@ -154,7 +154,7 @@ export const Tabs = React.memo(function Tabs<T extends string = string>({
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.gray100, padding: sizeStyles.containerPadding },
+        { backgroundColor: colors.surfaceVariant, padding: sizeStyles.containerPadding },
         !scrollable && style,
       ]}
       testID={testID}

@@ -17,8 +17,8 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
+import { LoadingSpinner } from '@/components/common';
 import { Text, Icon, Avatar } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -26,7 +26,7 @@ import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/social';
 import { StatCard, ScoreDistributionBar } from '@/components/statistics';
@@ -41,12 +41,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PlayerDetail'>;
 
 export default function PlayerDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const { id: playerId } = route.params;
   const { user } = useAuth();
 
-  // Card background for dark mode
-  const cardBg = isDark ? colors.gray100 : colors.white;
+  // Card background
+  const cardBg = colors.surface;
 
   // Fetch player profile
   const {
@@ -97,10 +96,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
           onBack={handleGoBack}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading player profile...
-          </Text>
+          <LoadingSpinner size="lg" message="Loading player profile..." />
         </View>
       </View>
     );
@@ -154,8 +150,8 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >
@@ -216,7 +212,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
             <Icon source="chart-line" size={48} color={colors.gray300} />
             <Text style={[styles.noStatsTitle, { color: colors.textPrimary }]}>No statistics yet</Text>
             <Text style={[styles.noStatsMessage, { color: colors.textSecondary }]}>
-              {player.name} hasn't completed any rounds yet. Statistics will appear once they start
+              {player.name} hasn&apos;t completed any rounds yet. Statistics will appear once they start
               playing.
             </Text>
           </View>
@@ -333,7 +329,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                   <View
                     style={[
                       styles.performanceIcon,
-                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                      { backgroundColor: colors.surfaceVariant },
                     ]}
                   >
                     <Icon source="trophy" size={20} color={colors.success} />
@@ -357,7 +353,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                   <View
                     style={[
                       styles.performanceIcon,
-                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                      { backgroundColor: colors.surfaceVariant },
                     ]}
                   >
                     <Icon source="star" size={20} color={colors.warning} />
@@ -382,7 +378,7 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                   <View
                     style={[
                       styles.performanceIcon,
-                      { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+                      { backgroundColor: colors.surfaceVariant },
                     ]}
                   >
                     <Icon source="bird" size={20} color={colors.birdie} />

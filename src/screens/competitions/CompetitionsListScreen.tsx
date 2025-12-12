@@ -19,9 +19,8 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
@@ -31,7 +30,7 @@ import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { EmptyState, Tabs, FilterPill } from '@/components/common';
 import { PageHeader } from '@/components/common/PageHeader';
 import { CompetitionListCard } from '@/components/competitions';
-import { TierBadge, LimitIndicator, FeatureLockButton } from '@/components/subscription';
+import { LimitIndicator, FeatureLockButton } from '@/components/subscription';
 import type { UpgradePromptConfig } from '@/components/subscription';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,6 +63,11 @@ export default function CompetitionsListScreen() {
 
   // Status filter - default to 'active' which shows upcoming and in-progress
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+
+  // Delete confirmation dialog state
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [competitionToDelete, setCompetitionToDelete] = useState<CompetitionItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Track legacy (grandfathered) competition IDs
   const [legacyCompetitionIds, setLegacyCompetitionIds] = useState<Set<string>>(new Set());
@@ -266,48 +270,48 @@ export default function CompetitionsListScreen() {
   const handleDeleteCompetition = useCallback(
     (competition: CompetitionItem) => {
       if (!user?.id) return;
-
-      Alert.alert(
-        'Delete Competition',
-        `Are you sure you want to delete "${competition.name}"? This action cannot be undone.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Soft delete - set deleted_at timestamp
-                // Type assertion needed because the generated Supabase types
-                // restrict Update to 'never' for competitions table
-                const { error } = await (supabase
-                  .from('competitions') as ReturnType<typeof supabase.from>)
-                  .update({ deleted_at: new Date().toISOString() } as Record<string, string>)
-                  .eq('id', competition.id)
-                  .eq('organizer_id', user.id);
-
-                if (error) {
-                  console.error('Error deleting competition:', error);
-                  Alert.alert('Error', 'Failed to delete competition. Please try again.');
-                  return;
-                }
-
-                // Refetch competitions
-                refetchMy();
-              } catch (err) {
-                console.error('Error deleting competition:', err);
-                Alert.alert('Error', 'Failed to delete competition. Please try again.');
-              }
-            },
-          },
-        ]
-      );
+      setCompetitionToDelete(competition);
+      setDeleteDialogVisible(true);
     },
-    [user?.id, refetchMy]
+    [user?.id]
   );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!competitionToDelete || !user?.id) return;
+
+    setIsDeleting(true);
+    try {
+      // Soft delete - set deleted_at timestamp
+      // Type assertion needed because the generated Supabase types
+      // restrict Update to 'never' for competitions table
+      const { error } = await (supabase
+        .from('competitions') as ReturnType<typeof supabase.from>)
+        .update({ deleted_at: new Date().toISOString() } as Record<string, string>)
+        .eq('id', competitionToDelete.id)
+        .eq('organizer_id', user.id);
+
+      if (error) {
+        console.error('Error deleting competition:', error);
+        // Keep dialog open and show error
+        setIsDeleting(false);
+        return;
+      }
+
+      // Success - close dialog and refetch
+      setDeleteDialogVisible(false);
+      setCompetitionToDelete(null);
+      refetchMy();
+    } catch (err) {
+      console.error('Error deleting competition:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [competitionToDelete, user?.id, refetchMy]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteDialogVisible(false);
+    setCompetitionToDelete(null);
+  }, []);
 
   // Get empty state content based on active tab and filter
   const getEmptyStateContent = () => {
@@ -447,15 +451,14 @@ export default function CompetitionsListScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading competitions...</Text>
+            <LoadingSpinner size="lg" message="Loading competitions..." />
           </View>
         ) : !currentCompetitions || currentCompetitions.length === 0 ? (
           <EmptyState
@@ -492,6 +495,20 @@ export default function CompetitionsListScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={deleteDialogVisible}
+        title="Delete Competition"
+        message={`Are you sure you want to delete "${competitionToDelete?.name ?? 'this competition'}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        loading={isDeleting}
+        icon="delete"
+      />
     </View>
   );
 }

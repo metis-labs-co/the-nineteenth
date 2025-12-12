@@ -20,14 +20,11 @@ import {
   calculateMatchPlayPoints,
   type PointSystemRules,
   type RoundResult as CompetitionPointsRoundResult,
-  type ScoredResult,
   type MatchResult,
-  STANDARD_POINT_SYSTEM,
 } from '@/utils/competitionPoints';
 import type {
   RoundResult,
   RoundResultData,
-  Round,
   Scorecard,
   GameType,
   Player,

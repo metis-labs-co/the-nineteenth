@@ -1,4 +1,4 @@
-import { Hole, HoleScore, GameType, Scorecard } from '@/types';
+import { Hole, GameType, Scorecard } from '@/types';
 
 /**
  * Calculate the number of strokes a player receives on a specific hole

@@ -3,10 +3,10 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Modal } from 'react-native';
-import { Text, Surface, IconButton, Icon } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { TEE_COLORS, type TeeSelectionModalProps } from '../types';
 
 export const TeeSelectionModal = React.memo(function TeeSelectionModal({
@@ -17,18 +17,16 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
   onClose,
 }: TeeSelectionModalProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Surface
+      <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+        <View
           style={[
             styles.modalContent,
-            { backgroundColor: isDark ? colors.gray100 : colors.surface },
+            { backgroundColor: colors.surface },
           ]}
-          elevation={4}
         >
           <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Tees</Text>
@@ -45,7 +43,7 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
               const isWhiteTee = tee.color.toLowerCase() === 'white';
 
               return (
-                <Pressable
+                <TouchableOpacity
                   key={`${tee.name}-${teeIndex}`}
                   onPress={() => onSelect(tee)}
                   style={[
@@ -53,6 +51,7 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
                     { borderBottomColor: colors.gray200 },
                     isSelected && { backgroundColor: colors.primaryLighter },
                   ]}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.teeItemContent}>
                     {/* Tee Color Dot */}
@@ -97,11 +96,11 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
                     </View>
                   </View>
                   {isSelected && <Icon source="check" size={24} color={colors.primary} />}
-                </Pressable>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
-        </Surface>
+        </View>
       </View>
     </Modal>
   );
@@ -110,7 +109,6 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,

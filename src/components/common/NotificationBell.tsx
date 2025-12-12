@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, Pressable, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -51,14 +51,10 @@ export const NotificationBell = React.memo(function NotificationBell({
         : `Notifications, ${unreadCount} unread`;
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.container,
-        {
-          backgroundColor: pressed ? colors.gray100 : 'transparent',
-        },
-      ]}
+      style={styles.container}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint="Opens the notifications screen"
@@ -88,7 +84,7 @@ export const NotificationBell = React.memo(function NotificationBell({
           </Text>
         </View>
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 

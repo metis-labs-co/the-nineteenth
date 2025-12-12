@@ -13,14 +13,15 @@ import {
   StyleSheet,
   View,
   ScrollView,
-  Pressable,
+  TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   Alert,
   Linking,
 } from 'react-native';
-import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
+import { Text, Icon, Divider } from 'react-native-paper';
+import { GolfBallLoader } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -65,7 +66,7 @@ const InquiryTypeSelector = React.memo(function InquiryTypeSelector({
       {INQUIRY_OPTIONS.map((option) => {
         const isSelected = selectedType === option.type;
         return (
-          <Pressable
+          <TouchableOpacity
             key={option.type}
             style={[
               styles.inquiryTypeButton,
@@ -75,6 +76,7 @@ const InquiryTypeSelector = React.memo(function InquiryTypeSelector({
                 backgroundColor: colors.primaryLighter + '20',
               },
             ]}
+            activeOpacity={0.7}
             onPress={() => onSelect(option.type)}
             accessibilityRole="radio"
             accessibilityState={{ selected: isSelected }}
@@ -96,7 +98,7 @@ const InquiryTypeSelector = React.memo(function InquiryTypeSelector({
             >
               {option.label}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         );
       })}
     </View>
@@ -384,14 +386,14 @@ export default function HelpAndSupportScreen() {
             </Text>
 
             {/* Submit Button */}
-            <Pressable
-              style={({ pressed }) => [
+            <TouchableOpacity
+              style={[
                 styles.submitButton,
                 isSubmitDisabled
                   ? dynamicStyles.submitDisabled
                   : dynamicStyles.submitEnabled,
-                pressed && !isSubmitDisabled && styles.submitButtonPressed,
               ]}
+              activeOpacity={0.7}
               onPress={handleSubmit}
               disabled={isSubmitDisabled}
               accessibilityRole="button"
@@ -399,7 +401,7 @@ export default function HelpAndSupportScreen() {
               accessibilityState={{ disabled: isSubmitDisabled }}
             >
               {form.isSubmitting ? (
-                <ActivityIndicator size="small" color={colors.white} />
+                <GolfBallLoader size="sm" />
               ) : (
                 <>
                   <Icon source="send" size={20} color={colors.white} />
@@ -408,7 +410,7 @@ export default function HelpAndSupportScreen() {
                   </Text>
                 </>
               )}
-            </Pressable>
+            </TouchableOpacity>
 
             {/* Alternative Contact */}
             <View style={[styles.alternativeContact, dynamicStyles.infoBox]}>
@@ -522,9 +524,6 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: borderRadius.lg,
     marginTop: spacing.sm,
-  },
-  submitButtonPressed: {
-    opacity: 0.8,
   },
   submitButtonText: {
     ...typography.bodyBold,

@@ -3,11 +3,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, Modal } from 'react-native';
-import { Text, Surface, IconButton, Icon } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
-import type { MatchTypeModalProps, GameType } from '../types';
+import { useThemeColors } from '@/context/ThemeContext';
+import type { MatchTypeModalProps } from '../types';
 
 export const MatchTypeModal = React.memo(function MatchTypeModal({
   visible,
@@ -17,17 +17,15 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
   onClose,
 }: MatchTypeModalProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Surface
+      <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: colors.overlay }]} onPress={onClose} activeOpacity={1}>
+        <View
           style={[
             styles.modalContent,
-            { backgroundColor: isDark ? colors.gray100 : colors.surface },
+            { backgroundColor: colors.surface },
           ]}
-          elevation={4}
         >
           <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Match Type</Text>
@@ -38,7 +36,7 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
               const isSelected = selectedMatchType === type.value;
               const isDisabled = type.disabled;
               return (
-                <Pressable
+                <TouchableOpacity
                   key={type.value}
                   onPress={() => !isDisabled && onSelect(type.value)}
                   disabled={isDisabled}
@@ -48,6 +46,7 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
                     isSelected && { backgroundColor: colors.primaryLighter },
                     isDisabled && { opacity: 0.5 },
                   ]}
+                  activeOpacity={0.7}
                 >
                   <View style={styles.matchTypeInfo}>
                     <View style={styles.matchTypeLabelRow}>
@@ -79,12 +78,12 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
                   {isSelected && !isDisabled && (
                     <Icon source="check" size={24} color={colors.primary} />
                   )}
-                </Pressable>
+                </TouchableOpacity>
               );
             })}
           </View>
-        </Surface>
-      </Pressable>
+        </View>
+      </TouchableOpacity>
     </Modal>
   );
 });
@@ -92,7 +91,6 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,

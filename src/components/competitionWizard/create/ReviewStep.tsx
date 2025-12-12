@@ -4,7 +4,6 @@ import {
   Button,
   Text,
   Divider,
-  Surface,
   Avatar,
   Chip,
 } from 'react-native-paper';
@@ -19,7 +18,7 @@ import type {
   CompetitionType,
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark, type ColorPalette } from '@/context/ThemeContext';
+import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
 // Game type labels for display (values match database.types.ts)
 const gameTypeLabels: Record<GameType, string> = {
@@ -65,7 +64,6 @@ export default function ReviewStep({
 }: ReviewStepProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   // Format date for display (DD/MM/YYYY - Australian)
   const formatDate = (dateString: string) => {
@@ -95,12 +93,12 @@ export default function ReviewStep({
       <ScrollView contentContainerStyle={styles.content}>
         {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Review all details before creating your competition. You'll receive an invite code
+          Review all details before creating your competition. You&apos;ll receive an invite code
           to share with players.
         </Text>
 
         {/* Competition Details */}
-        <Surface style={[styles.section, { backgroundColor: isDark ? colors.gray100 : colors.white }]} elevation={1}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Competition Details</Text>
           <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
@@ -135,10 +133,10 @@ export default function ReviewStep({
               <ReviewItem label="Invite Code" value={competitionData.inviteCode} colors={colors} />
             )}
           </View>
-        </Surface>
+        </View>
 
         {/* Team Settings */}
-        <Surface style={[styles.section, { backgroundColor: isDark ? colors.gray100 : colors.white }]} elevation={1}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Team Settings</Text>
           <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
@@ -174,10 +172,10 @@ export default function ReviewStep({
               </View>
             </View>
           </View>
-        </Surface>
+        </View>
 
         {/* Rounds Details */}
-        <Surface style={[styles.section, { backgroundColor: isDark ? colors.gray100 : colors.white }]} elevation={1}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Rounds ({roundsData.length})
           </Text>
@@ -205,10 +203,10 @@ export default function ReviewStep({
               </View>
             ))}
           </View>
-        </Surface>
+        </View>
 
         {/* Players */}
-        <Surface style={[styles.section, { backgroundColor: isDark ? colors.gray100 : colors.white }]} elevation={1}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Players ({playersData.length})</Text>
           <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
@@ -235,14 +233,14 @@ export default function ReviewStep({
               </View>
             ))}
           </View>
-        </Surface>
+        </View>
 
         {/* Important Notes */}
         <View style={[styles.warningBox, { backgroundColor: colors.gray100 }]}>
           <Text style={[styles.warningTitle, { color: colors.textPrimary }]}>Before you continue:</Text>
           <View style={styles.warningList}>
             <Text style={[styles.warningText, { color: colors.textSecondary }]}>• This competition will be created as private</Text>
-            <Text style={[styles.warningText, { color: colors.textSecondary }]}>• You'll receive an invite code to share with players</Text>
+            <Text style={[styles.warningText, { color: colors.textSecondary }]}>• You&apos;ll receive an invite code to share with players</Text>
             <Text style={[styles.warningText, { color: colors.textSecondary }]}>• Players can join using the invite code</Text>
             <Text style={[styles.warningText, { color: colors.textSecondary }]}>• You can edit details after creation</Text>
           </View>
@@ -250,7 +248,7 @@ export default function ReviewStep({
       </ScrollView>
 
       {/* Action Buttons - Sticky Footer */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: isDark ? colors.gray100 : colors.white, borderTopColor: colors.gray200 }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.surface, borderTopColor: colors.gray200 }]}>
         <Button
           mode="outlined"
           onPress={onBack}

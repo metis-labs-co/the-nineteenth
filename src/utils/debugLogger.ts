@@ -130,6 +130,12 @@ export const dbLogger = createModuleLogger('SQLite');
 export const storeLogger = createModuleLogger('ScorecardStore');
 export const submitLogger = createModuleLogger('Submit');
 
+// Scoring-specific loggers for debugging score entry flows
+export const scoringLogger = createModuleLogger('Scoring');
+export const roundDataLogger = createModuleLogger('RoundData');
+export const teamScoringLogger = createModuleLogger('TeamScoring');
+export const matchPlayLogger = createModuleLogger('MatchPlay');
+
 /**
  * Get recent log entries (for debugging UI or export)
  */

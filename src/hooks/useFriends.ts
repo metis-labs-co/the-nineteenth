@@ -100,7 +100,8 @@ export function useFriends() {
       if (!user?.id) return [];
 
       // Fetch friendships where user is either requester or addressee
-      // Include both 'accepted' and 'pending' statuses
+      // Only include 'accepted' friendships in the friends list
+      // Pending requests received by the user are shown separately via useFriendRequests
       const { data, error } = await supabase
         .from('friendships')
         .select(`
@@ -114,7 +115,7 @@ export function useFriends() {
           addressee:players!friendships_addressee_id_fkey(*)
         `)
         .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .in('status', ['accepted', 'pending']);
+        .eq('status', 'accepted');
 
       if (error) {
         console.error('Error fetching friends:', error);

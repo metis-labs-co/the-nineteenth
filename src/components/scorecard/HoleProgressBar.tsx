@@ -30,7 +30,18 @@ export const HoleProgressBar = React.memo(function HoleProgressBar({
   const nineStatus = isBackNine ? 'Back 9' : 'Front 9';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Round progress: Hole ${currentHole} of ${totalHoles}`}
+      accessibilityValue={{
+        min: 1,
+        max: totalHoles,
+        now: currentHole,
+        text: `${completedHoles} holes completed, currently on ${nineStatus}`,
+      }}
+    >
       {/* Progress Bar */}
       <View style={[styles.progressBar, { backgroundColor: colors.gray200 }]}>
         <View

@@ -13,7 +13,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { Text, Button, ActivityIndicator, Icon } from 'react-native-paper';
+import { Text, Button, Icon } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
@@ -21,7 +22,6 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
 import { UpgradePrompt } from '@/components/subscription';
-import type { UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
@@ -69,6 +69,7 @@ async function fetchCompetitionDetails(competitionId: string): Promise<Competiti
       courses (
         *,
         venues (
+          name,
           city,
           state
         )
@@ -406,8 +407,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading competition...</Text>
+        <LoadingSpinner size="lg" message="Loading competition..." />
       </View>
     );
   }
@@ -483,8 +483,8 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
         showsVerticalScrollIndicator={false}

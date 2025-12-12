@@ -48,7 +48,7 @@ import {
   StyleSheet,
   View,
   Animated,
-  Pressable,
+  TouchableOpacity,
   AccessibilityInfo,
   Modal,
 } from 'react-native';
@@ -229,9 +229,10 @@ export const UpgradePrompt = React.memo(function UpgradePrompt({
         style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         testID={testID}
       >
-        <Pressable
+        <TouchableOpacity
           style={styles.backdropPressable}
           onPress={onDismiss}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Close upgrade prompt"
         />
@@ -305,28 +306,29 @@ export const UpgradePrompt = React.memo(function UpgradePrompt({
           )}
 
           {/* Upgrade Button */}
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.upgradeButton,
               { backgroundColor: tierColor },
-              pressed && styles.buttonPressed,
             ]}
             onPress={handleUpgrade}
+            activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={`Upgrade to ${tierName}`}
             accessibilityHint="Opens subscription options"
           >
-            <Icon source="arrow-up-circle" size={20} color="#ffffff" />
-            <Text style={styles.upgradeButtonText}>
+            <Icon source="arrow-up-circle" size={20} color={colors.textOnColored} />
+            <Text style={[styles.upgradeButtonText, { color: colors.textOnColored }]}>
               Upgrade to {tierName}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
 
           {/* Dismiss Button (optional) */}
           {onDismiss && (
-            <Pressable
+            <TouchableOpacity
               style={styles.dismissButton}
               onPress={handleDismiss}
+              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Maybe later"
               accessibilityHint="Closes this prompt"
@@ -336,7 +338,7 @@ export const UpgradePrompt = React.memo(function UpgradePrompt({
               >
                 Maybe later
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           )}
         </Animated.View>
       </View>
@@ -414,13 +416,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.md,
   },
-  buttonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
   upgradeButtonText: {
     ...typography.bodyBold,
-    color: '#ffffff',
   },
   dismissButton: {
     marginTop: spacing.lg,

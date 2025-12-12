@@ -44,6 +44,8 @@ interface RoundScorecardTabProps {
   scorecards: ScorecardWithPlayer[];
   roundPlayers: RoundPlayer[];
   holes: CourseWithVenue['holes'] | null;
+  /** Callback when a player name is pressed in the table view */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 // =====================================================
@@ -246,6 +248,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   scorecards,
   roundPlayers,
   holes,
+  onPlayerPress,
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -340,7 +343,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
 
       {/* Conditional view rendering */}
       {viewMode === 'table' ? (
-        <ScorecardTable players={displayPlayers} holes={courseHoles} screenWidth={screenWidth} />
+        <ScorecardTable players={displayPlayers} holes={courseHoles} screenWidth={screenWidth} onPlayerPress={onPlayerPress} />
       ) : (
         <IndividualScorecardView displayPlayers={displayPlayers} holes={courseHoles} />
       )}

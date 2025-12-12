@@ -6,11 +6,11 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { TextInput, Button, Text, HelperText } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconMail } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { PageHeader } from '@/components/common/PageHeader';
+import { PageHeader, FormInput } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
@@ -49,8 +49,6 @@ export default function SignupScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [secureTextEntry, setSecureTextEntry] = useState(true);
-  const [secureConfirmEntry, setSecureConfirmEntry] = useState(true);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +205,7 @@ export default function SignupScreen({ navigation }: Props) {
           </View>
           <Text style={[styles.confirmationTitle, { color: colors.textPrimary }]}>Confirm Your Email</Text>
           <Text style={[styles.confirmationMessage, { color: colors.textSecondary }]}>
-            We've sent a confirmation link to:
+            We&apos;ve sent a confirmation link to:
           </Text>
           <Text style={[styles.confirmationEmail, { color: colors.primary }]}>{email}</Text>
           <Text style={[styles.confirmationInstructions, { color: colors.textSecondary }]}>
@@ -225,7 +223,7 @@ export default function SignupScreen({ navigation }: Props) {
             Go to Login
           </Button>
           <Text style={[styles.confirmationHint, { color: colors.textDisabled }]}>
-            Didn't receive the email? Check your spam folder or try signing up again.
+            Didn&apos;t receive the email? Check your spam folder or try signing up again.
           </Text>
         </View>
       </SafeAreaView>
@@ -267,148 +265,78 @@ export default function SignupScreen({ navigation }: Props) {
             {/* Form Section */}
             <View style={styles.form}>
               {/* Name Input */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  label="Full Name"
-                  value={name}
-                  onChangeText={(text) => {
-                    setName(text);
-                    if (nameError) validateName(text);
-                  }}
-                  onBlur={() => validateName(name)}
-                  mode="outlined"
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  error={!!nameError}
-                  disabled={isAuthenticating}
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  accessibilityLabel="Full name input"
-                  accessibilityHint="Enter your full name"
-                />
-                {nameError && (
-                  <HelperText type="error" visible={!!nameError}>
-                    {nameError}
-                  </HelperText>
-                )}
-              </View>
+              <FormInput
+                label="Full Name"
+                floatingLabel
+                value={name}
+                onChangeText={(text) => {
+                  setName(text);
+                  if (nameError) validateName(text);
+                }}
+                onBlur={() => validateName(name)}
+                autoCapitalize="words"
+                autoComplete="name"
+                error={nameError || undefined}
+                disabled={isAuthenticating}
+                accessibilityHint="Enter your full name"
+              />
 
               {/* Email Input */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  label="Email"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (emailError) validateEmail(text);
-                  }}
-                  onBlur={() => validateEmail(email)}
-                  mode="outlined"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  error={!!emailError}
-                  disabled={isAuthenticating}
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  accessibilityLabel="Email input"
-                  accessibilityHint="Enter your email address"
-                />
-                {emailError && (
-                  <HelperText type="error" visible={!!emailError}>
-                    {emailError}
-                  </HelperText>
-                )}
-              </View>
+              <FormInput
+                label="Email"
+                floatingLabel
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (emailError) validateEmail(text);
+                }}
+                onBlur={() => validateEmail(email)}
+                keyboardType="email"
+                autoCapitalize="none"
+                autoComplete="email"
+                error={emailError || undefined}
+                disabled={isAuthenticating}
+                accessibilityHint="Enter your email address"
+              />
 
               {/* Password Input */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  label="Password"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (passwordError) validatePassword(text);
-                    // Re-validate confirm password if it's been filled
-                    if (confirmPassword) validateConfirmPassword(confirmPassword);
-                  }}
-                  onBlur={() => validatePassword(password)}
-                  mode="outlined"
-                  secureTextEntry={secureTextEntry}
-                  autoCapitalize="none"
-                  autoComplete="password-new"
-                  error={!!passwordError}
-                  disabled={isAuthenticating}
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  right={
-                    <TextInput.Icon
-                      icon={secureTextEntry ? 'eye' : 'eye-off'}
-                      onPress={() => setSecureTextEntry(!secureTextEntry)}
-                      accessibilityLabel={
-                        secureTextEntry ? 'Show password' : 'Hide password'
-                      }
-                    />
-                  }
-                  accessibilityLabel="Password input"
-                  accessibilityHint="Enter a strong password with at least 8 characters, uppercase, lowercase, and a number"
-                />
-                {passwordError && (
-                  <HelperText type="error" visible={!!passwordError}>
-                    {passwordError}
-                  </HelperText>
-                )}
-                {!passwordError && password.length > 0 && (
-                  <HelperText type="info" visible={true}>
-                    Use 8+ characters with uppercase, lowercase, and numbers
-                  </HelperText>
-                )}
-              </View>
+              <FormInput
+                label="Password"
+                floatingLabel
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (passwordError) validatePassword(text);
+                  // Re-validate confirm password if it's been filled
+                  if (confirmPassword) validateConfirmPassword(confirmPassword);
+                }}
+                onBlur={() => validatePassword(password)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="password-new"
+                error={passwordError || undefined}
+                hint={!passwordError && password.length > 0 ? 'Use 8+ characters with uppercase, lowercase, and numbers' : undefined}
+                disabled={isAuthenticating}
+                accessibilityHint="Enter a strong password with at least 8 characters, uppercase, lowercase, and a number"
+              />
 
               {/* Confirm Password Input */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  label="Confirm Password"
-                  value={confirmPassword}
-                  onChangeText={(text) => {
-                    setConfirmPassword(text);
-                    if (confirmPasswordError) validateConfirmPassword(text);
-                  }}
-                  onBlur={() => validateConfirmPassword(confirmPassword)}
-                  mode="outlined"
-                  secureTextEntry={secureConfirmEntry}
-                  autoCapitalize="none"
-                  autoComplete="password-new"
-                  error={!!confirmPasswordError}
-                  disabled={isAuthenticating}
-                  style={[styles.input, { backgroundColor: colors.surface }]}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  right={
-                    <TextInput.Icon
-                      icon={secureConfirmEntry ? 'eye' : 'eye-off'}
-                      onPress={() => setSecureConfirmEntry(!secureConfirmEntry)}
-                      accessibilityLabel={
-                        secureConfirmEntry ? 'Show password' : 'Hide password'
-                      }
-                    />
-                  }
-                  accessibilityLabel="Confirm password input"
-                  accessibilityHint="Re-enter your password to confirm"
-                />
-                {confirmPasswordError && (
-                  <HelperText type="error" visible={!!confirmPasswordError}>
-                    {confirmPasswordError}
-                  </HelperText>
-                )}
-              </View>
+              <FormInput
+                label="Confirm Password"
+                floatingLabel
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (confirmPasswordError) validateConfirmPassword(text);
+                }}
+                onBlur={() => validateConfirmPassword(confirmPassword)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="password-new"
+                error={confirmPasswordError || undefined}
+                disabled={isAuthenticating}
+                accessibilityHint="Re-enter your password to confirm"
+              />
 
               {/* Sign Up Button */}
               <Button
@@ -493,12 +421,8 @@ const styles = StyleSheet.create({
     ...typography.small,
   },
   form: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
-  inputContainer: {
-    marginBottom: spacing.sm,
-  },
-  input: {},
   signupButton: {
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,

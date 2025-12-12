@@ -6,30 +6,23 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  FlatList,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, FlatList } from 'react-native';
 import {
   Text,
   TextInput,
-  IconButton,
   Chip,
-  ActivityIndicator,
   Button,
-  Surface,
   Icon,
 } from 'react-native-paper';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { GolfBallLoader, BottomSheet } from '@/components/common';
+import { spacing, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useApiCourseSearch, useImportBasicCourse, useIsApiAvailable } from '@/hooks/useApiCourses';
-import type { Course, LegacyCourse, AustralianState } from '@/types/database.types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useApiCourseSearch,
+  useImportBasicCourse,
+  useIsApiAvailable,
+} from '@/hooks/useApiCourses';
+import type { LegacyCourse, AustralianState } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -68,13 +61,14 @@ export function ApiSearchModal({
   onCourseImported,
 }: ApiSearchModalProps) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
   const isApiAvailable = useIsApiAvailable();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [selectedState, setSelectedState] = useState<AustralianState | undefined>();
+  const [selectedState, setSelectedState] = useState<
+    AustralianState | undefined
+  >();
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
 
   // Debounce search query
@@ -168,37 +162,64 @@ export function ApiSearchModal({
       const importing = isImporting(apiId);
 
       return (
-        <Surface style={[styles.courseCard, { backgroundColor: colors.white }]} elevation={1}>
+        <View
+          style={[styles.courseCard, { backgroundColor: colors.white }]}
+        >
           <View style={styles.courseCardContent}>
             <View style={styles.courseInfo}>
               <View style={styles.courseNameRow}>
-                <Text variant="titleSmall" style={[styles.courseName, { color: colors.gray900 }]} numberOfLines={1}>
+                <Text
+                  variant="titleSmall"
+                  style={[styles.courseName, { color: colors.gray900 }]}
+                  numberOfLines={1}
+                >
                   {item.name}
                 </Text>
                 {isCached && (
-                  <View style={[styles.cachedBadge, { backgroundColor: colors.successLight }]}>
-                    <Icon source="check-circle" size={14} color={colors.success} />
-                    <Text style={[styles.cachedText, { color: colors.success }]}>Saved</Text>
+                  <View
+                    style={[
+                      styles.cachedBadge,
+                      { backgroundColor: colors.successLight },
+                    ]}
+                  >
+                    <Icon
+                      source="check-circle"
+                      size={14}
+                      color={colors.success}
+                    />
+                    <Text style={[styles.cachedText, { color: colors.success }]}>
+                      Saved
+                    </Text>
                   </View>
                 )}
               </View>
 
               <View style={styles.courseDetails}>
                 {item.city && (
-                  <Text variant="bodySmall" style={[styles.courseDetailText, { color: colors.gray600 }]}>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.courseDetailText, { color: colors.gray600 }]}
+                  >
                     {item.city}
                     {item.state ? `, ${item.state}` : ''}
                   </Text>
                 )}
                 {!item.city && item.state && (
-                  <Text variant="bodySmall" style={[styles.courseDetailText, { color: colors.gray600 }]}>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.courseDetailText, { color: colors.gray600 }]}
+                  >
                     {item.state}
                   </Text>
                 )}
               </View>
 
               {item.address && (
-                <Text variant="bodySmall" style={[styles.addressText, { color: colors.gray500 }]} numberOfLines={1}>
+                <Text
+                  variant="bodySmall"
+                  style={[styles.addressText, { color: colors.gray500 }]}
+                  numberOfLines={1}
+                >
                   {item.address}
                 </Text>
               )}
@@ -218,7 +239,7 @@ export function ApiSearchModal({
               </Button>
             )}
           </View>
-        </Surface>
+        </View>
       );
     },
     [colors, handleImport, isImporting]
@@ -232,10 +253,16 @@ export function ApiSearchModal({
       return (
         <View style={styles.emptyState}>
           <Icon source="magnify" size={48} color={colors.gray400} />
-          <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.gray600 }]}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.emptyText, { color: colors.gray600 }]}
+          >
             Search for golf courses by name
           </Text>
-          <Text variant="bodySmall" style={[styles.emptySubtext, { color: colors.gray500 }]}>
+          <Text
+            variant="bodySmall"
+            style={[styles.emptySubtext, { color: colors.gray500 }]}
+          >
             Or filter by state to browse courses
           </Text>
         </View>
@@ -246,10 +273,16 @@ export function ApiSearchModal({
       return (
         <View style={styles.emptyState}>
           <Icon source="alert-circle-outline" size={48} color={colors.error} />
-          <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.gray600 }]}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.emptyText, { color: colors.gray600 }]}
+          >
             Search failed
           </Text>
-          <Text variant="bodySmall" style={[styles.emptySubtext, { color: colors.gray500 }]}>
+          <Text
+            variant="bodySmall"
+            style={[styles.emptySubtext, { color: colors.gray500 }]}
+          >
             {error.message || 'Please try again'}
           </Text>
         </View>
@@ -259,10 +292,16 @@ export function ApiSearchModal({
     return (
       <View style={styles.emptyState}>
         <Icon source="golf" size={48} color={colors.gray400} />
-        <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.gray600 }]}>
+        <Text
+          variant="bodyMedium"
+          style={[styles.emptyText, { color: colors.gray600 }]}
+        >
           No courses found
         </Text>
-        <Text variant="bodySmall" style={[styles.emptySubtext, { color: colors.gray500 }]}>
+        <Text
+          variant="bodySmall"
+          style={[styles.emptySubtext, { color: colors.gray500 }]}
+        >
           Try a different search term or filter
         </Text>
       </View>
@@ -272,143 +311,171 @@ export function ApiSearchModal({
   // API not available state
   if (!isApiAvailable) {
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.gray50 }]}>
-          <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
-            <Text variant="titleLarge" style={[styles.title, { color: colors.gray900 }]}>
-              Search Courses
-            </Text>
-            <IconButton icon="close" onPress={handleClose} />
-          </View>
-
-          <View style={styles.unavailableState}>
-            <Icon source="cloud-off-outline" size={64} color={colors.gray400} />
-            <Text variant="titleMedium" style={[styles.unavailableTitle, { color: colors.gray700 }]}>
-              API Not Configured
-            </Text>
-            <Text variant="bodyMedium" style={[styles.unavailableText, { color: colors.gray500 }]}>
-              Course search API is not available. Please configure your GolfAPI.io credentials.
-            </Text>
-          </View>
+      <BottomSheet
+        visible={visible}
+        onClose={handleClose}
+        height="full"
+        title="Search Courses"
+        showHandle={false}
+        safeAreaTop
+      >
+        <View style={styles.unavailableState}>
+          <Icon source="cloud-off-outline" size={64} color={colors.gray400} />
+          <Text
+            variant="titleMedium"
+            style={[styles.unavailableTitle, { color: colors.gray700 }]}
+          >
+            API Not Configured
+          </Text>
+          <Text
+            variant="bodyMedium"
+            style={[styles.unavailableText, { color: colors.gray500 }]}
+          >
+            Course search API is not available. Please configure your GolfAPI.io
+            credentials.
+          </Text>
         </View>
-      </Modal>
+      </BottomSheet>
     );
   }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.gray50 }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <BottomSheet
+      visible={visible}
+      onClose={handleClose}
+      height="full"
+      title="Search Courses"
+      showHandle={false}
+      safeAreaTop
+      testID="api-search-modal"
+    >
+      {/* Search Input */}
+      <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
+        <TextInput
+          mode="outlined"
+          placeholder="Search by course name..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          left={<TextInput.Icon icon="magnify" />}
+          right={
+            searchQuery.length > 0 ? (
+              <TextInput.Icon icon="close" onPress={() => setSearchQuery('')} />
+            ) : undefined
+          }
+          style={[styles.searchInput, { backgroundColor: colors.white }]}
+          outlineStyle={styles.searchInputOutline}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+      </View>
+
+      {/* State Filter Chips */}
+      <View
+        style={[
+          styles.filterContainer,
+          { backgroundColor: colors.white, borderBottomColor: colors.gray200 },
+        ]}
       >
-        <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
-            <Text variant="titleLarge" style={[styles.title, { color: colors.gray900 }]}>
-              Search Courses
-            </Text>
-            <IconButton icon="close" onPress={handleClose} />
-          </View>
-
-          {/* Search Input */}
-          <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
-            <TextInput
-              mode="outlined"
-              placeholder="Search by course name..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              left={<TextInput.Icon icon="magnify" />}
-              right={
-                searchQuery.length > 0 ? (
-                  <TextInput.Icon icon="close" onPress={() => setSearchQuery('')} />
-                ) : undefined
-              }
-              style={[styles.searchInput, { backgroundColor: colors.white }]}
-              outlineStyle={styles.searchInputOutline}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-          </View>
-
-          {/* State Filter Chips */}
-          <View style={[styles.filterContainer, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
-            <Text variant="labelMedium" style={[styles.filterLabel, { color: colors.gray600 }]}>
-              Filter by state:
-            </Text>
-            <FlatList
-              horizontal
-              data={AUSTRALIAN_STATES}
-              keyExtractor={(item) => item.value}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipContainer}
-              renderItem={({ item }) => (
-                <Chip
-                  selected={selectedState === item.value}
-                  onPress={() => handleStateToggle(item.value)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: colors.gray100 },
-                    selectedState === item.value && { backgroundColor: colors.primaryLight },
-                  ]}
-                  textStyle={[
-                    styles.chipText,
-                    { color: colors.gray700 },
-                    selectedState === item.value && { color: colors.primary, fontWeight: '600' },
-                  ]}
-                  showSelectedCheck={false}
-                >
-                  {item.label}
-                </Chip>
-              )}
-            />
-          </View>
-
-          {/* API Error Banner */}
-          {searchResult?.apiError && (
-            <View style={[styles.errorBanner, { backgroundColor: colors.warningLight }]}>
-              <Icon source="alert" size={16} color={colors.warning} />
-              <Text variant="bodySmall" style={[styles.errorBannerText, { color: colors.warning }]}>
-                {searchResult.apiError}
-              </Text>
-            </View>
+        <Text
+          variant="labelMedium"
+          style={[styles.filterLabel, { color: colors.gray600 }]}
+        >
+          Filter by state:
+        </Text>
+        <FlatList
+          horizontal
+          data={AUSTRALIAN_STATES}
+          keyExtractor={(item) => item.value}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipContainer}
+          renderItem={({ item }) => (
+            <Chip
+              selected={selectedState === item.value}
+              onPress={() => handleStateToggle(item.value)}
+              style={[
+                styles.chip,
+                { backgroundColor: colors.gray100 },
+                selectedState === item.value && {
+                  backgroundColor: colors.primaryLight,
+                },
+              ]}
+              textStyle={[
+                styles.chipText,
+                { color: colors.gray700 },
+                selectedState === item.value && {
+                  color: colors.primary,
+                  fontWeight: '600',
+                },
+              ]}
+              showSelectedCheck={false}
+            >
+              {item.label}
+            </Chip>
           )}
+        />
+      </View>
 
-          {/* Loading Indicator */}
-          {(isLoading || isFetching) && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text variant="bodySmall" style={[styles.loadingText, { color: colors.gray600 }]}>
-                Searching courses...
-              </Text>
-            </View>
-          )}
-
-          {/* Results List */}
-          <FlatList
-            data={results}
-            keyExtractor={(item) => item.api_id || item.id || Math.random().toString()}
-            renderItem={renderCourseItem}
-            ListEmptyComponent={renderEmptyState}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          />
-
-          {/* Result Count */}
-          {results.length > 0 && (
-            <View style={[styles.resultCount, { backgroundColor: colors.white, borderTopColor: colors.gray200 }]}>
-              <Text variant="bodySmall" style={[styles.resultCountText, { color: colors.gray500 }]}>
-                {results.length} course{results.length !== 1 ? 's' : ''} found
-                {searchResult?.cachedTotal
-                  ? ` (${searchResult.cachedTotal} in database)`
-                  : ''}
-              </Text>
-            </View>
-          )}
+      {/* API Error Banner */}
+      {searchResult?.apiError && (
+        <View style={[styles.errorBanner, { backgroundColor: colors.warningLight }]}>
+          <Icon source="alert" size={16} color={colors.warning} />
+          <Text
+            variant="bodySmall"
+            style={[styles.errorBannerText, { color: colors.warning }]}
+          >
+            {searchResult.apiError}
+          </Text>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      )}
+
+      {/* Loading Indicator */}
+      {(isLoading || isFetching) && (
+        <View style={styles.loadingContainer}>
+          <GolfBallLoader size="sm" />
+          <Text
+            variant="bodySmall"
+            style={[styles.loadingText, { color: colors.gray600 }]}
+          >
+            Searching courses...
+          </Text>
+        </View>
+      )}
+
+      {/* Results List */}
+      <FlatList
+        data={results}
+        keyExtractor={(item) =>
+          item.api_id || item.id || Math.random().toString()
+        }
+        renderItem={renderCourseItem}
+        ListEmptyComponent={renderEmptyState}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={styles.list}
+      />
+
+      {/* Result Count */}
+      {results.length > 0 && (
+        <View
+          style={[
+            styles.resultCount,
+            { backgroundColor: colors.white, borderTopColor: colors.gray200 },
+          ]}
+        >
+          <Text
+            variant="bodySmall"
+            style={[styles.resultCountText, { color: colors.gray500 }]}
+          >
+            {results.length} course{results.length !== 1 ? 's' : ''} found
+            {searchResult?.cachedTotal
+              ? ` (${searchResult.cachedTotal} in database)`
+              : ''}
+          </Text>
+        </View>
+      )}
+    </BottomSheet>
   );
 }
 
@@ -417,23 +484,6 @@ export function ApiSearchModal({
 // =====================================================
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-  },
-  title: {
-    fontWeight: '600',
-  },
   searchContainer: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
@@ -478,6 +528,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   loadingText: {},
+  list: {
+    flex: 1,
+  },
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xxl,

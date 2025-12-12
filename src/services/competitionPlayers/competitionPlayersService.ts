@@ -11,7 +11,6 @@
 
 import { supabase } from '@/services/supabase/client';
 import { getCurrentTier, hasPremiumAccess } from '@/store/subscriptionStore';
-import type { Player } from '@/types/database.types';
 import type { FeatureAccess } from '@/types/subscription.types';
 
 // =====================================================
@@ -29,7 +28,7 @@ export interface PlayerScoringPairInfo {
   /** Total number of rounds where player has scoring pair assignments */
   roundCount: number;
   /** Details of each affected round */
-  affectedRounds: Array<{
+  affectedRounds: {
     roundId: string;
     roundNumber: number;
     courseName: string | null;
@@ -38,7 +37,7 @@ export interface PlayerScoringPairInfo {
     isScorer: boolean;
     /** Is this player being scored by others? */
     isBeingScored: boolean;
-  }>;
+  }[];
 }
 
 /**
@@ -300,7 +299,7 @@ export async function removePlayerFromCompetition(
     throw createError(`Failed to fetch rounds: ${roundsError.message}`, 'DATABASE');
   }
 
-  const typedRounds = rounds as Array<{ id: string }> | null;
+  const typedRounds = rounds as { id: string }[] | null;
 
   // Delete scoring pairs for this player in this competition's rounds
   // This is necessary because ON DELETE CASCADE is on players(id), not competition_players

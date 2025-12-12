@@ -273,7 +273,7 @@ async function fetchCompetitionLeaderboard(
  *     { filter }
  *   );
  *
- *   if (isLoading) return <ActivityIndicator />;
+ *   if (isLoading) return <LoadingSpinner />;
  *   if (error) return <ErrorState onRetry={refetch} />;
  *
  *   return (

@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
-import { Text, ProgressBar, Snackbar, Surface } from 'react-native-paper';
+import { StyleSheet, View, Alert } from 'react-native';
+import { LoadingSpinner } from '@/components/common';
+import { Text, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { parse, isValid } from 'date-fns';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useCompetitionCount } from '@/hooks/useSubscription';
 import { TierBadge } from '@/components/subscription/TierBadge';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
-import { isUnlimited } from '@/types/subscription.types';
 
 // Step components
 import CompetitionDetailsStep from '@/components/competitionWizard/create/CompetitionDetailsStep';
@@ -57,7 +57,6 @@ const STEPS = [
 
 export default function CreateCompetitionScreen() {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const createCompetition = useCreateCompetition();
@@ -119,8 +118,6 @@ export default function CreateCompetitionScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardState>({});
 
-  // Progress calculation
-  const progress = (currentStep / STEPS.length) * 100;
 
   // Handle step completion
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
@@ -308,11 +305,8 @@ export default function CreateCompetitionScreen() {
   // Show loading state while fetching subscription data
   if (isSubscriptionLoading || isCountLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.gray50 }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading...
-        </Text>
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <LoadingSpinner size="lg" message="Loading..." />
       </View>
     );
   }
@@ -320,9 +314,9 @@ export default function CreateCompetitionScreen() {
   // Show upgrade prompt if at competition limit
   if (isAtCompetitionLimit && upgradePromptConfig) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.gray50 }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: isDark ? colors.gray100 : colors.white, borderBottomColor: colors.gray200 }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <View style={styles.headerContent}>
             <View style={styles.headerRow}>
               <Text style={[styles.title, { color: colors.gray900 }]}>Create Competition</Text>
@@ -333,17 +327,17 @@ export default function CreateCompetitionScreen() {
 
         {/* Limit Reached Message */}
         <View style={styles.limitReachedContainer}>
-          <Surface style={[styles.limitReachedCard, { backgroundColor: isDark ? colors.gray100 : colors.surface }]} elevation={2}>
+          <View style={[styles.limitReachedCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.limitReachedTitle, { color: colors.textPrimary }]}>
               Competition Limit Reached
             </Text>
             <Text style={[styles.limitReachedMessage, { color: colors.textSecondary }]}>
-              You've created {competitionCount} of {limits?.maxCompetitionsOwned ?? 1} competition{(limits?.maxCompetitionsOwned ?? 1) === 1 ? '' : 's'} on the {limits?.displayName ?? 'Free'} plan.
+              You&apos;ve created {competitionCount} of {limits?.maxCompetitionsOwned ?? 1} competition{(limits?.maxCompetitionsOwned ?? 1) === 1 ? '' : 's'} on the {limits?.displayName ?? 'Free'} plan.
             </Text>
             <Text style={[styles.limitReachedHint, { color: colors.textSecondary }]}>
               Upgrade your plan to create more competitions and unlock additional features.
             </Text>
-          </Surface>
+          </View>
         </View>
 
         {/* Full-screen Upgrade Prompt */}
@@ -358,9 +352,9 @@ export default function CreateCompetitionScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.gray50 }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header with Stepper */}
-      <View style={[styles.header, { backgroundColor: isDark ? colors.gray100 : colors.white, borderBottomColor: colors.gray200 }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           {/* Title Row with TierBadge */}
           <View style={styles.headerRow}>
@@ -368,48 +362,41 @@ export default function CreateCompetitionScreen() {
             <TierBadge size="small" />
           </View>
 
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
-            <ProgressBar progress={progress / 100} color={colors.primary} style={[styles.progressBar, { backgroundColor: colors.gray200 }]} />
-          </View>
+          {/* Current Step Title */}
+          <Text style={[styles.stepTitle, { color: colors.textSecondary }]}>
+            Step {currentStep}: {STEPS[currentStep - 1].title}
+          </Text>
 
-          {/* Step Indicator */}
-          <View style={styles.stepIndicatorContainer}>
-            {STEPS.map((step) => (
-              <View
-                key={step.number}
-                style={[
-                  styles.stepContainer,
-                  { opacity: currentStep >= step.number ? 1 : 0.4 }
-                ]}
-              >
-                {/* Step Number Circle */}
+          {/* Step Indicator - Dot-based */}
+          <View style={styles.stepIndicator}>
+            {STEPS.map((step, index) => (
+              <React.Fragment key={step.number}>
                 <View
                   style={[
-                    styles.stepCircle,
-                    { backgroundColor: colors.gray200 },
-                    currentStep >= step.number && { backgroundColor: colors.primary },
-                    currentStep === step.number && { borderColor: colors.primaryLight },
+                    styles.stepDot,
+                    { backgroundColor: colors.gray300 },
+                    currentStep === step.number && {
+                      backgroundColor: colors.primary,
+                      width: 10,
+                      height: 10,
+                    },
+                    currentStep > step.number && {
+                      backgroundColor: colors.primary,
+                    },
                   ]}
-                >
-                  <Text
+                />
+                {index < STEPS.length - 1 && (
+                  <View
                     style={[
-                      styles.stepNumber,
-                      { color: colors.gray600 },
-                      currentStep >= step.number && { color: colors.white },
+                      styles.stepLine,
+                      { backgroundColor: colors.gray200 },
+                      currentStep > step.number && {
+                        backgroundColor: colors.primary,
+                      },
                     ]}
-                  >
-                    {step.number}
-                  </Text>
-                </View>
-
-                {/* Step Title (only show for current step on small screens) */}
-                {currentStep === step.number && (
-                  <Text style={[styles.stepTitle, { color: colors.gray700 }]} numberOfLines={2}>
-                    {step.title}
-                  </Text>
+                  />
                 )}
-              </View>
+              </React.Fragment>
             ))}
           </View>
         </View>
@@ -502,40 +489,23 @@ const styles = StyleSheet.create({
     ...typography.small,
     textAlign: 'center',
   },
-  progressContainer: {
-    marginVertical: spacing.xs,
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-  },
-  stepIndicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  stepContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  stepCircleCurrent: {
-    borderWidth: 3,
-  },
-  stepNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   stepTitle: {
-    fontSize: 12,
-    marginTop: spacing.xs,
-    textAlign: 'center',
+    ...typography.small,
+    marginBottom: spacing.sm,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 5,
+  },
+  stepLine: {
+    width: 32,
+    height: 2,
   },
 });

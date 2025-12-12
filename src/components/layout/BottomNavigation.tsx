@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { StyleSheet, Pressable, Platform, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconGolf, IconTrophy, IconUser, IconUsers, IconMap } from '@tabler/icons-react-native';
@@ -150,12 +150,10 @@ const TabItem = React.memo(function TabItem({
   colors: ColorPalette;
 }) {
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.tabItem,
-        pressed && styles.tabItemPressed,
-      ]}
+      style={styles.tabItem}
+      activeOpacity={0.7}
       accessibilityLabel={tab.accessibilityLabel}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
@@ -174,7 +172,7 @@ const TabItem = React.memo(function TabItem({
       >
         {tab.label}
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 

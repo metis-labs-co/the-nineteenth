@@ -17,7 +17,7 @@ import {
   transformCourseDetail,
   hasHoleData,
 } from '@/services/api/golfApiTransformers';
-import type { Course, LegacyCourse, AustralianState } from '@/types/database.types';
+import type { LegacyCourse, AustralianState } from '@/types/database.types';
 import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
 
 // =====================================================

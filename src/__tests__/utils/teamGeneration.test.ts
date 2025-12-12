@@ -9,11 +9,9 @@
 import {
   generateBalancedTeams,
   getTeamStats,
-  type TeamGenerationConfig,
   type GeneratedTeam,
 } from '@/utils/teamGeneration';
 import { createTestPlayer, createPlayersWithHandicaps } from './testFixtures';
-import type { Player } from '@/types/database.types';
 
 describe('Team Generation', () => {
   // ============================================================================

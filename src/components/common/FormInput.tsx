@@ -1,164 +1,270 @@
 /**
- * FormInput - Standardized form input component
+ * FormInput - Unified form input component
  *
- * Provides consistent form input styling across the application with:
- * - Label with optional required indicator
- * - TextInput with standard styling
- * - Error message display
- * - Optional hint text
- * - Support for various input types
- */
-
-import React from 'react';
-import { View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { TextInput, Text, HelperText } from 'react-native-paper';
-import type { TextInputProps } from 'react-native-paper';
-import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
-
-export interface FormInputProps extends Omit<TextInputProps, 'mode' | 'error'> {
-  /** Field label displayed above input */
-  label: string;
-  /** Whether field is required (shows asterisk) */
-  required?: boolean;
-  /** Error message to display below input */
-  error?: string;
-  /** Hint text displayed below input (shown when no error) */
-  hint?: string;
-  /** Container style override */
-  containerStyle?: ViewStyle;
-  /** Label style override */
-  labelStyle?: TextStyle;
-  /** Whether to show the label above input (vs inline) */
-  showLabel?: boolean;
-}
-
-/**
- * FormInput component for standardized form fields
+ * A reusable text input component that wraps React Native Paper's TextInput
+ * with consistent styling, labels, error handling, and theme support.
  *
  * @example
- * ```tsx
- * // Basic usage
+ * // Basic usage with external label (default)
  * <FormInput
  *   label="Email"
  *   value={email}
  *   onChangeText={setEmail}
- *   keyboardType="email-address"
+ *   keyboardType="email"
+ *   error={emailError}
  *   required
  * />
  *
- * // With error
+ * @example
+ * // With floating label (Paper's built-in label inside input)
  * <FormInput
- *   label="Password"
- *   value={password}
- *   onChangeText={setPassword}
- *   secureTextEntry
- *   error={errors.password?.message}
+ *   label="Email"
+ *   floatingLabel
+ *   value={email}
+ *   onChangeText={setEmail}
+ *   keyboardType="email"
+ *   error={emailError}
  * />
  *
- * // With hint
- * <FormInput
- *   label="Handicap"
- *   value={handicap}
- *   onChangeText={setHandicap}
- *   keyboardType="decimal-pad"
- *   hint="Enter a value between 0 and 54"
+ * @example
+ * // With React Hook Form
+ * <Controller
+ *   control={control}
+ *   name="email"
+ *   render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
+ *     <FormInput
+ *       label="Email"
+ *       value={value}
+ *       onChangeText={onChange}
+ *       onBlur={onBlur}
+ *       keyboardType="email"
+ *       error={error?.message}
+ *       required
+ *     />
+ *   )}
  * />
- * ```
  */
+
+import React, { useState } from 'react';
+import { View, StyleSheet, type TextInputProps as RNTextInputProps } from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography } from '@/constants/theme';
+
+// Simplified keyboard type mapping
+const KEYBOARD_TYPE_MAP = {
+  default: 'default',
+  email: 'email-address',
+  phone: 'phone-pad',
+  decimal: 'decimal-pad',
+  number: 'number-pad',
+} as const;
+
+type KeyboardTypeShorthand = keyof typeof KEYBOARD_TYPE_MAP;
+
+export interface FormInputProps {
+  // Core props
+  label?: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+
+  // Label style
+  floatingLabel?: boolean; // Use Paper's built-in floating label instead of external label
+
+  // Validation
+  error?: string;
+  hint?: string;
+  required?: boolean;
+
+  // Input behavior
+  keyboardType?: KeyboardTypeShorthand;
+  autoCapitalize?: RNTextInputProps['autoCapitalize'];
+  autoComplete?: RNTextInputProps['autoComplete'];
+  autoCorrect?: boolean;
+  secureTextEntry?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  maxLength?: number;
+  editable?: boolean;
+  disabled?: boolean;
+
+  // Accessories
+  leftAffix?: string;
+  rightIcon?: string;
+  onRightIconPress?: () => void;
+
+  // Advanced
+  returnKeyType?: RNTextInputProps['returnKeyType'];
+  onSubmitEditing?: () => void;
+  autoFocus?: boolean;
+  testID?: string;
+
+  // Accessibility
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+
+  // Style override (use sparingly)
+  containerStyle?: object;
+}
+
 export function FormInput({
+  // Core
   label,
-  required = false,
+  value,
+  onChangeText,
+  onBlur,
+  placeholder,
+
+  // Label style
+  floatingLabel = false,
+
+  // Validation
   error,
   hint,
+  required = false,
+
+  // Input behavior
+  keyboardType = 'default',
+  autoCapitalize,
+  autoComplete,
+  autoCorrect,
+  secureTextEntry: secureTextEntryProp = false,
+  multiline = false,
+  numberOfLines,
+  maxLength,
+  editable = true,
+  disabled = false,
+
+  // Accessories
+  leftAffix,
+  rightIcon,
+  onRightIconPress,
+
+  // Advanced
+  returnKeyType,
+  onSubmitEditing,
+  autoFocus = false,
+  testID,
+
+  // Accessibility
+  accessibilityLabel,
+  accessibilityHint,
+
+  // Style
   containerStyle,
-  labelStyle,
-  showLabel = true,
-  disabled,
-  ...textInputProps
 }: FormInputProps) {
   const colors = useThemeColors();
+  const [secureTextEntry, setSecureTextEntry] = useState(secureTextEntryProp);
+
   const hasError = !!error;
+  const isDisabled = disabled || !editable;
+
+  // Determine background color
+  const backgroundColor = isDisabled ? colors.gray100 : colors.surface;
+
+  // Determine outline colors
+  const outlineColor = hasError ? colors.error : colors.gray300;
+  const activeOutlineColor = hasError ? colors.error : colors.primary;
+
+  // Build left element
+  const leftElement = leftAffix ? <TextInput.Affix text={leftAffix} /> : undefined;
+
+  // Build right element - password toggle takes precedence
+  let rightElement;
+  if (secureTextEntryProp) {
+    rightElement = (
+      <TextInput.Icon
+        icon={secureTextEntry ? 'eye' : 'eye-off'}
+        onPress={() => setSecureTextEntry(!secureTextEntry)}
+        accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'}
+      />
+    );
+  } else if (rightIcon) {
+    rightElement = (
+      <TextInput.Icon
+        icon={rightIcon}
+        onPress={onRightIconPress}
+        disabled={!onRightIconPress}
+      />
+    );
+  }
+
+  // Build the external label text with required indicator
+  const externalLabelText = label && !floatingLabel ? `${label}${required ? ' *' : ''}` : undefined;
+
+  // Build the floating label text (Paper's built-in label)
+  const floatingLabelText = label && floatingLabel ? label : undefined;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {/* Label */}
-      {showLabel && (
-        <Text style={[styles.label, { color: colors.textPrimary }, labelStyle]}>
-          {label}
-          {required && <Text style={{ color: colors.error }}> *</Text>}
+      {/* External Label (above input) */}
+      {externalLabelText && (
+        <Text style={[styles.label, { color: colors.textPrimary }]}>
+          {externalLabelText}
         </Text>
       )}
 
       {/* Input */}
       <TextInput
         mode="outlined"
-        label={!showLabel ? label : undefined}
-        disabled={disabled}
-        style={[
-          styles.input,
-          { backgroundColor: colors.surface },
-          disabled && { backgroundColor: colors.gray100 },
-        ]}
-        outlineColor={hasError ? colors.error : colors.gray300}
-        activeOutlineColor={hasError ? colors.error : colors.primary}
+        label={floatingLabelText}
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        placeholderTextColor={colors.gray400}
+        keyboardType={KEYBOARD_TYPE_MAP[keyboardType]}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        autoCorrect={autoCorrect}
+        secureTextEntry={secureTextEntry}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        maxLength={maxLength}
+        editable={editable && !disabled}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
+        autoFocus={autoFocus}
+        testID={testID}
+        accessibilityLabel={accessibilityLabel || label}
+        accessibilityHint={accessibilityHint}
+        style={[styles.input, { backgroundColor }]}
+        outlineColor={isDisabled ? colors.gray200 : outlineColor}
+        activeOutlineColor={activeOutlineColor}
+        textColor={isDisabled ? colors.textDisabled : colors.textPrimary}
         error={hasError}
-        textColor={colors.textPrimary}
-        accessibilityLabel={`${label} input`}
-        {...textInputProps}
+        left={leftElement}
+        right={rightElement}
       />
 
-      {/* Error or Hint */}
-      {hasError ? (
-        <HelperText type="error" visible={hasError} style={[styles.errorText, { color: colors.error }]}>
-          {error}
-        </HelperText>
-      ) : hint ? (
+      {/* Error message */}
+      {hasError && (
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+      )}
+
+      {/* Hint text (only shown when no error) */}
+      {!hasError && hint && (
         <Text style={[styles.hintText, { color: colors.textSecondary }]}>{hint}</Text>
-      ) : null}
+      )}
     </View>
-  );
-}
-
-/**
- * FormInputPassword - Password variant with visibility toggle
- */
-export function FormInputPassword({
-  label = 'Password',
-  ...props
-}: Omit<FormInputProps, 'secureTextEntry'>) {
-  const [secureTextEntry, setSecureTextEntry] = React.useState(true);
-
-  return (
-    <FormInput
-      label={label}
-      secureTextEntry={secureTextEntry}
-      right={
-        <TextInput.Icon
-          icon={secureTextEntry ? 'eye' : 'eye-off'}
-          onPress={() => setSecureTextEntry(!secureTextEntry)}
-          accessibilityLabel={secureTextEntry ? 'Show password' : 'Hide password'}
-        />
-      }
-      {...props}
-    />
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   label: {
-    ...typography.bodyBold,
+    ...typography.smallBold,
     marginBottom: spacing.xs,
   },
   input: {
-    // backgroundColor set dynamically
+    // Let Paper handle most styling
   },
   errorText: {
     ...typography.caption,
-    paddingHorizontal: 0,
     marginTop: spacing.xs,
   },
   hintText: {

@@ -6,10 +6,10 @@ import React, { memo, useState } from 'react';
 import {
   View,
   StyleSheet,
-  Pressable,
+  TouchableOpacity,
   Platform,
 } from 'react-native';
-import { Text, TextInput, Button, Surface } from 'react-native-paper';
+import { Text, TextInput } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -74,7 +74,7 @@ export const DateTimeFields = memo(function DateTimeFields({
       {/* Date Selection */}
       <View style={styles.fieldContainer}>
         <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Date *</Text>
-        <Pressable onPress={() => !disabled && setShowDatePicker(true)}>
+        <TouchableOpacity onPress={() => !disabled && setShowDatePicker(true)} activeOpacity={0.7}>
           <TextInput
             mode="outlined"
             value={date}
@@ -93,7 +93,7 @@ export const DateTimeFields = memo(function DateTimeFields({
               />
             }
           />
-        </Pressable>
+        </TouchableOpacity>
         {dateError && (
           <Text style={[styles.errorText, { color: colors.error }]}>{dateError}</Text>
         )}
@@ -101,11 +101,17 @@ export const DateTimeFields = memo(function DateTimeFields({
         {/* Date Picker */}
         {showDatePicker &&
           (Platform.OS === 'ios' ? (
-            <Surface style={[styles.datePickerContainer, { backgroundColor: colors.white }]} elevation={2}>
+            <View style={[styles.datePickerContainer, { backgroundColor: colors.white }]}>
               <View style={[styles.datePickerHeader, { borderBottomColor: colors.gray200 }]}>
-                <Button onPress={handleDatePickerDismiss} textColor={colors.primary}>
-                  Done
-                </Button>
+                <TouchableOpacity
+                  onPress={handleDatePickerDismiss}
+                  style={styles.doneButton}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Done selecting date"
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.doneButtonText, { color: colors.primary }]}>Done</Text>
+                </TouchableOpacity>
               </View>
               <DateTimePicker
                 value={getSelectedDate()}
@@ -113,7 +119,7 @@ export const DateTimeFields = memo(function DateTimeFields({
                 display="spinner"
                 onChange={handleDateChange}
               />
-            </Surface>
+            </View>
           ) : (
             <DateTimePicker
               value={getSelectedDate()}
@@ -127,7 +133,7 @@ export const DateTimeFields = memo(function DateTimeFields({
       {/* Tee Time (Optional) */}
       <View style={styles.fieldContainer}>
         <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Tee Time (Optional)</Text>
-        <Pressable onPress={() => !disabled && setShowTimePicker(true)}>
+        <TouchableOpacity onPress={() => !disabled && setShowTimePicker(true)} activeOpacity={0.7}>
           <TextInput
             mode="outlined"
             value={teeTime}
@@ -153,16 +159,22 @@ export const DateTimeFields = memo(function DateTimeFields({
               )
             }
           />
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Time Picker */}
         {showTimePicker &&
           (Platform.OS === 'ios' ? (
-            <Surface style={[styles.datePickerContainer, { backgroundColor: colors.white }]} elevation={2}>
+            <View style={[styles.datePickerContainer, { backgroundColor: colors.white }]}>
               <View style={[styles.datePickerHeader, { borderBottomColor: colors.gray200 }]}>
-                <Button onPress={handleTimePickerDismiss} textColor={colors.primary}>
-                  Done
-                </Button>
+                <TouchableOpacity
+                  onPress={handleTimePickerDismiss}
+                  style={styles.doneButton}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Done selecting time"
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.doneButtonText, { color: colors.primary }]}>Done</Text>
+                </TouchableOpacity>
               </View>
               <DateTimePicker
                 value={getSelectedTime()}
@@ -171,7 +183,7 @@ export const DateTimeFields = memo(function DateTimeFields({
                 onChange={handleTimeChange}
                 minuteInterval={5}
               />
-            </Surface>
+            </View>
           ) : (
             <DateTimePicker
               value={getSelectedTime()}
@@ -210,5 +222,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     borderBottomWidth: 1,
+  },
+  doneButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  doneButtonText: {
+    ...typography.bodyBold,
   },
 });

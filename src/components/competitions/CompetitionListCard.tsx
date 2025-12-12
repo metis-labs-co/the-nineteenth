@@ -14,7 +14,7 @@ import {
   IconTrophy,
   IconTrash,
 } from '@tabler/icons-react-native';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { StatusBadge, DateTimeDisplay, Pill } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
@@ -115,10 +115,6 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
   T extends CompetitionListCardData = CompetitionListCardData,
 >({ competition, onPress, onDelete, swipeEnabled = false, testID }: CompetitionListCardProps<T>) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-
-  // Light mode: white background, Dark mode: gray100 to match Tabs component
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   // Animation for swipe gesture
   const translateX = useRef(new Animated.Value(0)).current;
@@ -239,7 +235,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
       <TouchableOpacity
         style={[
           styles.container,
-          { backgroundColor: cardBackground, borderColor: colors.border },
+          { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
         onPress={handlePress}
         activeOpacity={0.7}
@@ -324,7 +320,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
         <TouchableOpacity
           style={[
             styles.container,
-            { backgroundColor: cardBackground, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
           onPress={handlePress}
           activeOpacity={0.7}

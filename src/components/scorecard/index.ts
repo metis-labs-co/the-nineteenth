@@ -25,3 +25,6 @@ export type { CompactScoreIndicatorProps } from './CompactScoreIndicator';
 // Shared scorecard table
 export { ScorecardTable } from './ScorecardTable';
 export type { ScorecardTableProps, ScorecardTablePlayer } from './ScorecardTable';
+
+// Debug
+export { ScorecardDebugPanel } from './ScorecardDebugPanel';

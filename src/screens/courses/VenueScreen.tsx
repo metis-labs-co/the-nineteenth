@@ -13,13 +13,14 @@ import {
   View,
   ScrollView,
   RefreshControl,
-  Pressable,
+  TouchableOpacity,
   Linking,
   Alert,
 } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useVenueDetails } from '@/hooks/useVenueDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
@@ -54,10 +55,10 @@ function ContactItem({ icon, label, value, onPress }: ContactItemProps) {
   const colors = useThemeColors();
 
   return (
-    <Pressable
+    <TouchableOpacity
       style={[styles.contactItem, { borderBottomColor: colors.border }]}
+      activeOpacity={0.7}
       onPress={onPress}
-      android_ripple={{ color: colors.gray200 }}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value}`}
       accessibilityHint={`Tap to ${label.toLowerCase()}`}
@@ -72,7 +73,7 @@ function ContactItem({ icon, label, value, onPress }: ContactItemProps) {
         </Text>
       </View>
       <Icon source="chevron-right" size={20} color={colors.gray400} />
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -83,10 +84,9 @@ function ContactItem({ icon, label, value, onPress }: ContactItemProps) {
 export default function VenueScreen({ route, navigation }: Props) {
   const { venueId } = route.params;
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
 
-  const cardBackground = isDark ? colors.gray100 : colors.white;
+  const cardBackground = colors.surface;
 
   // Fetch venue details
   const {
@@ -175,10 +175,7 @@ export default function VenueScreen({ route, navigation }: Props) {
   if (isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading venue...
-        </Text>
+        <LoadingSpinner size="lg" message="Loading venue..." />
       </View>
     );
   }
@@ -194,12 +191,13 @@ export default function VenueScreen({ route, navigation }: Props) {
         <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
           {error instanceof Error ? error.message : 'An error occurred'}
         </Text>
-        <Pressable
+        <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.7}
           onPress={() => refetch()}
         >
           <Text style={[styles.retryButtonText, { color: colors.white }]}>Try Again</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -215,12 +213,13 @@ export default function VenueScreen({ route, navigation }: Props) {
         <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
           This venue may have been removed
         </Text>
-        <Pressable
+        <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.7}
           onPress={() => navigation.goBack()}
         >
           <Text style={[styles.retryButtonText, { color: colors.white }]}>Go Back</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -244,7 +243,7 @@ export default function VenueScreen({ route, navigation }: Props) {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={colors.primary}
+            tintColor={colors.textPrimary}
           />
         }
       >
@@ -280,17 +279,17 @@ export default function VenueScreen({ route, navigation }: Props) {
 
         {/* Full Address (if different from location) */}
         {venue.address && (
-          <Pressable
+          <TouchableOpacity
             style={[styles.addressContainer, { borderTopColor: colors.border }]}
+            activeOpacity={0.7}
             onPress={handleDirectionsPress}
-            android_ripple={{ color: colors.gray200 }}
           >
             <Icon source="map-marker-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.addressText, { color: colors.textSecondary }]} numberOfLines={2}>
               {venue.address}
             </Text>
             <Icon source="directions" size={20} color={colors.primary} />
-          </Pressable>
+          </TouchableOpacity>
         )}
       </View>
 

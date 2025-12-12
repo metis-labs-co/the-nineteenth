@@ -3,11 +3,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, FlatList, Pressable, Modal } from 'react-native';
-import { Text, IconButton, Searchbar, ActivityIndicator, Icon, Surface } from 'react-native-paper';
+import { View, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { Text, IconButton, Icon } from 'react-native-paper';
+import { GolfBallLoader, SearchBar } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { VenueCard } from '@/components/courses/VenueCard';
 import type { VenueCourseDisplayItem } from '@/hooks/useVenues';
 import type { CourseSelectionModalProps } from '../types';
@@ -24,7 +25,6 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
   onClose,
 }: CourseSelectionModalProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
 
   const renderVenueItem = useCallback(
@@ -44,8 +44,8 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
           style={[
             styles.modalHeader,
             {
-              backgroundColor: isDark ? colors.gray100 : colors.surface,
-              borderBottomColor: colors.gray200,
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
             },
           ]}
         >
@@ -54,21 +54,13 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
         </View>
 
         {/* Search Bar */}
-        <View
-          style={[
-            styles.searchContainer,
-            { backgroundColor: isDark ? colors.gray100 : colors.surface },
-          ]}
-        >
-          <Searchbar
-            placeholder="Search courses..."
-            value={courseSearchQuery}
-            onChangeText={onSearchChange}
-            style={[styles.searchBar, { backgroundColor: colors.gray100 }]}
-            inputStyle={styles.searchInput}
-            iconColor={colors.primary}
-          />
-        </View>
+        <SearchBar
+          value={courseSearchQuery}
+          onChangeText={onSearchChange}
+          placeholder="Search courses..."
+          accessibilityLabel="Search courses"
+          hideBorder
+        />
 
         {/* Favorites Section */}
         {favoriteCourses.length > 0 && courseSearchQuery.length < 2 && (
@@ -76,8 +68,8 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
             style={[
               styles.favoritesSection,
               {
-                backgroundColor: isDark ? colors.gray100 : colors.surface,
-                borderBottomColor: colors.gray200,
+                backgroundColor: colors.surface,
+                borderBottomColor: colors.border,
               },
             ]}
           >
@@ -89,13 +81,12 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.favoritesContainer}
               renderItem={({ item }) => (
-                <Pressable onPress={() => onCourseSelect(item, item.venue)}>
-                  <Surface
+                <TouchableOpacity onPress={() => onCourseSelect(item, item.venue)} activeOpacity={0.7}>
+                  <View
                     style={[
                       styles.favoriteChip,
-                      { backgroundColor: isDark ? colors.gray100 : colors.surface },
+                      { backgroundColor: colors.surface },
                     ]}
-                    elevation={1}
                   >
                     <Icon source="star" size={14} color={colors.warning} />
                     <Text
@@ -106,8 +97,8 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
                         ? item.name
                         : `${item.name} @ ${item.venue.name}`}
                     </Text>
-                  </Surface>
-                </Pressable>
+                  </View>
+                </TouchableOpacity>
               )}
             />
           </View>
@@ -116,7 +107,7 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
         {/* Loading State */}
         {(isLoading || isSearching) && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <GolfBallLoader size="sm" />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               Loading courses...
             </Text>
@@ -166,17 +157,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     ...typography.h4,
-  },
-  searchContainer: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  searchBar: {
-    borderRadius: borderRadius.md,
-    elevation: 0,
-  },
-  searchInput: {
-    ...typography.body,
   },
   favoritesSection: {
     paddingVertical: spacing.sm,

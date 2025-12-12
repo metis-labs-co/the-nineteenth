@@ -207,7 +207,3 @@ export type {
   UseSubscriptionReturn,
 } from './useSubscription';
 
-// Scorecard display hooks
-export { useScorecardTableLayout } from './useScorecardTableLayout';
-export { useScorecardStats } from './useScorecardStats';
-export type { ScorecardStatsResult } from './useScorecardStats';

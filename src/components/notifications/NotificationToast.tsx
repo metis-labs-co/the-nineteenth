@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ToastConfig, ToastConfigParams } from 'react-native-toast-message';
@@ -132,8 +132,9 @@ function NotificationToastComponent({
   const message = config.getMessage(notification.data);
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
+      activeOpacity={0.7}
       style={[
         styles.container,
         {
@@ -143,7 +144,7 @@ function NotificationToastComponent({
         },
         shadows.lg,
       ]}
-      accessibilityRole="alert"
+      accessibilityRole="button"
       accessibilityLabel={`${title}. ${message}. Tap to view.`}
     >
       {/* Icon */}
@@ -174,7 +175,7 @@ function NotificationToastComponent({
 
       {/* Chevron */}
       <Icon source="chevron-right" size={20} color={colors.gray400} />
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 

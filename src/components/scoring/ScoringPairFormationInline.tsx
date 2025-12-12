@@ -13,13 +13,12 @@ import React, { useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import {
-  IconWand,
   IconRefresh,
   IconArrowRight,
   IconRotateClockwise,
   IconArrowsExchange,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { autoGenerateScoringPairs } from '@/utils/scoringPairs';
 import type { ScoringPairCreateInput, AutoPairResult } from '@/types';

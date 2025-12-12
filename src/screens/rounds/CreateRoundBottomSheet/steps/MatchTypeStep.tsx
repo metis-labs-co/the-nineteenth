@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { IconGolf, IconCheck, IconLock } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -59,7 +59,6 @@ export const MatchTypeStep = memo(function MatchTypeStep({
   onUpgradePress,
 }: MatchTypeStepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const { limits } = useSubscription();
 
   // State for upgrade prompt
@@ -133,7 +132,10 @@ export const MatchTypeStep = memo(function MatchTypeStep({
           How would you like to score?
         </Text>
         <View style={styles.matchTypeList}>
-          {MATCH_TYPES.map((matchType: MatchTypeOption) => {
+          {MATCH_TYPES
+            // Filter out team formats - practice rounds don't support teams
+            .filter((matchType) => !['ambrose', 'best-ball', 'scramble'].includes(matchType.value))
+            .map((matchType: MatchTypeOption) => {
             const isSelected = selectedMatchType === matchType.value;
             const isAllowed = isGameTypeAllowed(matchType.value);
             const isLocked = !isAllowed;
@@ -145,7 +147,7 @@ export const MatchTypeStep = memo(function MatchTypeStep({
                   styles.matchTypeOption,
                   {
                     backgroundColor: isLocked
-                      ? (isDark ? colors.gray100 : colors.gray50)
+                      ? colors.surfaceVariant
                       : colors.surface,
                     borderColor: colors.border
                   },

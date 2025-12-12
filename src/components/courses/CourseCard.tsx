@@ -9,10 +9,11 @@
  */
 
 import React, { useCallback } from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { GolfBallLoader } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { Course, Hole } from '@/types/database.types';
 
 // =====================================================
@@ -30,6 +31,8 @@ interface CourseCardProps {
   isTogglingFavorite?: boolean;
   showFavoriteButton?: boolean;
   showChevron?: boolean;
+  /** Optional venue name to display below the course name */
+  venueName?: string;
 }
 
 // =====================================================
@@ -75,11 +78,9 @@ export const CourseCard = React.memo(function CourseCard({
   isTogglingFavorite,
   showFavoriteButton = true,
   showChevron = true,
+  venueName,
 }: CourseCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   const handlePress = useCallback(() => {
     onPress?.(course);
@@ -94,10 +95,10 @@ export const CourseCard = React.memo(function CourseCard({
   const teeBoxSummary = getTeeBoxSummary(course.tees);
 
   return (
-    <Pressable
-      style={[styles.cardContainer, { backgroundColor: cardBackground, borderColor: colors.border }]}
+    <TouchableOpacity
+      style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={handlePress}
-      android_ripple={{ color: colors.gray200 }}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`${course.name}, ${holeCount} holes${totalPar ? `, par ${totalPar}` : ''}`}
       accessibilityHint="Tap to view course details"
@@ -113,6 +114,12 @@ export const CourseCard = React.memo(function CourseCard({
           <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
             {course.name}
           </Text>
+
+          {venueName && (
+            <Text style={[styles.venueName, { color: colors.textSecondary }]} numberOfLines={1}>
+              {venueName}
+            </Text>
+          )}
 
           {course.description && (
             <Text style={[styles.courseDescription, { color: colors.textSecondary }]} numberOfLines={2}>
@@ -170,19 +177,20 @@ export const CourseCard = React.memo(function CourseCard({
         {/* Actions */}
         <View style={styles.actions}>
           {showFavoriteButton && (
-            <Pressable
+            <TouchableOpacity
               style={[
                 styles.favoriteButton,
                 course.is_favorite && { backgroundColor: colors.warningLight + '30' },
               ]}
               onPress={handleFavoritePress}
               disabled={isTogglingFavorite}
+              activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
               accessibilityLabel={course.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               {isTogglingFavorite ? (
-                <ActivityIndicator size="small" color={colors.warning} />
+                <GolfBallLoader size="sm" />
               ) : (
                 <Icon
                   source={course.is_favorite ? 'star' : 'star-outline'}
@@ -190,7 +198,7 @@ export const CourseCard = React.memo(function CourseCard({
                   color={course.is_favorite ? colors.warning : colors.gray400}
                 />
               )}
-            </Pressable>
+            </TouchableOpacity>
           )}
 
           {showChevron && (
@@ -198,7 +206,7 @@ export const CourseCard = React.memo(function CourseCard({
           )}
         </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 
@@ -231,6 +239,10 @@ const styles = StyleSheet.create({
   },
   courseName: {
     ...typography.bodyBold,
+  },
+  venueName: {
+    ...typography.small,
+    marginTop: 2,
   },
   courseDescription: {
     ...typography.small,

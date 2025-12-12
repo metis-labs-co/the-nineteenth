@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import { LoadingSpinner } from '@/components/common';
 import { Text, Avatar, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,12 +39,12 @@ const MenuItem = React.memo(function MenuItem({
   const colors = useThemeColors();
 
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <TouchableOpacity
+      style={[
         styles.menuItem,
         { borderBottomColor: colors.gray100 },
-        pressed && { backgroundColor: colors.gray50 },
       ]}
+      activeOpacity={0.7}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -63,7 +64,7 @@ const MenuItem = React.memo(function MenuItem({
       {showChevron && (
         <Icon source="chevron-right" size={20} color={colors.gray400} />
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 
@@ -98,7 +99,7 @@ export default function ProfileScreen() {
           rightContent={<NotificationBell onPress={handleNotificationsPress} />}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingSpinner size="lg" />
         </View>
       </View>
     );

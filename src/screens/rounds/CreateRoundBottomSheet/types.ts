@@ -3,7 +3,7 @@
  */
 
 import type { ScoringPairCreateInput } from '@/types';
-import type { Friend, Venue, TeeBox, GameType } from '@/types/database.types';
+import type { Venue, TeeBox, GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
 
 /**

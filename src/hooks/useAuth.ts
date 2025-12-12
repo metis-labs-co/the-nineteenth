@@ -168,15 +168,18 @@ export function useAuth(): UseAuthReturn {
         .eq('id', user.id)
         .single();
 
-      if (error) {
-        console.error('[useAuth] Error fetching player profile:', error);
+      if (error || !data) {
+        if (error) {
+          console.error('[useAuth] Error fetching player profile:', error);
+        }
         return null;
       }
 
+      const playerData = data as Player;
       if (__DEV__) {
-        console.log('[useAuth] Player query result:', { playerId: data?.id, handicap: data?.handicap });
+        console.log('[useAuth] Player query result:', { playerId: playerData.id, handicap: playerData.handicap });
       }
-      return data as Player;
+      return playerData;
     },
     enabled: !!user?.id, // Only fetch if user exists
     staleTime: 5 * 60 * 1000,

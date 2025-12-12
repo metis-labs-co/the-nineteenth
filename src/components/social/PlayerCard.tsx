@@ -1,11 +1,11 @@
 // src/components/social/PlayerCard.tsx
 import React from 'react';
-import { StyleSheet, View, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { StatusBadge } from '@/components/common/StatusBadge';
 
@@ -125,12 +125,7 @@ export const PlayerCard = React.memo(function PlayerCard({
   navigateToProfile = true,
 }: PlayerCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  // Light mode: white background, Dark mode: gray100 to match other card components
-  const cardBackground = isDark ? colors.gray100 : colors.white;
-  const pressedBackground = isDark ? colors.gray200 : colors.gray50;
 
   const isListItem = variant === 'list-item';
 
@@ -213,7 +208,7 @@ export const PlayerCard = React.memo(function PlayerCard({
         style={[
           isListItem ? styles.listItemContainer : styles.cardContainer,
           {
-            backgroundColor: isListItem ? 'transparent' : cardBackground,
+            backgroundColor: isListItem ? 'transparent' : colors.surface,
             borderColor: colors.border,
           },
           containerStyle,
@@ -226,24 +221,24 @@ export const PlayerCard = React.memo(function PlayerCard({
   }
 
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <TouchableOpacity
+      style={[
         isListItem ? styles.listItemContainer : styles.cardContainer,
         {
-          backgroundColor: isListItem ? 'transparent' : cardBackground,
+          backgroundColor: isListItem ? 'transparent' : colors.surface,
           borderColor: colors.border,
         },
-        pressed && { backgroundColor: pressedBackground },
         containerStyle,
       ]}
       onPress={handlePress}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`View ${player.name}'s profile`}
       accessibilityHint="Tap to view profile and stats"
       testID={testID}
     >
       {content}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 

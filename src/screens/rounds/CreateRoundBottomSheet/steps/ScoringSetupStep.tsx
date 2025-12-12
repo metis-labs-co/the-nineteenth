@@ -145,7 +145,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
                     Require Scoring Pairs
                   </Text>
                   <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                    <Text style={styles.premiumBadgeText}>Premium</Text>
+                    <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
                   </View>
                 </View>
                 <Text style={[styles.scoringPairsToggleDescription, { color: colors.textTertiary }]}>
@@ -187,7 +187,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
 
       {/* Start Scoring Button */}
       <View
-        style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.white }]}
+        style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
         <TouchableOpacity
           style={[styles.startButton, { backgroundColor: colors.primary }]}
@@ -289,7 +289,6 @@ const styles = StyleSheet.create({
   },
   premiumBadgeText: {
     ...typography.caption,
-    color: '#ffffff',
     fontWeight: '600',
   },
   scoringPairsFormation: {

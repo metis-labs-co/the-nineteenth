@@ -16,7 +16,8 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
-import { Text, TextInput, Icon, ActivityIndicator } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
+import { GolfBallLoader, FormInput } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -102,7 +103,7 @@ export function HandicapCaptureStep({
         {/* Content */}
         <View style={styles.contentContainer}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            What's your handicap?
+            What&apos;s your handicap?
           </Text>
           <Text style={[styles.description, { color: colors.textSecondary }]}>
             This helps us calculate your Stableford points accurately. You can
@@ -111,31 +112,19 @@ export function HandicapCaptureStep({
 
           {/* Handicap Input */}
           <View style={styles.inputContainer}>
-            <TextInput
-              mode="outlined"
+            <FormInput
               value={localHandicap}
               onChangeText={handleChangeText}
               placeholder="e.g., 18.5"
-              keyboardType="decimal-pad"
-              style={[styles.input, { backgroundColor: colors.surface }]}
-              outlineColor={error ? colors.error : colors.border}
-              activeOutlineColor={error ? colors.error : colors.primary}
-              error={!!error}
+              keyboardType="decimal"
+              error={error || undefined}
+              hint={!error ? 'Enter a value between 0 and 54 (or skip to use 54)' : undefined}
               disabled={isSubmitting}
-              left={<TextInput.Affix text="HC: " />}
-              accessibilityLabel="Handicap input"
+              leftAffix="HC:"
               accessibilityHint="Enter your golf handicap between 0 and 54"
               returnKeyType="done"
               onSubmitEditing={handleGetStarted}
             />
-            {error && (
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {error}
-              </Text>
-            )}
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              Enter a value between 0 and 54 (or skip to use 54)
-            </Text>
           </View>
         </View>
 
@@ -154,7 +143,7 @@ export function HandicapCaptureStep({
             activeOpacity={0.8}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <GolfBallLoader size="sm" />
             ) : (
               <>
                 <Text style={[styles.buttonText, { color: colors.textInverse }]}>
@@ -209,18 +198,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     width: '100%',
     marginTop: spacing.xl,
-  },
-  input: {
-    marginBottom: spacing.xs,
-  },
-  errorText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  hintText: {
-    ...typography.caption,
-    marginTop: spacing.sm,
-    textAlign: 'center',
   },
   buttonContainer: {
     marginTop: spacing.xxl,

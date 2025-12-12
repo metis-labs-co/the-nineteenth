@@ -17,16 +17,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Text,
-  TextInput,
-  Button,
-  Surface,
-  Icon,
-} from 'react-native-paper';
+import { Text, TextInput, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -34,6 +29,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useTeams } from '@/hooks/useTeams';
 import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
+import type { CourseWithFavorite } from '@/hooks/useCourses';
 
 // Local imports
 import { useAddRoundForm } from './hooks';
@@ -83,7 +79,7 @@ export default function AddRoundScreen({ navigation, route }: Props) {
 
   // Handle course selection
   const handleCourseSelect = useCallback(
-    (course: any) => {
+    (course: CourseWithFavorite) => {
       form.handleCourseSelect(course);
       setShowCourseModal(false);
       setCourseSearchQuery('');
@@ -116,14 +112,15 @@ export default function AddRoundScreen({ navigation, route }: Props) {
           { paddingTop: insets.top, backgroundColor: colors.white, borderBottomColor: colors.gray200 },
         ]}
       >
-        <Pressable
+        <TouchableOpacity
           style={styles.headerButton}
           onPress={handleBack}
+          activeOpacity={0.7}
           accessibilityLabel="Close"
           accessibilityRole="button"
         >
           <Icon source="close" size={24} color={colors.textPrimary} />
-        </Pressable>
+        </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add Round</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -143,11 +140,17 @@ export default function AddRoundScreen({ navigation, route }: Props) {
         </Text>
 
         {/* Form Section */}
-        <Surface style={[styles.formSection, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.formSection, { backgroundColor: colors.white }]}>
           {/* Course Selection */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Course *</Text>
-            <Pressable onPress={() => setShowCourseModal(true)}>
+            <TouchableOpacity
+              onPress={() => setShowCourseModal(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Select course"
+              accessibilityHint={form.formData.courseName ? `Currently selected: ${form.formData.courseName}` : 'Opens course selection'}
+              accessibilityRole="button"
+            >
               <TextInput
                 mode="outlined"
                 value={form.formData.courseName}
@@ -166,7 +169,7 @@ export default function AddRoundScreen({ navigation, route }: Props) {
                   />
                 }
               />
-            </Pressable>
+            </TouchableOpacity>
             {form.errors.course && (
               <Text style={[styles.errorText, { color: colors.error }]}>{form.errors.course}</Text>
             )}
@@ -230,7 +233,7 @@ export default function AddRoundScreen({ navigation, route }: Props) {
               </Text>
             </View>
           )}
-        </Surface>
+        </View>
       </ScrollView>
 
       {/* Footer */}
@@ -240,29 +243,43 @@ export default function AddRoundScreen({ navigation, route }: Props) {
           { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.white, borderTopColor: colors.gray200 },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={handleBack}
-          style={[styles.cancelButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
           disabled={form.isPending}
-          theme={{ colors: { outline: colors.gray300 } }}
+          style={[
+            styles.cancelButton,
+            { borderColor: colors.gray300 },
+            form.isPending && { opacity: 0.5 },
+          ]}
+          activeOpacity={0.7}
+          accessibilityLabel="Cancel"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: form.isPending }}
         >
-          Cancel
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
+            Cancel
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={form.handleSubmit}
-          loading={form.isPending}
           disabled={form.isPending}
-          style={styles.saveButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
+          style={[
+            styles.saveButton,
+            { backgroundColor: form.isPending ? colors.gray300 : colors.primary },
+          ]}
+          activeOpacity={0.7}
+          accessibilityLabel="Add Round"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: form.isPending, busy: form.isPending }}
         >
-          Add Round
-        </Button>
+          {form.isPending ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text style={[styles.saveButtonText, { color: colors.white }]}>
+              Add Round
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Course Selection Modal */}
@@ -370,13 +387,23 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
+    height: 48,
     borderRadius: borderRadius.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    ...typography.bodyBold,
   },
   saveButton: {
     flex: 2,
-    borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    ...typography.bodyBold,
   },
 });

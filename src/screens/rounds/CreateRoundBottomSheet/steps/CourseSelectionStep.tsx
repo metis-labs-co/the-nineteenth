@@ -8,19 +8,11 @@
  */
 
 import React, { memo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  ScrollView,
-} from 'react-native';
-import { IconSearch, IconX } from '@tabler/icons-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { SearchBar } from '@/components/common';
 import { VenueCard } from '@/components/courses/VenueCard';
 import type { Venue } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
@@ -49,23 +41,13 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
   return (
     <>
       {/* Search Input */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.gray100 }]}>
-        <IconSearch size={20} color={colors.gray400} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary }]}
-          placeholder="Search courses..."
-          placeholderTextColor={colors.gray400}
-          value={searchQuery}
-          onChangeText={onSearchQueryChange}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => onSearchQueryChange('')}>
-            <IconX size={18} color={colors.gray400} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={onSearchQueryChange}
+        placeholder="Search courses..."
+        accessibilityLabel="Search courses"
+        hideBorder
+      />
 
       {/* Favorite Courses Pills */}
       {favoriteCourses && favoriteCourses.length > 0 && (
@@ -147,19 +129,7 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
 
 const styles = StyleSheet.create({
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    paddingVertical: 0,
+    paddingVertical: spacing.sm,
   },
   favoritesContainer: {
     marginHorizontal: spacing.lg,

@@ -11,8 +11,8 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Surface, Icon, Menu } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon, Menu } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -146,7 +146,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
   }, [onContributorSelect]);
 
   return (
-    <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1}>
+    <View style={[styles.card, { backgroundColor: colors.white }]}>
       {/* Team Header */}
       <View style={styles.header}>
         <View style={styles.teamInfo}>
@@ -181,16 +181,16 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
       <View style={styles.controlsContainer}>
         {/* Pick Up Button */}
         <View style={styles.actionButtonContainer}>
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.actionButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handlePickUp}
             disabled={disabled}
+            activeOpacity={0.7}
             accessibilityLabel="Pick up ball"
             accessibilityRole="button"
           >
@@ -203,26 +203,26 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
             >
               P
             </Text>
-          </Pressable>
+          </TouchableOpacity>
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>PICK UP</Text>
         </View>
 
         {/* Score Stepper */}
         <View style={styles.stepperContainer}>
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.stepperButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handleDecrement}
             disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
+            activeOpacity={0.7}
             accessibilityLabel="Decrease score"
             accessibilityRole="button"
           >
             <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</Text>
-          </Pressable>
+          </TouchableOpacity>
 
           <View style={styles.scoreDisplay}>
             <Text style={[styles.scoreDisplayText, { color: colors.textPrimary }]}>
@@ -230,34 +230,34 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
             </Text>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.stepperButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
-              pressed && !isPickedUp && styles.buttonPressed,
               (disabled || isPickedUp) && styles.buttonDisabled,
             ]}
             onPress={handleIncrement}
             disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
+            activeOpacity={0.7}
             accessibilityLabel="Increase score"
             accessibilityRole="button"
           >
             <Text style={[styles.stepperButtonText, { color: colors.textPrimary }, isPickedUp && styles.disabledText]}>+</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Par Button */}
         <View style={styles.actionButtonContainer}>
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.actionButton,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               selectedScore === currentHole.par && { backgroundColor: colors.primary, borderColor: colors.primary },
-              pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
             onPress={handleParSelect}
             disabled={disabled}
+            activeOpacity={0.7}
             accessibilityLabel={`Score par ${currentHole.par}`}
             accessibilityRole="button"
           >
@@ -270,7 +270,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
             >
               {currentHole.par}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>PAR</Text>
         </View>
       </View>
@@ -287,14 +287,14 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
               visible={contributorMenuVisible}
               onDismiss={() => setContributorMenuVisible(false)}
               anchor={
-                <Pressable
-                  style={({ pressed }) => [
+                <TouchableOpacity
+                  style={[
                     styles.contributorButton,
                     { borderColor: colors.gray300, backgroundColor: colors.white },
-                    pressed && { backgroundColor: colors.gray100 },
                   ]}
                   onPress={() => setContributorMenuVisible(true)}
                   disabled={disabled}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -306,7 +306,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
                     {contributorName}
                   </Text>
                   <Icon source="chevron-down" size={20} color={colors.textSecondary} />
-                </Pressable>
+                </TouchableOpacity>
               }
             >
               {team.members?.map((member) => (
@@ -321,7 +321,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           </View>
         </>
       )}
-    </Surface>
+    </View>
   );
 });
 

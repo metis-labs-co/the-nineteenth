@@ -1,11 +1,12 @@
 // src/components/common/LoadingSpinner.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { GolfBallLoader, GolfBallSize } from './GolfBallLoader';
 
-type SpinnerSize = 'sm' | 'md' | 'lg';
+type SpinnerSize = GolfBallSize;
 
 interface LoadingSpinnerProps {
   /**
@@ -17,7 +18,7 @@ interface LoadingSpinnerProps {
    */
   message?: string;
   /**
-   * Color of the spinner (defaults to primary)
+   * Color of the spinner (not used with GolfBallLoader, kept for API compatibility)
    */
   color?: string;
   /**
@@ -26,13 +27,6 @@ interface LoadingSpinnerProps {
    */
   fullScreen?: boolean;
 }
-
-// Map size props to ActivityIndicator sizes
-const sizeMap: Record<SpinnerSize, 'small' | 'large'> = {
-  sm: 'small',
-  md: 'small', // React Native Paper only has small/large, we'll use scale for md
-  lg: 'large',
-};
 
 // Custom sizes for each variant (used for container sizing)
 const spinnerSizes: Record<SpinnerSize, number> = {
@@ -68,13 +62,11 @@ const spinnerSizes: Record<SpinnerSize, number> = {
 export const LoadingSpinner = React.memo(function LoadingSpinner({
   size = 'md',
   message,
-  color,
+  color: _color,
   fullScreen = true,
 }: LoadingSpinnerProps) {
   const colors = useThemeColors();
-  const indicatorSize = sizeMap[size];
   const containerSize = spinnerSizes[size];
-  const spinnerColor = color ?? colors.primary;
 
   const spinner = (
     <View
@@ -86,11 +78,7 @@ export const LoadingSpinner = React.memo(function LoadingSpinner({
       accessibilityLabel={message || 'Loading'}
       accessibilityState={{ busy: true }}
     >
-      <ActivityIndicator
-        animating
-        size={indicatorSize}
-        color={spinnerColor}
-      />
+      <GolfBallLoader size={size} />
     </View>
   );
 

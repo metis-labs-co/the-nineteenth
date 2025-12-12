@@ -8,22 +8,20 @@
  *
  * Uses React Hook Form with Zod validation.
  * Integrates with useAuth hook for profile updates.
+ * Presented as a full-screen BottomSheet for consistent UX.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import {
-  StyleSheet,
-  View,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { Text, TextInput, Avatar, Icon, Snackbar } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+  LoadingSpinner,
+  GolfBallLoader,
+  FormInput,
+  BottomSheet,
+  ConfirmationDialog,
+} from '@/components/common';
+import { Text, Avatar, Icon, Snackbar } from 'react-native-paper';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,7 +29,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -67,19 +65,20 @@ const editProfileSchema = z.object({
 type EditProfileFormData = z.infer<typeof editProfileSchema>;
 
 export default function EditProfileScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { player, user, updateProfile, isLoading } = useAuth();
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
-  // In dark mode, use gray100 instead of white for backgrounds
-  const surfaceColor = isDark ? colors.gray100 : colors.white;
+  // Sheet visibility - always open when screen is focused
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   // Snackbar state
-  const [snackbarVisible, setSnackbarVisible] = React.useState(false);
-  const [snackbarMessage, setSnackbarMessage] = React.useState('');
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Confirmation dialog state
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 
   // Form setup with default values from current player data
   const {
@@ -96,6 +95,16 @@ export default function EditProfileScreen() {
       golf_id: player?.golf_id || '',
     },
   });
+
+  // Open sheet when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setSheetVisible(true);
+      return () => {
+        setSheetVisible(false);
+      };
+    }, [])
+  );
 
   // Update form when player data loads
   useEffect(() => {
@@ -143,94 +152,101 @@ export default function EditProfileScreen() {
 
       // Navigate back after a short delay
       setTimeout(() => {
-        navigation.goBack();
-      }, 1500);
+        handleClose();
+      }, 1000);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      Alert.alert(
-        'Error',
-        'Failed to update profile. Please try again.',
-        [{ text: 'OK' }]
-      );
+      setSnackbarMessage('Failed to update profile. Please try again.');
+      setSnackbarVisible(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle cancel/back
-  const handleCancel = () => {
-    if (isDirty) {
-      Alert.alert(
-        'Discard Changes?',
-        'You have unsaved changes. Are you sure you want to discard them?',
-        [
-          { text: 'Keep Editing', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
-    } else {
+  // Handle sheet close
+  const handleClose = useCallback(() => {
+    setSheetVisible(false);
+    // Small delay to let animation complete before navigation
+    setTimeout(() => {
       navigation.goBack();
+    }, 150);
+  }, [navigation]);
+
+  // Handle cancel/back - show confirmation if form is dirty
+  const handleCancel = useCallback(() => {
+    if (isDirty) {
+      setShowDiscardDialog(true);
+    } else {
+      handleClose();
     }
-  };
+  }, [isDirty, handleClose]);
+
+  // Handle discard confirmation
+  const handleDiscardConfirm = useCallback(() => {
+    setShowDiscardDialog(false);
+    handleClose();
+  }, [handleClose]);
 
   // Display email (read-only)
   const displayEmail = player?.email || user?.email || '';
 
-  // Loading state
-  if (isLoading && !player) {
-    return (
-      <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  // Header left button (Cancel)
+  const headerLeft = (
+    <TouchableOpacity
+      onPress={handleCancel}
+      style={styles.headerButton}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Cancel"
     >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top, backgroundColor: surfaceColor, borderBottomColor: colors.gray200 }]}>
-        <Pressable
-          onPress={handleCancel}
-          style={styles.headerButton}
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-        >
-          <Text style={[styles.headerButtonText, { color: colors.textSecondary }]}>Cancel</Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
-        <Pressable
-          onPress={handleSubmit(onSubmit)}
-          style={[styles.headerButton, (!isDirty || isSubmitting) && styles.headerButtonDisabled]}
-          disabled={!isDirty || isSubmitting}
-          accessibilityRole="button"
-          accessibilityLabel="Save profile"
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Text
-              style={[
-                styles.headerButtonText,
-                { color: colors.primary, fontWeight: '600' },
-                (!isDirty || isSubmitting) && { color: colors.textDisabled },
-              ]}
-            >
-              Save
-            </Text>
-          )}
-        </Pressable>
-      </View>
+      <Text style={[styles.headerButtonText, { color: colors.textSecondary }]}>
+        Cancel
+      </Text>
+    </TouchableOpacity>
+  );
 
+  // Header right button (Save)
+  const headerRight = (
+    <TouchableOpacity
+      onPress={handleSubmit(onSubmit)}
+      style={[styles.headerButton, (!isDirty || isSubmitting) && styles.headerButtonDisabled]}
+      activeOpacity={0.7}
+      disabled={!isDirty || isSubmitting}
+      accessibilityRole="button"
+      accessibilityLabel="Save profile"
+    >
+      {isSubmitting ? (
+        <GolfBallLoader size="sm" />
+      ) : (
+        <Text
+          style={[
+            styles.headerButtonText,
+            { color: colors.primary, fontWeight: '600' },
+            (!isDirty || isSubmitting) && { color: colors.textDisabled },
+          ]}
+        >
+          Save
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+
+  // Loading state inside sheet content
+  const renderContent = () => {
+    if (isLoading && !player) {
+      return (
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner size="lg" />
+        </View>
+      );
+    }
+
+    return (
       <ScrollView
         style={styles.content}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: insets.bottom + spacing.xxxl },
-        ]}
+        contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
@@ -241,7 +257,11 @@ export default function EditProfileScreen() {
               style={[styles.avatar, { backgroundColor: colors.primary }]}
             />
           ) : (
-            <Avatar.Icon size={100} icon="account" style={[styles.avatar, { backgroundColor: colors.primary }]} />
+            <Avatar.Icon
+              size={100}
+              icon="account"
+              style={[styles.avatar, { backgroundColor: colors.primary }]}
+            />
           )}
           <Text style={[styles.avatarHint, { color: colors.textSecondary }]}>
             Photo uploads coming soon
@@ -249,145 +269,92 @@ export default function EditProfileScreen() {
         </View>
 
         {/* Form Fields */}
-        <View style={[styles.formSection, { backgroundColor: surfaceColor }]}>
+        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
           {/* Name Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Name *</Text>
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="Enter your name"
-                  style={[styles.input, { backgroundColor: surfaceColor }]}
-                  outlineColor={errors.name ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.name ? colors.error : colors.primary}
-                  error={!!errors.name}
-                  accessibilityLabel="Name input"
-                  accessibilityHint="Enter your display name"
-                />
-              )}
-            />
-            {errors.name && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.name.message}</Text>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Name"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Enter your name"
+                error={errors.name?.message}
+                required
+                accessibilityHint="Enter your display name"
+              />
             )}
-          </View>
+          />
 
           {/* Email Field (Read-only) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Email</Text>
-            <TextInput
-              mode="outlined"
-              value={displayEmail}
-              editable={false}
-              style={[styles.input, { backgroundColor: colors.gray100 }]}
-              outlineColor={colors.gray200}
-              accessibilityLabel="Email (read-only)"
-            />
-            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              Email cannot be changed
-            </Text>
-          </View>
+          <FormInput
+            label="Email"
+            value={displayEmail}
+            onChangeText={() => {}}
+            editable={false}
+            hint="Email cannot be changed"
+          />
 
           {/* Phone Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Phone Number</Text>
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="e.g., 0412 345 678"
-                  keyboardType="phone-pad"
-                  style={[styles.input, { backgroundColor: surfaceColor }]}
-                  outlineColor={errors.phone ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.phone ? colors.error : colors.primary}
-                  error={!!errors.phone}
-                  accessibilityLabel="Phone number input"
-                  accessibilityHint="Enter your phone number"
-                />
-              )}
-            />
-            {errors.phone && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.phone.message}</Text>
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Phone Number"
+                value={value || ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="e.g., 0412 345 678"
+                keyboardType="phone"
+                error={errors.phone?.message}
+                accessibilityHint="Enter your phone number"
+              />
             )}
-          </View>
+          />
 
           {/* Handicap Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Handicap</Text>
-            <Controller
-              control={control}
-              name="handicap"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="e.g., 18.5"
-                  keyboardType="decimal-pad"
-                  style={[styles.input, { backgroundColor: surfaceColor }]}
-                  outlineColor={errors.handicap ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.handicap ? colors.error : colors.primary}
-                  error={!!errors.handicap}
-                  left={<TextInput.Affix text="HC:" />}
-                  accessibilityLabel="Handicap input"
-                  accessibilityHint="Enter your golf handicap between 0 and 54"
-                />
-              )}
-            />
-            {errors.handicap && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.handicap.message}</Text>
+          <Controller
+            control={control}
+            name="handicap"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Handicap"
+                value={value || ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="e.g., 18.5"
+                keyboardType="decimal"
+                error={errors.handicap?.message}
+                hint={`Enter a value between 0 and 54${player?.handicap_updated_at ? ` • Last updated: ${formatHandicapDate(player.handicap_updated_at)}` : ''}`}
+                leftAffix="HC:"
+                accessibilityHint="Enter your golf handicap between 0 and 54"
+              />
             )}
-            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              Enter a value between 0 and 54
-              {player?.handicap_updated_at && (
-                ` • Last updated: ${formatHandicapDate(player.handicap_updated_at)}`
-              )}
-            </Text>
-          </View>
+          />
 
           {/* Golf ID Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Golf ID</Text>
-            <Controller
-              control={control}
-              name="golf_id"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="1234567890"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  style={[styles.input, { backgroundColor: surfaceColor }]}
-                  outlineColor={errors.golf_id ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.golf_id ? colors.error : colors.primary}
-                  error={!!errors.golf_id}
-                  left={<TextInput.Affix text="GA:" />}
-                  accessibilityLabel="Golf ID input"
-                  accessibilityHint="Enter your 10-digit Golf Australia ID"
-                />
-              )}
-            />
-            {errors.golf_id && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.golf_id.message}</Text>
+          <Controller
+            control={control}
+            name="golf_id"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Golf ID"
+                value={value || ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="1234567890"
+                keyboardType="number"
+                maxLength={10}
+                error={errors.golf_id?.message}
+                hint="10-digit Golf Australia ID (check the GA app)"
+                leftAffix="GA:"
+                accessibilityHint="Enter your 10-digit Golf Australia ID"
+              />
             )}
-            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              10-digit Golf Australia ID (check the GA app)
-            </Text>
-          </View>
+          />
         </View>
 
         {/* Info Section */}
@@ -398,17 +365,48 @@ export default function EditProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+    );
+  };
 
-      {/* Snackbar for success message */}
+  return (
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <BottomSheet
+        visible={sheetVisible}
+        onClose={handleCancel}
+        height="full"
+        title="Edit Profile"
+        showCloseButton={false}
+        headerLeft={headerLeft}
+        headerRight={headerRight}
+        enableSwipeToDismiss={false}
+        testID="edit-profile-sheet"
+      >
+        {renderContent()}
+      </BottomSheet>
+
+      {/* Discard Changes Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showDiscardDialog}
+        title="Discard Changes?"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmLabel="Discard"
+        cancelLabel="Keep Editing"
+        confirmVariant="destructive"
+        onConfirm={handleDiscardConfirm}
+        onCancel={() => setShowDiscardDialog(false)}
+        icon="alert-circle"
+      />
+
+      {/* Snackbar for feedback messages */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={2000}
-        style={{ backgroundColor: colors.success }}
+        style={{ backgroundColor: snackbarMessage.includes('Failed') ? colors.error : colors.success }}
       >
         {snackbarMessage}
       </Snackbar>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -417,25 +415,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    ...typography.h4,
-  },
   headerButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    minWidth: 60,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    minWidth: 50,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   headerButtonDisabled: {
     opacity: 0.5,
@@ -447,7 +437,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   avatarSection: {
     alignItems: 'center',
@@ -464,23 +455,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.sm,
-  },
-  fieldContainer: {
-    marginBottom: spacing.lg,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
-  },
-  input: {
-  },
-  errorText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  fieldHint: {
-    ...typography.caption,
-    marginTop: spacing.xs,
   },
   infoSection: {
     flexDirection: 'row',

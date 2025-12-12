@@ -2,7 +2,7 @@
   "expo": {
     "name": "The Nineteenth",
     "slug": "the-nineteenth",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,14 +16,38 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.thenineteenth.app"
+      "bundleIdentifier": "com.thenineteenth.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",
+        "NSPhotoLibraryUsageDescription": "Allow The Nineteenth to access your photos for your profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "Allow The Nineteenth to save photos to your library.",
+        "NSLocationWhenInUseUsageDescription": "Allow The Nineteenth to find nearby golf courses.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1f2937"
       },
-      "package": "com.thenineteenth.app"
+      "package": "com.thenineteenth.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +56,21 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow The Nineteenth to find nearby golf courses."
+          "locationAlwaysAndWhenInUsePermission": "Allow The Nineteenth to find nearby golf courses.",
+          "locationWhenInUsePermission": "Allow The Nineteenth to find nearby golf courses."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow The Nineteenth to access your photos for your profile picture.",
+          "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
         }
       ],
       "expo-sqlite"
@@ -41,6 +79,13 @@
       "eas": {
         "projectId": "your-project-id"
       }
+    },
+    "owner": "your-expo-username",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/your-project-id"
     }
   }
 }

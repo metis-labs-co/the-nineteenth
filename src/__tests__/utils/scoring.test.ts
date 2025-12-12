@@ -14,7 +14,6 @@ import {
   calculateNetScore,
   calculateStablefordPoints,
   calculateStablefordPointsNet,
-  calculateTotalScore,
   calculateMatchPlayHole,
   calculateScrambleTeamHandicap,
   calculateBestBallScore,
@@ -28,13 +27,11 @@ import {
 } from '@/utils/scoring';
 import {
   createTestPlayer,
-  createTestCourse,
   create18Holes,
   createTestScorecard,
   createCompletedScorecard,
 } from './testFixtures';
 import type { Hole } from '@/types/database.types';
-import type { Scorecard } from '@/types';
 
 // ============================================================================
 // Individual Scoring Tests

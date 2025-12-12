@@ -13,7 +13,7 @@
  * - Sync on submit when online
  */
 
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,7 +22,9 @@ import {
   BackHandler,
   Animated,
 } from 'react-native';
-import { Text, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, Button } from 'react-native-paper';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { LoadingSpinner, OfflineIndicator } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
@@ -34,11 +36,15 @@ import {
   BestBallScoreView,
   TeamMatchPlayScoreView,
   SwipeableHoleNavigator,
+  ScorecardDebugPanel,
 } from '@/components/scorecard';
+import { useDebugMode } from '@/store/settingsStore';
+import { scoringLogger } from '@/utils/debugLogger';
 import { supabase } from '@/services/supabase/client';
 import { deleteScorecardsByRound } from '@/services/offline/database';
 import { spacing, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useAuth } from '@/hooks';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { HoleScore } from '@/types';
 import { PageHeader } from '@/components/common';
@@ -48,7 +54,12 @@ type Props = RootStackScreenProps<'Scorecard'>;
 export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const { roundId, competitionId } = route.params;
   const colors = useThemeColors();
+  const { user } = useAuth();
   const isStandaloneRound = competitionId === 'standalone';
+
+  // Debug panel state
+  const { debugModeEnabled } = useDebugMode();
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Core scorecard store
   const {
@@ -81,10 +92,21 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     retryFetch,
     scoringPairsEnabled,
     playersToScore,
-  } = useRoundData({ roundId, competitionId });
+  } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
+
+  // Network status
+  const netInfo = useNetInfo();
+  const isOnline = netInfo.isConnected ?? true;
 
   // Offline sync hook
   const { triggerSync } = useOfflineSync();
+
+  // Compute offline status for indicator
+  const getOfflineStatus = useCallback((): 'online' | 'offline' | 'syncing' | 'error' => {
+    if (isSyncing) return 'syncing';
+    if (!isOnline) return 'offline';
+    return 'online';
+  }, [isSyncing, isOnline]);
 
   // Team scoring hook
   const {
@@ -162,36 +184,64 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   const handlePreviousHole = useCallback(() => {
     if (currentHole > 1) {
+      scoringLogger.info('Navigation: Previous hole', {
+        from: currentHole,
+        to: currentHole - 1,
+      });
       setCurrentHole(currentHole - 1);
     }
   }, [currentHole, setCurrentHole]);
 
   const handleNextHole = useCallback(() => {
     if (currentHole < 18) {
+      scoringLogger.info('Navigation: Next hole', {
+        from: currentHole,
+        to: currentHole + 1,
+      });
       setCurrentHole(currentHole + 1);
     }
   }, [currentHole, setCurrentHole]);
 
   const handleHolePress = useCallback(
     (holeNumber: number) => {
+      scoringLogger.info('Navigation: Jump to hole', {
+        from: currentHole,
+        to: holeNumber,
+      });
       setCurrentHole(holeNumber);
     },
-    [setCurrentHole]
+    [setCurrentHole, currentHole]
   );
 
   // Score handlers
   const handleScoreSelect = useCallback(
     async (playerId: string, strokes: number) => {
+      const player = currentPlayers.find(p => p.id === playerId);
+      const holeData = getHoleInfo(currentHole);
+      scoringLogger.info('SCORE ENTRY: Individual player score', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        strokes,
+        holeInfo: holeData ? { par: holeData.par, si: holeData.strokeIndex } : null,
+      });
       await setPlayerScore(playerId, currentHole, strokes);
     },
-    [currentHole, setPlayerScore]
+    [currentHole, setPlayerScore, currentPlayers, getHoleInfo]
   );
 
   const handleStatsUpdate = useCallback(
     async (playerId: string, updates: Partial<HoleScore>) => {
+      const player = currentPlayers.find(p => p.id === playerId);
+      scoringLogger.info('STATS UPDATE: Player stats', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        updates,
+      });
       await updatePlayerHoleScore(playerId, currentHole, updates);
     },
-    [currentHole, updatePlayerHoleScore]
+    [currentHole, updatePlayerHoleScore, currentPlayers]
   );
 
   const handlePlayerPress = useCallback(
@@ -221,25 +271,36 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   // Submit handlers
   const performSubmit = useCallback(async () => {
+    scoringLogger.info('SUBMIT: Starting scorecard submission', {
+      roundId: roundId?.substring(0, 8),
+      competitionId: competitionId?.substring(0, 8),
+      playerCount: currentPlayers.length,
+    });
     try {
       await submitScorecards();
+      scoringLogger.info('SUBMIT: Scorecard submission successful');
       navigation.navigate('ReviewScorecard', {
         roundId,
         competitionId,
         holes,
       });
     } catch (error) {
-      console.error('[ScorecardEntryScreen] Submit failed:', error);
+      scoringLogger.error('SUBMIT: Scorecard submission failed', error);
       Alert.alert(
         'Submit Failed',
         'Failed to submit scorecards. Your scores are saved locally and will sync when connection is restored.',
         [{ text: 'OK' }]
       );
     }
-  }, [submitScorecards, navigation, roundId, competitionId, holes]);
+  }, [submitScorecards, navigation, roundId, competitionId, holes, currentPlayers.length]);
 
   const handleSubmit = useCallback(async () => {
     const completedCount = getCompletedHolesCount();
+    scoringLogger.info('SUBMIT: Submit button pressed', {
+      completedHoles: completedCount,
+      totalHoles: 18,
+      isComplete: completedCount === 18,
+    });
     if (completedCount < 18) {
       Alert.alert(
         'Incomplete Round',
@@ -293,10 +354,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   if (isLoading || (!isInitialized && !fetchError)) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading scorecard...
-        </Text>
+        <LoadingSpinner size="lg" message="Loading scorecard..." />
       </SafeAreaView>
     );
   }
@@ -374,21 +432,29 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     }
 
     // Team round: Best Ball format
+    // Show ALL team members but only allow editing players in playersToScore
     if (isTeamRound && teamFormat === 'best-ball' && teams.length > 0) {
+      // Build set of editable player IDs (players the current user can score)
+      const editablePlayerIds = scoringPairsEnabled && playersToScore.length > 0
+        ? new Set(playersToScore.map(p => p.id))
+        : undefined; // undefined means all players are editable
+
       return teams.map((team) => {
-        const filteredMembers = getFilteredTeamMembers(team);
-        // Skip team if no members are allowed to be scored by this user
-        if (scoringPairsEnabled && filteredMembers.length === 0) return null;
+        // Check if the current user's team (at least one editable player on this team)
+        const hasEditableMember = !editablePlayerIds ||
+          team.members?.some(m => editablePlayerIds.has(m.player_id));
+
         return (
           <BestBallScoreView
             key={team.id}
-            team={{ ...team, members: filteredMembers }}
+            team={team}
             currentHole={currentHoleData}
             playerScores={playerScoresMap}
             onScoreSelect={handleBestBallScoreSelect}
+            editablePlayerIds={editablePlayerIds}
           />
         );
-      }).filter(Boolean);
+      });
     }
 
     // Team round: Match Play format (requires exactly 2 teams)
@@ -431,18 +497,38 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         subtitle={courseName ?? undefined}
         showBack
         onBack={handleBackPress}
-        rightActions={
-          isStandaloneRound
+        rightActions={[
+          // Debug button (only shown when debug mode is enabled)
+          ...(debugModeEnabled
             ? [
                 {
-                  icon: 'delete-outline',
+                  icon: 'bug-outline' as const,
+                  onPress: () => setShowDebugPanel(true),
+                  accessibilityLabel: 'Show debug panel',
+                  color: colors.warning,
+                },
+              ]
+            : []),
+          // Delete button for standalone rounds
+          ...(isStandaloneRound
+            ? [
+                {
+                  icon: 'delete-outline' as const,
                   onPress: handleDeleteRound,
                   accessibilityLabel: 'Delete round',
                   color: colors.error,
                 },
               ]
-            : undefined
-        }
+            : []),
+        ]}
+      />
+
+      {/* Offline Status Indicator */}
+      <OfflineIndicator
+        status={getOfflineStatus()}
+        pendingSyncs={pendingSyncCount}
+        onSyncPress={triggerSync}
+        isSyncing={isSyncing}
       />
 
       {/* Sync Line Indicator */}
@@ -574,6 +660,20 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           )}
         </View>
       </View>
+
+      {/* Debug Panel */}
+      <ScorecardDebugPanel
+        visible={showDebugPanel}
+        onClose={() => setShowDebugPanel(false)}
+        roundId={roundId}
+        competitionId={competitionId}
+        courseName={courseName}
+        isTeamRound={isTeamRound}
+        teamFormat={teamFormat}
+        teams={teams}
+        scoringPairsEnabled={scoringPairsEnabled}
+        playersToScore={playersToScore}
+      />
     </SafeAreaView>
   );
 }

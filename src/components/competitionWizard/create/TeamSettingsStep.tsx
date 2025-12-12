@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Platform, TouchableOpacity, LayoutAnimation, UIManager } from 'react-native';
-import { Text, Button, Surface, TextInput, IconButton, Icon } from 'react-native-paper';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { Text, Button, TextInput, Icon } from 'react-native-paper';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   teamSettingsSchema,
   type TeamSettingsFormData,
   type TeamMode,
-  type PointSystemEntry,
   DEFAULT_POINT_SYSTEM,
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -56,7 +55,6 @@ export default function TeamSettingsStep({
   onBack,
 }: TeamSettingsStepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
   const [showCustomPoints, setShowCustomPoints] = useState(false);
 
@@ -127,7 +125,7 @@ export default function TeamSettingsStep({
         </Text>
 
         {/* Team Mode Section */}
-        <Surface style={[styles.formSection, { backgroundColor: isDark ? colors.gray100 : colors.surface }]} elevation={1}>
+        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Team Format</Text>
           <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
             Choose how players will be grouped
@@ -185,11 +183,11 @@ export default function TeamSettingsStep({
               {errors.teamMode.message}
             </Text>
           )}
-        </Surface>
+        </View>
 
         {/* Team Size Section - Only show if teams enabled */}
         {teamsEnabled && (
-          <Surface style={[styles.formSection, { backgroundColor: isDark ? colors.gray100 : colors.surface }]} elevation={1}>
+          <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Team Size</Text>
             <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
               Number of players per team
@@ -203,7 +201,7 @@ export default function TeamSettingsStep({
                     key={size}
                     style={[
                       styles.chip,
-                      { borderColor: colors.gray300, backgroundColor: isDark ? colors.gray100 : colors.surface },
+                      { borderColor: colors.gray300, backgroundColor: colors.surface },
                       isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
                     ]}
                     onPress={() => handleTeamSizeChange(size)}
@@ -229,11 +227,11 @@ export default function TeamSettingsStep({
                 {errors.teamSize.message}
               </Text>
             )}
-          </Surface>
+          </View>
         )}
 
         {/* Point System Section */}
-        <Surface style={[styles.formSection, { backgroundColor: isDark ? colors.gray100 : colors.surface }]} elevation={1}>
+        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Point System</Text>
           <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
             Points awarded based on finishing position
@@ -332,7 +330,7 @@ export default function TeamSettingsStep({
                 : 'Invalid point system configuration'}
             </Text>
           )}
-        </Surface>
+        </View>
 
         {/* Info Box */}
         <View style={[styles.infoBox, { backgroundColor: colors.gray100 }]}>
@@ -351,7 +349,7 @@ export default function TeamSettingsStep({
           styles.footer,
           {
             paddingBottom: Math.max(insets.bottom, spacing.lg),
-            backgroundColor: isDark ? colors.gray100 : colors.surface,
+            backgroundColor: colors.surface,
             borderTopColor: colors.gray200,
           },
         ]}

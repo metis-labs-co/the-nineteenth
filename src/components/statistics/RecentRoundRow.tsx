@@ -27,6 +27,8 @@ export interface RecentRoundRowProps {
   totalPoints: number;
   /** Whether this is the last row (removes bottom border) */
   isLast?: boolean;
+  /** Whether this is a practice round (shows badge) */
+  isPracticeRound?: boolean;
 }
 
 // =====================================================
@@ -40,6 +42,7 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
   totalGross,
   totalPoints,
   isLast = false,
+  isPracticeRound = false,
 }: RecentRoundRowProps) {
   const colors = useThemeColors();
 
@@ -51,9 +54,16 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
         <Text style={[styles.dateText, { color: colors.textSecondary }]}>{date}</Text>
       </View>
       <View style={styles.details}>
-        <Text style={[styles.course, { color: colors.textPrimary }]} numberOfLines={1}>
-          {courseName}
-        </Text>
+        <View style={styles.courseRow}>
+          <Text style={[styles.course, { color: colors.textPrimary }]} numberOfLines={1}>
+            {courseName}
+          </Text>
+          {isPracticeRound && (
+            <View style={[styles.practiceBadge, { backgroundColor: colors.infoLight }]}>
+              <Text style={[styles.practiceBadgeText, { color: colors.info }]}>Practice</Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.competition, { color: colors.textSecondary }]} numberOfLines={1}>
           {competitionName}
         </Text>
@@ -90,8 +100,24 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing.md,
   },
+  courseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   course: {
     ...typography.bodyBold,
+    flexShrink: 1,
+  },
+  practiceBadge: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  practiceBadgeText: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '600',
   },
   competition: {
     ...typography.caption,

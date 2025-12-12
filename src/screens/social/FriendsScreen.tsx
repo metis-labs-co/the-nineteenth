@@ -10,358 +10,38 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  RefreshControl,
-  Pressable,
-  Modal,
-  TextInput,
-  FlatList,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
-import { Text, Avatar, Icon, Badge } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, RefreshControl } from 'react-native';
+import { LoadingSpinner } from '@/components/common';
+import { Text, Badge } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SearchBar } from '@/components/common/SearchBar';
 import { FriendCard } from '@/components/social/FriendCard';
+import { FriendRequestCard } from '@/components/social/FriendRequestCard';
+import { AddFriendModal } from '@/components/social/AddFriendModal';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import {
   useFriends,
   useFriendRequests,
-  useSearchPlayers,
-  useAddFriend,
   useAcceptFriendRequest,
   useDeclineFriendRequest,
   useRemoveFriend,
   useFriendsCount,
   useCheckCanAddFriend,
 } from '@/hooks/useFriends';
-import { isUnlimited } from '@/types/subscription.types';
-import type { Friend, FriendRequest, PlayerSearchResult } from '@/types/database.types';
 
 type FriendsScreenRouteProp = RouteProp<RootStackParamList, 'Friends'>;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-// =====================================================
-// FRIEND REQUEST CARD COMPONENT
-// =====================================================
-
-interface FriendRequestCardProps {
-  request: FriendRequest;
-  onAccept: () => void;
-  onDecline: () => void;
-  isAccepting: boolean;
-  isDeclining: boolean;
-  colors: ColorPalette;
-}
-
-const FriendRequestCard = React.memo(function FriendRequestCard({
-  request,
-  onAccept,
-  onDecline,
-  isAccepting,
-  isDeclining,
-  colors,
-}: FriendRequestCardProps) {
-  return (
-    <View style={styles.requestCard}>
-      <View style={styles.requestInfo}>
-        {request.requester.photo_url ? (
-          <Avatar.Image
-            size={48}
-            source={{ uri: request.requester.photo_url }}
-            style={{ backgroundColor: colors.primary }}
-          />
-        ) : (
-          <Avatar.Icon
-            size={48}
-            icon="account"
-            style={{ backgroundColor: colors.primary }}
-          />
-        )}
-        <View style={styles.requestTextInfo}>
-          <Text style={[styles.requestName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {request.requester.name}
-          </Text>
-          <Text style={[styles.requestEmail, { color: colors.textSecondary }]} numberOfLines={1}>
-            {request.requester.email}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.requestActions}>
-        <Pressable
-          style={[styles.requestButton, { backgroundColor: colors.gray100 }]}
-          onPress={onDecline}
-          disabled={isDeclining}
-          accessibilityRole="button"
-          accessibilityLabel="Decline friend request"
-        >
-          {isDeclining ? (
-            <ActivityIndicator size="small" color={colors.gray600} />
-          ) : (
-            <Icon source="close" size={20} color={colors.gray600} />
-          )}
-        </Pressable>
-        <Pressable
-          style={[styles.requestButton, { backgroundColor: colors.success }]}
-          onPress={onAccept}
-          disabled={isAccepting}
-          accessibilityRole="button"
-          accessibilityLabel="Accept friend request"
-        >
-          {isAccepting ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Icon source="check" size={20} color={colors.white} />
-          )}
-        </Pressable>
-      </View>
-    </View>
-  );
-});
-
-// =====================================================
-// SEARCH RESULT CARD COMPONENT
-// =====================================================
-
-interface SearchResultCardProps {
-  player: PlayerSearchResult;
-  onAddFriend: () => void;
-  isAdding: boolean;
-  colors: ColorPalette;
-}
-
-const SearchResultCard = React.memo(function SearchResultCard({
-  player,
-  onAddFriend,
-  isAdding,
-  colors,
-}: SearchResultCardProps) {
-  const getStatusText = () => {
-    if (player.is_friend) return 'Friends';
-    if (player.has_pending_request) {
-      return player.request_direction === 'sent' ? 'Request Sent' : 'Respond';
-    }
-    return null;
-  };
-
-  const statusText = getStatusText();
-  const canAdd = !player.is_friend && !player.has_pending_request;
-
-  return (
-    <View style={styles.searchResultCard}>
-      {player.photo_url ? (
-        <Avatar.Image
-          size={48}
-          source={{ uri: player.photo_url }}
-          style={{ backgroundColor: colors.primary }}
-        />
-      ) : (
-        <Avatar.Icon
-          size={48}
-          icon="account"
-          style={{ backgroundColor: colors.primary }}
-        />
-      )}
-      <View style={styles.searchResultInfo}>
-        <Text style={[styles.searchResultName, { color: colors.textPrimary }]} numberOfLines={1}>
-          {player.name}
-        </Text>
-        <Text style={[styles.searchResultEmail, { color: colors.textSecondary }]} numberOfLines={1}>
-          {player.email}
-        </Text>
-        {player.handicap !== null && player.handicap !== undefined && (
-          <Text style={[styles.searchResultHandicap, { color: colors.primary }]}>
-            HC: {player.handicap}
-          </Text>
-        )}
-      </View>
-      {statusText ? (
-        <View style={[styles.statusBadge, { backgroundColor: colors.gray100 }]}>
-          <Text style={[styles.statusBadgeText, { color: colors.textSecondary }]}>{statusText}</Text>
-        </View>
-      ) : canAdd ? (
-        <Pressable
-          style={[{ backgroundColor: colors.primary }, styles.addButton, isAdding && styles.addButtonDisabled]}
-          onPress={onAddFriend}
-          disabled={isAdding}
-          accessibilityRole="button"
-          accessibilityLabel={`Add ${player.name} as friend`}
-        >
-          {isAdding ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Icon source="account-plus" size={20} color={colors.white} />
-          )}
-        </Pressable>
-      ) : null}
-    </View>
-  );
-});
-
-// =====================================================
-// ADD FRIEND MODAL COMPONENT
-// =====================================================
-
-interface AddFriendModalProps {
-  visible: boolean;
-  onClose: () => void;
-  canAddFriend: boolean;
-  onAtLimitError: () => void;
-}
-
-function AddFriendModal({ visible, onClose, canAddFriend, onAtLimitError }: AddFriendModalProps) {
-  const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [addingPlayerId, setAddingPlayerId] = useState<string | null>(null);
-
-  const { data: searchResults, isLoading: isSearching } = useSearchPlayers(searchQuery);
-  const addFriend = useAddFriend();
-
-  const handleAddFriend = useCallback(async (playerId: string) => {
-    // Check if user can add more friends before proceeding
-    if (!canAddFriend) {
-      onAtLimitError();
-      return;
-    }
-
-    setAddingPlayerId(playerId);
-    try {
-      await addFriend.mutateAsync(playerId);
-      // Clear search and show success
-      setSearchQuery('');
-    } catch (error) {
-      console.error('Failed to add friend:', error);
-      // Show error alert
-      Alert.alert(
-        'Could not add friend',
-        error instanceof Error ? error.message : 'Please try again later'
-      );
-    } finally {
-      setAddingPlayerId(null);
-    }
-  }, [addFriend, canAddFriend, onAtLimitError]);
-
-  const handleClose = useCallback(() => {
-    setSearchQuery('');
-    onClose();
-  }, [onClose]);
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleClose}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.white }]}
-      >
-        {/* Modal Header */}
-        <View style={[styles.modalHeader, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
-          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Add Friend</Text>
-          <Pressable
-            style={styles.closeButton}
-            onPress={handleClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Icon source="close" size={24} color={colors.gray600} />
-          </Pressable>
-        </View>
-
-        {/* Search Input */}
-        <View style={[styles.searchContainer, { borderBottomColor: colors.gray100 }]}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: colors.gray50 }]}>
-            <Icon source="magnify" size={20} color={colors.gray400} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.textPrimary }]}
-              placeholder="Search by name..."
-              placeholderTextColor={colors.gray400}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              accessibilityLabel="Search for friends by name"
-            />
-            {searchQuery.length > 0 && (
-              <Pressable
-                onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-              >
-                <Icon source="close-circle" size={20} color={colors.gray400} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        {/* Search Results */}
-        <View style={styles.searchResults}>
-          {searchQuery.length < 2 ? (
-            <View style={styles.searchPrompt}>
-              <Icon source="account-search" size={48} color={colors.gray300} />
-              <Text style={[styles.searchPromptText, { color: colors.textSecondary }]}>
-                Enter at least 2 characters to search
-              </Text>
-            </View>
-          ) : isSearching ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : searchResults && searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <SearchResultCard
-                  player={item}
-                  onAddFriend={() => handleAddFriend(item.id)}
-                  isAdding={addingPlayerId === item.id}
-                  colors={colors}
-                />
-              )}
-              ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.gray100 }]} />}
-              contentContainerStyle={styles.searchResultsList}
-              keyboardShouldPersistTaps="handled"
-            />
-          ) : (
-            <View style={styles.noResults}>
-              <Icon source="account-question" size={48} color={colors.gray300} />
-              <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                No players found matching "{searchQuery}"
-              </Text>
-            </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-// =====================================================
-// MAIN FRIENDS SCREEN COMPONENT
-// =====================================================
 
 export default function FriendsScreen() {
   const colors = useThemeColors();
@@ -384,7 +64,6 @@ export default function FriendsScreen() {
 
   // Get max friends limit from tier limits
   const maxFriends = tierLimits?.maxFriends ?? 5; // Default to free tier limit
-  const hasUnlimitedFriends = isUnlimited(maxFriends);
 
   // Data fetching
   const {
@@ -474,39 +153,51 @@ export default function FriendsScreen() {
     refetchRequests();
   }, [refetchFriends, refetchRequests]);
 
-  const handleAcceptRequest = useCallback(async (requestId: string) => {
-    setAcceptingRequestId(requestId);
-    try {
-      await acceptRequest.mutateAsync(requestId);
-    } catch (error) {
-      console.error('Failed to accept request:', error);
-    } finally {
-      setAcceptingRequestId(null);
-    }
-  }, [acceptRequest]);
+  const handleAcceptRequest = useCallback(
+    async (requestId: string) => {
+      setAcceptingRequestId(requestId);
+      try {
+        await acceptRequest.mutateAsync(requestId);
+      } catch (error) {
+        console.error('Failed to accept request:', error);
+      } finally {
+        setAcceptingRequestId(null);
+      }
+    },
+    [acceptRequest]
+  );
 
-  const handleDeclineRequest = useCallback(async (requestId: string) => {
-    setDecliningRequestId(requestId);
-    try {
-      await declineRequest.mutateAsync(requestId);
-    } catch (error) {
-      console.error('Failed to decline request:', error);
-    } finally {
-      setDecliningRequestId(null);
-    }
-  }, [declineRequest]);
+  const handleDeclineRequest = useCallback(
+    async (requestId: string) => {
+      setDecliningRequestId(requestId);
+      try {
+        await declineRequest.mutateAsync(requestId);
+      } catch (error) {
+        console.error('Failed to decline request:', error);
+      } finally {
+        setDecliningRequestId(null);
+      }
+    },
+    [declineRequest]
+  );
 
-  const handleRemoveFriend = useCallback(async (friendshipId: string) => {
-    try {
-      await removeFriend.mutateAsync(friendshipId);
-    } catch (error) {
-      console.error('Failed to remove friend:', error);
-    }
-  }, [removeFriend]);
+  const handleRemoveFriend = useCallback(
+    async (friendshipId: string) => {
+      try {
+        await removeFriend.mutateAsync(friendshipId);
+      } catch (error) {
+        console.error('Failed to remove friend:', error);
+      }
+    },
+    [removeFriend]
+  );
 
-  const handleFriendPress = useCallback((friendId: string) => {
-    navigation.navigate('PlayerDetail', { id: friendId });
-  }, [navigation]);
+  const handleFriendPress = useCallback(
+    (friendId: string) => {
+      navigation.navigate('PlayerDetail', { id: friendId });
+    },
+    [navigation]
+  );
 
   // Build header right action
   const headerRightActions = [
@@ -528,7 +219,7 @@ export default function FriendsScreen() {
           rightActions={headerRightActions}
         />
         <View style={[styles.centerContent, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingSpinner size="lg" />
         </View>
       </View>
     );
@@ -586,8 +277,8 @@ export default function FriendsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
       >
@@ -606,7 +297,9 @@ export default function FriendsScreen() {
         {hasRequests && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Friend Requests</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                Friend Requests
+              </Text>
               <Badge size={20} style={{ backgroundColor: colors.primary }}>
                 {friendRequests.length}
               </Badge>
@@ -620,7 +313,6 @@ export default function FriendsScreen() {
                   onDecline={() => handleDeclineRequest(request.id)}
                   isAccepting={acceptingRequestId === request.id}
                   isDeclining={decliningRequestId === request.id}
-                  colors={colors}
                 />
               ))}
             </View>
@@ -685,10 +377,6 @@ export default function FriendsScreen() {
   );
 }
 
-// =====================================================
-// STYLES
-// =====================================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -724,9 +412,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  badge: {
-    marginLeft: spacing.sm,
-  },
 
   // Friends List
   friendsList: {
@@ -740,152 +425,5 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     padding: spacing.md,
-  },
-  requestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-  },
-  requestInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  requestTextInfo: {
-    marginLeft: spacing.md,
-    flex: 1,
-  },
-  requestName: {
-    ...typography.bodyBold,
-  },
-  requestEmail: {
-    ...typography.caption,
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  requestButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Modal
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    ...typography.h3,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchContainer: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-  },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    marginLeft: spacing.sm,
-    paddingVertical: 0,
-  },
-  searchResults: {
-    flex: 1,
-  },
-  searchPrompt: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxl,
-  },
-  searchPromptText: {
-    ...typography.body,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noResults: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxl,
-  },
-  noResultsText: {
-    ...typography.body,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  searchResultsList: {
-    padding: spacing.lg,
-  },
-  separator: {
-    height: 1,
-    marginVertical: spacing.sm,
-  },
-
-  // Search Result Card
-  searchResultCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  searchResultInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  searchResultName: {
-    ...typography.bodyBold,
-  },
-  searchResultEmail: {
-    ...typography.caption,
-  },
-  searchResultHandicap: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  statusBadgeText: {
-    ...typography.caption,
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    opacity: 0.6,
   },
 });

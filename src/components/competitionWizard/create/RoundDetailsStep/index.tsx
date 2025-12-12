@@ -11,11 +11,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
-import { Button, Text, Surface, Icon } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { Button, Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { useRoundDetailsForm } from './hooks/useRoundDetailsForm';
 import { RoundCard } from './components/RoundCard';
@@ -32,7 +32,6 @@ export default function RoundDetailsStep({
   maxRoundsPerCompetition,
 }: RoundDetailsStepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const isPremium = useIsPremium();
   const insets = useSafeAreaInsets();
 
@@ -71,34 +70,32 @@ export default function RoundDetailsStep({
 
         {/* Add Round Button */}
         {form.canAddRound && (
-          <Pressable onPress={form.addRound} style={styles.addRoundButton}>
-            <Surface
+          <TouchableOpacity onPress={form.addRound} style={styles.addRoundButton} activeOpacity={0.7}>
+            <View
               style={[
                 styles.addRoundCard,
                 { borderColor: colors.primary, backgroundColor: colors.primaryLighter },
               ]}
-              elevation={0}
             >
               <Icon source="plus-circle-outline" size={24} color={colors.primary} />
               <Text style={[styles.addRoundText, { color: colors.primary }]}>
                 Add Another Round
               </Text>
-            </Surface>
-          </Pressable>
+            </View>
+          </TouchableOpacity>
         )}
 
         {/* Show limit reached message */}
         {!form.canAddRound && form.effectiveMaxRounds < 10 && (
-          <Surface
+          <View
             style={[styles.limitReachedBox, { backgroundColor: colors.warningLight }]}
-            elevation={0}
           >
             <Icon source="information" size={20} color={colors.warning} />
             <Text style={[styles.limitReachedText, { color: colors.warning }]}>
               Maximum {form.effectiveMaxRounds} round
               {form.effectiveMaxRounds === 1 ? '' : 's'} on your plan. Upgrade for more rounds.
             </Text>
-          </Surface>
+          </View>
         )}
 
         {/* Info Box */}
@@ -116,7 +113,7 @@ export default function RoundDetailsStep({
           styles.footer,
           {
             paddingBottom: Math.max(insets.bottom, spacing.lg),
-            backgroundColor: isDark ? colors.gray100 : colors.surface,
+            backgroundColor: colors.surface,
             borderTopColor: colors.gray200,
           },
         ]}

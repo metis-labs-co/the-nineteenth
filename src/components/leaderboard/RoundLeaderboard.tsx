@@ -13,15 +13,15 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, ActivityIndicator, Surface } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import {
   IconTrophy,
-  IconChartBar,
   IconUsers,
   IconSwords,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { DateTimeDisplay } from '@/components/common/DateTimeDisplay';
 import { Pill } from '@/components/common/Pill';
@@ -31,12 +31,7 @@ import {
   useRoundLeaderboard,
   type RoundLeaderboardEntry,
   type PlayerLeaderboardEntry,
-  type TeamLeaderboardEntry,
-  type StablefordScoreData,
-  type StrokeScoreData,
   type MatchPlayScoreData,
-  type TeamScoreData,
-  isPlayerEntry,
   isTeamEntry,
   isStablefordScore,
   isStrokeScore,
@@ -444,14 +439,13 @@ const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
         const isHalved = scoreData.matchResult === 'halved';
 
         return (
-          <Surface
+          <View
             key={id}
             style={[
               styles.matchCard,
               { backgroundColor: colors.surface },
               isCurrentUser && { borderColor: colors.primary, borderWidth: 2 },
             ]}
-            elevation={1}
           >
             <View style={styles.matchHeader}>
               <IconSwords size={16} color={colors.textSecondary} />
@@ -535,7 +529,7 @@ const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                 {scoreData.holesWon}W - {scoreData.holesLost}L - {scoreData.holesHalved}H
               </Text>
             </View>
-          </Surface>
+          </View>
         );
       })}
     </View>
@@ -574,10 +568,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   if (isLoading) {
     return (
       <View style={styles.loadingContainer} testID={testID ? `${testID}-loading` : undefined}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading leaderboard...
-        </Text>
+        <LoadingSpinner size="lg" message="Loading leaderboard..." />
       </View>
     );
   }
@@ -632,9 +623,8 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       />
 
       {/* Leaderboard Content */}
-      <Surface
+      <View
         style={[styles.card, { backgroundColor: colors.surface }]}
-        elevation={1}
       >
         {isMatchPlay ? (
           <MatchPlayLeaderboard
@@ -648,7 +638,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             currentUserId={currentUserId}
           />
         )}
-      </Surface>
+      </View>
     </View>
   );
 });

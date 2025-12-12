@@ -16,7 +16,6 @@ import {
   getPendingSyncCount,
   clearInvalidMockData,
   clearAllPendingSyncs,
-  deleteScorecardsByRound,
 } from './database';
 import { supabase } from '@/services/supabase/client';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';

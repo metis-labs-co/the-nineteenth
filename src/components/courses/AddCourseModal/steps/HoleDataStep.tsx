@@ -44,7 +44,7 @@ export const HoleDataStep = React.memo(function HoleDataStep({
   return (
     <View style={styles.step3Container}>
       {/* Hole Progress Dots */}
-      <View style={styles.holeDotsContainer}>
+      <View style={[styles.holeDotsContainer, { borderBottomColor: colors.borderLight }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.holeDots}>
             {holes.map((hole, index) => {
@@ -191,7 +191,7 @@ export const HoleDataStep = React.memo(function HoleDataStep({
             <View key={tee.id} style={styles.yardageRow}>
               <View style={styles.yardageTeeInfo}>
                 <View
-                  style={[styles.teeColorDotSmall, { backgroundColor: getTeeColorHex(tee.color) }]}
+                  style={[styles.teeColorDotSmall, { backgroundColor: getTeeColorHex(tee.color), borderColor: colors.borderLight }]}
                 />
                 <Text style={[styles.yardageTeeName, { color: colors.textPrimary }]}>
                   {tee.name}
@@ -223,7 +223,6 @@ const styles = StyleSheet.create({
   holeDotsContainer: {
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   holeDots: {
     flexDirection: 'row',
@@ -335,7 +334,6 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   yardageTeeName: {
     ...typography.body,

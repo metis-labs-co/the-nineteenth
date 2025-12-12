@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon, Surface } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
@@ -37,7 +37,7 @@ export const RoundsTab = React.memo(function RoundsTab({
   return (
     <View>
       {rounds.length === 0 ? (
-        <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.emptyState}>
             <Icon source="golf" size={48} color={colors.gray300} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No rounds yet</Text>
@@ -47,7 +47,7 @@ export const RoundsTab = React.memo(function RoundsTab({
                 : "The organizer hasn't added any rounds yet."}
             </Text>
           </View>
-        </Surface>
+        </View>
       ) : (
         <View style={styles.roundsList}>
           {rounds.map((round) => (

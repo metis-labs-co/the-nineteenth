@@ -17,14 +17,15 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { ConfirmationDialog } from '@/components/common';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconPlus, IconGolf } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader, FeatureButton, Tabs } from '@/components/common';
-import { RoundListCard } from '@/components/rounds';
+import { RoundListCard, type RoundListCardData } from '@/components/rounds';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -88,6 +89,8 @@ export default function RoundsScreen() {
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
   const [isStartingRound, setIsStartingRound] = useState(false);
   const [selectedTab, setSelectedTab] = useState<RoundTab>('active');
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [roundToDelete, setRoundToDelete] = useState<RoundListCardData | null>(null);
   const { initializeRound } = useScorecardStore();
 
   // Fetch standalone/practice rounds for the user (both active and historical)
@@ -336,6 +339,58 @@ export default function RoundsScreen() {
     setIsBottomSheetVisible(false);
   }, []);
 
+  const queryClient = useQueryClient();
+
+  // Delete round mutation
+  const deleteRoundMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      // First delete related records (round_players, scoring_pairs, scorecards)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('round_players') as any).delete().eq('round_id', roundId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('scoring_pairs') as any).delete().eq('round_id', roundId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('scorecards') as any).delete().eq('round_id', roundId);
+
+      // Then delete the round itself
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('rounds') as any)
+        .delete()
+        .eq('id', roundId)
+        .eq('user_id', user?.id); // Only allow deleting own rounds
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', user?.id] });
+    },
+    onError: (error) => {
+      console.error('Error deleting round:', error);
+      Alert.alert('Error', 'Failed to delete round. Please try again.');
+    },
+  });
+
+  const handleDeleteRound = useCallback(
+    (round: RoundListCardData) => {
+      setRoundToDelete(round);
+      setDeleteDialogVisible(true);
+    },
+    []
+  );
+
+  const handleConfirmDelete = useCallback(() => {
+    if (roundToDelete) {
+      deleteRoundMutation.mutate(roundToDelete.id);
+      setDeleteDialogVisible(false);
+      setRoundToDelete(null);
+    }
+  }, [roundToDelete, deleteRoundMutation]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteDialogVisible(false);
+    setRoundToDelete(null);
+  }, []);
+
   const handleStartNewRound = useCallback(
     async (
       courseId: string,
@@ -523,7 +578,10 @@ export default function RoundsScreen() {
     <RoundListCard
       round={item}
       onPress={() => handleScoreRound(item)}
+      onDelete={handleDeleteRound}
+      swipeEnabled={true}
       actionLabel={selectedTab === 'active' ? 'Score' : 'View'}
+      currentUserId={user?.id}
     />
   );
 
@@ -587,6 +645,20 @@ export default function RoundsScreen() {
         visible={isBottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onStartRound={handleStartNewRound}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={deleteDialogVisible}
+        title="Delete Round"
+        message={`Are you sure you want to delete this round at ${roundToDelete?.course.name ?? 'this course'}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        loading={deleteRoundMutation.isPending}
+        icon="delete"
       />
     </View>
   );

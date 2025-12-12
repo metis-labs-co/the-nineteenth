@@ -10,7 +10,8 @@
 
 import React, { useCallback } from 'react';
 import { StyleSheet, View, FlatList, RefreshControl } from 'react-native';
-import { ActivityIndicator, Divider } from 'react-native-paper';
+import { Divider } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -128,7 +129,7 @@ export default function NotificationsScreen() {
           onBack={() => navigation.goBack()}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingSpinner size="lg" />
         </View>
       </View>
     );
@@ -167,8 +168,8 @@ export default function NotificationsScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
+              colors={[colors.textPrimary]}
+              tintColor={colors.textPrimary}
             />
           }
           showsVerticalScrollIndicator={false}

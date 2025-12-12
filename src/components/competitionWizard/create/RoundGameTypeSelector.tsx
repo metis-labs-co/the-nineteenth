@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, RadioButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import type { GameType } from '@/types/database.types';
@@ -132,7 +132,6 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
   onUpgradePress,
 }: RoundGameTypeSelectorProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const { limits } = useSubscription();
 
   // State for upgrade prompt
@@ -192,8 +191,8 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
             backgroundColor: isSelected && isAllowed
               ? colors.primaryLighter + '20'
               : !isAllowed
-                ? isDark ? colors.gray200 : colors.gray50
-                : (isDark ? colors.gray100 : colors.surface),
+                ? colors.surfaceVariant
+                : colors.surface,
           },
           !isAllowed && styles.optionLocked,
         ]}

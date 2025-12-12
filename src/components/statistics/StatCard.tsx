@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 // =====================================================
 // TYPES
@@ -40,15 +40,27 @@ export const StatCard = React.memo(function StatCard({
   iconColor,
 }: StatCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-  const cardBg = isDark ? colors.gray100 : colors.white;
   const resolvedIconColor = iconColor || colors.primary;
+
+  // Build accessibility label for screen readers
+  const accessibilityLabel = subtitle
+    ? `${title}: ${value}, ${subtitle}`
+    : `${title}: ${value}`;
 
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.card, { backgroundColor: cardBg }, shadows.sm]}>
+      <View
+        style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={accessibilityLabel}
+      >
         {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: resolvedIconColor + '15' }]}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: resolvedIconColor + '15' }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <Icon source={icon} size={22} color={resolvedIconColor} />
           </View>
         )}

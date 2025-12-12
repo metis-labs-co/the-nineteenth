@@ -4,7 +4,7 @@
  * Shared type definitions for the scorecard table components.
  */
 
-import type { Hole, Player } from '@/types/database.types';
+import type { Hole } from '@/types/database.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
 /**
@@ -42,6 +42,8 @@ export interface ScorecardTableProps {
   holes: Hole[];
   /** Screen width for calculating layout */
   screenWidth: number;
+  /** Callback when a player name is pressed in the header */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 /**

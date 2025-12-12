@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { typography, spacing } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.15; // 15% of screen width to trigger

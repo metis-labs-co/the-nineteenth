@@ -19,10 +19,11 @@ import {
   Alert,
   useWindowDimensions,
   Modal,
-  Pressable,
+  TouchableOpacity,
   FlatList,
 } from 'react-native';
-import { Text, Button, ActivityIndicator, Surface, Icon } from 'react-native-paper';
+import { Text, Button, Icon } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -75,9 +76,10 @@ function IncompleteScoresModal({
   const insets = useSafeAreaInsets();
 
   const renderHoleItem = ({ item }: { item: IncompleteHole }) => (
-    <Pressable
+    <TouchableOpacity
       style={[styles.incompleteHoleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => onHolePress(item.holeNumber)}
+      activeOpacity={0.7}
       accessibilityLabel={`Go to hole ${item.holeNumber}`}
       accessibilityRole="button"
     >
@@ -95,7 +97,7 @@ function IncompleteScoresModal({
         </View>
       </View>
       <Icon source="chevron-right" size={24} color={colors.gray400} />
-    </Pressable>
+    </TouchableOpacity>
   );
 
   return (
@@ -105,7 +107,7 @@ function IncompleteScoresModal({
       transparent
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
         <View
           style={[
             styles.modalContent,
@@ -130,14 +132,15 @@ function IncompleteScoresModal({
                 </Text>
               </View>
             </View>
-            <Pressable
+            <TouchableOpacity
               style={[styles.closeButton, { backgroundColor: colors.gray200 }]}
               onPress={onClose}
+              activeOpacity={0.7}
               accessibilityLabel="Close"
               accessibilityRole="button"
             >
               <Icon source="close" size={20} color={colors.textPrimary} />
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           {/* Description */}
@@ -450,8 +453,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   if (currentPlayers.length === 0) {
     return (
       <View style={[styles.centeredContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading scorecard...</Text>
+        <LoadingSpinner size="lg" message="Loading scorecard..." />
       </View>
     );
   }
@@ -500,8 +502,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.textPrimary]}
+            tintColor={colors.textPrimary}
           />
         }
         showsVerticalScrollIndicator={true}
@@ -514,7 +516,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       </ScrollView>
 
       {/* Action Buttons */}
-      <Surface style={[styles.actionBar, { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopColor: colors.border }]} elevation={2}>
+      <View style={[styles.actionBar, { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <Button
           mode="outlined"
           onPress={handleEditScores}
@@ -543,7 +545,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         >
           {isOnline ? 'Submit All Scores' : 'Save Offline'}
         </Button>
-      </Surface>
+      </View>
 
       {/* Incomplete Scores Modal */}
       <IncompleteScoresModal
@@ -629,7 +631,6 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {

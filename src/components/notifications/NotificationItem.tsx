@@ -14,11 +14,11 @@
  */
 
 import React from 'react';
-import { StyleSheet, Pressable, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import type { Notification, NotificationType } from '@/types/database.types';
 
 /**
@@ -139,7 +139,7 @@ export const NotificationItem = React.memo(function NotificationItem({
   const isUnread = !notification.is_read;
 
   return (
-    <Pressable
+    <TouchableOpacity
       style={[
         styles.container,
         {
@@ -147,6 +147,7 @@ export const NotificationItem = React.memo(function NotificationItem({
         },
       ]}
       onPress={() => onPress(notification)}
+      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${message}. ${timeAgo}`}
       accessibilityHint={isUnread ? 'Unread notification. Tap to view' : 'Tap to view'}
@@ -199,7 +200,7 @@ export const NotificationItem = React.memo(function NotificationItem({
           {timeAgo}
         </Text>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 

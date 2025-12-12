@@ -53,7 +53,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   colors,
 }: CompetitionRoundCardProps) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.content}>
         {/* Top Row: Status Badge + Game Type Badge + Round Pill */}
         <View style={styles.topRow}>
@@ -91,7 +91,7 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         {/* Scoring Pairs Row - Organizer Only */}
         {isOrganizer && round.scoring_pairs_required && onManageScoringPairs && (
           <TouchableOpacity
-            style={styles.scoringPairsRow}
+            style={[styles.scoringPairsRow, { borderTopColor: colors.borderLight }]}
             onPress={() => onManageScoringPairs(round.id)}
             accessibilityLabel={`Manage scoring pairs for round ${roundNumber}`}
             accessibilityRole="button"
@@ -205,7 +205,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   scoringPairsLabelRow: {
     flexDirection: 'row',

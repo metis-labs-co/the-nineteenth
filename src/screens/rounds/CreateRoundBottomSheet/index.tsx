@@ -13,30 +13,25 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  TouchableOpacity,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { IconX, IconChevronLeft } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { IconChevronLeft } from '@tabler/icons-react-native';
+import { spacing, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { useFriends } from '@/hooks/useFriends';
-import { useSearchVenues, useVenueCourseDisplayItems, useFavoriteCoursesWithVenues } from '@/hooks/useVenues';
+import {
+  useSearchVenues,
+  useVenueCourseDisplayItems,
+  useFavoriteCoursesWithVenues,
+} from '@/hooks/useVenues';
 import type { VenueCourseDisplayItem } from '@/hooks/useVenues';
+import { BottomSheet } from '@/components/common';
 
 // Types
 import type { CreateRoundBottomSheetProps } from './types';
-export type { CreateRoundBottomSheetProps, ScoringPairsConfig, PlayingPartner } from './types';
 
 // Hooks
-import { useCreateRoundWizard, useBottomSheetAnimation, SHEET_HEIGHT } from './hooks';
+import { useCreateRoundWizard } from './hooks';
 
 // Steps
 import {
@@ -46,6 +41,11 @@ import {
   PartnersStep,
   ScoringSetupStep,
 } from './steps';
+export type {
+  CreateRoundBottomSheetProps,
+  ScoringPairsConfig,
+  PlayingPartner,
+} from './types';
 
 export default function CreateRoundBottomSheet({
   visible,
@@ -55,9 +55,6 @@ export default function CreateRoundBottomSheet({
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
-
-  // Animation
-  const { translateY, backdropOpacity, sheetHeight } = useBottomSheetAnimation({ visible });
 
   // Wizard state
   const wizard = useCreateRoundWizard({
@@ -76,34 +73,37 @@ export default function CreateRoundBottomSheet({
     wizard.data.searchQuery.trim(),
     undefined
   );
-  const { data: allVenues, isLoading: venuesLoading } = useVenueCourseDisplayItems();
+  const { data: allVenues, isLoading: venuesLoading } =
+    useVenueCourseDisplayItems();
 
   // Transform search results to display items
-  const displayItems: VenueCourseDisplayItem[] = wizard.data.searchQuery.trim().length >= 2
-    ? (searchResults ?? []).map((venue) => ({
-        type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-        venue: {
-          id: venue.id,
-          source: venue.source,
-          api_id: venue.api_id,
-          name: venue.name,
-          state: venue.state,
-          city: venue.city,
-          address: venue.address,
-          phone: venue.phone,
-          email: venue.email,
-          website: venue.website,
-          location: venue.location,
-          total_holes: venue.total_holes,
-          last_synced: venue.last_synced,
-          created_at: venue.created_at,
-          updated_at: venue.updated_at,
-        },
-        courses: venue.courses,
-      }))
-    : (allVenues ?? []);
+  const displayItems: VenueCourseDisplayItem[] =
+    wizard.data.searchQuery.trim().length >= 2
+      ? (searchResults ?? []).map((venue) => ({
+          type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
+          venue: {
+            id: venue.id,
+            source: venue.source,
+            api_id: venue.api_id,
+            name: venue.name,
+            state: venue.state,
+            city: venue.city,
+            address: venue.address,
+            phone: venue.phone,
+            email: venue.email,
+            website: venue.website,
+            location: venue.location,
+            total_holes: venue.total_holes,
+            last_synced: venue.last_synced,
+            created_at: venue.created_at,
+            updated_at: venue.updated_at,
+          },
+          courses: venue.courses,
+        }))
+      : (allVenues ?? []);
 
-  const coursesLoading = wizard.data.searchQuery.trim().length >= 2 ? searchLoading : venuesLoading;
+  const coursesLoading =
+    wizard.data.searchQuery.trim().length >= 2 ? searchLoading : venuesLoading;
 
   // Get back button handler based on current step
   const getBackHandler = () => {
@@ -139,210 +139,127 @@ export default function CreateRoundBottomSheet({
     }
   };
 
-  if (!visible) return null;
+  // Render back button for header
+  const renderBackButton = () => {
+    if (wizard.currentStep === 'course') return null;
+
+    const backHandler = getBackHandler();
+    return (
+      <TouchableOpacity
+        onPress={backHandler}
+        style={styles.backButton}
+        accessibilityLabel="Go back"
+      >
+        <IconChevronLeft size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop */}
-      <Animated.View
-        style={[styles.backdrop, { opacity: backdropOpacity }]}
-        pointerEvents={visible ? 'auto' : 'none'}
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={wizard.handleClose} />
-      </Animated.View>
-
-      {/* Bottom Sheet */}
-      <Animated.View
-        style={[
-          styles.sheet,
-          {
-            height: sheetHeight,
-            transform: [{ translateY }],
-            backgroundColor: colors.white,
-          },
-        ]}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardView}
-        >
-          {/* Handle */}
-          <View style={styles.handleContainer}>
-            <View style={[styles.handle, { backgroundColor: colors.gray300 }]} />
-          </View>
-
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            {wizard.currentStep !== 'course' && (
-              <TouchableOpacity
-                onPress={getBackHandler()}
-                style={styles.backButton}
-                accessibilityLabel="Go back"
-              >
-                <IconChevronLeft size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-            <Text
+    <BottomSheet
+      visible={visible}
+      onClose={wizard.handleClose}
+      height={0.8}
+      title={getStepTitle()}
+      headerLeft={renderBackButton()}
+      enableSwipeToDismiss={wizard.currentStep === 'course'}
+      testID="create-round-bottom-sheet"
+    >
+      {/* Step Indicator */}
+      <View style={styles.stepIndicator}>
+        {(
+          ['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const
+        ).map((step, index, arr) => (
+          <React.Fragment key={step}>
+            <View
               style={[
-                styles.headerTitle,
-                wizard.currentStep === 'course' && styles.headerTitleCentered,
-                { color: colors.textPrimary },
+                styles.stepDot,
+                { backgroundColor: colors.gray300 },
+                wizard.currentStep === step && {
+                  backgroundColor: colors.primary,
+                  width: 10,
+                  height: 10,
+                },
               ]}
-            >
-              {getStepTitle()}
-            </Text>
-            <TouchableOpacity
-              onPress={wizard.handleClose}
-              style={styles.closeButton}
-              accessibilityLabel="Close"
-            >
-              <IconX size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Step Indicator */}
-          <View style={styles.stepIndicator}>
-            {(['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const).map(
-              (step, index, arr) => (
-                <React.Fragment key={step}>
-                  <View
-                    style={[
-                      styles.stepDot,
-                      { backgroundColor: colors.gray300 },
-                      wizard.currentStep === step && {
-                        backgroundColor: colors.primary,
-                        width: 10,
-                        height: 10,
-                      },
-                    ]}
-                  />
-                  {index < arr.length - 1 && (
-                    <View style={[styles.stepLine, { backgroundColor: colors.gray200 }]} />
-                  )}
-                </React.Fragment>
-              )
+            />
+            {index < arr.length - 1 && (
+              <View
+                style={[styles.stepLine, { backgroundColor: colors.gray200 }]}
+              />
             )}
-          </View>
+          </React.Fragment>
+        ))}
+      </View>
 
-          {/* Step Content */}
-          {wizard.currentStep === 'course' && (
-            <CourseSelectionStep
-              searchQuery={wizard.data.searchQuery}
-              onSearchQueryChange={wizard.setSearchQuery}
-              displayItems={displayItems}
-              isLoading={coursesLoading}
-              favoriteCourses={favoriteCourses}
-              onSelectCourse={wizard.handleSelectCourse}
-              onSelectFavoriteCourse={wizard.handleSelectFavoriteCourse}
-            />
-          )}
+      {/* Step Content */}
+      {wizard.currentStep === 'course' && (
+        <CourseSelectionStep
+          searchQuery={wizard.data.searchQuery}
+          onSearchQueryChange={wizard.setSearchQuery}
+          displayItems={displayItems}
+          isLoading={coursesLoading}
+          favoriteCourses={favoriteCourses}
+          onSelectCourse={wizard.handleSelectCourse}
+          onSelectFavoriteCourse={wizard.handleSelectFavoriteCourse}
+        />
+      )}
 
-          {wizard.currentStep === 'tee' && wizard.data.selectedCourse && (
-            <TeeSelectionStep
-              selectedCourse={wizard.data.selectedCourse}
-              selectedTee={wizard.data.selectedTee}
-              onSelectTee={wizard.handleSelectTee}
-              onSkipTeeSelection={wizard.handleSkipTeeSelection}
-            />
-          )}
+      {wizard.currentStep === 'tee' && wizard.data.selectedCourse && (
+        <TeeSelectionStep
+          selectedCourse={wizard.data.selectedCourse}
+          selectedTee={wizard.data.selectedTee}
+          onSelectTee={wizard.handleSelectTee}
+          onSkipTeeSelection={wizard.handleSkipTeeSelection}
+        />
+      )}
 
-          {wizard.currentStep === 'matchType' && (
-            <MatchTypeStep
-              selectedCourse={wizard.data.selectedCourse}
-              selectedTee={wizard.data.selectedTee}
-              selectedMatchType={wizard.data.selectedMatchType}
-              onSelectMatchType={wizard.handleSelectMatchType}
-            />
-          )}
+      {wizard.currentStep === 'matchType' && (
+        <MatchTypeStep
+          selectedCourse={wizard.data.selectedCourse}
+          selectedTee={wizard.data.selectedTee}
+          selectedMatchType={wizard.data.selectedMatchType}
+          onSelectMatchType={wizard.handleSelectMatchType}
+        />
+      )}
 
-          {wizard.currentStep === 'partners' && (
-            <PartnersStep
-              selectedCourse={wizard.data.selectedCourse}
-              selectedTee={wizard.data.selectedTee}
-              selectedMatchType={wizard.data.selectedMatchType}
-              selectedPartners={wizard.data.selectedPartners}
-              friendSearchQuery={wizard.data.friendSearchQuery}
-              onFriendSearchQueryChange={wizard.setFriendSearchQuery}
-              friends={friends}
-              friendsLoading={friendsLoading}
-              onTogglePartner={wizard.handleTogglePartner}
-              onRemovePartner={wizard.handleRemovePartner}
-              isPartnerSelected={wizard.isPartnerSelected}
-              onContinue={wizard.handleContinueToScoringSetup}
-            />
-          )}
+      {wizard.currentStep === 'partners' && wizard.data.selectedMatchType && (
+        <PartnersStep
+          selectedCourse={wizard.data.selectedCourse}
+          selectedTee={wizard.data.selectedTee}
+          selectedMatchType={wizard.data.selectedMatchType}
+          selectedPartners={wizard.data.selectedPartners}
+          friendSearchQuery={wizard.data.friendSearchQuery}
+          onFriendSearchQueryChange={wizard.setFriendSearchQuery}
+          friends={friends}
+          friendsLoading={friendsLoading}
+          onTogglePartner={wizard.handleTogglePartner}
+          onRemovePartner={wizard.handleRemovePartner}
+          isPartnerSelected={wizard.isPartnerSelected}
+          onContinue={wizard.handleContinueToScoringSetup}
+        />
+      )}
 
-          {wizard.currentStep === 'scoringSetup' && (
-            <ScoringSetupStep
-              selectedCourse={wizard.data.selectedCourse}
-              selectedTee={wizard.data.selectedTee}
-              selectedMatchType={wizard.data.selectedMatchType}
-              selectedPartners={wizard.data.selectedPartners}
-              isPremium={isPremium}
-              scoringPairsEnabled={wizard.data.scoringPairsEnabled}
-              scoringPairs={wizard.data.scoringPairs}
-              onScoringPairsEnabledChange={wizard.setScoringPairsEnabled}
-              onScoringPairsChange={wizard.handleScoringPairsChange}
-              onStartScoring={wizard.handleStartScoring}
-            />
-          )}
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+      {wizard.currentStep === 'scoringSetup' &&
+        wizard.data.selectedMatchType && (
+          <ScoringSetupStep
+            selectedCourse={wizard.data.selectedCourse}
+            selectedTee={wizard.data.selectedTee}
+            selectedMatchType={wizard.data.selectedMatchType}
+            selectedPartners={wizard.data.selectedPartners}
+            isPremium={isPremium}
+            scoringPairsEnabled={wizard.data.scoringPairsEnabled}
+            scoringPairs={wizard.data.scoringPairs}
+            onScoringPairsEnabledChange={wizard.setScoringPairsEnabled}
+            onScoringPairsChange={wizard.handleScoringPairsChange}
+            onStartScoring={wizard.handleStartScoring}
+          />
+        )}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: borderRadius.xxl,
-    borderTopRightRadius: borderRadius.xxl,
-    ...shadows.xl,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    ...typography.h3,
-    flex: 1,
-  },
-  headerTitleCentered: {
-    textAlign: 'center',
-  },
   backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    marginRight: spacing.xs,
-  },
-  closeButton: {
     width: 40,
     height: 40,
     alignItems: 'center',

@@ -10,27 +10,20 @@
  * - Pull-to-refresh
  */
 
-import React, { useState, useCallback } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  RefreshControl,
-  Pressable,
-  TextInput,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
-import { Text, Icon } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useCallback, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useIsDark, useThemeColors } from '@/context/ThemeContext';
-import { EmptyState } from '@/components/common/EmptyState';
+import { useThemeColors } from '@/context/ThemeContext';
+import { LoadingSpinner, SearchBar, PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/common/ErrorState';
-import { PageHeader } from '@/components/common/PageHeader';
+import {
+  AddCourseModal,
+  ApiSearchModal,
+  StateFilterList,
+  CourseListContent,
+} from '@/components/courses';
 import {
   useVenuesWithCourses,
   useSearchVenues,
@@ -41,32 +34,14 @@ import {
   type VenueCourseDisplayItem,
 } from '@/hooks/useVenues';
 import { useIsApiAvailable } from '@/hooks/useApiCourses';
-import { AddCourseModal } from '@/components/courses/AddCourseModal';
-import { ApiSearchModal } from '@/components/courses/ApiSearchModal';
-import { VenueCard } from '@/components/courses/VenueCard';
-import { FilterPill } from '@/components/common/FilterPill';
 import type { AustralianState, Course, LegacyCourse, Venue } from '@/types/database.types';
-
-// Australian states for filter
-const AUSTRALIAN_STATES: { value: AustralianState; label: string }[] = [
-  { value: 'NSW', label: 'NSW' },
-  { value: 'VIC', label: 'VIC' },
-  { value: 'QLD', label: 'QLD' },
-  { value: 'SA', label: 'SA' },
-  { value: 'WA', label: 'WA' },
-  { value: 'TAS', label: 'TAS' },
-  { value: 'NT', label: 'NT' },
-  { value: 'ACT', label: 'ACT' },
-];
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CourseListScreen() {
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const isApiAvailable = useIsApiAvailable();
-  const isDark = useIsDark();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,7 +84,7 @@ export default function CourseListScreen() {
   const error = allError || searchError;
 
   // Transform venues to display items
-  const displayItems: VenueCourseDisplayItem[] = React.useMemo(() => {
+  const displayItems: VenueCourseDisplayItem[] = useMemo(() => {
     // For favorites view, create items from favorite courses grouped by venue
     if (showFavoritesOnly && favoriteCourses) {
       // Group favorites by venue
@@ -172,8 +147,8 @@ export default function CourseListScreen() {
         } else {
           await addFavorite.mutateAsync(course.id);
         }
-      } catch (error) {
-        console.error('Failed to toggle favorite:', error);
+      } catch (err) {
+        console.error('Failed to toggle favorite:', err);
       } finally {
         setTogglingFavoriteId(null);
       }
@@ -181,20 +156,18 @@ export default function CourseListScreen() {
     [addFavorite, removeFavorite]
   );
 
-  const handleClearSearch = useCallback(() => {
+  const handleClearFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedState(undefined);
+    setShowFavoritesOnly(false);
   }, []);
 
   const handleVenueCreated = useCallback((_venue: Venue, _course: Course) => {
     // The query will be invalidated by the mutation
-    // Optionally scroll to the new venue or show a success message
   }, []);
 
   const handleApiCourseImported = useCallback((_course: LegacyCourse) => {
     // The query will be invalidated by the mutation
-    // Close the API search modal on successful import
-    // Optionally show a success message
   }, []);
 
   // Navigate to venue details
@@ -214,7 +187,7 @@ export default function CourseListScreen() {
   );
 
   // Build right actions for PageHeader
-  const headerRightActions = React.useMemo(() => {
+  const headerRightActions = useMemo(() => {
     const actions = [];
     if (isApiAvailable) {
       actions.push({
@@ -237,7 +210,7 @@ export default function CourseListScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Courses" rightActions={headerRightActions} />
         <View style={[styles.centerContent, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingSpinner size="lg" />
         </View>
       </View>
     );
@@ -257,146 +230,46 @@ export default function CourseListScreen() {
     );
   }
 
-  const renderVenueItem = ({ item }: { item: VenueCourseDisplayItem }) => (
-    <VenueCard
-      item={item}
-      onCourseSelect={handleCourseSelect}
-      onVenuePress={handleVenuePress}
-      onToggleFavorite={handleToggleFavorite}
-      isTogglingFavorite={togglingFavoriteId}
-      showFavoriteButton
-    />
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <PageHeader title="Courses" rightActions={headerRightActions} />
 
       {/* Search Bar */}
-      <View style={[styles.searchSection, { backgroundColor: isDark ? colors.gray100 : colors.white, borderBottomColor: colors.gray100 }]}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: colors.gray50 }]}>
-          <Icon source="magnify" size={20} color={colors.gray400} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Search courses..."
-            placeholderTextColor={colors.gray400}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel="Search courses by name"
-          />
-          {searchQuery.length > 0 && (
-            <Pressable
-              onPress={() => setSearchQuery('')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-            >
-              <Icon source="close-circle" size={20} color={colors.gray400} />
-            </Pressable>
-          )}
-        </View>
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search courses..."
+        accessibilityLabel="Search courses by name"
+      />
 
-      {/* Filter Chips */}
-      <View style={[styles.filterSection, { backgroundColor: isDark ? colors.gray100 : colors.white, borderBottomColor: colors.gray100 }]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
-        >
-          {/* Favorites toggle */}
-          <FilterPill
-            label="Favorites"
-            selected={showFavoritesOnly}
-            onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            accessibilityLabel="Show favorites only"
-          />
+      {/* State Filters */}
+      <StateFilterList
+        selectedState={selectedState}
+        onStateChange={setSelectedState}
+        showFavoritesOnly={showFavoritesOnly}
+        onFavoritesToggle={() => setShowFavoritesOnly(!showFavoritesOnly)}
+        showClearButton={isSearchActive || showFavoritesOnly}
+        onClear={handleClearFilters}
+      />
 
-          {/* State filters */}
-          {AUSTRALIAN_STATES.map((state) => (
-            <FilterPill
-              key={state.value}
-              label={state.label}
-              selected={selectedState === state.value}
-              onPress={() =>
-                setSelectedState(
-                  selectedState === state.value ? undefined : state.value
-                )
-              }
-              accessibilityLabel={`Filter by ${state.label}`}
-            />
-          ))}
-        </ScrollView>
-
-        {/* Clear filters button */}
-        {(isSearchActive || showFavoritesOnly) && (
-          <Pressable
-            style={styles.clearFiltersButton}
-            onPress={() => {
-              handleClearSearch();
-              setShowFavoritesOnly(false);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear all filters"
-          >
-            <Text style={[styles.clearFiltersText, { color: colors.primary }]}>Clear</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* Venue/Course List */}
-      {isSearching ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Searching...</Text>
-        </View>
-      ) : displayItems.length === 0 ? (
-        <EmptyState
-          title={
-            showFavoritesOnly
-              ? 'No favorite courses'
-              : isSearchActive
-              ? 'No venues found'
-              : 'No venues yet'
-          }
-          message={
-            showFavoritesOnly
-              ? 'Star courses to add them to your favorites'
-              : isSearchActive
-              ? `No venues match "${searchQuery}". ${isApiAvailable ? 'Try searching the online database or add a new venue.' : 'Try a different search or add a new venue.'}`
-              : isApiAvailable
-              ? 'Search the online database or add a venue manually to get started'
-              : 'Add a venue to get started'
-          }
-          icon={showFavoritesOnly ? 'star-outline' : 'golf'}
-          actionLabel={isApiAvailable && !showFavoritesOnly ? 'Search Online' : 'Add Venue'}
-          onAction={() => isApiAvailable && !showFavoritesOnly ? setShowApiSearchModal(true) : setShowAddModal(true)}
-        />
-      ) : (
-        <FlatList
-          data={displayItems}
-          keyExtractor={(item) => item.venue.id}
-          renderItem={renderVenueItem}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + spacing.xxxl },
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
-        />
-      )}
+      {/* Course List Content */}
+      <CourseListContent
+        displayItems={displayItems}
+        isSearching={isSearching}
+        isRefreshing={isRefreshing}
+        showFavoritesOnly={showFavoritesOnly}
+        isSearchActive={isSearchActive}
+        searchQuery={searchQuery}
+        isApiAvailable={isApiAvailable}
+        onRefresh={handleRefresh}
+        onCourseSelect={handleCourseSelect}
+        onVenuePress={handleVenuePress}
+        onToggleFavorite={handleToggleFavorite}
+        togglingFavoriteId={togglingFavoriteId}
+        onShowApiSearchModal={() => setShowApiSearchModal(true)}
+        onShowAddModal={() => setShowAddModal(true)}
+      />
 
       {/* Add Venue Modal */}
       <AddCourseModal
@@ -415,10 +288,6 @@ export default function CourseListScreen() {
   );
 }
 
-// =====================================================
-// STYLES
-// =====================================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -426,65 +295,5 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // Search section
-  searchSection: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    marginLeft: spacing.sm,
-    paddingVertical: 0,
-  },
-
-  // Filter section
-  filterSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-  },
-  filterScrollContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  clearFiltersButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginRight: spacing.lg,
-  },
-  clearFiltersText: {
-    ...typography.small,
-    fontWeight: '600',
-  },
-
-  // List
-  listContent: {
-    paddingTop: spacing.md,
-  },
-  listSeparator: {
-    height: spacing.sm,
-  },
-
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
   },
 });

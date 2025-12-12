@@ -11,7 +11,7 @@ import React from 'react';
 import {
   StyleSheet,
   View,
-  Pressable,
+  TouchableOpacity,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -67,15 +67,16 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
             {STEPS[wizard.currentStep - 1].title}
           </Text>
-          <Pressable
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={wizard.handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Close"
+            activeOpacity={0.7}
           >
             <Icon source="close" size={24} color={colors.gray600} />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Step Indicator */}

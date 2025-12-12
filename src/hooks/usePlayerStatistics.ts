@@ -39,18 +39,21 @@ export interface CourseStats {
 
 export interface RoundSummary {
   roundId: string;
-  competitionId: string;
+  competitionId: string | null;
   competitionName: string;
   courseName: string;
   date: string;
   totalGross: number;
   totalPoints: number;
   holesPlayed: number;
+  isPracticeRound: boolean;
 }
 
 export interface PlayerStatistics {
   // Overview Stats
   roundsPlayed: number;
+  practiceRoundsPlayed: number;
+  competitionRoundsPlayed: number;
   competitionsEntered: number;
   competitionsWon: number;
   holesPlayed: number;
@@ -189,6 +192,7 @@ export function usePlayerStatistics(
       }
 
       // Fetch all scorecards for the player with round and competition data
+      // Uses left join for competitions to include practice/standalone rounds
       const { data: scorecardsData, error: scorecardsError } = await supabase
         .from('scorecards')
         .select(`
@@ -214,7 +218,7 @@ export function usePlayerStatistics(
               name,
               holes
             ),
-            competitions!inner (
+            competitions (
               id,
               name,
               status
@@ -302,12 +306,18 @@ export function usePlayerStatistics(
       // Round summaries for best/worst calculations
       const roundSummaries: RoundSummary[] = [];
 
+      // Track practice vs competition rounds
+      let practiceRoundsCount = 0;
+
       scorecards.forEach((scorecard: any) => {
         const round = scorecard.rounds;
         const course = round?.courses;
-        const competition = round?.competitions;
+        const competition = round?.competitions; // Can be null for practice rounds
 
-        if (!round || !course || !competition) return;
+        // Only require round and course - competition can be null for practice rounds
+        if (!round || !course) return;
+
+        const isPracticeRound = !competition;
 
         const holes = parseHoles(course.holes);
         const scores = scorecard.scores as Record<string, HoleScore>;
@@ -383,16 +393,22 @@ export function usePlayerStatistics(
           });
         }
 
+        // Track practice round count
+        if (isPracticeRound) {
+          practiceRoundsCount++;
+        }
+
         // Create round summary
         roundSummaries.push({
           roundId: round.id,
-          competitionId: competition.id,
-          competitionName: competition.name,
+          competitionId: competition?.id ?? null,
+          competitionName: competition?.name ?? 'Practice Round',
           courseName: course.name,
           date: round.date || scorecard.submitted_at || '',
           totalGross: scorecard.total_gross || 0,
           totalPoints: scorecard.total_points || 0,
           holesPlayed: holesInScorecard,
+          isPracticeRound,
         });
       });
 
@@ -422,16 +438,15 @@ export function usePlayerStatistics(
       // A player wins if they have the highest points in a completed competition
       let competitionsWon = 0;
 
-      // Group scorecards by competition and check if player won
-      const competitionResults = new Map<string, { playerPoints: number; maxPoints: number }>();
+      // Get all completed competition IDs the player entered
+      const completedCompetitionIds = competitionPlayers
+        .filter(cp => cp.competitions?.status === 'completed')
+        .map(cp => cp.competition_id);
 
-      // For each competition the player entered, check their standing
-      for (const cp of competitionPlayers) {
-        const competition = cp.competitions;
-        if (!competition || competition.status !== 'completed') continue;
-
-        // Get all scorecards for this competition
-        const { data: compScorecards } = await supabase
+      if (completedCompetitionIds.length > 0) {
+        // FIXED: Batch fetch all scorecards for all completed competitions in ONE query
+        // This replaces the N+1 query pattern that was making one query per competition
+        const { data: allCompScorecards } = await supabase
           .from('scorecards')
           .select(`
             player_id,
@@ -440,24 +455,32 @@ export function usePlayerStatistics(
               competition_id
             )
           `)
-          .eq('rounds.competition_id', cp.competition_id)
+          .in('rounds.competition_id', completedCompetitionIds)
           .in('status', ['completed', 'confirmed']);
 
-        if (compScorecards && compScorecards.length > 0) {
-          // Sum points per player
-          const playerPoints = new Map<string, number>();
-          compScorecards.forEach((sc: any) => {
-            const current = playerPoints.get(sc.player_id) || 0;
-            playerPoints.set(sc.player_id, current + (sc.total_points || 0));
+        if (allCompScorecards && allCompScorecards.length > 0) {
+          // Group scorecards by competition
+          const scoresByCompetition = new Map<string, Map<string, number>>();
+
+          allCompScorecards.forEach((scorecard: { player_id: string; total_points: number | null; rounds: { competition_id: string } }) => {
+            const compId = scorecard.rounds.competition_id;
+            if (!scoresByCompetition.has(compId)) {
+              scoresByCompetition.set(compId, new Map());
+            }
+            const playerPointsMap = scoresByCompetition.get(compId)!;
+            const current = playerPointsMap.get(scorecard.player_id) || 0;
+            playerPointsMap.set(scorecard.player_id, current + (scorecard.total_points || 0));
           });
 
-          // Find max points and check if current player has it
-          const currentPlayerPoints = playerPoints.get(playerId) || 0;
-          const maxPoints = Math.max(...Array.from(playerPoints.values()));
+          // Check each competition for wins
+          scoresByCompetition.forEach((playerPointsMap) => {
+            const currentPlayerPoints = playerPointsMap.get(playerId) || 0;
+            const maxPoints = Math.max(...Array.from(playerPointsMap.values()));
 
-          if (currentPlayerPoints === maxPoints && currentPlayerPoints > 0) {
-            competitionsWon++;
-          }
+            if (currentPlayerPoints === maxPoints && currentPlayerPoints > 0) {
+              competitionsWon++;
+            }
+          });
         }
       }
 
@@ -518,6 +541,8 @@ export function usePlayerStatistics(
 
       return {
         roundsPlayed,
+        practiceRoundsPlayed: practiceRoundsCount,
+        competitionRoundsPlayed: roundsPlayed - practiceRoundsCount,
         competitionsEntered,
         competitionsWon,
         holesPlayed: totalHolesPlayed,

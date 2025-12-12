@@ -10,12 +10,12 @@
  * Organizers can tap on editable fields to modify them.
  */
 
-import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Icon, Surface, Chip } from 'react-native-paper';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon, Chip } from 'react-native-paper';
 import * as Clipboard from 'expo-clipboard';
 import { IconCalendar, IconSettings } from '@tabler/icons-react-native';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatDateAustralian, formatPosition } from '@/utils/formatting';
 import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
@@ -152,17 +152,15 @@ function EditableDetailRow({
 
   if (isEditable && onPress) {
     return (
-      <Pressable
+      <TouchableOpacity
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.detailRowPressable,
-          pressed && { backgroundColor: colors.gray50 },
-        ]}
+        style={styles.detailRowPressable}
         accessibilityLabel={`Edit ${label}`}
         accessibilityRole="button"
+        activeOpacity={0.7}
       >
         {content}
-      </Pressable>
+      </TouchableOpacity>
     );
   }
 
@@ -185,9 +183,6 @@ function CompetitionSettingsSection({
   onEdit,
 }: CompetitionSettingsSectionProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   return (
     <View style={styles.section}>
@@ -197,18 +192,19 @@ function CompetitionSettingsSection({
           <Text style={[styles.sectionTitle, styles.noMargin, { color: colors.textPrimary }]}>Settings</Text>
         </View>
         {isOrganizer && (
-          <Pressable
+          <TouchableOpacity
             style={[styles.sectionEditButton, { backgroundColor: colors.gray100 }]}
             onPress={onEdit}
             accessibilityLabel="Edit settings"
             accessibilityRole="button"
+            activeOpacity={0.7}
           >
             <Icon source="pencil" size={16} color={colors.primary} />
-          </Pressable>
+          </TouchableOpacity>
         )}
       </View>
 
-      <Surface style={[styles.settingsCard, { backgroundColor: cardBackground }]} elevation={1}>
+      <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
         {/* Competition Type */}
         <View style={styles.detailRowPressable}>
           <View style={styles.detailRow}>
@@ -270,7 +266,7 @@ function CompetitionSettingsSection({
             </View>
           </View>
         </View>
-      </Surface>
+      </View>
     </View>
   );
 }
@@ -280,7 +276,7 @@ function CompetitionSettingsSection({
 // =====================================================
 
 interface CoursesSectionProps {
-  courses: (Course & { venues?: { city: string | null; state: string | null } | null })[];
+  courses: (Course & { venues?: { name: string; city: string | null; state: string | null } | null })[];
   onViewCourse?: (course: Course) => void;
 }
 
@@ -313,6 +309,7 @@ function CoursesSection({ courses, onViewCourse }: CoursesSectionProps) {
             onPress={onViewCourse ? () => onViewCourse(course) : undefined}
             showFavoriteButton={false}
             showChevron={!!onViewCourse}
+            venueName={course.venues?.name}
           />
         ))}
       </View>
@@ -335,13 +332,10 @@ export const DetailsTab = React.memo(function DetailsTab({
   onUpdateCompetition,
 }: DetailsTabProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {
-    const courseMap = new Map<string, Course & { venues?: { city: string | null; state: string | null } | null }>();
+    const courseMap = new Map<string, Course & { venues?: { name: string; city: string | null; state: string | null } | null }>();
 
     for (const round of rounds) {
       if (round.course && !courseMap.has(round.course.id)) {
@@ -355,7 +349,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   return (
     <View>
       {/* Competition Header Card */}
-      <View style={[styles.headerCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+      <View style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.headerTop}>
           <View style={[styles.competitionIcon, { backgroundColor: colors.primaryLighter }]}>
             <Icon source="trophy-outline" size={32} color={colors.primary} />
@@ -383,14 +377,15 @@ export const DetailsTab = React.memo(function DetailsTab({
 
           {/* Edit Button (Organizer only) */}
           {isOrganizer && (
-            <Pressable
+            <TouchableOpacity
               style={[styles.editButton, { backgroundColor: colors.gray100 }]}
               onPress={onEdit}
               accessibilityLabel="Edit competition"
               accessibilityRole="button"
+              activeOpacity={0.7}
             >
               <Icon source="pencil" size={20} color={colors.primary} />
-            </Pressable>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -416,10 +411,10 @@ export const DetailsTab = React.memo(function DetailsTab({
         </View>
 
         {/* Invite Code - Tappable to copy */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.inviteCodeBox,
-            { backgroundColor: pressed ? colors.primary : colors.primaryLighter },
+            { backgroundColor: colors.primaryLighter },
           ]}
           onPress={async () => {
             await Clipboard.setStringAsync(competition.invite_code);
@@ -435,6 +430,7 @@ export const DetailsTab = React.memo(function DetailsTab({
           accessibilityLabel={`Copy invite code ${competition.invite_code}`}
           accessibilityHint="Double tap to copy invite code to clipboard"
           accessibilityRole="button"
+          activeOpacity={0.7}
         >
           <View style={styles.inviteCodeRow}>
             <Text style={[styles.inviteCodeLabel, { color: colors.primaryDark }]}>INVITE CODE</Text>
@@ -445,7 +441,7 @@ export const DetailsTab = React.memo(function DetailsTab({
               <Icon source="content-copy" size={18} color={colors.primaryDark} />
             </View>
           </View>
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       {/* Current Standing Card - shown for non-organizers who are players */}

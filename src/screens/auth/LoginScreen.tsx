@@ -6,10 +6,11 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { TextInput, Button, Text, HelperText } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Logo } from '@/components/common/Logo';
+import { FormInput } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
@@ -46,7 +47,6 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [secureTextEntry, setSecureTextEntry] = useState(true);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -276,34 +276,22 @@ export default function LoginScreen({ navigation }: Props) {
                   </View>
 
                   {/* OTP Code Input */}
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      label="Verification Code"
-                      value={otpCode}
-                      onChangeText={(text) => {
-                        // Only allow digits and max 8 characters
-                        const cleanedText = text.replace(/[^0-9]/g, '').slice(0, 8);
-                        setOtpCode(cleanedText);
-                        if (otpError) validateOtpCode(cleanedText);
-                      }}
-                      mode="outlined"
-                      keyboardType="number-pad"
-                      maxLength={8}
-                      error={!!otpError}
-                      disabled={isAuthenticating}
-                      style={[styles.input, { backgroundColor: colors.surface }]}
-                      outlineColor={colors.border}
-                      activeOutlineColor={colors.primary}
-                      textColor={colors.textPrimary}
-                      accessibilityLabel="Verification code input"
-                      accessibilityHint="Enter the code sent to your email"
-                    />
-                    {otpError && (
-                      <HelperText type="error" visible={!!otpError}>
-                        {otpError}
-                      </HelperText>
-                    )}
-                  </View>
+                  <FormInput
+                    label="Verification Code"
+                    floatingLabel
+                    value={otpCode}
+                    onChangeText={(text) => {
+                      // Only allow digits and max 8 characters
+                      const cleanedText = text.replace(/[^0-9]/g, '').slice(0, 8);
+                      setOtpCode(cleanedText);
+                      if (otpError) validateOtpCode(cleanedText);
+                    }}
+                    keyboardType="number"
+                    maxLength={8}
+                    error={otpError || undefined}
+                    disabled={isAuthenticating}
+                    accessibilityHint="Enter the code sent to your email"
+                  />
 
                   {/* Verify Button */}
                   <Button
@@ -347,74 +335,41 @@ export default function LoginScreen({ navigation }: Props) {
               ) : (
                 <>
                   {/* Email Input */}
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      label="Email"
-                      value={email}
-                      onChangeText={(text) => {
-                        setEmail(text);
-                        if (emailError) validateEmail(text);
-                      }}
-                      onBlur={() => validateEmail(email)}
-                      mode="outlined"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      error={!!emailError}
-                      disabled={isAuthenticating}
-                      style={[styles.input, { backgroundColor: colors.surface }]}
-                      outlineColor={colors.border}
-                      activeOutlineColor={colors.primary}
-                      textColor={colors.textPrimary}
-                      accessibilityLabel="Email input"
-                      accessibilityHint="Enter your email address"
-                    />
-                    {emailError && (
-                      <HelperText type="error" visible={!!emailError}>
-                        {emailError}
-                      </HelperText>
-                    )}
-                  </View>
+                  <FormInput
+                    label="Email"
+                    floatingLabel
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      if (emailError) validateEmail(text);
+                    }}
+                    onBlur={() => validateEmail(email)}
+                    keyboardType="email"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    error={emailError || undefined}
+                    disabled={isAuthenticating}
+                    accessibilityHint="Enter your email address"
+                  />
 
                   {/* Password Input - Only shown for password login */}
                   {!useOtp && (
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        label="Password"
-                        value={password}
-                        onChangeText={(text) => {
-                          setPassword(text);
-                          if (passwordError) validatePassword(text);
-                        }}
-                        onBlur={() => validatePassword(password)}
-                        mode="outlined"
-                        secureTextEntry={secureTextEntry}
-                        autoCapitalize="none"
-                        autoComplete="password"
-                        error={!!passwordError}
-                        disabled={isAuthenticating}
-                        style={[styles.input, { backgroundColor: colors.surface }]}
-                        outlineColor={colors.border}
-                        activeOutlineColor={colors.primary}
-                        textColor={colors.textPrimary}
-                        right={
-                          <TextInput.Icon
-                            icon={secureTextEntry ? 'eye' : 'eye-off'}
-                            onPress={() => setSecureTextEntry(!secureTextEntry)}
-                            accessibilityLabel={
-                              secureTextEntry ? 'Show password' : 'Hide password'
-                            }
-                          />
-                        }
-                        accessibilityLabel="Password input"
-                        accessibilityHint="Enter your password"
-                      />
-                      {passwordError && (
-                        <HelperText type="error" visible={!!passwordError}>
-                          {passwordError}
-                        </HelperText>
-                      )}
-                    </View>
+                    <FormInput
+                      label="Password"
+                      floatingLabel
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (passwordError) validatePassword(text);
+                      }}
+                      onBlur={() => validatePassword(password)}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="password"
+                      error={passwordError || undefined}
+                      disabled={isAuthenticating}
+                      accessibilityHint="Enter your password"
+                    />
                   )}
 
                   {/* Login / Send Code Button */}
@@ -457,7 +412,7 @@ export default function LoginScreen({ navigation }: Props) {
 
             {/* Signup Link */}
             <View style={styles.signupContainer}>
-              <Text style={[styles.signupText, { color: colors.textSecondary }]}>Don't have an account? </Text>
+              <Text style={[styles.signupText, { color: colors.textSecondary }]}>Don&apos;t have an account? </Text>
               <Button
                 mode="text"
                 onPress={handleNavigateToSignup}
@@ -542,13 +497,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   form: {
-    gap: spacing.lg,
+    gap: spacing.sm,
     width: '100%',
   },
-  inputContainer: {
-    marginBottom: spacing.sm,
-  },
-  input: {},
   loginButton: {
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,

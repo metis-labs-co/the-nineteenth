@@ -10,7 +10,6 @@ import type {
   RoundStatus,
   HandicapSystem,
   GameType,
-  TeamWithMembers,
 } from '@/types/database.types';
 
 /**
@@ -19,6 +18,7 @@ import type {
 export interface RoundWithCourse extends Round {
   course: (Course & {
     venues?: {
+      name: string;
       city: string | null;
       state: string | null;
     } | null;

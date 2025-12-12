@@ -7,7 +7,8 @@
 
 import React, { useState, useCallback, useLayoutEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Text, Snackbar } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -217,8 +218,7 @@ export default function TeamManagementScreen({ navigation, route }: Props) {
           onBack={handleGoBack}
         />
         <View style={styles.centeredContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading teams...</Text>
+          <LoadingSpinner size="lg" message="Loading teams..." />
         </View>
       </View>
     );

@@ -11,8 +11,8 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Surface, Icon, Divider } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon, Divider } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -135,7 +135,7 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
   return (
     <View style={styles.container}>
       {/* Match Status Header */}
-      <Surface style={[styles.statusCard, { backgroundColor: colors.surface }]} elevation={1}>
+      <View style={[styles.statusCard, { backgroundColor: colors.surface }]}>
         <View style={styles.statusRow}>
           <View style={styles.holeCountContainer}>
             <Text style={[styles.holeCount, { color: colors.primary }]}>
@@ -165,7 +165,7 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
             <Text style={[styles.holeCountLabel, { color: colors.textSecondary }]}>holes</Text>
           </View>
         </View>
-      </Surface>
+      </View>
 
       {/* Team Score Cards - Side by Side */}
       <View style={styles.teamsRow}>
@@ -280,14 +280,13 @@ const TeamScorePanel = React.memo(function TeamScorePanel({
   }, [disabled, currentHole.par, onScoreSelect]);
 
   return (
-    <Surface
+    <View
       style={[
         styles.teamPanel,
         { backgroundColor: colors.white },
         isWinning && { borderColor: colors.success, borderWidth: 2 },
         isLosing && { opacity: 0.85 },
       ]}
-      elevation={1}
     >
       {/* Team Name */}
       <View style={styles.teamHeader}>
@@ -320,16 +319,16 @@ const TeamScorePanel = React.memo(function TeamScorePanel({
       {/* Controls */}
       <View style={styles.panelControls}>
         {/* Pick Up */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.panelButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
             isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
-            pressed && styles.buttonPressed,
             disabled && styles.buttonDisabled,
           ]}
           onPress={handlePickUp}
           disabled={disabled}
+          activeOpacity={0.7}
         >
           <Text
             style={[
@@ -339,33 +338,33 @@ const TeamScorePanel = React.memo(function TeamScorePanel({
           >
             P
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Minus */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.panelButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
-            pressed && styles.buttonPressed,
             disabled && styles.buttonDisabled,
           ]}
           onPress={handleDecrement}
           disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
+          activeOpacity={0.7}
         >
           <Text style={[styles.panelButtonText, { color: colors.textPrimary }]}>−</Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Par */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.panelButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
             selectedScore === currentHole.par && { backgroundColor: colors.primary, borderColor: colors.primary },
-            pressed && styles.buttonPressed,
             disabled && styles.buttonDisabled,
           ]}
           onPress={handleParSelect}
           disabled={disabled}
+          activeOpacity={0.7}
         >
           <Text
             style={[
@@ -375,23 +374,23 @@ const TeamScorePanel = React.memo(function TeamScorePanel({
           >
             {currentHole.par}
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Plus */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.panelButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
-            pressed && !isPickedUp && styles.buttonPressed,
             (disabled || isPickedUp) && styles.buttonDisabled,
           ]}
           onPress={handleIncrement}
           disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
+          activeOpacity={0.7}
         >
           <Text style={[styles.panelButtonText, { color: colors.textPrimary }, isPickedUp && styles.disabledText]}>+</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
-    </Surface>
+    </View>
   );
 });
 

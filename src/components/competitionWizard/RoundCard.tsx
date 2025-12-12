@@ -1,8 +1,8 @@
 // src/components/competition/RoundCard.tsx
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Card, Text, Button } from 'react-native-paper';
-import { IconGolf, IconCalendar, IconClock, IconClipboard } from '@tabler/icons-react-native';
+import { IconGolf, IconCalendar, IconClock } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { formatDateAustralian, formatTime } from '@/utils/formatting';

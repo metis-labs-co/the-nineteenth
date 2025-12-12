@@ -11,16 +11,17 @@
 
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { IconAlertTriangle, IconChartBar } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
-import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useStatsVisibility } from '@/store/settingsStore';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/social';
 import { FeatureLock, UpgradePrompt } from '@/components/subscription';
@@ -40,9 +41,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MyStatistics'>;
 export default function MyStatisticsScreen({ navigation }: Props) {
   const { user } = useAuth();
   const colors = useThemeColors();
-  const isDark = useIsDark();
-  const { checkFeature, tier } = useSubscriptionContext();
-  const limits = useTierLimits();
+  const { checkFeature } = useSubscriptionContext();
   const {
     data: stats,
     isLoading,
@@ -57,9 +56,9 @@ export default function MyStatisticsScreen({ navigation }: Props) {
   // Upgrade prompt state
   const [upgradePromptConfig, setUpgradePromptConfig] = useState<UpgradePromptConfig | null>(null);
 
-  // Check feature access
-  const scoreDistributionAccess = checkFeature('score_distribution');
-  const advancedStatsAccess = checkFeature('advanced_stats');
+  // Check feature access (used to determine which sections to lock)
+  checkFeature('score_distribution');
+  checkFeature('advanced_stats');
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -106,8 +105,8 @@ export default function MyStatisticsScreen({ navigation }: Props) {
     });
   }, []);
 
-  // Card background for dark mode
-  const cardBg = isDark ? colors.gray100 : colors.white;
+  // Card background
+  const cardBg = colors.surface;
 
   // Render loading state
   if (isLoading) {
@@ -115,10 +114,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="My Statistics" showBack onBack={handleGoBack} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading your statistics...
-          </Text>
+          <LoadingSpinner size="lg" message="Loading your statistics..." />
         </View>
       </View>
     );
@@ -193,8 +189,8 @@ export default function MyStatisticsScreen({ navigation }: Props) {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >
@@ -227,6 +223,25 @@ export default function MyStatisticsScreen({ navigation }: Props) {
             title="Holes Played"
             value={stats.holesPlayed}
             icon="golf-tee"
+            iconColor={colors.info}
+          />
+        </View>
+
+        {/* Round Type Breakdown */}
+        <SectionHeader title="Round Breakdown" icon="chart-pie" />
+        <View style={styles.statsGrid}>
+          <StatCard
+            title="Competition"
+            value={stats.competitionRoundsPlayed}
+            subtitle="rounds"
+            icon="trophy-outline"
+            iconColor={colors.warning}
+          />
+          <StatCard
+            title="Practice"
+            value={stats.practiceRoundsPlayed}
+            subtitle="rounds"
+            icon="golf"
             iconColor={colors.info}
           />
         </View>
@@ -351,6 +366,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
                   totalGross={round.totalGross}
                   totalPoints={round.totalPoints}
                   isLast={index === stats.recentRounds.length - 1}
+                  isPracticeRound={round.isPracticeRound}
                 />
               ))}
             </View>

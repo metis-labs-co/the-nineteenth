@@ -8,7 +8,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 // =====================================================
 // TYPES
@@ -36,11 +36,9 @@ export const CourseStatsCard = React.memo(function CourseStatsCard({
   bestScore,
 }: CourseStatsCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-  const cardBg = isDark ? colors.gray100 : colors.white;
 
   return (
-    <View style={[styles.card, { backgroundColor: cardBg }, shadows.sm]}>
+    <View style={[styles.card, { backgroundColor: colors.surface }, shadows.sm]}>
       <View style={styles.header}>
         <Icon source="golf" size={24} color={colors.primary} />
         <Text style={[styles.courseName, { color: colors.textPrimary }]}>{courseName}</Text>

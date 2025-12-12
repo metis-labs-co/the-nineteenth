@@ -10,15 +10,15 @@ import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  Pressable,
-  ActivityIndicator,
+  TouchableOpacity,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
+import { GolfBallLoader } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
 import type { Venue } from '@/types/database.types';
 
@@ -67,7 +67,6 @@ const CourseRow = React.memo(function CourseRow({
   selectionMode = false,
 }: CourseRowProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const handlePress = useCallback(() => {
     onSelect?.(course, venue);
   }, [course, venue, onSelect]);
@@ -79,10 +78,10 @@ const CourseRow = React.memo(function CourseRow({
   const locationText = [venue.city, venue.state].filter(Boolean).join(', ');
 
   return (
-    <Pressable
-      style={[styles.courseRow, { backgroundColor: isDark ? colors.gray100 : colors.white, }, isNested && { backgroundColor: colors.gray50, borderBottomWidth: 1, borderBottomColor: colors.gray200 }]}
+    <TouchableOpacity
+      style={[styles.courseRow, { backgroundColor: colors.surface }, isNested && { backgroundColor: colors.surfaceVariant, borderBottomWidth: 1, borderBottomColor: colors.border }]}
       onPress={handlePress}
-      android_ripple={{ color: colors.gray200 }}
+      activeOpacity={0.7}
     >
       <View style={styles.courseRowContent}>
         {/* Golf Icon */}
@@ -132,17 +131,18 @@ const CourseRow = React.memo(function CourseRow({
         {/* Actions */}
         <View style={styles.courseActions}>
           {showFavoriteButton && !selectionMode && (
-            <Pressable
+            <TouchableOpacity
               style={[
                 styles.favoriteButton,
                 course.is_favorite && { backgroundColor: colors.warningLight + '30' },
               ]}
               onPress={handleFavoritePress}
               disabled={isTogglingFavorite}
+              activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               {isTogglingFavorite ? (
-                <ActivityIndicator size="small" color={colors.warning} />
+                <GolfBallLoader size="sm" />
               ) : (
                 <Icon
                   source={course.is_favorite ? 'star' : 'star-outline'}
@@ -150,7 +150,7 @@ const CourseRow = React.memo(function CourseRow({
                   color={course.is_favorite ? colors.warning : colors.gray400}
                 />
               )}
-            </Pressable>
+            </TouchableOpacity>
           )}
 
           {selectionMode && (
@@ -158,7 +158,7 @@ const CourseRow = React.memo(function CourseRow({
           )}
         </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 
@@ -176,11 +176,7 @@ export const VenueCard = React.memo(function VenueCard({
   selectionMode = false,
 }: VenueCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Light mode: white background, Dark mode: gray100 to match Tabs component
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   const handleToggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -197,7 +193,7 @@ export const VenueCard = React.memo(function VenueCard({
     if (!course) return null;
 
     return (
-      <View style={[styles.cardContainer, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+      <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <CourseRow
           course={course}
           venue={item.venue}
@@ -215,12 +211,12 @@ export const VenueCard = React.memo(function VenueCard({
   const locationText = [item.venue.city, item.venue.state].filter(Boolean).join(', ');
 
   return (
-    <View style={[styles.cardContainer, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+    <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Venue Header (expandable) */}
-      <Pressable
-        style={[styles.venueHeader, { backgroundColor: cardBackground }]}
+      <TouchableOpacity
+        style={[styles.venueHeader, { backgroundColor: colors.surface }]}
         onPress={handleToggleExpand}
-        android_ripple={{ color: colors.gray200 }}
+        activeOpacity={0.7}
       >
         <View style={styles.venueHeaderContent}>
           {/* Venue Icon */}
@@ -235,7 +231,7 @@ export const VenueCard = React.memo(function VenueCard({
                 {item.venue.name}
               </Text>
               <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.courseCountText, { color: colors.white }]}>
+                <Text style={[styles.courseCountText, { color: colors.textOnColored }]}>
                   {item.courses.length}
                 </Text>
               </View>
@@ -256,15 +252,16 @@ export const VenueCard = React.memo(function VenueCard({
           <View style={styles.venueActions}>
             {/* Navigate to Venue Details */}
             {onVenuePress && (
-              <Pressable
+              <TouchableOpacity
                 style={styles.venueActionButton}
                 onPress={handleVenuePress}
+                activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel={`View ${item.venue.name} details`}
               >
                 <Icon source="information-outline" size={22} color={colors.primary} />
-              </Pressable>
+              </TouchableOpacity>
             )}
             {/* Expand Icon */}
             <View style={styles.expandButton}>
@@ -276,7 +273,7 @@ export const VenueCard = React.memo(function VenueCard({
             </View>
           </View>
         </View>
-      </Pressable>
+      </TouchableOpacity>
 
       {/* Expanded Courses List */}
       {isExpanded && (

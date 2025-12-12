@@ -1,8 +1,8 @@
 // src/components/scoring/ScoringPairCard.tsx
 import React from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Avatar, Icon } from 'react-native-paper';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Player } from '@/types';
 
@@ -56,9 +56,6 @@ export const ScoringPairCard = React.memo(function ScoringPairCard({
   testID,
 }: ScoringPairCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
-
-  const cardBackground = isDark ? colors.gray100 : colors.white;
 
   /**
    * Renders a player section with avatar, name, and handicap badge
@@ -120,7 +117,7 @@ export const ScoringPairCard = React.memo(function ScoringPairCard({
       style={[
         styles.container,
         {
-          backgroundColor: cardBackground,
+          backgroundColor: colors.surface,
           borderColor: colors.border,
         },
       ]}
@@ -148,14 +145,10 @@ export const ScoringPairCard = React.memo(function ScoringPairCard({
 
       {/* Remove Button */}
       {showRemove && onRemove && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.removeButton,
-            {
-              backgroundColor: pressed ? colors.errorBackground : 'transparent',
-            },
-          ]}
+        <TouchableOpacity
+          style={styles.removeButton}
           onPress={onRemove}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={`Remove scoring pair between ${scorerPlayer.name} and ${scoredPlayer.name}`}
           accessibilityHint="Tap to remove this scoring assignment"
@@ -166,7 +159,7 @@ export const ScoringPairCard = React.memo(function ScoringPairCard({
             size={20}
             color={colors.error}
           />
-        </Pressable>
+        </TouchableOpacity>
       )}
     </View>
   );

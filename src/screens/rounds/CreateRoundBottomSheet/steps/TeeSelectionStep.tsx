@@ -81,7 +81,7 @@ export const TeeSelectionStep = memo(function TeeSelectionStep({
                 <View
                   style={[
                     styles.teeColorIndicator,
-                    { backgroundColor: getTeeColor(tee.color, colors.gray400) },
+                    { backgroundColor: getTeeColor(tee.color, colors.gray400), borderColor: colors.borderLight },
                   ]}
                 />
                 <View style={styles.teeInfo}>
@@ -175,7 +175,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     marginRight: spacing.md,
     borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   teeInfo: {
     flex: 1,

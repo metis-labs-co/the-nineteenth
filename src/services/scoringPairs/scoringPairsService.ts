@@ -268,7 +268,7 @@ export async function createScoringPairs(
  */
 export async function autoGenerateAndSaveScoringPairs(
   roundId: string,
-  players: Array<{ id: string }>
+  players: { id: string }[]
 ): Promise<ScoringPair[]> {
   if (!roundId) {
     throw createError('Round ID is required', 'VALIDATION');
@@ -308,8 +308,8 @@ export async function autoGenerateAndSaveScoringPairs(
  */
 export async function generateTeamMatchPlayPairs(
   roundId: string,
-  team1Players: Array<{ id: string }>,
-  team2Players: Array<{ id: string }>
+  team1Players: { id: string }[],
+  team2Players: { id: string }[]
 ): Promise<ScoringPair[]> {
   if (!roundId) {
     throw createError('Round ID is required', 'VALIDATION');

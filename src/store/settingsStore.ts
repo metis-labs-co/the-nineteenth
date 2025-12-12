@@ -22,11 +22,15 @@ interface SettingsState {
   showFairwayHit: boolean;
   showGreenInRegulation: boolean;
 
+  // Developer settings
+  debugModeEnabled: boolean;
+
   // Actions
   setDistanceUnit: (unit: DistanceUnit) => void;
   setShowPutts: (show: boolean) => void;
   setShowFairwayHit: (show: boolean) => void;
   setShowGreenInRegulation: (show: boolean) => void;
+  setDebugModeEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
 
@@ -35,6 +39,7 @@ const DEFAULT_SETTINGS = {
   showPutts: true,
   showFairwayHit: false,
   showGreenInRegulation: false,
+  debugModeEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -51,6 +56,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowFairwayHit: (show) => set({ showFairwayHit: show }),
 
       setShowGreenInRegulation: (show) => set({ showGreenInRegulation: show }),
+
+      setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
 
       resetToDefaults: () => set(DEFAULT_SETTINGS),
     }),
@@ -93,5 +100,19 @@ export function useStatsVisibility() {
     showPutts,
     showFairwayHit,
     showGreenInRegulation,
+  };
+}
+
+/**
+ * Hook to get debug mode settings
+ */
+export function useDebugMode() {
+  const debugModeEnabled = useSettingsStore((state) => state.debugModeEnabled);
+  const setDebugModeEnabled = useSettingsStore((state) => state.setDebugModeEnabled);
+
+  return {
+    debugModeEnabled,
+    setDebugModeEnabled,
+    toggleDebugMode: () => setDebugModeEnabled(!debugModeEnabled),
   };
 }

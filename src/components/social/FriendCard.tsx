@@ -1,6 +1,6 @@
 // src/components/social/FriendCard.tsx
 import React from 'react';
-import { StyleSheet, Pressable } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PlayerCard } from '@/components/social/PlayerCard';
@@ -72,9 +72,10 @@ export const FriendCard = React.memo(function FriendCard({
 
   // Remove/cancel button as right action
   const rightAction = (
-    <Pressable
+    <TouchableOpacity
       style={styles.removeButton}
       onPress={onRemove}
+      activeOpacity={0.7}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       accessibilityRole="button"
       accessibilityLabel={
@@ -88,7 +89,7 @@ export const FriendCard = React.memo(function FriendCard({
         size={20}
         color={colors.error}
       />
-    </Pressable>
+    </TouchableOpacity>
   );
 
   return (

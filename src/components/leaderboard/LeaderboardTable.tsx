@@ -12,8 +12,9 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, ActivityIndicator, Icon, Surface } from 'react-native-paper';
-import { IconTrophy, IconChartBar } from '@tabler/icons-react-native';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
+import { IconTrophy } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
@@ -93,8 +94,7 @@ export function LeaderboardTable({
   if (isLoading) {
     return (
       <View style={styles.loadingContainer} testID={testID ? `${testID}-loading` : undefined}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading leaderboard...</Text>
+        <LoadingSpinner size="lg" message="Loading leaderboard..." />
       </View>
     );
   }
@@ -102,7 +102,7 @@ export function LeaderboardTable({
   // Empty state
   if (leaderboardWithPositions.length === 0) {
     return (
-      <Surface style={[styles.emptyCard, { backgroundColor: colors.white }]} elevation={1} testID={testID ? `${testID}-empty` : undefined}>
+      <View style={[styles.emptyCard, { backgroundColor: colors.surface }]} testID={testID ? `${testID}-empty` : undefined}>
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.gray200 }]}>
             <IconChartBar size={48} color={colors.gray400} />
@@ -110,12 +110,12 @@ export function LeaderboardTable({
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No scores yet</Text>
           <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
         </View>
-      </Surface>
+      </View>
     );
   }
 
   return (
-    <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1} testID={testID}>
+    <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.gray200 }]}>
         <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>#</Text>
@@ -209,7 +209,7 @@ export function LeaderboardTable({
           </View>
         );
       })}
-    </Surface>
+    </View>
   );
 }
 

@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Pressable,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
-import { Text, ActivityIndicator, Divider, Avatar, Surface } from 'react-native-paper';
+import { Text, Divider, Avatar } from 'react-native-paper';
+import { GolfBallLoader } from '@/components/common';
 import { IconWand, IconRefresh, IconCheck, IconAlertCircle, IconUsers } from '@tabler/icons-react-native';
 import {
   spacing,
@@ -324,7 +324,7 @@ export const TeamFormationUI = React.memo(function TeamFormationUI({
           accessibilityHint="Creates balanced teams automatically"
         >
           {isGenerating ? (
-            <ActivityIndicator size="small" color={colors.textInverse} />
+            <GolfBallLoader size="sm" />
           ) : (
             <IconWand size={20} color={colors.textInverse} />
           )}
@@ -338,7 +338,7 @@ export const TeamFormationUI = React.memo(function TeamFormationUI({
 
       {/* Handicap Balance Indicator */}
       {teams.length > 1 && (
-        <Surface style={[styles.balanceIndicator, styles[`balance_${balanceQuality}`]]}>
+        <View style={[styles.balanceIndicator, styles[`balance_${balanceQuality}`]]}>
           <View style={styles.balanceContent}>
             <View style={styles.balanceLeft}>
               {balanceQuality === 'good' && (
@@ -373,7 +373,7 @@ export const TeamFormationUI = React.memo(function TeamFormationUI({
               Tap another player to swap
             </Text>
           )}
-        </Surface>
+        </View>
       )}
 
       {/* Teams List */}
@@ -382,7 +382,7 @@ export const TeamFormationUI = React.memo(function TeamFormationUI({
           <View style={styles.noTeamsState}>
             <IconUsers size={32} color={colors.textTertiary} />
             <Text style={styles.noTeamsText}>
-              Tap "Auto-Generate" to create balanced teams
+              Tap &quot;Auto-Generate&quot; to create balanced teams
             </Text>
           </View>
         ) : (
@@ -466,7 +466,7 @@ const TeamFormationCard = React.memo(function TeamFormationCard({
   const teamHandicap = calculateTeamHandicap(team.members);
 
   return (
-    <Surface style={styles.card}>
+    <View style={styles.card}>
       {/* Team Header */}
       <View style={styles.cardHeader}>
         <Text style={styles.teamName}>{team.name}</Text>
@@ -491,7 +491,7 @@ const TeamFormationCard = React.memo(function TeamFormationCard({
               selectedPlayer.memberIndex !== memberIndex);
 
           return (
-            <Pressable
+            <TouchableOpacity
               key={player.id}
               style={[
                 styles.memberRow,
@@ -499,6 +499,7 @@ const TeamFormationCard = React.memo(function TeamFormationCard({
                 isSwapTarget && styles.memberRowSwapTarget,
               ]}
               onPress={() => onPlayerPress(teamIndex, memberIndex, player.id)}
+              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`${player.name}, Handicap ${player.handicap ?? 'N/A'}${
                 isSelected ? ', selected for swap' : ''
@@ -538,11 +539,11 @@ const TeamFormationCard = React.memo(function TeamFormationCard({
                   <IconCheck size={16} color={colors.primary} />
                 </View>
               )}
-            </Pressable>
+            </TouchableOpacity>
           );
         })}
       </View>
-    </Surface>
+    </View>
   );
 });
 

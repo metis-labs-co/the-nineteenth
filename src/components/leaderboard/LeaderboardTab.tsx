@@ -10,7 +10,8 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Surface, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { IconChartBar, IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
@@ -166,7 +167,7 @@ const EmptyLeaderboardState = React.memo(function EmptyLeaderboardState({
   };
 
   return (
-    <Surface style={[styles.emptyCard, { backgroundColor: colors.surface }]} elevation={1}>
+    <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
       <View style={styles.emptyState}>
         <View style={[styles.emptyIconContainer, { backgroundColor: colors.gray200 }]}>
           {icons[type]}
@@ -176,7 +177,7 @@ const EmptyLeaderboardState = React.memo(function EmptyLeaderboardState({
           {message || defaultMessages[type]}
         </Text>
       </View>
-    </Surface>
+    </View>
   );
 });
 
@@ -303,10 +304,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading leaderboard...
-        </Text>
+        <LoadingSpinner size="lg" message="Loading leaderboard..." />
       </View>
     );
   }
@@ -314,7 +312,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   // Render error state
   if (error) {
     return (
-      <Surface style={[styles.errorCard, { backgroundColor: colors.surface }]} elevation={1}>
+      <View style={[styles.errorCard, { backgroundColor: colors.surface }]}>
         <View style={styles.errorState}>
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.errorLight }]}>
             <IconChartBar size={48} color={colors.error} />
@@ -332,7 +330,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
             <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </Surface>
+      </View>
     );
   }
 

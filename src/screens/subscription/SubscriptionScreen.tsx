@@ -22,7 +22,8 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { Text, ActivityIndicator, Icon, Divider } from 'react-native-paper';
+import { Text, Icon, Divider } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
@@ -30,10 +31,10 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { TierBadge } from '@/components/subscription/TierBadge';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
-import { isUnlimited, isNoLimit, UNLIMITED, NO_LIMIT } from '@/types/subscription.types';
+import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import type { SubscriptionTier, TierLimits } from '@/types/subscription.types';
+import type { SubscriptionTier } from '@/types/subscription.types';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -157,6 +158,26 @@ export default function SubscriptionScreen({ navigation }: Props) {
     enabled: !!user?.id,
   });
 
+  // Fetch friends count for usage display
+  const { data: friendsCount = 0 } = useQuery({
+    queryKey: ['friends', 'count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error: countError } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+
+      if (countError) {
+        console.error('Error fetching friends count:', countError);
+        return 0;
+      }
+      return count ?? 0;
+    },
+    enabled: !!user?.id,
+  });
+
   // Trial days remaining
   const trialDaysRemaining = useMemo(() => {
     if (!subscription?.trialEndsAt) return null;
@@ -211,7 +232,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -285,7 +306,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
+            tintColor={colors.textPrimary}
           />
         }
       >
@@ -366,6 +387,12 @@ export default function SubscriptionScreen({ navigation }: Props) {
                 label="Competitions"
                 testID="competitions-limit"
               />
+              <LimitIndicator
+                current={friendsCount}
+                max={limits?.maxFriends ?? 10}
+                label="Friends"
+                testID="friends-limit"
+              />
             </View>
           )}
         </View>
@@ -414,7 +441,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
                             { backgroundColor: tierColor },
                           ]}
                         >
-                          <Text style={styles.currentBadgeText}>Current</Text>
+                          <Text style={[styles.currentBadgeText, { color: colors.textOnColored }]}>Current</Text>
                         </View>
                       )}
                     </View>
@@ -687,7 +714,6 @@ const styles = StyleSheet.create({
   },
   currentBadgeText: {
     ...typography.caption,
-    color: '#ffffff',
     fontWeight: '600',
   },
   planFeatures: {

@@ -13,7 +13,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getScoreColor } from '@/utils/scoring';
@@ -60,29 +60,52 @@ const FixedHeaderCells = React.memo(function FixedHeaderCells(_props: FixedHeade
 interface ScrollableHeaderCellsProps {
   players: ScorecardTablePlayer[];
   playerCellWidth: number;
+  onPlayerPress?: (playerId: string) => void;
 }
 
 const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
   players,
   playerCellWidth,
+  onPlayerPress,
 }: ScrollableHeaderCellsProps) {
   const colors = useThemeColors();
 
   return (
     <>
-      {players.map((playerData) => (
-        <View
-          key={playerData.id}
-          style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
-        >
-          <Text style={[styles.headerText, { color: colors.textInverse }]} numberOfLines={1}>
-            {getFirstName(playerData.player?.name)}
-          </Text>
-          <Text style={[styles.handicapText, { color: colors.gray400 }]}>
-            HC: {playerData.player?.handicap || 0}
-          </Text>
-        </View>
-      ))}
+      {players.map((playerData) => {
+        const content = (
+          <>
+            <Text style={[styles.headerText, { color: colors.textInverse }]} numberOfLines={1}>
+              {getFirstName(playerData.player?.name)}
+            </Text>
+            <Text style={[styles.handicapText, { color: colors.gray400 }]}>
+              HC: {playerData.player?.handicap || 0}
+            </Text>
+          </>
+        );
+
+        if (onPlayerPress) {
+          return (
+            <TouchableOpacity
+              key={playerData.id}
+              style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+              onPress={() => onPlayerPress(playerData.playerId)}
+              activeOpacity={0.7}
+            >
+              {content}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View
+            key={playerData.id}
+            style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+          >
+            {content}
+          </View>
+        );
+      })}
     </>
   );
 });
@@ -345,6 +368,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   players,
   holes,
   screenWidth,
+  onPlayerPress,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -422,7 +446,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             <View>
               {/* Header */}
               <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} />
+                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
               </View>
               {/* Front 9 */}
               {front9.map((hole) => (
@@ -469,7 +493,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Header */}
       <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         <FixedHeaderCells />
-        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} />
+        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
       </View>
 
       {/* Front 9 */}

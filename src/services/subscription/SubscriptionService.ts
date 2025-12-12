@@ -19,7 +19,6 @@ import { mapDBUserSubscription } from '@/types/subscription.types';
 import type {
   UserSubscription,
   SubscriptionTier,
-  SubscriptionStatus,
   SubscriptionSource,
 } from '@/types/subscription.types';
 import type { UserSubscription as DBUserSubscription } from '@/types/database.types';

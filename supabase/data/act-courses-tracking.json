@@ -1,0 +1,83 @@
+{
+  "state": "ACT",
+  "state_name": "Australian Capital Territory",
+  "total_courses_estimated": 7,
+  "courses_completed": 7,
+  "last_updated": "2025-12-11",
+  "batches": [
+    {
+      "batch_number": 1,
+      "name": "Canberra & Surrounds",
+      "migration_file": "20250330000001_act_batch_01_canberra.sql",
+      "status": "complete",
+      "courses": [
+        {
+          "name": "Royal Canberra Golf Club",
+          "slug": "royal-canberra-golf-club",
+          "city": "Yarralumla",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000980",
+          "holes": 27,
+          "data_source": "estimated",
+          "notes": "Course data estimated - not found on golfify.io"
+        },
+        {
+          "name": "Federal Golf Club",
+          "slug": "federal-golf-club",
+          "city": "Red Hill",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000981",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Yowani Country Club",
+          "slug": "yowani-country-club",
+          "city": "Lyneham",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000982",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Gungahlin Lakes Golf & Community Club",
+          "slug": "gungahlin-lakes-golf-community-club",
+          "city": "Nicholls",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000983",
+          "holes": 18,
+          "data_source": "estimated",
+          "notes": "Course data estimated - not found on golfify.io"
+        },
+        {
+          "name": "Murrumbidgee Country Club",
+          "slug": "murrumbidgee-country-club",
+          "city": "Kambah",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000984",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Gold Creek Country Club",
+          "slug": "gold-creek-country-club",
+          "city": "Nicholls",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000985",
+          "holes": 18,
+          "data_source": "golfify.io"
+        },
+        {
+          "name": "Queanbeyan Golf Club",
+          "slug": "queanbeyan-golf-club",
+          "city": "Queanbeyan",
+          "status": "complete",
+          "venue_id": "f2a3b4c5-d6e7-8901-abcd-500000000986",
+          "holes": 18,
+          "data_source": "golfify.io",
+          "notes": "Located in NSW but serves Canberra region"
+        }
+      ]
+    }
+  ]
+}

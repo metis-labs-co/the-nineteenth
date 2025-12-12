@@ -27,8 +27,8 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  ActivityIndicator,
 } from 'react-native';
+import { GolfBallLoader } from './GolfBallLoader';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -87,7 +87,7 @@ export function ConfirmationDialog({
       statusBarTranslucent
     >
       <TouchableWithoutFeedback onPress={onCancel}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
           <TouchableWithoutFeedback>
             <View
               style={[
@@ -160,9 +160,9 @@ export function ConfirmationDialog({
                   accessibilityLabel={confirmLabel}
                 >
                   {loading ? (
-                    <ActivityIndicator size="small" color={colors.white} />
+                    <GolfBallLoader size="sm" />
                   ) : (
-                    <Text style={[styles.buttonText, { color: colors.white }]}>
+                    <Text style={[styles.buttonText, { color: colors.textInverse }]}>
                       {confirmLabel}
                     </Text>
                   )}
@@ -179,7 +179,6 @@ export function ConfirmationDialog({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

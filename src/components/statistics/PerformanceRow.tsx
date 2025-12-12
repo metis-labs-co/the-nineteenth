@@ -8,7 +8,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 // =====================================================
 // TYPES
@@ -39,14 +39,13 @@ export const PerformanceRow = React.memo(function PerformanceRow({
   subtitle,
 }: PerformanceRowProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
     <View style={styles.row}>
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: isDark ? colors.gray200 : colors.gray50 },
+          { backgroundColor: colors.surfaceVariant },
         ]}
       >
         <Icon source={icon} size={20} color={iconColor} />

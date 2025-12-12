@@ -1,5 +1,5 @@
 import type { Hole } from '@/types';
-import { calculateNetScore, getStrokesOnHole } from './scoring';
+import { calculateNetScore } from './scoring';
 
 // ============================================================================
 // Types
@@ -600,7 +600,4 @@ export function formatMatchPlayScore(currentScore: number): string {
   return `${Math.abs(currentScore)} DN`;
 }
 
-/**
- * Get strokes received for a hole (re-export for convenience)
- */
-export { getStrokesOnHole };
+// Note: getStrokesOnHole is available from ./scoring - import it directly from there if needed

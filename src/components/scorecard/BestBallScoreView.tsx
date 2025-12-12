@@ -10,8 +10,8 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Surface, Icon } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -37,6 +37,8 @@ interface BestBallScoreViewProps {
   playerScores: Map<string, HoleScore | undefined>;
   onScoreSelect: (playerId: string, strokes: number) => void;
   disabled?: boolean;
+  /** Set of player IDs that can be edited. If undefined, all players can be edited (when not disabled). */
+  editablePlayerIds?: Set<string>;
 }
 
 const PICKUP_SCORE = 10;
@@ -49,6 +51,7 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
   playerScores,
   onScoreSelect,
   disabled = false,
+  editablePlayerIds,
 }: BestBallScoreViewProps) {
   const colors = useThemeColors();
 
@@ -118,7 +121,7 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
   }, [playerScoreData]);
 
   return (
-    <Surface style={[styles.container, { backgroundColor: colors.white }]} elevation={1}>
+    <View style={[styles.container, { backgroundColor: colors.white }]}>
       {/* Team Header */}
       <View style={styles.header}>
         <View style={styles.teamInfo}>
@@ -141,17 +144,23 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* Player Scores */}
-      {playerScoreData.map((data, index) => (
-        <BestBallPlayerRow
-          key={data.player.id}
-          data={data}
-          currentHole={currentHole}
-          onScoreSelect={onScoreSelect}
-          disabled={disabled}
-          isLast={index === playerScoreData.length - 1}
-        />
-      ))}
-    </Surface>
+      {playerScoreData.map((data, index) => {
+        // Player is disabled if:
+        // 1. The whole component is disabled, OR
+        // 2. editablePlayerIds is provided and this player is NOT in the set
+        const isPlayerDisabled = disabled || (editablePlayerIds !== undefined && !editablePlayerIds.has(data.player.id));
+        return (
+          <BestBallPlayerRow
+            key={data.player.id}
+            data={data}
+            currentHole={currentHole}
+            onScoreSelect={onScoreSelect}
+            disabled={isPlayerDisabled}
+            isLast={index === playerScoreData.length - 1}
+          />
+        );
+      })}
+    </View>
   );
 });
 
@@ -179,6 +188,12 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   const strokesOnHole = getStrokesOnHole(player.handicap ?? 0, currentHole);
 
   const handleDecrement = useCallback(() => {
+    console.log('[BestBallScoreView] Decrement pressed:', {
+      playerId: player.id.substring(0, 8) + '...',
+      disabled,
+      currentScore: selectedScore,
+      isPickedUp,
+    });
     if (!disabled) {
       if (isPickedUp) {
         onScoreSelect(player.id, currentHole.par + 2);
@@ -190,6 +205,12 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   }, [disabled, player.id, selectedScore, currentHole.par, onScoreSelect, isPickedUp]);
 
   const handleIncrement = useCallback(() => {
+    console.log('[BestBallScoreView] Increment pressed:', {
+      playerId: player.id.substring(0, 8) + '...',
+      disabled,
+      currentScore: selectedScore,
+      isPickedUp,
+    });
     if (!disabled && !isPickedUp) {
       const newScore = selectedScore ? Math.min(MAX_SCORE, selectedScore + 1) : currentHole.par;
       onScoreSelect(player.id, newScore);
@@ -197,10 +218,15 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   }, [disabled, player.id, selectedScore, currentHole.par, onScoreSelect, isPickedUp]);
 
   const handlePickUp = useCallback(() => {
+    console.log('[BestBallScoreView] PickUp pressed:', {
+      playerId: player.id.substring(0, 8) + '...',
+      disabled,
+      currentScore: selectedScore,
+    });
     if (!disabled) {
       onScoreSelect(player.id, PICKUP_SCORE);
     }
-  }, [disabled, player.id, onScoreSelect]);
+  }, [disabled, player.id, onScoreSelect, selectedScore]);
 
   return (
     <View
@@ -236,16 +262,16 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
       {/* Score Controls (Compact) */}
       <View style={styles.compactControls}>
         {/* Pick Up Button */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.compactButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
             isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
-            pressed && styles.buttonPressed,
             disabled && styles.buttonDisabled,
           ]}
           onPress={handlePickUp}
           disabled={disabled}
+          activeOpacity={0.7}
           accessibilityLabel="Pick up"
         >
           <Text
@@ -257,22 +283,22 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
           >
             P
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Minus Button */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.compactButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
-            pressed && styles.buttonPressed,
             disabled && styles.buttonDisabled,
           ]}
           onPress={handleDecrement}
           disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
+          activeOpacity={0.7}
           accessibilityLabel="Decrease score"
         >
           <Text style={[styles.compactButtonText, { color: colors.textPrimary }]}>−</Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Score Display */}
         <View style={styles.compactScoreDisplay}>
@@ -282,19 +308,19 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
         </View>
 
         {/* Plus Button */}
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.compactButton,
             { borderColor: colors.gray300, backgroundColor: colors.white },
-            pressed && !isPickedUp && styles.buttonPressed,
             (disabled || isPickedUp) && styles.buttonDisabled,
           ]}
           onPress={handleIncrement}
           disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
+          activeOpacity={0.7}
           accessibilityLabel="Increase score"
         >
           <Text style={[styles.compactButtonText, { color: colors.textPrimary }, isPickedUp && styles.disabledText]}>+</Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Points Display */}
         <View style={[styles.pointsDisplay, isBest && { backgroundColor: colors.success }]}>

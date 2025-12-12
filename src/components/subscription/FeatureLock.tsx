@@ -36,7 +36,7 @@
  */
 
 import React, { ReactNode, useCallback } from 'react';
-import { StyleSheet, View, Pressable, AccessibilityInfo } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, AccessibilityInfo } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -173,7 +173,7 @@ export const FeatureLock = React.memo(function FeatureLock({
       </View>
 
       {/* Lock overlay */}
-      <Pressable
+      <TouchableOpacity
         style={[
           styles.overlay,
           {
@@ -182,6 +182,7 @@ export const FeatureLock = React.memo(function FeatureLock({
         ]}
         onPress={onUpgradePress ? handleUpgradePress : undefined}
         disabled={!onUpgradePress}
+        activeOpacity={0.7}
         accessibilityRole={onUpgradePress ? 'button' : 'text'}
         accessibilityLabel={accessibilityLabel}
       >
@@ -242,7 +243,7 @@ export const FeatureLock = React.memo(function FeatureLock({
             </Text>
           )}
         </View>
-      </Pressable>
+      </TouchableOpacity>
     </View>
   );
 });

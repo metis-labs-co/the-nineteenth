@@ -20,7 +20,7 @@ import React, { useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Pressable,
+  TouchableOpacity,
   Animated,
   LayoutAnimation,
   Platform,
@@ -100,12 +100,10 @@ export const ExpandableItem = React.memo(function ExpandableItem({
         style,
       ]}
     >
-      <Pressable
-        style={({ pressed }) => [
-          styles.header,
-          pressed && { backgroundColor: colors.gray50 },
-        ]}
+      <TouchableOpacity
+        style={styles.header}
         onPress={handleToggle}
+        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityState={{ expanded: isExpanded }}
         accessibilityLabel={title}
@@ -122,7 +120,7 @@ export const ExpandableItem = React.memo(function ExpandableItem({
           size={20}
           color={colors.gray400}
         />
-      </Pressable>
+      </TouchableOpacity>
 
       {isExpanded && (
         <Animated.View

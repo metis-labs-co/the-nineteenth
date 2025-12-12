@@ -11,7 +11,8 @@
 
 import React, { useState, useCallback, useLayoutEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Text, Snackbar } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,7 +22,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { UpgradePrompt } from '@/components/subscription';
 import { spacing, typography, borderRadius, shadows, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
-import { useSubscriptionContext, useIsPremium } from '@/context/SubscriptionContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
 import { supabase } from '@/services/supabase/client';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
 import { useCreateScoringPairs } from '@/hooks/useScoringPairs';
@@ -320,8 +321,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
           onBack={handleGoBack}
         />
         <View style={styles.centeredContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading scoring pairs...</Text>
+          <LoadingSpinner size="lg" message="Loading scoring pairs..." />
         </View>
       </View>
     );
@@ -389,8 +389,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
       {/* Loading Overlay when saving */}
       {isSaving && (
         <View style={styles.savingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.savingText}>Saving pairs...</Text>
+          <LoadingSpinner size="lg" message="Saving pairs..." />
         </View>
       )}
 

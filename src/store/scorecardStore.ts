@@ -17,8 +17,8 @@ import {
   saveHoles,
   getHoles,
 } from '@/services/offline/database';
-import { queueScorecardSync, subscribeSyncState, getSyncState, getIsOnline } from '@/services/offline/sync';
-import { calculateStablefordPoints, calculateNetScore, getStrokesOnHole } from '@/utils/scoring';
+import { queueScorecardSync, subscribeSyncState, getIsOnline } from '@/services/offline/sync';
+import { calculateStablefordPoints, calculateNetScore } from '@/utils/scoring';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 
 interface ScorecardState {

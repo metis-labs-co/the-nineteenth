@@ -9,33 +9,25 @@
  * - Backdrop dismissal
  */
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  Animated,
-  Dimensions,
   TouchableOpacity,
-  Pressable,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
+  Platform,
 } from 'react-native';
 import {
   Text,
   Avatar,
-  Searchbar,
-  ActivityIndicator,
   Chip,
   Icon,
   Divider,
 } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconX } from '@tabler/icons-react-native';
+import { LoadingSpinner, GolfBallLoader, BottomSheet, SearchBar } from '@/components/common';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { supabase } from '@/services/supabase/client';
 import { useFriends } from '@/hooks/useFriends';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,9 +59,6 @@ interface PlayerResult {
   photo_url: string | null;
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.85;
-
 export default function AddPlayersBottomSheet({
   visible,
   onClose,
@@ -79,17 +68,15 @@ export default function AddPlayersBottomSheet({
   currentPlayerCount = 0,
 }: AddPlayersBottomSheetProps) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayers, setSelectedPlayers] = useState<PlayerResult[]>([]);
 
   // Calculate if we have unlimited players (no limit)
-  const hasUnlimitedPlayers = maxPlayers === undefined || isUnlimited(maxPlayers) || isNoLimit(maxPlayers);
+  const hasUnlimitedPlayers =
+    maxPlayers === undefined || isUnlimited(maxPlayers) || isNoLimit(maxPlayers);
 
   // Calculate remaining slots (how many more players can be added)
   const remainingSlots = hasUnlimitedPlayers
@@ -103,7 +90,8 @@ export default function AddPlayersBottomSheet({
   const isAtLimit = !hasUnlimitedPlayers && totalWithSelected >= maxPlayers;
 
   // Whether adding another player would exceed the limit
-  const canAddMorePlayers = hasUnlimitedPlayers || totalWithSelected < maxPlayers;
+  const canAddMorePlayers =
+    hasUnlimitedPlayers || totalWithSelected < maxPlayers;
 
   // Fetch user's friends
   const { data: friends = [], isLoading: friendsLoading } = useFriends();
@@ -131,7 +119,9 @@ export default function AddPlayersBottomSheet({
   }, [availableFriends, searchQuery]);
 
   // Search players in database (when search query is entered)
-  const { data: searchResults, isLoading: searchLoading } = useQuery<PlayerResult[]>({
+  const { data: searchResults, isLoading: searchLoading } = useQuery<
+    PlayerResult[]
+  >({
     queryKey: ['players-search', searchQuery],
     queryFn: async () => {
       if (!searchQuery.trim() || searchQuery.length < 2) return [];
@@ -149,7 +139,7 @@ export default function AddPlayersBottomSheet({
       }
 
       // Filter out existing players and already selected
-      return (data as PlayerResult[] || []).filter(
+      return ((data as PlayerResult[]) || []).filter(
         (player) =>
           !existingPlayerIds.includes(player.id) &&
           !selectedPlayers.some((p) => p.id === player.id)
@@ -171,9 +161,9 @@ export default function AddPlayersBottomSheet({
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase
-        .from('competition_players') as any)
-        .insert(inserts);
+      const { error } = await (supabase.from('competition_players') as any).insert(
+        inserts
+      );
 
       if (error) {
         throw new Error(`Failed to add players: ${error.message}`);
@@ -181,7 +171,9 @@ export default function AddPlayersBottomSheet({
     },
     onSuccess: () => {
       // Invalidate competition details to refresh the players list
-      queryClient.invalidateQueries({ queryKey: ['competition', competitionId, 'details'] });
+      queryClient.invalidateQueries({
+        queryKey: ['competition', competitionId, 'details'],
+      });
       handleClose();
     },
     onError: (error) => {
@@ -189,67 +181,37 @@ export default function AddPlayersBottomSheet({
     },
   });
 
-  useEffect(() => {
-    if (visible) {
-      // Open animation
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 20,
-          stiffness: 150,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      // Close animation
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: SHEET_HEIGHT,
-          useNativeDriver: true,
-          damping: 20,
-          stiffness: 150,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible, translateY, backdropOpacity]);
-
   // Toggle player selection
-  const togglePlayerSelection = useCallback((player: PlayerResult | Friend) => {
-    setSelectedPlayers((prev) => {
-      const isSelected = prev.some((p) => p.id === player.id);
-      if (isSelected) {
-        // Always allow deselecting
-        return prev.filter((p) => p.id !== player.id);
-      }
-      // Check if we can add more players (within limit)
-      const wouldExceedLimit = !hasUnlimitedPlayers &&
-        (currentPlayerCount + prev.length + 1) > maxPlayers!;
-      if (wouldExceedLimit) {
-        // Don't add - at limit
-        return prev;
-      }
-      return [
-        ...prev,
-        {
-          id: player.id,
-          name: player.name,
-          email: player.email ?? null,
-          handicap: player.handicap ?? null,
-          photo_url: player.photo_url ?? null,
-        },
-      ];
-    });
-  }, [hasUnlimitedPlayers, currentPlayerCount, maxPlayers]);
+  const togglePlayerSelection = useCallback(
+    (player: PlayerResult | Friend) => {
+      setSelectedPlayers((prev) => {
+        const isSelected = prev.some((p) => p.id === player.id);
+        if (isSelected) {
+          // Always allow deselecting
+          return prev.filter((p) => p.id !== player.id);
+        }
+        // Check if we can add more players (within limit)
+        const wouldExceedLimit =
+          !hasUnlimitedPlayers &&
+          currentPlayerCount + prev.length + 1 > maxPlayers!;
+        if (wouldExceedLimit) {
+          // Don't add - at limit
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: player.id,
+            name: player.name,
+            email: player.email ?? null,
+            handicap: player.handicap ?? null,
+            photo_url: player.photo_url ?? null,
+          },
+        ];
+      });
+    },
+    [hasUnlimitedPlayers, currentPlayerCount, maxPlayers]
+  );
 
   // Remove player from selection
   const handleRemovePlayer = useCallback((playerId: string) => {
@@ -273,8 +235,6 @@ export default function AddPlayersBottomSheet({
     [selectedPlayers]
   );
 
-  if (!visible) return null;
-
   const showSearchResults = searchQuery.length >= 2;
   const isAdding = addPlayersMutation.isPending;
 
@@ -286,10 +246,9 @@ export default function AddPlayersBottomSheet({
 
     return (
       <React.Fragment key={friend.id}>
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.friendCard,
-            pressed && !isDisabled && { backgroundColor: colors.gray50 },
             isDisabled && styles.disabledCard,
           ]}
           onPress={() => togglePlayerSelection(friend)}
@@ -297,6 +256,7 @@ export default function AddPlayersBottomSheet({
           accessibilityRole="checkbox"
           accessibilityState={{ checked: isSelected, disabled: isDisabled }}
           accessibilityLabel={`${isSelected ? 'Remove' : 'Add'} ${friend.name}${isDisabled ? ', player limit reached' : ''}`}
+          activeOpacity={0.7}
         >
           <View style={styles.friendCardContent}>
             {/* Avatar */}
@@ -316,16 +276,26 @@ export default function AddPlayersBottomSheet({
 
             {/* Friend Info */}
             <View style={styles.friendInfo}>
-              <Text style={[styles.friendName, { color: colors.textPrimary }]} numberOfLines={1}>
+              <Text
+                style={[styles.friendName, { color: colors.textPrimary }]}
+                numberOfLines={1}
+              >
                 {friend.name}
               </Text>
               {friend.email && (
-                <Text style={[styles.friendEmail, { color: colors.textSecondary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.friendEmail, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
                   {friend.email}
                 </Text>
               )}
               {friend.handicap !== null && friend.handicap !== undefined && (
-                <Text style={[styles.friendHandicap, { color: colors.primary }]}>HC: {friend.handicap}</Text>
+                <Text
+                  style={[styles.friendHandicap, { color: colors.primary }]}
+                >
+                  HC: {friend.handicap}
+                </Text>
               )}
             </View>
 
@@ -333,7 +303,11 @@ export default function AddPlayersBottomSheet({
             <View
               style={[
                 styles.selectionButton,
-                { backgroundColor: isSelected ? colors.primary : colors.gray100 },
+                {
+                  backgroundColor: isSelected
+                    ? colors.primary
+                    : colors.gray100,
+                },
               ]}
             >
               {isSelected ? (
@@ -343,24 +317,31 @@ export default function AddPlayersBottomSheet({
               )}
             </View>
           </View>
-        </Pressable>
-        {!isLast && <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />}
+        </TouchableOpacity>
+        {!isLast && (
+          <Divider
+            style={[styles.divider, { backgroundColor: colors.gray100 }]}
+          />
+        )}
       </React.Fragment>
     );
   };
 
   // Render search result card
-  const renderSearchResultCard = (player: PlayerResult, index: number, isLast: boolean) => {
+  const renderSearchResultCard = (
+    player: PlayerResult,
+    index: number,
+    isLast: boolean
+  ) => {
     const isSelected = isPlayerSelected(player.id);
     // Disable selection when at limit and not already selected
     const isDisabled = isAtLimit && !isSelected;
 
     return (
       <React.Fragment key={player.id}>
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.friendCard,
-            pressed && !isDisabled && { backgroundColor: colors.gray50 },
             isDisabled && styles.disabledCard,
           ]}
           onPress={() => togglePlayerSelection(player)}
@@ -368,6 +349,7 @@ export default function AddPlayersBottomSheet({
           accessibilityRole="checkbox"
           accessibilityState={{ checked: isSelected, disabled: isDisabled }}
           accessibilityLabel={`${isSelected ? 'Remove' : 'Add'} ${player.name}${isDisabled ? ', player limit reached' : ''}`}
+          activeOpacity={0.7}
         >
           <View style={styles.friendCardContent}>
             {/* Avatar */}
@@ -387,16 +369,26 @@ export default function AddPlayersBottomSheet({
 
             {/* Player Info */}
             <View style={styles.friendInfo}>
-              <Text style={[styles.friendName, { color: colors.textPrimary }]} numberOfLines={1}>
+              <Text
+                style={[styles.friendName, { color: colors.textPrimary }]}
+                numberOfLines={1}
+              >
                 {player.name}
               </Text>
               {player.email && (
-                <Text style={[styles.friendEmail, { color: colors.textSecondary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.friendEmail, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
                   {player.email}
                 </Text>
               )}
               {player.handicap !== null && player.handicap !== undefined && (
-                <Text style={[styles.friendHandicap, { color: colors.primary }]}>HC: {player.handicap}</Text>
+                <Text
+                  style={[styles.friendHandicap, { color: colors.primary }]}
+                >
+                  HC: {player.handicap}
+                </Text>
               )}
             </View>
 
@@ -404,7 +396,11 @@ export default function AddPlayersBottomSheet({
             <View
               style={[
                 styles.selectionButton,
-                { backgroundColor: isSelected ? colors.primary : colors.gray100 },
+                {
+                  backgroundColor: isSelected
+                    ? colors.primary
+                    : colors.gray100,
+                },
               ]}
             >
               {isSelected ? (
@@ -414,8 +410,12 @@ export default function AddPlayersBottomSheet({
               )}
             </View>
           </View>
-        </Pressable>
-        {!isLast && <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />}
+        </TouchableOpacity>
+        {!isLast && (
+          <Divider
+            style={[styles.divider, { backgroundColor: colors.gray100 }]}
+          />
+        )}
       </React.Fragment>
     );
   };
@@ -432,7 +432,11 @@ export default function AddPlayersBottomSheet({
         player.photo_url ? (
           <Avatar.Image size={24} source={{ uri: player.photo_url }} />
         ) : (
-          <Avatar.Icon size={24} icon="account" style={[styles.chipAvatar, { backgroundColor: colors.primaryDark }]} />
+          <Avatar.Icon
+            size={24}
+            icon="account"
+            style={[styles.chipAvatar, { backgroundColor: colors.primaryDark }]}
+          />
         )
       }
     >
@@ -441,289 +445,233 @@ export default function AddPlayersBottomSheet({
   );
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop */}
-      <Animated.View
-        style={[styles.backdrop, { opacity: backdropOpacity }]}
-        pointerEvents={visible ? 'auto' : 'none'}
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-      </Animated.View>
+    <BottomSheet
+      visible={visible}
+      onClose={handleClose}
+      height={0.8}
+      title="Add Players"
+      enableSwipeToDismiss={false}
+      testID="add-players-bottom-sheet"
+    >
+      {/* Player Limit Indicator */}
+      {!hasUnlimitedPlayers && maxPlayers !== undefined && (
+        <View
+          style={[
+            styles.limitIndicatorContainer,
+            { backgroundColor: colors.surface },
+          ]}
+        >
+          <LimitIndicator
+            current={totalWithSelected}
+            max={maxPlayers}
+            label="Players"
+            showBar
+          />
+          {isAtLimit && (
+            <Text style={[styles.limitWarning, { color: colors.warning }]}>
+              Player limit reached for your subscription
+            </Text>
+          )}
+        </View>
+      )}
 
-      {/* Bottom Sheet */}
-      <Animated.View
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Selected Players Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              SELECTED PLAYERS ({selectedPlayers.length})
+            </Text>
+            {selectedPlayers.length > 0 && (
+              <View
+                style={[
+                  styles.validBadge,
+                  { backgroundColor: colors.successLight },
+                ]}
+              >
+                <Icon source="check-circle" size={16} color={colors.success} />
+                <Text style={[styles.validText, { color: colors.success }]}>
+                  Ready
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View
+            style={[styles.selectedSection, { backgroundColor: colors.surface }]}
+          >
+            {selectedPlayers.length === 0 ? (
+              <Text
+                style={[styles.emptySelection, { color: colors.textSecondary }]}
+              >
+                Tap on players below to select them
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.selectedList}
+              >
+                {selectedPlayers.map(renderSelectedChip)}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search players..."
+          accessibilityLabel="Search players"
+        />
+
+        {/* Search Results */}
+        {showSearchResults && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              SEARCH RESULTS
+            </Text>
+
+            {searchLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingSpinner size="lg" />
+              </View>
+            ) : searchResults && searchResults.length > 0 ? (
+              <View
+                style={[
+                  styles.friendsContainer,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                {searchResults.map((player, index) =>
+                  renderSearchResultCard(
+                    player,
+                    index,
+                    index === searchResults.length - 1
+                  )
+                )}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Icon source="account-question" size={48} color={colors.gray300} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No players found
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
+                  No players match &quot;{searchQuery}&quot;
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Friends List */}
+        {!showSearchResults && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              YOUR FRIENDS ({availableFriends.length})
+            </Text>
+
+            {friendsLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingSpinner size="lg" />
+              </View>
+            ) : availableFriends.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon
+                  source="account-group-outline"
+                  size={48}
+                  color={colors.gray300}
+                />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {friends.length > 0
+                    ? 'All friends already added'
+                    : 'No friends yet'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
+                  {friends.length > 0
+                    ? 'Search for other players above'
+                    : 'Add friends or search for players above'}
+                </Text>
+              </View>
+            ) : filteredFriends.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon
+                  source="account-question"
+                  size={48}
+                  color={colors.gray300}
+                />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No friends found
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
+                  No friends match &quot;{searchQuery}&quot;
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.friendsContainer,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                {filteredFriends.map((friend, index) =>
+                  renderFriendCard(
+                    friend,
+                    index,
+                    index === filteredFriends.length - 1
+                  )
+                )}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Footer with Add Button */}
+      <View
         style={[
-          styles.sheet,
-          {
-            height: SHEET_HEIGHT,
-            paddingBottom: insets.bottom,
-            transform: [{ translateY }],
-            backgroundColor: colors.background,
-          },
+          styles.footer,
+          { backgroundColor: colors.surface, borderTopColor: colors.gray200 },
         ]}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardView}
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            {
+              backgroundColor:
+                selectedPlayers.length === 0 ? colors.gray300 : colors.primary,
+            },
+          ]}
+          onPress={handleAddPlayers}
+          activeOpacity={0.8}
+          disabled={selectedPlayers.length === 0 || isAdding}
         >
-          {/* Handle */}
-          <View style={styles.handleContainer}>
-            <View style={[styles.handle, { backgroundColor: colors.gray300 }]} />
-          </View>
-
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-            <View style={styles.headerSpacer} />
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add Players</Text>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.closeButton}
-              accessibilityLabel="Close"
-            >
-              <IconX size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Player Limit Indicator */}
-          {!hasUnlimitedPlayers && maxPlayers !== undefined && (
-            <View style={[styles.limitIndicatorContainer, { backgroundColor: colors.surface }]}>
-              <LimitIndicator
-                current={totalWithSelected}
-                max={maxPlayers}
-                label="Players"
-                showBar
-              />
-              {isAtLimit && (
-                <Text style={[styles.limitWarning, { color: colors.warning }]}>
-                  Player limit reached for your subscription
-                </Text>
-              )}
-            </View>
+          {isAdding ? (
+            <GolfBallLoader size="sm" />
+          ) : (
+            <>
+              <Icon source="account-plus" size={20} color={colors.white} />
+              <Text style={[styles.addButtonText, { color: colors.white }]}>
+                {selectedPlayers.length > 0
+                  ? `Add ${selectedPlayers.length} Player${selectedPlayers.length !== 1 ? 's' : ''}`
+                  : 'Select Players to Add'}
+              </Text>
+            </>
           )}
-
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Selected Players Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  SELECTED PLAYERS ({selectedPlayers.length})
-                </Text>
-                {selectedPlayers.length > 0 && (
-                  <View style={[styles.validBadge, { backgroundColor: colors.successLight }]}>
-                    <Icon source="check-circle" size={16} color={colors.success} />
-                    <Text style={[styles.validText, { color: colors.success }]}>Ready</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={[styles.selectedSection, { backgroundColor: colors.white }]}>
-                {selectedPlayers.length === 0 ? (
-                  <Text style={[styles.emptySelection, { color: colors.textSecondary }]}>
-                    Tap on players below to select them
-                  </Text>
-                ) : (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.selectedList}
-                  >
-                    {selectedPlayers.map(renderSelectedChip)}
-                  </ScrollView>
-                )}
-              </View>
-            </View>
-
-            {/* Search Bar */}
-            <View style={[styles.searchSection, { backgroundColor: colors.white, borderBottomColor: colors.gray100 }]}>
-              <View style={[styles.searchInputWrapper, { backgroundColor: colors.gray50 }]}>
-                <Icon source="magnify" size={20} color={colors.gray400} />
-                <Searchbar
-                  placeholder="Search players..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.searchBar}
-                  inputStyle={styles.searchInput}
-                  iconColor="transparent"
-                  icon={() => null}
-                />
-                {searchQuery.length > 0 && (
-                  <Pressable
-                    onPress={() => setSearchQuery('')}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear search"
-                  >
-                    <Icon source="close-circle" size={20} color={colors.gray400} />
-                  </Pressable>
-                )}
-              </View>
-            </View>
-
-            {/* Search Results */}
-            {showSearchResults && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SEARCH RESULTS</Text>
-
-                {searchLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                  </View>
-                ) : searchResults && searchResults.length > 0 ? (
-                  <View style={[styles.friendsContainer, { backgroundColor: colors.white }]}>
-                    {searchResults.map((player, index) =>
-                      renderSearchResultCard(
-                        player,
-                        index,
-                        index === searchResults.length - 1
-                      )
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Icon source="account-question" size={48} color={colors.gray300} />
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No players found</Text>
-                    <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
-                      No players match "{searchQuery}"
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Friends List */}
-            {!showSearchResults && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  YOUR FRIENDS ({availableFriends.length})
-                </Text>
-
-                {friendsLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                  </View>
-                ) : availableFriends.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Icon source="account-group-outline" size={48} color={colors.gray300} />
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                      {friends.length > 0
-                        ? 'All friends already added'
-                        : 'No friends yet'}
-                    </Text>
-                    <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
-                      {friends.length > 0
-                        ? 'Search for other players above'
-                        : 'Add friends or search for players above'}
-                    </Text>
-                  </View>
-                ) : filteredFriends.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Icon source="account-question" size={48} color={colors.gray300} />
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No friends found</Text>
-                    <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
-                      No friends match "{searchQuery}"
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.friendsContainer, { backgroundColor: colors.white }]}>
-                    {filteredFriends.map((friend, index) =>
-                      renderFriendCard(
-                        friend,
-                        index,
-                        index === filteredFriends.length - 1
-                      )
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-          </ScrollView>
-
-          {/* Footer with Add Button */}
-          <View style={[styles.footer, { backgroundColor: colors.white, borderTopColor: colors.gray200 }]}>
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                { backgroundColor: selectedPlayers.length === 0 ? colors.gray300 : colors.primary },
-              ]}
-              onPress={handleAddPlayers}
-              activeOpacity={0.8}
-              disabled={selectedPlayers.length === 0 || isAdding}
-            >
-              {isAdding ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <>
-                  <Icon source="account-plus" size={20} color={colors.white} />
-                  <Text style={[styles.addButtonText, { color: colors.white }]}>
-                    {selectedPlayers.length > 0
-                      ? `Add ${selectedPlayers.length} Player${selectedPlayers.length !== 1 ? 's' : ''}`
-                      : 'Select Players to Add'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+        </TouchableOpacity>
+      </View>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: borderRadius.xxl,
-    borderTopRightRadius: borderRadius.xxl,
-    ...shadows.xl,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitle: {
-    ...typography.h3,
-    flex: 1,
-    textAlign: 'center',
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-  },
   limitIndicatorContainer: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -798,27 +746,7 @@ const styles = StyleSheet.create({
 
   // Search
   searchSection: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
     marginTop: spacing.lg,
-  },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  searchBar: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  searchInput: {
-    ...typography.body,
-    marginLeft: -spacing.md,
   },
 
   // Friends list

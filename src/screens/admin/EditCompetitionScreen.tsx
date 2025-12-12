@@ -4,135 +4,170 @@
  * Allows organizers to edit:
  * - Competition name
  * - Description
+ * - Competition type (event/league)
+ * - Team mode
  * - Start date
  * - End date
+ *
+ * Uses BottomSheet component for full-screen modal presentation.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   Alert,
-  Pressable,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Text, Icon } from 'react-native-paper';
 import {
-  Text,
-  TextInput,
-  Button,
-  ActivityIndicator,
-  Icon,
-  Surface,
-  SegmentedButtons,
-} from 'react-native-paper';
+  BottomSheet,
+  DatePicker,
+  FormInput,
+  SegmentedButton,
+  LoadingSpinner,
+} from '@/components/common';
+import type { SegmentOption } from '@/components/common';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { format, parse, isValid } from 'date-fns';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader } from '@/components/common/PageHeader';
 import { supabase } from '@/services/supabase/client';
-import type { Competition, HandicapSystem, CompetitionType, TeamMode } from '@/types/database.types';
+import type { Competition, CompetitionType, TeamMode } from '@/types/database.types';
+
+// ============================================================================
+// Types
+// ============================================================================
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditCompetition'>;
 
-// Competition type labels
-const competitionTypeLabels: Record<CompetitionType, string> = {
-  'league': 'League',
-  'event': 'Event',
+interface CompetitionUpdateInput {
+  name?: string;
+  description?: string | null;
+  competition_type?: CompetitionType;
+  team_mode?: TeamMode;
+  start_date?: string;
+  end_date?: string | null;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const COMPETITION_TYPE_DESCRIPTIONS: Record<CompetitionType, string> = {
+  league: 'Ongoing competition with no fixed end date',
+  event: 'Fixed-term competition with an end date',
 };
 
-const competitionTypeDescriptions: Record<CompetitionType, string> = {
-  'league': 'Ongoing competition with no fixed end date',
-  'event': 'Fixed-term competition with an end date',
-};
-
-// Team mode labels
-const teamModeLabels: Record<TeamMode, string> = {
-  'none': 'Individual',
-  'fixed': 'Fixed Teams',
-  'per-round': 'Per-Round Teams',
-};
-
-const teamModeDescriptions: Record<TeamMode, string> = {
-  'none': 'Players compete individually',
-  'fixed': 'Same teams throughout the competition',
+const TEAM_MODE_DESCRIPTIONS: Record<TeamMode, string> = {
+  none: 'Players compete individually',
+  fixed: 'Same teams throughout the competition',
   'per-round': 'Teams change each round',
 };
 
-/**
- * Form validation schema
- */
-const editCompetitionSchema = z.object({
-  name: z
-    .string()
-    .min(3, 'Name must be at least 3 characters')
-    .max(50, 'Name must be less than 50 characters'),
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .optional()
-    .nullable(),
-  competitionType: z.enum(['league', 'event']),
-  teamMode: z.enum(['none', 'fixed', 'per-round']),
-  startDate: z.date(),
-  endDate: z.date().optional().nullable(),
-}).refine(
-  (data) => {
-    // Event type requires an end date
-    if (data.competitionType === 'event' && !data.endDate) {
-      return false;
+const COMPETITION_TYPE_BUTTONS: SegmentOption<CompetitionType>[] = [
+  { value: 'event', label: 'Event', icon: 'calendar-star' },
+  { value: 'league', label: 'League', icon: 'trophy-outline' },
+];
+
+const TEAM_MODE_BUTTONS: SegmentOption<TeamMode>[] = [
+  { value: 'none', label: 'Individual', icon: 'account' },
+  { value: 'fixed', label: 'Teams', icon: 'account-group' },
+];
+
+// ============================================================================
+// Form Schema
+// ============================================================================
+
+const editCompetitionSchema = z
+  .object({
+    name: z
+      .string()
+      .min(3, 'Name must be at least 3 characters')
+      .max(50, 'Name must be less than 50 characters'),
+    description: z
+      .string()
+      .max(500, 'Description must be less than 500 characters')
+      .optional()
+      .nullable(),
+    competitionType: z.enum(['league', 'event']),
+    teamMode: z.enum(['none', 'fixed', 'per-round']),
+    startDate: z.string().min(1, 'Start date is required'),
+    endDate: z.string().optional().nullable(),
+  })
+  .refine(
+    (data) => {
+      if (data.competitionType === 'event' && !data.endDate) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'End date is required for event competitions',
+      path: ['endDate'],
     }
-    return true;
-  },
-  {
-    message: 'End date is required for event competitions',
-    path: ['endDate'],
-  }
-).refine(
-  (data) => {
-    // End date must be on or after start date
-    if (data.endDate && data.startDate) {
-      return data.endDate >= data.startDate;
+  )
+  .refine(
+    (data) => {
+      if (data.endDate && data.startDate) {
+        const start = parseAustralianDate(data.startDate);
+        const end = parseAustralianDate(data.endDate);
+        if (start && end) {
+          return end >= start;
+        }
+      }
+      return true;
+    },
+    {
+      message: 'End date must be on or after start date',
+      path: ['endDate'],
     }
-    return true;
-  },
-  {
-    message: 'End date must be on or after start date',
-    path: ['endDate'],
-  }
-);
+  );
 
 type EditCompetitionFormData = z.infer<typeof editCompetitionSchema>;
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
 /**
- * Format date for display (DD/MM/YYYY - Australian format)
+ * Parse DD/MM/YYYY string to Date object
  */
-function formatDateDisplay(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+function parseAustralianDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
+  return isValid(parsed) ? parsed : null;
+}
+
+/**
+ * Format Date to DD/MM/YYYY string (Australian format)
+ */
+function formatAustralianDate(date: Date | null): string {
+  if (!date) return '';
+  return format(date, 'dd/MM/yyyy');
 }
 
 /**
  * Parse ISO date string to Date object
  */
-function parseDate(dateString: string | null): Date | null {
+function parseISODate(dateString: string | null): Date | null {
   if (!dateString) return null;
   return new Date(dateString);
 }
 
-/**
- * Fetch competition data
- */
+// ============================================================================
+// API Functions
+// ============================================================================
+
 async function fetchCompetition(competitionId: string): Promise<Competition> {
   const { data, error } = await supabase
     .from('competitions')
@@ -147,25 +182,13 @@ async function fetchCompetition(competitionId: string): Promise<Competition> {
   return data as Competition;
 }
 
-/**
- * Update competition data
- */
-interface CompetitionUpdateInput {
-  name?: string;
-  description?: string | null;
-  competition_type?: CompetitionType;
-  team_mode?: TeamMode;
-  start_date?: string;
-  end_date?: string | null;
-}
-
 async function updateCompetition(
   competitionId: string,
   updates: CompetitionUpdateInput
 ): Promise<Competition> {
   const { data, error } = await supabase
     .from('competitions')
-    // @ts-ignore - Supabase types don't properly handle partial updates
+    // @ts-expect-error - Supabase types don't properly handle partial updates
     .update(updates)
     .eq('id', competitionId)
     .select()
@@ -178,15 +201,15 @@ async function updateCompetition(
   return data as Competition;
 }
 
+// ============================================================================
+// Component
+// ============================================================================
+
 export default function EditCompetitionScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { id } = route.params;
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-
-  // Date picker state
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // Fetch competition data
   const {
@@ -214,16 +237,18 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
       description: '',
       competitionType: 'event',
       teamMode: 'none',
-      startDate: new Date(),
-      endDate: null,
+      startDate: formatAustralianDate(new Date()),
+      endDate: '',
     },
   });
 
   // Watch form values
   const startDate = watch('startDate');
-  const endDate = watch('endDate');
   const competitionType = watch('competitionType');
   const teamMode = watch('teamMode');
+
+  // Memoized minimum date for end date picker
+  const startDateParsed = useMemo(() => parseAustralianDate(startDate), [startDate]);
 
   // Update form when competition data loads
   useEffect(() => {
@@ -233,19 +258,21 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
         description: competition.description || '',
         competitionType: competition.competition_type || 'event',
         teamMode: competition.team_mode || 'none',
-        startDate: parseDate(competition.start_date) || new Date(),
-        endDate: parseDate(competition.end_date),
+        startDate:
+          formatAustralianDate(parseISODate(competition.start_date)) ||
+          formatAustralianDate(new Date()),
+        endDate: formatAustralianDate(parseISODate(competition.end_date)) || '',
       });
     }
   }, [competition, reset]);
 
   // Handle competition type change
   const handleCompetitionTypeChange = useCallback(
-    (value: string) => {
-      setValue('competitionType', value as CompetitionType, { shouldDirty: true });
+    (value: CompetitionType) => {
+      setValue('competitionType', value, { shouldDirty: true });
       // Clear end date when switching to league
       if (value === 'league') {
-        setValue('endDate', null, { shouldDirty: true });
+        setValue('endDate', '', { shouldDirty: true });
       }
     },
     [setValue]
@@ -253,30 +280,47 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
 
   // Handle team mode change
   const handleTeamModeChange = useCallback(
+    (value: TeamMode) => {
+      setValue('teamMode', value, { shouldDirty: true });
+    },
+    [setValue]
+  );
+
+  // Handle date changes
+  const handleStartDateChange = useCallback(
     (value: string) => {
-      setValue('teamMode', value as TeamMode, { shouldDirty: true });
+      setValue('startDate', value, { shouldDirty: true });
+    },
+    [setValue]
+  );
+
+  const handleEndDateChange = useCallback(
+    (value: string) => {
+      setValue('endDate', value, { shouldDirty: true });
     },
     [setValue]
   );
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: EditCompetitionFormData) =>
-      updateCompetition(id, {
+    mutationFn: (data: EditCompetitionFormData) => {
+      const startDateParsed = parseAustralianDate(data.startDate);
+      const endDateParsed = data.endDate ? parseAustralianDate(data.endDate) : null;
+
+      return updateCompetition(id, {
         name: data.name,
         description: data.description || null,
         competition_type: data.competitionType,
         team_mode: data.teamMode,
-        start_date: data.startDate.toISOString().split('T')[0],
-        end_date: data.endDate ? data.endDate.toISOString().split('T')[0] : null,
-      }),
+        start_date: startDateParsed ? startDateParsed.toISOString().split('T')[0] : undefined,
+        end_date: endDateParsed ? endDateParsed.toISOString().split('T')[0] : null,
+      });
+    },
     onSuccess: () => {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['competition', id] });
       queryClient.invalidateQueries({ queryKey: ['competition', id, 'details'] });
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
-
-      // Navigate back
       navigation.goBack();
     },
     onError: (error: Error) => {
@@ -284,8 +328,8 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
     },
   });
 
-  // Handle navigation
-  const handleBack = useCallback(() => {
+  // Handle close with unsaved changes confirmation
+  const handleClose = useCallback(() => {
     if (isDirty) {
       Alert.alert(
         'Unsaved Changes',
@@ -308,100 +352,77 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
     [updateMutation]
   );
 
-  // Handle date changes
-  const handleStartDateChange = useCallback(
-    (event: any, selectedDate?: Date) => {
-      if (Platform.OS === 'android') {
-        setShowStartDatePicker(false);
-      }
-      if (event.type === 'set' && selectedDate) {
-        setValue('startDate', selectedDate, { shouldDirty: true });
-      }
-    },
-    [setValue]
-  );
+  // Memoized save button disabled state
+  const isSaveDisabled = updateMutation.isPending || !isDirty;
 
-  const handleEndDateChange = useCallback(
-    (event: any, selectedDate?: Date) => {
-      if (Platform.OS === 'android') {
-        setShowEndDatePicker(false);
-      }
-      if (event.type === 'set' && selectedDate) {
-        setValue('endDate', selectedDate, { shouldDirty: true });
-      }
-    },
-    [setValue]
-  );
-
-  const handleStartDatePickerDismiss = () => {
-    setShowStartDatePicker(false);
-  };
-
-  const handleEndDatePickerDismiss = () => {
-    setShowEndDatePicker(false);
-  };
-
-  const clearEndDate = useCallback(() => {
-    setValue('endDate', null, { shouldDirty: true });
-  }, [setValue]);
-
-  // Loading state
+  // Render loading state
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading competition...</Text>
-      </View>
+      <BottomSheet
+        visible={true}
+        onClose={handleClose}
+        height="full"
+        title="Edit Competition"
+        showHandle={false}
+        safeAreaTop
+        showCloseButton
+        testID="edit-competition-bottom-sheet"
+      >
+        <LoadingSpinner size="lg" message="Loading competition..." fullScreen />
+      </BottomSheet>
     );
   }
 
-  // Error state
+  // Render error state
   if (fetchError || !competition) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
-        <Icon source="alert-circle-outline" size={64} color={colors.error} />
-        <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load competition</Text>
-        <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-          {fetchError?.message || 'Competition not found'}
-        </Text>
-        <Button
-          mode="contained"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          buttonColor={colors.primary}
-          textColor={colors.white}
-        >
-          Go Back
-        </Button>
-      </View>
+      <BottomSheet
+        visible={true}
+        onClose={handleClose}
+        height="full"
+        title="Edit Competition"
+        showHandle={false}
+        safeAreaTop
+        showCloseButton
+        testID="edit-competition-bottom-sheet"
+      >
+        <View style={styles.centerContent}>
+          <Icon source="alert-circle-outline" size={64} color={colors.error} />
+          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
+            Unable to load competition
+          </Text>
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            {fetchError?.message || 'Competition not found'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.errorButton, { backgroundColor: colors.primary }]}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.buttonText, { color: colors.textOnColored }]}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheet>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <BottomSheet
+      visible={true}
+      onClose={handleClose}
+      height="full"
+      title="Edit Competition"
+      showHandle={false}
+      safeAreaTop
+      showCloseButton
+      enableSwipeToDismiss={!isDirty}
+      closeOnBackdropPress={!isDirty}
+      testID="edit-competition-bottom-sheet"
     >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top, backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
-        <Pressable
-          style={styles.headerButton}
-          onPress={handleBack}
-          accessibilityLabel="Close"
-          accessibilityRole="button"
-        >
-          <Icon source="close" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Competition</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + spacing.lg },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -411,88 +432,60 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
         </Text>
 
         {/* Form Section */}
-        <Surface style={[styles.formSection, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
           {/* Competition Name */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Competition Name *</Text>
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="Enter competition name"
-                  error={!!errors.name}
-                  style={styles.input}
-                  outlineColor={errors.name ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.name ? colors.error : colors.primary}
-                  accessibilityLabel="Competition name"
-                />
-              )}
-            />
-            {errors.name ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.name.message}</Text>
-            ) : null}
-          </View>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Competition Name"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Enter competition name"
+                error={errors.name?.message}
+                required
+              />
+            )}
+          />
 
           {/* Description */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Description (Optional)</Text>
-            <Controller
-              control={control}
-              name="description"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  mode="outlined"
-                  value={value || ''}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="Enter description"
-                  multiline
-                  numberOfLines={4}
-                  style={[styles.input, styles.textArea]}
-                  outlineColor={errors.description ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.description ? colors.error : colors.primary}
-                  accessibilityLabel="Competition description"
-                />
-              )}
-            />
-            {errors.description ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>{errors.description.message}</Text>
-            ) : null}
-          </View>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Description"
+                value={value || ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Enter description"
+                multiline
+                numberOfLines={4}
+                error={errors.description?.message}
+              />
+            )}
+          />
 
           {/* Competition Type */}
           <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Competition Type *</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>
+              Competition Type *
+            </Text>
             <Controller
               control={control}
               name="competitionType"
               render={({ field: { value } }) => (
-                <SegmentedButtons
+                <SegmentedButton<CompetitionType>
                   value={value}
                   onValueChange={handleCompetitionTypeChange}
-                  buttons={[
-                    {
-                      value: 'event',
-                      label: 'Event',
-                      icon: 'calendar-star',
-                    },
-                    {
-                      value: 'league',
-                      label: 'League',
-                      icon: 'trophy-outline',
-                    },
-                  ]}
-                  style={styles.segmentedButtons}
+                  buttons={COMPETITION_TYPE_BUTTONS}
                 />
               )}
             />
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              {competitionTypeDescriptions[competitionType]}
+              {COMPETITION_TYPE_DESCRIPTIONS[competitionType]}
             </Text>
           </View>
 
@@ -503,162 +496,69 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
               control={control}
               name="teamMode"
               render={({ field: { value } }) => (
-                <SegmentedButtons
+                <SegmentedButton<TeamMode>
                   value={value}
                   onValueChange={handleTeamModeChange}
-                  buttons={[
-                    {
-                      value: 'none',
-                      label: 'Individual',
-                      icon: 'account',
-                    },
-                    {
-                      value: 'fixed',
-                      label: 'Teams',
-                      icon: 'account-group',
-                    },
-                  ]}
-                  style={styles.segmentedButtons}
+                  buttons={TEAM_MODE_BUTTONS}
                 />
               )}
             />
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              {teamModeDescriptions[teamMode]}
+              {TEAM_MODE_DESCRIPTIONS[teamMode]}
             </Text>
           </View>
 
-          {/* Start Date */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Start Date *</Text>
-            <Pressable onPress={() => setShowStartDatePicker(true)}>
-              <TextInput
-                mode="outlined"
-                value={formatDateDisplay(startDate)}
-                editable={false}
-                pointerEvents="none"
-                style={styles.input}
-                outlineColor={colors.gray300}
-                activeOutlineColor={colors.primary}
-                right={
-                  <TextInput.Icon
-                    icon="calendar"
-                    onPress={() => setShowStartDatePicker(true)}
-                    color={colors.primary}
-                  />
-                }
-                accessibilityLabel={`Start date: ${formatDateDisplay(startDate)}`}
+          {/* Start Date - Using reusable DatePicker component */}
+          <Controller
+            control={control}
+            name="startDate"
+            render={({ field: { value } }) => (
+              <DatePicker
+                value={value}
+                onChange={handleStartDateChange}
+                label="Start Date *"
+                hint="Tap to change the start date"
+                error={errors.startDate?.message}
               />
-            </Pressable>
-            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>Tap to change the start date</Text>
-
-            {/* Start Date Picker */}
-            {showStartDatePicker && (
-              Platform.OS === 'ios' ? (
-                <Surface style={[styles.datePickerContainer, { backgroundColor: colors.white, borderColor: colors.gray200 }]} elevation={2}>
-                  <View style={styles.datePickerHeader}>
-                    <Button onPress={handleStartDatePickerDismiss} textColor={colors.primary}>
-                      Done
-                    </Button>
-                  </View>
-                  <DateTimePicker
-                    value={startDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleStartDateChange}
-                  />
-                </Surface>
-              ) : (
-                <DateTimePicker
-                  value={startDate}
-                  mode="date"
-                  display="default"
-                  onChange={handleStartDateChange}
-                />
-              )
             )}
-          </View>
+          />
 
           {/* End Date - Required for Event, hidden for League */}
           {competitionType === 'event' && (
-            <View style={styles.fieldContainer}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>End Date *</Text>
-              <Pressable onPress={() => setShowEndDatePicker(true)}>
-                <TextInput
-                  mode="outlined"
-                  value={endDate ? formatDateDisplay(endDate) : ''}
+            <Controller
+              control={control}
+              name="endDate"
+              render={({ field: { value } }) => (
+                <DatePicker
+                  value={value || ''}
+                  onChange={handleEndDateChange}
+                  label="End Date *"
                   placeholder="Set end date"
-                  editable={false}
-                  pointerEvents="none"
-                  style={styles.input}
-                  outlineColor={errors.endDate ? colors.error : colors.gray300}
-                  activeOutlineColor={errors.endDate ? colors.error : colors.primary}
-                  error={!!errors.endDate}
-                  right={
-                    endDate ? (
-                      <TextInput.Icon icon="close" onPress={clearEndDate} color={colors.gray400} />
-                    ) : (
-                      <TextInput.Icon
-                        icon="calendar"
-                        onPress={() => setShowEndDatePicker(true)}
-                        color={colors.primary}
-                      />
-                    )
-                  }
-                  accessibilityLabel={`End date: ${endDate ? formatDateDisplay(endDate) : 'Not set'}`}
+                  hint="Competition will auto-complete after this date"
+                  error={errors.endDate?.message}
+                  minimumDate={startDateParsed || undefined}
+                  showClear={!!value}
                 />
-              </Pressable>
-              {errors.endDate ? (
-                <Text style={[styles.errorText, { color: colors.error }]}>{errors.endDate.message}</Text>
-              ) : (
-                <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-                  Competition will auto-complete after this date
-                </Text>
               )}
-
-              {/* End Date Picker */}
-              {showEndDatePicker && (
-                Platform.OS === 'ios' ? (
-                  <Surface style={[styles.datePickerContainer, { backgroundColor: colors.white, borderColor: colors.gray200 }]} elevation={2}>
-                    <View style={styles.datePickerHeader}>
-                      <Button onPress={handleEndDatePickerDismiss} textColor={colors.primary}>
-                        Done
-                      </Button>
-                    </View>
-                    <DateTimePicker
-                      value={endDate || new Date()}
-                      mode="date"
-                      display="spinner"
-                      onChange={handleEndDateChange}
-                      minimumDate={startDate}
-                    />
-                  </Surface>
-                ) : (
-                  <DateTimePicker
-                    value={endDate || new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={handleEndDateChange}
-                    minimumDate={startDate}
-                  />
-                )
-              )}
-            </View>
+            />
           )}
-        </Surface>
+        </View>
 
         {/* Invite Code Section (read-only) */}
-        <Surface style={[styles.inviteCodeSection, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.inviteCodeSection, { backgroundColor: colors.surface }]}>
           <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Invite Code</Text>
-          <View style={[styles.inviteCodeContainer, { backgroundColor: colors.primaryLighter }]}>
-            <Text style={[styles.inviteCode, { color: colors.primaryDark }]}>{competition.invite_code}</Text>
+          <View style={[styles.inviteCodeContainer, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.inviteCode, { color: colors.primaryDark }]}>
+              {competition.invite_code}
+            </Text>
           </View>
           <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
             Share this code with players to let them join
           </Text>
-        </Surface>
+        </View>
 
         {/* Info Box */}
-        <View style={[styles.infoBox, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.infoBox, { backgroundColor: colors.surfaceVariant }]}>
           <Icon source="information-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
             Handicap system cannot be changed after creation.
@@ -667,79 +567,64 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.white, borderTopColor: colors.gray200 }]}>
-        <Button
-          mode="outlined"
-          onPress={handleBack}
-          style={styles.cancelButton}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
-          theme={{ colors: { outline: colors.gray300 } }}
-        >
-          Cancel
-        </Button>
-        <Button
-          mode="contained"
-          onPress={handleSubmit(onSubmit)}
-          loading={updateMutation.isPending}
-          disabled={updateMutation.isPending || !isDirty}
-          style={styles.saveButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
-          accessibilityLabel="Save changes"
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + spacing.md,
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={handleClose}
+          style={[styles.cancelButton, { borderColor: colors.border }]}
+          accessibilityLabel="Cancel"
           accessibilityRole="button"
         >
-          Save Changes
-        </Button>
+          <Text style={[styles.buttonText, { color: colors.textSecondary }]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleSubmit(onSubmit)}
+          disabled={isSaveDisabled}
+          style={[
+            styles.saveButton,
+            { backgroundColor: isSaveDisabled ? colors.gray200 : colors.primary },
+          ]}
+          accessibilityLabel="Save changes"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSaveDisabled }}
+        >
+          {updateMutation.isPending ? (
+            <ActivityIndicator size="small" color={colors.textOnColored} />
+          ) : (
+            <Text
+              style={[
+                styles.buttonText,
+                { color: isSaveDisabled ? colors.textDisabled : colors.textOnColored },
+              ]}
+            >
+              Save Changes
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </BottomSheet>
   );
 }
 
+// ============================================================================
+// Styles
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  // Center content (loading/error states)
   centerContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.h3,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  description: {
-    ...typography.body,
-    marginBottom: spacing.lg,
-  },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
   },
   errorTitle: {
     ...typography.h3,
@@ -751,8 +636,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  backButton: {
-    borderRadius: borderRadius.md,
+  errorButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+
+  // Scroll content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+  },
+  description: {
+    ...typography.body,
+    marginBottom: spacing.lg,
   },
 
   // Form Section
@@ -760,6 +659,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.lg,
+    ...shadows.sm,
   },
   fieldContainer: {
     marginBottom: spacing.lg,
@@ -768,34 +668,9 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
     marginBottom: spacing.xs,
   },
-  input: {
-    backgroundColor: 'transparent',
-  },
-  textArea: {
-    minHeight: 100,
-  },
-  errorText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
   fieldHint: {
     ...typography.caption,
     marginTop: spacing.xs,
-  },
-  segmentedButtons: {
-    marginTop: spacing.xs,
-  },
-  datePickerContainer: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    borderBottomWidth: 1,
   },
 
   // Invite Code Section
@@ -803,6 +678,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.lg,
+    ...shadows.sm,
   },
   inviteCodeContainer: {
     borderRadius: borderRadius.md,
@@ -848,13 +724,20 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    borderRadius: borderRadius.md,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   saveButton: {
     flex: 2,
-    borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    ...typography.bodyBold,
   },
 });

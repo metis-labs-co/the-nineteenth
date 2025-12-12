@@ -12,7 +12,7 @@
  * Based on MVP Phase 1 specifications
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,11 +20,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  TextInput as RNTextInput,
 } from 'react-native';
-import { TextInput, Button, Card, HelperText, Divider } from 'react-native-paper';
+import { Button, Card, Divider } from 'react-native-paper';
 import { IconSearch } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -32,7 +29,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/services/supabase/client';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader } from '@/components/common/PageHeader';
+import { PageHeader, FormInput } from '@/components/common';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import type { HandicapSystem, CompetitionStatus, InvitationStatus } from '@/types/database.types';
 
@@ -90,7 +87,6 @@ const validateInviteCode = (code: string): boolean => {
 export default function JoinCompetitionScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const { user, player } = useAuth();
-  const inputRef = useRef<RNTextInput>(null);
 
   // State
   const [inviteCode, setInviteCode] = useState('');
@@ -313,28 +309,18 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         >
           {/* Invite Code Input */}
           <View style={styles.inputSection}>
-            <TextInput
-              ref={inputRef}
-              mode="outlined"
+            <FormInput
               label="Invite Code"
+              floatingLabel
               placeholder="COMP-12345"
               value={inviteCode}
               onChangeText={handleInviteCodeChange}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={10}
-              style={[styles.input, { backgroundColor: colors.white }]}
-              outlineColor={colors.border}
-              activeOutlineColor={colors.primary}
-              error={!!lookupError}
-              accessibilityLabel="Invite code input"
+              error={lookupError || undefined}
               accessibilityHint="Enter the competition invite code in format COMP-12345"
             />
-            {lookupError && (
-              <HelperText type="error" visible={!!lookupError}>
-                {lookupError}
-              </HelperText>
-            )}
 
             <Button
               mode="contained"
@@ -415,9 +401,9 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
 
               {/* Join Error */}
               {joinError && (
-                <HelperText type="error" visible={!!joinError} style={styles.joinError}>
+                <Text style={[styles.joinError, { color: colors.error }]}>
                   {joinError}
-                </HelperText>
+                </Text>
               )}
 
               {/* Join Button */}
@@ -482,9 +468,6 @@ const styles = StyleSheet.create({
   inputSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-  },
-  input: {
-    fontSize: typography.body.fontSize,
   },
   lookupButton: {
     marginTop: spacing.lg,
@@ -560,6 +543,7 @@ const styles = StyleSheet.create({
     height: 52,
   },
   joinError: {
+    ...typography.caption,
     marginTop: spacing.sm,
   },
   warningText: {

@@ -13,7 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
+import { GolfBallLoader } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -74,7 +75,7 @@ export function EditTeamNameModal({
         style={styles.keyboardView}
       >
         <TouchableWithoutFeedback onPress={onCancel}>
-          <View style={styles.overlay}>
+          <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
             <TouchableWithoutFeedback>
               <View
                 style={[
@@ -154,9 +155,9 @@ export function EditTeamNameModal({
                     accessibilityLabel="Save"
                   >
                     {loading ? (
-                      <ActivityIndicator size="small" color={colors.white} />
+                      <GolfBallLoader size="sm" />
                     ) : (
-                      <Text style={[styles.buttonText, { color: colors.white }]}>
+                      <Text style={[styles.buttonText, { color: colors.textInverse }]}>
                         Save
                       </Text>
                     )}
@@ -177,7 +178,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

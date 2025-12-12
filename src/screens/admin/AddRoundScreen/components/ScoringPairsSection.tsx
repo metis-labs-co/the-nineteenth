@@ -7,7 +7,7 @@ import {
   View,
   StyleSheet,
   Switch,
-  Pressable,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -72,11 +72,12 @@ export const ScoringPairsSection = memo(function ScoringPairsSection({
           )}
         </>
       ) : (
-        <Pressable
+        <TouchableOpacity
           style={styles.toggleContainer}
           onPress={onUpgradePress}
           accessibilityRole="button"
           accessibilityLabel="Upgrade to Premium to use scoring pairs"
+          activeOpacity={0.7}
         >
           <View style={styles.toggleContent}>
             <View style={[styles.iconContainer, { backgroundColor: colors.gray200 }]}>
@@ -88,7 +89,7 @@ export const ScoringPairsSection = memo(function ScoringPairsSection({
                   Require Scoring Pairs
                 </Text>
                 <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={styles.premiumBadgeText}>Premium</Text>
+                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
                 </View>
               </View>
               <Text style={[styles.description, { color: colors.textTertiary }]}>
@@ -97,7 +98,7 @@ export const ScoringPairsSection = memo(function ScoringPairsSection({
             </View>
           </View>
           <Icon source="chevron-right" size={24} color={colors.gray400} />
-        </Pressable>
+        </TouchableOpacity>
       )}
     </>
   );
@@ -147,7 +148,6 @@ const styles = StyleSheet.create({
   },
   premiumBadgeText: {
     ...typography.caption,
-    color: '#ffffff',
     fontWeight: '600',
   },
   infoBox: {

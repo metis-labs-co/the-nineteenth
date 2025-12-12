@@ -29,11 +29,11 @@
  */
 
 import React, { useState, useCallback, ReactNode } from 'react';
-import { StyleSheet, View, Pressable, AccessibilityInfo } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, AccessibilityInfo } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius } from '@/constants/theme';
+import { borderRadius } from '@/constants/theme';
 import { UpgradePrompt, type UpgradePromptConfig } from './UpgradePrompt';
 import type { FeatureId, FeatureAccess } from '@/types/subscription.types';
 import type { FeatureCheckContext } from '@/hooks/useSubscription';
@@ -160,9 +160,10 @@ export const FeatureLockButton = React.memo(function FeatureLockButton({
 
   return (
     <>
-      <Pressable
+      <TouchableOpacity
         onPress={handlePress}
         disabled={disabled}
+        activeOpacity={0.7}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={a11yLabel}
@@ -176,7 +177,7 @@ export const FeatureLockButton = React.memo(function FeatureLockButton({
           <View
             style={[
               styles.lockBadge,
-              { backgroundColor: colors.error },
+              { backgroundColor: colors.error, borderColor: colors.surface },
             ]}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -184,7 +185,7 @@ export const FeatureLockButton = React.memo(function FeatureLockButton({
             <Icon source="lock" size={10} color={colors.white} />
           </View>
         )}
-      </Pressable>
+      </TouchableOpacity>
 
       {/* Upgrade Modal */}
       <UpgradePrompt
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    // borderColor applied dynamically for theme support
   },
 });
 

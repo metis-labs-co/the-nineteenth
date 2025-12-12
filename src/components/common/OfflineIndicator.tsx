@@ -1,7 +1,8 @@
 // src/components/common/OfflineIndicator.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, ActivityIndicator, Button, Surface } from 'react-native-paper';
+import { Text, Button } from 'react-native-paper';
+import { GolfBallLoader } from './GolfBallLoader';
 import { spacing, zIndex } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -107,21 +108,17 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
   const showRetryButton = status === 'error' && !isSyncing;
 
   return (
-    <Surface
+    <View
       style={[
         styles.container,
         { backgroundColor: getBackgroundColor(), borderBottomColor: colors.border },
       ]}
-      elevation={1}
     >
       <View style={styles.content}>
         {/* Message */}
         <View style={styles.messageContainer}>
           {status === 'syncing' && (
-            <ActivityIndicator
-              size="small"
-              color={getTextColor()}
-            />
+            <GolfBallLoader size="sm" />
           )}
           <Text
             variant="bodySmall"
@@ -158,7 +155,7 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
           </Button>
         )}
       </View>
-    </Surface>
+    </View>
   );
 });
 

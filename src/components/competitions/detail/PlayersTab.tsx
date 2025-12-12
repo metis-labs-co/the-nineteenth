@@ -3,8 +3,9 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text, Icon, Surface } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { GolfBallLoader } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PlayerCard } from '@/components/social/PlayerCard';
 import type { ColorPalette } from '@/context/ThemeContext';
@@ -34,7 +35,7 @@ export const PlayersTab = React.memo(function PlayersTab({
   return (
     <View>
       {players.length === 0 ? (
-        <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.emptyState}>
             <Icon source="account-group-outline" size={48} color={colors.gray300} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No players yet</Text>
@@ -42,7 +43,7 @@ export const PlayersTab = React.memo(function PlayersTab({
               Share the invite code to get players to join.
             </Text>
           </View>
-        </Surface>
+        </View>
       ) : (
         <View>
           <Text style={[styles.playersSectionTitle, { color: colors.textSecondary }]}>
@@ -79,7 +80,7 @@ export const PlayersTab = React.memo(function PlayersTab({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   {isBeingRemoved ? (
-                    <ActivityIndicator size="small" color={colors.error} />
+                    <GolfBallLoader size="sm" />
                   ) : (
                     <Icon source="account-remove" size={18} color={colors.error} />
                   )}
@@ -111,19 +112,19 @@ export const PlayersTab = React.memo(function PlayersTab({
 
       {/* Add Players Button */}
       {isOrganizer && (
-        <Pressable
-          style={({ pressed }) => [
+        <TouchableOpacity
+          style={[
             styles.addPlayersButton,
             { borderColor: colors.primary },
-            pressed && { opacity: 0.7 },
           ]}
           onPress={onAddPlayers}
           accessibilityLabel="Add players"
           accessibilityRole="button"
+          activeOpacity={0.7}
         >
           <Icon source="account-plus" size={20} color={colors.primary} />
           <Text style={[styles.addPlayersButtonText, { color: colors.primary }]}>Add players</Text>
-        </Pressable>
+        </TouchableOpacity>
       )}
     </View>
   );

@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  Pressable,
+  TouchableOpacity,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -204,9 +204,10 @@ export const TeamCard = React.memo(function TeamCard({
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* Expandable Member List Toggle */}
-        <Pressable
+        <TouchableOpacity
           style={styles.expandToggle}
           onPress={handleToggleExpand}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} member list`}
           accessibilityState={{ expanded: isExpanded }}
@@ -219,7 +220,7 @@ export const TeamCard = React.memo(function TeamCard({
           ) : (
             <IconChevronDown size={20} color={colors.textSecondary} />
           )}
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Member List (Expandable) */}
         {isExpanded && (

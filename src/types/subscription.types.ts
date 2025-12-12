@@ -11,6 +11,15 @@
 import type { GameType } from './database.types';
 
 // =====================================================
+// MAPPER FUNCTIONS (DB <-> App)
+// =====================================================
+
+import type {
+  UserSubscription as DBUserSubscription,
+  TierLimits as DBTierLimits,
+} from './database.types';
+
+// =====================================================
 // CONSTANTS
 // =====================================================
 
@@ -287,15 +296,6 @@ export function getNextTier(current: SubscriptionTier): SubscriptionTier | null 
       return null;
   }
 }
-
-// =====================================================
-// MAPPER FUNCTIONS (DB <-> App)
-// =====================================================
-
-import type {
-  UserSubscription as DBUserSubscription,
-  TierLimits as DBTierLimits,
-} from './database.types';
 
 /**
  * Convert database UserSubscription (snake_case) to app UserSubscription (camelCase)

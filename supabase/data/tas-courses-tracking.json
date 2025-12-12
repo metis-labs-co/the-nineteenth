@@ -1,0 +1,542 @@
+{
+  "metadata": {
+    "state": "TAS",
+    "lastUpdated": "2025-12-11",
+    "totalCourses": 30,
+    "existingInDb": 0,
+    "dataComplete": 15,
+    "dataPartial": 0,
+    "dataNone": 15,
+    "venueIdPrefix": "f2a3b4c5-d6e7-8901-abcd-500000000",
+    "nextVenueIdNumber": 915,
+    "sources": [
+      "Golfify.io",
+      "Golf Tasmania"
+    ]
+  },
+  "batchPlan": [
+    {
+      "batch": 1,
+      "name": "Greater Hobart",
+      "regions": ["Hobart CBD", "Eastern Shore", "Southern Hobart", "Northern Hobart"],
+      "estimatedCourses": 10,
+      "priority": "high",
+      "status": "complete",
+      "notes": "7 courses with data. Royal Hobart, Tasmania GC, Kingston Beach, Claremont, Llanherne, North West Bay, Ratho Farm"
+    },
+    {
+      "batch": 2,
+      "name": "Launceston & Northern",
+      "regions": ["Launceston", "Northern Tasmania", "Tamar Valley"],
+      "estimatedCourses": 8,
+      "priority": "high",
+      "status": "complete",
+      "notes": "4 courses with data. Country Club Tasmania, Launceston GC, Riverside, Deloraine. Bridport & Scottsdale are 9-holes."
+    },
+    {
+      "batch": 3,
+      "name": "North West Coast",
+      "regions": ["Devonport", "Burnie", "Ulverstone"],
+      "estimatedCourses": 6,
+      "priority": "medium",
+      "status": "complete",
+      "notes": "3 courses with data. Devonport, Ulverstone, Burnie. Wynyard & Queenstown are 9-holes."
+    },
+    {
+      "batch": 4,
+      "name": "King Island",
+      "regions": ["King Island"],
+      "estimatedCourses": 3,
+      "priority": "high",
+      "status": "complete",
+      "notes": "1 course with data. Cape Wickham Links. Ocean Dunes returned wrong location (Oregon). King Island Golf Club 404."
+    },
+    {
+      "batch": 5,
+      "name": "East Coast & Midlands",
+      "regions": ["East Coast", "Midlands", "Heritage Highway"],
+      "estimatedCourses": 6,
+      "priority": "medium",
+      "status": "complete",
+      "notes": "No 18-hole courses found with data. St Helens 404. Most others are 9-hole courses."
+    }
+  ],
+  "batch1Courses": [
+    "Royal Hobart Golf Club",
+    "Tasmania Golf Club",
+    "Kingston Beach Golf Club",
+    "Claremont Golf Club",
+    "Llanherne Golf Club",
+    "North West Bay Golf Club",
+    "Ratho Farm Golf Links"
+  ],
+  "batch1Complete": true,
+  "batch1Skipped": [
+    "Rosny Park Golf Club (9 holes)",
+    "Bellerive Golf Club (404)"
+  ],
+  "batch2Courses": [
+    "Country Club Tasmania",
+    "Launceston Golf Club",
+    "Riverside Golf Club",
+    "Deloraine Golf Club"
+  ],
+  "batch2Complete": true,
+  "batch2Skipped": [
+    "Bridport Golf Club (9 holes)",
+    "Scottsdale Golf Club (9 holes)"
+  ],
+  "batch3Courses": [
+    "Devonport Golf Club",
+    "Ulverstone Golf Club",
+    "Burnie Golf Club"
+  ],
+  "batch3Complete": true,
+  "batch3Skipped": [
+    "Wynyard Golf Club (9 holes)",
+    "Queenstown Golf Club (9 holes)"
+  ],
+  "batch4Courses": [
+    "Cape Wickham Links"
+  ],
+  "batch4Complete": true,
+  "batch4Skipped": [
+    "Ocean Dunes Golf Links (returned Oregon USA data - wrong course)",
+    "King Island Golf & Bowling Club (404)"
+  ],
+  "batch5Courses": [],
+  "batch5Complete": true,
+  "batch5Skipped": [
+    "St Helens Golf Club (404)",
+    "Bicheno Golf Club (404 - 9 holes)",
+    "Swansea Golf Club (9 holes)",
+    "Ross Golf Club (9 holes)",
+    "Campbell Town Golf Club (9 holes)",
+    "Huonville Golf Club (404 - 9 holes)",
+    "Dover Golf Club (9 holes)"
+  ],
+  "courses": [
+    {
+      "name": "Royal Hobart Golf Club",
+      "city": "Seven Mile Beach",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000900",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "private",
+      "notes": "Tasmania's premier golf club, Top 50 Australian course",
+      "golfifySlug": "royal-hobart-golf-club"
+    },
+    {
+      "name": "Tasmania Golf Club",
+      "city": "Barilla Bay",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000901",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "private",
+      "notes": "Top 100 Australian course, opened 1971",
+      "golfifySlug": "tasmania-golf-club"
+    },
+    {
+      "name": "Kingston Beach Golf Club",
+      "city": "Kingston Beach",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000902",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "private",
+      "notes": "Links-style coastal course established 1922",
+      "golfifySlug": "kingston-beach-golf-club"
+    },
+    {
+      "name": "Claremont Golf Club",
+      "city": "Claremont",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000903",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "Northern Hobart course, opened 1973",
+      "golfifySlug": "claremont-golf-club"
+    },
+    {
+      "name": "Rosny Park Golf Club",
+      "city": "Rosny Park",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "rosny-park-public-golf-course"
+    },
+    {
+      "name": "Bellerive Golf Club",
+      "city": "Bellerive",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "not_found",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "404 on golfify.io",
+      "golfifySlug": "bellerive-golf-club"
+    },
+    {
+      "name": "Ratho Farm Golf Links",
+      "city": "Bothwell",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000906",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "public",
+      "notes": "Oldest golf course in the Southern Hemisphere (1822), 18 holes",
+      "golfifySlug": "ratho-golf-links"
+    },
+    {
+      "name": "Llanherne Golf Club",
+      "city": "Cambridge",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000904",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "Near Hobart Airport, opened 1994",
+      "golfifySlug": "llanherne-golf-club"
+    },
+    {
+      "name": "North West Bay Golf Club",
+      "city": "Margate",
+      "region": "Greater Hobart",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000905",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "Channel region course, designed by A. Toogood, opened 1965",
+      "golfifySlug": "north-west-bay-golf-club"
+    },
+    {
+      "name": "Country Club Tasmania",
+      "city": "Prospect Vale",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000907",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "resort",
+      "notes": "Premier resort course by Michael Wolveridge & Peter Thomson, 1982. Hosts Australian PGA Championship.",
+      "golfifySlug": "country-club-tasmania"
+    },
+    {
+      "name": "Launceston Golf Club",
+      "city": "Prospect",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000908",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "private",
+      "notes": "Established 1899, Championship course",
+      "golfifySlug": "launceston-golf-club"
+    },
+    {
+      "name": "Riverside Golf Club",
+      "city": "Riverside",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000909",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "Tamar Valley course",
+      "golfifySlug": "riverside-golf-club"
+    },
+    {
+      "name": "Bridport Golf Club",
+      "city": "Bridport",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "bridport-golf-club"
+    },
+    {
+      "name": "Deloraine Golf Club",
+      "city": "Deloraine",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000910",
+      "dataStatus": "complete",
+      "priority": "low",
+      "holes": 18,
+      "type": "private",
+      "notes": "Rural northern course - actually 18 holes per golfify data",
+      "golfifySlug": "deloraine-golf-club"
+    },
+    {
+      "name": "Scottsdale Golf Club",
+      "city": "Scottsdale",
+      "region": "Launceston & Northern",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "scottsdale-golf-club"
+    },
+    {
+      "name": "St Helens Golf Club",
+      "city": "St Helens",
+      "region": "East Coast & Midlands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "not_found",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "404 on golfify.io",
+      "golfifySlug": "st-helens-golf-club"
+    },
+    {
+      "name": "Bicheno Golf Club",
+      "city": "Bicheno",
+      "region": "East Coast & Midlands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "not_found",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "404 on golfify.io",
+      "golfifySlug": "bicheno-golf-club"
+    },
+    {
+      "name": "Swansea Golf Club",
+      "city": "Swansea",
+      "region": "East Coast & Midlands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "swansea-golf-club"
+    },
+    {
+      "name": "Ross Golf Club",
+      "city": "Ross",
+      "region": "East Coast & Midlands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "ross-golf-club"
+    },
+    {
+      "name": "Campbell Town Golf Club",
+      "city": "Campbell Town",
+      "region": "East Coast & Midlands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "campbell-town-golf-club"
+    },
+    {
+      "name": "Devonport Golf Club",
+      "city": "Devonport",
+      "region": "North West & West Coast",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000911",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "private",
+      "notes": "North-west Tasmania premier course, established 1921",
+      "golfifySlug": "devonport-golf-club"
+    },
+    {
+      "name": "Ulverstone Golf Club",
+      "city": "Ulverstone",
+      "region": "North West & West Coast",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000912",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "North-west coast",
+      "golfifySlug": "ulverstone-golf-club"
+    },
+    {
+      "name": "Burnie Golf Club",
+      "city": "Burnie",
+      "region": "North West & West Coast",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000913",
+      "dataStatus": "complete",
+      "priority": "medium",
+      "holes": 18,
+      "type": "private",
+      "notes": "North-west coast",
+      "golfifySlug": "burnie-golf-club"
+    },
+    {
+      "name": "Wynyard Golf Club",
+      "city": "Wynyard",
+      "region": "North West & West Coast",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "wynyard-golf-club"
+    },
+    {
+      "name": "Queenstown Golf Club",
+      "city": "Queenstown",
+      "region": "North West & West Coast",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "queenstown-golf-club"
+    },
+    {
+      "name": "Cape Wickham Links",
+      "city": "King Island",
+      "region": "Southern & Islands",
+      "existsInDb": false,
+      "venueId": "f2a3b4c5-d6e7-8901-abcd-500000000914",
+      "dataStatus": "complete",
+      "priority": "high",
+      "holes": 18,
+      "type": "public",
+      "notes": "Top 10 Australian course, world-class links by Mike DeVries 2015",
+      "golfifySlug": "cape-wickham-links"
+    },
+    {
+      "name": "Ocean Dunes Golf Links",
+      "city": "King Island",
+      "region": "Southern & Islands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "wrong_data",
+      "priority": "high",
+      "holes": 18,
+      "type": "public",
+      "notes": "Golfify returned Oregon USA course data - wrong location",
+      "golfifySlug": "ocean-dunes-golf-links"
+    },
+    {
+      "name": "King Island Golf & Bowling Club",
+      "city": "Currie",
+      "region": "Southern & Islands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "not_found",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "404 on golfify.io",
+      "golfifySlug": "king-island-golf-bowling-club"
+    },
+    {
+      "name": "Huonville Golf Club",
+      "city": "Huonville",
+      "region": "Southern & Islands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "not_found",
+      "priority": "medium",
+      "holes": 9,
+      "type": "private",
+      "notes": "404 on golfify.io",
+      "golfifySlug": "huonville-golf-club"
+    },
+    {
+      "name": "Dover Golf Club",
+      "city": "Dover",
+      "region": "Southern & Islands",
+      "existsInDb": false,
+      "venueId": null,
+      "dataStatus": "skipped",
+      "priority": "low",
+      "holes": 9,
+      "type": "private",
+      "notes": "9 holes - not included",
+      "golfifySlug": "dover-golf-club"
+    }
+  ],
+  "regionSummary": {
+    "Greater Hobart": {
+      "total": 9,
+      "dataComplete": 7,
+      "priority": "high",
+      "description": "Hobart metropolitan area including Royal Hobart, Tasmania GC, Kingston Beach"
+    },
+    "Launceston & Northern": {
+      "total": 6,
+      "dataComplete": 4,
+      "priority": "high",
+      "description": "Northern Tasmania including Country Club Tasmania, Launceston GC"
+    },
+    "East Coast & Midlands": {
+      "total": 5,
+      "dataComplete": 0,
+      "priority": "medium",
+      "description": "East coast and heritage highway courses - all 9-hole or 404"
+    },
+    "North West & West Coast": {
+      "total": 5,
+      "dataComplete": 3,
+      "priority": "medium",
+      "description": "North-west coast including Devonport, Ulverstone, Burnie"
+    },
+    "Southern & Islands": {
+      "total": 5,
+      "dataComplete": 1,
+      "priority": "high",
+      "description": "King Island - Cape Wickham Links only. Ocean Dunes wrong data."
+    }
+  }
+}

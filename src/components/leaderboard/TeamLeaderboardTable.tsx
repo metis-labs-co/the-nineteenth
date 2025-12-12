@@ -13,7 +13,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { Text, ActivityIndicator, Surface } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { IconTrophy, IconChartBar, IconChevronDown, IconChevronUp, IconUser } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -150,10 +151,7 @@ export function TeamLeaderboardTable({
   if (isLoading) {
     return (
       <View style={styles.loadingContainer} testID={testID ? `${testID}-loading` : undefined}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading team standings...
-        </Text>
+        <LoadingSpinner size="lg" message="Loading team standings..." />
       </View>
     );
   }
@@ -161,9 +159,8 @@ export function TeamLeaderboardTable({
   // Empty state
   if (leaderboardWithPositions.length === 0) {
     return (
-      <Surface
+      <View
         style={[styles.emptyCard, { backgroundColor: colors.surface }]}
-        elevation={1}
         testID={testID ? `${testID}-empty` : undefined}
       >
         <View style={styles.emptyState}>
@@ -173,12 +170,12 @@ export function TeamLeaderboardTable({
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No team standings yet</Text>
           <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
         </View>
-      </Surface>
+      </View>
     );
   }
 
   return (
-    <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1} testID={testID}>
+    <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.gray200 }]}>
         <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>
@@ -361,7 +358,7 @@ export function TeamLeaderboardTable({
           </View>
         );
       })}
-    </Surface>
+    </View>
   );
 }
 

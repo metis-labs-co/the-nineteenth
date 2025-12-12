@@ -3,8 +3,9 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Icon, Surface, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { TeamCard } from '@/components/teams/TeamCard';
@@ -63,15 +64,15 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Show empty state if team mode is 'none'
   if (teamMode === 'none') {
     return (
-      <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1}>
+      <View style={[styles.card, { backgroundColor: colors.surface }]}>
         <View style={styles.emptyState}>
           <Icon source="account-group-outline" size={48} color={colors.gray300} />
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Team Mode</Text>
           <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-            This competition doesn't use teams.
+            This competition doesn&apos;t use teams.
           </Text>
         </View>
-      </Surface>
+      </View>
     );
   }
 
@@ -79,8 +80,7 @@ export const TeamsTab = React.memo(function TeamsTab({
   if (isLoading) {
     return (
       <View style={styles.teamsLoadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading teams...</Text>
+        <LoadingSpinner size="lg" message="Loading teams..." />
       </View>
     );
   }
@@ -91,25 +91,25 @@ export const TeamsTab = React.memo(function TeamsTab({
       {isOrganizer && (
         <View style={styles.organizerActions}>
           {/* Manage Teams Button */}
-          <Pressable
-            style={({ pressed }) => [
+          <TouchableOpacity
+            style={[
               styles.manageTeamsButton,
               { backgroundColor: colors.primary },
-              pressed && { opacity: 0.9 },
             ]}
             onPress={onManageTeams}
             accessibilityLabel="Manage teams"
             accessibilityRole="button"
+            activeOpacity={0.7}
           >
             <Icon source="account-group" size={20} color={colors.white} />
             <Text style={[styles.manageTeamsButtonText, { color: colors.white }]}>Manage Teams</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       )}
 
       {/* Teams List */}
       {teams.length === 0 ? (
-        <Surface style={[styles.card, { backgroundColor: colors.white }]} elevation={1}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.emptyState}>
             <Icon source="account-group-outline" size={48} color={colors.gray300} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No teams yet</Text>
@@ -119,7 +119,7 @@ export const TeamsTab = React.memo(function TeamsTab({
                 : "Teams haven't been created yet."}
             </Text>
           </View>
-        </Surface>
+        </View>
       ) : (
         <View style={styles.teamsList}>
           <Text style={[styles.teamsSectionTitle, { color: colors.textSecondary }]}>

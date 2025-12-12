@@ -3,10 +3,10 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { TextInput, Text, Surface, IconButton, Icon } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { TextInput, Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import { DatePicker } from '@/components/common/DatePicker';
 import { TEE_COLORS, GAME_TYPE_LABELS, type RoundCardProps } from '../types';
 
@@ -24,12 +24,10 @@ export const RoundCard = React.memo(function RoundCard({
   onOpenMatchTypeModal,
 }: RoundCardProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
-    <Surface
-      style={[styles.roundCard, { backgroundColor: isDark ? colors.gray100 : colors.surface }]}
-      elevation={1}
+    <View
+      style={[styles.roundCard, { backgroundColor: colors.surface }]}
     >
       {/* Round Header */}
       <View style={[styles.roundHeader, { borderBottomColor: colors.gray200 }]}>
@@ -48,7 +46,7 @@ export const RoundCard = React.memo(function RoundCard({
       {/* Course Selection */}
       <View style={styles.fieldContainer}>
         <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Course *</Text>
-        <Pressable onPress={onOpenCourseModal}>
+        <TouchableOpacity onPress={onOpenCourseModal} activeOpacity={0.7}>
           <TextInput
             placeholder="Select a course"
             value={round.courseName || ''}
@@ -68,7 +66,7 @@ export const RoundCard = React.memo(function RoundCard({
               />
             }
           />
-        </Pressable>
+        </TouchableOpacity>
         {errors.course ? (
           <Text style={[styles.errorText, { color: colors.error }]}>{errors.course}</Text>
         ) : (
@@ -82,7 +80,7 @@ export const RoundCard = React.memo(function RoundCard({
       {round.courseId && availableTees.length > 0 && (
         <View style={styles.fieldContainer}>
           <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Playing Tees</Text>
-          <Pressable onPress={onOpenTeeModal}>
+          <TouchableOpacity onPress={onOpenTeeModal} activeOpacity={0.7}>
             <View
               style={[
                 styles.teeSelector,
@@ -124,7 +122,7 @@ export const RoundCard = React.memo(function RoundCard({
               )}
               <Icon source="chevron-down" size={20} color={colors.primary} />
             </View>
-          </Pressable>
+          </TouchableOpacity>
           <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
             Select which tees players will use for handicap calculations
           </Text>
@@ -157,7 +155,7 @@ export const RoundCard = React.memo(function RoundCard({
       {/* Match Type Selection */}
       <View style={styles.fieldContainer}>
         <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Match Type</Text>
-        <Pressable onPress={onOpenMatchTypeModal}>
+        <TouchableOpacity onPress={onOpenMatchTypeModal} activeOpacity={0.7}>
           <TextInput
             value={GAME_TYPE_LABELS[round.matchType || 'stableford']}
             mode="outlined"
@@ -175,7 +173,7 @@ export const RoundCard = React.memo(function RoundCard({
               />
             }
           />
-        </Pressable>
+        </TouchableOpacity>
         <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
           Select the scoring format for this round
         </Text>
@@ -185,7 +183,7 @@ export const RoundCard = React.memo(function RoundCard({
       <View style={styles.fieldContainer}>
         <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Scoring Pairs</Text>
         {isPremium ? (
-          <Pressable
+          <TouchableOpacity
             onPress={() => onUpdate({ scoringPairsRequired: !round.scoringPairsRequired })}
             style={[
               styles.scoringPairsToggle,
@@ -194,6 +192,7 @@ export const RoundCard = React.memo(function RoundCard({
                 borderColor: round.scoringPairsRequired ? colors.primary : colors.gray300,
               },
             ]}
+            activeOpacity={0.7}
           >
             <View style={styles.scoringPairsToggleContent}>
               <Icon
@@ -223,7 +222,7 @@ export const RoundCard = React.memo(function RoundCard({
             >
               {round.scoringPairsRequired && <Icon source="check" size={14} color={colors.white} />}
             </View>
-          </Pressable>
+          </TouchableOpacity>
         ) : (
           <View
             style={[
@@ -240,7 +239,7 @@ export const RoundCard = React.memo(function RoundCard({
                     Require Scoring Pairs
                   </Text>
                   <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                    <Text style={styles.premiumBadgeText}>Premium</Text>
+                    <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
                   </View>
                 </View>
                 <Text
@@ -256,7 +255,7 @@ export const RoundCard = React.memo(function RoundCard({
           When enabled, you can configure who scores whom after creating the competition
         </Text>
       </View>
-    </Surface>
+    </View>
   );
 });
 
@@ -374,7 +373,6 @@ const styles = StyleSheet.create({
   },
   premiumBadgeText: {
     ...typography.caption,
-    color: '#ffffff',
     fontWeight: '600',
   },
 });

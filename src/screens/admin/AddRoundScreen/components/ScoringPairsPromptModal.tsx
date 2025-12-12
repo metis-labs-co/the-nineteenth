@@ -7,7 +7,7 @@ import {
   View,
   StyleSheet,
   Modal,
-  Pressable,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -33,7 +33,7 @@ export const ScoringPairsPromptModal = memo(function ScoringPairsPromptModal({
       animationType="fade"
       onRequestClose={onConfigureLater}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         <View style={[styles.container, { backgroundColor: colors.white }]}>
           <View style={[styles.iconContainer, { backgroundColor: colors.primaryLighter }]}>
             <Icon source="account-switch" size={32} color={colors.primary} />
@@ -48,22 +48,24 @@ export const ScoringPairsPromptModal = memo(function ScoringPairsPromptModal({
             You can also configure scoring pairs later from the round settings.
           </Text>
           <View style={styles.buttons}>
-            <Pressable
+            <TouchableOpacity
               style={[styles.buttonSecondary, { borderColor: colors.gray300 }]}
               onPress={onConfigureLater}
+              activeOpacity={0.7}
             >
               <Text style={[styles.buttonSecondaryText, { color: colors.textSecondary }]}>
                 Later
               </Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.buttonPrimary, { backgroundColor: colors.primary }]}
               onPress={onConfigureNow}
+              activeOpacity={0.7}
             >
               <Text style={[styles.buttonPrimaryText, { color: colors.white }]}>
                 Yes
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -74,7 +76,6 @@ export const ScoringPairsPromptModal = memo(function ScoringPairsPromptModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

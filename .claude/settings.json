@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PostPrompt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm typecheck"
+          }
+        ]
+      }
+    ]
+  }
+}

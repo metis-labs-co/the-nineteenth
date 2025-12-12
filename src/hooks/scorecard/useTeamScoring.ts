@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { teamScoringLogger } from '@/utils/debugLogger';
 import type { HoleScore, Player } from '@/types';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
@@ -44,7 +45,7 @@ export function useTeamScoring({
   currentHole,
   players,
 }: UseTeamScoringParams): UseTeamScoringResult {
-  const { setPlayerScore, getPlayerScore } = useScorecardStore();
+  const { setPlayerScore, getPlayerScore, groupScorecards } = useScorecardStore();
 
   // Team-specific state
   const [selectedContributor, setSelectedContributor] = useState<string | undefined>();
@@ -71,17 +72,47 @@ export function useTeamScoring({
       });
     });
 
+    teamScoringLogger.debug('Player scores map updated', {
+      hole: currentHole,
+      teamFormat,
+      playerCount: players.length,
+      teamCount: teams.length,
+      scoresMapSize: map.size,
+      scores: Array.from(map.entries()).map(([id, score]) => ({
+        playerId: id.substring(0, 8),
+        strokes: score?.strokes ?? null,
+      })),
+    });
+
     return map;
-  }, [players, teams, currentHole, getPlayerScore]);
+    // groupScorecards is included to trigger re-computation when scores change in the store
+  }, [players, teams, currentHole, getPlayerScore, teamFormat, groupScorecards]);
 
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(
     async (teamIndex: number, strokes: number) => {
       // For Scramble, all team members get the same score
       const team = teams[teamIndex];
-      if (!team) return;
+      if (!team) {
+        teamScoringLogger.warn('handleTeamScoreSelect: Team not found', { teamIndex });
+        return;
+      }
+
+      teamScoringLogger.info('SCRAMBLE: Setting score for all team members', {
+        teamIndex,
+        teamName: team.name,
+        strokes,
+        hole: currentHole,
+        memberCount: team.members?.length || 0,
+        members: team.members?.map(m => m.player?.name || m.player_id.substring(0, 8)),
+      });
 
       for (const member of team.members || []) {
+        teamScoringLogger.debug('SCRAMBLE: Setting player score', {
+          playerId: member.player_id.substring(0, 8),
+          playerName: member.player?.name,
+          strokes,
+        });
         await setPlayerScore(member.player_id, currentHole, strokes);
       }
     },
@@ -91,9 +122,20 @@ export function useTeamScoring({
   // Handler for Best Ball score selection
   const handleBestBallScoreSelect = useCallback(
     async (playerId: string, strokes: number) => {
+      // Find which team this player is on
+      const playerTeam = teams.find(t => t.members?.some(m => m.player_id === playerId));
+      const playerName = playerTeam?.members?.find(m => m.player_id === playerId)?.player?.name;
+
+      teamScoringLogger.info('BEST BALL: Setting individual player score', {
+        playerId: playerId.substring(0, 8),
+        playerName,
+        teamName: playerTeam?.name,
+        strokes,
+        hole: currentHole,
+      });
       await setPlayerScore(playerId, currentHole, strokes);
     },
-    [currentHole, setPlayerScore]
+    [currentHole, setPlayerScore, teams]
   );
 
   // Handler for Team Match Play score selection
@@ -101,12 +143,28 @@ export function useTeamScoring({
     async (teamIndex: number, strokes: number) => {
       // For Team Match Play, we track the team's combined/best score
       const team = teams[teamIndex];
-      if (!team) return;
+      if (!team) {
+        teamScoringLogger.warn('handleTeamMatchPlayScoreSelect: Team not found', { teamIndex });
+        return;
+      }
 
       // Use the first player as the score holder for the team
       const firstMember = team.members?.[0];
       if (firstMember) {
+        teamScoringLogger.info('TEAM MATCH PLAY: Setting team score', {
+          teamIndex,
+          teamName: team.name,
+          strokes,
+          hole: currentHole,
+          scoreHolderPlayerId: firstMember.player_id.substring(0, 8),
+          scoreHolderName: firstMember.player?.name,
+        });
         await setPlayerScore(firstMember.player_id, currentHole, strokes);
+      } else {
+        teamScoringLogger.warn('TEAM MATCH PLAY: No members in team', {
+          teamIndex,
+          teamName: team.name,
+        });
       }
     },
     [currentHole, setPlayerScore, teams]
@@ -116,10 +174,23 @@ export function useTeamScoring({
   const getTeamScore = useCallback(
     (teamIndex: number): HoleScore | undefined => {
       const team = teams[teamIndex];
-      if (!team) return undefined;
+      if (!team) {
+        teamScoringLogger.debug('getTeamScore: Team not found', { teamIndex });
+        return undefined;
+      }
       const firstMember = team.members?.[0];
-      if (!firstMember) return undefined;
-      return getPlayerScore(firstMember.player_id, currentHole);
+      if (!firstMember) {
+        teamScoringLogger.debug('getTeamScore: No members in team', { teamIndex, teamName: team.name });
+        return undefined;
+      }
+      const score = getPlayerScore(firstMember.player_id, currentHole);
+      teamScoringLogger.debug('getTeamScore result', {
+        teamIndex,
+        teamName: team.name,
+        hole: currentHole,
+        strokes: score?.strokes ?? null,
+      });
+      return score;
     },
     [teams, getPlayerScore, currentHole]
   );

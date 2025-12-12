@@ -6,9 +6,9 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import type { Hole, HoleScore, Player } from '@/types';
 
@@ -79,16 +79,16 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
     const completedCount = playerScores.filter((ps) => ps.score?.strokes).length;
 
     return (
-      <Pressable
+      <TouchableOpacity
         key={holeNumber}
-        style={({ pressed }) => [
+        style={[
           styles.holeButton,
           {
             backgroundColor: isCurrent ? colors.primaryLighter : colors.surface,
             borderColor: allComplete ? colors.success : (isCurrent ? colors.primary : colors.border),
           },
-          pressed && styles.holeButtonPressed,
         ]}
+        activeOpacity={0.7}
         onPress={() => onHolePress(holeNumber)}
         accessibilityLabel={`Hole ${holeNumber}, ${completedCount} of ${players.length} players scored${allComplete ? ', all complete' : ''}`}
         accessibilityRole="button"
@@ -133,7 +133,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         {allComplete && (
           <View style={[styles.completeIndicator, { backgroundColor: colors.success }]} />
         )}
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
@@ -142,7 +142,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   const backNine = Array.from({ length: 9 }, (_, i) => i + 10);
 
   return (
-    <Surface style={[styles.container, { backgroundColor: colors.gray50 }]} elevation={1}>
+    <View style={[styles.container, { backgroundColor: colors.gray50 }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Quick View</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Tap to jump to hole</Text>
@@ -173,7 +173,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
           </View>
         </View>
       </ScrollView>
-    </Surface>
+    </View>
   );
 });
 
@@ -229,10 +229,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     position: 'relative',
     paddingBottom: spacing.xs,
-  },
-  holeButtonPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
   },
   holeNumber: {
     ...typography.caption,

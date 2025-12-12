@@ -15,7 +15,8 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+// LoadingSpinner import removed as it's not used (LeaderboardTable handles loading state)
 import { IconAlertTriangle } from '@tabler/icons-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,7 +24,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useAuth } from '@/hooks/useAuth';
 import { LeaderboardTable } from '@/components/leaderboard';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -102,8 +103,8 @@ export default function LeaderboardScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
         showsVerticalScrollIndicator={false}

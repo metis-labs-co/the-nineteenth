@@ -146,7 +146,7 @@ export function PageHeader({
           <TouchableOpacity
             key={index}
             onPress={action.onPress}
-            style={[styles.actionButton, { backgroundColor: colors.gray100 }]}
+            style={[styles.actionButton, { backgroundColor: colors.surfaceVariant }]}
             accessibilityRole="button"
             accessibilityLabel={action.accessibilityLabel}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

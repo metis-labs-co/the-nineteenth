@@ -16,12 +16,11 @@ import {
   TextInput,
   FlatList,
   ScrollView,
-  Pressable,
 } from 'react-native';
 import { IconGolf, IconSearch, IconX, IconUsers, IconCheck, IconPlus } from '@tabler/icons-react-native';
 import { Avatar, Divider } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, MATCH_TYPES } from '../types';
@@ -56,7 +55,6 @@ export const PartnersStep = memo(function PartnersStep({
   onContinue,
 }: PartnersStepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   // Filter friends based on search
   const filteredFriends = friends?.filter((friend) => {
@@ -157,7 +155,7 @@ export const PartnersStep = memo(function PartnersStep({
             </Text>
           </View>
         ) : filteredFriends.length > 0 ? (
-          <View style={[styles.friendsContainer, { backgroundColor: isDark ? colors.gray100 : colors.white }]}>
+          <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
             <FlatList
               data={filteredFriends}
               keyExtractor={(item) => item.id}
@@ -168,10 +166,9 @@ export const PartnersStep = memo(function PartnersStep({
 
                 return (
                   <>
-                    <Pressable
-                      style={({ pressed }) => [
+                    <TouchableOpacity
+                      style={[
                         styles.friendCard,
-                        pressed && { backgroundColor: colors.gray50 },
                         disabled && styles.friendCardDisabled,
                       ]}
                       onPress={() => onTogglePartner(item)}
@@ -179,6 +176,7 @@ export const PartnersStep = memo(function PartnersStep({
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: selected }}
                       accessibilityLabel={`${selected ? 'Remove' : 'Add'} ${item.name}`}
+                      activeOpacity={0.7}
                     >
                       <View style={styles.friendCardContent}>
                         {/* Avatar */}
@@ -247,7 +245,7 @@ export const PartnersStep = memo(function PartnersStep({
                           )}
                         </View>
                       </View>
-                    </Pressable>
+                    </TouchableOpacity>
                     {!isLast && (
                       <Divider style={[styles.friendDivider, { backgroundColor: colors.gray100 }]} />
                     )}
@@ -274,7 +272,7 @@ export const PartnersStep = memo(function PartnersStep({
       </View>
 
       {/* Continue Button */}
-      <View style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.white }]}>
+      <View style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
         <TouchableOpacity
           style={[styles.continueButton, { backgroundColor: colors.primary }]}
           onPress={onContinue}
