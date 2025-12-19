@@ -26,6 +26,7 @@ import MainTabNavigator from './MainTabNavigator';
 
 // Admin Screens
 import CreateCompetitionScreen from '@/screens/admin/CreateCompetitionScreen';
+import AICompetitionScreen from '@/screens/admin/AICompetitionScreen';
 import EditCompetitionScreen from '@/screens/admin/EditCompetitionScreen';
 import AddRoundScreen from '@/screens/admin/AddRoundScreen';
 import EditRoundScreen from '@/screens/admin/EditRoundScreen';
@@ -171,6 +172,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={CreateCompetitionScreen}
               options={{
                 title: 'Create Competition',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="AICompetition"
+              component={AICompetitionScreen}
+              options={{
+                title: 'Create with AI',
                 headerShown: false,
                 presentation: 'modal',
               }}

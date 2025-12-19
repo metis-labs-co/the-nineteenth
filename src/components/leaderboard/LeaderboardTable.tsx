@@ -14,7 +14,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
-import { IconTrophy } from '@tabler/icons-react-native';
+import { IconTrophy, IconChartBar } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LeaderboardEntry } from '@/hooks/useLeaderboard';

@@ -292,8 +292,24 @@ export function useCreateRoundWizard({
   }, []);
 
   const handleContinueToScoringSetup = useCallback(() => {
-    setCurrentStep('scoringSetup');
-  }, []);
+    // Skip scoring setup for solo rounds - scoring pairs are only relevant with partners
+    if (data.selectedPartners.length === 0) {
+      // Start round directly for solo practice rounds
+      if (data.selectedCourse) {
+        onStartRound(
+          data.selectedCourse.courseId,
+          data.selectedCourse.courseName,
+          [],
+          data.selectedTee ?? undefined,
+          data.selectedMatchType ?? undefined,
+          undefined // No scoring pairs for solo rounds
+        );
+        resetState();
+      }
+    } else {
+      setCurrentStep('scoringSetup');
+    }
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, onStartRound, resetState]);
 
   // Action handlers
   const handleStartScoring = useCallback(() => {

@@ -144,8 +144,8 @@ export default function CourseScreen({ route, navigation }: Props) {
       setIsBottomSheetVisible(false);
 
       try {
-        // Use course holes or default holes
-        const holes: Hole[] = course.holes || DEFAULT_HOLES;
+        // Use course holes or default holes (fallback if empty array)
+        const holes: Hole[] = course.holes && course.holes.length > 0 ? course.holes : DEFAULT_HOLES;
 
         // Create the round in Supabase
         const { data: roundData, error: roundError } = await (supabase

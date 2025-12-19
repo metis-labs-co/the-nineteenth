@@ -220,6 +220,7 @@ export interface Player {
 }
 
 export interface PlayerCreateInput {
+  id?: string; // UUID if existing player (e.g., friend with account)
   name: string;
   email: string;
   phone?: string;

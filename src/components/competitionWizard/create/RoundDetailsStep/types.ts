@@ -62,6 +62,8 @@ export interface RoundDetailsStepProps {
   onBack: () => void;
   allowedGameTypes?: GameType[];
   maxRoundsPerCompetition?: number;
+  /** Competition start date from step 1 (DD/MM/YYYY format) - used as default for new rounds */
+  competitionStartDate?: string;
 }
 
 export interface RoundCardProps {
@@ -110,11 +112,11 @@ export interface TeeSelectionModalProps {
 // HELPER FUNCTIONS
 // =====================================================
 
-export function createEmptyRound(): RoundDetailsFormData {
+export function createEmptyRound(defaultDate?: string): RoundDetailsFormData {
   return {
     courseId: '',
     courseName: '',
-    date: '',
+    date: defaultDate || '',
     teeTime: '',
     matchType: 'stableford',
     scoringPairsRequired: false,

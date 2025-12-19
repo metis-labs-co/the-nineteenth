@@ -163,14 +163,14 @@ export function ApiSearchModal({
 
       return (
         <View
-          style={[styles.courseCard, { backgroundColor: colors.white }]}
+          style={[styles.courseCard, { backgroundColor: colors.surface }]}
         >
           <View style={styles.courseCardContent}>
             <View style={styles.courseInfo}>
               <View style={styles.courseNameRow}>
                 <Text
                   variant="titleSmall"
-                  style={[styles.courseName, { color: colors.gray900 }]}
+                  style={[styles.courseName, { color: colors.textPrimary }]}
                   numberOfLines={1}
                 >
                   {item.name}
@@ -350,7 +350,7 @@ export function ApiSearchModal({
       testID="api-search-modal"
     >
       {/* Search Input */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
         <TextInput
           mode="outlined"
           placeholder="Search by course name..."
@@ -362,7 +362,7 @@ export function ApiSearchModal({
               <TextInput.Icon icon="close" onPress={() => setSearchQuery('')} />
             ) : undefined
           }
-          style={[styles.searchInput, { backgroundColor: colors.white }]}
+          style={[styles.searchInput, { backgroundColor: colors.surface }]}
           outlineStyle={styles.searchInputOutline}
           autoCapitalize="none"
           autoCorrect={false}
@@ -374,7 +374,7 @@ export function ApiSearchModal({
       <View
         style={[
           styles.filterContainer,
-          { backgroundColor: colors.white, borderBottomColor: colors.gray200 },
+          { backgroundColor: colors.surface, borderBottomColor: colors.gray200 },
         ]}
       >
         <Text
@@ -461,7 +461,7 @@ export function ApiSearchModal({
         <View
           style={[
             styles.resultCount,
-            { backgroundColor: colors.white, borderTopColor: colors.gray200 },
+            { backgroundColor: colors.surface, borderTopColor: colors.gray200 },
           ]}
         >
           <Text

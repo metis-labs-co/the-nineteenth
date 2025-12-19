@@ -3,8 +3,9 @@ import { StyleSheet, View, Alert } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { Text, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
@@ -38,9 +39,10 @@ const parseAustralianDate = (dateString: string): Date => {
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type ScreenRouteProp = RouteProp<RootStackParamList, 'CreateCompetition'>;
 
-// Wizard state
-interface WizardState {
+// Wizard state - also exported for AI integration
+export interface WizardState {
   step1?: CompetitionDetailsFormData;
   step2?: TeamSettingsFormData; // Team settings (new Step 2)
   step3?: RoundDetailsFormData[]; // Round details (was Step 2, now Step 3)
@@ -59,7 +61,11 @@ export default function CreateCompetitionScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<ScreenRouteProp>();
   const createCompetition = useCreateCompetition();
+
+  // Get initial state from route params (from AI competition flow)
+  const initialState = route.params?.initialState;
 
   // Subscription context for tier checking
   const {
@@ -114,9 +120,15 @@ export default function CreateCompetitionScreen() {
     }
   }, [isSubscriptionLoading, isCountLoading, limits, competitionCount, checkCanCreateCompetition, tier]);
 
-  // Wizard state
-  const [currentStep, setCurrentStep] = useState(1);
-  const [wizardData, setWizardData] = useState<WizardState>({});
+  // Wizard state - initialize from AI-generated data if available
+  const [currentStep, setCurrentStep] = useState(() => {
+    // If we have AI-generated initial state, start at review step
+    if (initialState?.step1 && initialState?.step2 && initialState?.step3 && initialState?.step4) {
+      return 5; // Review step
+    }
+    return 1;
+  });
+  const [wizardData, setWizardData] = useState<WizardState>(() => initialState || {});
 
 
   // Handle step completion
@@ -178,6 +190,7 @@ export default function CreateCompetitionScreen() {
 
         // Step 4: Players
         players: wizardData.step4.map((player) => ({
+          id: player.id, // Pass through player ID for existing players (friends)
           name: player.name,
           email: player.email || '',
           phone: player.phone || '',
@@ -267,6 +280,7 @@ export default function CreateCompetitionScreen() {
             onBack={handleBack}
             allowedGameTypes={limits?.allowedGameTypes}
             maxRoundsPerCompetition={limits?.maxRoundsPerCompetition}
+            competitionStartDate={wizardData.step1?.startDate}
           />
         );
       case 4:

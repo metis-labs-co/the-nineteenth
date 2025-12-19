@@ -214,6 +214,15 @@ export const subscriptionKeys = {
 } as const;
 
 // =====================================================
+// AI COMPETITION
+// =====================================================
+
+export const aiKeys = {
+  all: ['ai'] as const,
+  generation: () => [...aiKeys.all, 'generation'] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -245,4 +254,5 @@ export const allQueryKeys = [
   friendsKeys.all,
   notificationKeys.all,
   subscriptionKeys.all,
+  aiKeys.all,
 ] as const;

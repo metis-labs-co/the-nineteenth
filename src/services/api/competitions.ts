@@ -183,10 +183,40 @@ export async function createCompetition(
     // Don't fail the whole operation if this fails
   }
 
-  // Note: For MVP, we're not creating player records for other players
-  // since they need to have auth accounts first. Instead, they'll join via invite code.
-  // The player list from the wizard is informational for the organizer.
-  console.log('[API] Players to invite:', input.players);
+  // Add existing players (those with valid IDs) to competition_players
+  // These are friends who already have accounts and were selected in the wizard
+  const existingPlayers = input.players.filter((p) => p.id);
+
+  if (existingPlayers.length > 0) {
+    const competitionPlayersData = existingPlayers
+      .filter((p) => p.id !== user.id) // Don't add organizer twice (already added above)
+      .map((player) => ({
+        competition_id: comp.id,
+        player_id: player.id,
+        status: 'accepted' as const,
+        invited_at: new Date().toISOString(),
+        responded_at: new Date().toISOString(), // Auto-accepted since they were pre-selected
+      }));
+
+    if (competitionPlayersData.length > 0) {
+      const { error: playersError } = await supabase
+        .from('competition_players')
+        .insert(competitionPlayersData as unknown as never);
+
+      if (playersError) {
+        console.warn('[API] Could not add some players:', playersError.message);
+        // Don't fail the whole operation - players can still join via invite code
+      } else {
+        console.log('[API] Added', competitionPlayersData.length, 'players to competition');
+      }
+    }
+  }
+
+  // Log any players without IDs (for future invite system - they'll join via invite code)
+  const newPlayers = input.players.filter((p) => !p.id);
+  if (newPlayers.length > 0) {
+    console.log('[API] Players without accounts (will need to join via invite code):', newPlayers);
+  }
 
   const result = {
     competition: {

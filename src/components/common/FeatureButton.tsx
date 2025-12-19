@@ -1,6 +1,6 @@
 // src/components/common/FeatureButton.tsx
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, StyleProp, ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { IconChevronRight } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -43,6 +43,18 @@ interface FeatureButtonProps {
    * Test ID for testing purposes
    */
   testID?: string;
+  /**
+   * Custom container style to override default margins/layout
+   */
+  style?: StyleProp<ViewStyle>;
+  /**
+   * Whether to show the chevron arrow (defaults to true)
+   */
+  showChevron?: boolean;
+  /**
+   * Layout variant - 'horizontal' (default) or 'compact' for side-by-side
+   */
+  variant?: 'horizontal' | 'compact';
 }
 
 /**
@@ -70,17 +82,23 @@ export const FeatureButton = React.memo(function FeatureButton({
   disabled = false,
   accessibilityLabel,
   testID,
+  style,
+  showChevron = true,
+  variant = 'horizontal',
 }: FeatureButtonProps) {
   const colors = useThemeColors();
 
   const buttonBackgroundColor = backgroundColor ?? colors.primary;
+  const isCompact = variant === 'compact';
 
   return (
     <TouchableOpacity
       style={[
         styles.container,
+        isCompact && styles.containerCompact,
         { backgroundColor: buttonBackgroundColor },
         disabled && styles.containerDisabled,
+        style,
       ]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -90,12 +108,12 @@ export const FeatureButton = React.memo(function FeatureButton({
       accessibilityState={{ disabled }}
       testID={testID}
     >
-      <View style={styles.iconContainer}>{icon}</View>
-      <View style={styles.textContainer}>
-        <Text style={[styles.title, { color: colors.white }]}>{title}</Text>
-        <Text style={[styles.subtitle, { color: colors.white }]}>{subtitle}</Text>
+      <View style={[styles.iconContainer, isCompact && styles.iconContainerCompact]}>{icon}</View>
+      <View style={[styles.textContainer, isCompact && styles.textContainerCompact]}>
+        <Text style={[styles.title, { color: colors.white }, isCompact && styles.titleCompact]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.subtitle, { color: colors.white }, isCompact && styles.subtitleCompact]} numberOfLines={1}>{subtitle}</Text>
       </View>
-      <IconChevronRight size={24} color={colors.white} />
+      {showChevron && <IconChevronRight size={24} color={colors.white} />}
     </TouchableOpacity>
   );
 });
@@ -111,6 +129,12 @@ const styles = StyleSheet.create({
     minHeight: 72, // Ensures proper touch target
     ...shadows.md,
   },
+  containerCompact: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+    padding: spacing.md,
+    minHeight: 64,
+  },
   containerDisabled: {
     opacity: 0.6,
   },
@@ -123,14 +147,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.md,
   },
+  iconContainerCompact: {
+    width: 36,
+    height: 36,
+    marginRight: spacing.sm,
+  },
   textContainer: {
+    flex: 1,
+  },
+  textContainerCompact: {
     flex: 1,
   },
   title: {
     ...typography.bodyBold,
   },
+  titleCompact: {
+    fontSize: 14,
+  },
   subtitle: {
     ...typography.small,
     marginTop: 2,
+  },
+  subtitleCompact: {
+    fontSize: 11,
   },
 });

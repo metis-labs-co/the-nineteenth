@@ -32,6 +32,8 @@ interface UseRoundDetailsFormProps {
   initialData?: RoundDetailsFormData[];
   allowedGameTypes?: GameType[];
   maxRoundsPerCompetition?: number;
+  /** Competition start date (DD/MM/YYYY format) - used as default date for new rounds */
+  competitionStartDate?: string;
   onComplete: (data: RoundDetailsFormData[]) => void;
 }
 
@@ -97,6 +99,7 @@ export function useRoundDetailsForm({
   initialData,
   allowedGameTypes,
   maxRoundsPerCompetition,
+  competitionStartDate,
   onComplete,
 }: UseRoundDetailsFormProps): UseRoundDetailsFormReturn {
   // Effective max rounds (default to 10 for unlimited)
@@ -106,9 +109,9 @@ export function useRoundDetailsForm({
   // Filter game types based on allowed types
   const availableGameTypes = getFilteredGameTypes(allowedGameTypes);
 
-  // Rounds state
+  // Rounds state - use competition start date as default for initial empty round
   const [rounds, setRounds] = useState<RoundDetailsFormData[]>(
-    initialData && initialData.length > 0 ? initialData : [createEmptyRound()]
+    initialData && initialData.length > 0 ? initialData : [createEmptyRound(competitionStartDate)]
   );
 
   // Validation errors
@@ -190,9 +193,9 @@ export function useRoundDetailsForm({
 
   const addRound = useCallback(() => {
     if (rounds.length < effectiveMaxRounds) {
-      setRounds((prev) => [...prev, createEmptyRound()]);
+      setRounds((prev) => [...prev, createEmptyRound(competitionStartDate)]);
     }
-  }, [rounds.length, effectiveMaxRounds]);
+  }, [rounds.length, effectiveMaxRounds, competitionStartDate]);
 
   const removeRound = useCallback((index: number) => {
     setRounds((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));

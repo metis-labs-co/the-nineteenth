@@ -42,3 +42,12 @@ export { SegmentedButton } from './SegmentedButton';
 export type { SegmentOption } from './SegmentedButton';
 export { FormInput } from './FormInput';
 export type { FormInputProps } from './FormInput';
+export { FriendSelector, SelectedPlayerChip, FriendListItem } from './FriendSelector';
+export type {
+  FriendSelectorProps,
+  SelectedPlayer,
+  SelectionLimits,
+  LimitIndicatorConfig,
+  SelectedPlayerChipProps,
+  FriendListItemProps,
+} from './FriendSelector';

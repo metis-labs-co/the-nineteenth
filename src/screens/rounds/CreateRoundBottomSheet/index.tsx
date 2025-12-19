@@ -168,7 +168,10 @@ export default function CreateRoundBottomSheet({
       {/* Step Indicator */}
       <View style={styles.stepIndicator}>
         {(
-          ['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const
+          // Hide scoringSetup step for solo rounds (no partners)
+          wizard.data.selectedPartners.length > 0
+            ? (['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const)
+            : (['course', 'tee', 'matchType', 'partners'] as const)
         ).map((step, index, arr) => (
           <React.Fragment key={step}>
             <View

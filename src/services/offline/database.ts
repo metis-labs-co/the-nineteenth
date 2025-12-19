@@ -419,7 +419,24 @@ export async function getUnsyncedScorecards(): Promise<Scorecard[]> {
 export async function saveHoles(roundId: string, holes: Hole[]): Promise<void> {
   const database = await getDb();
 
-  for (const hole of holes) {
+  // Validate and filter holes - skip any with missing required fields
+  const validHoles = holes.filter((hole) => {
+    if (hole.number == null || hole.par == null || hole.strokeIndex == null) {
+      dbLogger.warn('Skipping invalid hole data', {
+        roundId: roundId.substring(0, 8) + '...',
+        hole: JSON.stringify(hole),
+      });
+      return false;
+    }
+    return true;
+  });
+
+  if (validHoles.length === 0) {
+    dbLogger.warn('No valid holes to save', { roundId: roundId.substring(0, 8) + '...' });
+    return;
+  }
+
+  for (const hole of validHoles) {
     await database.runAsync(
       `INSERT OR REPLACE INTO holes (round_id, hole_number, par, stroke_index, yardage)
        VALUES (?, ?, ?, ?, ?)`,
@@ -427,7 +444,10 @@ export async function saveHoles(roundId: string, holes: Hole[]): Promise<void> {
     );
   }
 
-  console.log('[SQLite] Holes saved for round:', roundId);
+  dbLogger.debug('Holes saved for round', {
+    roundId: roundId.substring(0, 8) + '...',
+    holeCount: validHoles.length,
+  });
 }
 
 /**

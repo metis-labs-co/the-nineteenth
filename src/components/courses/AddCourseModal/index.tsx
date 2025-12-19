@@ -5,21 +5,17 @@
  * - Step 1: Venue details (name, city, state)
  * - Step 2: Course name and tee boxes
  * - Step 3: Hole-by-hole data entry (par, SI, distances)
+ *
+ * Uses BottomSheet for consistent slide-up animation and swipe-to-dismiss.
  */
 
 import React from 'react';
-import {
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { Text, Icon, Button, ProgressBar } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { BottomSheet } from '@/components/common/BottomSheet';
+import { StepIndicator } from '@/components/common/StepIndicator';
 import { useAddCourseWizard } from './hooks/useAddCourseWizard';
 import { useTeeManagement } from './hooks/useTeeManagement';
 import { VenueDetailsStep } from './steps/VenueDetailsStep';
@@ -30,7 +26,6 @@ import { STEPS, type AddCourseModalProps } from './types';
 export type { AddCourseModalProps };
 
 export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseModalProps) {
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
   const wizard = useAddCourseWizard({ onClose, onVenueCreated });
@@ -48,77 +43,75 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
     return 'Next';
   };
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={wizard.handleClose}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[
-          styles.modalContainer,
-          { paddingTop: insets.top, backgroundColor: colors.background },
-        ]}
+  // Custom header with step title
+  const customHeader = (
+    <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
+        {STEPS[wizard.currentStep - 1].title}
+      </Text>
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={wizard.handleClose}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        activeOpacity={0.7}
       >
-        {/* Header */}
-        <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>
-          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-            {STEPS[wizard.currentStep - 1].title}
-          </Text>
+        <Text style={[styles.closeText, { color: colors.textSecondary }]}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Footer with navigation buttons
+  const footer = (
+    <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+      <View style={styles.footerButtons}>
+        {wizard.currentStep > 1 && (
           <TouchableOpacity
-            style={styles.closeButton}
-            onPress={wizard.handleClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
+            onPress={wizard.handleBack}
+            style={[styles.backButton, { borderColor: colors.gray300 }]}
             activeOpacity={0.7}
           >
-            <Icon source="close" size={24} color={colors.gray600} />
+            <Text style={[styles.backButtonText, { color: colors.textPrimary }]}>Back</Text>
           </TouchableOpacity>
-        </View>
+        )}
+        <TouchableOpacity
+          onPress={wizard.currentStep === 3 ? wizard.handleCreate : wizard.handleNext}
+          disabled={!wizard.canProceed || wizard.isPending}
+          style={[
+            styles.nextButton,
+            wizard.currentStep === 1 && styles.fullWidthButton,
+            { backgroundColor: wizard.canProceed ? colors.primary : colors.gray300 },
+          ]}
+          activeOpacity={0.7}
+        >
+          {wizard.isPending ? (
+            <Text style={[styles.nextButtonText, { color: colors.white }]}>Creating...</Text>
+          ) : (
+            <Text style={[styles.nextButtonText, { color: colors.white }]}>{getButtonLabel()}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={wizard.handleClose}
+      height="full"
+      customHeader={customHeader}
+      showHandle={false}
+      enableSwipeToDismiss={false}
+      testID="add-course-modal"
+    >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Step Indicator */}
-        <View style={styles.stepIndicatorContainer}>
-          <View style={styles.stepIndicator}>
-            {STEPS.map((step, index) => (
-              <React.Fragment key={step.number}>
-                <View
-                  style={[
-                    styles.stepCircle,
-                    { backgroundColor: colors.gray200 },
-                    wizard.currentStep >= step.number && { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.stepCircleText,
-                      { color: colors.textSecondary },
-                      wizard.currentStep >= step.number && { color: colors.white },
-                    ]}
-                  >
-                    {step.number}
-                  </Text>
-                </View>
-                {index < STEPS.length - 1 && (
-                  <View
-                    style={[
-                      styles.stepLine,
-                      { backgroundColor: colors.gray200 },
-                      wizard.currentStep > step.number && { backgroundColor: colors.primary },
-                    ]}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </View>
-          <ProgressBar
-            progress={wizard.progress / 100}
-            color={colors.primary}
-            style={[styles.progressBar, { backgroundColor: colors.gray100 }]}
-          />
-        </View>
+        <StepIndicator
+          steps={STEPS}
+          currentStep={wizard.currentStep}
+          showProgress
+        />
 
         {/* Step Content */}
         <View style={styles.contentContainer}>
@@ -163,106 +156,40 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
         </View>
 
         {/* Footer */}
-        <View
-          style={[
-            styles.modalFooter,
-            {
-              paddingBottom: insets.bottom + spacing.lg,
-              borderTopColor: colors.gray100,
-              backgroundColor: colors.background,
-            },
-          ]}
-        >
-          <View style={styles.footerButtons}>
-            {wizard.currentStep > 1 && (
-              <Button
-                mode="outlined"
-                onPress={wizard.handleBack}
-                style={[styles.backButton, { borderColor: colors.gray300 }]}
-                contentStyle={styles.buttonContent}
-                labelStyle={[styles.buttonLabel, { color: colors.textPrimary }]}
-              >
-                Back
-              </Button>
-            )}
-            <Button
-              mode="contained"
-              onPress={wizard.currentStep === 3 ? wizard.handleCreate : wizard.handleNext}
-              loading={wizard.isPending}
-              disabled={!wizard.canProceed || wizard.isPending}
-              style={[
-                styles.nextButton,
-                wizard.currentStep === 1 && styles.fullWidthButton,
-                { backgroundColor: wizard.canProceed ? colors.primary : colors.gray300 },
-              ]}
-              contentStyle={styles.buttonContent}
-              labelStyle={[styles.buttonLabel, { color: colors.white }]}
-            >
-              {getButtonLabel()}
-            </Button>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        {footer}
+      </View>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  container: {
     flex: 1,
   },
-  modalHeader: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: {
+  title: {
     ...typography.h3,
   },
   closeButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  stepIndicatorContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  stepIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepCircleText: {
-    ...typography.smallBold,
-  },
-  stepLine: {
-    width: 40,
-    height: 2,
-    marginHorizontal: spacing.xs,
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
+  closeText: {
+    ...typography.body,
   },
   contentContainer: {
     flex: 1,
   },
-  modalFooter: {
+  footer: {
     padding: spacing.lg,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   footerButtons: {
     flexDirection: 'row',
@@ -271,18 +198,25 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    ...typography.bodyBold,
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.lg,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullWidthButton: {
     flex: 1,
   },
-  buttonContent: {
-    height: 52,
-  },
-  buttonLabel: {
+  nextButtonText: {
     ...typography.bodyBold,
   },
 });

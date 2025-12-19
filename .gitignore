@@ -73,6 +73,12 @@ dist/
 *.mobileprovision
 *.orig.*
 
+# Google Play service account
+google-service-account.json
+
+# App Store screenshots (optional - large files)
+# store/screenshots/
+
 # Supabase local
 supabase/.branches/
 supabase/.temp/

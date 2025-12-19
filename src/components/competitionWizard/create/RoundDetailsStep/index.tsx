@@ -30,6 +30,7 @@ export default function RoundDetailsStep({
   onBack,
   allowedGameTypes,
   maxRoundsPerCompetition,
+  competitionStartDate,
 }: RoundDetailsStepProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
@@ -39,6 +40,7 @@ export default function RoundDetailsStep({
     initialData,
     allowedGameTypes,
     maxRoundsPerCompetition,
+    competitionStartDate,
     onComplete,
   });
 

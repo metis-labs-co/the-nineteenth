@@ -65,6 +65,8 @@ export function BottomSheet({
 
   // Calculate sheet height
   const isFullScreen = height === 'full';
+  // For partial sheets, calculate height as percentage of screen
+  // For full-screen, we use top/bottom positioning instead of fixed height
   const sheetHeight = isFullScreen ? SCREEN_HEIGHT : SCREEN_HEIGHT * (height as number);
 
   // Default values based on full-screen mode
@@ -183,15 +185,25 @@ export function BottomSheet({
       <Animated.View
         style={[
           styles.sheet,
-          {
-            height: sheetHeight,
-            paddingTop: topPadding,
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: isFullScreen ? 0 : SHEET_BORDER_RADIUS,
-            borderTopRightRadius: isFullScreen ? 0 : SHEET_BORDER_RADIUS,
-            transform: [{ translateY }],
-          },
-          !isFullScreen && shadows.xl,
+          isFullScreen
+            ? {
+                // Full-screen: use top/bottom positioning for proper sizing
+                top: 0,
+                bottom: 0,
+                paddingTop: topPadding,
+                backgroundColor: colors.surface,
+                transform: [{ translateY }],
+              }
+            : {
+                // Partial: use fixed height from bottom
+                height: sheetHeight,
+                paddingTop: topPadding,
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: SHEET_BORDER_RADIUS,
+                borderTopRightRadius: SHEET_BORDER_RADIUS,
+                transform: [{ translateY }],
+                ...shadows.xl,
+              },
           containerStyle,
         ]}
         {...panHandlers}

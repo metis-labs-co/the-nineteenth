@@ -24,6 +24,10 @@ import {
   calculateStatistics,
   sortLeaderboard,
   getScoreDescription,
+  getScoreColor,
+  calculatePlayingHandicap,
+  calculateTotalScore,
+  calculateAmbroseScore,
 } from '@/utils/scoring';
 import {
   createTestPlayer,
@@ -272,6 +276,14 @@ describe('Team Best Ball Scoring', () => {
 
       expect(points).toBe(0);
     });
+
+    it('returns 0 for empty player scores array', () => {
+      const hole: Hole = { number: 1, par: 4, strokeIndex: 5 };
+
+      const points = calculateBestBallStablefordPoints([], hole);
+
+      expect(points).toBe(0);
+    });
   });
 
   describe('Best Ball 18-hole round scoring', () => {
@@ -346,6 +358,27 @@ describe('Team Scramble Scoring', () => {
       const result = calculateScrambleTeamHandicap([15]);
       // Single player: 15 * 0.35 = 5.25, rounded to 5.3
       expect(result).toBe(5.3);
+    });
+
+    it('handles 5+ players (uses fallback percentage)', () => {
+      // 5 players: first 4 use defined percentages, 5th uses fallback 0.05
+      // Sorted: 5, 10, 15, 20, 25
+      const handicaps = [15, 25, 5, 20, 10];
+      const result = calculateScrambleTeamHandicap(handicaps);
+
+      // Expected: 5*0.35 + 10*0.15 + 15*0.10 + 20*0.05 + 25*0.05
+      // = 1.75 + 1.5 + 1.5 + 1.0 + 1.25 = 7.0
+      expect(result).toBe(7);
+    });
+
+    it('handles 6 players (multiple fallback percentages)', () => {
+      // 6 players: positions 5 and 6 use fallback 0.05
+      const handicaps = [10, 12, 14, 16, 18, 20];
+      const result = calculateScrambleTeamHandicap(handicaps);
+
+      // Expected: 10*0.35 + 12*0.15 + 14*0.10 + 16*0.05 + 18*0.05 + 20*0.05
+      // = 3.5 + 1.8 + 1.4 + 0.8 + 0.9 + 1.0 = 9.4
+      expect(result).toBe(9.4);
     });
   });
 
@@ -657,6 +690,595 @@ describe('Statistics Calculation', () => {
       expect(sorted[0].totalGross).toBe(78);
       expect(sorted[1].totalGross).toBe(80);
       expect(sorted[2].totalGross).toBe(82);
+    });
+  });
+
+  describe('getScoreColor', () => {
+    it('returns green for under par scores', () => {
+      expect(getScoreColor(3, 4)).toBe('#22c55e'); // Birdie
+      expect(getScoreColor(2, 4)).toBe('#22c55e'); // Eagle
+      expect(getScoreColor(1, 4)).toBe('#22c55e'); // Albatross
+    });
+
+    it('returns blue for par', () => {
+      expect(getScoreColor(4, 4)).toBe('#3b82f6');
+      expect(getScoreColor(3, 3)).toBe('#3b82f6');
+      expect(getScoreColor(5, 5)).toBe('#3b82f6');
+    });
+
+    it('returns orange for bogey', () => {
+      expect(getScoreColor(5, 4)).toBe('#f59e0b');
+      expect(getScoreColor(4, 3)).toBe('#f59e0b');
+    });
+
+    it('returns red for double bogey or worse', () => {
+      expect(getScoreColor(6, 4)).toBe('#ef4444'); // Double bogey
+      expect(getScoreColor(7, 4)).toBe('#ef4444'); // Triple bogey
+      expect(getScoreColor(10, 4)).toBe('#ef4444'); // Pickup
+    });
+  });
+});
+
+// ============================================================================
+// Playing Handicap Calculation Tests (USGA Formula)
+// ============================================================================
+
+describe('Playing Handicap Calculation', () => {
+  describe('calculatePlayingHandicap', () => {
+    it('calculates playing handicap with standard USGA formula', () => {
+      // Playing Handicap = Handicap Index × (Slope Rating / 113) + (Course Rating - Par)
+      // Example: 15 index, slope 125, course rating 72.0, par 72
+      // = 15 × (125/113) + (72.0 - 72) = 15 × 1.106 + 0 = 16.59 ≈ 17
+      const result = calculatePlayingHandicap(15, 125, 72.0, 72);
+      expect(result).toBe(17);
+    });
+
+    it('calculates playing handicap with default slope rating (113)', () => {
+      // With default slope of 113: 15 × (113/113) + (70 - 72) = 15 + (-2) = 13
+      const result = calculatePlayingHandicap(15, 113, 70.0, 72);
+      expect(result).toBe(13);
+    });
+
+    it('handles course rating higher than par', () => {
+      // 18 index, slope 130, course rating 74.5, par 72
+      // = 18 × (130/113) + (74.5 - 72) = 18 × 1.15 + 2.5 = 20.7 + 2.5 = 23.2 ≈ 23
+      const result = calculatePlayingHandicap(18, 130, 74.5, 72);
+      expect(result).toBe(23);
+    });
+
+    it('handles course rating lower than par', () => {
+      // 18 index, slope 110, course rating 68.5, par 72
+      // = 18 × (110/113) + (68.5 - 72) = 18 × 0.973 + (-3.5) = 17.5 - 3.5 = 14 ≈ 14
+      const result = calculatePlayingHandicap(18, 110, 68.5, 72);
+      expect(result).toBe(14);
+    });
+
+    it('handles zero handicap index (scratch golfer)', () => {
+      // 0 index: 0 × (125/113) + (72 - 72) = 0
+      const result = calculatePlayingHandicap(0, 125, 72.0, 72);
+      expect(result).toBe(0);
+    });
+
+    it('handles high handicap index', () => {
+      // 36 index, slope 125, course rating 70, par 72
+      // = 36 × (125/113) + (70 - 72) = 36 × 1.106 - 2 = 39.8 - 2 = 37.8 ≈ 38
+      const result = calculatePlayingHandicap(36, 125, 70.0, 72);
+      expect(result).toBe(38);
+    });
+
+    it('handles plus handicap (negative index)', () => {
+      // -2 index (plus 2), slope 125, course rating 72, par 72
+      // = -2 × (125/113) + (72 - 72) = -2.21 ≈ -2
+      const result = calculatePlayingHandicap(-2, 125, 72.0, 72);
+      expect(result).toBe(-2);
+    });
+
+    it('rounds to nearest integer', () => {
+      // Test rounding: 14.5 should round to 15, 14.4 to 14
+      // 14.5 index, slope 113, course rating 72, par 72 = 14.5 (rounds to 15)
+      const result = calculatePlayingHandicap(14.5, 113, 72.0, 72);
+      expect(result).toBe(15);
+    });
+
+    it('uses default slope rating when not provided', () => {
+      // Call without slopeRating parameter to test default value of 113
+      // 18 index, default slope 113, course rating 72, par 72
+      // = 18 × (113/113) + (72 - 72) = 18
+      const result = calculatePlayingHandicap(18, undefined as any, 72.0, 72);
+      expect(result).toBe(18);
+    });
+  });
+});
+
+// ============================================================================
+// Total Score Calculation Tests
+// ============================================================================
+
+describe('Total Score Calculation', () => {
+  const holes = create18Holes();
+
+  describe('calculateTotalScore for Stroke Play', () => {
+    it('calculates gross and net totals for stroke play', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      // With scoreOffset 0, each hole is scored at par
+      // totalGross = sum of all pars = 72 (for standard course)
+      expect(result.gross).toBe(72);
+      // Net = gross - 18 strokes (1 per hole for 18 handicap)
+      expect(result.net).toBe(72 - 18);
+      expect(result.points).toBeUndefined();
+    });
+
+    it('calculates correctly for over-par round', () => {
+      const player = createTestPlayer({ handicap: 10 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 1); // +1 over par each hole
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      // Gross = 72 + 18 = 90
+      expect(result.gross).toBe(90);
+      // Net = 90 - 10 strokes = 80
+      expect(result.net).toBe(80);
+    });
+
+    it('calculates correctly for under-par round', () => {
+      const player = createTestPlayer({ handicap: 5 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, -1); // -1 under par each hole
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      // Gross = 72 - 18 = 54
+      expect(result.gross).toBe(54);
+      // Net = 54 - 5 = 49
+      expect(result.net).toBe(49);
+    });
+
+    it('handles zero handicap player', () => {
+      const player = createTestPlayer({ handicap: 0 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      expect(result.gross).toBe(72);
+      expect(result.net).toBe(72); // No strokes received
+    });
+  });
+
+  describe('calculateTotalScore for Stableford', () => {
+    it('calculates Stableford points correctly', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stableford');
+
+      // With 18 handicap and gross par on every hole:
+      // Each hole gets 1 stroke, so net = par - 1 = birdie = 3 points per hole
+      // 18 holes × 3 points = 54 points
+      expect(result.gross).toBe(72);
+      expect(result.points).toBe(54);
+      expect(result.net).toBe(54); // For Stableford, net = points
+    });
+
+    it('handles high Stableford round (many eagles with 36 handicap)', () => {
+      const player = createTestPlayer({ handicap: 36 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stableford');
+
+      // With 36 handicap and gross par on every hole:
+      // Each hole gets 2 strokes, so net = par - 2 = eagle = 4 points per hole
+      // 18 holes × 4 points = 72 points
+      expect(result.points).toBe(72);
+    });
+
+    it('handles low Stableford round (many double bogeys)', () => {
+      const player = createTestPlayer({ handicap: 0 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 2); // Double bogey each hole
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stableford');
+
+      // Double bogey = 0 points on each hole
+      expect(result.points).toBe(0);
+    });
+  });
+
+  describe('calculateTotalScore edge cases', () => {
+    it('handles empty scorecard (no scores)', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createTestScorecard({
+        player_id: player.id,
+        scores: {},
+      });
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      expect(result.gross).toBe(0);
+      expect(result.net).toBe(0);
+    });
+
+    it('handles partial scorecard (only some holes scored)', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createTestScorecard({
+        player_id: player.id,
+        scores: {
+          '1': { strokes: 5, putts: 2 },
+          '2': { strokes: 4, putts: 2 },
+          '3': { strokes: 6, putts: 3 },
+        },
+      });
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      expect(result.gross).toBe(15); // 5 + 4 + 6
+      // Net depends on strokes received per hole
+      expect(result.net).toBeLessThan(15);
+    });
+
+    it('handles missing player handicap (defaults to 0)', () => {
+      const scorecard = createCompletedScorecard('player-1', 'round-1', holes, 0);
+      // No player attached, so handicap defaults to 0
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      expect(result.gross).toBe(72);
+      expect(result.net).toBe(72); // No strokes received
+    });
+
+    it('handles unsupported game type (neither stroke nor stableford)', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
+      scorecard.player = player;
+
+      // Cast to test unsupported game type
+      const result = calculateTotalScore(scorecard, holes, 'match-play' as any);
+
+      // Should still calculate gross but not net/points for unsupported types
+      expect(result.gross).toBe(72);
+      expect(result.net).toBe(0); // No calculation for unsupported type
+      expect(result.points).toBeUndefined();
+    });
+
+    it('skips holes with zero strokes', () => {
+      const player = createTestPlayer({ handicap: 18 });
+      const scorecard = createTestScorecard({
+        player_id: player.id,
+        scores: {
+          '1': { strokes: 5, putts: 2 },
+          '2': { strokes: 0, putts: 0 }, // Not played
+          '3': { strokes: 4, putts: 2 },
+        },
+      });
+      scorecard.player = player;
+
+      const result = calculateTotalScore(scorecard, holes, 'stroke');
+
+      expect(result.gross).toBe(9); // 5 + 4 (hole 2 skipped)
+    });
+  });
+});
+
+// ============================================================================
+// Ambrose Team Scoring Tests
+// ============================================================================
+
+describe('Ambrose Team Scoring', () => {
+  const holes = create18Holes();
+
+  describe('calculateAmbroseScore', () => {
+    it('selects best score and applies team handicap', () => {
+      const hole = holes[0]; // Par 4, SI 7
+      const teamScores = [5, 6, 4, 7]; // Best is 4
+      const teamHandicap = 10;
+
+      const result = calculateAmbroseScore(teamScores, teamHandicap, hole);
+
+      // Best score is 4, gets strokes based on SI 7 and handicap 10
+      // SI 7 <= 10 % 18 = 10, so gets 1 stroke
+      // Net = 4 - 1 = 3
+      expect(result).toBe(3);
+    });
+
+    it('handles all same scores', () => {
+      const hole = holes[0];
+      const teamScores = [5, 5, 5, 5];
+      const teamHandicap = 18;
+
+      const result = calculateAmbroseScore(teamScores, teamHandicap, hole);
+
+      // Best is 5, with 18 handicap gets 1 stroke on every hole
+      // Net = 5 - 1 = 4
+      expect(result).toBe(4);
+    });
+
+    it('handles single player team', () => {
+      const hole = holes[0];
+      const teamScores = [5];
+      const teamHandicap = 18;
+
+      const result = calculateAmbroseScore(teamScores, teamHandicap, hole);
+
+      expect(result).toBe(4); // 5 - 1 stroke = 4
+    });
+
+    it('handles zero team handicap', () => {
+      const hole = holes[0];
+      const teamScores = [4, 5, 6];
+      const teamHandicap = 0;
+
+      const result = calculateAmbroseScore(teamScores, teamHandicap, hole);
+
+      expect(result).toBe(4); // Best score, no strokes received
+    });
+
+    it('handles high team handicap (2+ strokes per hole)', () => {
+      const hole: Hole = { number: 1, par: 4, strokeIndex: 1 }; // SI 1
+      const teamScores = [6, 7, 8];
+      const teamHandicap = 36; // 2 strokes per hole
+
+      const result = calculateAmbroseScore(teamScores, teamHandicap, hole);
+
+      expect(result).toBe(4); // 6 - 2 = 4
+    });
+  });
+});
+
+// ============================================================================
+// Edge Cases & Negative Handicap Tests
+// ============================================================================
+
+describe('Edge Cases', () => {
+  const holes = create18Holes();
+
+  describe('Picked-up scores (10+)', () => {
+    it('handles picked-up score in Stableford (returns 0 points)', () => {
+      const hole: Hole = { number: 1, par: 4, strokeIndex: 10 };
+      const handicap = 18;
+
+      // Gross 10 (picked up) should still calculate but result in 0 points
+      const points = calculateStablefordPoints(10, handicap, hole);
+
+      expect(points).toBe(0);
+    });
+
+    it('handles picked-up score in statistics', () => {
+      const scorecard = createTestScorecard({
+        scores: {
+          '1': { strokes: 10, putts: 0 }, // Picked up
+          '2': { strokes: 4, putts: 2 },
+          '3': { strokes: 5, putts: 2 },
+        },
+      });
+
+      const stats = calculateStatistics(scorecard, holes);
+
+      // Picked-up score of 10 on par 4 = +6 = doubleBogeyOrWorse
+      expect(stats.doubleBogeyOrWorse).toBe(1);
+    });
+  });
+
+  describe('Zero handicap edge cases', () => {
+    it('scratch golfer receives no strokes on any hole', () => {
+      holes.forEach((hole) => {
+        expect(getStrokesOnHole(0, hole)).toBe(0);
+      });
+    });
+
+    it('scratch golfer net equals gross', () => {
+      const hole = holes[0];
+      const gross = 5;
+
+      expect(calculateNetScore(gross, 0, hole)).toBe(5);
+    });
+  });
+
+  describe('Negative (plus) handicap handling', () => {
+    it('plus handicap returns 0 strokes on all holes', () => {
+      // Plus 5 handicap = -5
+      holes.forEach((hole) => {
+        expect(getStrokesOnHole(-5, hole)).toBe(0);
+      });
+    });
+
+    it('getStrokesReceived returns 0 for negative handicap', () => {
+      expect(getStrokesReceived(-5, 1)).toBe(0);
+      expect(getStrokesReceived(-10, 18)).toBe(0);
+    });
+
+    it('net score equals gross for plus handicap', () => {
+      const hole = holes[0];
+
+      expect(calculateNetScore(4, -5, hole)).toBe(4);
+    });
+  });
+
+  describe('getStrokesReceived boundary conditions', () => {
+    it('returns correct strokes when strokeIndex equals handicap mod 18', () => {
+      // Handicap 10: strokeIndex 10 === 10 % 18, so should get stroke
+      expect(getStrokesReceived(10, 10)).toBe(1);
+      // Handicap 10: strokeIndex 11 > 10, so should NOT get additional stroke
+      expect(getStrokesReceived(10, 11)).toBe(0);
+    });
+
+    it('returns correct strokes when strokeIndex is greater than handicap mod 18', () => {
+      // Handicap 5: strokeIndex 6 > 5, so should NOT get additional stroke
+      expect(getStrokesReceived(5, 6)).toBe(0);
+      expect(getStrokesReceived(5, 18)).toBe(0);
+    });
+
+    it('handles exact 18 handicap - strokeIndex comparison with 0', () => {
+      // Handicap 18: 18 % 18 = 0, so strokeIndex <= 0 is never true
+      // Every hole gets exactly 1 base stroke, no additional
+      expect(getStrokesReceived(18, 1)).toBe(1);
+      expect(getStrokesReceived(18, 18)).toBe(1);
+    });
+
+    it('handles handicap 19 - strokeIndex 1 gets additional stroke', () => {
+      // Handicap 19: 19 % 18 = 1, so SI 1 gets additional stroke
+      expect(getStrokesReceived(19, 1)).toBe(2); // 1 base + 1 additional
+      expect(getStrokesReceived(19, 2)).toBe(1); // 1 base only
+    });
+  });
+
+  describe('Very high handicap edge cases', () => {
+    it('54 handicap receives 3 strokes per hole', () => {
+      holes.forEach((hole) => {
+        expect(getStrokesOnHole(54, hole)).toBe(3);
+      });
+    });
+
+    it('calculates correct strokes for handicap 45', () => {
+      // 45 / 18 = 2 base strokes
+      // 45 % 18 = 9 extra strokes on SI 1-9
+      const holeSI1 = holes.find((h) => h.strokeIndex === 1)!;
+      const holeSI9 = holes.find((h) => h.strokeIndex === 9)!;
+      const holeSI10 = holes.find((h) => h.strokeIndex === 10)!;
+
+      expect(getStrokesOnHole(45, holeSI1)).toBe(3); // 2 + 1
+      expect(getStrokesOnHole(45, holeSI9)).toBe(3); // 2 + 1
+      expect(getStrokesOnHole(45, holeSI10)).toBe(2); // 2 + 0
+    });
+  });
+
+  describe('Statistics with varied score types', () => {
+    it('counts all score categories correctly', () => {
+      const scorecard = createTestScorecard({
+        scores: {
+          '1': { strokes: 2, putts: 1 },  // Par 4, eagle (-2)
+          '2': { strokes: 2, putts: 1 },  // Par 3, birdie (-1)
+          '3': { strokes: 5, putts: 2 },  // Par 5, par (0)
+          '4': { strokes: 5, putts: 2 },  // Par 4, bogey (+1)
+          '5': { strokes: 6, putts: 2 },  // Par 4, double (+2)
+          '6': { strokes: 5, putts: 2 },  // Par 3, double (+2)
+        },
+      });
+
+      const stats = calculateStatistics(scorecard, holes.slice(0, 6));
+
+      expect(stats.birdiesOrBetter).toBe(2); // Eagle + Birdie
+      expect(stats.pars).toBe(1);
+      expect(stats.bogeys).toBe(1);
+      expect(stats.doubleBogeyOrWorse).toBe(2);
+    });
+
+    it('calculates fairway percentage correctly', () => {
+      const par4And5Holes = holes.filter((h) => h.par >= 4);
+      const scorecard = createTestScorecard({
+        scores: {},
+      });
+
+      // Add scores for par 4/5 holes with varied fairway hits
+      let fairwaysHit = 0;
+      par4And5Holes.forEach((hole, index) => {
+        const hit = index % 2 === 0; // Every other hole
+        if (hit) fairwaysHit++;
+        scorecard.scores[hole.number.toString()] = {
+          strokes: hole.par,
+          putts: 2,
+          fairwayHit: hit,
+        };
+      });
+
+      const stats = calculateStatistics(scorecard, holes);
+
+      expect(stats.fairwaysHit).toBe(fairwaysHit);
+      expect(stats.fairwayPercentage).toBeCloseTo((fairwaysHit / par4And5Holes.length) * 100, 1);
+    });
+
+    it('calculates GIR percentage correctly', () => {
+      const scorecard = createTestScorecard({
+        scores: {},
+      });
+
+      // Hit 12 out of 18 greens
+      holes.forEach((hole, index) => {
+        scorecard.scores[hole.number.toString()] = {
+          strokes: hole.par,
+          putts: 2,
+          greenInRegulation: index < 12, // First 12 holes hit GIR
+        };
+      });
+
+      const stats = calculateStatistics(scorecard, holes);
+
+      expect(stats.greensInRegulation).toBe(12);
+      expect(stats.girPercentage).toBeCloseTo((12 / 18) * 100, 1);
+    });
+
+    it('handles holes with missing putts data', () => {
+      const scorecard = createTestScorecard({
+        scores: {
+          '1': { strokes: 4 }, // No putts data
+          '2': { strokes: 5, putts: 2 },
+          '3': { strokes: 4, putts: 1 },
+        },
+      });
+
+      const stats = calculateStatistics(scorecard, holes.slice(0, 3));
+
+      // Should handle missing putts gracefully (undefined || 0 = 0)
+      expect(stats.totalPutts).toBe(3); // 0 + 2 + 1
+      expect(stats.avgPutts).toBe(1); // 3 / 3
+    });
+
+    it('handles par 3 course (no par 4/5 holes for fairway calculation)', () => {
+      // Create a par 3 course (all holes are par 3)
+      const par3Holes: Hole[] = Array.from({ length: 9 }, (_, i) => ({
+        number: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9,
+        par: 3,
+        strokeIndex: i + 1,
+      }));
+
+      const scorecard = createTestScorecard({
+        scores: {},
+      });
+
+      // Add scores for all par 3 holes
+      par3Holes.forEach((hole) => {
+        scorecard.scores[hole.number.toString()] = {
+          strokes: 3,
+          putts: 2,
+          fairwayHit: true, // Fairway hit doesn't apply to par 3s
+          greenInRegulation: true,
+        };
+      });
+
+      const stats = calculateStatistics(scorecard, par3Holes);
+
+      // With no par 4/5 holes, fairway percentage should be 0 (not NaN)
+      expect(stats.fairwayPercentage).toBe(0);
+      expect(stats.girPercentage).toBeCloseTo((9 / 9) * 100, 1); // 100%
+    });
+  });
+
+  describe('Match play with extreme scores', () => {
+    it('handles both players picking up', () => {
+      const hole: Hole = { number: 1, par: 4, strokeIndex: 10 };
+
+      // Both pick up at 10
+      const result = calculateMatchPlayHole(10, 18, 10, 18, hole);
+
+      expect(result).toBe(0); // Halved
+    });
+
+    it('correctly awards hole when one player picks up', () => {
+      const hole: Hole = { number: 1, par: 4, strokeIndex: 10 };
+
+      // P1 picks up (10), P2 makes 6
+      const result = calculateMatchPlayHole(10, 18, 6, 18, hole);
+
+      expect(result).toBe(-1); // P2 wins
     });
   });
 });

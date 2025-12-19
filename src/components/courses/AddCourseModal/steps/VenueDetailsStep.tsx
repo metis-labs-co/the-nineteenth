@@ -5,13 +5,16 @@
  * - Venue name (required)
  * - City (optional)
  * - State (optional)
+ *
+ * Uses FormInput for consistent text input styling.
  */
 
 import React from 'react';
-import { StyleSheet, View, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
 import { Text, Chip } from 'react-native-paper';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { FormInput } from '@/components/common/FormInput';
 import type { AustralianState } from '@/types/database.types';
 import { AUSTRALIAN_STATES, type Step1Data } from '../types';
 
@@ -37,44 +40,33 @@ export const VenueDetailsStep = React.memo(function VenueDetailsStep({
       keyboardShouldPersistTaps="handled"
     >
       {/* Venue Name Input */}
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Venue Name *</Text>
-        <View style={[styles.textInputWrapper, { backgroundColor: colors.gray50 }]}>
-          <TextInput
-            style={[styles.textInput, { color: colors.textPrimary }]}
-            placeholder="e.g., Royal Melbourne Golf Club"
-            placeholderTextColor={colors.gray400}
-            value={data.venueName}
-            onChangeText={onVenueNameChange}
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="next"
-            accessibilityLabel="Venue name"
-          />
-        </View>
-      </View>
+      <FormInput
+        label="Venue Name"
+        value={data.venueName}
+        onChangeText={onVenueNameChange}
+        placeholder="e.g., Royal Melbourne Golf Club"
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="next"
+        required
+        accessibilityLabel="Venue name"
+      />
 
       {/* City Input */}
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>City</Text>
-        <View style={[styles.textInputWrapper, { backgroundColor: colors.gray50 }]}>
-          <TextInput
-            style={[styles.textInput, { color: colors.textPrimary }]}
-            placeholder="e.g., Melbourne"
-            placeholderTextColor={colors.gray400}
-            value={data.city}
-            onChangeText={onCityChange}
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="done"
-            accessibilityLabel="City"
-          />
-        </View>
-      </View>
+      <FormInput
+        label="City"
+        value={data.city}
+        onChangeText={onCityChange}
+        placeholder="e.g., Melbourne"
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="done"
+        accessibilityLabel="City"
+      />
 
       {/* State Selection */}
       <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>State</Text>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>State</Text>
         <View style={styles.chipsContainer}>
           {AUSTRALIAN_STATES.map((state) => (
             <Chip
@@ -84,7 +76,7 @@ export const VenueDetailsStep = React.memo(function VenueDetailsStep({
               onPress={() => onStateChange(data.state === state.value ? null : state.value)}
               style={[
                 styles.chip,
-                { backgroundColor: colors.white, borderColor: colors.gray300 },
+                { backgroundColor: colors.surface, borderColor: colors.gray300 },
                 data.state === state.value && {
                   backgroundColor: colors.primary,
                   borderColor: colors.primary,
@@ -118,16 +110,6 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...typography.smallBold,
     marginBottom: spacing.sm,
-  },
-  textInputWrapper: {
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 52,
-    justifyContent: 'center',
-  },
-  textInput: {
-    ...typography.body,
-    paddingVertical: 0,
   },
   chipsContainer: {
     flexDirection: 'row',

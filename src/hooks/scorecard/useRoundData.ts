@@ -312,39 +312,91 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
 
     roundDataLogger.info('No offline data found, fetching from Supabase');
 
+    // Determine if this is a standalone round (no competition)
+    const isStandaloneRound = competitionId === 'standalone' || !competitionId;
+
     // Fetch actual data from Supabase
     try {
-      // Fetch competition players
-      const { data: competitionPlayers, error: playersError } = await (
-        supabase.from('competition_players') as any
-      )
-        .select(
-          `
-          player_id,
-          players!player_id (
-            id,
-            name,
-            email,
-            phone,
-            handicap
-          )
-        `
-        )
-        .eq('competition_id', competitionId)
-        .eq('status', 'accepted');
+      // Fetch players - different logic for standalone vs competition rounds
+      let competitionPlayers: any[] = [];
 
-      if (playersError) {
-        roundDataLogger.error('Failed to fetch players', playersError);
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          fetchError: `Failed to load players: ${playersError.message}`,
-        }));
-        return;
+      if (isStandaloneRound) {
+        // For standalone rounds, fetch from round_players table
+        roundDataLogger.info('Fetching players for standalone round');
+        try {
+          const { data: roundPlayersData, error: roundPlayersError } = await (
+            supabase.from('round_players') as any
+          )
+            .select(
+              `
+              player_id,
+              players!player_id (
+                id,
+                name,
+                email,
+                phone,
+                handicap
+              )
+            `
+            )
+            .eq('round_id', roundId);
+
+          if (roundPlayersError) {
+            roundDataLogger.error('Failed to fetch round_players', roundPlayersError);
+            setState((prev) => ({
+              ...prev,
+              isLoading: false,
+              fetchError: `Failed to load players: ${roundPlayersError.message}`,
+            }));
+            return;
+          }
+
+          competitionPlayers = roundPlayersData || [];
+          roundDataLogger.debug('Fetched standalone round players', {
+            count: competitionPlayers.length,
+          });
+        } catch (err) {
+          // round_players table might not exist - try to get player from round's user_id
+          roundDataLogger.warn('round_players fetch failed, trying user lookup', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        // For competition rounds, fetch from competition_players table
+        const { data: compPlayers, error: playersError } = await (
+          supabase.from('competition_players') as any
+        )
+          .select(
+            `
+            player_id,
+            players!player_id (
+              id,
+              name,
+              email,
+              phone,
+              handicap
+            )
+          `
+          )
+          .eq('competition_id', competitionId)
+          .eq('status', 'accepted');
+
+        if (playersError) {
+          roundDataLogger.error('Failed to fetch players', playersError);
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            fetchError: `Failed to load players: ${playersError.message}`,
+          }));
+          return;
+        }
+
+        competitionPlayers = compPlayers || [];
       }
 
-      roundDataLogger.debug('Fetched competition players', {
+      roundDataLogger.debug('Fetched players', {
         count: competitionPlayers?.length || 0,
+        isStandalone: isStandaloneRound,
       });
 
       // Fetch round and course data to get holes (including team round and scoring pairs fields)
@@ -390,8 +442,8 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
       const roundTeamFormat = roundData?.team_format as TeamFormat | null;
       let fetchedTeams: TeamWithMembers[] = [];
 
-      // Fetch teams if this is a team round
-      if (roundIsTeamRound) {
+      // Fetch teams if this is a team round (and not a standalone round)
+      if (roundIsTeamRound && !isStandaloneRound) {
         const { data: teamsData, error: teamsError } = await (supabase.from('teams') as any)
           .select(
             `
@@ -471,11 +523,13 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
       });
 
       if (players.length === 0) {
-        roundDataLogger.warn('No players found for competition');
+        roundDataLogger.warn('No players found', { isStandalone: isStandaloneRound });
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          fetchError: 'No players found for this competition. Make sure players have joined.',
+          fetchError: isStandaloneRound
+            ? 'No players found for this round. The round may not have been set up correctly.'
+            : 'No players found for this competition. Make sure players have joined.',
         }));
         return;
       }
@@ -553,8 +607,9 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
         }
       }
 
-      // Get holes from course or use defaults
-      const holes: Hole[] = roundData?.courses?.holes || DEFAULT_HOLES;
+      // Get holes from course or use defaults (fallback if empty array)
+      const courseHoles = roundData?.courses?.holes;
+      const holes: Hole[] = courseHoles && courseHoles.length > 0 ? courseHoles : DEFAULT_HOLES;
       const gameType = roundData?.game_type || 'stableford';
 
       roundDataLogger.info('Round configuration loaded', {

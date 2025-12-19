@@ -1,0 +1,262 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SwipeableHoleNavigator Snapshots matches snapshot for default state 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+        "overflow": "hidden",
+      }
+    }
+  >
+    <View
+      accessibilityActions={
+        [
+          {
+            "label": "Next hole",
+            "name": "increment",
+          },
+          {
+            "label": "Previous hole",
+            "name": "decrement",
+          },
+        ]
+      }
+      accessibilityHint="Swipe left for next hole, right for previous hole"
+      accessibilityRole="adjustable"
+      accessible={true}
+      collapsable={false}
+      onAccessibilityAction={[Function]}
+      onMoveShouldSetResponder={[Function]}
+      onMoveShouldSetResponderCapture={[Function]}
+      onResponderEnd={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderReject={[Function]}
+      onResponderRelease={[Function]}
+      onResponderStart={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      onStartShouldSetResponderCapture={[Function]}
+      style={
+        {
+          "flex": 1,
+          "opacity": 1,
+          "transform": [
+            {
+              "translateX": 0,
+            },
+            {
+              "scale": 1,
+            },
+          ],
+        }
+      }
+    >
+      <View
+        collapsable={false}
+        style={
+          {
+            "flex": 1,
+            "opacity": 1,
+          }
+        }
+      >
+        <View
+          testID="test-child"
+        >
+          <Text
+            testID="hole-display"
+          >
+            Hole 
+            1
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`SwipeableHoleNavigator Snapshots matches snapshot for middle hole 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+        "overflow": "hidden",
+      }
+    }
+  >
+    <View
+      accessibilityActions={
+        [
+          {
+            "label": "Next hole",
+            "name": "increment",
+          },
+          {
+            "label": "Previous hole",
+            "name": "decrement",
+          },
+        ]
+      }
+      accessibilityHint="Swipe left for next hole, right for previous hole"
+      accessibilityRole="adjustable"
+      accessible={true}
+      collapsable={false}
+      onAccessibilityAction={[Function]}
+      onMoveShouldSetResponder={[Function]}
+      onMoveShouldSetResponderCapture={[Function]}
+      onResponderEnd={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderReject={[Function]}
+      onResponderRelease={[Function]}
+      onResponderStart={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      onStartShouldSetResponderCapture={[Function]}
+      style={
+        {
+          "flex": 1,
+          "opacity": 1,
+          "transform": [
+            {
+              "translateX": 0,
+            },
+            {
+              "scale": 1,
+            },
+          ],
+        }
+      }
+    >
+      <View
+        collapsable={false}
+        style={
+          {
+            "flex": 1,
+            "opacity": 1,
+          }
+        }
+      >
+        <View
+          testID="test-child"
+        >
+          <Text
+            testID="hole-display"
+          >
+            Hole 
+            9
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`SwipeableHoleNavigator Snapshots matches snapshot when disabled 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+        "overflow": "hidden",
+      }
+    }
+  >
+    <View
+      accessibilityActions={
+        [
+          {
+            "label": "Next hole",
+            "name": "increment",
+          },
+          {
+            "label": "Previous hole",
+            "name": "decrement",
+          },
+        ]
+      }
+      accessibilityHint="Swipe left for next hole, right for previous hole"
+      accessibilityRole="adjustable"
+      accessible={true}
+      collapsable={false}
+      onAccessibilityAction={[Function]}
+      onMoveShouldSetResponder={[Function]}
+      onMoveShouldSetResponderCapture={[Function]}
+      onResponderEnd={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderReject={[Function]}
+      onResponderRelease={[Function]}
+      onResponderStart={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      onStartShouldSetResponderCapture={[Function]}
+      style={
+        {
+          "flex": 1,
+          "opacity": 1,
+          "transform": [
+            {
+              "translateX": 0,
+            },
+            {
+              "scale": 1,
+            },
+          ],
+        }
+      }
+    >
+      <View
+        collapsable={false}
+        style={
+          {
+            "flex": 1,
+            "opacity": 1,
+          }
+        }
+      >
+        <View
+          testID="test-child"
+        >
+          <Text
+            testID="hole-display"
+          >
+            Hole 
+            1
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;

@@ -22,16 +22,16 @@ import {
 } from 'react-native';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
+import { IconPlus, IconSparkles } from '@tabler/icons-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { EmptyState, Tabs, FilterPill } from '@/components/common';
+import { EmptyState, Tabs, FilterPill, FeatureButton } from '@/components/common';
 import { PageHeader } from '@/components/common/PageHeader';
 import { CompetitionListCard } from '@/components/competitions';
-import { LimitIndicator, FeatureLockButton } from '@/components/subscription';
-import type { UpgradePromptConfig } from '@/components/subscription';
+import { LimitIndicator } from '@/components/subscription';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getCompetitionsOverLimit } from '@/services/subscription/grandfathering';
@@ -252,6 +252,10 @@ export default function CompetitionsListScreen() {
     navigation.navigate('CreateCompetition');
   }, [navigation]);
 
+  const handleCreateWithAI = useCallback(() => {
+    navigation.navigate('AICompetition');
+  }, [navigation]);
+
   const handleJoinCompetition = useCallback(() => {
     navigation.navigate('JoinCompetition');
   }, [navigation]);
@@ -356,20 +360,7 @@ export default function CompetitionsListScreen() {
 
   const emptyState = getEmptyStateContent();
 
-  // Upgrade config for competition limit
-  const competitionUpgradeConfig: UpgradePromptConfig = {
-    feature: 'create_competition',
-    title: 'Competition Limit Reached',
-    message: `You've used ${myCompetitionCount} of ${maxCompetitions} competitions. Upgrade to create more.`,
-    targetTier: 'social',
-    benefits: [
-      'Up to 5 active competitions',
-      'Up to 16 players per competition',
-      'Stroke play format',
-    ],
-  };
-
-  // Header right content with action buttons and tier badge
+  // Header right content - just Join button
   const headerRightContent = (
     <View style={styles.headerActions}>
       <TouchableOpacity
@@ -380,19 +371,39 @@ export default function CompetitionsListScreen() {
       >
         <Text style={[styles.joinButtonText, { color: colors.primary }]}>Join</Text>
       </TouchableOpacity>
-      <FeatureLockButton
-        feature="create_competition"
-        context={{ currentCount: myCompetitionCount }}
-        onPress={handleCreateCompetition}
-        onUpgradePress={handleUpgrade}
-        upgradeConfig={competitionUpgradeConfig}
-        showLockBadge={!canCreateCompetition}
-        accessibilityLabel="Create new competition"
-      >
-        <View style={[styles.createButton, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.createButtonText, { color: colors.white }]}>+ New</Text>
-        </View>
-      </FeatureLockButton>
+    </View>
+  );
+
+  // Create competition buttons section
+  const createButtonsSection = (
+    <View style={styles.createButtonsContainer}>
+      <View style={styles.featureButtonWrapper}>
+        <FeatureButton
+          title="Create"
+          subtitle="Step-by-step wizard"
+          icon={<IconPlus size={20} color={colors.white} strokeWidth={2.5} />}
+          onPress={canCreateCompetition ? handleCreateCompetition : handleUpgrade}
+          backgroundColor={colors.primary}
+          disabled={false}
+          accessibilityLabel="Create new competition"
+          variant="compact"
+          showChevron={false}
+        />
+      </View>
+
+      <View style={styles.featureButtonWrapper}>
+        <FeatureButton
+          title="AI Create"
+          subtitle="Describe in English"
+          icon={<IconSparkles size={20} color={colors.white} strokeWidth={2.5} />}
+          onPress={canCreateCompetition ? handleCreateWithAI : handleUpgrade}
+          backgroundColor="#7c3aed"
+          disabled={false}
+          accessibilityLabel="Create competition with AI"
+          variant="compact"
+          showChevron={false}
+        />
+      </View>
     </View>
   );
 
@@ -400,6 +411,9 @@ export default function CompetitionsListScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <PageHeader title="Competitions" rightContent={headerRightContent} />
+
+      {/* Create Competition Buttons */}
+      {createButtonsSection}
 
       {/* Toggle Tabs */}
       <Tabs
@@ -534,16 +548,14 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: 14,
   },
-  createButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    minHeight: 36,
-    justifyContent: 'center',
+  createButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.md,
   },
-  createButtonText: {
-    ...typography.bodyBold,
-    fontSize: 14,
+  featureButtonWrapper: {
+    flex: 1,
   },
   tabContainer: {
     marginHorizontal: spacing.lg,

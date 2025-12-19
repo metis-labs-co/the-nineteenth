@@ -3,10 +3,11 @@
  *
  * Features:
  * - Dedicated screen for joining competitions (not inline on home)
- * - Input field for invite code with validation (COMP-XXXXX format)
+ * - Input field for invite code with validation (4-20 chars, alphanumeric + hyphens/underscores)
  * - Competition preview card on valid code (name, dates, organizer, player count)
  * - Join button adds player to competition and navigates to dashboard
- * - Loading, error, and empty states
+ * - "Not Found" state when invite code doesn't match any competition
+ * - Loading and error states
  * - Uses React Native Paper components (TextInput, Card, Button)
  *
  * Based on MVP Phase 1 specifications
@@ -78,10 +79,16 @@ const getStatusVariant = (status: string): StatusVariant => {
   return status as StatusVariant;
 };
 
-/** Validate invite code format (COMP-XXXXX) */
+/**
+ * Validate invite code format
+ * Must match the creation schema: 4-20 characters, letters, numbers, hyphens, underscores
+ */
 const validateInviteCode = (code: string): boolean => {
-  const pattern = /^COMP-\d{5}$/;
-  return pattern.test(code.toUpperCase());
+  if (code.length < 4 || code.length > 20) {
+    return false;
+  }
+  const pattern = /^[A-Za-z0-9-_]+$/;
+  return pattern.test(code);
 };
 
 export default function JoinCompetitionScreen({ navigation }: Props) {
@@ -95,36 +102,32 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
   const [isJoining, setIsJoining] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [hasLookedUp, setHasLookedUp] = useState(false);
+  const [notFound, setNotFound] = useState(false); // Specific state for "no competition found"
 
   // Navigation handlers
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
-  // Format invite code as user types (auto-uppercase, auto-add dash)
+  // Format invite code as user types (auto-uppercase, filter invalid chars)
   const handleInviteCodeChange = useCallback((text: string) => {
     // Clear previous lookup state when code changes
-    if (competition) {
+    if (competition || notFound) {
       setCompetition(null);
-      setHasLookedUp(false);
+      setNotFound(false);
     }
     setLookupError(null);
     setJoinError(null);
 
-    // Auto-format: uppercase and add dash after COMP
-    let formatted = text.toUpperCase();
+    // Auto-format: uppercase and remove invalid characters
+    // Only allow letters, numbers, hyphens, and underscores (matching creation schema)
+    const formatted = text.toUpperCase().replace(/[^A-Z0-9-_]/g, '');
 
-    // If user types "COMP" followed by digits without dash, insert dash
-    if (formatted.length > 4 && formatted.startsWith('COMP') && formatted[4] !== '-') {
-      formatted = 'COMP-' + formatted.slice(4);
-    }
-
-    // Limit to 10 characters (COMP-XXXXX)
-    if (formatted.length <= 10) {
+    // Limit to 20 characters (max allowed by schema)
+    if (formatted.length <= 20) {
       setInviteCode(formatted);
     }
-  }, [competition]);
+  }, [competition, notFound]);
 
   // Look up competition by invite code
   const handleLookup = useCallback(async () => {
@@ -132,12 +135,13 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
 
     // Validate format
     if (!validateInviteCode(trimmedCode)) {
-      setLookupError('Invalid code format. Please enter a code like COMP-12345');
+      setLookupError('Invite code must be 4-20 characters (letters, numbers, hyphens, underscores)');
       return;
     }
 
     setIsLookingUp(true);
     setLookupError(null);
+    setNotFound(false);
     setCompetition(null);
 
     try {
@@ -169,11 +173,12 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         });
 
         if (competitionError.code === 'PGRST116') {
-          setLookupError('No competition found with this invite code. Please check the code and try again.');
+          // No competition found - show dedicated "not found" UI
+          setNotFound(true);
         } else {
+          // Other errors - show error message
           setLookupError('Unable to look up competition. Please try again.');
         }
-        setHasLookedUp(true);
         return;
       }
 
@@ -210,7 +215,6 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
 
         if (existingMembership) {
           setLookupError('You have already joined this competition.');
-          setHasLookedUp(true);
           return;
         }
       }
@@ -227,12 +231,9 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
         handicapSystem: compLookup.handicap_system,
         status: compLookup.status,
       });
-
-      setHasLookedUp(true);
     } catch (err) {
       console.error('Error looking up competition:', err);
       setLookupError('An unexpected error occurred. Please try again.');
-      setHasLookedUp(true);
     } finally {
       setIsLookingUp(false);
     }
@@ -287,8 +288,8 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
     }
   }, [competition, user?.id, player, navigation]);
 
-  // Check if lookup button should be enabled
-  const canLookup = inviteCode.length >= 10 && !isLookingUp;
+  // Check if lookup button should be enabled (min 4 chars per schema)
+  const canLookup = inviteCode.length >= 4 && !isLookingUp;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -312,14 +313,14 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
             <FormInput
               label="Invite Code"
               floatingLabel
-              placeholder="COMP-12345"
+              placeholder="Enter invite code"
               value={inviteCode}
               onChangeText={handleInviteCodeChange}
               autoCapitalize="characters"
               autoCorrect={false}
-              maxLength={10}
+              maxLength={20}
               error={lookupError || undefined}
-              accessibilityHint="Enter the competition invite code in format COMP-12345"
+              accessibilityHint="Enter the competition invite code shared by the organizer"
             />
 
             <Button
@@ -430,16 +431,35 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
             </View>
           )}
 
-          {/* Empty state after lookup with no results */}
-          {hasLookedUp && !competition && !lookupError && (
-            <View style={styles.emptyState}>
-              <View style={[styles.emptyIconContainer, { backgroundColor: colors.gray200 }]}>
-                <IconSearch size={48} color={colors.gray400} />
+          {/* Not Found State - shown when invite code doesn't match any competition */}
+          {notFound && (
+            <View style={styles.notFoundState}>
+              <View style={[styles.notFoundIconContainer, { backgroundColor: colors.warningLight }]}>
+                <IconSearch size={48} color={colors.warning} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Competition Found</Text>
-              <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-                Please check the invite code and try again.
+              <Text style={[styles.notFoundTitle, { color: colors.textPrimary }]}>
+                No Competition Found
               </Text>
+              <Text style={[styles.notFoundCode, { color: colors.textSecondary }]}>
+                &quot;{inviteCode}&quot;
+              </Text>
+              <Text style={[styles.notFoundMessage, { color: colors.textSecondary }]}>
+                We couldn&apos;t find a competition with this invite code. Please double-check the code and try again.
+              </Text>
+              <View style={[styles.notFoundHints, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.notFoundHintTitle, { color: colors.textPrimary }]}>
+                  Tips:
+                </Text>
+                <Text style={[styles.notFoundHintItem, { color: colors.textSecondary }]}>
+                  {'\u2022'} Check for typos in the code
+                </Text>
+                <Text style={[styles.notFoundHintItem, { color: colors.textSecondary }]}>
+                  {'\u2022'} Ask the organizer to confirm the code
+                </Text>
+                <Text style={[styles.notFoundHintItem, { color: colors.textSecondary }]}>
+                  {'\u2022'} The competition may have ended
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -552,13 +572,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 
-  // Empty State
-  emptyState: {
+  // Not Found State
+  notFoundState: {
     alignItems: 'center',
-    paddingHorizontal: spacing.xxxl,
-    paddingTop: spacing.huge,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
   },
-  emptyIconContainer: {
+  notFoundIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -566,13 +586,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
-  emptyTitle: {
+  notFoundTitle: {
     ...typography.h3,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
-  emptyMessage: {
+  notFoundCode: {
+    ...typography.bodyBold,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  notFoundMessage: {
     ...typography.body,
     textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  notFoundHints: {
+    width: '100%',
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
+  notFoundHintTitle: {
+    ...typography.smallBold,
+    marginBottom: spacing.sm,
+  },
+  notFoundHintItem: {
+    ...typography.small,
+    marginBottom: spacing.xs,
+    paddingLeft: spacing.xs,
   },
 });

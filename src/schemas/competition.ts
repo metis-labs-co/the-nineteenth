@@ -282,6 +282,7 @@ export function createRoundsListSchema(maxRounds: number) {
 
 // Step 3: Add Players
 export const playerSchema = z.object({
+  id: z.string().uuid().optional(), // Player ID if existing user (friend with account)
   name: z
     .string()
     .min(2, 'Name must be at least 2 characters')

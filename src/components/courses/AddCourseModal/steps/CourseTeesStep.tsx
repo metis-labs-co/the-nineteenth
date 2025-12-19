@@ -4,6 +4,8 @@
  * Collects course information:
  * - Course name (required)
  * - Tee box configuration (at least one required)
+ *
+ * Uses FormInput for consistent text input styling.
  */
 
 import React from 'react';
@@ -11,6 +13,7 @@ import { StyleSheet, View, ScrollView, TextInput, TouchableOpacity } from 'react
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { FormInput } from '@/components/common/FormInput';
 import { TEE_COLORS, getTeeColorHex, type TeeFormData, type TeeColor } from '../types';
 
 interface CourseTeesStepProps {
@@ -55,30 +58,26 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
       keyboardShouldPersistTaps="handled"
     >
       {/* Course Name Input */}
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Course Name *</Text>
-        <View style={[styles.textInputWrapper, { backgroundColor: colors.gray50 }]}>
-          <TextInput
-            style={[styles.textInput, { color: colors.textPrimary }]}
-            placeholder="e.g., Championship Course"
-            placeholderTextColor={colors.gray400}
-            value={courseName}
-            onChangeText={onCourseNameChange}
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="done"
-            accessibilityLabel="Course name"
-          />
-        </View>
-      </View>
+      <FormInput
+        label="Course Name"
+        value={courseName}
+        onChangeText={onCourseNameChange}
+        placeholder="e.g., Championship Course"
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="done"
+        required
+        accessibilityLabel="Course name"
+      />
 
       {/* Tees Section */}
       <View style={styles.inputGroup}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Tee Boxes *</Text>
+          <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Tee Boxes *</Text>
           <TouchableOpacity
             onPress={onAddTee}
             style={[styles.addButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.7}
           >
             <Icon source="plus" size={18} color={colors.white} />
             <Text style={[styles.addButtonText, { color: colors.white }]}>Add Tee</Text>
@@ -86,7 +85,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
         </View>
 
         {tees.length === 0 && (
-          <View style={[styles.emptyState, { backgroundColor: colors.gray50 }]}>
+          <View style={[styles.emptyState, { backgroundColor: colors.gray100 }]}>
             <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
               Add at least one tee box to continue
             </Text>
@@ -99,7 +98,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
             key={tee.id}
             style={[
               styles.teeCard,
-              { backgroundColor: colors.surface, borderColor: colors.gray200 },
+              { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
             {editingTeeId === tee.id ? (
@@ -107,12 +106,15 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
               <View style={styles.teeEditContainer}>
                 <View style={styles.teeNameRow}>
                   <View
-                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(newTeeColor), borderColor: colors.borderLight }]}
+                    style={[
+                      styles.teeColorDot,
+                      { backgroundColor: getTeeColorHex(newTeeColor), borderColor: colors.border },
+                    ]}
                   />
                   <TextInput
                     style={[
                       styles.teeNameInput,
-                      { color: colors.textPrimary, backgroundColor: colors.gray50 },
+                      { color: colors.textPrimary, backgroundColor: colors.gray100 },
                     ]}
                     placeholder="Tee name (e.g., Men's)"
                     placeholderTextColor={colors.gray400}
@@ -139,6 +141,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
                           borderColor: colors.primary,
                         },
                       ]}
+                      activeOpacity={0.7}
                     />
                   ))}
                 </View>
@@ -146,6 +149,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
                   <TouchableOpacity
                     onPress={() => onCancelEdit(findTeeById(tee.id))}
                     style={[styles.teeActionButton, { backgroundColor: colors.gray100 }]}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ color: colors.textSecondary }}>Cancel</Text>
                   </TouchableOpacity>
@@ -156,6 +160,7 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
                       styles.teeActionButton,
                       { backgroundColor: newTeeName.trim() ? colors.primary : colors.gray200 },
                     ]}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ color: newTeeName.trim() ? colors.white : colors.gray400 }}>
                       Save
@@ -168,19 +173,27 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
               <View style={styles.teeDisplayContainer}>
                 <View style={styles.teeInfo}>
                   <View
-                    style={[styles.teeColorDot, { backgroundColor: getTeeColorHex(tee.color), borderColor: colors.borderLight }]}
+                    style={[
+                      styles.teeColorDot,
+                      { backgroundColor: getTeeColorHex(tee.color), borderColor: colors.border },
+                    ]}
                   />
                   <Text style={[styles.teeName, { color: colors.textPrimary }]}>
                     {tee.name || 'Unnamed Tee'}
                   </Text>
                 </View>
                 <View style={styles.teeActions}>
-                  <TouchableOpacity onPress={() => onEditTee(tee)} style={styles.teeIconButton}>
+                  <TouchableOpacity
+                    onPress={() => onEditTee(tee)}
+                    style={styles.teeIconButton}
+                    activeOpacity={0.7}
+                  >
                     <Icon source="pencil" size={20} color={colors.gray500} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => onDeleteTee(tee.id)}
                     style={styles.teeIconButton}
+                    activeOpacity={0.7}
                   >
                     <Icon source="delete" size={20} color={colors.error} />
                   </TouchableOpacity>
@@ -207,16 +220,6 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...typography.smallBold,
     marginBottom: spacing.sm,
-  },
-  textInputWrapper: {
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    height: 52,
-    justifyContent: 'center',
-  },
-  textInput: {
-    ...typography.body,
-    paddingVertical: 0,
   },
   sectionHeader: {
     flexDirection: 'row',

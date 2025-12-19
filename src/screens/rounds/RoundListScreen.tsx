@@ -417,8 +417,9 @@ export default function RoundsScreen() {
           console.error('Error fetching course:', courseError);
         }
 
-        // Use course holes or default holes
-        const holes: Hole[] = (courseData as any)?.holes || DEFAULT_HOLES;
+        // Use course holes or default holes (fallback if empty array)
+        const courseHoles = (courseData as any)?.holes;
+        const holes: Hole[] = courseHoles && courseHoles.length > 0 ? courseHoles : DEFAULT_HOLES;
 
         // Create the round in Supabase (standalone round - no competition)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

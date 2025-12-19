@@ -7,10 +7,7 @@
 export {
   roundResultsService,
   type SaveRoundResultInput,
-  type SavedRoundResult,
-  type RoundResultWithPlayer,
-  type RoundResultWithTeam,
-  type GetRoundResultsOptions,
-  type CompetitionResultsSummary,
-  type FinalizeRoundOptions,
+  type RoundResultWithParticipant,
+  type CompetitionResults,
+  type RoundResultsServiceError,
 } from './roundResultsService';
