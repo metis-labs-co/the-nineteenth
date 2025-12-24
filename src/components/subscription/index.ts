@@ -10,3 +10,5 @@ export { FeatureLockButton } from './FeatureLockButton';
 export { UpgradePrompt } from './UpgradePrompt';
 export type { UpgradePromptConfig } from './UpgradePrompt';
 export { LimitIndicator } from './LimitIndicator';
+export { Paywall } from './Paywall';
+export type { PaywallProps } from './Paywall';

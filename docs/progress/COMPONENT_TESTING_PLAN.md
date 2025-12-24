@@ -6,16 +6,23 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 25 of 147 components (17.0%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 41 of 147 components (27.9%) have test coverage.
 
 **Note:** This complements `TESTING_PLAN.md` which covers utilities, hooks, stores, and services.
 
 ## Current Test Coverage
 
-### Components WITH Tests (25 total)
+### Components WITH Tests (40 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
 | `src/components/common/BottomSheet/BottomSheet.tsx` | 260 | Yes |
+| `src/components/common/ConfirmationDialog.tsx` | 234 | Yes |
+| `src/components/common/DatePicker.tsx` | 276 | Yes |
+| `src/components/common/ExpandableItem.tsx` | 219 | Yes |
+| `src/components/common/FormInput.tsx` | 276 | Yes |
+| `src/components/common/PageHeader.tsx` | 347 | Yes |
+| `src/components/common/SegmentedButton.tsx` | 206 | Yes |
+| `src/components/common/Tabs.tsx` | 249 | Yes |
 | `src/components/competitions/CompetitionListCard.tsx` | 459 | Yes |
 | `src/components/competitions/detail/DetailsTab.tsx` | 709 | Yes |
 | `src/components/competitionWizard/AddPlayersBottomSheet.tsx` | 847 | Yes |
@@ -39,7 +46,17 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/scorecard/TeamMatchPlayScoreView.tsx` | 524 | Yes |
 | `src/components/scorecard/TeamScoreCard.tsx` | 467 | Yes |
 | `src/components/scoring/ScoringPairFormationUI/index.tsx` | 810 | Yes |
+| `src/components/subscription/UpgradePrompt.tsx` | 433 | Yes |
 | `src/components/teams/TeamFormationUI.tsx` | 851 | Yes |
+| `src/components/common/Pill.tsx` | 257 | Yes |
+| `src/components/common/EmptyState.tsx` | 208 | Yes |
+| `src/components/common/StatusBadge.tsx` | 200 | Yes |
+| `src/components/competitionWizard/create/RoundGameTypeSelector.tsx` | 398 | Yes |
+| `src/components/competitionWizard/create/RoundDetailsStep/components/RoundCard.tsx` | 378 | Yes |
+| `src/components/competitionWizard/RoundCard.tsx` | 313 | Yes |
+| `src/components/competitionWizard/create/CompetitionDetailsStep.tsx` | 309 | Yes |
+| `src/components/competitionWizard/create/RoundDetailsStep/index.tsx` | 267 | Yes |
+| `src/components/competitionWizard/create/TeamFormatSelector.tsx` | 260 | Yes |
 
 ---
 
@@ -49,37 +66,11 @@ This document outlines all **React components** that need testing in The Ninetee
 
 All Tier 1 critical/complex components have been tested.
 
-### TIER 2: High Priority (400-599 lines) - 1 component
+### TIER 2: High Priority (400-599 lines) - COMPLETED
 
-| Component | Lines | Directory |
-|-----------|-------|-----------|
-| `UpgradePrompt.tsx` | 433 | subscription |
+All Tier 2 high priority components have been tested.
 
-### TIER 3: Medium Priority (200-399 lines) - 32 components
-
-#### Common Components (11)
-| Component | Lines |
-|-----------|-------|
-| `PageHeader.tsx` | 347 |
-| `DatePicker.tsx` | 276 |
-| `FormInput.tsx` | 276 |
-| `Pill.tsx` | 257 |
-| `Tabs.tsx` | 249 |
-| `ConfirmationDialog.tsx` | 234 |
-| `ExpandableItem.tsx` | 219 |
-| `EmptyState.tsx` | 208 |
-| `SegmentedButton.tsx` | 206 |
-| `StatusBadge.tsx` | 200 |
-
-#### Competition Wizard (6)
-| Component | Lines |
-|-----------|-------|
-| `RoundGameTypeSelector.tsx` | 398 |
-| `RoundCard.tsx` (RoundDetailsStep) | 378 |
-| `RoundCard.tsx` | 313 |
-| `CompetitionDetailsStep.tsx` | 309 |
-| `RoundDetailsStep/index.tsx` | 267 |
-| `TeamFormatSelector.tsx` | 260 |
+### TIER 3: Medium Priority (200-399 lines) - 16 components
 
 #### Courses (4)
 | Component | Lines |
@@ -200,12 +191,12 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 25 | 17.0% |
+| Already Tested | 41 | 27.9% |
 | Tier 1 (Critical) | 0 | 0.0% |
-| Tier 2 (High) | 1 | 0.7% |
-| Tier 3 (Medium) | 32 | 21.8% |
+| Tier 2 (High) | 0 | 0.0% |
+| Tier 3 (Medium) | 16 | 10.9% |
 | Tier 4 (Lower) | 45 | 30.6% |
-| **Total Needing Tests** | **122** | **83.0%** |
+| **Total Needing Tests** | **105** | **71.4%** |
 
 ---
 
@@ -220,6 +211,8 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 ### Example Test Files (use as templates)
 - `src/components/common/BottomSheet/BottomSheet.test.tsx`
+- `src/components/common/ConfirmationDialog.test.tsx`
+- `src/components/common/PageHeader.test.tsx`
 - `src/components/competitions/CompetitionListCard.test.tsx`
 - `src/components/competitions/detail/DetailsTab.test.tsx`
 - `src/components/competitionWizard/AddPlayersBottomSheet.test.tsx`
@@ -244,6 +237,18 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/rounds/ViewRound/RoundDetailsTab/RoundDetailsTab.test.tsx`
 - `src/components/rounds/ViewRound/RoundDetailsTab/components/ScoringPairsSection.test.tsx`
 - `src/components/competitionWizard/create/ReviewStep.test.tsx`
+- `src/components/subscription/UpgradePrompt.test.tsx`
+- `src/components/common/FormInput.test.tsx`
+- `src/components/common/Pill.test.tsx`
+- `src/components/common/SegmentedButton.test.tsx`
+- `src/components/common/Tabs.test.tsx`
+- `src/components/common/EmptyState.test.tsx`
+- `src/components/common/StatusBadge.test.tsx`
+- `src/components/competitionWizard/create/RoundGameTypeSelector.test.tsx`
+- `src/components/competitionWizard/create/RoundDetailsStep/components/RoundCard.test.tsx`
+- `src/components/competitionWizard/create/CompetitionDetailsStep.test.tsx`
+- `src/components/competitionWizard/create/RoundDetailsStep/RoundDetailsStep.test.tsx`
+- `src/components/competitionWizard/create/TeamFormatSelector.test.tsx`
 
 ---
 
@@ -253,13 +258,30 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 |-------|-------------|--------|-----------|
 | 0 | Setup (plan + existing tests) | COMPLETED | 2024-12-17 |
 | 1 | Tier 1 Critical Components | COMPLETED | 2024-12-18 |
-| 2 | Tier 2 High Priority Components | IN_PROGRESS | - |
-| 3 | Tier 3 Medium Priority Components | PENDING | - |
+| 2 | Tier 2 High Priority Components | COMPLETED | 2024-12-20 |
+| 3 | Tier 3 Medium Priority Components | IN_PROGRESS | - |
 | 4 | Tier 4 Lower Priority Components | PENDING | - |
 
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-24**: `TeamFormatSelector.tsx` - 63 tests, 38 stories (Tier 3)
+- **2024-12-24**: `RoundDetailsStep/index.tsx` - 60 tests, 34 stories (Tier 3)
+- **2024-12-24**: `CompetitionDetailsStep.tsx` - 54 tests, 38 stories (Tier 3)
+- **2024-12-24**: `RoundCard.tsx` (competitionWizard) - 56 tests, 34 stories (Tier 3)
+- **2024-12-24**: `RoundCard.tsx` (RoundDetailsStep) - 80 tests, 48 stories (Tier 3)
+- **2024-12-24**: `RoundGameTypeSelector.tsx` - 59 tests, 38 stories (Tier 3)
+- **2024-12-24**: `StatusBadge.tsx` - 76 tests, 36 stories (Tier 3)
+- **2024-12-24**: `SegmentedButton.tsx` - 59 tests, 38 stories (Tier 3)
+- **2024-12-24**: `EmptyState.tsx` - 57 tests, 38 stories (Tier 3)
+- **2024-12-24**: `ExpandableItem.tsx` - 60 tests, 26 stories (Tier 3)
+- **2024-12-24**: `ConfirmationDialog.tsx` - 69 tests, 36 stories (Tier 3)
+- **2024-12-24**: `Tabs.tsx` - 57 tests, 36 stories (Tier 3)
+- **2024-12-24**: `Pill.tsx` - 63 tests, 38 stories (Tier 3)
+- **2024-12-22**: `FormInput.tsx` - 67 tests, 40 stories (Tier 3)
+- **2024-12-22**: `DatePicker.tsx` - 65 tests, 35 stories (Tier 3)
+- **2024-12-22**: `PageHeader.tsx` - 51 tests, 32 stories (Tier 3)
+- **2024-12-20**: `UpgradePrompt.tsx` - 53 tests, 41 stories (Tier 2 COMPLETE)
 - **2024-12-20**: `VenueCard.tsx` - 59 tests, 26 stories
 - **2024-12-20**: `ScoringPairsSection.tsx` - 55 tests, 34 stories
 - **2024-12-19**: `ReviewStep.tsx` - 77 tests, 34 stories

@@ -31,7 +31,9 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { TierBadge } from '@/components/subscription/TierBadge';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
+import { Paywall } from '@/components/subscription/Paywall';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
+import { subscriptionService } from '@/services/subscription/SubscriptionService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { SubscriptionTier } from '@/types/subscription.types';
@@ -136,7 +138,11 @@ export default function SubscriptionScreen({ navigation }: Props) {
   } = useSubscriptionContext();
 
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Check if in-app purchases are available
+  const purchasesEnabled = subscriptionService.supportsPurchases();
 
   // Fetch competition count for usage display
   // Count ALL competitions owned by user (regardless of status)
@@ -208,17 +214,29 @@ export default function SubscriptionScreen({ navigation }: Props) {
     ],
   }), [tier, isPremium]);
 
-  // Handle upgrade press
+  // Handle upgrade press - show paywall if available, otherwise show prompt
   const handleUpgradePress = useCallback(() => {
-    setShowUpgradePrompt(true);
-  }, []);
+    if (purchasesEnabled) {
+      setShowPaywall(true);
+    } else {
+      setShowUpgradePrompt(true);
+    }
+  }, [purchasesEnabled]);
 
-  // Handle upgrade action (MVP: contact support)
+  // Handle upgrade action from prompt - opens paywall or contact support
   const handleUpgrade = useCallback(() => {
     setShowUpgradePrompt(false);
-    // MVP: In future, this will trigger IAP flow
-    // For now, users should contact support
-  }, []);
+    if (purchasesEnabled) {
+      setShowPaywall(true);
+    }
+    // If purchases not enabled, user sees "contact support" message in prompt
+  }, [purchasesEnabled]);
+
+  // Handle successful purchase - refresh subscription data
+  const handlePurchaseSuccess = useCallback((newTier: SubscriptionTier) => {
+    refresh();
+    console.log(`[SubscriptionScreen] Purchase successful, new tier: ${newTier}`);
+  }, [refresh]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -528,7 +546,9 @@ export default function SubscriptionScreen({ navigation }: Props) {
               </Text>
             </TouchableOpacity>
             <Text style={[styles.upgradeHint, { color: colors.textSecondary }]}>
-              Contact support to upgrade your plan
+              {purchasesEnabled
+                ? 'Start your 7-day free trial'
+                : 'Contact support to upgrade your plan'}
             </Text>
           </View>
         )}
@@ -540,6 +560,14 @@ export default function SubscriptionScreen({ navigation }: Props) {
         config={upgradeConfig}
         onUpgrade={handleUpgrade}
         onDismiss={() => setShowUpgradePrompt(false)}
+      />
+
+      {/* Paywall Modal (for in-app purchases) */}
+      <Paywall
+        visible={showPaywall}
+        onPurchaseSuccess={handlePurchaseSuccess}
+        onDismiss={() => setShowPaywall(false)}
+        initialTier={tier === 'free' ? 'social' : 'premium'}
       />
     </View>
   );

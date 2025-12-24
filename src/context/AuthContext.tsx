@@ -5,6 +5,7 @@
  * - Sets up the Supabase auth state listener ONCE at app level
  * - Manages isInitializing state centrally
  * - Prevents multiple auth listeners from being created
+ * - Syncs user ID with RevenueCat for subscription management
  *
  * The useAuth hook consumes this context and adds query-based data fetching.
  */
@@ -13,6 +14,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { authKeys } from '@/hooks/queryKeys';
+import {
+  loginToRevenueCat,
+  logoutFromRevenueCat,
+} from '@/services/subscription/SubscriptionService';
 import type { Session } from '@supabase/supabase-js';
 import type { AuthEvent } from '@/types/auth';
 
@@ -96,15 +101,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setIsInitializing(false);
         }
 
-        // Clear player cache on sign out
+        // Clear player cache on sign out and log out of RevenueCat
         if (event === 'SIGNED_OUT') {
           queryClient.removeQueries({ queryKey: ['auth', 'player'] });
+          // Log out of RevenueCat to clear purchase state
+          logoutFromRevenueCat().catch((err) => {
+            console.error('[AuthProvider] Failed to logout from RevenueCat:', err);
+          });
         }
 
         // Fetch player profile on sign in (not cached in session)
+        // Also sync user ID with RevenueCat for subscription management
         if (event === 'SIGNED_IN' && newSession?.user) {
           queryClient.invalidateQueries({
             queryKey: authKeys.player(newSession.user.id),
+          });
+          // Log in to RevenueCat with user ID to link purchases
+          loginToRevenueCat(newSession.user.id).catch((err) => {
+            console.error('[AuthProvider] Failed to login to RevenueCat:', err);
           });
         }
       }

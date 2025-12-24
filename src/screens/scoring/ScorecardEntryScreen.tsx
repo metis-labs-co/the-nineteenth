@@ -101,12 +101,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Offline sync hook
   const { triggerSync } = useOfflineSync();
 
-  // Compute offline status for indicator
+  // Compute offline status for indicator (syncing handled by sync line, not indicator)
   const getOfflineStatus = useCallback((): 'online' | 'offline' | 'syncing' | 'error' => {
-    if (isSyncing) return 'syncing';
     if (!isOnline) return 'offline';
     return 'online';
-  }, [isSyncing, isOnline]);
+  }, [isOnline]);
 
   // Team scoring hook
   const {
@@ -523,12 +522,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         ]}
       />
 
-      {/* Offline Status Indicator */}
+      {/* Offline Status Indicator - only show when offline, not during sync */}
       <OfflineIndicator
         status={getOfflineStatus()}
         pendingSyncs={pendingSyncCount}
         onSyncPress={triggerSync}
-        isSyncing={isSyncing}
       />
 
       {/* Sync Line Indicator */}
@@ -693,12 +691,12 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
   },
   syncLineContainer: {
-    height: 3,
+    height: 2,
     overflow: 'hidden',
   },
   syncLine: {
     width: 200,
-    height: 3,
+    height: 2,
   },
   contentArea: {
     flex: 1,

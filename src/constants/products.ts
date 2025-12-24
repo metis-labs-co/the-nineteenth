@@ -20,6 +20,8 @@ import type { SubscriptionTier } from '@/types/subscription.types';
 
 /**
  * App bundle identifier
+ * Note: Using 'com.thenineteenth' for product IDs even though app uses 'golf.thenineteenth'
+ * This is because App Store product IDs were registered with this prefix
  */
 export const BUNDLE_ID = 'com.thenineteenth';
 
@@ -173,18 +175,23 @@ export const ENTITLEMENT_TO_TIER: Record<EntitlementId, SubscriptionTier> = {
 /**
  * Default pricing in AUD (fallback if store prices unavailable)
  * Real prices should be fetched from App Store / RevenueCat
+ *
+ * Note: Social monthly is $4.99 regular price, currently promotional at $3.99
  */
 export const DEFAULT_PRICING_AUD = {
   [PRODUCT_IDS.SOCIAL_MONTHLY]: {
     price: 4.99,
+    promotionalPrice: 3.99,
     currency: 'AUD',
     displayPrice: '$4.99/month',
+    isPromotional: true,
+    promotionalLabel: '$3.99/mo for first 3 months',
   },
   [PRODUCT_IDS.SOCIAL_YEARLY]: {
     price: 39.99,
     currency: 'AUD',
     displayPrice: '$39.99/year',
-    savings: '33%', // vs monthly
+    savings: '17%', // vs monthly at $3.99
   },
   [PRODUCT_IDS.PREMIUM_MONTHLY]: {
     price: 9.99,
@@ -192,10 +199,10 @@ export const DEFAULT_PRICING_AUD = {
     displayPrice: '$9.99/month',
   },
   [PRODUCT_IDS.PREMIUM_YEARLY]: {
-    price: 79.99,
+    price: 84.99,
     currency: 'AUD',
-    displayPrice: '$79.99/year',
-    savings: '33%', // vs monthly
+    displayPrice: '$84.99/year',
+    savings: '29%', // vs monthly
   },
 } as const;
 
@@ -204,7 +211,15 @@ export const DEFAULT_PRICING_AUD = {
  */
 export interface ProductPricing {
   price: number;
+  regularPrice?: number;
   currency: string;
   displayPrice: string;
   savings?: string;
+  isPromotional?: boolean;
+  promotionalLabel?: string;
 }
+
+/**
+ * Free trial duration in days
+ */
+export const FREE_TRIAL_DAYS = 7;

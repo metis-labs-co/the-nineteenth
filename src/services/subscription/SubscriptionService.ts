@@ -14,8 +14,22 @@
  * @see docs/guides/SUBSCRIPTION_TIERS.md for full documentation
  */
 
+import { Platform } from 'react-native';
+import Purchases, {
+  LOG_LEVEL,
+  PurchasesPackage,
+  CustomerInfo,
+  PURCHASES_ERROR_CODE,
+} from 'react-native-purchases';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { mapDBUserSubscription } from '@/types/subscription.types';
+import {
+  PRODUCT_IDS,
+  ENTITLEMENT_IDS,
+  ENTITLEMENT_TO_TIER,
+  getTierFromProductId,
+  getBillingPeriod,
+} from '@/constants/products';
 import type {
   UserSubscription,
   SubscriptionTier,
@@ -45,9 +59,11 @@ export type SubscriptionErrorCode =
   | 'NOT_FOUND'
   | 'PURCHASE_DISABLED'
   | 'PURCHASE_FAILED'
+  | 'PURCHASE_CANCELLED'
   | 'RESTORE_FAILED'
   | 'NETWORK_ERROR'
   | 'PROVIDER_ERROR'
+  | 'PRODUCT_NOT_FOUND'
   | 'UNKNOWN';
 
 /**
@@ -355,206 +371,416 @@ class ManualSubscriptionProvider implements SubscriptionProvider {
 }
 
 // =====================================================
-// REVENUECAT SUBSCRIPTION PROVIDER (STUB)
+// REVENUECAT SUBSCRIPTION PROVIDER
 // =====================================================
 
 /**
- * RevenueCat Subscription Provider (Stub)
+ * RevenueCat Subscription Provider
  *
- * TODO: Implement full RevenueCat SDK integration
+ * Full IAP integration using RevenueCat SDK for App Store subscriptions.
  *
- * RevenueCat SDK Integration Steps:
- * 1. Install SDK: npx expo install react-native-purchases
- * 2. Configure in app.json: add plugin configuration
- * 3. Initialize with API key in initialize()
- * 4. Set up product identifiers in App Store Connect / Google Play Console
- * 5. Implement purchase flow with Purchases.purchaseProduct()
- * 6. Set up webhook handler for server-side validation
+ * Features:
+ * - Initialize with platform-specific API key
+ * - Fetch current subscription from RevenueCat
+ * - Get available products with real App Store prices
+ * - Handle purchase flow with proper error handling
+ * - Restore purchases for reinstalls/device transfers
  *
  * @see https://docs.revenuecat.com/docs/reactnative
- * @see src/services/subscription/webhooks.ts for webhook handlers
+ * @see src/services/subscription/webhooks.ts for server-side sync
  */
 class RevenueCatSubscriptionProvider implements SubscriptionProvider {
   readonly type: SubscriptionSource = 'revenuecat';
   private initialized = false;
-  private apiKey: string | null = null;
 
-  constructor() {
-    // TODO: Get API key from environment
-    // this.apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? null;
+  /**
+   * Get the RevenueCat API key for the current platform
+   */
+  private getApiKey(): string | null {
+    if (Platform.OS === 'ios') {
+      return process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ?? null;
+    }
+    if (Platform.OS === 'android') {
+      return process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? null;
+    }
+    return null;
+  }
+
+  /**
+   * Map RevenueCat CustomerInfo to our UserSubscription type
+   */
+  private mapCustomerInfoToSubscription(
+    customerInfo: CustomerInfo,
+    tier: SubscriptionTier
+  ): UserSubscription {
+    // Find the most relevant entitlement
+    const entitlement =
+      customerInfo.entitlements.active[ENTITLEMENT_IDS.PREMIUM] ??
+      customerInfo.entitlements.active[ENTITLEMENT_IDS.SOCIAL];
+
+    const now = new Date();
+    const expiresAt = entitlement?.expirationDate
+      ? new Date(entitlement.expirationDate)
+      : null;
+
+    return {
+      id: customerInfo.originalAppUserId,
+      userId: customerInfo.originalAppUserId,
+      tier,
+      status: entitlement ? 'active' : 'expired',
+      source: 'revenuecat',
+      externalId: customerInfo.originalAppUserId,
+      productId: entitlement?.productIdentifier ?? null,
+      startedAt: entitlement?.latestPurchaseDate
+        ? new Date(entitlement.latestPurchaseDate)
+        : now,
+      expiresAt,
+      cancelledAt: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  /**
+   * Determine subscription tier from CustomerInfo entitlements
+   */
+  private getTierFromCustomerInfo(customerInfo: CustomerInfo): SubscriptionTier {
+    // Check entitlements in order of precedence (highest first)
+    if (customerInfo.entitlements.active[ENTITLEMENT_IDS.PREMIUM]) {
+      return 'premium';
+    }
+    if (customerInfo.entitlements.active[ENTITLEMENT_IDS.SOCIAL]) {
+      return 'social';
+    }
+    return 'free';
+  }
+
+  /**
+   * Find a package in offerings by product ID
+   */
+  private findPackageByProductId(
+    offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>,
+    productId: string
+  ): PurchasesPackage | null {
+    if (!offerings.current) return null;
+
+    return (
+      offerings.current.availablePackages.find(
+        (pkg) => pkg.product.identifier === productId
+      ) ?? null
+    );
   }
 
   async initialize(): Promise<SubscriptionResult<void>> {
-    // TODO: Initialize RevenueCat SDK
-    //
-    // import Purchases from 'react-native-purchases';
-    //
-    // if (!this.apiKey) {
-    //   return { success: false, error: 'RevenueCat API key not configured' };
-    // }
-    //
-    // await Purchases.configure({ apiKey: this.apiKey });
-    // await Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
-    //
-    // // Set user ID after auth
-    // const user = await getCurrentUser();
-    // if (user) {
-    //   await Purchases.logIn(user.id);
-    // }
+    if (this.initialized) {
+      return { success: true };
+    }
 
-    console.warn('[RevenueCatSubscriptionProvider] Not implemented - using manual provider');
-    return {
-      success: false,
-      error: 'RevenueCat integration not yet implemented',
-      errorCode: 'PROVIDER_ERROR',
-    };
+    try {
+      const apiKey = this.getApiKey();
+
+      if (!apiKey) {
+        console.warn(
+          '[RevenueCatSubscriptionProvider] API key not configured. ' +
+            'Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY in your environment.'
+        );
+        return {
+          success: false,
+          error: 'RevenueCat API key not configured',
+          errorCode: 'PROVIDER_ERROR',
+        };
+      }
+
+      // Set log level for debugging (VERBOSE in dev for setup, ERROR in prod)
+      if (__DEV__) {
+        Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+      } else {
+        Purchases.setLogLevel(LOG_LEVEL.ERROR);
+      }
+
+      // Configure RevenueCat with API key
+      Purchases.configure({ apiKey });
+
+      // If user is already authenticated, log them in to RevenueCat
+      const user = await getCurrentUser();
+      if (user) {
+        await Purchases.logIn(user.id);
+        console.log(`[RevenueCatSubscriptionProvider] Logged in user: ${user.id}`);
+      }
+
+      this.initialized = true;
+      console.log('[RevenueCatSubscriptionProvider] Initialized successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('[RevenueCatSubscriptionProvider] Init error:', err);
+      return {
+        success: false,
+        error: 'Failed to initialize RevenueCat',
+        errorCode: 'PROVIDER_ERROR',
+      };
+    }
   }
 
   async cleanup(): Promise<void> {
-    // TODO: Clean up RevenueCat SDK
-    // Purchases.removeCustomerInfoUpdateListener(listener);
+    // RevenueCat doesn't require explicit cleanup, but we reset our state
     this.initialized = false;
+    console.log('[RevenueCatSubscriptionProvider] Cleaned up');
   }
 
-  async getCurrentSubscription(_userId: string): Promise<SubscriptionResult<UserSubscription | null>> {
-    // TODO: Get customer info from RevenueCat
-    //
-    // try {
-    //   const customerInfo = await Purchases.getCustomerInfo();
-    //
-    //   // Check for active entitlement
-    //   if (customerInfo.entitlements.active['premium']) {
-    //     // Map to our subscription type
-    //     return {
-    //       success: true,
-    //       data: mapRevenueCatSubscription(customerInfo, 'premium'),
-    //     };
-    //   }
-    //   if (customerInfo.entitlements.active['social']) {
-    //     return {
-    //       success: true,
-    //       data: mapRevenueCatSubscription(customerInfo, 'social'),
-    //     };
-    //   }
-    //
-    //   return { success: true, data: null };
-    // } catch (err) {
-    //   return { success: false, error: err.message };
-    // }
+  async getCurrentSubscription(
+    userId: string
+  ): Promise<SubscriptionResult<UserSubscription | null>> {
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID is required',
+        errorCode: 'NOT_AUTHENTICATED',
+      };
+    }
 
-    return {
-      success: false,
-      error: 'RevenueCat integration not yet implemented',
-      errorCode: 'PROVIDER_ERROR',
-    };
+    try {
+      // Ensure user is logged in to RevenueCat
+      const { customerInfo } = await Purchases.logIn(userId);
+
+      // Determine tier from active entitlements
+      const tier = this.getTierFromCustomerInfo(customerInfo);
+
+      // If no paid tier, return null (will be treated as free)
+      if (tier === 'free') {
+        return { success: true, data: null };
+      }
+
+      // Map to our subscription type
+      const subscription = this.mapCustomerInfoToSubscription(customerInfo, tier);
+
+      return { success: true, data: subscription };
+    } catch (err) {
+      console.error('[RevenueCatSubscriptionProvider] Get subscription error:', err);
+
+      // Handle specific RevenueCat errors
+      if (err instanceof Error) {
+        return {
+          success: false,
+          error: err.message,
+          errorCode: 'NETWORK_ERROR',
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Failed to fetch subscription',
+        errorCode: 'UNKNOWN',
+      };
+    }
   }
 
   async getAvailableProducts(): Promise<SubscriptionResult<AvailableProductsResult>> {
-    // TODO: Get offerings from RevenueCat
-    //
-    // try {
-    //   const offerings = await Purchases.getOfferings();
-    //
-    //   if (!offerings.current) {
-    //     return { success: true, data: { products: [] } };
-    //   }
-    //
-    //   const products = offerings.current.availablePackages.map(pkg => ({
-    //     id: pkg.product.identifier,
-    //     tier: mapProductToTier(pkg.product.identifier),
-    //     name: pkg.product.title,
-    //     description: pkg.product.description,
-    //     price: pkg.product.priceString,
-    //     currency: pkg.product.currencyCode,
-    //     period: pkg.packageType === 'ANNUAL' ? 'yearly' : 'monthly',
-    //   }));
-    //
-    //   return { success: true, data: { products } };
-    // } catch (err) {
-    //   return { success: false, error: err.message };
-    // }
+    try {
+      const offerings = await Purchases.getOfferings();
 
-    return {
-      success: false,
-      error: 'RevenueCat integration not yet implemented',
-      errorCode: 'PROVIDER_ERROR',
-    };
+      if (!offerings.current) {
+        console.warn('[RevenueCatSubscriptionProvider] No current offering available');
+        return { success: true, data: { products: [] } };
+      }
+
+      const products: SubscriptionProduct[] = offerings.current.availablePackages.map(
+        (pkg) => {
+          const productId = pkg.product.identifier;
+          const tier = getTierFromProductId(productId) ?? 'social';
+          const period = getBillingPeriod(productId) ?? 'monthly';
+
+          return {
+            id: productId,
+            tier,
+            name: pkg.product.title,
+            description: pkg.product.description,
+            price: pkg.product.priceString,
+            currency: pkg.product.currencyCode,
+            period,
+          };
+        }
+      );
+
+      return { success: true, data: { products } };
+    } catch (err) {
+      console.error('[RevenueCatSubscriptionProvider] Get products error:', err);
+      return {
+        success: false,
+        error: 'Failed to fetch products',
+        errorCode: 'NETWORK_ERROR',
+      };
+    }
   }
 
-  async purchaseProduct(_productId: string): Promise<SubscriptionResult<PurchaseResult>> {
-    // TODO: Implement purchase flow
-    //
-    // try {
-    //   const offerings = await Purchases.getOfferings();
-    //   const pkg = offerings.current?.availablePackages.find(
-    //     p => p.product.identifier === productId
-    //   );
-    //
-    //   if (!pkg) {
-    //     return { success: false, error: 'Product not found' };
-    //   }
-    //
-    //   const { customerInfo, productIdentifier } = await Purchases.purchasePackage(pkg);
-    //
-    //   // Sync to our database via webhook (handled server-side)
-    //   // For now, just return the updated subscription state
-    //   const tier = mapProductToTier(productIdentifier);
-    //
-    //   return {
-    //     success: true,
-    //     data: {
-    //       subscription: mapRevenueCatSubscription(customerInfo, tier),
-    //       transactionId: customerInfo.originalAppUserId,
-    //     },
-    //   };
-    // } catch (err) {
-    //   if (err.userCancelled) {
-    //     return { success: false, error: 'Purchase cancelled' };
-    //   }
-    //   return { success: false, error: err.message };
-    // }
+  async purchaseProduct(productId: string): Promise<SubscriptionResult<PurchaseResult>> {
+    try {
+      // Get current offerings
+      const offerings = await Purchases.getOfferings();
+      const pkg = this.findPackageByProductId(offerings, productId);
 
-    return {
-      success: false,
-      error: 'RevenueCat integration not yet implemented',
-      errorCode: 'PROVIDER_ERROR',
-    };
+      if (!pkg) {
+        return {
+          success: false,
+          error: `Product not found: ${productId}`,
+          errorCode: 'PRODUCT_NOT_FOUND',
+        };
+      }
+
+      // Attempt purchase
+      const { customerInfo } = await Purchases.purchasePackage(pkg);
+
+      // Determine the tier from the purchase
+      const tier = getTierFromProductId(productId) ?? 'social';
+
+      // Create subscription object
+      const subscription = this.mapCustomerInfoToSubscription(customerInfo, tier);
+
+      console.log(
+        `[RevenueCatSubscriptionProvider] Purchase successful: ${productId} -> ${tier}`
+      );
+
+      return {
+        success: true,
+        data: {
+          subscription,
+          transactionId: customerInfo.originalAppUserId,
+        },
+      };
+    } catch (err: unknown) {
+      console.error('[RevenueCatSubscriptionProvider] Purchase error:', err);
+
+      // Handle RevenueCat-specific errors
+      const purchaseError = err as { code?: PURCHASES_ERROR_CODE; message?: string; userCancelled?: boolean };
+
+      // User cancelled the purchase
+      if (purchaseError.userCancelled || purchaseError.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+        return {
+          success: false,
+          error: 'Purchase cancelled',
+          errorCode: 'PURCHASE_CANCELLED',
+        };
+      }
+
+      // Network error
+      if (purchaseError.code === PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+        return {
+          success: false,
+          error: 'Network error. Please check your connection and try again.',
+          errorCode: 'NETWORK_ERROR',
+        };
+      }
+
+      // Product already purchased (might need restore)
+      if (purchaseError.code === PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR) {
+        return {
+          success: false,
+          error:
+            'This product is already purchased. Try restoring purchases instead.',
+          errorCode: 'PURCHASE_FAILED',
+        };
+      }
+
+      return {
+        success: false,
+        error: purchaseError.message ?? 'Purchase failed. Please try again.',
+        errorCode: 'PURCHASE_FAILED',
+      };
+    }
   }
 
   async restorePurchases(): Promise<SubscriptionResult<RestorePurchasesResult>> {
-    // TODO: Restore purchases via RevenueCat
-    //
-    // try {
-    //   const customerInfo = await Purchases.restorePurchases();
-    //
-    //   let subscription: UserSubscription | null = null;
-    //   if (customerInfo.entitlements.active['premium']) {
-    //     subscription = mapRevenueCatSubscription(customerInfo, 'premium');
-    //   } else if (customerInfo.entitlements.active['social']) {
-    //     subscription = mapRevenueCatSubscription(customerInfo, 'social');
-    //   }
-    //
-    //   return {
-    //     success: true,
-    //     data: {
-    //       subscription,
-    //       restoredTransactions: customerInfo.allPurchaseDates ? Object.keys(customerInfo.allPurchaseDates).length : 0,
-    //     },
-    //   };
-    // } catch (err) {
-    //   return { success: false, error: err.message };
-    // }
+    try {
+      const customerInfo = await Purchases.restorePurchases();
 
-    return {
-      success: false,
-      error: 'RevenueCat integration not yet implemented',
-      errorCode: 'PROVIDER_ERROR',
-    };
+      // Determine tier from restored entitlements
+      const tier = this.getTierFromCustomerInfo(customerInfo);
+
+      // Count restored transactions
+      const restoredTransactions = customerInfo.allPurchaseDates
+        ? Object.keys(customerInfo.allPurchaseDates).length
+        : 0;
+
+      // If no paid tier, return null subscription
+      if (tier === 'free') {
+        return {
+          success: true,
+          data: {
+            subscription: null,
+            restoredTransactions,
+          },
+        };
+      }
+
+      // Map to our subscription type
+      const subscription = this.mapCustomerInfoToSubscription(customerInfo, tier);
+
+      console.log(
+        `[RevenueCatSubscriptionProvider] Restored ${restoredTransactions} transactions, tier: ${tier}`
+      );
+
+      return {
+        success: true,
+        data: {
+          subscription,
+          restoredTransactions,
+        },
+      };
+    } catch (err) {
+      console.error('[RevenueCatSubscriptionProvider] Restore error:', err);
+
+      if (err instanceof Error) {
+        return {
+          success: false,
+          error: err.message,
+          errorCode: 'RESTORE_FAILED',
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Failed to restore purchases',
+        errorCode: 'UNKNOWN',
+      };
+    }
   }
 
   supportsPurchases(): boolean {
-    // TODO: Return true when implemented
-    return false;
+    // Support purchases on iOS and Android when initialized
+    return (Platform.OS === 'ios' || Platform.OS === 'android') && this.initialized;
+  }
+}
+
+// =====================================================
+// REVENUECAT USER ID MANAGEMENT
+// =====================================================
+
+/**
+ * Log in a user to RevenueCat
+ * Call this when the user signs in to your app
+ *
+ * @param userId - The Supabase user ID
+ */
+export async function loginToRevenueCat(userId: string): Promise<void> {
+  try {
+    await Purchases.logIn(userId);
+    console.log(`[RevenueCat] Logged in user: ${userId}`);
+  } catch (err) {
+    console.error('[RevenueCat] Login error:', err);
+  }
+}
+
+/**
+ * Log out the current user from RevenueCat
+ * Call this when the user signs out of your app
+ */
+export async function logoutFromRevenueCat(): Promise<void> {
+  try {
+    await Purchases.logOut();
+    console.log('[RevenueCat] Logged out');
+  } catch (err) {
+    console.error('[RevenueCat] Logout error:', err);
   }
 }
 
@@ -597,7 +823,10 @@ export function createSubscriptionProvider(type: ProviderType): SubscriptionProv
 // =====================================================
 
 /**
- * Default subscription service using manual provider
+ * Default subscription service
+ *
+ * Uses RevenueCat for iOS in-app purchases when API key is configured,
+ * falls back to manual provider otherwise.
  *
  * Usage:
  * ```typescript
@@ -607,6 +836,8 @@ export function createSubscriptionProvider(type: ProviderType): SubscriptionProv
  * const result = await subscriptionService.getCurrentSubscription(userId);
  * ```
  */
-export const subscriptionService: SubscriptionProvider = createSubscriptionProvider('manual');
+export const subscriptionService: SubscriptionProvider = createSubscriptionProvider(
+  process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ? 'revenuecat' : 'manual'
+);
 
 export default subscriptionService;

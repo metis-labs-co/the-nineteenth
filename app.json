@@ -16,8 +16,9 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.thenineteenth.app",
-      "buildNumber": "1",
+      "bundleIdentifier": "golf.thenineteenth",
+      "buildNumber": "3",
+      "appleTeamId": "9D3K8VW249",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",
         "NSPhotoLibraryUsageDescription": "Allow The Nineteenth to access your photos for your profile picture.",
@@ -29,7 +30,9 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ]
       }
@@ -39,14 +42,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1f2937"
       },
-      "package": "com.thenineteenth.app",
+      "package": "golf.thenineteenth",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -73,19 +77,20 @@
           "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "9168db7d-0580-4f85-be5a-5edc7fb673e7"
       }
     },
-    "owner": "your-expo-username",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/your-project-id"
-    }
+      "url": "https://u.expo.dev/9168db7d-0580-4f85-be5a-5edc7fb673e7"
+    },
+    "owner": "samcodexdev"
   }
 }
