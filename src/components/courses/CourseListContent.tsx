@@ -71,7 +71,7 @@ export function CourseListContent({
   // Empty states
   if (displayItems.length === 0) {
     const title = showFavoritesOnly
-      ? 'No favorite courses'
+      ? 'No favourite courses'
       : isSearchActive
         ? 'No venues found'
         : 'No venues yet';
@@ -79,7 +79,7 @@ export function CourseListContent({
     // Determine message based on context and permissions
     const getMessage = () => {
       if (showFavoritesOnly) {
-        return 'Star courses to add them to your favorites';
+        return 'Star courses to add them to your favourites';
       }
       if (isSearchActive) {
         if (isApiAvailable) {

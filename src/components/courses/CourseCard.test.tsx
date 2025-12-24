@@ -317,15 +317,15 @@ describe('CourseCard', () => {
     it('shows favorite button when showFavoriteButton is true', () => {
       render(<CourseCard {...defaultProps} showFavoriteButton={true} />);
       // Check for the favorite button by its accessibility label
-      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const favoriteButton = screen.getByLabelText('Add to favourites');
       expect(favoriteButton).toBeTruthy();
     });
 
     it('hides favorite button when showFavoriteButton is false', () => {
       render(<CourseCard {...defaultProps} showFavoriteButton={false} />);
       // Button should not exist - no favorite accessibility label
-      expect(screen.queryByLabelText('Add to favorites')).toBeNull();
-      expect(screen.queryByLabelText('Remove from favorites')).toBeNull();
+      expect(screen.queryByLabelText('Add to favourites')).toBeNull();
+      expect(screen.queryByLabelText('Remove from favourites')).toBeNull();
     });
 
     it('shows loading indicator when isTogglingFavorite is true', () => {
@@ -341,7 +341,7 @@ describe('CourseCard', () => {
     it('disables favorite button while toggling', () => {
       render(<CourseCard {...defaultProps} isTogglingFavorite={true} />);
       // When toggling, the button shows loading state and is disabled
-      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const favoriteButton = screen.getByLabelText('Add to favourites');
       // Check if the button has disabled accessibility state
       expect(favoriteButton.props.accessibilityState?.disabled).toBe(true);
     });
@@ -422,14 +422,14 @@ describe('CourseCard', () => {
     it('favorite button has accessible label for non-favorite', () => {
       const course = createTestCourse({ is_favorite: false });
       render(<CourseCard {...defaultProps} course={course} />);
-      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const favoriteButton = screen.getByLabelText('Add to favourites');
       expect(favoriteButton).toBeTruthy();
     });
 
     it('favorite button has accessible label for favorite', () => {
       const course = createTestCourse({ is_favorite: true });
       render(<CourseCard {...defaultProps} course={course} />);
-      const favoriteButton = screen.getByLabelText('Remove from favorites');
+      const favoriteButton = screen.getByLabelText('Remove from favourites');
       expect(favoriteButton).toBeTruthy();
     });
   });
@@ -651,7 +651,7 @@ describe('CourseCard', () => {
         />
       );
       // Should show favorite button
-      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const favoriteButton = screen.getByLabelText('Add to favourites');
       expect(favoriteButton).toBeTruthy();
     });
 
@@ -675,7 +675,7 @@ describe('CourseCard', () => {
     it('defaults showFavoriteButton to true', () => {
       render(<CourseCard course={defaultProps.course} />);
       // Should show favorite button by default
-      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const favoriteButton = screen.getByLabelText('Add to favourites');
       expect(favoriteButton).toBeTruthy();
     });
 

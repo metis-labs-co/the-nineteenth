@@ -55,7 +55,7 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
           <View style={styles.favoritesHeader}>
             <Icon source="star" size={14} color={colors.warning} />
             <Text style={[styles.favoritesLabel, { color: colors.textSecondary }]}>
-              Favorites
+              Favourites
             </Text>
           </View>
           <ScrollView

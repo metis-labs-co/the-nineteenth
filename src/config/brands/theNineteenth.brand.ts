@@ -2,7 +2,7 @@
  * The Nineteenth - Default Brand Configuration
  *
  * This is the default brand identity for The Nineteenth app.
- * Primary color: #459668 (Forest Green)
+ * Primary color: #6eac4d (Lime Green)
  */
 
 import type { BrandConfig } from '../brand.types';
@@ -11,12 +11,12 @@ export const theNineteenthBrand: BrandConfig = {
   id: 'the-nineteenth',
   name: 'The Nineteenth',
 
-  // Primary brand colors (Forest Green based on #459668)
+  // Primary brand colors (Lime Green based on #6eac4d)
   primary: {
-    primary: '#459668',
-    primaryDark: '#357a53',
-    primaryLight: '#5aab7d',
-    primaryLighter: '#8fcca6',
+    primary: '#6eac4d',
+    primaryDark: '#558a3b',
+    primaryLight: '#8bc26e',
+    primaryLighter: '#b5d9a0',
   },
 
   // Semantic colors
@@ -37,9 +37,9 @@ export const theNineteenthBrand: BrandConfig = {
       dark: '#dc2626',
     },
     info: {
-      base: '#459668', // Matches primary for brand cohesion
-      light: '#8fcca6',
-      dark: '#357a53',
+      base: '#6eac4d', // Matches primary for brand cohesion
+      light: '#b5d9a0',
+      dark: '#558a3b',
     },
   },
 
@@ -47,7 +47,7 @@ export const theNineteenthBrand: BrandConfig = {
   golf: {
     eagle: '#10b981',
     birdie: '#22c55e',
-    par: '#459668', // Matches brand primary
+    par: '#6eac4d', // Matches brand primary
     bogey: '#f59e0b',
     doubleBogey: '#ef4444',
   },
@@ -70,10 +70,10 @@ export const theNineteenthBrand: BrandConfig = {
 
   // Dark mode overrides
   darkMode: {
-    primary: '#5aab7d', // Brighter green for dark backgrounds
-    background: '#121614', // Very subtle green-tinted black
-    surface: '#1c211e', // Subtle dark green
-    surfaceVariant: '#2a302c', // Subtle medium dark green
+    primary: '#8bc26e', // Brighter lime for dark backgrounds
+    background: '#0f1710', // Dark green-tinted black
+    surface: '#1a2518', // Dark olive green
+    surfaceVariant: '#2d3b28', // Medium dark green
   },
 };
 

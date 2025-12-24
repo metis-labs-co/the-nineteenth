@@ -224,7 +224,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
   }, [onDelete, competition, closeSwipe]);
 
   const getAccessibilityLabel = () => {
-    const role = competition.isOrganizer ? 'Organizer' : 'Player';
+    const role = competition.isOrganizer ? 'Organiser' : 'Player';
     const deleteHint = swipeEnabled ? ', swipe left to delete' : '';
     return `View ${competition.name}, ${role}, ${competition.rounds} rounds, ${competition.players} players${deleteHint}`;
   };
@@ -248,7 +248,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
           <View style={styles.topRow}>
             <StatusBadge status={getStatusVariant(competition.status)} />
             <Pill
-              label={competition.isOrganizer ? 'Organizer' : 'Player'}
+              label={competition.isOrganizer ? 'Organiser' : 'Player'}
               variant={'default'}
               size="md"
             />
@@ -339,7 +339,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
             <View style={styles.topRow}>
               <StatusBadge status={getStatusVariant(competition.status)} />
               <Pill
-                label={competition.isOrganizer ? 'Organizer' : 'Player'}
+                label={competition.isOrganizer ? 'Organiser' : 'Player'}
                 variant={'default'}
                 size="md"
               />

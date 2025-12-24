@@ -463,7 +463,7 @@ function TierCard({ tier, selected, onSelect, colors }: TierCardProps) {
   const description =
     tier === 'social'
       ? 'For casual golfers'
-      : 'For serious organizers';
+      : 'For serious organisers';
 
   return (
     <TouchableOpacity

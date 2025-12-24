@@ -549,7 +549,7 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            fetchError: 'Scoring pairs have not been configured for this round yet. Please ask the competition organizer to set up scoring pairs before you can enter scores.',
+            fetchError: 'Scoring pairs have not been configured for this round yet. Please ask the competition organiser to set up scoring pairs before you can enter scores.',
             scoringPairsEnabled: true,
             playersToScore: [],
           }));

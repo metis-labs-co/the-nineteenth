@@ -187,7 +187,7 @@ export const CourseCard = React.memo(function CourseCard({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
-              accessibilityLabel={course.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              accessibilityLabel={course.is_favorite ? 'Remove from favourites' : 'Add to favourites'}
             >
               {isTogglingFavorite ? (
                 <GolfBallLoader size="sm" />

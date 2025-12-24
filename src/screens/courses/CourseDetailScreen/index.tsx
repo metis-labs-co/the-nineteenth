@@ -335,7 +335,7 @@ export default function CourseScreen({ route, navigation }: Props) {
               onPress={handleToggleFavorite}
               disabled={togglingFavorite}
               accessibilityRole="button"
-              accessibilityLabel={course.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+              accessibilityLabel={course.is_favorite ? 'Remove from favourites' : 'Add to favourites'}
             >
               {togglingFavorite ? (
                 <GolfBallLoader size="sm" />

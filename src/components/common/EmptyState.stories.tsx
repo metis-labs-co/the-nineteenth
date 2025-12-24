@@ -282,7 +282,7 @@ export const CompactComparison: Story = {
         <Card>
           <EmptyState
             title="No competitions"
-            message="Create your first competition to get started with organizing golf events"
+            message="Create your first competition to get started with organising golf events"
             icon="trophy-outline"
             actionLabel="Create Competition"
             onAction={() => {}}
@@ -293,7 +293,7 @@ export const CompactComparison: Story = {
         <Card>
           <EmptyState
             title="No competitions"
-            message="Create your first competition to get started with organizing golf events"
+            message="Create your first competition to get started with organising golf events"
             icon="trophy-outline"
             actionLabel="Create"
             onAction={() => {}}

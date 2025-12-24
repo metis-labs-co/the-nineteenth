@@ -62,7 +62,7 @@ const formatDate = (dateString: string): string => {
 const getHandicapSystemLabel = (system: string): string => {
   switch (system) {
     case 'honor':
-      return 'Honor System';
+      return 'Honour System';
     case 'golf-australia':
       return 'Golf Australia';
     case 'gross-only':
@@ -320,7 +320,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
               autoCorrect={false}
               maxLength={20}
               error={lookupError || undefined}
-              accessibilityHint="Enter the competition invite code shared by the organizer"
+              accessibilityHint="Enter the competition invite code shared by the organiser"
             />
 
             <Button
@@ -377,7 +377,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
 
                     {/* Organizer */}
                     <View style={[styles.detailItem, { borderTopColor: colors.borderLight }]}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Organizer</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Organiser</Text>
                       <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{competition.organizerName}</Text>
                     </View>
 
@@ -454,7 +454,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
                   {'\u2022'} Check for typos in the code
                 </Text>
                 <Text style={[styles.notFoundHintItem, { color: colors.textSecondary }]}>
-                  {'\u2022'} Ask the organizer to confirm the code
+                  {'\u2022'} Ask the organiser to confirm the code
                 </Text>
                 <Text style={[styles.notFoundHintItem, { color: colors.textSecondary }]}>
                   {'\u2022'} The competition may have ended

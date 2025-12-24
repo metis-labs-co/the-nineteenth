@@ -705,21 +705,21 @@ describe('ConfirmationDialog', () => {
       ).toBeTruthy();
     });
 
-    it('renders finalize round dialog', () => {
+    it('renders finalise round dialog', () => {
       render(
         <ConfirmationDialog
           visible={true}
-          title="Finalize Round"
+          title="Finalise Round"
           message="This will lock all scores and calculate the final leaderboard. Continue?"
-          confirmLabel="Finalize"
+          confirmLabel="Finalise"
           confirmVariant="primary"
           icon="check-circle"
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
         />
       );
-      expect(screen.getByText('Finalize Round')).toBeTruthy();
-      expect(screen.getByText('Finalize')).toBeTruthy();
+      expect(screen.getByText('Finalise Round')).toBeTruthy();
+      expect(screen.getByText('Finalise')).toBeTruthy();
       expect(screen.getByTestId('icon-check-circle')).toBeTruthy();
     });
   });

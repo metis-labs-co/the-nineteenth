@@ -131,7 +131,7 @@ export const PremiumTier: Story = {
     config: createConfig({
       targetTier: 'premium',
       title: 'Go Premium',
-      message: 'Unlimited access for serious golf organizers',
+      message: 'Unlimited access for serious golf organisers',
       benefits: [
         'Unlimited competitions',
         '40 players per competition',
@@ -644,7 +644,7 @@ export const StatisticsLocked: Story = {
     config: createConfig({
       feature: 'advanced_stats',
       title: 'Statistics Locked',
-      message: 'Detailed statistics and insights are available on Premium. Upgrade to analyze your game.',
+      message: 'Detailed statistics and insights are available on Premium. Upgrade to analyse your game.',
       targetTier: 'premium',
       benefits: [
         'Fairways hit percentage',

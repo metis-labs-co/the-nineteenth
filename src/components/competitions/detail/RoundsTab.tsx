@@ -44,7 +44,7 @@ export const RoundsTab = React.memo(function RoundsTab({
             <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
               {isOrganizer
                 ? 'Add a round to get started with your competition.'
-                : "The organizer hasn't added any rounds yet."}
+                : "The organiser hasn't added any rounds yet."}
             </Text>
           </View>
         </View>

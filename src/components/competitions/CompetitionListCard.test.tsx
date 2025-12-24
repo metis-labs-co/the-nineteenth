@@ -305,12 +305,12 @@ describe('CompetitionListCard', () => {
   // ===========================================================================
 
   describe('Role Display', () => {
-    it('displays Organizer pill when isOrganizer is true', () => {
+    it('displays Organiser pill when isOrganizer is true', () => {
       const competition = createCompetitionData({ isOrganizer: true });
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
       expect(screen.getByTestId('pill-organizer')).toBeTruthy();
-      expect(screen.getByText('Organizer')).toBeTruthy();
+      expect(screen.getByText('Organiser')).toBeTruthy();
     });
 
     it('displays Player pill when isOrganizer is false', () => {
@@ -570,7 +570,7 @@ describe('CompetitionListCard', () => {
 
       const card = screen.getByTestId('competition-card');
       expect(card.props.accessibilityLabel).toContain('Summer Series');
-      expect(card.props.accessibilityLabel).toContain('Organizer');
+      expect(card.props.accessibilityLabel).toContain('Organiser');
       expect(card.props.accessibilityLabel).toContain('4 rounds');
       expect(card.props.accessibilityLabel).toContain('12 players');
     });

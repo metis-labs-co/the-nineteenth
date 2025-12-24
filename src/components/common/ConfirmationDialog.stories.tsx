@@ -234,13 +234,13 @@ export const WithAlertIcon: Story = {
 export const WithCheckIcon: Story = {
   args: {
     visible: true,
-    title: 'Finalize Round',
+    title: 'Finalise Round',
     message:
       'This will lock all scores and calculate the final leaderboard. You cannot edit scores after this.',
-    confirmLabel: 'Finalize',
+    confirmLabel: 'Finalise',
     confirmVariant: 'primary',
     icon: 'check-circle',
-    onConfirm: () => console.log('Finalized'),
+    onConfirm: () => console.log('Finalised'),
     onCancel: () => console.log('Cancelled'),
   },
 };
@@ -375,16 +375,16 @@ export const RemovePlayer: Story = {
   },
 };
 
-export const FinalizeRound: Story = {
+export const FinaliseRound: Story = {
   args: {
     visible: true,
-    title: 'Finalize Round',
+    title: 'Finalise Round',
     message:
       'This will lock all scores and calculate the final leaderboard for Round 2. You will not be able to edit scores after this.',
-    confirmLabel: 'Finalize',
+    confirmLabel: 'Finalise',
     confirmVariant: 'primary',
     icon: 'flag-checkered',
-    onConfirm: () => console.log('Round finalized'),
+    onConfirm: () => console.log('Round finalised'),
     onCancel: () => console.log('Cancelled'),
   },
 };

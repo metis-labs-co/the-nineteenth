@@ -2,6 +2,7 @@
   "expo": {
     "name": "The Nineteenth",
     "slug": "the-nineteenth",
+    "scheme": "thenineteenth",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "golf.thenineteenth",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "appleTeamId": "9D3K8VW249",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",

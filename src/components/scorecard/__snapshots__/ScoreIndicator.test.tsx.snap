@@ -1,0 +1,459 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for birdie 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#22c55e",
+            "borderRadius": 14,
+            "borderWidth": 1.5,
+            "height": 28,
+            "width": 28,
+          },
+        ]
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 16,
+              "fontWeight": "600",
+              "lineHeight": 24,
+            },
+            {
+              "color": "#22c55e",
+              "fontSize": 14,
+            },
+          ]
+        }
+      >
+        3
+      </Text>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for bogey 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 4,
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#f59e0b",
+            "borderWidth": 1.5,
+            "height": 28,
+            "width": 28,
+          },
+        ]
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 16,
+              "fontWeight": "600",
+              "lineHeight": 24,
+            },
+            {
+              "color": "#f59e0b",
+              "fontSize": 14,
+            },
+          ]
+        }
+      >
+        5
+      </Text>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for double bogey 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 4,
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#ef4444",
+            "borderWidth": 1.5,
+            "height": 34,
+            "width": 34,
+          },
+        ]
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "alignItems": "center",
+              "borderRadius": 4,
+              "justifyContent": "center",
+            },
+            {
+              "borderColor": "#ef4444",
+              "borderWidth": 1.5,
+              "height": 28,
+              "width": 28,
+            },
+          ]
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#ef4444",
+                "fontSize": 14,
+              },
+            ]
+          }
+        >
+          6
+        </Text>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for eagle 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#22c55e",
+            "borderRadius": 17,
+            "borderWidth": 1.5,
+            "height": 34,
+            "width": 34,
+          },
+        ]
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "alignItems": "center",
+              "justifyContent": "center",
+            },
+            {
+              "borderColor": "#22c55e",
+              "borderRadius": 14,
+              "borderWidth": 1.5,
+              "height": 28,
+              "width": 28,
+            },
+          ]
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#22c55e",
+                "fontSize": 14,
+              },
+            ]
+          }
+        >
+          2
+        </Text>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for large size birdie 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#22c55e",
+            "borderRadius": 16,
+            "borderWidth": 2,
+            "height": 32,
+            "width": 32,
+          },
+        ]
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 16,
+              "fontWeight": "600",
+              "lineHeight": 24,
+            },
+            {
+              "color": "#22c55e",
+              "fontSize": 16,
+            },
+          ]
+        }
+      >
+        3
+      </Text>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for no score 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <Text
+    style={
+      [
+        {
+          "fontSize": 16,
+          "fontWeight": "600",
+          "lineHeight": 24,
+        },
+        {
+          "fontSize": 14,
+        },
+      ]
+    }
+  >
+    -
+  </Text>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for par 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <Text
+    style={
+      [
+        {
+          "fontSize": 16,
+          "fontWeight": "600",
+          "lineHeight": 24,
+        },
+        {
+          "color": "#3b82f6",
+          "fontSize": 14,
+        },
+      ]
+    }
+  >
+    4
+  </Text>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for pickup 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <Text
+    style={
+      [
+        {
+          "fontSize": 16,
+          "fontWeight": "600",
+          "lineHeight": 24,
+        },
+        {
+          "color": "#D32F2F",
+          "fontSize": 14,
+        },
+      ]
+    }
+  >
+    P
+  </Text>
+</View>
+`;
+
+exports[`ScoreIndicator Snapshot Tests matches snapshot for small size birdie 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "justifyContent": "center",
+          },
+          {
+            "borderColor": "#22c55e",
+            "borderRadius": 11,
+            "borderWidth": 1.5,
+            "height": 22,
+            "width": 22,
+          },
+        ]
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 16,
+              "fontWeight": "600",
+              "lineHeight": 24,
+            },
+            {
+              "color": "#22c55e",
+              "fontSize": 12,
+            },
+          ]
+        }
+      >
+        3
+      </Text>
+    </View>
+  </View>
+</View>
+`;

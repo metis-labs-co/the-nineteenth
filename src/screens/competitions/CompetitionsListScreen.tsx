@@ -352,7 +352,7 @@ export default function CompetitionsListScreen() {
     }
     return {
       title: 'No Competitions Joined',
-      message: 'Join a competition using an invite code from an organizer.',
+      message: 'Join a competition using an invite code from an organiser.',
       actionLabel: 'Join Competition',
       onAction: handleJoinCompetition,
     };

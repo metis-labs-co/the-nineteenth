@@ -251,7 +251,7 @@ export default function SignupScreen({ navigation }: Props) {
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.textPrimary }]}>Create Account</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Join The Nineteenth and start organizing golf competitions
+                Join The Nineteenth and start organising golf competitions
               </Text>
             </View>
 

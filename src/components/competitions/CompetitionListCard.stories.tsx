@@ -430,7 +430,7 @@ export const ListOfCompetitions: Story = {
 export const MixedRolesList: Story = {
   render: () => (
     <View style={styles.listContainer}>
-      <Text style={styles.sectionTitle}>Organizing</Text>
+      <Text style={styles.sectionTitle}>Organising</Text>
       <CompetitionListCard
         competition={createCompetitionData({
           id: 'c1',

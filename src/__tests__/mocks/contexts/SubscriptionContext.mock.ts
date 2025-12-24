@@ -89,7 +89,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     requiresPayment: true,
     canExpire: true,
     displayName: 'Premium',
-    description: 'Full-featured experience for serious competition organizers',
+    description: 'Full-featured experience for serious competition organisers',
     badgeColor: '#f59e0b',
   },
   super_admin: {

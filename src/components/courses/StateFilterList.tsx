@@ -2,7 +2,7 @@
  * StateFilterList - Horizontal scrollable filter for Australian states
  *
  * Features:
- * - Favorites toggle filter
+ * - Favourites toggle filter
  * - Australian state filters (NSW, VIC, QLD, etc.)
  * - Clear filters button when filters are active
  * - Dark mode support
@@ -59,12 +59,12 @@ export function StateFilterList({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Favorites toggle */}
+        {/* Favourites toggle */}
         <FilterPill
-          label="Favorites"
+          label="Favourites"
           selected={showFavoritesOnly}
           onPress={onFavoritesToggle}
-          accessibilityLabel="Show favorites only"
+          accessibilityLabel="Show favourites only"
         />
 
         {/* State filters */}

@@ -13,9 +13,8 @@
 
           <!-- Header -->
           <tr>
-            <td style="background-color: #1B5E20; padding: 32px 40px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">The Nineteenth</h1>
-              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.85); font-size: 14px;">Social Golf Competitions</p>
+            <td style="background-color: #6eac4d; padding: 32px 40px; text-align: center;">
+              <img src="https://www.thenineteenth.golf/images/logo-horizontal-white.svg" alt="The Nineteenth - Social Golf Competitions" style="height: 48px; width: auto;">
             </td>
           </tr>
 
@@ -31,7 +30,7 @@
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="padding: 8px 0 32px 0;">
-                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; background-color: #1B5E20; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px;">
+                    <a href="thenineteenth://auth/confirm-email-change?token_hash={{ .TokenHash }}&type=email_change" style="display: inline-block; background-color: #6eac4d; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px;">
                       Confirm New Email
                     </a>
                   </td>
@@ -41,8 +40,8 @@
               <p style="margin: 0 0 16px 0; color: #6a6a6a; font-size: 14px; line-height: 1.5;">
                 If the button doesn't work, copy and paste this link into your browser:
               </p>
-              <p style="margin: 0; color: #1B5E20; font-size: 13px; word-break: break-all; line-height: 1.5;">
-                {{ .ConfirmationURL }}
+              <p style="margin: 0; color: #558a3b; font-size: 13px; word-break: break-all; line-height: 1.5;">
+                thenineteenth://auth/confirm-email-change?token_hash={{ .TokenHash }}&type=email_change
               </p>
             </td>
           </tr>
@@ -54,7 +53,7 @@
                 Didn't request this change? Please secure your account by resetting your password immediately.
               </p>
               <p style="margin: 0; color: #aaaaaa; font-size: 12px; text-align: center;">
-                © {{ .SiteURL }}
+                © The Nineteenth Golf
               </p>
             </td>
           </tr>

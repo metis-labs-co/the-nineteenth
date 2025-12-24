@@ -343,7 +343,7 @@ export const CustomColorVariants: Story = {
           />
           <StatusBadge
             status="custom"
-            label="Organizer"
+            label="Organiser"
             backgroundColor="#FEF3C7"
             textColor="#92400E"
           />
@@ -467,7 +467,7 @@ export const PlayerIdentifiers: Story = {
           />
           <StatusBadge
             status="custom"
-            label="Organizer"
+            label="Organiser"
             size="sm"
             backgroundColor="#FEF3C7"
             textColor="#92400E"

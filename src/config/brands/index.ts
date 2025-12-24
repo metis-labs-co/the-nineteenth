@@ -23,7 +23,7 @@ import { greenGolfBrand } from './greenGolf.brand';
  * The currently active brand configuration.
  * Change this import/export to switch brands.
  */
-export const activeBrand = greenGolfBrand;
+export const activeBrand = theNineteenthBrand;
 
 // Re-export types for convenience
 export type { BrandConfig } from '../brand.types';

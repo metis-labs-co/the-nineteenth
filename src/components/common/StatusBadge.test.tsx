@@ -531,15 +531,15 @@ describe('StatusBadge', () => {
       expect(screen.getByText('You')).toBeTruthy();
     });
 
-    it('renders organizer badge', () => {
+    it('renders organiser badge', () => {
       render(
         <StatusBadge
           status="custom"
-          label="Organizer"
+          label="Organiser"
           size="sm"
         />
       );
-      expect(screen.getByText('Organizer')).toBeTruthy();
+      expect(screen.getByText('Organiser')).toBeTruthy();
     });
 
     it('renders small status on leaderboard', () => {

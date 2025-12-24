@@ -18,6 +18,7 @@ import {
   loginToRevenueCat,
   logoutFromRevenueCat,
 } from '@/services/subscription/SubscriptionService';
+import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
 import type { AuthEvent } from '@/types/auth';
 
@@ -65,6 +66,65 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const queryClient = useQueryClient();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Handle deep links for email confirmation
+  useEffect(() => {
+    const handleDeepLink = async (url: string) => {
+      if (__DEV__) {
+        console.log('[AuthProvider] Handling deep link:', url);
+      }
+
+      try {
+        const parsedUrl = Linking.parse(url);
+        const { queryParams } = parsedUrl;
+
+        if (queryParams?.token_hash && queryParams?.type) {
+          const tokenHash = queryParams.token_hash as string;
+          const type = queryParams.type as string;
+
+          if (__DEV__) {
+            console.log('[AuthProvider] Verifying OTP:', { type, hasToken: !!tokenHash });
+          }
+
+          // Verify the token with Supabase
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as 'email' | 'recovery' | 'invite' | 'magiclink' | 'email_change',
+          });
+
+          if (error) {
+            console.error('[AuthProvider] OTP verification failed:', error);
+          } else if (data.session) {
+            if (__DEV__) {
+              console.log('[AuthProvider] OTP verification successful, user authenticated');
+            }
+            // Session will be handled by onAuthStateChange
+          }
+        }
+      } catch (err) {
+        console.error('[AuthProvider] Error handling deep link:', err);
+      }
+    };
+
+    // Handle initial URL (app opened via deep link)
+    const handleInitialUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink(initialUrl);
+      }
+    };
+
+    handleInitialUrl();
+
+    // Listen for incoming deep links while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Set up auth state listener ONCE
   useEffect(() => {
