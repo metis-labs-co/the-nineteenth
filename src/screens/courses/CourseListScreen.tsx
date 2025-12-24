@@ -34,6 +34,7 @@ import {
   type VenueCourseDisplayItem,
 } from '@/hooks/useVenues';
 import { useIsApiAvailable } from '@/hooks/useApiCourses';
+import { useSubscription } from '@/hooks/useSubscription';
 import type { AustralianState, Course, LegacyCourse, Venue } from '@/types/database.types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -42,6 +43,7 @@ export default function CourseListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const isApiAvailable = useIsApiAvailable();
+  const { isSuperAdmin } = useSubscription();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,6 +189,7 @@ export default function CourseListScreen() {
   );
 
   // Build right actions for PageHeader
+  // AddCourseModal is only available for Super Admin users
   const headerRightActions = useMemo(() => {
     const actions = [];
     if (isApiAvailable) {
@@ -196,13 +199,16 @@ export default function CourseListScreen() {
         accessibilityLabel: 'Search online database',
       });
     }
-    actions.push({
-      icon: 'plus',
-      onPress: () => setShowAddModal(true),
-      accessibilityLabel: 'Add new course manually',
-    });
+    // Only Super Admin can add courses manually
+    if (isSuperAdmin) {
+      actions.push({
+        icon: 'plus',
+        onPress: () => setShowAddModal(true),
+        accessibilityLabel: 'Add new course manually',
+      });
+    }
     return actions;
-  }, [isApiAvailable]);
+  }, [isApiAvailable, isSuperAdmin]);
 
   // Loading state
   if (isLoading) {
@@ -262,6 +268,7 @@ export default function CourseListScreen() {
         isSearchActive={isSearchActive}
         searchQuery={searchQuery}
         isApiAvailable={isApiAvailable}
+        isSuperAdmin={isSuperAdmin}
         onRefresh={handleRefresh}
         onCourseSelect={handleCourseSelect}
         onVenuePress={handleVenuePress}
@@ -271,12 +278,14 @@ export default function CourseListScreen() {
         onShowAddModal={() => setShowAddModal(true)}
       />
 
-      {/* Add Venue Modal */}
-      <AddCourseModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onVenueCreated={handleVenueCreated}
-      />
+      {/* Add Venue Modal - Super Admin only */}
+      {isSuperAdmin && (
+        <AddCourseModal
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onVenueCreated={handleVenueCreated}
+        />
+      )}
 
       {/* API Search Modal */}
       <ApiSearchModal

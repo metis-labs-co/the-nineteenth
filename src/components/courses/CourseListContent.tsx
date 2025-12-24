@@ -29,6 +29,7 @@ interface CourseListContentProps {
   isSearchActive: boolean;
   searchQuery: string;
   isApiAvailable: boolean;
+  isSuperAdmin: boolean;
   onRefresh: () => void;
   onCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
   onVenuePress: (venue: Venue) => void;
@@ -46,6 +47,7 @@ export function CourseListContent({
   isSearchActive,
   searchQuery,
   isApiAvailable,
+  isSuperAdmin,
   onRefresh,
   onCourseSelect,
   onVenuePress,
@@ -74,24 +76,44 @@ export function CourseListContent({
         ? 'No venues found'
         : 'No venues yet';
 
-    const message = showFavoritesOnly
-      ? 'Star courses to add them to your favorites'
-      : isSearchActive
-        ? `No venues match "${searchQuery}". ${isApiAvailable ? 'Try searching the online database or add a new venue.' : 'Try a different search or add a new venue.'}`
-        : isApiAvailable
-          ? 'Search the online database or add a venue manually to get started'
-          : 'Add a venue to get started';
+    // Determine message based on context and permissions
+    const getMessage = () => {
+      if (showFavoritesOnly) {
+        return 'Star courses to add them to your favorites';
+      }
+      if (isSearchActive) {
+        if (isApiAvailable) {
+          return `No venues match "${searchQuery}". Try searching the online database.`;
+        }
+        return `No venues match "${searchQuery}". Try a different search.`;
+      }
+      if (isApiAvailable) {
+        return 'Search the online database to find courses';
+      }
+      return 'No venues available';
+    };
 
     const icon = showFavoritesOnly ? 'star-outline' : 'golf';
-    const actionLabel =
-      isApiAvailable && !showFavoritesOnly ? 'Search Online' : 'Add Venue';
-    const onAction =
-      isApiAvailable && !showFavoritesOnly ? onShowApiSearchModal : onShowAddModal;
+
+    // Determine action button - only show "Add Venue" for Super Admin
+    const showApiSearch = isApiAvailable && !showFavoritesOnly;
+    const showAddVenue = !showApiSearch && isSuperAdmin && !showFavoritesOnly;
+
+    const actionLabel = showApiSearch
+      ? 'Search Online'
+      : showAddVenue
+        ? 'Add Venue'
+        : undefined;
+    const onAction = showApiSearch
+      ? onShowApiSearchModal
+      : showAddVenue
+        ? onShowAddModal
+        : undefined;
 
     return (
       <EmptyState
         title={title}
-        message={message}
+        message={getMessage()}
         icon={icon}
         actionLabel={actionLabel}
         onAction={onAction}

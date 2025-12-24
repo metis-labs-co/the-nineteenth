@@ -24,11 +24,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { IconPlus, IconGolf } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { PageHeader, FeatureButton, Tabs } from '@/components/common';
+import { LimitIndicator } from '@/components/subscription';
 import { RoundListCard, type RoundListCardData } from '@/components/rounds';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import CreateRoundBottomSheet, { type ScoringPairsConfig } from './CreateRoundBottomSheet';
@@ -86,12 +89,43 @@ export default function RoundsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const colors = useThemeColors();
   const { user, player } = useAuth();
+  const { limits } = useSubscriptionContext();
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
   const [isStartingRound, setIsStartingRound] = useState(false);
   const [selectedTab, setSelectedTab] = useState<RoundTab>('active');
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [roundToDelete, setRoundToDelete] = useState<RoundListCardData | null>(null);
   const { initializeRound } = useScorecardStore();
+
+  // Get tier limit for rounds played
+  const maxRoundsPlayed = limits?.maxRoundsPlayed ?? 20;
+  const hasUnlimitedRounds = isUnlimited(maxRoundsPlayed) || isNoLimit(maxRoundsPlayed);
+
+  // Fetch count of completed standalone rounds for the user (for limit tracking)
+  // Only counts standalone/social rounds, NOT competition rounds
+  const { data: roundsPlayedCount = 0 } = useQuery<number>({
+    queryKey: ['standaloneRoundsPlayedCount', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+
+      // Count completed/confirmed scorecards for standalone rounds only
+      // Join with rounds table to filter where competition_id IS NULL
+      const { count, error } = await supabase
+        .from('scorecards')
+        .select('round_id, rounds!inner(competition_id)', { count: 'exact', head: true })
+        .eq('player_id', user.id)
+        .in('status', ['completed', 'confirmed'])
+        .is('rounds.competition_id', null);
+
+      if (error) {
+        console.error('Error fetching standalone rounds played count:', error);
+        return 0;
+      }
+
+      return count ?? 0;
+    },
+    enabled: !!user?.id && !hasUnlimitedRounds,
+  });
 
   // Fetch standalone/practice rounds for the user (both active and historical)
   // Competition rounds are accessed via the Competitions screen
@@ -613,11 +647,24 @@ export default function RoundsScreen() {
             style={styles.tabContainer}
           />
 
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            {selectedTab === 'active'
-              ? 'Rounds that need scoring'
-              : 'Your completed rounds'}
-          </Text>
+          <View style={styles.subtitleRow}>
+            <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+              {selectedTab === 'active'
+                ? 'Rounds that need scoring'
+                : 'Your completed rounds'}
+            </Text>
+
+            {/* Limit Indicator - only show for free tier users */}
+            {!hasUnlimitedRounds && (
+              <LimitIndicator
+                current={roundsPlayedCount}
+                max={maxRoundsPlayed}
+                label="Social Rounds"
+                showBar={false}
+                testID="rounds-played-limit-indicator"
+              />
+            )}
+          </View>
         </View>
       </View>
 
@@ -677,9 +724,15 @@ const styles = StyleSheet.create({
   tabSection: {
     paddingHorizontal: spacing.lg,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   sectionSubtitle: {
     ...typography.small,
-    marginBottom: spacing.md,
+    flex: 1,
   },
 
   // Toggle Tabs

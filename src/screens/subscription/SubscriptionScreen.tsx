@@ -21,10 +21,12 @@ import {
   View,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -37,7 +39,7 @@ import { subscriptionService } from '@/services/subscription/SubscriptionService
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { SubscriptionTier } from '@/types/subscription.types';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -123,6 +125,7 @@ function getTrialDaysRemaining(trialEndsAt: Date | null): number | null {
 export default function SubscriptionScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const {
     subscription,
@@ -140,9 +143,25 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier>('social');
 
   // Check if in-app purchases are available
   const purchasesEnabled = subscriptionService.supportsPurchases();
+
+  // Refresh subscription data when screen gains focus
+  // This ensures we always show current user's subscription, not cached data
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh subscription context data
+      refresh();
+      // Also invalidate the usage count queries
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['competitions', 'count', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['friends', 'count', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['standaloneRoundsPlayedCount', user.id] });
+      }
+    }, [refresh, queryClient, user?.id])
+  );
 
   // Fetch competition count for usage display
   // Count ALL competitions owned by user (regardless of status)
@@ -184,6 +203,34 @@ export default function SubscriptionScreen({ navigation }: Props) {
     enabled: !!user?.id,
   });
 
+  // Check if user has unlimited rounds
+  const maxRoundsPlayed = limits?.maxRoundsPlayed ?? 20;
+  const hasUnlimitedRounds = isUnlimited(maxRoundsPlayed) || isNoLimit(maxRoundsPlayed);
+
+  // Fetch standalone rounds played count for usage display
+  // Only counts standalone/social rounds, NOT competition rounds
+  const { data: roundsPlayedCount = 0 } = useQuery({
+    queryKey: ['standaloneRoundsPlayedCount', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+
+      // Count completed/confirmed scorecards for standalone rounds only
+      const { count, error: countError } = await supabase
+        .from('scorecards')
+        .select('round_id, rounds!inner(competition_id)', { count: 'exact', head: true })
+        .eq('player_id', user.id)
+        .in('status', ['completed', 'confirmed'])
+        .is('rounds.competition_id', null);
+
+      if (countError) {
+        console.error('Error fetching standalone rounds played count:', countError);
+        return 0;
+      }
+      return count ?? 0;
+    },
+    enabled: !!user?.id && !hasUnlimitedRounds,
+  });
+
   // Trial days remaining
   const trialDaysRemaining = useMemo(() => {
     if (!subscription?.trialEndsAt) return null;
@@ -199,37 +246,85 @@ export default function SubscriptionScreen({ navigation }: Props) {
     setIsRefreshing(false);
   }, [refresh]);
 
-  // Upgrade prompt config
-  const upgradeConfig: UpgradePromptConfig = useMemo(() => ({
-    feature: 'create_competition',
-    title: 'Upgrade Your Plan',
-    message: 'Get access to more features and higher limits',
-    targetTier: isPremium ? 'premium' : tier === 'free' ? 'social' : 'premium',
-    benefits: [
-      'More competitions',
-      'More players per competition',
-      'Additional game types',
-      tier === 'free' ? 'Score distribution analytics' : 'Advanced analytics',
-      tier === 'free' ? 'Compare stats with friends' : 'Team formats',
-    ],
-  }), [tier, isPremium]);
+  // Upgrade prompt config - dynamic based on selected tier
+  const upgradeConfig: UpgradePromptConfig = useMemo(() => {
+    const targetLimits = allTierLimits?.[selectedUpgradeTier];
+    const benefits: string[] = [];
+
+    if (selectedUpgradeTier === 'social') {
+      benefits.push(
+        'Up to 5 competitions',
+        'Up to 16 players per competition',
+        'Unlimited social rounds',
+        'Stroke play format',
+        'Score distribution analytics'
+      );
+    } else if (selectedUpgradeTier === 'premium') {
+      benefits.push(
+        'Unlimited competitions',
+        'Up to 40 players per competition',
+        'All game types including team formats',
+        'Advanced analytics',
+        'Scoring pairs for tournaments'
+      );
+    }
+
+    return {
+      feature: 'create_competition',
+      title: `Upgrade to ${targetLimits?.displayName ?? selectedUpgradeTier}`,
+      message: targetLimits?.description ?? 'Get access to more features and higher limits',
+      targetTier: selectedUpgradeTier,
+      benefits,
+    };
+  }, [selectedUpgradeTier, allTierLimits]);
 
   // Handle upgrade press - show paywall if available, otherwise show prompt
   const handleUpgradePress = useCallback(() => {
+    // Default to social if free, otherwise premium
+    setSelectedUpgradeTier(tier === 'free' ? 'social' : 'premium');
     if (purchasesEnabled) {
       setShowPaywall(true);
     } else {
       setShowUpgradePrompt(true);
     }
-  }, [purchasesEnabled]);
+  }, [purchasesEnabled, tier]);
+
+  // Handle plan card press - show upgrade prompt for that tier
+  const handlePlanCardPress = useCallback((selectedTier: SubscriptionTier) => {
+    // Don't show prompt for current tier or downgrade
+    const tierOrder: Record<SubscriptionTier, number> = {
+      free: 0,
+      social: 1,
+      premium: 2,
+      super_admin: 3,
+    };
+
+    if (tierOrder[selectedTier] <= tierOrder[tier]) {
+      // Current tier or downgrade - do nothing
+      return;
+    }
+
+    setSelectedUpgradeTier(selectedTier);
+    if (purchasesEnabled) {
+      setShowPaywall(true);
+    } else {
+      setShowUpgradePrompt(true);
+    }
+  }, [tier, purchasesEnabled]);
 
   // Handle upgrade action from prompt - opens paywall or contact support
   const handleUpgrade = useCallback(() => {
     setShowUpgradePrompt(false);
     if (purchasesEnabled) {
       setShowPaywall(true);
+    } else {
+      // In development/Expo Go, show an alert explaining IAP isn't available
+      Alert.alert(
+        'Purchases Not Available',
+        'In-app purchases require a native build (TestFlight or App Store). This feature cannot be tested in Expo Go.\n\nTo test purchases:\n1. Build with EAS: eas build --profile preview\n2. Install on device via TestFlight',
+        [{ text: 'OK' }]
+      );
     }
-    // If purchases not enabled, user sees "contact support" message in prompt
   }, [purchasesEnabled]);
 
   // Handle successful purchase - refresh subscription data
@@ -411,6 +506,12 @@ export default function SubscriptionScreen({ navigation }: Props) {
                 label="Friends"
                 testID="friends-limit"
               />
+              <LimitIndicator
+                current={roundsPlayedCount}
+                max={maxRoundsPlayed}
+                label="Social Rounds"
+                testID="social-rounds-limit"
+              />
             </View>
           )}
         </View>
@@ -429,8 +530,17 @@ export default function SubscriptionScreen({ navigation }: Props) {
               const isCurrentTier = tier === comparisonTier;
               const tierColor = tierLimits.badgeColor ?? colors.gray400;
 
+              // Check if this is an upgrade option
+              const tierOrder: Record<SubscriptionTier, number> = {
+                free: 0,
+                social: 1,
+                premium: 2,
+                super_admin: 3,
+              };
+              const isUpgradeOption = tierOrder[comparisonTier] > tierOrder[tier];
+
               return (
-                <View
+                <TouchableOpacity
                   key={comparisonTier}
                   style={[
                     styles.planCard,
@@ -440,6 +550,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
                       borderWidth: isCurrentTier ? 2 : 1,
                     },
                   ]}
+                  onPress={() => handlePlanCardPress(comparisonTier)}
+                  activeOpacity={isUpgradeOption ? 0.7 : 1}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tierLimits.displayName} plan${isCurrentTier ? ' (current)' : isUpgradeOption ? ' - tap to upgrade' : ''}`}
                 >
                   {/* Plan Header */}
                   <View style={styles.planCardHeader}>
@@ -477,6 +591,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
                     <PlanFeatureRow
                       label="Competitions"
                       value={formatLimitValue(tierLimits.maxCompetitionsOwned)}
+                      colors={colors}
+                    />
+                    <PlanFeatureRow
+                      label="Social rounds"
+                      value={formatLimitValue(
+                        tierLimits.maxRoundsPlayed ?? (comparisonTier === 'free' ? 20 : -1)
+                      )}
                       colors={colors}
                     />
                     <PlanFeatureRow
@@ -525,7 +646,17 @@ export default function SubscriptionScreen({ navigation }: Props) {
                       colors={colors}
                     />
                   </View>
-                </View>
+
+                  {/* Upgrade hint for upgrade options */}
+                  {isUpgradeOption && (
+                    <View style={[styles.upgradeHintRow, { borderTopColor: colors.border }]}>
+                      <Icon source="arrow-up-circle" size={16} color={colors.primary} />
+                      <Text style={[styles.upgradeHintText, { color: colors.primary }]}>
+                        Tap to upgrade
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -747,6 +878,17 @@ const styles = StyleSheet.create({
   planFeatures: {
     padding: spacing.lg,
     gap: spacing.md,
+  },
+  upgradeHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+  },
+  upgradeHintText: {
+    ...typography.smallBold,
   },
   featureRow: {
     flexDirection: 'row',

@@ -6,15 +6,16 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 41 of 147 components (27.9%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 45 of 147 components (30.6%) have test coverage.
 
 **Note:** This complements `TESTING_PLAN.md` which covers utilities, hooks, stores, and services.
 
 ## Current Test Coverage
 
-### Components WITH Tests (40 total)
+### Components WITH Tests (45 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
+| `src/components/courses/AddCourseModal/index.tsx` | 222 | Yes |
 | `src/components/common/BottomSheet/BottomSheet.tsx` | 260 | Yes |
 | `src/components/common/ConfirmationDialog.tsx` | 234 | Yes |
 | `src/components/common/DatePicker.tsx` | 276 | Yes |
@@ -57,6 +58,9 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/competitionWizard/create/CompetitionDetailsStep.tsx` | 309 | Yes |
 | `src/components/competitionWizard/create/RoundDetailsStep/index.tsx` | 267 | Yes |
 | `src/components/competitionWizard/create/TeamFormatSelector.tsx` | 260 | Yes |
+| `src/components/courses/AddCourseModal/steps/HoleDataStep.tsx` | 352 | Yes |
+| `src/components/courses/AddCourseModal/steps/CourseTeesStep.tsx` | 323 | Yes |
+| `src/components/courses/CourseCard.tsx` | 290 | Yes |
 
 ---
 
@@ -70,15 +74,11 @@ All Tier 1 critical/complex components have been tested.
 
 All Tier 2 high priority components have been tested.
 
-### TIER 3: Medium Priority (200-399 lines) - 16 components
+### TIER 3: Medium Priority (200-399 lines) - 12 components
 
-#### Courses (4)
-| Component | Lines |
-|-----------|-------|
-| `HoleDataStep.tsx` | 352 |
-| `CourseTeesStep.tsx` | 323 |
-| `CourseCard.tsx` | 290 |
-| `AddCourseModal/index.tsx` | 222 |
+#### Courses (0)
+
+All Courses components in Tier 3 have been tested.
 
 #### Scorecard (3)
 | Component | Lines |
@@ -191,12 +191,12 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 41 | 27.9% |
+| Already Tested | 45 | 30.6% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
-| Tier 3 (Medium) | 16 | 10.9% |
+| Tier 3 (Medium) | 12 | 8.2% |
 | Tier 4 (Lower) | 45 | 30.6% |
-| **Total Needing Tests** | **105** | **71.4%** |
+| **Total Needing Tests** | **101** | **68.7%** |
 
 ---
 
@@ -249,6 +249,9 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/competitionWizard/create/CompetitionDetailsStep.test.tsx`
 - `src/components/competitionWizard/create/RoundDetailsStep/RoundDetailsStep.test.tsx`
 - `src/components/competitionWizard/create/TeamFormatSelector.test.tsx`
+- `src/components/courses/AddCourseModal/AddCourseModal.test.tsx`
+- `src/components/courses/AddCourseModal/steps/HoleDataStep.test.tsx`
+- `src/components/courses/AddCourseModal/steps/CourseTeesStep.test.tsx`
 
 ---
 
@@ -265,6 +268,10 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-25**: `AddCourseModal/index.tsx` - 70 tests, 35 stories (Tier 3)
+- **2024-12-25**: `CourseCard.tsx` - 68 tests, 33 stories (Tier 3)
+- **2024-12-25**: `CourseTeesStep.tsx` - 71 tests, 43 stories (Tier 3)
+- **2024-12-25**: `HoleDataStep.tsx` - 71 tests, 30 stories (Tier 3)
 - **2024-12-24**: `TeamFormatSelector.tsx` - 63 tests, 38 stories (Tier 3)
 - **2024-12-24**: `RoundDetailsStep/index.tsx` - 60 tests, 34 stories (Tier 3)
 - **2024-12-24**: `CompetitionDetailsStep.tsx` - 54 tests, 38 stories (Tier 3)

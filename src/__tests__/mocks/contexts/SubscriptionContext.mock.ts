@@ -29,13 +29,22 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxRoundsPerCompetition: 2,
     maxPlayersPerCompetition: 10,
     maxFriends: 10,
+    maxRoundsPlayed: 20, // 20 rounds for free tier
     allowedGameTypes: ['stableford'],
-    features: {
-      export_data: false,
-      advanced_stats: false,
-      scoring_pairs: false,
-      team_formats: false,
-    },
+    canUseTeamFormats: false,
+    canUseScoringPairs: false,
+    canExportData: false,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: false,
+    canViewAdvancedStats: false,
+    canCompareStats: false,
+    canAccessAdminTools: false,
+    requiresPayment: false,
+    canExpire: true,
+    displayName: 'Free',
+    description: 'Get started with basic golf competition features',
+    badgeColor: '#6b7280',
   },
   social: {
     tier: 'social',
@@ -43,13 +52,22 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxRoundsPerCompetition: 5,
     maxPlayersPerCompetition: 16,
     maxFriends: 50,
+    maxRoundsPlayed: -1, // unlimited
     allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose'],
-    features: {
-      export_data: false,
-      advanced_stats: true,
-      scoring_pairs: false,
-      team_formats: true,
-    },
+    canUseTeamFormats: false,
+    canUseScoringPairs: false,
+    canExportData: true,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: true,
+    canViewAdvancedStats: false,
+    canCompareStats: true,
+    canAccessAdminTools: false,
+    requiresPayment: true,
+    canExpire: true,
+    displayName: 'Social',
+    description: 'Perfect for casual golfers and social groups',
+    badgeColor: '#3b82f6',
   },
   premium: {
     tier: 'premium',
@@ -57,27 +75,45 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxRoundsPerCompetition: 10,
     maxPlayersPerCompetition: 40,
     maxFriends: -1, // unlimited
-    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'aggregate'],
-    features: {
-      export_data: true,
-      advanced_stats: true,
-      scoring_pairs: true,
-      team_formats: true,
-    },
+    maxRoundsPlayed: -1, // unlimited
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'scramble'],
+    canUseTeamFormats: true,
+    canUseScoringPairs: true,
+    canExportData: true,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: true,
+    canViewAdvancedStats: true,
+    canCompareStats: true,
+    canAccessAdminTools: false,
+    requiresPayment: true,
+    canExpire: true,
+    displayName: 'Premium',
+    description: 'Full-featured experience for serious competition organizers',
+    badgeColor: '#f59e0b',
   },
   super_admin: {
     tier: 'super_admin',
-    maxCompetitionsOwned: -1,
-    maxRoundsPerCompetition: -1,
-    maxPlayersPerCompetition: -1,
+    maxCompetitionsOwned: -2, // no system limit
+    maxRoundsPerCompetition: -2,
+    maxPlayersPerCompetition: -2,
     maxFriends: -1,
-    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'aggregate'],
-    features: {
-      export_data: true,
-      advanced_stats: true,
-      scoring_pairs: true,
-      team_formats: true,
-    },
+    maxRoundsPlayed: -2, // no system limit
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'scramble'],
+    canUseTeamFormats: true,
+    canUseScoringPairs: true,
+    canExportData: true,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: true,
+    canViewAdvancedStats: true,
+    canCompareStats: true,
+    canAccessAdminTools: true,
+    requiresPayment: false,
+    canExpire: false,
+    displayName: 'Super Admin',
+    description: 'Internal team accounts with full system access',
+    badgeColor: '#dc2626',
   },
 };
 
@@ -117,45 +153,73 @@ export function createMockSubscriptionContext(tier: MockTier = 'premium') {
 
     // Feature checking
     checkFeature: jest.fn((featureId: FeatureId): FeatureAccess => {
-      const featureAllowed = limits.features[featureId as keyof typeof limits.features];
+      const featureMap: Record<string, boolean> = {
+        export_data: limits.canExportData,
+        advanced_stats: limits.canViewAdvancedStats,
+        scoring_pairs: limits.canUseScoringPairs,
+        team_formats: limits.canUseTeamFormats,
+        basic_stats: limits.canViewBasicStats,
+        score_distribution: limits.canViewScoreDistribution,
+        compare_stats: limits.canCompareStats,
+        admin_tools: limits.canAccessAdminTools,
+      };
+      const featureAllowed = featureMap[featureId] ?? true;
       return {
-        allowed: featureAllowed ?? true,
-        reason: featureAllowed ? null : `Upgrade required for ${featureId}`,
-        requiredTier: featureAllowed ? null : 'premium',
+        allowed: featureAllowed,
+        reason: featureAllowed ? undefined : `Upgrade required for ${featureId}`,
+        requiredTier: featureAllowed ? undefined : 'premium',
+        upgradeRequired: !featureAllowed,
+        currentValue: 0,
+        limitValue: -1,
       };
     }),
 
     // Convenience methods
     checkCanCreateCompetition: jest.fn((currentCount: number): FeatureAccess => {
       const max = limits.maxCompetitionsOwned;
-      const allowed = max === -1 || currentCount < max;
+      const allowed = max === -1 || max === -2 || currentCount < max;
       return {
         allowed,
-        reason: allowed ? null : `Competition limit reached (${max})`,
-        currentCount,
-        limit: max,
+        reason: allowed ? undefined : `Competition limit reached (${max})`,
+        upgradeRequired: !allowed,
+        currentValue: currentCount,
+        limitValue: max,
       };
     }),
 
     checkCanAddRound: jest.fn((_compId: string, currentCount: number): FeatureAccess => {
       const max = limits.maxRoundsPerCompetition;
-      const allowed = max === -1 || currentCount < max;
+      const allowed = max === -1 || max === -2 || currentCount < max;
       return {
         allowed,
-        reason: allowed ? null : `Round limit reached (${max})`,
-        currentCount,
-        limit: max,
+        reason: allowed ? undefined : `Round limit reached (${max})`,
+        upgradeRequired: !allowed,
+        currentValue: currentCount,
+        limitValue: max,
       };
     }),
 
     checkCanAddPlayer: jest.fn((_compId: string, currentCount: number): FeatureAccess => {
       const max = limits.maxPlayersPerCompetition;
-      const allowed = max === -1 || currentCount < max;
+      const allowed = max === -1 || max === -2 || currentCount < max;
       return {
         allowed,
-        reason: allowed ? null : `Player limit reached (${max})`,
-        currentCount,
-        limit: max,
+        reason: allowed ? undefined : `Player limit reached (${max})`,
+        upgradeRequired: !allowed,
+        currentValue: currentCount,
+        limitValue: max,
+      };
+    }),
+
+    checkCanPlayRound: jest.fn((currentCount: number): FeatureAccess => {
+      const max = limits.maxRoundsPlayed;
+      const allowed = max === -1 || max === -2 || currentCount < max;
+      return {
+        allowed,
+        reason: allowed ? undefined : `Rounds played limit reached (${max})`,
+        upgradeRequired: !allowed,
+        currentValue: currentCount,
+        limitValue: max,
       };
     }),
 
@@ -163,8 +227,11 @@ export function createMockSubscriptionContext(tier: MockTier = 'premium') {
       const allowed = limits.allowedGameTypes.includes(gameType as any);
       return {
         allowed,
-        reason: allowed ? null : `${gameType} not available on ${tier} tier`,
-        requiredTier: allowed ? null : 'social',
+        reason: allowed ? undefined : `${gameType} not available on ${tier} tier`,
+        requiredTier: allowed ? undefined : 'social',
+        upgradeRequired: !allowed,
+        currentValue: 0,
+        limitValue: -1,
       };
     }),
 

@@ -24,7 +24,7 @@ import {
 } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { LoadingSpinner, OfflineIndicator } from '@/components/common';
+import { LoadingSpinner, OfflineIndicator, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
@@ -60,6 +60,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Debug panel state
   const { debugModeEnabled } = useDebugMode();
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  // Leave confirmation dialog state
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+
+  // Submit confirmation dialog state
+  const [showIncompleteDialog, setShowIncompleteDialog] = useState(false);
+  const [showSubmitErrorDialog, setShowSubmitErrorDialog] = useState(false);
+  const [completedHolesCount, setCompletedHolesCount] = useState(0);
 
   // Core scorecard store
   const {
@@ -162,24 +170,17 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Navigation handlers
   const handleBackPress = useCallback(() => {
     if (pendingSyncCount > 0) {
-      Alert.alert(
-        'Unsaved Changes',
-        `You have ${pendingSyncCount} unsaved change${pendingSyncCount !== 1 ? 's' : ''}. Your progress will be saved.`,
-        [
-          { text: 'Stay', style: 'cancel' },
-          {
-            text: 'Save & Leave',
-            onPress: () => {
-              triggerSync();
-              navigation.goBack();
-            },
-          },
-        ]
-      );
+      setShowLeaveDialog(true);
     } else {
       navigation.goBack();
     }
-  }, [pendingSyncCount, navigation, triggerSync]);
+  }, [pendingSyncCount, navigation]);
+
+  const handleLeaveConfirm = useCallback(() => {
+    setShowLeaveDialog(false);
+    triggerSync();
+    navigation.goBack();
+  }, [triggerSync, navigation]);
 
   const handlePreviousHole = useCallback(() => {
     if (currentHole > 1) {
@@ -270,6 +271,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   // Submit handlers
   const performSubmit = useCallback(async () => {
+    setShowIncompleteDialog(false);
     scoringLogger.info('SUBMIT: Starting scorecard submission', {
       roundId: roundId?.substring(0, 8),
       competitionId: competitionId?.substring(0, 8),
@@ -285,11 +287,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       });
     } catch (error) {
       scoringLogger.error('SUBMIT: Scorecard submission failed', error);
-      Alert.alert(
-        'Submit Failed',
-        'Failed to submit scorecards. Your scores are saved locally and will sync when connection is restored.',
-        [{ text: 'OK' }]
-      );
+      setShowSubmitErrorDialog(true);
     }
   }, [submitScorecards, navigation, roundId, competitionId, holes, currentPlayers.length]);
 
@@ -301,14 +299,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       isComplete: completedCount === 18,
     });
     if (completedCount < 18) {
-      Alert.alert(
-        'Incomplete Round',
-        `You have only completed ${completedCount} of 18 holes. Submit anyway?`,
-        [
-          { text: 'Continue Scoring', style: 'cancel' },
-          { text: 'Submit', onPress: performSubmit },
-        ]
-      );
+      setCompletedHolesCount(completedCount);
+      setShowIncompleteDialog(true);
     } else {
       await performSubmit();
     }
@@ -671,6 +663,42 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         teams={teams}
         scoringPairsEnabled={scoringPairsEnabled}
         playersToScore={playersToScore}
+      />
+
+      {/* Leave Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showLeaveDialog}
+        title="Unsaved Changes"
+        message={`You have ${pendingSyncCount} unsaved change${pendingSyncCount !== 1 ? 's' : ''}. Your progress will be saved automatically.`}
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        onConfirm={handleLeaveConfirm}
+        onCancel={() => setShowLeaveDialog(false)}
+        icon="content-save-outline"
+      />
+
+      {/* Incomplete Round Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showIncompleteDialog}
+        title="Incomplete Round"
+        message={`You have only completed ${completedHolesCount} of 18 holes. Submit anyway?`}
+        confirmLabel="Submit"
+        cancelLabel="Continue Scoring"
+        onConfirm={performSubmit}
+        onCancel={() => setShowIncompleteDialog(false)}
+        icon="alert-circle-outline"
+      />
+
+      {/* Submit Error Dialog */}
+      <ConfirmationDialog
+        visible={showSubmitErrorDialog}
+        title="Submit Failed"
+        message="Failed to submit scorecards. Your scores are saved locally and will sync when connection is restored."
+        confirmLabel="OK"
+        cancelLabel="Dismiss"
+        onConfirm={() => setShowSubmitErrorDialog(false)}
+        onCancel={() => setShowSubmitErrorDialog(false)}
+        icon="cloud-off-outline"
       />
     </SafeAreaView>
   );

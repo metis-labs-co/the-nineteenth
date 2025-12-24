@@ -53,6 +53,7 @@ export interface TierLimits {
   max_rounds_per_competition: number;
   max_players_per_competition: number;
   max_friends: number;
+  max_rounds_played: number; // Max rounds user can participate in
 
   // Feature access - Game types & formats
   allowed_game_types: GameType[]; // Array of allowed game types

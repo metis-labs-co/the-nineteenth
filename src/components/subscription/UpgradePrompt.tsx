@@ -309,7 +309,7 @@ export const UpgradePrompt = React.memo(function UpgradePrompt({
           <TouchableOpacity
             style={[
               styles.upgradeButton,
-              { backgroundColor: tierColor },
+              { backgroundColor: colors.primary },
             ]}
             onPress={handleUpgrade}
             activeOpacity={0.7}
@@ -317,8 +317,8 @@ export const UpgradePrompt = React.memo(function UpgradePrompt({
             accessibilityLabel={`Upgrade to ${tierName}`}
             accessibilityHint="Opens subscription options"
           >
-            <Icon source="arrow-up-circle" size={20} color={colors.textOnColored} />
-            <Text style={[styles.upgradeButtonText, { color: colors.textOnColored }]}>
+            <Icon source="arrow-up-circle" size={20} color={colors.white} />
+            <Text style={[styles.upgradeButtonText, { color: colors.white }]}>
               Upgrade to {tierName}
             </Text>
           </TouchableOpacity>

@@ -154,6 +154,24 @@ export function useTierLimits(): TierLimits | null {
 }
 
 /**
+ * Get the maximum rounds the user can play
+ * Returns -1 for unlimited, or the numeric limit
+ */
+export function useMaxRoundsPlayed(): number {
+  return useSubscriptionStore((state) => state.limits?.maxRoundsPlayed ?? 20);
+}
+
+/**
+ * Check if user has unlimited rounds (paid tier)
+ */
+export function useHasUnlimitedRounds(): boolean {
+  return useSubscriptionStore((state) => {
+    const limit = state.limits?.maxRoundsPlayed ?? 20;
+    return limit === -1 || limit === -2;
+  });
+}
+
+/**
  * Check if subscription data is stale and needs refresh
  * Data is considered stale after 1 hour
  */

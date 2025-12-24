@@ -135,6 +135,7 @@ export interface TierLimits {
   maxRoundsPerCompetition: number;
   maxPlayersPerCompetition: number;
   maxFriends: number;
+  maxRoundsPlayed: number; // Max rounds user can participate in
 
   // Feature access - Game types & formats
   allowedGameTypes: GameType[];
@@ -329,6 +330,7 @@ export function mapDBTierLimits(db: DBTierLimits): TierLimits {
     maxRoundsPerCompetition: db.max_rounds_per_competition,
     maxPlayersPerCompetition: db.max_players_per_competition,
     maxFriends: db.max_friends,
+    maxRoundsPlayed: db.max_rounds_played,
     allowedGameTypes: db.allowed_game_types,
     canUseTeamFormats: db.can_use_team_formats,
     canUseScoringPairs: db.can_use_scoring_pairs,
