@@ -8,7 +8,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { Logo } from '@/components/common/Logo';
+import { LogoHorizontal } from '@/components/common';
 import { OnboardingCard } from './OnboardingCard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -20,13 +20,8 @@ export function WelcomeStep({ onNext }: StepProps) {
   return (
     <OnboardingCard
       illustration={
-        <View
-          style={[
-            styles.logoContainer,
-            { backgroundColor: colors.primaryLight },
-          ]}
-        >
-          <Logo size={80} color={colors.primary} />
+        <View style={styles.logoContainer}>
+          <LogoHorizontal width={260} />
         </View>
       }
       title="Welcome to The Nineteenth"
@@ -50,11 +45,9 @@ export function WelcomeStep({ onNext }: StepProps) {
 
 const styles = StyleSheet.create({
   logoContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: spacing.lg,
   },
   nextButton: {
     flexDirection: 'row',
