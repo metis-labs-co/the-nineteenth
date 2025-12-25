@@ -9,8 +9,7 @@ import {
 import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Logo } from '@/components/common/Logo';
-import { FormInput } from '@/components/common';
+import { FormInput, LogoHorizontal } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
@@ -245,7 +244,7 @@ export default function LoginScreen({ navigation }: Props) {
           <View style={styles.container}>
             {/* Logo */}
             <View style={styles.logoContainer}>
-              <Logo size={64} color={colors.primary} strokeWidth={2} />
+              <LogoHorizontal width={240} />
             </View>
 
             {/* Header Section */}

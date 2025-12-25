@@ -74,6 +74,9 @@ importers:
       expo-linear-gradient:
         specifier: ~15.0.8
         version: 15.0.8(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-linking:
+        specifier: ^8.0.11
+        version: 8.0.11(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-location:
         specifier: ~19.0.8
         version: 19.0.8(expo@54.0.30)
@@ -3625,8 +3628,8 @@ packages:
       react: '*'
       react-native: '*'
 
-  expo-linking@8.0.8:
-    resolution: {integrity: sha512-MyeMcbFDKhXh4sDD1EHwd0uxFQNAc6VCrwBkNvvvufUsTYFq3glTA9Y8a+x78CPpjNqwNAamu74yIaIz7IEJyg==}
+  expo-linking@8.0.11:
+    resolution: {integrity: sha512-+VSaNL5om3kOp/SSKO5qe6cFgfSIWnnQDSbA7XLs3ECkYzXRquk5unxNS3pg7eK5kNUmQ4kgLI7MhTggAEUBLA==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -7452,7 +7455,7 @@ snapshots:
       wrap-ansi: 7.0.0
       ws: 8.18.3
     optionalDependencies:
-      expo-router: 6.0.14(7c00c95cc45fae1af993d9c46a08cabf)
+      expo-router: 6.0.14(470719207763314275d62812fcc1a3f1)
       react-native: 0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0)
     transitivePeerDependencies:
       - bufferutil
@@ -10980,7 +10983,7 @@ snapshots:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0)
 
-  expo-linking@8.0.8(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+  expo-linking@8.0.11(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
       expo-constants: 18.0.12(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))
       invariant: 2.2.4
@@ -10989,7 +10992,6 @@ snapshots:
     transitivePeerDependencies:
       - expo
       - supports-color
-    optional: true
 
   expo-location@19.0.8(expo@54.0.30):
     dependencies:
@@ -11009,7 +11011,7 @@ snapshots:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0)
 
-  expo-router@6.0.14(7c00c95cc45fae1af993d9c46a08cabf):
+  expo-router@6.0.14(470719207763314275d62812fcc1a3f1):
     dependencies:
       '@expo/metro-runtime': 6.1.2(expo@54.0.30)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@expo/schema-utils': 0.1.8
@@ -11023,7 +11025,7 @@ snapshots:
       escape-string-regexp: 4.0.0
       expo: 54.0.30(@babel/core@7.28.5)(@expo/metro-runtime@6.1.2)(expo-router@6.0.14)(graphql@15.8.0)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-constants: 18.0.12(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))
-      expo-linking: 8.0.8(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-linking: 8.0.11(expo@54.0.30)(react-native@0.81.5(@babel/core@7.28.5)(@react-native-community/cli@12.3.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-server: 1.0.5
       fast-deep-equal: 3.1.3
       invariant: 2.2.4

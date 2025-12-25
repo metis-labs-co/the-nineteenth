@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "golf.thenineteenth",
-      "buildNumber": "4",
+      "buildNumber": "6",
       "appleTeamId": "9D3K8VW249",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",

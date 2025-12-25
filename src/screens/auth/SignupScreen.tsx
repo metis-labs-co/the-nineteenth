@@ -10,7 +10,7 @@ import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconMail } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { PageHeader, FormInput } from '@/components/common';
+import { PageHeader, FormInput, LogoHorizontal } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
@@ -247,6 +247,11 @@ export default function SignupScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+              <LogoHorizontal width={200} />
+            </View>
+
             {/* Header Section */}
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.textPrimary }]}>Create Account</Text>
@@ -398,11 +403,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   header: {
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   title: {
     ...typography.h2,

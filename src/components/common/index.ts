@@ -51,3 +51,4 @@ export type {
   SelectedPlayerChipProps,
   FriendListItemProps,
 } from './FriendSelector';
+export { LogoHorizontal } from './LogoHorizontal';
