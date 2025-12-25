@@ -397,11 +397,20 @@ class RevenueCatSubscriptionProvider implements SubscriptionProvider {
    * Get the RevenueCat API key for the current platform
    */
   private getApiKey(): string | null {
+    const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ?? null;
+    const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? null;
+
+    console.log('[RevenueCatSubscriptionProvider] getApiKey called:', {
+      platform: Platform.OS,
+      iosKeyPresent: !!iosKey,
+      androidKeyPresent: !!androidKey,
+    });
+
     if (Platform.OS === 'ios') {
-      return process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ?? null;
+      return iosKey;
     }
     if (Platform.OS === 'android') {
-      return process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? null;
+      return androidKey;
     }
     return null;
   }
@@ -748,7 +757,15 @@ class RevenueCatSubscriptionProvider implements SubscriptionProvider {
 
   supportsPurchases(): boolean {
     // Support purchases on iOS and Android when initialized
-    return (Platform.OS === 'ios' || Platform.OS === 'android') && this.initialized;
+    const platformSupported = Platform.OS === 'ios' || Platform.OS === 'android';
+    const result = platformSupported && this.initialized;
+    console.log('[RevenueCatSubscriptionProvider] supportsPurchases:', {
+      platform: Platform.OS,
+      platformSupported,
+      initialized: this.initialized,
+      result,
+    });
+    return result;
   }
 }
 
@@ -887,8 +904,16 @@ export function createSubscriptionProvider(type: ProviderType): SubscriptionProv
  * const result = await subscriptionService.getCurrentSubscription(userId);
  * ```
  */
-export const subscriptionService: SubscriptionProvider = createSubscriptionProvider(
-  process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ? 'revenuecat' : 'manual'
-);
+const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+const providerType: ProviderType = revenueCatApiKey ? 'revenuecat' : 'manual';
+
+// Debug logging for subscription service initialization
+console.log('[SubscriptionService] Initializing with provider:', providerType);
+console.log('[SubscriptionService] RevenueCat API key present:', !!revenueCatApiKey);
+if (revenueCatApiKey) {
+  console.log('[SubscriptionService] API key (first 8 chars):', revenueCatApiKey.substring(0, 8) + '...');
+}
+
+export const subscriptionService: SubscriptionProvider = createSubscriptionProvider(providerType);
 
 export default subscriptionService;

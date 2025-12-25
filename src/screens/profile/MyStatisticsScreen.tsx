@@ -228,6 +228,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         </View>
 
         {/* Round Type Breakdown */}
+        <View style={styles.sectionGap} />
         <SectionHeader title="Round Breakdown" icon="chart-pie" />
         <View style={styles.statsGrid}>
           <StatCard
@@ -247,6 +248,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         </View>
 
         {/* Averages */}
+        <View style={styles.sectionGap} />
         <SectionHeader title="Averages" icon="chart-line" />
         <View style={styles.statsGrid}>
           <StatCard
@@ -282,6 +284,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* Putting, FIR, GIR Stats - Shown based on user settings */}
         {(showPutts || showFairwayHit || showGreenInRegulation) && (
           <>
+            <View style={styles.sectionGap} />
             <SectionHeader title="Game Stats" icon="golf" />
             <View style={styles.statsGrid}>
               {/* Putting Stats */}
@@ -355,6 +358,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* Recent Rounds - Basic activity (always visible) */}
         {stats.recentRounds.length > 0 && (
           <>
+            <View style={styles.sectionGap} />
             <SectionHeader title="Recent Activity" icon="history" />
             <View style={[styles.listCard, { backgroundColor: cardBg }, shadows.sm]}>
               {stats.recentRounds.map((round, index) => (
@@ -377,6 +381,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* SECTION 2: SCORE DISTRIBUTION - Social+ tier */}
         {/* ============================================== */}
 
+        <View style={styles.sectionGap} />
         <SectionHeader title="Score Distribution" icon="chart-bar" />
         <FeatureLock
           feature="score_distribution"
@@ -430,6 +435,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* Performance Trend Chart */}
         {stats.recentRounds.length > 0 && (
           <>
+            <View style={styles.sectionGap} />
             <SectionHeader title="Performance Trend" icon="trending-up" />
             <FeatureLock
               feature="advanced_stats"
@@ -442,6 +448,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         )}
 
         {/* Best Performances */}
+        <View style={styles.sectionGap} />
         <SectionHeader title="Best Performances" icon="medal" />
         <FeatureLock
           feature="advanced_stats"
@@ -484,6 +491,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* Favourite Course */}
         {stats.favouriteCourse && (
           <>
+            <View style={styles.sectionGap} />
             <SectionHeader title="Favourite Course" icon="heart" />
             <FeatureLock
               feature="advanced_stats"
@@ -503,6 +511,7 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         {/* Other Courses Played */}
         {stats.courseStats.length > 1 && (
           <>
+            <View style={styles.sectionGap} />
             <SectionHeader title="Courses Played" icon="map-marker-multiple" />
             <FeatureLock
               feature="advanced_stats"
@@ -566,6 +575,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.massive,
+  },
+
+  // Section Gap
+  sectionGap: {
+    marginTop: spacing.xl,
   },
 
   // Stats Grid

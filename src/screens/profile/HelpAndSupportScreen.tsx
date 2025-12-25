@@ -31,16 +31,20 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { ExpandableItem, ExpandableList } from '@/components/common/ExpandableItem';
+import { supabase } from '@/services/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import {
   APP_NAME,
   APP_VERSION,
   APP_TAGLINE,
   SUPPORT_EMAIL,
+  CONTACT_EMAIL,
   CONTACT_SUBJECT_MAX_LENGTH,
   CONTACT_MESSAGE_MAX_LENGTH,
   CONTACT_MESSAGE_MIN_LENGTH,
   FAQ_DATA,
   INQUIRY_OPTIONS,
+  getEmailForInquiryType,
   type InquiryType,
 } from '@/constants/app';
 
@@ -205,6 +209,7 @@ export default function HelpAndSupportScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+  const { player } = useAuth();
 
   // FAQ state
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
@@ -221,42 +226,62 @@ export default function HelpAndSupportScreen() {
     setExpandedFAQ((current) => (current === id ? null : id));
   }, []);
 
-  const handleEmailSupport = useCallback(() => {
-    const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=Support Request`;
-    Linking.openURL(mailtoUrl).catch(() => {
-      Alert.alert(
-        'Cannot Open Email',
-        `Please email us directly at ${SUPPORT_EMAIL}`,
-        [{ text: 'OK' }]
-      );
-    });
-  }, []);
+  const handleEmailSupport = useCallback(
+    (email: string = SUPPORT_EMAIL) => {
+      const mailtoUrl = `mailto:${email}?subject=Support Request`;
+      Linking.openURL(mailtoUrl).catch(() => {
+        Alert.alert('Cannot Open Email', `Please email us directly at ${email}`, [
+          { text: 'OK' },
+        ]);
+      });
+    },
+    []
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!form.validate()) return;
+    if (!form.inquiryType) return;
 
     form.setIsSubmitting(true);
 
-    // TODO: Replace with actual API call to support system
-    // Example: await supabase.from('support_tickets').insert({ ... })
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const { data, error } = await supabase.functions.invoke('send-support-email', {
+        body: {
+          inquiry_type: form.inquiryType,
+          subject: form.subject.trim(),
+          message: form.message.trim(),
+          user_email: player?.email,
+          user_name: player?.name || undefined,
+          app_version: APP_VERSION,
+          platform: Platform.OS,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to send email');
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to send email');
+      }
 
       Alert.alert(
         'Message Sent',
         "Thank you for your feedback! We'll get back to you as soon as possible.",
         [{ text: 'OK', onPress: form.resetForm }]
       );
-    } catch {
+    } catch (err) {
+      console.error('[HelpAndSupportScreen] Failed to send support email:', err);
+      const targetEmail = getEmailForInquiryType(form.inquiryType);
       Alert.alert(
         'Error',
-        'Failed to send your message. Please try again or email us directly.',
+        `Failed to send your message. Please try again or email us directly at ${targetEmail}.`,
         [{ text: 'OK' }]
       );
     } finally {
       form.setIsSubmitting(false);
     }
-  }, [form]);
+  }, [form, player]);
 
   // Memoized styles for dynamic colors
   const dynamicStyles = useMemo(
@@ -419,12 +444,22 @@ export default function HelpAndSupportScreen() {
                 You can also email us directly at{' '}
                 <Text
                   style={[styles.emailLink, { color: colors.primary }]}
-                  onPress={handleEmailSupport}
+                  onPress={() =>
+                    handleEmailSupport(
+                      form.inquiryType ? getEmailForInquiryType(form.inquiryType) : SUPPORT_EMAIL
+                    )
+                  }
                   accessibilityRole="link"
-                  accessibilityLabel={`Email support at ${SUPPORT_EMAIL}`}
+                  accessibilityLabel={`Email ${form.inquiryType ? getEmailForInquiryType(form.inquiryType) : SUPPORT_EMAIL}`}
                 >
-                  {SUPPORT_EMAIL}
+                  {form.inquiryType ? getEmailForInquiryType(form.inquiryType) : SUPPORT_EMAIL}
                 </Text>
+                {form.inquiryType && (
+                  <Text style={{ color: colors.textTertiary }}>
+                    {' '}
+                    for {INQUIRY_OPTIONS.find((o) => o.type === form.inquiryType)?.label.toLowerCase()}
+                  </Text>
+                )}
               </Text>
             </View>
           </View>

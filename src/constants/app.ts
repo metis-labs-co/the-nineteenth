@@ -10,13 +10,14 @@ export const APP_NAME = 'The Nineteenth';
 export const APP_VERSION = '0.1.0';
 export const APP_TAGLINE = 'Made with \u26f3 in Australia';
 
-// Support
-export const SUPPORT_EMAIL = 'support@thenineteenth.app';
-export const SUPPORT_URL = 'https://thenineteenth.app/support';
+// Support Emails
+export const SUPPORT_EMAIL = 'support@thenineteenth.golf';
+export const CONTACT_EMAIL = 'contact@thenineteenth.golf';
+export const SUPPORT_URL = 'https://thenineteenth.golf/support';
 
 // External Links
-export const PRIVACY_POLICY_URL = 'https://thenineteenth.app/privacy';
-export const TERMS_OF_SERVICE_URL = 'https://thenineteenth.app/terms';
+export const PRIVACY_POLICY_URL = 'https://thenineteenth.golf/privacy';
+export const TERMS_OF_SERVICE_URL = 'https://thenineteenth.golf/terms';
 
 // Contact Form
 export const CONTACT_SUBJECT_MAX_LENGTH = 100;
@@ -98,6 +99,7 @@ export interface InquiryOption {
   label: string;
   icon: string;
   description: string;
+  email: typeof SUPPORT_EMAIL | typeof CONTACT_EMAIL;
 }
 
 export const INQUIRY_OPTIONS: InquiryOption[] = [
@@ -106,23 +108,35 @@ export const INQUIRY_OPTIONS: InquiryOption[] = [
     label: 'Report a Bug',
     icon: 'bug',
     description: 'Something not working correctly',
+    email: SUPPORT_EMAIL,
   },
   {
     type: 'feature',
     label: 'Feature Request',
     icon: 'lightbulb-on',
     description: 'Suggest a new feature',
+    email: CONTACT_EMAIL,
   },
   {
     type: 'general',
     label: 'General Inquiry',
     icon: 'help-circle',
     description: 'Questions or feedback',
+    email: CONTACT_EMAIL,
   },
   {
     type: 'account',
     label: 'Account Issue',
     icon: 'account-alert',
     description: 'Login, profile, or subscription',
+    email: SUPPORT_EMAIL,
   },
 ];
+
+/**
+ * Get the appropriate email address for an inquiry type
+ */
+export function getEmailForInquiryType(type: InquiryType): string {
+  const option = INQUIRY_OPTIONS.find((opt) => opt.type === type);
+  return option?.email ?? SUPPORT_EMAIL;
+}

@@ -315,10 +315,17 @@ export default function SubscriptionScreen({ navigation }: Props) {
     if (purchasesEnabled) {
       setShowPaywall(true);
     } else {
-      // In development/Expo Go, show an alert explaining IAP isn't available
+      // Show an alert explaining IAP isn't available with debug info
+      const debugInfo = __DEV__
+        ? '\n\n[Debug] This may be because RevenueCat failed to initialize. Check logs for details.'
+        : '';
       Alert.alert(
         'Purchases Not Available',
-        'In-app purchases require a native build (TestFlight or App Store). This feature cannot be tested in Expo Go.\n\nTo test purchases:\n1. Build with EAS: eas build --profile preview\n2. Install on device via TestFlight',
+        `In-app purchases are not currently available. This could be because:\n\n` +
+        `• The app is running in Expo Go (use TestFlight instead)\n` +
+        `• RevenueCat is still initializing (try again in a moment)\n` +
+        `• There was an initialization error\n\n` +
+        `If you're in TestFlight and this persists, please contact support.${debugInfo}`,
         [{ text: 'OK' }]
       );
     }
