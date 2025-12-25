@@ -8,7 +8,8 @@ import {
   StyleSheet,
   Switch,
 } from 'react-native';
-import { Text, Icon, Divider, Avatar } from 'react-native-paper';
+import { Text, Icon, Divider } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { TeamFormatSelector } from '@/components/competitionWizard/create';
@@ -60,16 +61,11 @@ const TeamPreviewCard = memo(function TeamPreviewCard({ team }: TeamPreviewCardP
               index > 0 && styles.avatarOverlap,
             ]}
           >
-            {member.player?.photo_url ? (
-              <Avatar.Image size={28} source={{ uri: member.player.photo_url }} />
-            ) : (
-              <Avatar.Text
-                size={28}
-                label={getInitials(member.player?.name || '?')}
-                style={{ backgroundColor: colors.primary }}
-                labelStyle={{ color: colors.white, ...typography.caption, fontSize: 10 }}
-              />
-            )}
+            <PlayerAvatar
+              photoUrl={member.player?.photo_url}
+              name={member.player?.name}
+              size={28}
+            />
           </View>
         ))}
         {team.members.length > 3 && (

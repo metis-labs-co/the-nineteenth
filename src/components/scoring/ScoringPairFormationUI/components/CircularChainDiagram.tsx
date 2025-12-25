@@ -6,7 +6,8 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Avatar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import {
   IconArrowRight,
   IconRotateClockwise,
@@ -21,7 +22,7 @@ import {
 } from '@/constants/theme';
 import type { Player } from '@/types/database.types';
 import type { ScoringPairCreateInput } from '@/types';
-import { getInitials, buildCircularChainOrder } from '../utils';
+import { buildCircularChainOrder } from '../utils';
 
 interface CircularChainDiagramProps {
   pairs: ScoringPairCreateInput[];
@@ -63,23 +64,12 @@ export const CircularChainDiagram = React.memo(function CircularChainDiagram({
           <View key={player.id} style={styles.chainItem}>
             {/* Player chip */}
             <View style={styles.playerChip}>
-              {player.photo_url ? (
-                <Avatar.Image
-                  size={28}
-                  source={{ uri: player.photo_url }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <Avatar.Text
-                  size={28}
-                  label={getInitials(player.name)}
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  labelStyle={{ color: colors.textInverse, fontSize: 11 }}
-                />
-              )}
+              <PlayerAvatar
+                photoUrl={player.photo_url}
+                name={player.name}
+                size={28}
+                style={styles.avatar}
+              />
               <Text
                 style={styles.playerName}
                 numberOfLines={1}

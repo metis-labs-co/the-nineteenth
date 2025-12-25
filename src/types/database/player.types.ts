@@ -18,8 +18,23 @@ export interface Player {
   golf_id: string | null; // 10-digit Golf Australia ID (formerly GOLF Link number)
   handicap_updated_at: string | null; // ISO timestamp when handicap was last updated
   photo_url: string | null;
+  // Push notification preferences
+  push_enabled: boolean; // Global toggle for all push notifications
+  push_competition_updates: boolean; // Competition-related notifications
+  push_friend_requests: boolean; // Friend request notifications
+  push_scorecard_updates: boolean; // Scorecard notifications
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
+}
+
+/**
+ * Push notification preferences (extracted for convenience)
+ */
+export interface PushPreferences {
+  push_enabled: boolean;
+  push_competition_updates: boolean;
+  push_friend_requests: boolean;
+  push_scorecard_updates: boolean;
 }
 
 /**

@@ -8,7 +8,8 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { Card, Text, Avatar, IconButton, Divider } from 'react-native-paper';
+import { Card, Text, IconButton, Divider } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows, layout, type ColorPalette } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -269,20 +270,12 @@ const MemberRow = React.memo(function MemberRow({ player, isLast, colors }: Memb
       accessibilityRole="text"
       accessibilityLabel={`${player.name}, Handicap: ${player.handicap ?? 'N/A'}`}
     >
-      {player.photo_url ? (
-        <Avatar.Image
-          size={36}
-          source={{ uri: player.photo_url }}
-          style={styles.avatar}
-        />
-      ) : (
-        <Avatar.Text
-          size={36}
-          label={initials}
-          style={[styles.avatar, { backgroundColor: colors.primary }]}
-          labelStyle={styles.avatarLabel}
-        />
-      )}
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={36}
+        style={styles.avatar}
+      />
 
       <View style={styles.memberInfo}>
         <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">

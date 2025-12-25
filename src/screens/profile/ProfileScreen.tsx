@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
-import { LoadingSpinner } from '@/components/common';
-import { Text, Avatar, Icon } from 'react-native-paper';
+import { LoadingSpinner, PlayerAvatar } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -117,20 +117,19 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
       >
         {/* User Info Card */}
-        <View style={[styles.userCard, { backgroundColor: colors.surface }]}>
-          {player?.photo_url ? (
-            <Avatar.Image
-              size={64}
-              source={{ uri: player.photo_url }}
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
-            />
-          ) : (
-            <Avatar.Icon
-              size={64}
-              icon="account"
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
-            />
-          )}
+        <TouchableOpacity
+          style={[styles.userCard, { backgroundColor: colors.surface }]}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('EditProfile')}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+          accessibilityHint="Tap to edit your profile"
+        >
+          <PlayerAvatar
+            photoUrl={player?.photo_url}
+            name={displayName}
+            size={64}
+          />
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: colors.textPrimary }]}>{displayName}</Text>
             <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{displayEmail}</Text>
@@ -140,7 +139,8 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
-        </View>
+          <Icon source="chevron-right" size={20} color={colors.gray400} />
+        </TouchableOpacity>
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -185,6 +185,13 @@ export default function ProfileScreen() {
               label="Settings"
               onPress={() => {
                 navigation.navigate('Settings');
+              }}
+            />
+            <MenuItem
+              icon="bell-outline"
+              label="Push Notifications"
+              onPress={() => {
+                navigation.navigate('NotificationSettings');
               }}
             />
             <MenuItem

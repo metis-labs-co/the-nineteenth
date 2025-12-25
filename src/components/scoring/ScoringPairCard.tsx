@@ -1,7 +1,8 @@
 // src/components/scoring/ScoringPairCard.tsx
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Text, Avatar, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Player } from '@/types';
@@ -71,19 +72,11 @@ export const ScoringPairCard = React.memo(function ScoringPairCard({
         accessibilityLabel={accessibilityLabel}
       >
         {/* Avatar */}
-        {player.photoUrl ? (
-          <Avatar.Image
-            size={44}
-            source={{ uri: player.photoUrl }}
-            style={{ backgroundColor: colors.primary }}
-          />
-        ) : (
-          <Avatar.Icon
-            size={44}
-            icon="account"
-            style={{ backgroundColor: colors.primary }}
-          />
-        )}
+        <PlayerAvatar
+          photoUrl={player.photoUrl}
+          name={player.name}
+          size={44}
+        />
 
         {/* Name and Handicap */}
         <View style={styles.playerInfo}>

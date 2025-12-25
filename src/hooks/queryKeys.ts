@@ -225,6 +225,17 @@ export const aiKeys = {
 } as const;
 
 // =====================================================
+// PUSH NOTIFICATIONS
+// =====================================================
+
+export const pushKeys = {
+  all: ['push'] as const,
+  tokens: (userId: string) => [...pushKeys.all, 'tokens', userId] as const,
+  preferences: (userId: string) => [...pushKeys.all, 'preferences', userId] as const,
+  permissionStatus: () => [...pushKeys.all, 'permission'] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -257,4 +268,5 @@ export const allQueryKeys = [
   notificationKeys.all,
   subscriptionKeys.all,
   aiKeys.all,
+  pushKeys.all,
 ] as const;

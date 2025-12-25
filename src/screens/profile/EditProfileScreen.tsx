@@ -19,8 +19,10 @@ import {
   FormInput,
   BottomSheet,
   ConfirmationDialog,
+  PlayerAvatar,
+  AvatarSelectionModal,
 } from '@/components/common';
-import { Text, Avatar, Icon, Snackbar } from 'react-native-paper';
+import { Text, Icon, Snackbar } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +32,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatAvatarUrl } from '@/constants/avatars';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -79,6 +82,10 @@ export default function EditProfileScreen() {
 
   // Confirmation dialog state
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+
+  // Avatar selection state
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+  const [pendingAvatarId, setPendingAvatarId] = useState<string | null>(null);
 
   // Form setup with default values from current player data
   const {
@@ -137,6 +144,11 @@ export default function EditProfileScreen() {
       const handicapChanged = data.handicap !== (player?.handicap?.toString() || '');
       const newHandicap = data.handicap ? parseFloat(data.handicap) : player?.handicap ?? 0;
 
+      // Build photoUrl only if avatar was changed
+      const photoUrl = pendingAvatarId !== null
+        ? formatAvatarUrl(pendingAvatarId)
+        : undefined;
+
       // Pass all form fields - empty strings will be converted to null by the hook
       await updateProfile({
         name: data.name,
@@ -145,7 +157,12 @@ export default function EditProfileScreen() {
         golf_id: data.golf_id || undefined,
         // Update handicap_updated_at if handicap changed
         ...(handicapChanged && { handicap_updated_at: new Date().toISOString() }),
+        // Include photoUrl only when avatar was actually changed
+        ...(photoUrl !== undefined && { photoUrl }),
       });
+
+      // Reset pending avatar state after successful save
+      setPendingAvatarId(null);
 
       setSnackbarMessage('Profile updated successfully');
       setSnackbarVisible(true);
@@ -172,20 +189,29 @@ export default function EditProfileScreen() {
     }, 150);
   }, [navigation]);
 
+  // Check if there are unsaved changes (form or avatar)
+  const hasUnsavedChanges = isDirty || pendingAvatarId !== null;
+
   // Handle cancel/back - show confirmation if form is dirty
   const handleCancel = useCallback(() => {
-    if (isDirty) {
+    if (hasUnsavedChanges) {
       setShowDiscardDialog(true);
     } else {
       handleClose();
     }
-  }, [isDirty, handleClose]);
+  }, [hasUnsavedChanges, handleClose]);
 
   // Handle discard confirmation
   const handleDiscardConfirm = useCallback(() => {
     setShowDiscardDialog(false);
     handleClose();
   }, [handleClose]);
+
+  // Handle avatar selection
+  const handleAvatarSelect = useCallback((avatarId: string) => {
+    setPendingAvatarId(avatarId);
+    setAvatarModalVisible(false);
+  }, []);
 
   // Display email (read-only)
   const displayEmail = player?.email || user?.email || '';
@@ -209,9 +235,9 @@ export default function EditProfileScreen() {
   const headerRight = (
     <TouchableOpacity
       onPress={handleSubmit(onSubmit)}
-      style={[styles.headerButton, (!isDirty || isSubmitting) && styles.headerButtonDisabled]}
+      style={[styles.headerButton, (!hasUnsavedChanges || isSubmitting) && styles.headerButtonDisabled]}
       activeOpacity={0.7}
-      disabled={!isDirty || isSubmitting}
+      disabled={!hasUnsavedChanges || isSubmitting}
       accessibilityRole="button"
       accessibilityLabel="Save profile"
     >
@@ -222,7 +248,7 @@ export default function EditProfileScreen() {
           style={[
             styles.headerButtonText,
             { color: colors.primary, fontWeight: '600' },
-            (!isDirty || isSubmitting) && { color: colors.textDisabled },
+            (!hasUnsavedChanges || isSubmitting) && { color: colors.textDisabled },
           ]}
         >
           Save
@@ -250,21 +276,24 @@ export default function EditProfileScreen() {
       >
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          {player?.photo_url ? (
-            <Avatar.Image
+          <TouchableOpacity
+            onPress={() => setAvatarModalVisible(true)}
+            style={styles.avatarContainer}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Change avatar"
+          >
+            <PlayerAvatar
+              photoUrl={pendingAvatarId ? formatAvatarUrl(pendingAvatarId) : player?.photo_url}
+              name={player?.name}
               size={100}
-              source={{ uri: player.photo_url }}
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
             />
-          ) : (
-            <Avatar.Icon
-              size={100}
-              icon="account"
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
-            />
-          )}
+            <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+              <Icon source="pencil" size={16} color={colors.white} />
+            </View>
+          </TouchableOpacity>
           <Text style={[styles.avatarHint, { color: colors.textSecondary }]}>
-            Photo uploads coming soon
+            Tap to change avatar
           </Text>
         </View>
 
@@ -406,6 +435,14 @@ export default function EditProfileScreen() {
       >
         {snackbarMessage}
       </Snackbar>
+
+      {/* Avatar Selection Modal */}
+      <AvatarSelectionModal
+        visible={avatarModalVisible}
+        onClose={() => setAvatarModalVisible(false)}
+        onSelect={handleAvatarSelect}
+        currentAvatarUrl={pendingAvatarId ? formatAvatarUrl(pendingAvatarId) : player?.photo_url}
+      />
     </View>
   );
 }
@@ -444,8 +481,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xxl,
   },
-  avatar: {
+  avatarContainer: {
+    position: 'relative',
     marginBottom: spacing.sm,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarHint: {
     ...typography.caption,

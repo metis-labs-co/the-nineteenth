@@ -9,8 +9,8 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { Text, Divider, Avatar } from 'react-native-paper';
-import { GolfBallLoader } from '@/components/common';
+import { Text, Divider } from 'react-native-paper';
+import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { IconWand, IconRefresh, IconCheck, IconAlertCircle, IconUsers } from '@tabler/icons-react-native';
 import {
   spacing,
@@ -506,20 +506,12 @@ const TeamFormationCard = React.memo(function TeamFormationCard({
               }`}
               accessibilityHint="Tap to select for swapping"
             >
-              {player.photo_url ? (
-                <Avatar.Image
-                  size={36}
-                  source={{ uri: player.photo_url }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <Avatar.Text
-                  size={36}
-                  label={getInitials(player.name)}
-                  style={[styles.avatar, { backgroundColor: colors.primary }]}
-                  labelStyle={{ color: colors.textInverse, ...typography.captionBold }}
-                />
-              )}
+              <PlayerAvatar
+                photoUrl={player.photo_url}
+                name={player.name}
+                size={36}
+                style={styles.avatar}
+              />
 
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName} numberOfLines={1}>

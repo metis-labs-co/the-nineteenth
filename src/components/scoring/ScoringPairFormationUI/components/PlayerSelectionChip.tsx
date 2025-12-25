@@ -4,7 +4,8 @@
 
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Text, Avatar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { IconCheck } from '@tabler/icons-react-native';
 import {
   spacing,
@@ -14,7 +15,6 @@ import {
   type ColorPalette,
 } from '@/constants/theme';
 import type { Player } from '@/types/database.types';
-import { getInitials } from '../utils';
 
 interface PlayerSelectionChipProps {
   player: Player;
@@ -47,20 +47,12 @@ export const PlayerSelectionChip = React.memo(function PlayerSelectionChip({
       accessibilityHint="Tap to select for pairing"
       accessibilityState={{ selected: isSelected }}
     >
-      {player.photo_url ? (
-        <Avatar.Image
-          size={isCompact ? 28 : 32}
-          source={{ uri: player.photo_url }}
-          style={styles.avatar}
-        />
-      ) : (
-        <Avatar.Text
-          size={isCompact ? 28 : 32}
-          label={getInitials(player.name)}
-          style={[styles.avatar, { backgroundColor: colors.primary }]}
-          labelStyle={{ color: colors.textInverse, ...typography.caption }}
-        />
-      )}
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={isCompact ? 28 : 32}
+        style={styles.avatar}
+      />
       <Text
         style={[
           styles.name,

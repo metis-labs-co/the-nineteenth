@@ -38,6 +38,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { pushService } from '@/services/notifications/pushService';
 import { authKeys } from './queryKeys';
 import { useAuthContext } from '@/context/AuthContext';
 import type {
@@ -441,9 +442,29 @@ export function useAuth(): UseAuthReturn {
 
   /**
    * Mutation: Logout
+   *
+   * Unregisters push token before signing out to prevent
+   * notifications being sent to logged-out users.
    */
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      // Attempt to unregister push token before signing out
+      // This prevents notifications being sent to logged-out users
+      try {
+        const tokenResult = await pushService.getExpoPushToken();
+        if (tokenResult.success && tokenResult.data) {
+          const unregisterResult = await pushService.unregisterPushToken(tokenResult.data);
+          if (!unregisterResult.success) {
+            console.warn('[useAuth] Failed to unregister push token:', unregisterResult.error);
+          } else {
+            console.log('[useAuth] Push token unregistered successfully');
+          }
+        }
+      } catch (pushError) {
+        // Log but don't block logout if push token unregistration fails
+        console.warn('[useAuth] Error during push token unregistration:', pushError);
+      }
+
       const { error } = await supabase.auth.signOut();
 
       if (error) {

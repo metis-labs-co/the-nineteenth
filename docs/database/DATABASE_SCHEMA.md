@@ -264,6 +264,29 @@ interface Notification {
   createdAt: Date;
 }
 
+// Push notification token for background/closed app notifications
+interface PushToken {
+  id: string;
+  userId: string;
+  expoToken: string;          // ExponentPushToken[xxx]
+  deviceId?: string;          // Unique device identifier
+  deviceName?: string;        // Friendly name (e.g., "iPhone 15 Pro")
+  platform?: 'ios' | 'android';
+  appVersion?: string;
+  enabled: boolean;
+  lastUsedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Push notification preferences (stored on Player)
+interface PushPreferences {
+  pushEnabled: boolean;              // Global toggle
+  pushCompetitionUpdates: boolean;   // Competition-related notifications
+  pushFriendRequests: boolean;       // Friend request notifications
+  pushScorecardUpdates: boolean;     // Scorecard notifications
+}
+
 // Round player (for standalone/social rounds)
 interface RoundPlayer {
   id: string;
@@ -488,6 +511,20 @@ Data isolation is achieved through:
 │ expires_at              │      │ display_name            │      │ is_read              │
 │ cancelled_at            │      │ badge_color             │      │ read_at              │
 └─────────────────────────┘      └─────────────────────────┘      └──────────────────────┘
+
+┌──────────────────────┐
+│ push_tokens          │ (for background push notifications)
+├──────────────────────┤
+│ id (PK)              │
+│ user_id (FK) ────────┼──► players.id
+│ expo_token           │
+│ device_id            │
+│ device_name          │
+│ platform             │
+│ app_version          │
+│ enabled              │
+│ last_used_at         │
+└──────────────────────┘
 ```
 
 ## Table Details
@@ -1321,6 +1358,87 @@ const { data: count } = await supabase.rpc('get_unread_notification_count', {
 // Mark all as read using helper function
 const { data: updated } = await supabase.rpc('mark_all_notifications_read', {
   p_user_id: currentUserId,
+});
+```
+
+---
+
+### `push_tokens`
+
+Expo push notification tokens for each user/device combination. Enables push notifications to reach users when the app is in the background or closed.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Token record unique identifier |
+| `user_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player who owns this token |
+| `expo_token` | TEXT | NOT NULL | Expo push token (ExponentPushToken[xxx]) |
+| `device_id` | TEXT | NULL | Unique device identifier for multi-device support |
+| `device_name` | TEXT | NULL | User-friendly device name (e.g., "iPhone 15 Pro") |
+| `platform` | TEXT | CHECK('ios', 'android'), NULL | Device platform |
+| `app_version` | TEXT | NULL | App version that registered this token |
+| `enabled` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether to send push notifications to this token |
+| `last_used_at` | TIMESTAMPTZ | NULL | Last time this token was used or updated |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_push_tokens_user` on `user_id` (for querying all tokens for a user)
+- `idx_push_tokens_enabled` - Partial index on `user_id` WHERE enabled = TRUE (most common query pattern)
+- `idx_push_tokens_token` on `expo_token` (for token lookup when disabling invalid tokens)
+
+**Constraints:**
+- `push_tokens_user_token_unique` - UNIQUE(user_id, expo_token) - Each user can only have one entry per expo token
+
+**RLS Policies:**
+- Users can manage their own push tokens (`user_id = auth.uid()`)
+- Service role has full access (for Edge Functions sending push notifications)
+
+**Push Preferences (on `players` table):**
+
+The `players` table has additional columns for push notification preferences:
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `push_enabled` | BOOLEAN | TRUE | Global toggle for all push notifications |
+| `push_competition_updates` | BOOLEAN | TRUE | Competition-related notifications (new rounds, status changes) |
+| `push_friend_requests` | BOOLEAN | TRUE | Friend request notifications (received, accepted) |
+| `push_scorecard_updates` | BOOLEAN | TRUE | Scorecard notifications (scorecard submitted) |
+
+**Example:**
+```typescript
+// Register/update push token
+const { data: tokenId } = await supabase.rpc('upsert_push_token', {
+  p_user_id: userId,
+  p_token: 'ExponentPushToken[xxxxxx]',
+  p_device_id: 'device-uuid',
+  p_platform: 'ios',
+  p_device_name: 'iPhone 15 Pro',
+  p_app_version: '1.0.0',
+});
+
+// Get user's enabled push tokens
+const { data: tokens } = await supabase.rpc('get_user_push_tokens', {
+  p_user_id: userId,
+});
+
+// Disable a token (e.g., when Expo returns DeviceNotRegistered)
+const { data: disabled } = await supabase.rpc('disable_push_token', {
+  p_token: 'ExponentPushToken[xxxxxx]',
+});
+
+// Check if a notification should be sent based on preferences
+const { data: shouldSend } = await supabase.rpc('should_send_push', {
+  p_user_id: userId,
+  p_notification_type: 'friend_request_received',
+});
+
+// Update push preferences
+const { data: prefs } = await supabase.rpc('update_push_preferences', {
+  p_user_id: userId,
+  p_push_enabled: true,
+  p_push_competition_updates: true,
+  p_push_friend_requests: false,  // Disable friend request notifications
 });
 ```
 
@@ -2428,6 +2546,251 @@ RETURNS UUID
 - Notification UUID
 
 **Note:** This is typically called by triggers, not directly by application code.
+
+---
+
+### `get_user_push_tokens()`
+
+Get all enabled push tokens for a user.
+
+**Signature:**
+```sql
+get_user_push_tokens(p_user_id UUID)
+RETURNS TABLE (
+  expo_token TEXT,
+  platform TEXT
+)
+```
+
+**Parameters:**
+- `p_user_id` - User UUID
+
+**Returns:**
+- Table of enabled push tokens with platform info
+
+**Example:**
+```typescript
+const { data: tokens } = await supabase.rpc('get_user_push_tokens', {
+  p_user_id: userId,
+});
+// Returns: [{ expo_token: 'ExponentPushToken[xxx]', platform: 'ios' }]
+```
+
+---
+
+### `upsert_push_token()`
+
+Insert or update a push token. Updates `last_used_at` and re-enables previously disabled tokens.
+
+**Signature:**
+```sql
+upsert_push_token(
+  p_user_id UUID,
+  p_token TEXT,
+  p_device_id TEXT DEFAULT NULL,
+  p_platform TEXT DEFAULT NULL,
+  p_device_name TEXT DEFAULT NULL,
+  p_app_version TEXT DEFAULT NULL
+) RETURNS UUID
+```
+
+**Parameters:**
+- `p_user_id` - User UUID
+- `p_token` - Expo push token
+- `p_device_id` - Unique device identifier (optional)
+- `p_platform` - 'ios' or 'android' (optional)
+- `p_device_name` - Friendly device name (optional)
+- `p_app_version` - App version string (optional)
+
+**Returns:**
+- Token UUID (created or updated)
+
+**Example:**
+```typescript
+const { data: tokenId } = await supabase.rpc('upsert_push_token', {
+  p_user_id: userId,
+  p_token: 'ExponentPushToken[xxx]',
+  p_platform: 'ios',
+  p_device_name: 'iPhone 15 Pro',
+});
+```
+
+---
+
+### `disable_push_token()`
+
+Disable a push token (e.g., when Expo returns DeviceNotRegistered).
+
+**Signature:**
+```sql
+disable_push_token(p_token TEXT)
+RETURNS BOOLEAN
+```
+
+**Parameters:**
+- `p_token` - Expo push token to disable
+
+**Returns:**
+- TRUE if token was found and disabled
+
+**Example:**
+```typescript
+const { data: success } = await supabase.rpc('disable_push_token', {
+  p_token: 'ExponentPushToken[xxx]',
+});
+```
+
+---
+
+### `get_users_with_push_enabled()`
+
+Filter an array of user IDs to those with at least one enabled push token.
+
+**Signature:**
+```sql
+get_users_with_push_enabled(p_user_ids UUID[])
+RETURNS TABLE (user_id UUID)
+```
+
+**Parameters:**
+- `p_user_ids` - Array of user UUIDs to filter
+
+**Returns:**
+- Table of user IDs that have enabled push tokens
+
+**Example:**
+```typescript
+const { data: usersWithPush } = await supabase.rpc('get_users_with_push_enabled', {
+  p_user_ids: [userId1, userId2, userId3],
+});
+```
+
+---
+
+### `get_user_push_preferences()`
+
+Get push notification preferences for a user.
+
+**Signature:**
+```sql
+get_user_push_preferences(p_user_id UUID)
+RETURNS TABLE (
+  push_enabled BOOLEAN,
+  push_competition_updates BOOLEAN,
+  push_friend_requests BOOLEAN,
+  push_scorecard_updates BOOLEAN
+)
+```
+
+**Parameters:**
+- `p_user_id` - User UUID
+
+**Returns:**
+- Table with all push preference columns
+
+**Example:**
+```typescript
+const { data: prefs } = await supabase.rpc('get_user_push_preferences', {
+  p_user_id: userId,
+});
+```
+
+---
+
+### `should_send_push()`
+
+Check if a push notification of a given type should be sent to a user.
+
+**Signature:**
+```sql
+should_send_push(
+  p_user_id UUID,
+  p_notification_type TEXT
+) RETURNS BOOLEAN
+```
+
+**Parameters:**
+- `p_user_id` - User UUID
+- `p_notification_type` - Notification type (see NotificationType enum)
+
+**Returns:**
+- TRUE if global push is enabled AND the relevant category is enabled
+
+**Logic:**
+- Competition types map to `push_competition_updates`
+- Friend types map to `push_friend_requests`
+- Scorecard types map to `push_scorecard_updates`
+
+**Example:**
+```typescript
+const { data: shouldSend } = await supabase.rpc('should_send_push', {
+  p_user_id: userId,
+  p_notification_type: 'friend_request_received',
+});
+```
+
+---
+
+### `update_push_preferences()`
+
+Update push notification preferences for a user.
+
+**Signature:**
+```sql
+update_push_preferences(
+  p_user_id UUID,
+  p_push_enabled BOOLEAN DEFAULT NULL,
+  p_push_competition_updates BOOLEAN DEFAULT NULL,
+  p_push_friend_requests BOOLEAN DEFAULT NULL,
+  p_push_scorecard_updates BOOLEAN DEFAULT NULL
+) RETURNS TABLE (
+  push_enabled BOOLEAN,
+  push_competition_updates BOOLEAN,
+  push_friend_requests BOOLEAN,
+  push_scorecard_updates BOOLEAN
+)
+```
+
+**Parameters:**
+- `p_user_id` - User UUID
+- `p_push_*` - Preference values (only non-NULL values are updated)
+
+**Returns:**
+- Updated preferences
+
+**Example:**
+```typescript
+const { data: updated } = await supabase.rpc('update_push_preferences', {
+  p_user_id: userId,
+  p_push_friend_requests: false,  // Disable just friend requests
+});
+```
+
+---
+
+### `send_push_notification()`
+
+Internal helper function to send push notifications via Edge Function. Uses pg_net for async HTTP requests.
+
+**Signature:**
+```sql
+send_push_notification(
+  p_user_id UUID,
+  p_notification_type TEXT,
+  p_title TEXT,
+  p_body TEXT,
+  p_data JSONB DEFAULT '{}'
+) RETURNS void
+```
+
+**Parameters:**
+- `p_user_id` - Recipient user UUID
+- `p_notification_type` - Notification type
+- `p_title` - Push notification title
+- `p_body` - Push notification body
+- `p_data` - Additional data for deep linking
+
+**Note:** This function is called by notification triggers. It logs errors but never blocks the calling transaction.
 
 ---
 

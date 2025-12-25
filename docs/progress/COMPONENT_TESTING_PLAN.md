@@ -6,15 +6,34 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 51 of 147 components (34.7%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 77 of 129 components (59.7%) have test coverage.
+
+> **Note:** FriendSelector was already in the tested list but tests were fixed on 2024-12-25.
 
 **Note:** This complements `TESTING_PLAN.md` which covers utilities, hooks, stores, and services.
 
 ## Current Test Coverage
 
-### Components WITH Tests (51 total)
+### Components WITH Tests (77 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
+| `src/components/ai/GeneratedPreview.tsx` | 511 | Yes |
+| `src/components/ai/PromptInput.tsx` | 175 | Yes |
+| `src/components/ai/SuggestionChips.tsx` | 129 | Yes |
+| `src/components/subscription/Paywall.tsx` | 680 | Yes |
+| `src/components/common/AvatarSelectionModal.tsx` | 229 | Yes |
+| `src/components/common/GolferIcon.tsx` | 249 | Yes |
+| `src/components/common/PlayerAvatar.tsx` | 127 | Yes |
+| `src/components/common/FeatureButton.tsx` | 175 | Yes |
+| `src/components/common/BottomSheet/BottomSheetHeader.tsx` | 137 | Yes |
+| `src/components/common/ErrorState.tsx` | 191 | Yes |
+| `src/components/notifications/NotificationItem.tsx` | 253 | Yes |
+| `src/components/notifications/NotificationToast.tsx` | 273 | Yes |
+| `src/components/rounds/ViewRound/RoundLeaderboardTab.tsx` | 271 | Yes |
+| `src/components/layout/BottomNavigation.tsx` | 283 | Yes |
+| `src/components/social/PlayerCard.tsx` | 286 | Yes |
+| `src/components/subscription/FeatureLock.tsx` | 328 | Yes |
+| `src/components/leaderboard/LeaderboardTable.tsx` | 342 | Yes |
 | `src/components/scorecard/QuickScorecardView.tsx` | 265 | Yes |
 | `src/components/courses/AddCourseModal/index.tsx` | 222 | Yes |
 | `src/components/common/BottomSheet/BottomSheet.tsx` | 260 | Yes |
@@ -67,46 +86,40 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/teams/TeamCard.tsx` | 430 | Yes |
 | `src/components/rounds/ViewRound/RoundPlayersTab.tsx` | 365 | Yes |
 | `src/components/scoring/ScoringPairFormationInline.tsx` | 346 | Yes |
+| `src/components/common/OfflineIndicator.tsx` | 193 | Yes |
+| `src/components/common/StepIndicator.tsx` | 175 | Yes |
+| `src/components/common/DateTimeDisplay.tsx` | 172 | Yes |
+| `src/components/common/ProgressBar.tsx` | 171 | Yes |
+| `src/components/common/GolfBallLoader.tsx` | 149 | Yes |
+| `src/components/common/LoadingSpinner.tsx` | 143 | Yes |
+| `src/components/common/SectionHeader.tsx` | 123 | Yes |
+| `src/components/common/FriendSelector/FriendSelector.tsx` | 395 | Yes |
+| `src/components/settings/PushNotificationSettings.tsx` | 395 | Yes |
 
 ---
 
 ## Components Needing Tests
 
-### TIER 1: Critical/Complex (600+ lines) - COMPLETED
+### TIER 1: Critical/Complex (600+ lines) - 0 components
 
-All Tier 1 critical/complex components have been tested.
+All Tier 1 components have been tested.
 
-### TIER 2: High Priority (400-599 lines) - COMPLETED
+### TIER 2: High Priority (400-599 lines) - 0 components
 
-All Tier 2 high priority components have been tested.
+All Tier 2 components have been tested.
 
-### TIER 3: Medium Priority (200-399 lines) - 5 components
+### TIER 3: Medium Priority (200-399 lines) - 0 components
 
-#### Courses (0)
+All Tier 3 components have been tested.
 
-All Courses components in Tier 3 have been tested.
+### TIER 4: Lower Priority (100-199 lines) - 34 components
 
-#### Scorecard (0)
+#### AI (0)
+All AI components have been tested.
 
-All Scorecard components in Tier 3 have been tested.
-
-#### Other (5)
-| Component | Lines | Directory |
-|-----------|-------|-----------|
-| `LeaderboardTable.tsx` | 342 | leaderboard |
-| `FeatureLock.tsx` | 328 | subscription |
-| `PlayerCard.tsx` | 286 | social |
-| `BottomNavigation.tsx` | 283 | layout |
-| `RoundLeaderboardTab.tsx` | 271 | rounds/ViewRound |
-
-### TIER 4: Lower Priority (100-199 lines) - 45 components
-
-#### Common (13)
-- `OfflineIndicator.tsx` (193), `ErrorState.tsx` (191), `StepIndicator.tsx` (175)
-- `DateTimeDisplay.tsx` (172), `ProgressBar.tsx` (171), `GolfBallLoader.tsx` (149)
-- `LoadingSpinner.tsx` (143), `BottomSheetHeader.tsx` (137), `FeatureButton.tsx` (136)
-- `SectionHeader.tsx` (123), `FilterPill.tsx` (120), `NotificationBell.tsx` (120)
-- `SearchBar.tsx` (106)
+#### Common (4)
+- `FriendSelector/FriendListItem.tsx` (162 lines)
+- `FilterPill.tsx` (120), `NotificationBell.tsx` (120), `SearchBar.tsx` (106)
 
 #### Competition Wizard (5)
 - `CompetitionHeaderCard.tsx` (230), `CourseSelectionModal.tsx` (221)
@@ -129,8 +142,8 @@ All Scorecard components in Tier 3 have been tested.
 - `LimitIndicator.tsx` (245), `TierBadge.tsx` (244), `EditTeamNameModal.tsx` (236)
 - `FeatureLockButton.tsx` (224)
 
-#### Notifications (2)
-- `NotificationToast.tsx` (273), `NotificationItem.tsx` (253)
+#### Notifications (0)
+All Notification components have been tested.
 
 #### Scorecard (4)
 - `HoleHeader.tsx` (194), `HoleProgressBar.tsx` (122), `CompactScoreIndicator.tsx` (100)
@@ -141,6 +154,13 @@ All Scorecard components in Tier 3 have been tested.
 
 #### Courses (2)
 - `CourseListContent.tsx` (149), `StateFilterList.tsx` (120)
+
+### TIER 5: Small Components (<100 lines) - 3 components
+
+#### Common (3)
+- `LogoHorizontal.tsx` (87 lines)
+- `FriendSelector/SelectedPlayerChip.tsx` (71 lines)
+- `Logo.tsx` (44 lines)
 
 ---
 
@@ -191,12 +211,13 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 51 | 34.7% |
+| Already Tested | 77 | 59.7% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
-| Tier 3 (Medium) | 5 | 3.4% |
-| Tier 4 (Lower) | 45 | 30.6% |
-| **Total Needing Tests** | **95** | **64.6%** |
+| Tier 3 (Medium) | 0 | 0.0% |
+| Tier 4 (Lower) | 34 | 26.4% |
+| Tier 5 (Small) | 3 | 2.3% |
+| **Total Needing Tests** | **37** | **28.7%** |
 
 ---
 
@@ -238,6 +259,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/rounds/ViewRound/RoundDetailsTab/components/ScoringPairsSection.test.tsx`
 - `src/components/competitionWizard/create/ReviewStep.test.tsx`
 - `src/components/subscription/UpgradePrompt.test.tsx`
+- `src/components/subscription/Paywall.test.tsx`
 - `src/components/common/FormInput.test.tsx`
 - `src/components/common/Pill.test.tsx`
 - `src/components/common/SegmentedButton.test.tsx`
@@ -258,6 +280,29 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/rounds/ViewRound/RoundPlayersTab.test.tsx`
 - `src/components/teams/TeamCard.test.tsx`
 - `src/components/scoring/ScoringPairFormationInline.test.tsx`
+- `src/components/leaderboard/LeaderboardTable.test.tsx`
+- `src/components/subscription/FeatureLock.test.tsx`
+- `src/components/layout/BottomNavigation.test.tsx`
+- `src/components/social/PlayerCard.test.tsx`
+- `src/components/rounds/ViewRound/RoundLeaderboardTab.test.tsx`
+- `src/components/notifications/NotificationToast.test.tsx`
+- `src/components/common/FeatureButton.test.tsx`
+- `src/components/notifications/NotificationItem.test.tsx`
+- `src/components/common/OfflineIndicator.test.tsx`
+- `src/components/common/ErrorState.test.tsx`
+- `src/components/common/StepIndicator.test.tsx`
+- `src/components/common/DateTimeDisplay.test.tsx`
+- `src/components/common/GolfBallLoader.test.tsx`
+- `src/components/common/LoadingSpinner.test.tsx`
+- `src/components/common/AvatarSelectionModal.test.tsx`
+- `src/components/common/GolferIcon.test.tsx`
+- `src/components/common/PlayerAvatar.test.tsx`
+- `src/components/common/SectionHeader.test.tsx`
+- `src/components/ai/GeneratedPreview.test.tsx`
+- `src/components/common/FriendSelector/FriendSelector.test.tsx`
+- `src/components/settings/PushNotificationSettings.test.tsx`
+- `src/components/ai/PromptInput.test.tsx`
+- `src/components/ai/SuggestionChips.test.tsx`
 
 ---
 
@@ -268,12 +313,38 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 | 0 | Setup (plan + existing tests) | COMPLETED | 2024-12-17 |
 | 1 | Tier 1 Critical Components | COMPLETED | 2024-12-18 |
 | 2 | Tier 2 High Priority Components | COMPLETED | 2024-12-20 |
-| 3 | Tier 3 Medium Priority Components | IN_PROGRESS | - |
-| 4 | Tier 4 Lower Priority Components | PENDING | - |
+| 3 | Tier 3 Medium Priority Components | COMPLETED | 2024-12-25 |
+| 4 | Tier 4 Lower Priority Components | IN_PROGRESS | - |
 
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-25**: `SuggestionChips.tsx` - 29 tests, 10 stories (Tier 4, AI COMPLETE)
+- **2024-12-25**: `PromptInput.tsx` - 57 tests, 34 stories (Tier 4)
+- **2024-12-25**: `PushNotificationSettings.tsx` - 60 tests, 28 stories (Tier 3 COMPLETE)
+- **2024-12-25**: `FriendSelector.tsx` - 66 tests (fixed), 28 stories (Tier 3)
+- **2024-12-25**: `GeneratedPreview.tsx` - 74 tests, 47 stories (Tier 2 COMPLETE)
+- **2024-12-25**: `Paywall.tsx` - 75 tests, 38 stories (Tier 1 COMPLETE)
+- **2024-12-25**: `SectionHeader.tsx` - 64 tests, 38 stories (Tier 4)
+- **2024-12-25**: `AvatarSelectionModal.tsx` - tests added (Tier 4)
+- **2024-12-25**: `GolferIcon.tsx` - tests added (Tier 4)
+- **2024-12-25**: `PlayerAvatar.tsx` - tests added (Tier 4)
+- **2024-12-25**: `FeatureButton.tsx` - 65 tests, 38 stories (Tier 4)
+- **2024-12-25**: `BottomSheetHeader.tsx` - 46 tests, 27 stories (Tier 4)
+- **2024-12-25**: `LoadingSpinner.tsx` - 58 tests, 38 stories (Tier 4)
+- **2024-12-25**: `GolfBallLoader.tsx` - 51 tests, 22 stories (Tier 4)
+- **2024-12-25**: `ProgressBar.tsx` - 76 tests, 38 stories (Tier 4)
+- **2024-12-25**: `DateTimeDisplay.tsx` - 75 tests, 38 stories (Tier 4)
+- **2024-12-25**: `StepIndicator.tsx` - 57 tests, 38 stories (Tier 4)
+- **2024-12-25**: `ErrorState.tsx` - 65 tests, 38 stories (Tier 4)
+- **2024-12-25**: `OfflineIndicator.tsx` - 66 tests, 38 stories (Tier 4)
+- **2024-12-25**: `NotificationItem.tsx` - 67 tests, 20 stories (Tier 4)
+- **2024-12-25**: `NotificationToast.tsx` - 81 tests, 38 stories (Tier 4 START)
+- **2024-12-25**: `RoundLeaderboardTab.tsx` - 46 tests, 43 stories (Tier 3 COMPLETE)
+- **2024-12-25**: `BottomNavigation.tsx` - 47 tests, 35 stories (Tier 3)
+- **2024-12-25**: `PlayerCard.tsx` - 75 tests, 38 stories (Tier 3)
+- **2024-12-25**: `FeatureLock.tsx` - 64 tests, 39 stories (Tier 3)
+- **2024-12-25**: `LeaderboardTable.tsx` - 55 tests, 38 stories (Tier 3)
 - **2024-12-25**: `ScoringPairFormationInline.tsx` - 51 tests, 36 stories (Tier 3)
 - **2024-12-25**: `RoundPlayersTab.tsx` - 68 tests, 38 stories (Tier 3)
 - **2024-12-25**: `TeamCard.tsx` - 60 tests, 38 stories (Tier 3)

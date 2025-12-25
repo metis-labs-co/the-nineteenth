@@ -31,6 +31,7 @@ export type { GeoPoint, Hole, TeeBox, HoleScore } from './base';
 // Player types
 export type {
   Player,
+  PushPreferences,
   Friendship,
   Friend,
   FriendRequest,
@@ -93,6 +94,9 @@ export type {
 
 // Subscription types
 export type { UserSubscription, TierLimits } from './subscription.types';
+
+// Push token types
+export type { PushToken } from './push-token.types';
 
 // Schema type
 export type { Database } from './schema';

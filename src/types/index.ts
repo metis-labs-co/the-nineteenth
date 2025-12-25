@@ -41,6 +41,27 @@ export type {
 // Re-export notification types
 export type { Notification, NotificationData, NotificationWithRelations } from './database.types';
 
+// Re-export push notification types
+export type {
+  DBPushToken,
+  PushToken,
+  PushPreferences,
+  PushNotificationData,
+  ExpoPushMessage,
+  ExpoPushTicket,
+  ExpoPushReceipt,
+  PushTokenInput,
+} from './push.types';
+
+export {
+  DEFAULT_PUSH_PREFERENCES,
+  mapDBPushToken,
+  mapPushTokenToDB,
+  isValidExpoPushToken,
+  getEnabledNotificationTypes,
+  shouldSendNotification,
+} from './push.types';
+
 // Re-export subscription types from dedicated file (app-level camelCase types)
 export type {
   SubscriptionTier,

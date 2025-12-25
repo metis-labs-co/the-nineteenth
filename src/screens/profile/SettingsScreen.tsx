@@ -4,6 +4,7 @@
  * Allows users to configure:
  * - Theme mode (light/dark/system)
  * - Distance units (yards/metres)
+ * - Push notification preferences
  * - Which stats to show in scoring entry (putts, FIR, GIR)
  * - These settings affect leaderboards, stats, and scorecard entry
  */

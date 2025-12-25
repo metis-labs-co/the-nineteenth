@@ -24,3 +24,7 @@ export * from './scorecardLayout';
 
 // Display helper utilities
 export * from './displayHelpers';
+
+// Push notification test utilities (DEV only)
+export { pushTestUtils } from './pushNotificationTest';
+export type { TestResult, PushDebugInfo } from './pushNotificationTest';

@@ -1,7 +1,7 @@
 # Push Notifications - Implementation Plan
 
 **Goal:** Add push notifications to complement the existing in-app notification system, enabling users to receive alerts when the app is in the background or closed.
-**Status:** Not Started - 0% Complete (0/24 tasks)
+**Status:** ✅ Complete - 96% (23/24 tasks, 1 skipped)
 
 ---
 
@@ -86,29 +86,29 @@ This plan adds **push notifications** to The Nineteenth app. The app already has
 ## Sprint 1: Package Setup & Configuration
 
 ### Task 1: Install Dependencies
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 **Command:**
 ```bash
 pnpm add expo-notifications expo-device expo-constants
 ```
 **Deliverables:**
-- [ ] `expo-notifications` package installed
-- [ ] `expo-device` package installed (for device info)
-- [ ] `expo-constants` package installed (for project ID)
-- [ ] Verify packages in `package.json`
+- [x] `expo-notifications` package installed
+- [x] `expo-device` package installed (for device info)
+- [x] `expo-constants` package installed (for project ID)
+- [x] Verify packages in `package.json`
 
 **Dependencies:** None
 
 ---
 
 ### Task 2: Update app.json Configuration
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 **Deliverables:**
-- [ ] Add `expo-notifications` to plugins array
-- [ ] Configure notification icon for Android
-- [ ] Configure notification color
-- [ ] Add iOS background modes for remote notifications
-- [ ] Add Android permissions for notifications
+- [x] Add `expo-notifications` to plugins array
+- [x] Configure notification icon for Android
+- [x] Configure notification color
+- [x] Add iOS background modes for remote notifications
+- [x] Add Android permissions for notifications
 
 **Configuration to add:**
 ```json
@@ -140,10 +140,12 @@ pnpm add expo-notifications expo-device expo-constants
 ---
 
 ### Task 3: Create Notification Icon Assets
-**Status:** ⬜ Not Started
+**Status:** ⏭️ Skipped (iOS only for first build)
 **Deliverables:**
 - [ ] Create `assets/notification-icon.png` (96x96, white on transparent for Android)
 - [ ] Ensure icon follows Android notification icon guidelines (single color, simple shape)
+
+**Note:** Skipped - Android notification icon not needed for iOS-only first build. Will revisit for Android release.
 
 **Dependencies:** None
 
@@ -152,66 +154,60 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 2: Database Schema
 
 ### Task 4: Create Push Tokens Migration
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/db "Create migration for push_tokens table. Columns: id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE, expo_token TEXT NOT NULL, device_id TEXT (for multi-device), device_name TEXT, platform TEXT CHECK (platform IN ('ios', 'android')), app_version TEXT, enabled BOOLEAN NOT NULL DEFAULT TRUE, last_used_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(). Constraints: UNIQUE(user_id, expo_token). Indexes: idx_push_tokens_user ON user_id, idx_push_tokens_enabled ON user_id WHERE enabled = TRUE, idx_push_tokens_token ON expo_token. Add updated_at trigger."
-```
+**Status:** ✅ Complete
+**File:** `supabase/migrations/20250313000000_push_tokens.sql`
 **Deliverables:**
-- [ ] `supabase/migrations/YYYYMMDD_push_tokens.sql`
-- [ ] `push_tokens` table with all columns
-- [ ] Unique constraint on (user_id, expo_token)
-- [ ] Indexes for efficient lookups
-- [ ] Updated_at trigger
+- [x] `supabase/migrations/20250313000000_push_tokens.sql`
+- [x] `push_tokens` table with all columns
+- [x] Unique constraint on (user_id, expo_token)
+- [x] Indexes for efficient lookups (idx_push_tokens_user, idx_push_tokens_enabled, idx_push_tokens_token)
+- [x] Updated_at trigger
+- [x] RLS policies (users manage own tokens, service role full access)
+- [x] Helper functions (get_user_push_tokens, upsert_push_token, disable_push_token, get_users_with_push_enabled)
 
 **Dependencies:** None
 
 ---
 
 ### Task 5: Add RLS Policies for Push Tokens
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/db "Add RLS policies for push_tokens table. Enable RLS. Policy 'users_manage_own_tokens' for ALL using auth.uid() = user_id. Policy 'service_role_full_access' for ALL using auth.role() = 'service_role'. Users can only see and manage their own push tokens."
-```
+**Status:** ✅ Complete (included in Task 4)
+**Note:** RLS policies were included in the main push_tokens migration.
 **Deliverables:**
-- [ ] RLS enabled on push_tokens
-- [ ] Users can CRUD their own tokens only
-- [ ] Service role has full access (for Edge Functions)
+- [x] RLS enabled on push_tokens
+- [x] Users can CRUD their own tokens only
+- [x] Service role has full access (for Edge Functions)
 
 **Dependencies:** Task 4
 
 ---
 
 ### Task 6: Create Push Token Helper Functions
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/db "Create helper functions for push tokens. (1) get_user_push_tokens(p_user_id UUID) RETURNS TABLE (expo_token TEXT, platform TEXT) - returns all enabled tokens for user. (2) upsert_push_token(p_user_id UUID, p_token TEXT, p_device_id TEXT, p_platform TEXT, p_device_name TEXT, p_app_version TEXT) - inserts or updates token, updates last_used_at. (3) disable_push_token(p_token TEXT) - sets enabled=false for token (for handling expired/invalid tokens). (4) get_users_with_push_enabled(p_user_ids UUID[]) - returns user_ids that have at least one enabled push token. All functions SECURITY DEFINER."
-```
+**Status:** ✅ Complete (included in Task 4)
+**Note:** Helper functions were included in the main push_tokens migration.
 **Deliverables:**
-- [ ] `get_user_push_tokens()` function
-- [ ] `upsert_push_token()` function
-- [ ] `disable_push_token()` function
-- [ ] `get_users_with_push_enabled()` function
-- [ ] All functions marked SECURITY DEFINER
+- [x] `get_user_push_tokens()` function
+- [x] `upsert_push_token()` function
+- [x] `disable_push_token()` function
+- [x] `get_users_with_push_enabled()` function
+- [x] All functions marked SECURITY DEFINER
 
 **Dependencies:** Task 4
 
 ---
 
 ### Task 7: Add Push Preferences to Players Table
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/db "Add push notification preferences to players table. New columns: push_enabled BOOLEAN NOT NULL DEFAULT TRUE (global toggle), push_competition_updates BOOLEAN NOT NULL DEFAULT TRUE, push_friend_requests BOOLEAN NOT NULL DEFAULT TRUE, push_scorecard_updates BOOLEAN NOT NULL DEFAULT TRUE. Add function get_user_push_preferences(p_user_id UUID) returns these columns."
-```
+**Status:** ✅ Complete
+**File:** `supabase/migrations/20250314000000_push_preferences.sql`
 **Deliverables:**
-- [ ] `push_enabled` column on players
-- [ ] `push_competition_updates` column
-- [ ] `push_friend_requests` column
-- [ ] `push_scorecard_updates` column
-- [ ] `get_user_push_preferences()` function
+- [x] `push_enabled` column on players (global toggle)
+- [x] `push_competition_updates` column
+- [x] `push_friend_requests` column
+- [x] `push_scorecard_updates` column
+- [x] `get_user_push_preferences()` function
+- [x] `should_send_push()` function (bonus - checks if notification should be sent based on type)
+- [x] `update_push_preferences()` function (bonus - for updating preferences)
+- [x] Partial index for users with push enabled
+- [x] TypeScript types updated (`PushPreferences` interface in `player.types.ts`)
 
 **Dependencies:** None
 
@@ -220,34 +216,41 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 3: TypeScript Types
 
 ### Task 8: Create Push Notification Types
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create src/types/push.types.ts with TypeScript types. Interface PushToken with id, userId, expoToken, deviceId, deviceName, platform ('ios' | 'android'), appVersion, enabled, lastUsedAt, createdAt, updatedAt. Interface PushPreferences with pushEnabled, pushCompetitionUpdates, pushFriendRequests, pushScorecardUpdates. Type PushNotificationData with type (NotificationType), title, body, data (Record<string, unknown>), competitionId, roundId, playerId, friendshipId. Type ExpoPushMessage matching Expo's format. Add mapper functions mapDBPushToken for snake_case to camelCase conversion."
-```
+**Status:** ✅ Complete
+**File:** `src/types/push.types.ts`
 **Deliverables:**
-- [ ] `src/types/push.types.ts`
-- [ ] PushToken interface
-- [ ] PushPreferences interface
-- [ ] PushNotificationData type
-- [ ] ExpoPushMessage type
-- [ ] Mapper functions
-- [ ] Export from `src/types/index.ts`
+- [x] `src/types/push.types.ts`
+- [x] DBPushToken interface (snake_case database type)
+- [x] PushToken interface (camelCase app type)
+- [x] PushPreferences interface
+- [x] PushNotificationData type
+- [x] ExpoPushMessage type (matches Expo Push API format)
+- [x] ExpoPushTicket and ExpoPushReceipt types
+- [x] PushTokenInput type
+- [x] `mapDBPushToken()` mapper function
+- [x] `mapPushTokenToDB()` reverse mapper function
+- [x] `isValidExpoPushToken()` validation utility
+- [x] `getEnabledNotificationTypes()` preference helper
+- [x] `shouldSendNotification()` preference helper
+- [x] `DEFAULT_PUSH_PREFERENCES` constant
+- [x] Export from `src/types/index.ts`
 
 **Dependencies:** Task 4 (schema reference)
 
 ---
 
 ### Task 9: Update Database Types
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/types/database.types.ts to add push_tokens table type. Add to Database['public']['Tables']: push_tokens with Row, Insert, Update types. Add push preference columns to players table type."
-```
+**Status:** ✅ Complete
+**Files:**
+- `src/types/database/push-token.types.ts` (new)
+- `src/types/database/schema.ts` (updated)
+- `src/types/database/index.ts` (updated)
 **Deliverables:**
-- [ ] push_tokens table type in database.types.ts
-- [ ] Row, Insert, Update variants
-- [ ] Players type updated with push preferences
+- [x] `PushToken` interface in `push-token.types.ts`
+- [x] `push_tokens` table added to `Database['public']['Tables']` with Row, Insert, Update, Relationships
+- [x] Push token functions added to schema: `get_user_push_tokens`, `upsert_push_token`, `disable_push_token`, `get_users_with_push_enabled`
+- [x] `PushToken` type exported from `src/types/database/index.ts`
+- [x] Players type already had push preferences (Task 7)
 
 **Dependencies:** Task 8
 
@@ -256,55 +259,55 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 4: Push Service Implementation
 
 ### Task 10: Create Push Service
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create src/services/notifications/pushService.ts. Import from expo-notifications, expo-device, expo-constants. Functions: (1) requestPermissions() - requests iOS/Android notification permissions, returns PermissionStatus. (2) getExpoPushToken() - gets Expo push token using projectId from Constants, handles errors. (3) registerPushToken(userId) - calls requestPermissions, gets token, upserts to database via Supabase. (4) unregisterPushToken(token) - removes token from database. (5) isPhysicalDevice() - checks if running on real device (push doesn't work on simulator). (6) configureNotificationHandler() - sets up foreground notification behavior. Export as pushService singleton."
-```
+**Status:** ✅ Complete
+**File:** `src/services/notifications/pushService.ts`
 **Deliverables:**
-- [ ] `src/services/notifications/pushService.ts`
-- [ ] `requestPermissions()` function
-- [ ] `getExpoPushToken()` function
-- [ ] `registerPushToken()` function
-- [ ] `unregisterPushToken()` function
-- [ ] `isPhysicalDevice()` function
-- [ ] `configureNotificationHandler()` function
-- [ ] Export from `src/services/notifications/index.ts`
+- [x] `src/services/notifications/pushService.ts`
+- [x] `requestPermissions()` function - requests iOS/Android permissions
+- [x] `getPermissionStatus()` function - checks current permission status
+- [x] `getExpoPushToken()` function - gets Expo token with projectId
+- [x] `registerPushToken(userId)` function - full registration flow with DB upsert
+- [x] `unregisterPushToken(token)` function - disables token in database
+- [x] `removePushToken(token)` function - completely removes token from database
+- [x] `isPhysicalDevice()` function - checks if running on real device
+- [x] `getDeviceInfo()` function - returns device ID, name, platform
+- [x] `configureNotificationHandler()` function - sets up foreground behavior
+- [x] `setupAndroidNotificationChannel()` function - creates Android channels
+- [x] Notification listener helpers (addNotificationReceivedListener, addNotificationResponseListener)
+- [x] Badge management functions (setBadgeCount, getBadgeCount, clearBadge)
+- [x] Export from `src/services/notifications/index.ts`
+- [x] Exported as `pushService` singleton
 
 **Dependencies:** Task 8 (types), Task 6 (DB functions)
 
 ---
 
 ### Task 11: Create Push Notification Hook
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/hook "Create src/hooks/usePushNotifications.ts - main hook for push notification management. Uses TanStack Query. Queries: (1) pushTokensQuery - fetches user's push tokens from push_tokens table. (2) pushPreferencesQuery - fetches user's push preferences from players table. Mutations: (1) registerTokenMutation - calls pushService.registerPushToken(). (2) updatePreferencesMutation - updates push preferences in players table. Hook sets up notification listeners on mount: addNotificationReceivedListener for foreground, addNotificationResponseReceivedListener for taps. Returns: tokens, preferences, permissionStatus, registerToken(), updatePreferences(), isRegistered. Auto-registers token when user is authenticated and hasn't registered on this device."
-```
+**Status:** ✅ Complete
+**File:** `src/hooks/usePushNotifications.ts`
 **Deliverables:**
-- [ ] `src/hooks/usePushNotifications.ts`
-- [ ] pushTokensQuery
-- [ ] pushPreferencesQuery
-- [ ] registerTokenMutation
-- [ ] updatePreferencesMutation
-- [ ] Notification listeners setup
-- [ ] Auto-registration logic
-- [ ] Export from `src/hooks/index.ts`
+- [x] `src/hooks/usePushNotifications.ts`
+- [x] pushTokensQuery - fetches user's enabled tokens from push_tokens table
+- [x] pushPreferencesQuery - fetches user's push preferences from players table
+- [x] registerTokenMutation - calls pushService.registerPushToken() with auto-registration
+- [x] updatePreferencesMutation - updates push preferences with optimistic updates
+- [x] Notification listeners setup - foreground and response listeners on mount
+- [x] Auto-registration logic - registers when authenticated, on physical device, not previously registered
+- [x] Export from `src/hooks/index.ts`
+- [x] Convenience hooks: usePushPermissionStatus, usePushPreferences, useIsPushRegistered
 
 **Dependencies:** Task 10 (pushService)
 
 ---
 
 ### Task 12: Add Push Query Keys
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/hooks/queryKeys.ts to add push notification query keys. Add: pushKeys object with all: ['push'], tokens: (userId) => [...all, 'tokens', userId], preferences: (userId) => [...all, 'preferences', userId], permissionStatus: () => [...all, 'permission']. Export pushKeys."
-```
+**Status:** ✅ Complete
+**File:** `src/hooks/queryKeys.ts`
 **Deliverables:**
-- [ ] `pushKeys` object in queryKeys.ts
-- [ ] Keys: all, tokens, preferences, permissionStatus
-- [ ] Export pushKeys
+- [x] `pushKeys` object in queryKeys.ts
+- [x] Keys: all, tokens, preferences, permissionStatus
+- [x] Export pushKeys
+- [x] Added to `allQueryKeys` array
 
 **Dependencies:** None
 
@@ -313,52 +316,53 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 5: Notification Handlers & Deep Linking
 
 ### Task 13: Create Notification Response Handler
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create src/services/notifications/notificationHandler.ts. Function handleNotificationResponse(response: NotificationResponse, navigation) - extracts notification data, navigates to appropriate screen based on notification type. Map notification types to screens: competition_* -> CompetitionDetail, friend_* -> Friends, scorecard_* -> ViewRound. Function handleForegroundNotification(notification: Notification) - decides whether to show in-app toast or suppress (if user is already on relevant screen). Export handlers."
-```
+**Status:** ✅ Complete
+**File:** `src/services/notifications/notificationHandler.ts`
 **Deliverables:**
-- [ ] `src/services/notifications/notificationHandler.ts`
-- [ ] `handleNotificationResponse()` function
-- [ ] `handleForegroundNotification()` function
-- [ ] Navigation type mapping
-- [ ] Screen relevance check
+- [x] `src/services/notifications/notificationHandler.ts`
+- [x] `handleNotificationResponse()` function - extracts data, navigates based on type
+- [x] `handleForegroundNotification()` function - decides toast display with screen relevance check
+- [x] Navigation type mapping (NOTIFICATION_SCREEN_MAP)
+- [x] Screen relevance check (isOnRelevantScreen)
+- [x] Helper utilities: getScreenForNotificationType, buildNavigationParams
+- [x] Exported from `src/services/notifications/index.ts`
 
 **Dependencies:** Task 8 (types)
 
 ---
 
 ### Task 14: Update NotificationContext for Push
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/context/NotificationContext.tsx to integrate push notifications. Import usePushNotifications hook. In provider: (1) Initialize push notification listeners on mount. (2) Call registerToken() when user authenticates. (3) Handle notification responses (taps) with navigation. (4) Coordinate foreground notifications - show toast via existing system, don't show duplicate OS notification. Add to context value: pushEnabled, requestPushPermission(), pushPermissionStatus. Ensure cleanup of listeners on unmount."
-```
+**Status:** ✅ Complete
+**File:** `src/context/NotificationContext.tsx`
 **Deliverables:**
-- [ ] Push notification listeners in NotificationContext
-- [ ] Auto-registration on auth
-- [ ] Notification tap handling with navigation
-- [ ] Foreground notification coordination
-- [ ] Context value extended with push status
-- [ ] Proper cleanup on unmount
+- [x] Push notification listeners in NotificationContext (foreground and response listeners)
+- [x] Auto-registration on auth (via usePushNotifications hook - already handles this)
+- [x] Notification tap handling with navigation (handleNotificationResponse, navigateToNotificationTarget)
+- [x] Foreground notification coordination (suppress OS banner, use in-app toast system)
+- [x] Context value extended with push status (pushEnabled, pushPermissionStatus, requestPushPermission, isPushRegistered)
+- [x] Proper cleanup on unmount (subscription.remove())
 
 **Dependencies:** Task 11 (usePushNotifications hook)
 
 ---
 
 ### Task 15: Configure Notification Categories (iOS)
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/services/notifications/pushService.ts to configure iOS notification categories. Add function configureNotificationCategories() that calls Notifications.setNotificationCategoryAsync() for each notification type. Categories: 'COMPETITION' with 'View' action, 'FRIEND_REQUEST' with 'View' and 'Accept' actions, 'SCORECARD' with 'View' action. Call this function during app initialization. Handle action responses in notification handler."
-```
+**Status:** ✅ Complete
+**Files:**
+- `src/services/notifications/pushService.ts`
+- `src/services/notifications/notificationHandler.ts`
+- `src/services/notifications/index.ts`
+
 **Deliverables:**
-- [ ] `configureNotificationCategories()` function
-- [ ] COMPETITION category with actions
-- [ ] FRIEND_REQUEST category with actions
-- [ ] SCORECARD category with actions
-- [ ] Action response handling
+- [x] `configureNotificationCategories()` function added to pushService
+- [x] COMPETITION category with 'View' action
+- [x] FRIEND_REQUEST category with 'View' and 'Accept' actions
+- [x] SCORECARD category with 'View' action
+- [x] `NotificationCategories` and `NotificationActions` constants exported
+- [x] `handleNotificationActionResponse()` function added to notificationHandler
+- [x] `getCategoryForNotificationType()` helper function added
+- [x] `ActionResponseResult` interface for action handling
+- [x] All new exports added to index.ts
 
 **Dependencies:** Task 10 (pushService)
 
@@ -367,56 +371,68 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 6: Supabase Edge Function
 
 ### Task 16: Create Edge Function for Push Sending
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create supabase/functions/send-push-notification/index.ts - Edge Function to send push notifications via Expo Push API. Accepts POST with { user_id, notification_type, title, body, data }. Steps: (1) Verify request (check auth header for service role). (2) Fetch user's enabled push tokens from push_tokens table. (3) Check user's push preferences (is this notification type enabled?). (4) Build Expo push messages array. (5) POST to https://exp.host/--/api/v2/push/send with messages. (6) Handle response - mark invalid tokens as disabled. (7) Return success/failure count. Include retry logic for transient failures."
-```
+**Status:** ✅ Complete
+**File:** `supabase/functions/send-push-notification/index.ts`
 **Deliverables:**
-- [ ] `supabase/functions/send-push-notification/index.ts`
-- [ ] Request validation
-- [ ] Token fetching from database
-- [ ] Preference checking
-- [ ] Expo Push API integration
-- [ ] Invalid token handling
-- [ ] Retry logic
-- [ ] Response handling
+- [x] `supabase/functions/send-push-notification/index.ts`
+- [x] Request validation (validateRequest function with type checking)
+- [x] Service role authentication (isServiceRole function)
+- [x] Token fetching from database (via get_user_push_tokens RPC)
+- [x] Preference checking (via should_send_push RPC)
+- [x] Expo Push API integration (buildExpoPushMessage, sendPushNotifications)
+- [x] Invalid token handling (DeviceNotRegistered detection, disable_push_token RPC)
+- [x] Retry logic (MAX_RETRIES=3 with exponential backoff)
+- [x] Response handling (sent/failed/skipped counts, error collection)
+- [x] CORS headers for mobile app
+- [x] Notification category mapping (iOS actions)
+- [x] Android channel mapping
 
 **Dependencies:** Task 6 (DB functions), Task 7 (preferences)
 
 ---
 
 ### Task 17: Create Edge Function Config
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create supabase/functions/send-push-notification/config.ts with configuration. Export EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send'. Export notification message templates: NOTIFICATION_TEMPLATES Record<NotificationType, { title: string, body: string }> with placeholders like {player_name}, {competition_name}. Export function buildPushMessage(type, data) that fills in template placeholders from notification data."
-```
+**Status:** ✅ Complete
+**File:** `supabase/functions/send-push-notification/config.ts`
 **Deliverables:**
-- [ ] `supabase/functions/send-push-notification/config.ts`
-- [ ] EXPO_PUSH_API_URL constant
-- [ ] NOTIFICATION_TEMPLATES with all 8 types
-- [ ] `buildPushMessage()` function
+- [x] `supabase/functions/send-push-notification/config.ts`
+- [x] EXPO_PUSH_API_URL constant
+- [x] EXPO_PUSH_RECEIPTS_URL constant (bonus)
+- [x] EXPO_PUSH_BATCH_SIZE constant (bonus)
+- [x] DEFAULT_TTL_SECONDS constant (bonus)
+- [x] NOTIFICATION_TEMPLATES with all 8 types
+- [x] `buildPushMessage()` function with template interpolation
+- [x] `getCategoryId()` helper function (bonus)
+- [x] `getNotificationSound()` helper function (bonus)
+- [x] `getNotificationPriority()` helper function (bonus)
+- [x] `isValidExpoPushToken()` validation function (bonus)
 
 **Dependencies:** None
 
 ---
 
 ### Task 18: Update Database Triggers to Call Edge Function
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/db "Update notification triggers to call the send-push-notification Edge Function. Modify notify_friend_request(), notify_competition_player_added(), etc. to call pg_net.http_post() to the Edge Function URL after inserting the notification row. Pass notification data as JSON body. Use SUPABASE_URL/functions/v1/send-push-notification as the URL. Add error handling - log failures but don't block the trigger."
-```
+**Status:** ✅ Complete
+**File:** `supabase/migrations/20250315000000_notification_triggers_push.sql`
 **Deliverables:**
-- [ ] Update `notify_friend_request()` trigger
-- [ ] Update `notify_friend_request_accepted()` trigger
-- [ ] Update `notify_competition_player_added()` trigger
-- [ ] Update `notify_new_round_created()` trigger
-- [ ] Update `notify_scorecard_submitted()` trigger
-- [ ] Update `notify_competition_status_changed()` trigger
-- [ ] Error handling in triggers
-- [ ] pg_net extension enabled
+- [x] Update `notify_friend_request()` trigger
+- [x] Update `notify_friend_request_accepted()` trigger
+- [x] Update `notify_competition_player_added()` trigger
+- [x] Update `notify_competition_player_joined()` trigger
+- [x] Update `notify_new_round_created()` trigger
+- [x] Update `notify_scorecard_submitted()` trigger
+- [x] Update `notify_competition_status_changed()` trigger
+- [x] Error handling in triggers (RAISE WARNING, never blocks)
+- [x] pg_net extension enabled (`CREATE EXTENSION IF NOT EXISTS pg_net`)
+- [x] `send_push_notification()` helper function created
+- [x] Vault secrets integration for local development
+
+**Implementation Notes:**
+- Each trigger now calls `send_push_notification()` after creating the in-app notification
+- Uses `net.http_post()` from pg_net for async HTTP requests
+- Errors are logged via `RAISE WARNING` but never block the transaction
+- Push notification data includes all relevant IDs for deep linking
+- Supports both Supabase hosted (auto-config) and local development (vault secrets)
 
 **Dependencies:** Task 16 (Edge Function)
 
@@ -425,33 +441,29 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 7: User Settings UI
 
 ### Task 19: Create Push Settings Component
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/component "PushNotificationSettings - Settings section for push notification preferences. Uses usePushNotifications hook. Layout: Card with header 'Push Notifications'. Rows: (1) Master toggle 'Enable Push Notifications' - controls push_enabled. (2) If enabled, show sub-toggles: 'Competition Updates', 'Friend Requests', 'Scorecard Updates'. (3) If permission not granted, show 'Enable in Settings' button that opens device settings. (4) Show current permission status text. Accessibility labels for all toggles."
-```
+**Status:** ✅ Complete
+**File:** `src/components/settings/PushNotificationSettings.tsx`
 **Deliverables:**
-- [ ] `src/components/settings/PushNotificationSettings.tsx`
-- [ ] Master push toggle
-- [ ] Category toggles (competition, friends, scorecards)
-- [ ] Permission status display
-- [ ] Link to device settings
-- [ ] Accessibility labels
+- [x] `src/components/settings/PushNotificationSettings.tsx`
+- [x] Master push toggle
+- [x] Category toggles (competition, friends, scorecards)
+- [x] Permission status display
+- [x] Link to device settings
+- [x] Accessibility labels
+- [x] Index file for settings components
 
 **Dependencies:** Task 11 (usePushNotifications)
 
 ---
 
 ### Task 20: Add Push Settings to SettingsScreen
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/screens/settings/SettingsScreen.tsx to include PushNotificationSettings component. Add a new section 'Notifications' between existing sections. Import PushNotificationSettings and render it. Ensure section fits with existing settings UI style."
-```
+**Status:** ✅ Complete
+**File:** `src/screens/profile/SettingsScreen.tsx`
 **Deliverables:**
-- [ ] Import PushNotificationSettings in SettingsScreen
-- [ ] New 'Notifications' section
-- [ ] Consistent styling with other settings
+- [x] Import PushNotificationSettings in SettingsScreen
+- [x] New 'Notifications' section between Distance Units and Scoring Entry
+- [x] Consistent styling with other settings (section title, description, component)
+- [x] Updated doc comment to mention push notification preferences
 
 **Dependencies:** Task 19 (PushNotificationSettings)
 
@@ -460,32 +472,44 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 8: Auth Integration
 
 ### Task 21: Register Token on Sign In
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Update src/context/AuthContext.tsx to register push token on successful sign in. After user is authenticated (in auth state change listener), call usePushNotifications().registerToken(). Only register if on physical device and user hasn't denied permissions. Store registration status in AsyncStorage to avoid re-prompting. Handle errors gracefully - don't block auth flow if push registration fails."
-```
+**Status:** ✅ Complete
+**File:** `src/context/AuthContext.tsx`
 **Deliverables:**
-- [ ] Push token registration after sign in
-- [ ] Physical device check
-- [ ] Permission check before registration
-- [ ] AsyncStorage for registration status
-- [ ] Error handling (non-blocking)
+- [x] Push token registration after sign in (via attemptPushTokenRegistration helper)
+- [x] Physical device check (pushService.isPhysicalDevice())
+- [x] Permission check before registration (pushService.getPermissionStatus())
+- [x] AsyncStorage for registration status (PUSH_TOKEN_REGISTERED_KEY)
+- [x] Error handling (non-blocking - uses .catch() and console.warn)
+- [x] Clears registration status on sign out (for re-registration on next login)
+- [x] Invalidates push queries after successful registration
+
+**Implementation Notes:**
+- Added `attemptPushTokenRegistration()` helper function to handle all prerequisites
+- Uses `pushService` directly instead of hook to avoid circular dependencies
+- Registration is non-blocking - auth flow continues regardless of push success
+- AsyncStorage key shared with usePushNotifications hook for consistency
 
 **Dependencies:** Task 14 (NotificationContext updates)
 
 ---
 
 ### Task 22: Unregister Token on Sign Out
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 **Command:**
 ```bash
 /refactor "Update src/hooks/useAuth.ts logout() function to unregister push token before signing out. Call pushService.unregisterPushToken() with current device's token. This ensures the user doesn't receive notifications after logout. Handle errors gracefully - proceed with logout even if unregister fails."
 ```
 **Deliverables:**
-- [ ] Unregister push token in logout flow
-- [ ] Error handling (non-blocking)
-- [ ] Clear local push state on logout
+- [x] Unregister push token in logout flow
+- [x] Error handling (non-blocking)
+- [x] Clear local push state on logout
+
+**Implementation Notes:**
+- Updated `logoutMutation` in `src/hooks/useAuth.ts`
+- Gets current device's Expo push token via `pushService.getExpoPushToken()`
+- Calls `pushService.unregisterPushToken()` to disable the token in database
+- All push token operations wrapped in try/catch - errors are logged but don't block logout
+- Supabase signOut proceeds regardless of push token unregistration result
 
 **Dependencies:** Task 10 (pushService)
 
@@ -494,32 +518,44 @@ pnpm add expo-notifications expo-device expo-constants
 ## Sprint 9: Testing & Polish
 
 ### Task 23: Create Push Notification Test Utility
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/refactor "Create src/utils/pushNotificationTest.ts - development utility for testing push notifications. Function sendTestNotification(userId, type) - calls Edge Function directly with test data. Function simulateNotificationReceived(type) - triggers notification listeners with mock data. Function logPushDebugInfo() - logs current token, permission status, preferences. Export for use in development builds only (wrap in __DEV__ check)."
-```
+**Status:** ✅ Complete
+**File:** `src/utils/pushNotificationTest.ts`
 **Deliverables:**
-- [ ] `src/utils/pushNotificationTest.ts`
-- [ ] `sendTestNotification()` function
-- [ ] `simulateNotificationReceived()` function
-- [ ] `logPushDebugInfo()` function
-- [ ] DEV-only exports
+- [x] `src/utils/pushNotificationTest.ts`
+- [x] `sendTestNotification(userId, type)` function - calls Edge Function directly with test data
+- [x] `simulateNotificationReceived(type, customData?)` function - triggers local notification with mock data
+- [x] `logPushDebugInfo()` function - logs current token, permission status, preferences, database tokens
+- [x] `clearLocalRegistration()` function (bonus) - clears AsyncStorage for re-testing registration
+- [x] `cancelAllNotifications()` function (bonus) - clears all scheduled/displayed notifications
+- [x] `pushTestUtils` DEV-only export object
+- [x] Type exports: `TestResult`, `PushDebugInfo`, `NotificationData`
+- [x] Mock notification data for all 8 notification types
+- [x] Exported from `src/utils/index.ts`
+
+**Implementation Notes:**
+- All functions wrapped in `__DEV__` checks
+- `pushTestUtils` is `undefined` in production builds
+- `sendTestNotification` documents that Edge Function requires service role key
+- `logPushDebugInfo` returns structured `PushDebugInfo` object and logs to console
+- Mock data includes realistic titles, bodies, and navigation data for each notification type
 
 **Dependencies:** Task 16 (Edge Function)
 
 ---
 
 ### Task 24: Update Documentation
-**Status:** ⬜ Not Started
-**Command:**
-```bash
-/docs "Update documentation for push notifications. (1) Add push_tokens table to docs/database/DATABASE_SCHEMA.md with columns, constraints, RLS policies, functions. (2) Update CLAUDE.md to mention push notifications in the offline/sync section. (3) Create docs/guides/PUSH_NOTIFICATIONS.md - comprehensive guide explaining architecture, setup, testing, troubleshooting. Include: how to test on real devices, common issues (simulator, permission denied), Edge Function debugging."
-```
+**Status:** ✅ Complete
 **Deliverables:**
-- [ ] `docs/database/DATABASE_SCHEMA.md` - push_tokens table docs
-- [ ] `CLAUDE.md` - push notifications mention
-- [ ] `docs/guides/PUSH_NOTIFICATIONS.md` - comprehensive guide
+- [x] `docs/database/DATABASE_SCHEMA.md` - push_tokens table docs
+- [x] `CLAUDE.md` - push notifications mention
+- [x] `docs/guides/PUSH_NOTIFICATIONS.md` - comprehensive guide
+
+**Implementation Notes:**
+- Added `push_tokens` table documentation to DATABASE_SCHEMA.md (columns, indexes, constraints, RLS policies)
+- Added `PushToken` and `PushPreferences` TypeScript interfaces
+- Added all push token database functions: `get_user_push_tokens`, `upsert_push_token`, `disable_push_token`, `get_users_with_push_enabled`, `get_user_push_preferences`, `should_send_push`, `update_push_preferences`, `send_push_notification`
+- Updated CLAUDE.md with Push Notifications tech stack section and documentation links
+- Created comprehensive docs/guides/PUSH_NOTIFICATIONS.md with architecture, setup, testing, common issues, Edge Function debugging, and API reference
 
 **Dependencies:** All previous tasks
 
@@ -529,53 +565,54 @@ pnpm add expo-notifications expo-device expo-constants
 
 ### Completion Statistics
 - **Total Tasks:** 24
-- **Completed:** 0 (0%)
+- **Completed:** 23 (96%)
+- **Skipped:** 1 (4%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 24 (100%)
+- **Not Started:** 0 (0%)
 
 ### Sprint Progress
 
-**Sprint 1: Package Setup & Configuration** ⬜ Not Started (0/3 tasks)
-- ⬜ Task 1: Install Dependencies
-- ⬜ Task 2: Update app.json Configuration
-- ⬜ Task 3: Create Notification Icon Assets
+**Sprint 1: Package Setup & Configuration** ✅ Complete (3/3 tasks)
+- ✅ Task 1: Install Dependencies
+- ✅ Task 2: Update app.json Configuration
+- ⏭️ Task 3: Create Notification Icon Assets (Skipped - iOS only)
 
-**Sprint 2: Database Schema** ⬜ Not Started (0/4 tasks)
-- ⬜ Task 4: Create Push Tokens Migration
-- ⬜ Task 5: Add RLS Policies for Push Tokens
-- ⬜ Task 6: Create Push Token Helper Functions
-- ⬜ Task 7: Add Push Preferences to Players Table
+**Sprint 2: Database Schema** ✅ Complete (4/4 tasks)
+- ✅ Task 4: Create Push Tokens Migration
+- ✅ Task 5: Add RLS Policies for Push Tokens (included in Task 4)
+- ✅ Task 6: Create Push Token Helper Functions (included in Task 4)
+- ✅ Task 7: Add Push Preferences to Players Table
 
-**Sprint 3: TypeScript Types** ⬜ Not Started (0/2 tasks)
-- ⬜ Task 8: Create Push Notification Types
-- ⬜ Task 9: Update Database Types
+**Sprint 3: TypeScript Types** ✅ Complete (2/2 tasks)
+- ✅ Task 8: Create Push Notification Types
+- ✅ Task 9: Update Database Types
 
-**Sprint 4: Push Service Implementation** ⬜ Not Started (0/3 tasks)
-- ⬜ Task 10: Create Push Service
-- ⬜ Task 11: Create Push Notification Hook
-- ⬜ Task 12: Add Push Query Keys
+**Sprint 4: Push Service Implementation** ✅ Complete (3/3 tasks)
+- ✅ Task 10: Create Push Service
+- ✅ Task 11: Create Push Notification Hook
+- ✅ Task 12: Add Push Query Keys
 
-**Sprint 5: Notification Handlers & Deep Linking** ⬜ Not Started (0/3 tasks)
-- ⬜ Task 13: Create Notification Response Handler
-- ⬜ Task 14: Update NotificationContext for Push
-- ⬜ Task 15: Configure Notification Categories (iOS)
+**Sprint 5: Notification Handlers & Deep Linking** ✅ Complete (3/3 tasks)
+- ✅ Task 13: Create Notification Response Handler
+- ✅ Task 14: Update NotificationContext for Push
+- ✅ Task 15: Configure Notification Categories (iOS)
 
-**Sprint 6: Supabase Edge Function** ⬜ Not Started (0/3 tasks)
-- ⬜ Task 16: Create Edge Function for Push Sending
-- ⬜ Task 17: Create Edge Function Config
-- ⬜ Task 18: Update Database Triggers to Call Edge Function
+**Sprint 6: Supabase Edge Function** ✅ Complete (3/3 tasks)
+- ✅ Task 16: Create Edge Function for Push Sending
+- ✅ Task 17: Create Edge Function Config
+- ✅ Task 18: Update Database Triggers to Call Edge Function
 
-**Sprint 7: User Settings UI** ⬜ Not Started (0/2 tasks)
-- ⬜ Task 19: Create Push Settings Component
-- ⬜ Task 20: Add Push Settings to SettingsScreen
+**Sprint 7: User Settings UI** ✅ Complete (2/2 tasks)
+- ✅ Task 19: Create Push Settings Component
+- ✅ Task 20: Add Push Settings to SettingsScreen
 
-**Sprint 8: Auth Integration** ⬜ Not Started (0/2 tasks)
-- ⬜ Task 21: Register Token on Sign In
-- ⬜ Task 22: Unregister Token on Sign Out
+**Sprint 8: Auth Integration** ✅ Complete (2/2 tasks)
+- ✅ Task 21: Register Token on Sign In
+- ✅ Task 22: Unregister Token on Sign Out
 
-**Sprint 9: Testing & Polish** ⬜ Not Started (0/2 tasks)
-- ⬜ Task 23: Create Push Notification Test Utility
-- ⬜ Task 24: Update Documentation
+**Sprint 9: Testing & Polish** ✅ Complete (2/2 tasks)
+- ✅ Task 23: Create Push Notification Test Utility
+- ✅ Task 24: Update Documentation
 
 ---
 
@@ -584,7 +621,9 @@ pnpm add expo-notifications expo-device expo-constants
 ### New Files
 | File | Purpose |
 |------|---------|
-| `supabase/migrations/YYYYMMDD_push_tokens.sql` | Push tokens table + RLS |
+| `supabase/migrations/20250313000000_push_tokens.sql` | Push tokens table + RLS |
+| `supabase/migrations/20250314000000_push_preferences.sql` | Push preferences columns |
+| `supabase/migrations/20250315000000_notification_triggers_push.sql` | Updated triggers with push support |
 | `src/types/push.types.ts` | TypeScript type definitions |
 | `src/services/notifications/pushService.ts` | Push token management |
 | `src/services/notifications/notificationHandler.ts` | Notification response handling |
@@ -718,5 +757,5 @@ pnpm add expo-notifications expo-device expo-constants
 
 ---
 
-**Last Updated:** 2025-12-15
-**Status:** Planning Complete - Ready for Implementation
+**Last Updated:** 2025-12-25
+**Status:** ✅ Complete - All sprints finished

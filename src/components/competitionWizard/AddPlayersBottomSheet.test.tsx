@@ -142,6 +142,10 @@ const mockFriends: Friend[] = [
     handicap: 12,
     photo_url: 'https://example.com/john.jpg',
     friendship_status: 'accepted',
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
   },
   {
     id: 'friend-2',
@@ -150,6 +154,10 @@ const mockFriends: Friend[] = [
     handicap: 18,
     photo_url: null,
     friendship_status: 'accepted',
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
   },
   {
     id: 'friend-3',
@@ -158,6 +166,10 @@ const mockFriends: Friend[] = [
     handicap: 8,
     photo_url: 'https://example.com/bob.jpg',
     friendship_status: 'accepted',
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
   },
   {
     id: 'friend-4',
@@ -166,6 +178,10 @@ const mockFriends: Friend[] = [
     handicap: 24,
     photo_url: null,
     friendship_status: 'pending', // Should not show - pending status
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
   },
 ];
 

@@ -21,6 +21,7 @@ export {
   friendsKeys,
   notificationKeys,
   subscriptionKeys,
+  pushKeys,
   allQueryKeys,
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
@@ -206,4 +207,16 @@ export type {
   FeatureCheckContext,
   UseSubscriptionReturn,
 } from './useSubscription';
+
+// Push notification hooks
+export {
+  usePushNotifications,
+  usePushPermissionStatus,
+  usePushPreferences,
+  useIsPushRegistered,
+} from './usePushNotifications';
+export type {
+  UpdatePushPreferencesInput,
+  UsePushNotificationsReturn,
+} from './usePushNotifications';
 

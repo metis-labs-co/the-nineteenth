@@ -53,6 +53,7 @@ Detailed implementation guides for specific topics:
 - **[DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)** - CI/CD, EAS builds, app store deployments, monitoring
 - **[SCORING_PAIRS.md](docs/guides/SCORING_PAIRS.md)** - Designated scoring pairs for competitive rounds
 - **[SUBSCRIPTION_TIERS.md](docs/guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system, limits, grandfathering, admin management
+- **[PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture, setup, testing, troubleshooting
 
 ### Database
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete schema with SQL tables and TypeScript types
@@ -93,6 +94,14 @@ Detailed implementation guides for specific topics:
 - **Background Fetch** - Auto-sync when connection returns
 
 See [OFFLINE_ARCHITECTURE.md](docs/guides/OFFLINE_ARCHITECTURE.md) for complete implementation details.
+
+### Push Notifications
+- **Expo Notifications** - Cross-platform push notification support
+- **Supabase Edge Functions** - Server-side push delivery via Expo Push API
+- **Database Triggers** - Automatic push sending on notification events
+- **User Preferences** - Category-based push notification toggles
+
+See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete implementation details.
 
 ---
 
@@ -651,6 +660,7 @@ eas update --branch production --message "Fix scorecard sync bug"
 | **Deployment** | docs/guides/DEPLOYMENT.md | CI/CD and app deployment |
 | **Scoring Pairs** | docs/guides/SCORING_PAIRS.md | Designated scoring pairs feature |
 | **Subscriptions** | docs/guides/SUBSCRIPTION_TIERS.md | Tier system and feature limits |
+| **Push Notifications** | docs/guides/PUSH_NOTIFICATIONS.md | Push notification architecture |
 | **Database** | docs/database/DATABASE_SCHEMA.md | SQL + TypeScript schemas |
 | **MVP Phase 1** | docs/MVP-PHASE-1.md | MVP specifications |
 | **MVP Phase 2** | docs/MVP-PHASE-2.md | Deferred features |

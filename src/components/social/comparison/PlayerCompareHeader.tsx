@@ -7,7 +7,8 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Avatar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -46,19 +47,11 @@ const SinglePlayer = React.memo(function SinglePlayer({ player, displayName }: S
 
   return (
     <View style={styles.playerSection}>
-      {player.photo_url ? (
-        <Avatar.Image
-          size={48}
-          source={{ uri: player.photo_url }}
-          style={{ backgroundColor: colors.primary }}
-        />
-      ) : (
-        <Avatar.Icon
-          size={48}
-          icon="account"
-          style={{ backgroundColor: colors.primary }}
-        />
-      )}
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={48}
+      />
       <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
         {displayName}
       </Text>

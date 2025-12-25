@@ -70,6 +70,7 @@ export type RootStackParamList = {
   EditProfile: undefined;
   MyStatistics: undefined;
   Settings: undefined;
+  NotificationSettings: undefined;
 
   // Friends
   Friends: { fromProfile?: boolean } | undefined;

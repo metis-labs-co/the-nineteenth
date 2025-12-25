@@ -6,21 +6,31 @@
  * - Manages isInitializing state centrally
  * - Prevents multiple auth listeners from being created
  * - Syncs user ID with RevenueCat for subscription management
+ * - Registers push notification tokens on sign in
  *
  * The useAuth hook consumes this context and adds query-based data fetching.
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/client';
-import { authKeys } from '@/hooks/queryKeys';
+import { authKeys, pushKeys } from '@/hooks/queryKeys';
 import {
   loginToRevenueCat,
   logoutFromRevenueCat,
 } from '@/services/subscription/SubscriptionService';
+import { pushService } from '@/services/notifications/pushService';
 import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
 import type { AuthEvent } from '@/types/auth';
+
+// ============================================================================
+// PUSH NOTIFICATION CONSTANTS
+// ============================================================================
+
+/** AsyncStorage key for tracking push token registration status */
+const PUSH_TOKEN_REGISTERED_KEY = '@push_token_registered';
 
 // ============================================================================
 // TYPES
@@ -29,6 +39,97 @@ import type { AuthEvent } from '@/types/auth';
 interface AuthContextValue {
   /** Whether the auth state is still being determined */
   isInitializing: boolean;
+}
+
+// ============================================================================
+// PUSH NOTIFICATION HELPERS
+// ============================================================================
+
+/**
+ * Check if push token has already been registered on this device
+ */
+async function hasRegisteredPushToken(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(PUSH_TOKEN_REGISTERED_KEY);
+    return value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark push token as registered on this device
+ */
+async function markPushTokenRegistered(registered: boolean): Promise<void> {
+  try {
+    if (registered) {
+      await AsyncStorage.setItem(PUSH_TOKEN_REGISTERED_KEY, 'true');
+    } else {
+      await AsyncStorage.removeItem(PUSH_TOKEN_REGISTERED_KEY);
+    }
+  } catch (error) {
+    console.warn('[AuthProvider] Error updating push registration status:', error);
+  }
+}
+
+/**
+ * Attempt to register push token for a user
+ *
+ * This is called on sign-in and handles all the prerequisites:
+ * - Checks if running on physical device
+ * - Checks if already registered on this device
+ * - Checks if user hasn't denied permissions
+ * - Registers token with graceful error handling
+ *
+ * @param userId - The authenticated user's ID
+ * @returns Whether registration was successful (or skipped for valid reasons)
+ */
+async function attemptPushTokenRegistration(userId: string): Promise<boolean> {
+  // Check if running on physical device (push doesn't work on simulators)
+  if (!pushService.isPhysicalDevice()) {
+    if (__DEV__) {
+      console.log('[AuthProvider] Push: Skipping - not a physical device');
+    }
+    return true; // Not an error, just skipped
+  }
+
+  // Check if already registered on this device
+  const alreadyRegistered = await hasRegisteredPushToken();
+  if (alreadyRegistered) {
+    if (__DEV__) {
+      console.log('[AuthProvider] Push: Skipping - already registered on this device');
+    }
+    return true; // Already done
+  }
+
+  // Check permission status before attempting registration
+  const permissionStatus = await pushService.getPermissionStatus();
+  if (permissionStatus === 'denied') {
+    if (__DEV__) {
+      console.log('[AuthProvider] Push: Skipping - permissions denied');
+    }
+    return true; // User denied, don't re-prompt
+  }
+
+  // Attempt registration
+  if (__DEV__) {
+    console.log('[AuthProvider] Push: Attempting token registration...');
+  }
+
+  const result = await pushService.registerPushToken(userId);
+
+  if (result.success) {
+    // Mark as registered in AsyncStorage
+    await markPushTokenRegistered(true);
+    if (__DEV__) {
+      console.log('[AuthProvider] Push: Token registered successfully:', result.data?.expoToken);
+    }
+    return true;
+  } else {
+    // Log error but don't fail auth flow
+    console.warn('[AuthProvider] Push: Registration failed:', result.error);
+    return false;
+  }
 }
 
 // ============================================================================
@@ -162,24 +263,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         // Clear player cache on sign out and log out of RevenueCat
+        // Also clear push token registration status
         if (event === 'SIGNED_OUT') {
           queryClient.removeQueries({ queryKey: ['auth', 'player'] });
+
           // Log out of RevenueCat to clear purchase state
           logoutFromRevenueCat().catch((err) => {
             console.error('[AuthProvider] Failed to logout from RevenueCat:', err);
           });
+
+          // Clear push token registration status so it can re-register on next sign-in
+          // Note: Task 22 will handle actually unregistering the token from the database
+          markPushTokenRegistered(false).catch((err) => {
+            console.warn('[AuthProvider] Failed to clear push registration status:', err);
+          });
+
+          // Clear push queries
+          queryClient.removeQueries({ queryKey: pushKeys.all });
         }
 
         // Fetch player profile on sign in (not cached in session)
         // Also sync user ID with RevenueCat for subscription management
+        // And register push notification token
         if (event === 'SIGNED_IN' && newSession?.user) {
+          const userId = newSession.user.id;
+
           queryClient.invalidateQueries({
-            queryKey: authKeys.player(newSession.user.id),
+            queryKey: authKeys.player(userId),
           });
+
           // Log in to RevenueCat with user ID to link purchases
-          loginToRevenueCat(newSession.user.id).catch((err) => {
+          loginToRevenueCat(userId).catch((err) => {
             console.error('[AuthProvider] Failed to login to RevenueCat:', err);
           });
+
+          // Register push notification token (non-blocking)
+          attemptPushTokenRegistration(userId)
+            .then((success) => {
+              if (success) {
+                // Invalidate push queries so usePushNotifications picks up the new token
+                queryClient.invalidateQueries({ queryKey: pushKeys.all });
+              }
+            })
+            .catch((err) => {
+              // This should never throw, but catch just in case
+              console.error('[AuthProvider] Unexpected error registering push token:', err);
+            });
         }
       }
     );

@@ -51,6 +51,7 @@ import MatchPlayScoringScreen from '@/screens/scoring/MatchPlayScoringScreen';
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
 import MyStatisticsScreen from '@/screens/profile/MyStatisticsScreen';
 import SettingsScreen from '@/screens/profile/SettingsScreen';
+import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
 import HelpAndSupportScreen from '@/screens/profile/HelpAndSupportScreen';
 
 // Onboarding Screen
@@ -318,7 +319,8 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               options={{
                 title: 'Edit Profile',
                 headerShown: false,
-                presentation: 'modal',
+                presentation: 'transparentModal',
+                animation: 'fade',
               }}
             />
 
@@ -336,6 +338,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={SettingsScreen}
               options={{
                 title: 'Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettingsScreen}
+              options={{
+                title: 'Push Notifications',
                 headerShown: false,
               }}
             />

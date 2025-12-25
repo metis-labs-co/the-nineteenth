@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Avatar, Icon } from 'react-native-paper';
-import { GolfBallLoader } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
+import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { PlayerSearchResult } from '@/types/database.types';
@@ -82,19 +82,11 @@ export const SearchResultCard = React.memo(function SearchResultCard({
 
   return (
     <View style={styles.container} testID={testID}>
-      {player.photo_url ? (
-        <Avatar.Image
-          size={48}
-          source={{ uri: player.photo_url }}
-          style={{ backgroundColor: colors.primary }}
-        />
-      ) : (
-        <Avatar.Icon
-          size={48}
-          icon="account"
-          style={{ backgroundColor: colors.primary }}
-        />
-      )}
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={48}
+      />
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
           {player.name}

@@ -31,6 +31,7 @@ import type { Scorecard, LeaderboardEntry, ScoringPair, ScoringPairsValidation }
 import type { Team, TeamMember, RoundResult, TeamStandingsEntry } from './team.types';
 import type { Notification, NotificationData } from './notification.types';
 import type { UserSubscription, TierLimits } from './subscription.types';
+import type { PushToken } from './push-token.types';
 
 /**
  * Complete database schema type for Supabase client
@@ -341,6 +342,19 @@ export interface Database {
         Update: Partial<Omit<TierLimits, 'id' | 'tier' | 'created_at' | 'updated_at'>>;
         Relationships: [];
       };
+      push_tokens: {
+        Row: PushToken;
+        Insert: Omit<PushToken, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<PushToken, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+        Relationships: [
+          {
+            foreignKeyName: 'push_tokens_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -524,6 +538,41 @@ export interface Database {
           p_user_id: string; // UUID
         };
         Returns: boolean;
+      };
+      // Push token functions
+      get_user_push_tokens: {
+        Args: {
+          p_user_id: string; // UUID
+        };
+        Returns: {
+          expo_token: string;
+          platform: string | null;
+        }[];
+      };
+      upsert_push_token: {
+        Args: {
+          p_user_id: string; // UUID
+          p_token: string;
+          p_device_id?: string | null;
+          p_platform?: string | null;
+          p_device_name?: string | null;
+          p_app_version?: string | null;
+        };
+        Returns: string; // UUID of token
+      };
+      disable_push_token: {
+        Args: {
+          p_token: string;
+        };
+        Returns: boolean;
+      };
+      get_users_with_push_enabled: {
+        Args: {
+          p_user_ids: string[]; // UUID[]
+        };
+        Returns: {
+          user_id: string;
+        }[];
       };
     };
     Enums: {

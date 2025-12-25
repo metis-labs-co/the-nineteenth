@@ -52,3 +52,9 @@ export type {
   FriendListItemProps,
 } from './FriendSelector';
 export { LogoHorizontal } from './LogoHorizontal';
+export { GolferIcon } from './GolferIcon';
+export type { GolferIconProps, ColorPalette } from './GolferIcon';
+export { PlayerAvatar } from './PlayerAvatar';
+export type { PlayerAvatarProps } from './PlayerAvatar';
+export { AvatarSelectionModal } from './AvatarSelectionModal';
+export type { AvatarSelectionModalProps } from './AvatarSelectionModal';

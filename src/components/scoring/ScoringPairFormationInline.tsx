@@ -11,7 +11,8 @@
 
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Avatar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import {
   IconRefresh,
   IconArrowRight,
@@ -200,19 +201,11 @@ export function ScoringPairFormationInline({
           >
             {/* Scorer */}
             <View style={styles.playerChip}>
-              {pair.scorer?.photo_url ? (
-                <Avatar.Image
-                  size={28}
-                  source={{ uri: pair.scorer.photo_url }}
-                />
-              ) : (
-                <Avatar.Text
-                  size={28}
-                  label={getInitials(pair.scorer?.name || '?')}
-                  style={{ backgroundColor: colors.primary }}
-                  labelStyle={{ color: colors.white, fontSize: 11 }}
-                />
-              )}
+              <PlayerAvatar
+                photoUrl={pair.scorer?.photo_url}
+                name={pair.scorer?.name}
+                size={28}
+              />
               <Text
                 style={[styles.playerName, { color: colors.textPrimary }]}
                 numberOfLines={1}
@@ -232,19 +225,11 @@ export function ScoringPairFormationInline({
 
             {/* Player being scored */}
             <View style={styles.playerChip}>
-              {pair.player?.photo_url ? (
-                <Avatar.Image
-                  size={28}
-                  source={{ uri: pair.player.photo_url }}
-                />
-              ) : (
-                <Avatar.Text
-                  size={28}
-                  label={getInitials(pair.player?.name || '?')}
-                  style={{ backgroundColor: colors.primary }}
-                  labelStyle={{ color: colors.white, fontSize: 11 }}
-                />
-              )}
+              <PlayerAvatar
+                photoUrl={pair.player?.photo_url}
+                name={pair.player?.name}
+                size={28}
+              />
               <Text
                 style={[styles.playerName, { color: colors.textPrimary }]}
                 numberOfLines={1}

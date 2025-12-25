@@ -7,11 +7,12 @@
 
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Avatar, Divider } from 'react-native-paper';
+import { Divider } from 'react-native-paper';
 import { IconCheck, IconPlus } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { PlayerAvatar } from '@/components/common/PlayerAvatar';
 import type { FriendListItemProps } from './FriendSelector.types';
 
 export const FriendListItem = memo(function FriendListItem({
@@ -38,19 +39,11 @@ export const FriendListItem = memo(function FriendListItem({
       >
         <View style={styles.cardContent}>
           {/* Avatar */}
-          {friend.photo_url ? (
-            <Avatar.Image
-              size={56}
-              source={{ uri: friend.photo_url }}
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
-            />
-          ) : (
-            <Avatar.Icon
-              size={56}
-              icon="account"
-              style={[styles.avatar, { backgroundColor: colors.primary }]}
-            />
-          )}
+          <PlayerAvatar
+            photoUrl={friend.photo_url}
+            name={friend.name}
+            size={56}
+          />
 
           {/* Friend Info */}
           <View style={styles.info}>

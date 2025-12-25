@@ -6,30 +6,39 @@
  * - Real-time subscription status
  * - Automatic setup of Supabase Realtime subscription on mount
  * - Toast notifications for new notifications in real-time
+ * - Push notification integration (token registration, permissions, listeners)
  *
  * Usage:
  * ```tsx
  * import { useNotificationContext } from '@/context/NotificationContext';
  *
  * // Get notification state
- * const { unreadCount, isSubscribed } = useNotificationContext();
+ * const { unreadCount, isSubscribed, pushEnabled, pushPermissionStatus } = useNotificationContext();
+ *
+ * // Request push permission
+ * const { requestPushPermission } = useNotificationContext();
+ * await requestPushPermission();
  *
  * // Display badge
  * {unreadCount > 0 && <Badge>{unreadCount}</Badge>}
  * ```
  */
 
-import React, { createContext, useContext, useMemo, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
 import {
   useNotificationSubscription,
   useUnreadNotificationCount,
 } from '@/hooks/useNotifications';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNotificationStore } from '@/store/notificationStore';
 import { showNotificationToast } from '@/components/notifications/NotificationToast';
+import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Notification } from '@/types/database.types';
+import type { PushNotificationData } from '@/types/push.types';
 
 // ============================================================================
 // TYPES
@@ -41,6 +50,18 @@ interface NotificationContextValue {
 
   /** Whether the real-time subscription is active */
   isSubscribed: boolean;
+
+  /** Whether push notifications are enabled (user preference) */
+  pushEnabled: boolean;
+
+  /** Current push notification permission status */
+  pushPermissionStatus: PermissionStatus | undefined;
+
+  /** Request push notification permission from the user */
+  requestPushPermission: () => Promise<PermissionStatus>;
+
+  /** Whether push notifications are registered and working */
+  isPushRegistered: boolean;
 }
 
 // ============================================================================
@@ -67,6 +88,8 @@ interface NotificationProviderProps {
  * - Initial unread count fetch (via useUnreadNotificationCount)
  * - Context value with unreadCount and isSubscribed from store
  * - Toast notifications when new notifications arrive
+ * - Push notification listeners and handlers
+ * - Auto-registration of push tokens on authentication
  *
  * @example
  * ```tsx
@@ -94,6 +117,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   // Navigation for toast press handling
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  // Push notifications hook - handles token management and listeners
+  // Note: Auto-registration happens within usePushNotifications when user authenticates
+  const {
+    preferences: pushPreferences,
+    permissionStatus: pushPermissionStatus,
+    isRegistered: isPushRegistered,
+    requestPermission,
+  } = usePushNotifications();
+
   // Store actions - get stable reference
   const setOnNewNotification = useNotificationStore(
     (state) => state.setOnNewNotification
@@ -101,8 +133,157 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
   // Handle new notification - show toast and navigate on press
   // Use ref to avoid recreating callback when navigation changes
-  const navigationRef = React.useRef(navigation);
+  const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
+
+  // Track if we've set up push notification listeners
+  const pushListenersSetup = useRef(false);
+
+  /**
+   * Navigate to the appropriate screen based on notification data
+   */
+  const navigateToNotificationTarget = useCallback(
+    (data: PushNotificationData) => {
+      const nav = navigationRef.current;
+
+      // Navigate based on notification type or data
+      if (data.competitionId) {
+        nav.navigate('CompetitionDetail', {
+          id: data.competitionId,
+        });
+      } else if (data.roundId && data.competitionId) {
+        nav.navigate('ViewRound', {
+          competitionId: data.competitionId,
+          roundId: data.roundId,
+        });
+      } else if (data.friendshipId || data.type === 'friend_request_received' || data.type === 'friend_request_accepted') {
+        nav.navigate('Friends', { fromProfile: true });
+      } else {
+        // Default: go to notifications list
+        nav.navigate('Notifications');
+      }
+    },
+    []
+  );
+
+  /**
+   * Handle push notification response (when user taps notification)
+   */
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      if (__DEV__) {
+        console.log('[NotificationProvider] Notification tapped:', response.notification.request.identifier);
+      }
+
+      // Extract notification data from push notification
+      // The data comes from Expo Push API and may have the PushNotificationData shape
+      const rawData = response.notification.request.content.data;
+
+      // Safely extract known properties with type narrowing
+      const data: Partial<PushNotificationData> | undefined = rawData ? {
+        type: (rawData as Record<string, unknown>).type as PushNotificationData['type'] | undefined,
+        title: (rawData as Record<string, unknown>).title as string | undefined,
+        body: (rawData as Record<string, unknown>).body as string | undefined,
+        competitionId: (rawData as Record<string, unknown>).competitionId as string | undefined,
+        roundId: (rawData as Record<string, unknown>).roundId as string | undefined,
+        playerId: (rawData as Record<string, unknown>).playerId as string | undefined,
+        friendshipId: (rawData as Record<string, unknown>).friendshipId as string | undefined,
+        data: (rawData as Record<string, unknown>).data as Record<string, unknown> | undefined,
+      } : undefined;
+
+      if (data && (data.competitionId || data.roundId || data.friendshipId || data.type)) {
+        navigateToNotificationTarget(data as PushNotificationData);
+      } else {
+        // No data or no navigation context, just go to notifications list
+        navigationRef.current.navigate('Notifications');
+      }
+    },
+    [navigateToNotificationTarget]
+  );
+
+  /**
+   * Handle foreground notification (when notification received while app is open)
+   *
+   * We coordinate with the in-app notification system:
+   * - In-app notifications come via Supabase Realtime and show as toasts
+   * - Push notifications that arrive while foregrounded should NOT show duplicate OS notification
+   * - The Realtime subscription will handle showing the toast
+   */
+  const handleForegroundNotification = useCallback(
+    (notification: Notifications.Notification) => {
+      if (__DEV__) {
+        console.log('[NotificationProvider] Foreground notification received:', notification.request.identifier);
+      }
+
+      // The in-app Realtime subscription will show the toast
+      // We don't need to do anything here since shouldShowBanner is controlled
+      // by the notification handler in pushService
+
+      // However, if we want to suppress the OS notification entirely when foregrounded,
+      // we can configure the notification handler dynamically
+      // For now, we let both show as the toast is non-intrusive
+    },
+    []
+  );
+
+  // Set up push notification listeners on mount
+  useEffect(() => {
+    if (pushListenersSetup.current) {
+      return;
+    }
+
+    pushListenersSetup.current = true;
+
+    if (__DEV__) {
+      console.log('[NotificationProvider] Setting up push notification listeners');
+    }
+
+    // Configure notification handler for foreground behavior
+    // This suppresses OS notification when app is foregrounded to avoid duplicates
+    // The in-app toast system handles foreground notifications
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        // Don't show OS notification when foregrounded - our toast system handles it
+        shouldShowBanner: false,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: true,
+      }),
+    });
+
+    // Set up Android notification channels
+    pushService.setupAndroidNotificationChannel();
+
+    // Add listener for foreground notifications
+    const foregroundSubscription = pushService.addNotificationReceivedListener(
+      handleForegroundNotification
+    );
+
+    // Add listener for notification responses (taps)
+    const responseSubscription = pushService.addNotificationResponseListener(
+      handleNotificationResponse
+    );
+
+    // Check for notification that opened the app (cold start)
+    pushService.getLastNotificationResponse().then((response) => {
+      if (response) {
+        if (__DEV__) {
+          console.log('[NotificationProvider] App opened from notification:', response.notification.request.identifier);
+        }
+        handleNotificationResponse(response);
+      }
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      if (__DEV__) {
+        console.log('[NotificationProvider] Cleaning up push notification listeners');
+      }
+      foregroundSubscription.remove();
+      responseSubscription.remove();
+      pushListenersSetup.current = false;
+    };
+  }, [handleForegroundNotification, handleNotificationResponse]);
 
   const handleNewNotification = useCallback(
     (notification: Notification) => {
@@ -163,12 +344,24 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     console.log('[NotificationProvider] Store values:', { unreadCount, isSubscribed });
   }
 
+  // Request push permission - wrapper for context value
+  const requestPushPermission = useCallback(async (): Promise<PermissionStatus> => {
+    return requestPermission();
+  }, [requestPermission]);
+
+  // Determine if push is enabled from preferences
+  const pushEnabled = pushPreferences?.pushEnabled ?? true;
+
   const value = useMemo<NotificationContextValue>(
     () => ({
       unreadCount,
       isSubscribed,
+      pushEnabled,
+      pushPermissionStatus,
+      requestPushPermission,
+      isPushRegistered,
     }),
-    [unreadCount, isSubscribed]
+    [unreadCount, isSubscribed, pushEnabled, pushPermissionStatus, requestPushPermission, isPushRegistered]
   );
 
   return (

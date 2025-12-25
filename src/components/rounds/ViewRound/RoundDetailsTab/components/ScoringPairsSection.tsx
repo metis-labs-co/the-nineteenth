@@ -4,8 +4,8 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon, Avatar } from 'react-native-paper';
-import { GolfBallLoader } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
+import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -203,16 +203,11 @@ export function ScoringPairsSection({
                   >
                     {/* Scorer */}
                     <View style={styles.scoringPairPlayer}>
-                      {pair.scorer?.photo_url ? (
-                        <Avatar.Image size={32} source={{ uri: pair.scorer.photo_url }} />
-                      ) : (
-                        <Avatar.Text
-                          size={32}
-                          label={getInitials(pair.scorer?.name || '?')}
-                          style={{ backgroundColor: colors.primary }}
-                          labelStyle={{ color: colors.white, fontSize: 12 }}
-                        />
-                      )}
+                      <PlayerAvatar
+                        photoUrl={pair.scorer?.photo_url}
+                        name={pair.scorer?.name}
+                        size={32}
+                      />
                       <Text
                         style={[styles.scoringPairName, { color: colors.textPrimary }]}
                         numberOfLines={1}
@@ -232,16 +227,11 @@ export function ScoringPairsSection({
 
                     {/* Player being scored */}
                     <View style={styles.scoringPairPlayer}>
-                      {pair.player?.photo_url ? (
-                        <Avatar.Image size={32} source={{ uri: pair.player.photo_url }} />
-                      ) : (
-                        <Avatar.Text
-                          size={32}
-                          label={getInitials(pair.player?.name || '?')}
-                          style={{ backgroundColor: colors.primary }}
-                          labelStyle={{ color: colors.white, fontSize: 12 }}
-                        />
-                      )}
+                      <PlayerAvatar
+                        photoUrl={pair.player?.photo_url}
+                        name={pair.player?.name}
+                        size={32}
+                      />
                       <Text
                         style={[styles.scoringPairName, { color: colors.textPrimary }]}
                         numberOfLines={1}

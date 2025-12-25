@@ -1,7 +1,8 @@
 // src/components/social/PlayerCard.tsx
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
-import { Text, Avatar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { PlayerAvatar } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -144,19 +145,11 @@ export const PlayerCard = React.memo(function PlayerCard({
   const content = (
     <View style={styles.content}>
       {/* Avatar */}
-      {player.photo_url ? (
-        <Avatar.Image
-          size={56}
-          source={{ uri: player.photo_url }}
-          style={{ backgroundColor: colors.primary }}
-        />
-      ) : (
-        <Avatar.Icon
-          size={56}
-          icon="account"
-          style={{ backgroundColor: isListItem ? colors.gray200 : colors.primary }}
-        />
-      )}
+      <PlayerAvatar
+        photoUrl={player.photo_url}
+        name={player.name}
+        size={56}
+      />
 
       {/* Player Info */}
       <View style={styles.info}>

@@ -18,8 +18,8 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { LoadingSpinner } from '@/components/common';
-import { Text, Icon, Avatar } from 'react-native-paper';
+import { LoadingSpinner, PlayerAvatar } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
@@ -157,19 +157,11 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
       >
         {/* Player Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: cardBg }, shadows.sm]}>
-          {player.photo_url ? (
-            <Avatar.Image
-              size={80}
-              source={{ uri: player.photo_url }}
-              style={{ backgroundColor: colors.primary }}
-            />
-          ) : (
-            <Avatar.Icon
-              size={80}
-              icon="account"
-              style={{ backgroundColor: colors.primary }}
-            />
-          )}
+          <PlayerAvatar
+            photoUrl={player.photo_url}
+            name={player.name}
+            size={80}
+          />
           <Text style={[styles.playerName, { color: colors.textPrimary }]}>{player.name}</Text>
           <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
           {player.handicap !== null && player.handicap !== undefined && (
