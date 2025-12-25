@@ -8,6 +8,7 @@
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, FlatList, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import Toast from 'react-native-toast-message';
 import { LoadingSpinner, SearchBar, BottomSheet } from '@/components/common';
 import { SearchResultCard } from './SearchResultCard';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -69,7 +70,7 @@ export function AddFriendModal({
   const addFriend = useAddFriend();
 
   const handleAddFriend = useCallback(
-    async (playerId: string) => {
+    async (playerId: string, playerName?: string) => {
       // Check if user can add more friends before proceeding
       if (!canAddFriend) {
         onAtLimitError();
@@ -79,8 +80,17 @@ export function AddFriendModal({
       setAddingPlayerId(playerId);
       try {
         await addFriend.mutateAsync(playerId);
-        // Clear search and show success
+        // Clear search and show success toast
         setSearchQuery('');
+        Toast.show({
+          type: 'success',
+          text1: 'Friend Request Sent',
+          text2: playerName
+            ? `Request sent to ${playerName}`
+            : 'Your friend request has been sent',
+          visibilityTime: 3000,
+          position: 'bottom',
+        });
       } catch (error) {
         console.error('Failed to add friend:', error);
         // Show error alert
@@ -138,7 +148,7 @@ export function AddFriendModal({
             renderItem={({ item }) => (
               <SearchResultCard
                 player={item}
-                onAddFriend={() => handleAddFriend(item.id)}
+                onAddFriend={() => handleAddFriend(item.id, item.name)}
                 isAdding={addingPlayerId === item.id}
               />
             )}

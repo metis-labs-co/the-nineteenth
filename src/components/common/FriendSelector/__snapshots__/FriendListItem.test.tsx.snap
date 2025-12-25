@@ -1,0 +1,689 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FriendListItem Snapshots matches snapshot for default state 1`] = `
+<View
+  accessibilityLabel="Add John Smith"
+  accessibilityRole="checkbox"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": false,
+      "disabled": false,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onClick={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    {
+      "opacity": 1,
+      "paddingHorizontal": 16,
+      "paddingVertical": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      }
+    }
+  >
+    <View
+      testID="player-avatar"
+    >
+      <Text
+        testID="player-avatar-name"
+      >
+        John Smith
+      </Text>
+      <Text
+        testID="player-avatar-url"
+      >
+        https://example.com/john.jpg
+      </Text>
+      <Text
+        testID="player-avatar-size"
+      >
+        56
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flex": 1,
+          "marginLeft": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          numberOfLines={1}
+          style={
+            [
+              {
+                "flexShrink": 1,
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#212121",
+              },
+              false,
+            ]
+          }
+        >
+          John Smith
+        </Text>
+      </View>
+      <Text
+        numberOfLines={1}
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#757575",
+            },
+            false,
+          ]
+        }
+      >
+        john@example.com
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#1B5E20",
+            },
+            false,
+          ]
+        }
+      >
+        HC: 
+        12
+      </Text>
+    </View>
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "height": 44,
+            "justifyContent": "center",
+            "width": 44,
+          },
+          {
+            "backgroundColor": "#F5F5F5",
+          },
+        ]
+      }
+    >
+      <View
+        color="#BDBDBD"
+        size={20}
+        testID="icon-plus"
+      />
+    </View>
+  </View>
+</View>
+`;
+
+exports[`FriendListItem Snapshots matches snapshot for disabled state 1`] = `
+<View
+  accessibilityLabel="Add John Smith"
+  accessibilityRole="checkbox"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": false,
+      "disabled": true,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={false}
+  onClick={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    {
+      "opacity": 0.5,
+      "paddingHorizontal": 16,
+      "paddingVertical": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      }
+    }
+  >
+    <View
+      testID="player-avatar"
+    >
+      <Text
+        testID="player-avatar-name"
+      >
+        John Smith
+      </Text>
+      <Text
+        testID="player-avatar-url"
+      >
+        https://example.com/john.jpg
+      </Text>
+      <Text
+        testID="player-avatar-size"
+      >
+        56
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flex": 1,
+          "marginLeft": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          numberOfLines={1}
+          style={
+            [
+              {
+                "flexShrink": 1,
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#212121",
+              },
+              {
+                "color": "#9E9E9E",
+              },
+            ]
+          }
+        >
+          John Smith
+        </Text>
+      </View>
+      <Text
+        numberOfLines={1}
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#757575",
+            },
+            {
+              "color": "#9E9E9E",
+            },
+          ]
+        }
+      >
+        john@example.com
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#1B5E20",
+            },
+            {
+              "color": "#9E9E9E",
+            },
+          ]
+        }
+      >
+        HC: 
+        12
+      </Text>
+    </View>
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "height": 44,
+            "justifyContent": "center",
+            "width": 44,
+          },
+          {
+            "backgroundColor": "#F5F5F5",
+          },
+        ]
+      }
+    >
+      <View
+        color="#BDBDBD"
+        size={20}
+        testID="icon-plus"
+      />
+    </View>
+  </View>
+</View>
+`;
+
+exports[`FriendListItem Snapshots matches snapshot for selected state 1`] = `
+<View
+  accessibilityLabel="Remove John Smith"
+  accessibilityRole="checkbox"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": true,
+      "disabled": false,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onClick={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    {
+      "opacity": 1,
+      "paddingHorizontal": 16,
+      "paddingVertical": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      }
+    }
+  >
+    <View
+      testID="player-avatar"
+    >
+      <Text
+        testID="player-avatar-name"
+      >
+        John Smith
+      </Text>
+      <Text
+        testID="player-avatar-url"
+      >
+        https://example.com/john.jpg
+      </Text>
+      <Text
+        testID="player-avatar-size"
+      >
+        56
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flex": 1,
+          "marginLeft": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          numberOfLines={1}
+          style={
+            [
+              {
+                "flexShrink": 1,
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#212121",
+              },
+              false,
+            ]
+          }
+        >
+          John Smith
+        </Text>
+      </View>
+      <Text
+        numberOfLines={1}
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#757575",
+            },
+            false,
+          ]
+        }
+      >
+        john@example.com
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#1B5E20",
+            },
+            false,
+          ]
+        }
+      >
+        HC: 
+        12
+      </Text>
+    </View>
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "height": 44,
+            "justifyContent": "center",
+            "width": 44,
+          },
+          {
+            "backgroundColor": "#1B5E20",
+          },
+        ]
+      }
+    >
+      <View
+        color="#FFFFFF"
+        size={20}
+        testID="icon-check"
+      />
+    </View>
+  </View>
+</View>
+`;
+
+exports[`FriendListItem Snapshots matches snapshot with pending badge 1`] = `
+<View
+  accessibilityLabel="Add John Smith"
+  accessibilityRole="checkbox"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": false,
+      "disabled": false,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onClick={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    {
+      "opacity": 1,
+      "paddingHorizontal": 16,
+      "paddingVertical": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      }
+    }
+  >
+    <View
+      testID="player-avatar"
+    >
+      <Text
+        testID="player-avatar-name"
+      >
+        John Smith
+      </Text>
+      <Text
+        testID="player-avatar-url"
+      >
+        https://example.com/john.jpg
+      </Text>
+      <Text
+        testID="player-avatar-size"
+      >
+        56
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flex": 1,
+          "marginLeft": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          numberOfLines={1}
+          style={
+            [
+              {
+                "flexShrink": 1,
+                "fontSize": 16,
+                "fontWeight": "600",
+                "lineHeight": 24,
+              },
+              {
+                "color": "#212121",
+              },
+              false,
+            ]
+          }
+        >
+          John Smith
+        </Text>
+        <View
+          accessibilityLabel="Pending"
+          testID="status-badge"
+        >
+          <Text
+            testID="status-badge-label"
+          >
+            Pending
+          </Text>
+        </View>
+      </View>
+      <Text
+        numberOfLines={1}
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#757575",
+            },
+            false,
+          ]
+        }
+      >
+        john@example.com
+      </Text>
+      <Text
+        style={
+          [
+            {
+              "fontSize": 14,
+              "fontWeight": "400",
+              "lineHeight": 20,
+              "marginTop": 4,
+            },
+            {
+              "color": "#1B5E20",
+            },
+            false,
+          ]
+        }
+      >
+        HC: 
+        12
+      </Text>
+    </View>
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "height": 44,
+            "justifyContent": "center",
+            "width": 44,
+          },
+          {
+            "backgroundColor": "#F5F5F5",
+          },
+        ]
+      }
+    >
+      <View
+        color="#BDBDBD"
+        size={20}
+        testID="icon-plus"
+      />
+    </View>
+  </View>
+</View>
+`;

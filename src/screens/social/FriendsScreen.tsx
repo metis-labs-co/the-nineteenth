@@ -2,9 +2,10 @@
  * FriendsScreen - View and manage friends list
  *
  * Displays the user's friends with:
+ * - Tabbed interface: Friends | Requests
  * - Friend list with profile info (name, photo, email, handicap)
  * - Add friend button with search modal
- * - Pending friend requests section
+ * - Pending friend requests (received and sent)
  * - Pull-to-refresh
  * - Navigate to friend profile for stats
  */
@@ -20,20 +21,23 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
-import { EmptyState } from '@/components/common/EmptyState';
+import { EmptyState, Tabs } from '@/components/common';
 import { ErrorState } from '@/components/common/ErrorState';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SearchBar } from '@/components/common/SearchBar';
 import { FriendCard } from '@/components/social/FriendCard';
 import { FriendRequestCard } from '@/components/social/FriendRequestCard';
+import { SentRequestCard } from '@/components/social/SentRequestCard';
 import { AddFriendModal } from '@/components/social/AddFriendModal';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import {
   useFriends,
   useFriendRequests,
+  useSentFriendRequests,
   useAcceptFriendRequest,
   useDeclineFriendRequest,
+  useCancelFriendRequest,
   useRemoveFriend,
   useFriendsCount,
   useCheckCanAddFriend,
@@ -43,6 +47,8 @@ type FriendsScreenRouteProp = RouteProp<RootStackParamList, 'Friends'>;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+type TabType = 'friends' | 'requests';
+
 export default function FriendsScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -50,10 +56,12 @@ export default function FriendsScreen() {
   const route = useRoute<FriendsScreenRouteProp>();
   const showBackButton = route.params?.fromProfile ?? false;
 
+  const [activeTab, setActiveTab] = useState<TabType>('friends');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Subscription tier limits
@@ -81,13 +89,21 @@ export default function FriendsScreen() {
     isRefetching: isRefetchingRequests,
   } = useFriendRequests();
 
+  const {
+    data: sentRequests,
+    isLoading: isLoadingSent,
+    refetch: refetchSent,
+    isRefetching: isRefetchingSent,
+  } = useSentFriendRequests();
+
   // Mutations
   const acceptRequest = useAcceptFriendRequest();
   const declineRequest = useDeclineFriendRequest();
+  const cancelRequest = useCancelFriendRequest();
   const removeFriend = useRemoveFriend();
 
-  const isLoading = isLoadingFriends || isLoadingRequests;
-  const isRefreshing = isRefetchingFriends || isRefetchingRequests;
+  const isLoading = isLoadingFriends || isLoadingRequests || isLoadingSent;
+  const isRefreshing = isRefetchingFriends || isRefetchingRequests || isRefetchingSent;
 
   // Count only accepted friends for limit display
   const acceptedFriendsCount = friendsCount;
@@ -151,7 +167,8 @@ export default function FriendsScreen() {
   const handleRefresh = useCallback(() => {
     refetchFriends();
     refetchRequests();
-  }, [refetchFriends, refetchRequests]);
+    refetchSent();
+  }, [refetchFriends, refetchRequests, refetchSent]);
 
   const handleAcceptRequest = useCallback(
     async (requestId: string) => {
@@ -179,6 +196,20 @@ export default function FriendsScreen() {
       }
     },
     [declineRequest]
+  );
+
+  const handleCancelRequest = useCallback(
+    async (requestId: string) => {
+      setCancellingRequestId(requestId);
+      try {
+        await cancelRequest.mutateAsync(requestId);
+      } catch (error) {
+        console.error('Failed to cancel request:', error);
+      } finally {
+        setCancellingRequestId(null);
+      }
+    },
+    [cancelRequest]
   );
 
   const handleRemoveFriend = useCallback(
@@ -246,8 +277,136 @@ export default function FriendsScreen() {
 
   const hasFriends = friends && friends.length > 0;
   const hasFilteredFriends = filteredFriends.length > 0;
-  const hasRequests = friendRequests && friendRequests.length > 0;
+  const hasReceivedRequests = friendRequests && friendRequests.length > 0;
+  const hasSentRequests = sentRequests && sentRequests.length > 0;
   const isSearchActive = searchQuery.length > 0;
+
+  // Friends tab content
+  const FriendsTabContent = () => (
+    <>
+      {/* Friends Limit Indicator */}
+      <View style={styles.limitIndicatorContainer}>
+        <LimitIndicator
+          current={acceptedFriendsCount}
+          max={maxFriends}
+          label="Friends"
+          showBar={true}
+          testID="friends-limit-indicator"
+        />
+      </View>
+
+      {/* Search Bar */}
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search friends..."
+        accessibilityLabel="Search friends by name or email"
+      />
+
+      {/* Friends List Section */}
+      {hasFriends ? (
+        hasFilteredFriends ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              {isSearchActive
+                ? `${filteredFriends.length} ${filteredFriends.length === 1 ? 'Result' : 'Results'}`
+                : `${friends.length} ${friends.length === 1 ? 'Friend' : 'Friends'}`}
+            </Text>
+            <View style={styles.friendsList}>
+              {filteredFriends.map((friend) => (
+                <FriendCard
+                  key={friend.id}
+                  friend={friend}
+                  onPress={() => handleFriendPress(friend.id)}
+                  onRemove={() => handleRemoveFriend(friend.friendship_id)}
+                />
+              ))}
+            </View>
+          </View>
+        ) : (
+          <EmptyState
+            title="No friends found"
+            message={`No friends match "${searchQuery}"`}
+            icon="account-search-outline"
+          />
+        )
+      ) : (
+        <EmptyState
+          title="No friends yet"
+          message="Add friends to track scores together and see their playing stats"
+          icon="account-group-outline"
+          actionLabel="Add Friend"
+          onAction={handleAddFriendPress}
+        />
+      )}
+    </>
+  );
+
+  // Requests tab content
+  const RequestsTabContent = () => (
+    <>
+      {/* Received Requests Section */}
+      {hasReceivedRequests && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.textSecondary }]}>
+              Received
+            </Text>
+            <Badge size={20} style={{ backgroundColor: colors.primary }}>
+              {friendRequests.length}
+            </Badge>
+          </View>
+          <View style={[styles.requestsContainer, { backgroundColor: colors.surface }]}>
+            {friendRequests.map((request) => (
+              <FriendRequestCard
+                key={request.id}
+                request={request}
+                onAccept={() => handleAcceptRequest(request.id)}
+                onDecline={() => handleDeclineRequest(request.id)}
+                isAccepting={acceptingRequestId === request.id}
+                isDeclining={decliningRequestId === request.id}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Sent Requests Section */}
+      {hasSentRequests && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.textSecondary }]}>
+              Sent
+            </Text>
+            <Badge size={20} style={{ backgroundColor: colors.gray300 }}>
+              {sentRequests.length}
+            </Badge>
+          </View>
+          <View style={[styles.requestsContainer, { backgroundColor: colors.surface }]}>
+            {sentRequests.map((request) => (
+              <SentRequestCard
+                key={request.id}
+                request={request}
+                onCancel={() => handleCancelRequest(request.id)}
+                isCancelling={cancellingRequestId === request.id}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Empty state for requests */}
+      {!hasReceivedRequests && !hasSentRequests && (
+        <EmptyState
+          title="No pending requests"
+          message="Friend requests you send or receive will appear here"
+          icon="account-clock-outline"
+          actionLabel="Add Friend"
+          onAction={handleAddFriendPress}
+        />
+      )}
+    </>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -259,12 +418,15 @@ export default function FriendsScreen() {
         rightActions={headerRightActions}
       />
 
-      {/* Search Bar */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search friends..."
-        accessibilityLabel="Search friends by name or email"
+      {/* Tab Bar */}
+      <Tabs
+        tabs={[
+          { key: 'friends', label: 'Friends', count: friends?.length || 0 },
+          { key: 'requests', label: 'Requests', count: friendRequests?.length || undefined },
+        ]}
+        selectedTab={activeTab}
+        onTabChange={setActiveTab}
+        style={styles.tabContainer}
       />
 
       <ScrollView
@@ -282,79 +444,7 @@ export default function FriendsScreen() {
           />
         }
       >
-        {/* Friends Limit Indicator */}
-        <View style={styles.limitIndicatorContainer}>
-          <LimitIndicator
-            current={acceptedFriendsCount}
-            max={maxFriends}
-            label="Friends"
-            showBar={true}
-            testID="friends-limit-indicator"
-          />
-        </View>
-
-        {/* Friend Requests Section */}
-        {hasRequests && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                Friend Requests
-              </Text>
-              <Badge size={20} style={{ backgroundColor: colors.primary }}>
-                {friendRequests.length}
-              </Badge>
-            </View>
-            <View style={[styles.requestsContainer, { backgroundColor: colors.white }]}>
-              {friendRequests.map((request) => (
-                <FriendRequestCard
-                  key={request.id}
-                  request={request}
-                  onAccept={() => handleAcceptRequest(request.id)}
-                  onDecline={() => handleDeclineRequest(request.id)}
-                  isAccepting={acceptingRequestId === request.id}
-                  isDeclining={decliningRequestId === request.id}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Friends List Section */}
-        {hasFriends ? (
-          hasFilteredFriends ? (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                {isSearchActive
-                  ? `${filteredFriends.length} ${filteredFriends.length === 1 ? 'Result' : 'Results'}`
-                  : `${friends.length} ${friends.length === 1 ? 'Friend' : 'Friends'}`}
-              </Text>
-              <View style={styles.friendsList}>
-                {filteredFriends.map((friend) => (
-                  <FriendCard
-                    key={friend.id}
-                    friend={friend}
-                    onPress={() => handleFriendPress(friend.id)}
-                    onRemove={() => handleRemoveFriend(friend.friendship_id)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : (
-            <EmptyState
-              title="No friends found"
-              message={`No friends match "${searchQuery}"`}
-              icon="account-search-outline"
-            />
-          )
-        ) : (
-          <EmptyState
-            title="No friends yet"
-            message="Add friends to track scores together and see their playing stats"
-            icon="account-group-outline"
-            actionLabel="Add Friend"
-            onAction={handleAddFriendPress}
-          />
-        )}
+        {activeTab === 'friends' ? <FriendsTabContent /> : <RequestsTabContent />}
       </ScrollView>
 
       {/* Add Friend Modal */}
@@ -391,6 +481,15 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
   },
+
+  // Tab Bar
+  tabContainer: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+
+  // Content sections
   limitIndicatorContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -404,6 +503,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  sectionHeaderTitle: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   sectionTitle: {
     ...typography.captionBold,

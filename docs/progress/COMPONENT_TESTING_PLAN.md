@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 77 of 129 components (59.7%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 78 of 129 components (60.5%) have test coverage.
 
 > **Note:** FriendSelector was already in the tested list but tests were fixed on 2024-12-25.
 
@@ -14,7 +14,7 @@ This document outlines all **React components** that need testing in The Ninetee
 
 ## Current Test Coverage
 
-### Components WITH Tests (77 total)
+### Components WITH Tests (78 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
 | `src/components/ai/GeneratedPreview.tsx` | 511 | Yes |
@@ -94,6 +94,7 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/common/LoadingSpinner.tsx` | 143 | Yes |
 | `src/components/common/SectionHeader.tsx` | 123 | Yes |
 | `src/components/common/FriendSelector/FriendSelector.tsx` | 395 | Yes |
+| `src/components/common/FriendSelector/FriendListItem.tsx` | 162 | Yes |
 | `src/components/settings/PushNotificationSettings.tsx` | 395 | Yes |
 
 ---
@@ -112,13 +113,12 @@ All Tier 2 components have been tested.
 
 All Tier 3 components have been tested.
 
-### TIER 4: Lower Priority (100-199 lines) - 34 components
+### TIER 4: Lower Priority (100-199 lines) - 33 components
 
 #### AI (0)
 All AI components have been tested.
 
-#### Common (4)
-- `FriendSelector/FriendListItem.tsx` (162 lines)
+#### Common (3)
 - `FilterPill.tsx` (120), `NotificationBell.tsx` (120), `SearchBar.tsx` (106)
 
 #### Competition Wizard (5)
@@ -211,13 +211,13 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 77 | 59.7% |
+| Already Tested | 78 | 60.5% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
 | Tier 3 (Medium) | 0 | 0.0% |
-| Tier 4 (Lower) | 34 | 26.4% |
+| Tier 4 (Lower) | 33 | 25.6% |
 | Tier 5 (Small) | 3 | 2.3% |
-| **Total Needing Tests** | **37** | **28.7%** |
+| **Total Needing Tests** | **36** | **27.9%** |
 
 ---
 
@@ -300,6 +300,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/common/SectionHeader.test.tsx`
 - `src/components/ai/GeneratedPreview.test.tsx`
 - `src/components/common/FriendSelector/FriendSelector.test.tsx`
+- `src/components/common/FriendSelector/FriendListItem.test.tsx`
 - `src/components/settings/PushNotificationSettings.test.tsx`
 - `src/components/ai/PromptInput.test.tsx`
 - `src/components/ai/SuggestionChips.test.tsx`
@@ -319,6 +320,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-25**: `FriendListItem.tsx` - 64 tests, 37 stories (Tier 4)
 - **2024-12-25**: `SuggestionChips.tsx` - 29 tests, 10 stories (Tier 4, AI COMPLETE)
 - **2024-12-25**: `PromptInput.tsx` - 57 tests, 34 stories (Tier 4)
 - **2024-12-25**: `PushNotificationSettings.tsx` - 60 tests, 28 stories (Tier 3 COMPLETE)

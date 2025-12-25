@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "golf.thenineteenth",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "appleTeamId": "9D3K8VW249",
       "associatedDomains": [
         "applinks:thenineteenth.golf",
@@ -30,7 +30,9 @@
         "NSPhotoLibraryAddUsageDescription": "Allow The Nineteenth to save photos to your library.",
         "NSLocationWhenInUseUsageDescription": "Allow The Nineteenth to find nearby golf courses.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -76,7 +78,10 @@
               "pathPrefix": "/app/auth"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },

@@ -2,12 +2,13 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 3 steps: Welcome -> Create Competitions -> Handicap Capture
+ * 4 steps: Welcome -> Create Competitions -> Notifications -> Handicap Capture
  *
  * Features:
  * - Swipeable cards (FlatList with pagingEnabled)
  * - Skip button (always visible)
  * - Progress dots
+ * - Push notification permission request
  * - Handicap input with validation (0-54)
  */
 
@@ -29,6 +30,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 // Step components
 import WelcomeStep from './components/WelcomeStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
+import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import OnboardingDots from './components/OnboardingDots';
 
@@ -52,6 +54,7 @@ export interface StepProps {
 const STEPS: StepItem[] = [
   { key: 'welcome', component: WelcomeStep },
   { key: 'competitions', component: CreateCompetitionsStep },
+  { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
 ];
 

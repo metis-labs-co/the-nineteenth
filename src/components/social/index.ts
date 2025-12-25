@@ -4,6 +4,9 @@ export type { FriendCardProps } from './FriendCard';
 export { FriendRequestCard } from './FriendRequestCard';
 export type { FriendRequestCardProps } from './FriendRequestCard';
 
+export { SentRequestCard } from './SentRequestCard';
+export type { SentRequestCardProps } from './SentRequestCard';
+
 export { SearchResultCard } from './SearchResultCard';
 export type { SearchResultCardProps } from './SearchResultCard';
 

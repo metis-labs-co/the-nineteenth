@@ -512,6 +512,84 @@ export function useRemoveFriend() {
 }
 
 /**
+ * Hook: useSentFriendRequests
+ * Fetches pending friend requests sent by the current user
+ */
+export function useSentFriendRequests() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: friendsKeys.sentRequests(),
+    queryFn: async (): Promise<FriendRequest[]> => {
+      if (!user?.id) return [];
+
+      // Fetch pending requests where user is the requester
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          created_at,
+          addressee:players!friendships_addressee_id_fkey(*)
+        `)
+        .eq('requester_id', user.id)
+        .eq('status', 'pending');
+
+      if (error) {
+        console.error('Error fetching sent friend requests:', error);
+        throw error;
+      }
+
+      // Define the shape of the query result
+      type SentRequestQueryResult = {
+        id: string;
+        created_at: string;
+        addressee: Player;
+      };
+
+      // Transform to FriendRequest type (reusing same type, requester becomes the addressee for display)
+      const requests: FriendRequest[] = ((data || []) as SentRequestQueryResult[]).map((item) => ({
+        id: item.id,
+        requester: item.addressee, // The person we sent the request TO
+        created_at: item.created_at,
+      }));
+
+      return requests;
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+}
+
+/**
+ * Hook: useCancelFriendRequest
+ * Cancel a pending friend request that was sent
+ */
+export function useCancelFriendRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (friendshipId: string) => {
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .eq('id', friendshipId);
+
+      if (error) {
+        console.error('Error cancelling friend request:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: friendsKeys.all });
+    },
+  });
+}
+
+/**
  * Hook: useFriendStats
  * Get basic stats for a friend (rounds played together, etc.)
  */
