@@ -10,9 +10,9 @@
  */
 
 import React, { memo, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
-import { IconUsers } from '@tabler/icons-react-native';
+import { IconUsers, IconUserPlus } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SearchBar } from '@/components/common/SearchBar';
@@ -38,6 +38,9 @@ export const FriendSelector = memo(function FriendSelector({
   listTitle,
   selectedTitle = 'SELECTED',
   showReadyBadge = false,
+  showPendingBadge = false,
+  onAddFriendPress,
+  addFriendLabel = 'Add Friend',
   testID,
 }: FriendSelectorProps) {
   const colors = useThemeColors();
@@ -187,14 +190,27 @@ export const FriendSelector = memo(function FriendSelector({
         </View>
       </View>
 
-      {/* Search Bar */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={onSearchQueryChange}
-        placeholder="Search friends..."
-        accessibilityLabel="Search friends"
-        containerStyle={styles.searchContainer}
-      />
+      {/* Search Bar with Add Friend Button */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBarWrapper}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={onSearchQueryChange}
+            placeholder="Search friends..."
+            accessibilityLabel="Search friends"
+          />
+        </View>
+        {onAddFriendPress && (
+          <TouchableOpacity
+            style={[styles.addFriendButton, { backgroundColor: colors.primary }]}
+            onPress={onAddFriendPress}
+            accessibilityLabel={addFriendLabel}
+            accessibilityRole="button"
+          >
+            <IconUserPlus size={22} color={colors.white} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Friends List */}
       <View style={styles.section}>
@@ -222,6 +238,7 @@ export const FriendSelector = memo(function FriendSelector({
                   isDisabled={disabled}
                   onToggle={() => handleToggle(friend)}
                   showDivider={index < filteredFriends.length - 1}
+                  showPendingBadge={showPendingBadge}
                 />
               );
             })}
@@ -235,8 +252,23 @@ export const FriendSelector = memo(function FriendSelector({
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               {searchQuery
                 ? `No friends match "${searchQuery}"`
-                : 'Add friends from the Friends tab'}
+                : onAddFriendPress
+                  ? 'Tap the + button above to add friends'
+                  : 'Add friends from the Friends tab'}
             </Text>
+            {!searchQuery && onAddFriendPress && (
+              <TouchableOpacity
+                style={[styles.emptyAddButton, { backgroundColor: colors.primary }]}
+                onPress={onAddFriendPress}
+                accessibilityLabel={addFriendLabel}
+                accessibilityRole="button"
+              >
+                <IconUserPlus size={18} color={colors.white} />
+                <Text style={[styles.emptyAddButtonText, { color: colors.white }]}>
+                  {addFriendLabel}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -309,8 +341,22 @@ const styles = StyleSheet.create({
   selectedScroll: {
     gap: spacing.sm,
   },
-  searchContainer: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  searchBarWrapper: {
+    flex: 1,
+  },
+  addFriendButton: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   friendsContainer: {
     marginHorizontal: spacing.lg,
@@ -333,5 +379,17 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  emptyAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.lg,
+  },
+  emptyAddButtonText: {
+    ...typography.bodyBold,
   },
 });

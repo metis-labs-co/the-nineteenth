@@ -115,10 +115,16 @@ export function DatePicker({
     [mode, onChange]
   );
 
-  // Handle picker dismiss (iOS)
+  // Handle picker dismiss (iOS) - save the current value when Done is pressed
   const handleDismiss = useCallback(() => {
+    const currentValue = getPickerValue();
+    if (mode === 'date') {
+      onChange(formatAustralianDate(currentValue));
+    } else {
+      onChange(formatTime(currentValue));
+    }
     setShowPicker(false);
-  }, []);
+  }, [getPickerValue, mode, onChange]);
 
   // Handle clear
   const handleClear = useCallback(() => {

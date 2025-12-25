@@ -90,6 +90,15 @@ export interface FriendSelectorProps {
   /** Whether to show the "Ready" badge when minimum is met */
   showReadyBadge?: boolean;
 
+  /** Whether to show "Pending" badge for pending friendships */
+  showPendingBadge?: boolean;
+
+  /** Callback when "Add Friend" button is pressed */
+  onAddFriendPress?: () => void;
+
+  /** Label for add friend button (default: "Add Friend") */
+  addFriendLabel?: string;
+
   /** Test ID prefix for testing */
   testID?: string;
 }
@@ -113,4 +122,6 @@ export interface FriendListItemProps {
   isDisabled?: boolean;
   onToggle: () => void;
   showDivider?: boolean;
+  /** Whether to show "Pending" badge for pending friendships */
+  showPendingBadge?: boolean;
 }

@@ -161,6 +161,85 @@ export function useFriends() {
 }
 
 /**
+ * Hook: useFriendsWithPendingSent
+ * Fetches friends list including pending requests sent BY the current user.
+ * This allows users to see and select friends they've sent requests to
+ * (useful in competition wizard where pending friends can be added).
+ *
+ * Returns:
+ * - All accepted friendships (user is either requester or addressee)
+ * - Pending friendships where current user is the requester (they sent the request)
+ */
+export function useFriendsWithPendingSent() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: friendsKeys.listWithPendingSent(user?.id),
+    queryFn: async (): Promise<Friend[]> => {
+      if (!user?.id) return [];
+
+      // Fetch friendships where:
+      // 1. Status is 'accepted' AND user is either requester or addressee
+      // 2. Status is 'pending' AND user is the requester (they sent the request)
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          requester_id,
+          addressee_id,
+          status,
+          created_at,
+          updated_at,
+          requester:players!friendships_requester_id_fkey(*),
+          addressee:players!friendships_addressee_id_fkey(*)
+        `)
+        .or(
+          `and(status.eq.accepted,or(requester_id.eq.${user.id},addressee_id.eq.${user.id})),` +
+            `and(status.eq.pending,requester_id.eq.${user.id})`
+        );
+
+      if (error) {
+        console.error('Error fetching friends with pending sent:', error);
+        throw error;
+      }
+
+      // Define the shape of the query result
+      type FriendshipQueryResult = {
+        id: string;
+        requester_id: string;
+        addressee_id: string;
+        status: FriendshipStatus;
+        created_at: string;
+        updated_at: string;
+        requester: Player;
+        addressee: Player;
+      };
+
+      // Transform the data to Friend type
+      const friends: Friend[] = ((data || []) as FriendshipQueryResult[]).map((friendship) => {
+        const isRequester = friendship.requester_id === user.id;
+        const friendPlayer = isRequester ? friendship.addressee : friendship.requester;
+
+        return {
+          ...friendPlayer,
+          friendship_id: friendship.id,
+          friendship_status: friendship.status,
+          is_requester: isRequester,
+        };
+      });
+
+      return friends;
+    },
+    enabled: !!user?.id,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  });
+}
+
+/**
  * Hook: useFriendRequests
  * Fetches pending friend requests received by the current user
  */

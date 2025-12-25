@@ -212,22 +212,17 @@ export function useAuth(): UseAuthReturn {
         throw new Error('Login failed: No user or session returned');
       }
 
-      // Fetch player profile (non-blocking - don't fail login if this fails)
+      // Fetch or create player profile
+      // This ensures the profile exists even if the database trigger failed
       let playerData: Player | null = null;
       try {
-        const { data: profile, error: playerError } = await supabase
-          .from('players')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (playerError) {
-          console.warn('Could not fetch player profile:', playerError.message);
-        } else {
-          playerData = profile as Player;
-        }
+        playerData = await ensurePlayerProfile(
+          data.user.id,
+          data.user.email,
+          data.user.user_metadata as { name?: string; handicap?: number; phone?: string }
+        );
       } catch (profileError) {
-        console.warn('Player profile fetch failed:', profileError);
+        console.warn('Player profile fetch/create failed:', profileError);
       }
 
       return {
@@ -409,22 +404,18 @@ export function useAuth(): UseAuthReturn {
         throw new Error('Verification failed: No user or session returned');
       }
 
-      // Fetch player profile (non-blocking)
+      // Fetch or create player profile
+      // This is critical for new users who just confirmed their email
+      // The database trigger may not have created their profile
       let playerData: Player | null = null;
       try {
-        const { data: profile, error: playerError } = await supabase
-          .from('players')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (playerError) {
-          console.warn('Could not fetch player profile:', playerError.message);
-        } else {
-          playerData = profile as Player;
-        }
+        playerData = await ensurePlayerProfile(
+          data.user.id,
+          data.user.email,
+          data.user.user_metadata as { name?: string; handicap?: number; phone?: string }
+        );
       } catch (profileError) {
-        console.warn('Player profile fetch failed:', profileError);
+        console.warn('Player profile fetch/create failed:', profileError);
       }
 
       return {
@@ -593,6 +584,74 @@ export function useAuth(): UseAuthReturn {
   // =====================================================
   // HELPER FUNCTIONS
   // =====================================================
+
+  /**
+   * Ensure player profile exists in the database
+   *
+   * This is a fallback for when the database trigger (on_auth_user_created)
+   * fails to create the player profile. Creates the profile if it doesn't exist.
+   *
+   * @param userId - The auth user ID
+   * @param userEmail - The user's email
+   * @param userMetadata - Optional metadata from auth.users (name, handicap, etc.)
+   * @returns The player profile (existing or newly created)
+   */
+  const ensurePlayerProfile = useCallback(
+    async (
+      userId: string,
+      userEmail: string | undefined,
+      userMetadata?: { name?: string; handicap?: number; phone?: string }
+    ): Promise<Player | null> => {
+      if (!userId) return null;
+
+      // First, try to fetch existing profile
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('players')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (existingProfile) {
+        return existingProfile as Player;
+      }
+
+      // Profile doesn't exist - create it
+      // This handles the case where the database trigger failed
+      if (__DEV__) {
+        console.log('[useAuth] Player profile not found, creating fallback profile for:', userId);
+      }
+
+      const email = userEmail || '';
+      const defaultName = userMetadata?.name || email.split('@')[0] || 'Player';
+
+      const { data: newProfile, error: insertError } = await supabase
+        .from('players')
+        .upsert(
+          {
+            id: userId,
+            email: email,
+            name: defaultName,
+            handicap: userMetadata?.handicap ?? 0,
+            phone: userMetadata?.phone || null,
+          },
+          { onConflict: 'id' }
+        )
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('[useAuth] Failed to create fallback player profile:', insertError);
+        return null;
+      }
+
+      if (__DEV__) {
+        console.log('[useAuth] Created fallback player profile:', newProfile?.id);
+      }
+
+      return newProfile as Player;
+    },
+    []
+  );
 
   /**
    * Get auth token for API calls

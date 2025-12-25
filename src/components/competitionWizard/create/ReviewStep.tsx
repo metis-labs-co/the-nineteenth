@@ -161,7 +161,7 @@ export default function ReviewStep({
                     <Text style={[styles.pointPosition, { color: colors.textSecondary }]}>
                       {entry.position}{entry.position === 1 ? 'st' : entry.position === 2 ? 'nd' : entry.position === 3 ? 'rd' : 'th'}
                     </Text>
-                    <Text style={[styles.pointValue, { color: colors.primary }]}>{entry.points}</Text>
+                    <Text style={[styles.pointValue, { color: colors.textPrimary }]}>{entry.points}</Text>
                   </View>
                 ))}
                 {teamSettingsData.pointSystem.length > 4 && (

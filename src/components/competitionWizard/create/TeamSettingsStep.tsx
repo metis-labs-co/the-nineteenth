@@ -245,8 +245,8 @@ export default function TeamSettingsStep({
                   <Text style={[styles.pointsPosition, { color: colors.textSecondary }]}>
                     {getPositionLabel(entry.position)}
                   </Text>
-                  <View style={[styles.pointsBadge, { backgroundColor: colors.primaryLight }]}>
-                    <Text style={[styles.pointsValue, { color: colors.primaryDark }]}>
+                  <View style={[styles.pointsBadge, { backgroundColor: colors.gray200 }]}>
+                    <Text style={[styles.pointsValue, { color: colors.textPrimary }]}>
                       {entry.points}
                     </Text>
                   </View>

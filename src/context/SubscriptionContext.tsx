@@ -22,8 +22,9 @@
  * ```
  */
 
-import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, useEffect, useState, ReactNode } from 'react';
 import { useSubscription, FeatureCheckContext } from '@/hooks/useSubscription';
+import { subscriptionService } from '@/services/subscription/SubscriptionService';
 import type {
   SubscriptionTier,
   TierLimits,
@@ -93,6 +94,10 @@ interface SubscriptionContextValue {
   // Actions
   /** Manually refresh subscription data */
   refresh: () => Promise<void>;
+
+  // In-app purchases
+  /** Whether in-app purchases are available (RevenueCat initialized) */
+  purchasesEnabled: boolean;
 }
 
 // ============================================================================
@@ -111,6 +116,52 @@ interface SubscriptionProviderProps {
 
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const subscriptionData = useSubscription();
+
+  // Track whether in-app purchases are available
+  const [purchasesEnabled, setPurchasesEnabled] = useState(false);
+
+  // ============================================================================
+  // INITIALIZE SUBSCRIPTION SERVICE
+  // ============================================================================
+
+  /**
+   * Initialize the subscription service (RevenueCat) on mount
+   * This is required for in-app purchases to work on TestFlight/App Store builds
+   */
+  useEffect(() => {
+    let mounted = true;
+
+    const initService = async () => {
+      try {
+        const result = await subscriptionService.initialize();
+        if (mounted) {
+          if (result.success) {
+            console.log('[SubscriptionProvider] Subscription service initialized successfully');
+            // Check if purchases are supported after initialization
+            const canPurchase = subscriptionService.supportsPurchases();
+            console.log('[SubscriptionProvider] Purchases enabled:', canPurchase);
+            setPurchasesEnabled(canPurchase);
+          } else {
+            console.warn('[SubscriptionProvider] Subscription service init failed:', result.error);
+            setPurchasesEnabled(false);
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error('[SubscriptionProvider] Error initializing subscription service:', error);
+          setPurchasesEnabled(false);
+        }
+      }
+    };
+
+    initService();
+
+    return () => {
+      mounted = false;
+      // Cleanup subscription service on unmount
+      subscriptionService.cleanup?.();
+    };
+  }, []);
 
   // ============================================================================
   // CONVENIENCE METHODS
@@ -194,6 +245,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
       // Actions
       refresh: subscriptionData.refresh,
+
+      // In-app purchases
+      purchasesEnabled,
     }),
     [
       subscriptionData.subscription,
@@ -209,6 +263,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       subscriptionData.isSuperAdmin,
       subscriptionData.checkFeature,
       subscriptionData.refresh,
+      purchasesEnabled,
       checkCanCreateCompetition,
       checkCanAddRound,
       checkCanAddPlayer,
@@ -304,4 +359,20 @@ export function useCheckFeature(): (
     throw new Error('useCheckFeature must be used within a SubscriptionProvider');
   }
   return context.checkFeature;
+}
+
+/**
+ * Check if in-app purchases are available
+ * Returns true when RevenueCat is initialized and ready for purchases
+ *
+ * @example
+ * const purchasesEnabled = usePurchasesEnabled();
+ * if (purchasesEnabled) { showPaywall(); }
+ */
+export function usePurchasesEnabled(): boolean {
+  const context = useContext(SubscriptionContext);
+  if (context === undefined) {
+    throw new Error('usePurchasesEnabled must be used within a SubscriptionProvider');
+  }
+  return context.purchasesEnabled;
 }

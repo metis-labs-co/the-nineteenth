@@ -11,6 +11,7 @@ import { Avatar, Divider } from 'react-native-paper';
 import { IconCheck, IconPlus } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import type { FriendListItemProps } from './FriendSelector.types';
 
 export const FriendListItem = memo(function FriendListItem({
@@ -19,8 +20,10 @@ export const FriendListItem = memo(function FriendListItem({
   isDisabled = false,
   onToggle,
   showDivider = false,
+  showPendingBadge = false,
 }: FriendListItemProps) {
   const colors = useThemeColors();
+  const isPending = showPendingBadge && friend.friendship_status === 'pending';
 
   return (
     <>
@@ -51,16 +54,27 @@ export const FriendListItem = memo(function FriendListItem({
 
           {/* Friend Info */}
           <View style={styles.info}>
-            <Text
-              style={[
-                styles.name,
-                { color: colors.textPrimary },
-                isDisabled && { color: colors.textDisabled },
-              ]}
-              numberOfLines={1}
-            >
-              {friend.name}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text
+                style={[
+                  styles.name,
+                  { color: colors.textPrimary },
+                  isDisabled && { color: colors.textDisabled },
+                ]}
+                numberOfLines={1}
+              >
+                {friend.name}
+              </Text>
+              {isPending && (
+                <StatusBadge
+                  status="custom"
+                  label="Pending"
+                  size="sm"
+                  backgroundColor={colors.warningBackground}
+                  textColor={colors.warningDark}
+                />
+              )}
+            </View>
             {friend.email && (
               <Text
                 style={[
@@ -125,8 +139,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.lg,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   name: {
     ...typography.bodyBold,
+    flexShrink: 1,
   },
   email: {
     ...typography.small,

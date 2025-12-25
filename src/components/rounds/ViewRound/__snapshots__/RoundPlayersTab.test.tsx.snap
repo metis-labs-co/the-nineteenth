@@ -1,0 +1,2044 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`RoundPlayersTab Snapshots matches snapshot with empty state 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    testID="empty-state"
+  >
+    <Text
+      testID="empty-state-icon"
+    >
+      account-group-outline
+    </Text>
+    <Text
+      testID="empty-state-title"
+    >
+      No players yet
+    </Text>
+    <Text
+      testID="empty-state-message"
+    >
+      Players will appear here once they join this round.
+    </Text>
+    <Text
+      testID="empty-state-compact"
+    >
+      true
+    </Text>
+  </View>
+</View>
+`;
+
+exports[`RoundPlayersTab Snapshots matches snapshot with null holes 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "gap": 16,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "marginBottom": 12,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 18,
+              "fontWeight": "600",
+              "lineHeight": 26,
+              "marginBottom": 8,
+            },
+            {
+              "color": "#1A1A1A",
+            },
+          ]
+        }
+      >
+        2
+         
+        Players
+      </Text>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 12,
+              "overflow": "hidden",
+            },
+            {
+              "backgroundColor": "#FFFFFF",
+            },
+          ]
+        }
+      >
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 1
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  10
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  36
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  0
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  0/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={
+                [
+                  {
+                    "fontSize": 14,
+                    "fontStyle": "italic",
+                    "fontWeight": "400",
+                    "lineHeight": 20,
+                    "marginLeft": 56,
+                    "marginTop": 8,
+                  },
+                  {
+                    "color": "#9E9E9E",
+                  },
+                ]
+              }
+            >
+              Not started
+            </Text>
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "#ccc",
+                  "height": 1,
+                },
+                [
+                  {
+                    "marginHorizontal": 16,
+                  },
+                  {
+                    "backgroundColor": "#F5F5F5",
+                  },
+                ],
+              ]
+            }
+          />
+        </View>
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 2
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  15
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  34
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  0
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  0/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={
+                [
+                  {
+                    "fontSize": 14,
+                    "fontStyle": "italic",
+                    "fontWeight": "400",
+                    "lineHeight": 20,
+                    "marginLeft": 56,
+                    "marginTop": 8,
+                  },
+                  {
+                    "color": "#9E9E9E",
+                  },
+                ]
+              }
+            >
+              Not started
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "gap": 16,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "marginBottom": 12,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 18,
+              "fontWeight": "600",
+              "lineHeight": 26,
+              "marginBottom": 8,
+            },
+            {
+              "color": "#1A1A1A",
+            },
+          ]
+        }
+      >
+        3
+         
+        Players
+      </Text>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 12,
+              "overflow": "hidden",
+            },
+            {
+              "backgroundColor": "#FFFFFF",
+            },
+          ]
+        }
+      >
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 1
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  10
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  36
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  18/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "flexDirection": "row",
+                  "flexWrap": "wrap",
+                  "gap": 4,
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  18
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Birdie
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Par
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Bogey
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "#ccc",
+                  "height": 1,
+                },
+                [
+                  {
+                    "marginHorizontal": 16,
+                  },
+                  {
+                    "backgroundColor": "#F5F5F5",
+                  },
+                ],
+              ]
+            }
+          />
+        </View>
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 2
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  15
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  34
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  18/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "flexDirection": "row",
+                  "flexWrap": "wrap",
+                  "gap": 4,
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Birdie
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  18
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Par
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Bogey
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "#ccc",
+                  "height": 1,
+                },
+                [
+                  {
+                    "marginHorizontal": 16,
+                  },
+                  {
+                    "backgroundColor": "#F5F5F5",
+                  },
+                ],
+              ]
+            }
+          />
+        </View>
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 3
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  20
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  32
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  18/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "flexDirection": "row",
+                  "flexWrap": "wrap",
+                  "gap": 4,
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Birdie
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  0
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Par
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 4,
+                      "flexDirection": "row",
+                      "gap": 4,
+                      "paddingHorizontal": 8,
+                      "paddingVertical": 4,
+                    },
+                    {
+                      "backgroundColor": undefined,
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  18
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  Bogey
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`RoundPlayersTab Snapshots matches snapshot with players not started 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "gap": 16,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "marginBottom": 12,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 18,
+              "fontWeight": "600",
+              "lineHeight": 26,
+              "marginBottom": 8,
+            },
+            {
+              "color": "#1A1A1A",
+            },
+          ]
+        }
+      >
+        2
+         
+        Players
+      </Text>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 12,
+              "overflow": "hidden",
+            },
+            {
+              "backgroundColor": "#FFFFFF",
+            },
+          ]
+        }
+      >
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 1
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  10
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  36
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  0
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  0/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={
+                [
+                  {
+                    "fontSize": 14,
+                    "fontStyle": "italic",
+                    "fontWeight": "400",
+                    "lineHeight": 20,
+                    "marginLeft": 56,
+                    "marginTop": 8,
+                  },
+                  {
+                    "color": "#9E9E9E",
+                  },
+                ]
+              }
+            >
+              Not started
+            </Text>
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "#ccc",
+                  "height": 1,
+                },
+                [
+                  {
+                    "marginHorizontal": 16,
+                  },
+                  {
+                    "backgroundColor": "#F5F5F5",
+                  },
+                ],
+              ]
+            }
+          />
+        </View>
+        <View>
+          <View
+            style={
+              {
+                "paddingHorizontal": 16,
+                "paddingVertical": 12,
+              }
+            }
+          >
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                }
+              }
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderRadius": 22,
+                      "height": 44,
+                      "justifyContent": "center",
+                      "width": 44,
+                    },
+                    {
+                      "backgroundColor": "#2E7D32",
+                    },
+                  ]
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 18,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": undefined,
+                      },
+                    ]
+                  }
+                >
+                  P
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "flex": 1,
+                    "marginLeft": 12,
+                  }
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  Player 2
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 14,
+                        "fontWeight": "400",
+                        "lineHeight": 20,
+                        "marginTop": 2,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  HC: 
+                  15
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "alignItems": "flex-end",
+                  }
+                }
+              >
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 20,
+                        "fontWeight": "600",
+                        "lineHeight": 28,
+                      },
+                      {
+                        "color": "#2E7D32",
+                      },
+                    ]
+                  }
+                >
+                  34
+                </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 12,
+                        "fontWeight": "400",
+                        "lineHeight": 16,
+                      },
+                      {
+                        "color": "#6B6B6B",
+                      },
+                    ]
+                  }
+                >
+                  pts
+                </Text>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "marginLeft": 56,
+                  "marginTop": 8,
+                }
+              }
+            >
+              <View
+                testID="progress-bar"
+              >
+                <Text
+                  testID="progress-bar-value"
+                >
+                  0
+                </Text>
+                <Text
+                  testID="progress-bar-max"
+                >
+                  18
+                </Text>
+                <Text
+                  testID="progress-bar-label"
+                >
+                  0/18 holes
+                </Text>
+                <Text
+                  testID="progress-bar-size"
+                >
+                  sm
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={
+                [
+                  {
+                    "fontSize": 14,
+                    "fontStyle": "italic",
+                    "fontWeight": "400",
+                    "lineHeight": 20,
+                    "marginLeft": 56,
+                    "marginTop": 8,
+                  },
+                  {
+                    "color": "#9E9E9E",
+                  },
+                ]
+              }
+            >
+              Not started
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;

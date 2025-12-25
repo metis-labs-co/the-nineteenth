@@ -181,6 +181,8 @@ export const friendsKeys = {
   all: ['friends'] as const,
   lists: () => [...friendsKeys.all, 'list'] as const,
   list: (userId?: string, variant?: 'count') => [...friendsKeys.lists(), userId, variant] as const,
+  listWithPendingSent: (userId?: string) =>
+    [...friendsKeys.lists(), 'with-pending-sent', userId] as const,
   count: (userId?: string) => [...friendsKeys.all, 'count', userId] as const,
   requests: () => [...friendsKeys.all, 'requests'] as const,
   pendingRequests: () => [...friendsKeys.requests(), 'pending'] as const,

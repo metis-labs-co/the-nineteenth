@@ -35,7 +35,6 @@ import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import { Paywall } from '@/components/subscription/Paywall';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
-import { subscriptionService } from '@/services/subscription/SubscriptionService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { SubscriptionTier } from '@/types/subscription.types';
@@ -138,15 +137,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
     isError,
     error,
     refresh,
+    purchasesEnabled,
   } = useSubscriptionContext();
 
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier>('social');
-
-  // Check if in-app purchases are available
-  const purchasesEnabled = subscriptionService.supportsPurchases();
 
   // Refresh subscription data when screen gains focus
   // This ensures we always show current user's subscription, not cached data

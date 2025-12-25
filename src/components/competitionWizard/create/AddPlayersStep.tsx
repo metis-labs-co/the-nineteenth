@@ -6,8 +6,9 @@ import { type PlayerFormData } from '@/schemas/competition';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useFriends } from '@/hooks/useFriends';
+import { useFriendsWithPendingSent, useCheckCanAddFriend } from '@/hooks/useFriends';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
+import { AddFriendModal } from '@/components/social/AddFriendModal';
 import type { Friend, Player } from '@/types/database.types';
 
 interface AddPlayersStepProps {
@@ -37,15 +38,22 @@ export default function AddPlayersStep({
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { player: currentPlayer, user } = useAuth();
-  const { data: friends = [], isLoading: isLoadingFriends } = useFriends();
+  const { data: friends = [], isLoading: isLoadingFriends } = useFriendsWithPendingSent();
+  const friendsAccess = useCheckCanAddFriend();
+
+  // Modal state for adding friends
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
   // Determine effective max players (default to 40 for unlimited/-1 or if not provided)
   const effectiveMaxPlayers =
     !maxPlayersPerCompetition || maxPlayersPerCompetition < 0 ? 40 : maxPlayersPerCompetition;
 
-  // Filter to only show accepted friends
-  const acceptedFriends = useMemo(
-    () => friends.filter((f) => f.friendship_status === 'accepted'),
+  // Filter to show accepted and pending-sent friends (friends where current user sent the request)
+  const selectableFriends = useMemo(
+    () =>
+      friends.filter(
+        (f) => f.friendship_status === 'accepted' || f.friendship_status === 'pending'
+      ),
     [friends]
   );
 
@@ -124,6 +132,19 @@ export default function AddPlayersStep({
     [user?.id, effectiveMaxPlayers]
   );
 
+  // Handle add friend button press
+  const handleAddFriendPress = useCallback(() => {
+    if (!friendsAccess.allowed) {
+      Alert.alert(
+        'Friends Limit Reached',
+        friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setShowAddFriendModal(true);
+  }, [friendsAccess.allowed, friendsAccess.reason]);
+
   // Proceed to next step
   const handleNext = () => {
     if (selectedPlayers.length < 2) {
@@ -162,7 +183,7 @@ export default function AddPlayersStep({
         <FriendSelector
           selectedPlayers={selectedPlayers}
           onSelectionChange={handleSelectionChange}
-          friends={acceptedFriends}
+          friends={selectableFriends}
           friendsLoading={isLoadingFriends}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
@@ -187,12 +208,30 @@ export default function AddPlayersStep({
               : undefined
           }
           selectedTitle="SELECTED PLAYERS"
-          listTitle={`${acceptedFriends.length} ${acceptedFriends.length === 1 ? 'FRIEND' : 'FRIENDS'}`}
+          listTitle={`${selectableFriends.length} ${selectableFriends.length === 1 ? 'FRIEND' : 'FRIENDS'}`}
           showReadyBadge={true}
-          emptyMessage="Add friends from the Friends tab to invite them to competitions"
+          showPendingBadge={true}
+          onAddFriendPress={handleAddFriendPress}
+          emptyMessage="No friends yet"
           testID="add-players-step"
         />
       </ScrollView>
+
+      {/* Add Friend Modal */}
+      <AddFriendModal
+        visible={showAddFriendModal}
+        onClose={() => setShowAddFriendModal(false)}
+        canAddFriend={friendsAccess.allowed}
+        onAtLimitError={() => {
+          setShowAddFriendModal(false);
+          Alert.alert(
+            'Friends Limit Reached',
+            friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.',
+            [{ text: 'OK' }]
+          );
+        }}
+        testID="add-players-add-friend-modal"
+      />
 
       {/* Action Buttons - Sticky Footer */}
       <View
