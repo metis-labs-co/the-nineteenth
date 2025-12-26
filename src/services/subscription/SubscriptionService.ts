@@ -904,16 +904,29 @@ export function createSubscriptionProvider(type: ProviderType): SubscriptionProv
  * const result = await subscriptionService.getCurrentSubscription(userId);
  * ```
  */
-const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+// Determine which provider to use based on environment
+// Check for iOS key first (primary), then Android
+const revenueCatApiKey =
+  Platform.OS === 'ios'
+    ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
+    : Platform.OS === 'android'
+      ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
+      : null;
+
 const providerType: ProviderType = revenueCatApiKey ? 'revenuecat' : 'manual';
 
 // Debug logging for subscription service initialization
-console.log('[SubscriptionService] Initializing with provider:', providerType);
+console.log('[SubscriptionService] Platform:', Platform.OS);
+console.log('[SubscriptionService] Provider type:', providerType);
 console.log('[SubscriptionService] RevenueCat API key present:', !!revenueCatApiKey);
+console.log('[SubscriptionService] __DEV__:', __DEV__);
 if (revenueCatApiKey) {
   console.log('[SubscriptionService] API key (first 8 chars):', revenueCatApiKey.substring(0, 8) + '...');
 }
 
 export const subscriptionService: SubscriptionProvider = createSubscriptionProvider(providerType);
+
+/** Export the provider type for debugging */
+export const currentProviderType = providerType;
 
 export default subscriptionService;

@@ -243,6 +243,8 @@ export default function HelpAndSupportScreen() {
     if (!form.inquiryType) return;
 
     form.setIsSubmitting(true);
+    const targetEmail = getEmailForInquiryType(form.inquiryType);
+    const inquiryLabel = INQUIRY_OPTIONS.find((o) => o.type === form.inquiryType)?.label || 'Inquiry';
 
     try {
       const { data, error } = await supabase.functions.invoke('send-support-email', {
@@ -272,11 +274,31 @@ export default function HelpAndSupportScreen() {
       );
     } catch (err) {
       console.error('[HelpAndSupportScreen] Failed to send support email:', err);
-      const targetEmail = getEmailForInquiryType(form.inquiryType);
+
+      // Fallback: Open email client with pre-filled content
+      const subject = encodeURIComponent(`[${inquiryLabel}] ${form.subject.trim()}`);
+      const deviceInfo =
+        form.inquiryType === 'bug'
+          ? `\n\n---\nApp Version: ${APP_VERSION}\nPlatform: ${Platform.OS}`
+          : '';
+      const body = encodeURIComponent(`${form.message.trim()}${deviceInfo}`);
+      const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+
       Alert.alert(
-        'Error',
-        `Failed to send your message. Please try again or email us directly at ${targetEmail}.`,
-        [{ text: 'OK' }]
+        'Open Email App?',
+        "We couldn't send your message directly. Would you like to open your email app instead?",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Email',
+            onPress: () => {
+              Linking.openURL(mailtoUrl).catch(() => {
+                Alert.alert('Error', `Please email us directly at ${targetEmail}`);
+              });
+              form.resetForm();
+            },
+          },
+        ]
       );
     } finally {
       form.setIsSubmitting(false);

@@ -24,7 +24,7 @@
 
 import React, { createContext, useContext, useMemo, useCallback, useEffect, useState, ReactNode } from 'react';
 import { useSubscription, FeatureCheckContext } from '@/hooks/useSubscription';
-import { subscriptionService } from '@/services/subscription/SubscriptionService';
+import { subscriptionService, currentProviderType } from '@/services/subscription/SubscriptionService';
 import type {
   SubscriptionTier,
   TierLimits,
@@ -98,6 +98,9 @@ interface SubscriptionContextValue {
   // In-app purchases
   /** Whether in-app purchases are available (RevenueCat initialized) */
   purchasesEnabled: boolean;
+
+  /** The current subscription provider type (for debugging) */
+  providerType: 'manual' | 'revenuecat';
 }
 
 // ============================================================================
@@ -132,8 +135,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     let mounted = true;
 
     const initService = async () => {
+      console.log('[SubscriptionProvider] Starting initialization...');
+      console.log('[SubscriptionProvider] Current provider type:', currentProviderType);
+      console.log('[SubscriptionProvider] Service type:', subscriptionService.type);
+
       try {
         const result = await subscriptionService.initialize();
+        console.log('[SubscriptionProvider] Init result:', result);
+
         if (mounted) {
           if (result.success) {
             console.log('[SubscriptionProvider] Subscription service initialized successfully');
@@ -142,14 +151,20 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
             console.log('[SubscriptionProvider] Purchases enabled:', canPurchase);
             setPurchasesEnabled(canPurchase);
           } else {
-            console.warn('[SubscriptionProvider] Subscription service init failed:', result.error);
-            setPurchasesEnabled(false);
+            console.warn('[SubscriptionProvider] Subscription service init failed:', result.error, result.errorCode);
+            // Even if init fails, check supportsPurchases - it might still work
+            const canPurchase = subscriptionService.supportsPurchases();
+            console.log('[SubscriptionProvider] Purchases enabled after failed init:', canPurchase);
+            setPurchasesEnabled(canPurchase);
           }
         }
       } catch (error) {
         if (mounted) {
           console.error('[SubscriptionProvider] Error initializing subscription service:', error);
-          setPurchasesEnabled(false);
+          // Even on error, check if purchases might work
+          const canPurchase = subscriptionService.supportsPurchases();
+          console.log('[SubscriptionProvider] Purchases enabled after error:', canPurchase);
+          setPurchasesEnabled(canPurchase);
         }
       }
     };
@@ -248,6 +263,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
       // In-app purchases
       purchasesEnabled,
+      providerType: currentProviderType,
     }),
     [
       subscriptionData.subscription,

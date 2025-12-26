@@ -138,6 +138,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
     error,
     refresh,
     purchasesEnabled,
+    providerType,
   } = useSubscriptionContext();
 
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -687,6 +688,26 @@ export default function SubscriptionScreen({ navigation }: Props) {
             </Text>
           </View>
         )}
+
+        {/* Debug Info (visible in all builds for troubleshooting) */}
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.surfaceVariant,
+              marginTop: spacing.lg,
+              padding: spacing.sm,
+              borderRadius: borderRadius.md,
+            },
+          ]}
+        >
+          <Text style={[styles.debugTitle, { color: colors.textSecondary }]}>
+            Debug Info
+          </Text>
+          <Text style={[styles.debugText, { color: colors.textSecondary }]}>
+            Provider: {providerType} | Purchases: {purchasesEnabled ? 'enabled' : 'disabled'} | DEV: {__DEV__ ? 'yes' : 'no'}
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Upgrade Prompt Modal */}
@@ -940,5 +961,14 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...typography.bodyBold,
+  },
+  debugTitle: {
+    ...typography.caption,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  debugText: {
+    ...typography.caption,
+    fontSize: 11,
   },
 });
