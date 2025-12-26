@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 81 of 129 components (62.8%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 82 of 129 components (63.6%) have test coverage.
 
 > **Note:** FriendSelector was already in the tested list but tests were fixed on 2024-12-25.
 
@@ -14,7 +14,7 @@ This document outlines all **React components** that need testing in The Ninetee
 
 ## Current Test Coverage
 
-### Components WITH Tests (81 total)
+### Components WITH Tests (82 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
 | `src/components/ai/GeneratedPreview.tsx` | 511 | Yes |
@@ -99,6 +99,7 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/common/FilterPill.tsx` | 120 | Yes |
 | `src/components/subscription/LimitIndicator.tsx` | 245 | Yes |
 | `src/components/subscription/TierBadge.tsx` | 244 | Yes |
+| `src/components/common/NotificationBell.tsx` | 120 | Yes |
 
 ---
 
@@ -116,13 +117,13 @@ All Tier 2 components have been tested.
 
 All Tier 3 components have been tested.
 
-### TIER 4: Lower Priority (100-199 lines) - 30 components
+### TIER 4: Lower Priority (100-199 lines) - 29 components
 
 #### AI (0)
 All AI components have been tested.
 
-#### Common (2)
-- `NotificationBell.tsx` (120), `SearchBar.tsx` (106)
+#### Common (1)
+- `SearchBar.tsx` (106)
 
 #### Competition Wizard (5)
 - `CompetitionHeaderCard.tsx` (230), `CourseSelectionModal.tsx` (221)
@@ -213,13 +214,13 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 81 | 62.8% |
+| Already Tested | 82 | 63.6% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
 | Tier 3 (Medium) | 0 | 0.0% |
-| Tier 4 (Lower) | 30 | 23.3% |
+| Tier 4 (Lower) | 29 | 22.5% |
 | Tier 5 (Small) | 3 | 2.3% |
-| **Total Needing Tests** | **33** | **25.6%** |
+| **Total Needing Tests** | **32** | **24.8%** |
 
 ---
 
@@ -309,6 +310,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/common/FilterPill.test.tsx`
 - `src/components/subscription/LimitIndicator.test.tsx`
 - `src/components/subscription/TierBadge.test.tsx`
+- `src/components/common/NotificationBell.test.tsx`
 
 ---
 
@@ -325,6 +327,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-26**: `NotificationBell.tsx` - 70 tests, 20 stories (Tier 4)
 - **2024-12-26**: `TierBadge.tsx` - 69 tests, 38 stories (Tier 4)
 - **2024-12-25**: `LimitIndicator.tsx` - 63 tests, 38 stories (Tier 4)
 - **2024-12-25**: `FilterPill.tsx` - 59 tests, 35 stories (Tier 4)
