@@ -23,17 +23,27 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Text, Icon, Divider } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { TierBadge } from '@/components/subscription/TierBadge';
-import { LimitIndicator } from '@/components/subscription/LimitIndicator';
-import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
-import { Paywall } from '@/components/subscription/Paywall';
+import {
+  TierBadge,
+  UpgradePrompt,
+  Paywall,
+  TrialBadge,
+  InfoBanner,
+  PlanSummaryCard,
+  UsageSection,
+  PlanComparisonCard,
+  DebugInfoSection,
+} from '@/components/subscription';
+import type { UpgradePromptConfig } from '@/components/subscription';
+import type { PlanFeature } from '@/components/subscription/PlanComparisonCard';
+import type { UsageItem } from '@/components/subscription/UsageSection';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -56,22 +66,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Subscription'>;
  * Display order for tiers in comparison (excludes super_admin)
  */
 const COMPARISON_TIERS: SubscriptionTier[] = ['free', 'social', 'premium'];
-
-/**
- * Feature labels for plan comparison
- */
-const FEATURE_LABELS: Record<string, string> = {
-  maxCompetitionsOwned: 'Competitions',
-  maxRoundsPerCompetition: 'Rounds per competition',
-  maxPlayersPerCompetition: 'Players per competition',
-  maxFriends: 'Friends',
-  allowedGameTypes: 'Game types',
-  canUseTeamFormats: 'Team formats',
-  canUseScoringPairs: 'Scoring pairs',
-  canViewScoreDistribution: 'Score distribution',
-  canViewAdvancedStats: 'Advanced analytics',
-  canCompareStats: 'Compare stats',
-};
 
 /**
  * Icons for each tier
@@ -117,6 +111,37 @@ function getTrialDaysRemaining(trialEndsAt: Date | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Build plan features array for PlanComparisonCard
+ */
+function buildPlanFeatures(tierLimits: {
+  maxCompetitionsOwned: number;
+  maxRoundsPlayed?: number;
+  maxRoundsPerCompetition: number;
+  maxPlayersPerCompetition: number;
+  maxFriends: number;
+  allowedGameTypes: string[];
+  canUseTeamFormats: boolean;
+  canUseScoringPairs: boolean;
+  canViewScoreDistribution: boolean;
+  canViewAdvancedStats: boolean;
+  canCompareStats: boolean;
+}, tier: SubscriptionTier): PlanFeature[] {
+  return [
+    { label: 'Competitions', value: formatLimitValue(tierLimits.maxCompetitionsOwned) },
+    { label: 'Social rounds', value: formatLimitValue(tierLimits.maxRoundsPlayed ?? (tier === 'free' ? 20 : -1)) },
+    { label: 'Rounds per competition', value: formatLimitValue(tierLimits.maxRoundsPerCompetition) },
+    { label: 'Players per competition', value: formatLimitValue(tierLimits.maxPlayersPerCompetition) },
+    { label: 'Friends', value: formatLimitValue(tierLimits.maxFriends) },
+    { label: 'Game types', value: formatGameTypes(tierLimits.allowedGameTypes) },
+    { label: 'Team formats', value: tierLimits.canUseTeamFormats },
+    { label: 'Scoring pairs', value: tierLimits.canUseScoringPairs },
+    { label: 'Score distribution', value: tierLimits.canViewScoreDistribution },
+    { label: 'Advanced analytics', value: tierLimits.canViewAdvancedStats },
+    { label: 'Compare stats', value: tierLimits.canCompareStats },
+  ];
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -147,12 +172,9 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier>('social');
 
   // Refresh subscription data when screen gains focus
-  // This ensures we always show current user's subscription, not cached data
   useFocusEffect(
     useCallback(() => {
-      // Refresh subscription context data
       refresh();
-      // Also invalidate the usage count queries
       if (user?.id) {
         queryClient.invalidateQueries({ queryKey: ['competitions', 'count', user.id] });
         queryClient.invalidateQueries({ queryKey: ['friends', 'count', user.id] });
@@ -162,7 +184,6 @@ export default function SubscriptionScreen({ navigation }: Props) {
   );
 
   // Fetch competition count for usage display
-  // Count ALL competitions owned by user (regardless of status)
   const { data: competitionCount = 0 } = useQuery({
     queryKey: ['competitions', 'count', user?.id],
     queryFn: async () => {
@@ -206,13 +227,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const hasUnlimitedRounds = isUnlimited(maxRoundsPlayed) || isNoLimit(maxRoundsPlayed);
 
   // Fetch standalone rounds played count for usage display
-  // Only counts standalone/social rounds, NOT competition rounds
   const { data: roundsPlayedCount = 0 } = useQuery({
     queryKey: ['standaloneRoundsPlayedCount', user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-
-      // Count completed/confirmed scorecards for standalone rounds only
       const { count, error: countError } = await supabase
         .from('scorecards')
         .select('round_id, rounds!inner(competition_id)', { count: 'exact', head: true })
@@ -237,6 +255,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
 
   const isOnTrial = subscription?.status === 'trial' && trialDaysRemaining !== null && trialDaysRemaining > 0;
 
+  // Build usage items for UsageSection
+  const usageItems: UsageItem[] = useMemo(() => [
+    { current: competitionCount, max: limits?.maxCompetitionsOwned ?? 1, label: 'Competitions', testID: 'competitions-limit' },
+    { current: friendsCount, max: limits?.maxFriends ?? 10, label: 'Friends', testID: 'friends-limit' },
+    { current: roundsPlayedCount, max: maxRoundsPlayed, label: 'Social Rounds', testID: 'social-rounds-limit' },
+  ], [competitionCount, friendsCount, roundsPlayedCount, limits, maxRoundsPlayed]);
+
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -244,7 +269,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
     setIsRefreshing(false);
   }, [refresh]);
 
-  // Upgrade prompt config - dynamic based on selected tier
+  // Upgrade prompt config
   const upgradeConfig: UpgradePromptConfig = useMemo(() => {
     const targetLimits = allTierLimits?.[selectedUpgradeTier];
     const benefits: string[] = [];
@@ -276,9 +301,8 @@ export default function SubscriptionScreen({ navigation }: Props) {
     };
   }, [selectedUpgradeTier, allTierLimits]);
 
-  // Handle upgrade press - show paywall if available, otherwise show prompt
+  // Handle upgrade press
   const handleUpgradePress = useCallback(() => {
-    // Default to social if free, otherwise premium
     setSelectedUpgradeTier(tier === 'free' ? 'social' : 'premium');
     if (purchasesEnabled) {
       setShowPaywall(true);
@@ -287,9 +311,8 @@ export default function SubscriptionScreen({ navigation }: Props) {
     }
   }, [purchasesEnabled, tier]);
 
-  // Handle plan card press - show upgrade prompt for that tier
+  // Handle plan card press
   const handlePlanCardPress = useCallback((selectedTier: SubscriptionTier) => {
-    // Don't show prompt for current tier or downgrade
     const tierOrder: Record<SubscriptionTier, number> = {
       free: 0,
       social: 1,
@@ -298,7 +321,6 @@ export default function SubscriptionScreen({ navigation }: Props) {
     };
 
     if (tierOrder[selectedTier] <= tierOrder[tier]) {
-      // Current tier or downgrade - do nothing
       return;
     }
 
@@ -310,13 +332,12 @@ export default function SubscriptionScreen({ navigation }: Props) {
     }
   }, [tier, purchasesEnabled]);
 
-  // Handle upgrade action from prompt - opens paywall or contact support
+  // Handle upgrade action from prompt
   const handleUpgrade = useCallback(() => {
     setShowUpgradePrompt(false);
     if (purchasesEnabled) {
       setShowPaywall(true);
     } else {
-      // Show an alert explaining IAP isn't available with debug info
       const debugInfo = __DEV__
         ? '\n\n[Debug] This may be because RevenueCat failed to initialize. Check logs for details.'
         : '';
@@ -332,7 +353,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
     }
   }, [purchasesEnabled]);
 
-  // Handle successful purchase - refresh subscription data
+  // Handle successful purchase
   const handlePurchaseSuccess = useCallback((newTier: SubscriptionTier) => {
     refresh();
     console.log(`[SubscriptionScreen] Purchase successful, new tier: ${newTier}`);
@@ -431,95 +452,34 @@ export default function SubscriptionScreen({ navigation }: Props) {
         {/* Tier Badge Section */}
         <View style={[styles.section, styles.tierBadgeSection]}>
           <TierBadge size="large" />
-          {isOnTrial && (
-            <View
-              style={[
-                styles.trialBadge,
-                { backgroundColor: colors.warningBackground },
-              ]}
-            >
-              <Icon source="clock-outline" size={16} color={colors.warning} />
-              <Text style={[styles.trialText, { color: colors.warning }]}>
-                {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} left in trial
-              </Text>
+          {isOnTrial && trialDaysRemaining !== null && (
+            <View style={styles.trialBadgeContainer}>
+              <TrialBadge daysRemaining={trialDaysRemaining} />
             </View>
           )}
         </View>
 
         {/* Super Admin Banner */}
         {isSuperAdmin && (
-          <View
-            style={[
-              styles.superAdminBanner,
-              {
-                backgroundColor: colors.errorBackground,
-                borderColor: colors.error,
-              },
-            ]}
-          >
-            <Icon source="shield-account" size={24} color={colors.error} />
-            <View style={styles.superAdminTextContainer}>
-              <Text style={[styles.superAdminTitle, { color: colors.error }]}>
-                Internal Account
-              </Text>
-              <Text style={[styles.superAdminDescription, { color: colors.textSecondary }]}>
-                This is a company account with full access to all features.
-              </Text>
-            </View>
-          </View>
+          <InfoBanner
+            icon="shield-account"
+            title="Internal Account"
+            description="This is a company account with full access to all features."
+            variant="error"
+          />
         )}
 
         {/* Your Plan Section */}
-        <View style={[styles.section, styles.card, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Your Plan
-          </Text>
-          <Text style={[styles.planName, { color: colors.textPrimary }]}>
-            {limits?.displayName ?? 'Free'}
-          </Text>
-          {limits?.description && (
-            <Text style={[styles.planDescription, { color: colors.textSecondary }]}>
-              {limits.description}
-            </Text>
-          )}
-        </View>
+        <PlanSummaryCard
+          planName={limits?.displayName ?? 'Free'}
+          description={limits?.description}
+        />
 
         {/* Usage Section */}
-        <View style={[styles.section, styles.card, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Usage
-          </Text>
-
-          {isSuperAdmin ? (
-            <View style={styles.noLimitsContainer}>
-              <Icon source="infinity" size={32} color={colors.primary} />
-              <Text style={[styles.noLimitsText, { color: colors.textSecondary }]}>
-                No limits - you have full access to all features
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.usageGrid}>
-              <LimitIndicator
-                current={competitionCount}
-                max={limits?.maxCompetitionsOwned ?? 1}
-                label="Competitions"
-                testID="competitions-limit"
-              />
-              <LimitIndicator
-                current={friendsCount}
-                max={limits?.maxFriends ?? 10}
-                label="Friends"
-                testID="friends-limit"
-              />
-              <LimitIndicator
-                current={roundsPlayedCount}
-                max={maxRoundsPlayed}
-                label="Social Rounds"
-                testID="social-rounds-limit"
-              />
-            </View>
-          )}
-        </View>
+        <UsageSection
+          usage={usageItems}
+          isSuperAdmin={isSuperAdmin}
+        />
 
         {/* All Plans Section */}
         {!isSuperAdmin && (
@@ -535,7 +495,6 @@ export default function SubscriptionScreen({ navigation }: Props) {
               const isCurrentTier = tier === comparisonTier;
               const tierColor = tierLimits.badgeColor ?? colors.gray400;
 
-              // Check if this is an upgrade option
               const tierOrder: Record<SubscriptionTier, number> = {
                 free: 0,
                 social: 1,
@@ -545,123 +504,17 @@ export default function SubscriptionScreen({ navigation }: Props) {
               const isUpgradeOption = tierOrder[comparisonTier] > tierOrder[tier];
 
               return (
-                <TouchableOpacity
+                <PlanComparisonCard
                   key={comparisonTier}
-                  style={[
-                    styles.planCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: isCurrentTier ? tierColor : colors.border,
-                      borderWidth: isCurrentTier ? 2 : 1,
-                    },
-                  ]}
+                  planName={tierLimits.displayName}
+                  description={tierLimits.description}
+                  icon={TIER_ICONS[comparisonTier]}
+                  badgeColor={tierColor}
+                  features={buildPlanFeatures(tierLimits, comparisonTier)}
+                  isCurrentPlan={isCurrentTier}
+                  isUpgradeOption={isUpgradeOption}
                   onPress={() => handlePlanCardPress(comparisonTier)}
-                  activeOpacity={isUpgradeOption ? 0.7 : 1}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${tierLimits.displayName} plan${isCurrentTier ? ' (current)' : isUpgradeOption ? ' - tap to upgrade' : ''}`}
-                >
-                  {/* Plan Header */}
-                  <View style={styles.planCardHeader}>
-                    <View style={styles.planCardTitleRow}>
-                      <Icon
-                        source={TIER_ICONS[comparisonTier]}
-                        size={24}
-                        color={tierColor}
-                      />
-                      <Text style={[styles.planCardTitle, { color: colors.textPrimary }]}>
-                        {tierLimits.displayName}
-                      </Text>
-                      {isCurrentTier && (
-                        <View
-                          style={[
-                            styles.currentBadge,
-                            { backgroundColor: tierColor },
-                          ]}
-                        >
-                          <Text style={[styles.currentBadgeText, { color: colors.textOnColored }]}>Current</Text>
-                        </View>
-                      )}
-                    </View>
-                    {tierLimits.description && (
-                      <Text style={[styles.planCardDescription, { color: colors.textSecondary }]}>
-                        {tierLimits.description}
-                      </Text>
-                    )}
-                  </View>
-
-                  <Divider style={{ backgroundColor: colors.border }} />
-
-                  {/* Plan Features */}
-                  <View style={styles.planFeatures}>
-                    <PlanFeatureRow
-                      label="Competitions"
-                      value={formatLimitValue(tierLimits.maxCompetitionsOwned)}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Social rounds"
-                      value={formatLimitValue(
-                        tierLimits.maxRoundsPlayed ?? (comparisonTier === 'free' ? 20 : -1)
-                      )}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Rounds per competition"
-                      value={formatLimitValue(tierLimits.maxRoundsPerCompetition)}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Players per competition"
-                      value={formatLimitValue(tierLimits.maxPlayersPerCompetition)}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Friends"
-                      value={formatLimitValue(tierLimits.maxFriends)}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Game types"
-                      value={formatGameTypes(tierLimits.allowedGameTypes)}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Team formats"
-                      value={tierLimits.canUseTeamFormats}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Scoring pairs"
-                      value={tierLimits.canUseScoringPairs}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Score distribution"
-                      value={tierLimits.canViewScoreDistribution}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Advanced analytics"
-                      value={tierLimits.canViewAdvancedStats}
-                      colors={colors}
-                    />
-                    <PlanFeatureRow
-                      label="Compare stats"
-                      value={tierLimits.canCompareStats}
-                      colors={colors}
-                    />
-                  </View>
-
-                  {/* Upgrade hint for upgrade options */}
-                  {isUpgradeOption && (
-                    <View style={[styles.upgradeHintRow, { borderTopColor: colors.border }]}>
-                      <Icon source="arrow-up-circle" size={16} color={colors.primary} />
-                      <Text style={[styles.upgradeHintText, { color: colors.primary }]}>
-                        Tap to upgrade
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                />
               );
             })}
           </View>
@@ -689,24 +542,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Debug Info (visible in all builds for troubleshooting) */}
-        <View
-          style={[
-            styles.section,
-            {
-              backgroundColor: colors.surfaceVariant,
-              marginTop: spacing.lg,
-              padding: spacing.sm,
-              borderRadius: borderRadius.md,
-            },
-          ]}
-        >
-          <Text style={[styles.debugTitle, { color: colors.textSecondary }]}>
-            Debug Info
-          </Text>
-          <Text style={[styles.debugText, { color: colors.textSecondary }]}>
-            Provider: {providerType} | Purchases: {purchasesEnabled ? 'enabled' : 'disabled'} | DEV: {__DEV__ ? 'yes' : 'no'}
-          </Text>
+        {/* Debug Info */}
+        <View style={styles.debugSection}>
+          <DebugInfoSection
+            provider={providerType}
+            purchasesEnabled={purchasesEnabled}
+            isDev={__DEV__}
+          />
         </View>
       </ScrollView>
 
@@ -718,46 +560,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
         onDismiss={() => setShowUpgradePrompt(false)}
       />
 
-      {/* Paywall Modal (for in-app purchases) */}
+      {/* Paywall Modal */}
       <Paywall
         visible={showPaywall}
         onPurchaseSuccess={handlePurchaseSuccess}
         onDismiss={() => setShowPaywall(false)}
         initialTier={tier === 'free' ? 'social' : 'premium'}
       />
-    </View>
-  );
-}
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-interface PlanFeatureRowProps {
-  label: string;
-  value: string | boolean;
-  colors: ReturnType<typeof useThemeColors>;
-}
-
-function PlanFeatureRow({ label, value, colors }: PlanFeatureRowProps) {
-  const isBoolean = typeof value === 'boolean';
-
-  return (
-    <View style={styles.featureRow}>
-      <Text style={[styles.featureLabel, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-      {isBoolean ? (
-        <Icon
-          source={value ? 'check-circle' : 'close-circle'}
-          size={20}
-          color={value ? colors.success : colors.gray400}
-        />
-      ) : (
-        <Text style={[styles.featureValue, { color: colors.textPrimary }]}>
-          {value}
-        </Text>
-      )}
     </View>
   );
 }
@@ -806,11 +615,6 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
-  card: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    ...shadows.sm,
-  },
   sectionTitle: {
     ...typography.smallBold,
     textTransform: 'uppercase',
@@ -820,112 +624,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.lg,
   },
-  trialBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+  trialBadgeContainer: {
     marginTop: spacing.md,
-  },
-  trialText: {
-    ...typography.small,
-    fontWeight: '600',
-  },
-  superAdminBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-  },
-  superAdminTextContainer: {
-    flex: 1,
-  },
-  superAdminTitle: {
-    ...typography.bodyBold,
-    marginBottom: spacing.xs,
-  },
-  superAdminDescription: {
-    ...typography.small,
-  },
-  planName: {
-    ...typography.h2,
-  },
-  planDescription: {
-    ...typography.body,
-  },
-  usageGrid: {
-    gap: spacing.lg,
-  },
-  noLimitsContainer: {
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
-  },
-  noLimitsText: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  planCard: {
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    ...shadows.sm,
-  },
-  planCardHeader: {
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  planCardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  planCardTitle: {
-    ...typography.h4,
-    flex: 1,
-  },
-  planCardDescription: {
-    ...typography.small,
-  },
-  currentBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  currentBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  planFeatures: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  upgradeHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-  },
-  upgradeHintText: {
-    ...typography.smallBold,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  featureLabel: {
-    ...typography.small,
-    flex: 1,
-  },
-  featureValue: {
-    ...typography.smallBold,
   },
   upgradeButton: {
     flexDirection: 'row',
@@ -944,6 +644,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
+  debugSection: {
+    marginTop: spacing.lg,
+  },
   errorTitle: {
     ...typography.h4,
     marginTop: spacing.lg,
@@ -961,14 +664,5 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...typography.bodyBold,
-  },
-  debugTitle: {
-    ...typography.caption,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  debugText: {
-    ...typography.caption,
-    fontSize: 11,
   },
 });

@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 80 of 129 components (62.0%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 81 of 129 components (62.8%) have test coverage.
 
 > **Note:** FriendSelector was already in the tested list but tests were fixed on 2024-12-25.
 
@@ -14,7 +14,7 @@ This document outlines all **React components** that need testing in The Ninetee
 
 ## Current Test Coverage
 
-### Components WITH Tests (80 total)
+### Components WITH Tests (81 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
 | `src/components/ai/GeneratedPreview.tsx` | 511 | Yes |
@@ -98,6 +98,7 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/settings/PushNotificationSettings.tsx` | 395 | Yes |
 | `src/components/common/FilterPill.tsx` | 120 | Yes |
 | `src/components/subscription/LimitIndicator.tsx` | 245 | Yes |
+| `src/components/subscription/TierBadge.tsx` | 244 | Yes |
 
 ---
 
@@ -115,7 +116,7 @@ All Tier 2 components have been tested.
 
 All Tier 3 components have been tested.
 
-### TIER 4: Lower Priority (100-199 lines) - 31 components
+### TIER 4: Lower Priority (100-199 lines) - 30 components
 
 #### AI (0)
 All AI components have been tested.
@@ -140,8 +141,8 @@ All AI components have been tested.
 - `PerformanceChart.tsx` (235), `RecentRoundRow.tsx` (138), `StatCard.tsx` (120)
 - `ScoreDistributionBar.tsx` (111), `CourseStatsCard.tsx` (107), `PerformanceRow.tsx` (100)
 
-#### Subscription (3)
-- `TierBadge.tsx` (244), `EditTeamNameModal.tsx` (236), `FeatureLockButton.tsx` (224)
+#### Subscription (2)
+- `EditTeamNameModal.tsx` (236), `FeatureLockButton.tsx` (224)
 
 #### Notifications (0)
 All Notification components have been tested.
@@ -212,13 +213,13 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 80 | 62.0% |
+| Already Tested | 81 | 62.8% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
 | Tier 3 (Medium) | 0 | 0.0% |
-| Tier 4 (Lower) | 31 | 24.0% |
+| Tier 4 (Lower) | 30 | 23.3% |
 | Tier 5 (Small) | 3 | 2.3% |
-| **Total Needing Tests** | **34** | **26.4%** |
+| **Total Needing Tests** | **33** | **25.6%** |
 
 ---
 
@@ -307,6 +308,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/ai/SuggestionChips.test.tsx`
 - `src/components/common/FilterPill.test.tsx`
 - `src/components/subscription/LimitIndicator.test.tsx`
+- `src/components/subscription/TierBadge.test.tsx`
 
 ---
 
@@ -323,6 +325,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-26**: `TierBadge.tsx` - 69 tests, 38 stories (Tier 4)
 - **2024-12-25**: `LimitIndicator.tsx` - 63 tests, 38 stories (Tier 4)
 - **2024-12-25**: `FilterPill.tsx` - 59 tests, 35 stories (Tier 4)
 - **2024-12-25**: `FriendListItem.tsx` - 64 tests, 37 stories (Tier 4)
