@@ -16,6 +16,7 @@ import { Text } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { IconTrophy, IconChartBar } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
 
@@ -135,8 +136,8 @@ export function LeaderboardTable({
             style={[
               styles.tableRow,
               { borderBottomColor: colors.gray100 },
-              isCurrentUser && [styles.tableRowHighlighted, { backgroundColor: colors.primaryLighter + '30' }],
-              isFirstPlace && [styles.tableRowFirst, { backgroundColor: colors.warningLight + '20' }],
+              isCurrentUser && [styles.tableRowHighlighted, { backgroundColor: withOpacity(colors.primaryLighter, 0.19) }],
+              isFirstPlace && [styles.tableRowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
             ]}
             accessibilityRole="text"
             accessibilityLabel={`Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}: ${entry.playerName}, Handicap ${entry.handicap}, ${entry.totalPoints} points`}

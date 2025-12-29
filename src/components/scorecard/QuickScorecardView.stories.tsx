@@ -94,8 +94,8 @@ const createPlayer = (id: string, name: string): Player => ({
   name,
   email: `${name.toLowerCase().replace(' ', '')}@example.com`,
   handicap: 10,
-  created_at: '2024-01-01',
-  updated_at: '2024-01-01',
+  createdAt: '2024-01-01',
+  updatedAt: '2024-01-01',
 });
 
 // =====================================================

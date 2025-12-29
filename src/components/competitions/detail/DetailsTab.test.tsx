@@ -14,7 +14,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { DetailsTab } from './DetailsTab';
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
+import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode, PointSystemConfig } from '@/types/database.types';
+import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 
 // =====================================================
@@ -118,7 +119,7 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
     status: 'upcoming',
     team_mode: 'none' as TeamMode,
     team_size: null,
-    point_system: null,
+    point_system: DEFAULT_POINT_SYSTEM,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -153,7 +154,7 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
     competition_id: 'comp-1',
     user_id: null,
     round_number: roundNumber,
-    course_id: course?.id || null,
+    course_id: course?.id ?? 'course-default',
     date: `2025-01-${15 + roundNumber - 1}`,
     tee_time: '08:00:00',
     game_type: 'stableford',
@@ -161,6 +162,7 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
     is_team_round: false,
     team_format: null,
     scoring_pairs_required: false,
+    ball_count: 1,
     status: 'upcoming',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -630,9 +632,11 @@ describe('DetailsTab', () => {
     });
 
     it('handles courses without venue data', () => {
-      const courseWithoutVenue = createTestCourse({
+      // Create a course and explicitly remove venue data
+      const courseWithoutVenue: Course & { venues?: { name: string; city: string | null; state: string | null } | null } = {
+        ...createTestCourse(),
         venues: null,
-      });
+      };
       const rounds: RoundWithCourse[] = [createTestRound(1, courseWithoutVenue)];
       render(<DetailsTab {...defaultProps} rounds={rounds} />);
       expect(screen.getByTestId('course-card-course-1')).toBeTruthy();
@@ -674,10 +678,10 @@ describe('DetailsTab', () => {
       expect(screen.getByText('upcoming')).toBeTruthy();
     });
 
-    it('displays active status', () => {
-      const comp = createTestCompetition({ status: 'active' });
+    it('displays in-progress status', () => {
+      const comp = createTestCompetition({ status: 'in-progress' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('active')).toBeTruthy();
+      expect(screen.getByText('in-progress')).toBeTruthy();
     });
 
     it('displays completed status', () => {

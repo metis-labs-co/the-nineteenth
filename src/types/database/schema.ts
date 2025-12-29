@@ -23,7 +23,7 @@ import type {
   TierFeature,
 } from './enums';
 
-import type { Player, Friendship } from './player.types';
+import type { Player, Friendship, UserPreferences } from './player.types';
 import type { Competition, CompetitionPlayer } from './competition.types';
 import type { Venue, Course, FavoriteCourse } from './course.types';
 import type { Round, Pairing, RoundPlayer } from './round.types';
@@ -349,6 +349,19 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'push_tokens_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      user_preferences: {
+        Row: UserPreferences;
+        Insert: Omit<UserPreferences, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+        Relationships: [
+          {
+            foreignKeyName: 'user_preferences_user_id_fkey';
             columns: ['user_id'];
             referencedRelation: 'players';
             referencedColumns: ['id'];

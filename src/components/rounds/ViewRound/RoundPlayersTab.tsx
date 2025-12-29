@@ -16,6 +16,8 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import { EmptyState } from '@/components/common/EmptyState';
 import type { ScorecardWithPlayer, CourseWithVenue } from '@/hooks/useRoundDetails';
+import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
+import { isSingleBallScore } from '@/types/database/base';
 
 // =====================================================
 // TYPES
@@ -41,7 +43,7 @@ interface PlayerScoreStats {
 // =====================================================
 
 function calculatePlayerStats(
-  scores: Record<string, { strokes: number }> | null,
+  scores: Record<string, HoleScore | MultiBallHoleScore> | null,
   holes: CourseWithVenue['holes'] | null
 ): PlayerScoreStats {
   const totalHoles = holes?.length || 18;
@@ -65,7 +67,8 @@ function calculatePlayerStats(
 
   // Calculate stats for each scored hole
   Object.entries(scores).forEach(([holeNum, holeScore]) => {
-    if (holeScore?.strokes > 0) {
+    // Only process single-ball scores (skip multi-ball for now)
+    if (holeScore && isSingleBallScore(holeScore) && holeScore.strokes > 0) {
       stats.holesCompleted++;
       const par = parMap.get(parseInt(holeNum, 10)) || 4;
       const diff = holeScore.strokes - par;

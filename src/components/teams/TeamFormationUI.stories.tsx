@@ -40,6 +40,11 @@ function createPlayer(id: string, name: string, handicap: number = 15): Player {
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   };

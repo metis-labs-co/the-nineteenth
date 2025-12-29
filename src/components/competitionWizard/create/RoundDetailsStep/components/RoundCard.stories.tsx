@@ -29,24 +29,20 @@ const createMockRound = (overrides?: Partial<RoundDetailsFormData>): RoundDetail
 });
 
 const createMockTee = (overrides?: Partial<TeeBox>): TeeBox => ({
-  id: 'tee-1',
-  course_id: 'course-1',
   name: 'Blue Tees',
   color: 'blue',
-  total_yardage: 6500,
-  course_rating: 72.5,
-  slope_rating: 130,
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
+  totalYardage: 6500,
+  courseRating: 72.5,
+  slopeRating: 130,
   ...overrides,
 });
 
 const mockTees: TeeBox[] = [
-  createMockTee({ id: 'tee-black', name: 'Black Tees', color: 'black', total_yardage: 7200 }),
-  createMockTee({ id: 'tee-blue', name: 'Blue Tees', color: 'blue', total_yardage: 6500 }),
-  createMockTee({ id: 'tee-white', name: 'White Tees', color: 'white', total_yardage: 6100 }),
-  createMockTee({ id: 'tee-yellow', name: 'Yellow Tees', color: 'yellow', total_yardage: 5700 }),
-  createMockTee({ id: 'tee-red', name: 'Red Tees', color: 'red', total_yardage: 5200 }),
+  createMockTee({ name: 'Black Tees', color: 'black', totalYardage: 7200 }),
+  createMockTee({ name: 'Blue Tees', color: 'blue', totalYardage: 6500 }),
+  createMockTee({ name: 'White Tees', color: 'white', totalYardage: 6100 }),
+  createMockTee({ name: 'Yellow Tees', color: 'yellow', totalYardage: 5700 }),
+  createMockTee({ name: 'Red Tees', color: 'red', totalYardage: 5200 }),
 ];
 
 // ===========================================================================

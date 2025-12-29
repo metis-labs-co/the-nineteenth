@@ -4,15 +4,13 @@
 
 import type { Hole, TeeBox, Venue } from '@/types/database.types';
 
-export interface TeeSelectorProps {
-  tees: TeeBox[];
-  selectedTee: string | null;
-  onSelectTee: (teeName: string) => void;
-}
-
 export interface HoleTableProps {
   holes: Hole[];
   selectedTee: string | null;
+  /** Whether the user is a super admin (enables edit functionality) */
+  isSuperAdmin?: boolean;
+  /** Callback when super admin taps a hole row to edit */
+  onHolePress?: (hole: Hole) => void;
 }
 
 export interface PlayingPartner {

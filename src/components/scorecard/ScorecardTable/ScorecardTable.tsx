@@ -30,7 +30,7 @@ import { getFirstName } from '@/utils/displayHelpers';
 import { ScoreIndicator } from '../ScoreIndicator';
 import { styles } from './styles';
 import type { ScorecardTableProps, ScorecardTablePlayer } from './types';
-import type { Hole } from '@/types/database.types';
+import { isSingleBallScore, type Hole } from '@/types/database.types';
 import type { PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
 // =====================================================
@@ -147,7 +147,7 @@ const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
     <>
       {players.map((playerData) => {
         const score = playerData.scores?.[String(hole.number)];
-        const strokes = score?.strokes;
+        const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
 
         return (
           <View key={playerData.id} style={[styles.tableCell, { width: playerCellWidth }]}>

@@ -569,13 +569,14 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
         push_scorecard_updates: boolean;
       };
 
-      const { data: player, error: prefError } = await supabase
-        .from('players')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: player, error: prefError } = await (supabase as any)
+        .from('user_preferences')
         .select(
           'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates'
         )
-        .eq('id', session.session.user.id)
-        .single<PreferencesSelectResult>();
+        .eq('user_id', session.session.user.id)
+        .single() as { data: PreferencesSelectResult | null; error: Error | null };
 
       if (prefError) {
         debugInfo.preferences.error = prefError.message;

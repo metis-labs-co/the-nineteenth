@@ -1,0 +1,536 @@
+/**
+ * ScorecardEntryScreen
+ *
+ * Offline-first scoring interface for 18-hole rounds.
+ * Features:
+ * - Current hole display with par and stroke index
+ * - Score entry for all players in group
+ * - Team scoring modes: Scramble, Best Ball, Team Match Play
+ * - Previous/Next hole navigation buttons
+ * - Progress bar showing completion
+ * - Quick scorecard view for jumping to any hole
+ * - Auto-save to SQLite for offline support
+ * - Sync on submit when online
+ * - Super admin hole editing (par, SI, yardage)
+ */
+
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Button } from 'react-native-paper';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { LoadingSpinner } from '@/components/common';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useScorecardStore } from '@/store/scorecardStore';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
+import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
+import {
+  QuickScorecardView,
+  HoleHeader,
+  SwipeableHoleNavigator,
+} from '@/components/scorecard';
+import { EditHoleBottomSheet } from '@/components/courses';
+import { useUpdateCourseHoles } from '@/hooks';
+import { useDebugMode } from '@/store/settingsStore';
+import { scoringLogger } from '@/utils/debugLogger';
+import { spacing, typography } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
+import { useAuth } from '@/hooks';
+import type { RootStackScreenProps } from '@/navigation/types';
+import type { HoleScore, Hole } from '@/types';
+
+// Local hooks and components
+import {
+  useScorecardDialogs,
+  useScorecardNavigation,
+  useScorecardSubmission,
+} from './hooks';
+import {
+  ScorecardHeader,
+  ScorecardFooter,
+  ScorecardDialogs,
+  ScorecardScoreContent,
+} from './components';
+
+type Props = RootStackScreenProps<'Scorecard'>;
+
+export default function ScorecardEntryScreen({ navigation, route }: Props) {
+  const { roundId, competitionId } = route.params;
+  const colors = useThemeColors();
+  const { user } = useAuth();
+  const isStandaloneRound = competitionId === 'standalone';
+
+  // Super admin check
+  const isSuperAdmin = useIsSuperAdmin();
+
+  // Edit hole state (for super admins)
+  const [editingHole, setEditingHole] = useState<Hole | null>(null);
+
+  // Debug mode
+  const { debugModeEnabled } = useDebugMode();
+
+  // Dialog state management
+  const dialogs = useScorecardDialogs();
+
+  // Core scorecard store
+  const {
+    currentHole,
+    currentPlayers,
+    holes,
+    isLoading: storeLoading,
+    isInitialized,
+    isSyncing,
+    pendingSyncCount,
+    isMultiBall,
+    ballCount: storeBallCount,
+    setCurrentHole,
+    setPlayerScore,
+    updatePlayerHoleScore,
+    getPlayerScore,
+    getHoleInfo,
+    isHoleComplete,
+    getCompletedHolesCount,
+    submitScorecards,
+    resetRound,
+    setMultiBallConfig,
+    setMultiBallScore,
+    getMultiBallScores,
+    getMultiBallTotals,
+  } = useScorecardStore();
+
+  // Data fetching hook
+  const {
+    courseName,
+    courseId,
+    courseTees,
+    selectedTee,
+    isTeamRound,
+    teamFormat,
+    teams,
+    fetchError,
+    isLoading: dataLoading,
+    retryFetch,
+    scoringPairsEnabled,
+    playersToScore,
+    ballCount,
+    isSoloRound,
+  } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
+
+  // Configure multi-ball mode when round data is loaded
+  useEffect(() => {
+    if (!dataLoading && ballCount > 1 && isSoloRound) {
+      scoringLogger.info('MULTI-BALL: Configuring multi-ball mode', {
+        ballCount,
+        isSoloRound,
+        roundId: roundId.substring(0, 8),
+      });
+      setMultiBallConfig(ballCount);
+    }
+  }, [dataLoading, ballCount, isSoloRound, setMultiBallConfig, roundId]);
+
+  // Network status
+  const netInfo = useNetInfo();
+  const isOnline = netInfo.isConnected ?? true;
+
+  // Offline sync hook
+  const { triggerSync } = useOfflineSync();
+
+  // Navigation hook
+  const nav = useScorecardNavigation({
+    navigation,
+    currentHole,
+    setCurrentHole,
+    pendingSyncCount,
+    onLeaveAttempt: dialogs.openLeaveDialog,
+    triggerSync,
+  });
+
+  // Submission hook
+  const submission = useScorecardSubmission({
+    navigation,
+    roundId,
+    competitionId,
+    holes,
+    playerCount: currentPlayers.length,
+    getCompletedHolesCount,
+    submitScorecards,
+    resetRound,
+    onIncompleteRound: dialogs.openIncompleteDialog,
+    onSubmitError: dialogs.openSubmitErrorDialog,
+    onCloseIncompleteDialog: dialogs.closeIncompleteDialog,
+  });
+
+  // Team scoring hook
+  const {
+    selectedContributor,
+    teamMatchPlayResults,
+    playerScoresMap,
+    setSelectedContributor,
+    handleTeamScoreSelect,
+    handleBestBallScoreSelect,
+    handleTeamMatchPlayScoreSelect,
+    getTeamScore,
+  } = useTeamScoring({
+    teams,
+    teamFormat,
+    currentHole,
+    players: currentPlayers,
+  });
+
+  // Mutation hook for updating course holes (super admin)
+  const updateCourseHolesMutation = useUpdateCourseHoles();
+
+  // Score handlers
+  const handleScoreSelect = useCallback(
+    async (playerId: string, strokes: number) => {
+      const player = currentPlayers.find((p) => p.id === playerId);
+      const holeData = getHoleInfo(currentHole);
+      scoringLogger.info('SCORE ENTRY: Individual player score', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        strokes,
+        holeInfo: holeData ? { par: holeData.par, si: holeData.strokeIndex } : null,
+      });
+      await setPlayerScore(playerId, currentHole, strokes);
+    },
+    [currentHole, setPlayerScore, currentPlayers, getHoleInfo]
+  );
+
+  const handleStatsUpdate = useCallback(
+    async (playerId: string, updates: Partial<HoleScore>) => {
+      const player = currentPlayers.find((p) => p.id === playerId);
+      scoringLogger.info('STATS UPDATE: Player stats', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        updates,
+      });
+      await updatePlayerHoleScore(playerId, currentHole, updates);
+    },
+    [currentHole, updatePlayerHoleScore, currentPlayers]
+  );
+
+  // Multi-ball score handler
+  const handleMultiBallScoreChange = useCallback(
+    async (playerId: string, ballIndex: number, strokes: number) => {
+      const player = currentPlayers.find((p) => p.id === playerId);
+      scoringLogger.info('MULTI-BALL SCORE: Ball score entry', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        ballIndex,
+        strokes,
+      });
+      await setMultiBallScore(playerId, currentHole, ballIndex, strokes);
+    },
+    [currentHole, setMultiBallScore, currentPlayers]
+  );
+
+  const handlePlayerPress = useCallback(
+    (playerId: string) => {
+      navigation.navigate('PlayerScorecard', {
+        playerId,
+        roundId,
+      });
+    },
+    [navigation, roundId]
+  );
+
+  const handleViewScorecard = useCallback(() => {
+    if (currentPlayers.length === 1) {
+      navigation.navigate('PlayerScorecard', {
+        playerId: currentPlayers[0].id,
+        roundId,
+      });
+    } else {
+      navigation.navigate('ReviewScorecard', {
+        roundId,
+        competitionId,
+        holes,
+      });
+    }
+  }, [navigation, roundId, competitionId, holes, currentPlayers]);
+
+  // Get current hole data (needed for handlers and rendering)
+  const currentHoleData = getHoleInfo(currentHole);
+
+  // Super admin hole editing handlers
+  const handleEditHole = useCallback(() => {
+    if (isSuperAdmin && currentHoleData) {
+      setEditingHole(currentHoleData);
+    }
+  }, [isSuperAdmin, currentHoleData]);
+
+  const handleSaveHole = useCallback(
+    async (updatedHole: Hole) => {
+      if (!courseId) return;
+
+      // Update the holes array with the edited hole
+      const updatedHoles = holes.map((h) =>
+        h.number === updatedHole.number ? updatedHole : h
+      );
+
+      try {
+        // Update in database
+        await updateCourseHolesMutation.mutateAsync({
+          courseId,
+          holes: updatedHoles,
+        });
+
+        // Update local scorecard store for immediate UI update
+        useScorecardStore.getState().updateHoles(updatedHoles);
+
+        // Close the modal
+        setEditingHole(null);
+      } catch (error) {
+        scoringLogger.error('Failed to save hole data', { error });
+        // Error handling is done via mutation's onError
+      }
+    },
+    [courseId, holes, updateCourseHolesMutation]
+  );
+
+  // Handle leave confirm with dialog close
+  const handleLeaveConfirm = useCallback(() => {
+    dialogs.closeLeaveDialog();
+    nav.handleLeaveConfirm();
+  }, [dialogs, nav]);
+
+  const isLoading = storeLoading || dataLoading;
+
+  // Determine which players to render
+  const playersToRender =
+    scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
+
+  // Loading state
+  if (isLoading || (!isInitialized && !fetchError)) {
+    return (
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <LoadingSpinner size="lg" message="Loading scorecard..." />
+      </SafeAreaView>
+    );
+  }
+
+  // Fetch error state
+  if (fetchError) {
+    return (
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
+          Unable to Load Scorecard
+        </Text>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>{fetchError}</Text>
+        <View style={styles.errorButtons}>
+          <Button mode="outlined" onPress={() => navigation.goBack()} style={styles.errorButton}>
+            Go Back
+          </Button>
+          <Button mode="contained" onPress={retryFetch} style={styles.errorButton}>
+            Retry
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // No hole data state
+  if (!currentHoleData) {
+    return (
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+          Failed to load hole data
+        </Text>
+        <Button mode="contained" onPress={() => navigation.goBack()}>
+          Go Back
+        </Button>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
+      {/* Header with offline indicator and sync line */}
+      <ScorecardHeader
+        courseName={courseName ?? undefined}
+        onBack={nav.handleBackPress}
+        onDebugPress={dialogs.openDebugPanel}
+        onDeletePress={submission.handleDeleteRound}
+        isStandaloneRound={isStandaloneRound}
+        debugModeEnabled={debugModeEnabled}
+        isOnline={isOnline}
+        isSyncing={isSyncing}
+        pendingSyncCount={pendingSyncCount}
+        onSyncPress={triggerSync}
+        scoringPairsEnabled={scoringPairsEnabled}
+        playersToScore={playersToScore}
+      />
+
+      {/* Content Area with Swipe Navigation */}
+      <SwipeableHoleNavigator
+        currentHole={currentHole}
+        totalHoles={18}
+        onHoleChange={setCurrentHole}
+        enabled={!isSyncing && !isLoading}
+        playerCount={playersToRender.length}
+      >
+        <View style={styles.contentArea}>
+          <HoleHeader
+            hole={currentHoleData}
+            selectedTee={selectedTee ?? undefined}
+            onPrevious={nav.handlePreviousHole}
+            onNext={nav.handleNextHole}
+            canGoPrevious={nav.canGoPrevious}
+            canGoNext={nav.canGoNext}
+            onHolePress={handleViewScorecard}
+            isSuperAdmin={isSuperAdmin}
+            onEditHole={handleEditHole}
+          />
+
+          <ScrollView
+            style={styles.playersContainer}
+            contentContainerStyle={styles.playersContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <ScorecardScoreContent
+              currentHoleData={currentHoleData}
+              currentHole={currentHole}
+              currentPlayers={currentPlayers}
+              playersToScore={playersToScore}
+              scoringPairsEnabled={scoringPairsEnabled}
+              isTeamRound={isTeamRound}
+              teamFormat={teamFormat}
+              teams={teams}
+              onScoreSelect={handleScoreSelect}
+              onStatsUpdate={handleStatsUpdate}
+              onPlayerPress={handlePlayerPress}
+              getPlayerScore={getPlayerScore}
+              getTeamScore={getTeamScore}
+              handleTeamScoreSelect={handleTeamScoreSelect}
+              handleBestBallScoreSelect={handleBestBallScoreSelect}
+              handleTeamMatchPlayScoreSelect={handleTeamMatchPlayScoreSelect}
+              setSelectedContributor={setSelectedContributor}
+              selectedContributor={selectedContributor}
+              teamMatchPlayResults={teamMatchPlayResults}
+              playerScoresMap={playerScoresMap}
+              // Multi-ball props
+              isMultiBall={isMultiBall}
+              ballCount={storeBallCount}
+              onMultiBallScoreChange={handleMultiBallScoreChange}
+              getMultiBallScores={getMultiBallScores}
+            />
+
+            {/* Quick Scorecard View - only show for individual scoring */}
+            {!isTeamRound && (
+              <View style={styles.quickViewContainer}>
+                <QuickScorecardView
+                  holes={holes}
+                  currentHole={currentHole}
+                  players={playersToRender}
+                  getPlayerHoleScore={getPlayerScore}
+                  isHoleComplete={isHoleComplete}
+                  onHolePress={nav.handleHolePress}
+                />
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </SwipeableHoleNavigator>
+
+      {/* Footer with navigation buttons */}
+      <ScorecardFooter
+        currentHole={currentHole}
+        onPreviousHole={nav.handlePreviousHole}
+        onNextHole={nav.handleNextHole}
+        onSubmit={submission.handleSubmit}
+        onViewScorecard={handleViewScorecard}
+        canGoPrevious={nav.canGoPrevious}
+        canGoNext={nav.canGoNext}
+      />
+
+      {/* All dialogs */}
+      <ScorecardDialogs
+        showLeaveDialog={dialogs.showLeaveDialog}
+        pendingSyncCount={pendingSyncCount}
+        onLeaveConfirm={handleLeaveConfirm}
+        onLeaveCancel={dialogs.closeLeaveDialog}
+        showIncompleteDialog={dialogs.showIncompleteDialog}
+        completedHolesCount={dialogs.completedHolesCount}
+        onIncompleteConfirm={submission.performSubmit}
+        onIncompleteCancel={dialogs.closeIncompleteDialog}
+        showSubmitErrorDialog={dialogs.showSubmitErrorDialog}
+        onSubmitErrorDismiss={dialogs.closeSubmitErrorDialog}
+        showDebugPanel={dialogs.showDebugPanel}
+        onDebugPanelClose={dialogs.closeDebugPanel}
+        roundId={roundId}
+        competitionId={competitionId}
+        courseName={courseName}
+        isTeamRound={isTeamRound}
+        teamFormat={teamFormat}
+        teams={teams}
+        scoringPairsEnabled={scoringPairsEnabled}
+        playersToScore={playersToScore}
+      />
+
+      {/* Super admin hole editing modal */}
+      {editingHole && (
+        <EditHoleBottomSheet
+          visible={!!editingHole}
+          onClose={() => setEditingHole(null)}
+          hole={editingHole}
+          allHoles={holes}
+          courseTees={courseTees}
+          selectedTee={selectedTee}
+          onSave={handleSaveHole}
+          loading={updateCourseHolesMutation.isPending}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  contentArea: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  errorTitle: {
+    ...typography.h3,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  errorText: {
+    ...typography.body,
+    textAlign: 'center',
+  },
+  errorButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  errorButton: {
+    minWidth: 100,
+  },
+  playersContainer: {
+    flex: 1,
+  },
+  playersContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
+  },
+  quickViewContainer: {
+    marginTop: spacing.lg,
+  },
+});

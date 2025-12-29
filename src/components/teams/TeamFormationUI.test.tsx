@@ -32,13 +32,18 @@ jest.mock('@tabler/icons-react-native', () => {
   };
 });
 
-// Mock GolfBallLoader
+// Mock common components
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
   return {
     GolfBallLoader: ({ size }: { size: string }) => (
       <View testID={`golf-ball-loader-${size}`}>
         <Text>Loading...</Text>
+      </View>
+    ),
+    PlayerAvatar: ({ name, size: avatarSize }: { name: string; size: number }) => (
+      <View testID={`player-avatar-${name}`}>
+        <Text>{name.charAt(0)}</Text>
       </View>
     ),
   };

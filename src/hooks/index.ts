@@ -220,3 +220,15 @@ export type {
   UsePushNotificationsReturn,
 } from './usePushNotifications';
 
+// Home venue hooks
+export {
+  useHomeVenue,
+  useSetHomeVenue,
+  useClearHomeVenue,
+} from './useHomeVenue';
+export type { HomeVenueWithCourses } from './useHomeVenue';
+
+// Course update hooks
+export { useUpdateCourseHoles } from './useUpdateCourseHoles';
+export type { UpdateCourseHolesInput } from './useUpdateCourseHoles';
+

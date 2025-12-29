@@ -9,7 +9,8 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { DetailsTab } from './DetailsTab';
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
+import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode, PointSystemConfig } from '@/types/database.types';
+import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 import { spacing } from '@/constants/theme';
 
@@ -60,7 +61,7 @@ function createCompetition(overrides: Partial<Competition> = {}): Competition {
     status: 'upcoming',
     team_mode: 'none' as TeamMode,
     team_size: null,
-    point_system: null,
+    point_system: DEFAULT_POINT_SYSTEM,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -94,7 +95,7 @@ function createRound(roundNumber: number, course: Course | null, date: string): 
     competition_id: 'comp-1',
     user_id: null,
     round_number: roundNumber,
-    course_id: course?.id || null,
+    course_id: course?.id ?? 'course-default',
     date,
     tee_time: '08:00:00',
     game_type: 'stableford',
@@ -102,6 +103,7 @@ function createRound(roundNumber: number, course: Course | null, date: string): 
     is_team_round: false,
     team_format: null,
     scoring_pairs_required: false,
+    ball_count: 1,
     status: 'upcoming',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -193,7 +195,7 @@ export const LeagueCompetition: Story = {
       competition_type: 'league',
       start_date: '2025-01-01',
       end_date: null, // Leagues may not have end date
-      status: 'active',
+      status: 'in-progress',
     }),
     rounds: [
       createRound(1, royalMelbourne, '2025-01-15'),
@@ -340,7 +342,7 @@ export const NoCourses: Story = {
     competition: createCompetition({
       name: 'Draft Competition',
       description: 'Courses to be announced',
-      status: 'draft',
+      status: 'upcoming',
     }),
     rounds: [
       { ...createRound(1, null, '2025-01-15'), course: null },
@@ -362,7 +364,7 @@ export const NoRounds: Story = {
     competition: createCompetition({
       name: 'New Competition',
       description: 'Just created - add rounds to get started',
-      status: 'draft',
+      status: 'upcoming',
     }),
     rounds: [],
     playerCount: 4,
@@ -379,7 +381,7 @@ export const NoRounds: Story = {
 export const InProgressCompetition: Story = {
   args: {
     competition: createCompetition({
-      status: 'active',
+      status: 'in-progress',
     }),
     rounds: [
       { ...createRound(1, royalMelbourne, '2025-01-15'), status: 'completed' },

@@ -10,6 +10,8 @@
 
 import { create } from 'zustand';
 import { Scorecard, HoleScore, Player, Hole, GameType } from '@/types';
+import type { BallCount } from '@/types/multiball.types';
+import { isMultiBallScore, isSingleBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import {
   saveScorecard,
   saveHoleScore,
@@ -28,6 +30,10 @@ interface ScorecardState {
   currentHole: number;
   holes: Hole[];
   gameType: GameType;
+
+  // Multi-ball scoring (solo rounds only)
+  ballCount: BallCount;
+  isMultiBall: boolean;
 
   // All scorecards for current group (playerId -> Scorecard)
   groupScorecards: Map<string, Scorecard>;
@@ -59,13 +65,22 @@ interface ScorecardState {
   setCurrentHole: (hole: number) => void;
   setPlayerScore: (playerId: string, hole: number, strokes: number) => Promise<void>;
   updatePlayerHoleScore: (playerId: string, hole: number, updates: Partial<HoleScore>) => Promise<void>;
-  getPlayerScore: (playerId: string, hole: number) => HoleScore | undefined;
+  getPlayerScore: (playerId: string, hole: number) => HoleScore | MultiBallHoleScore | undefined;
   getPlayerTotals: (playerId: string) => { gross: number; net: number; points: number };
   getHoleInfo: (holeNumber: number) => Hole | undefined;
   isHoleComplete: (hole: number) => boolean;
   getCompletedHolesCount: () => number;
   submitScorecards: () => Promise<void>;
   resetRound: () => void;
+
+  // Multi-ball scoring functions
+  setMultiBallConfig: (ballCount: BallCount) => void;
+  setMultiBallScore: (playerId: string, hole: number, ballIndex: number, strokes: number) => Promise<void>;
+  getMultiBallScores: (playerId: string, hole: number) => HoleScore[];
+  getMultiBallTotals: (playerId: string) => Record<string, BallTotals>;
+
+  // Super admin hole editing
+  updateHoles: (holes: Hole[]) => Promise<void>;
 }
 
 export const useScorecardStore = create<ScorecardState>((set, get) => {
@@ -92,6 +107,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     currentHole: 1,
     holes: [],
     gameType: 'stableford',
+    ballCount: 1,
+    isMultiBall: false,
     groupScorecards: new Map(),
     allowedPlayerIds: [], // Empty = all players allowed
     isOnline: true,
@@ -228,7 +245,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         for (let h = 1; h <= 18; h++) {
           const allComplete = players.every((player) => {
             const sc = newScorecards.get(player.id);
-            return sc?.scores[h]?.strokes !== undefined;
+            const score = sc?.scores[h];
+            // Check if single-ball score has strokes, or if multi-ball score has at least one ball
+            return score && (isSingleBallScore(score) ? score.strokes !== undefined : score.balls?.length > 0);
           });
           if (!allComplete) {
             currentHole = h;
@@ -310,14 +329,15 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
       // Get existing score to preserve stats (putts, FIR, GIR)
       const existingScore = scorecard.scores[hole];
+      const existingSingleBall = existingScore && isSingleBallScore(existingScore) ? existingScore : undefined;
 
       // Create the score entry, preserving existing stats
       const holeScore: HoleScore = {
         strokes,
-        putts: existingScore?.putts,
-        fairwayHit: existingScore?.fairwayHit,
-        greenInRegulation: existingScore?.greenInRegulation,
-        penalties: existingScore?.penalties ?? 0,
+        putts: existingSingleBall?.putts,
+        fairwayHit: existingSingleBall?.fairwayHit,
+        greenInRegulation: existingSingleBall?.greenInRegulation,
+        penalties: existingSingleBall?.penalties ?? 0,
       };
 
       // Update the scorecard
@@ -381,7 +401,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         return;
       }
 
-      const existingScore = scorecard.scores[hole] || { strokes: 0 };
+      const rawExistingScore = scorecard.scores[hole];
+      const existingScore: HoleScore = rawExistingScore && isSingleBallScore(rawExistingScore)
+        ? rawExistingScore
+        : { strokes: 0 };
 
       // Merge updates with existing score
       const holeScore: HoleScore = {
@@ -448,7 +471,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
       return currentPlayers.every((player) => {
         const scorecard = groupScorecards.get(player.id);
-        return scorecard?.scores[hole]?.strokes !== undefined;
+        const score = scorecard?.scores[hole];
+        // Check if single-ball score has strokes, or if multi-ball score has at least one ball
+        return score && (isSingleBallScore(score) ? score.strokes !== undefined : score.balls?.length > 0);
       });
     },
 
@@ -540,12 +565,167 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         currentHole: 1,
         holes: [],
         gameType: 'stableford',
+        ballCount: 1,
+        isMultiBall: false,
         groupScorecards: new Map(),
         allowedPlayerIds: [],
         isLoading: false,
         isInitialized: false,
         syncError: null,
       });
+    },
+
+    // Multi-ball scoring functions
+    setMultiBallConfig: (ballCount: BallCount) => {
+      set({
+        ballCount,
+        isMultiBall: ballCount > 1,
+      });
+    },
+
+    setMultiBallScore: async (playerId, hole, ballIndex, strokes) => {
+      const { groupScorecards, holes, ballCount, currentRoundId } = get();
+
+      storeLogger.debug('Setting multi-ball score', {
+        playerId: playerId.substring(0, 8) + '...',
+        hole,
+        ballIndex,
+        strokes,
+        ballCount,
+      });
+
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('Scorecard not found for player', { playerId });
+        return;
+      }
+
+      const holeData = holes.find((h) => h.number === hole);
+      if (!holeData) {
+        storeLogger.warn('Hole data not found', { hole });
+        return;
+      }
+
+      // Get or create multi-ball score structure
+      const existingScore = scorecard.scores[hole];
+      let multiBallScore: MultiBallHoleScore;
+
+      if (isMultiBallScore(existingScore)) {
+        // Update existing multi-ball structure
+        multiBallScore = { ...existingScore };
+      } else {
+        // Create new multi-ball structure
+        multiBallScore = {
+          balls: Array.from({ length: ballCount }, () => ({ strokes: 0 })),
+        };
+      }
+
+      // Update the specific ball's score
+      if (ballIndex >= 0 && ballIndex < multiBallScore.balls.length) {
+        multiBallScore.balls[ballIndex] = {
+          ...multiBallScore.balls[ballIndex],
+          strokes,
+        };
+      }
+
+      // Update the scorecard with type assertion for multi-ball compatibility
+      const updatedScorecard = {
+        ...scorecard,
+        scores: {
+          ...scorecard.scores,
+          [hole]: multiBallScore,
+        },
+      } as Scorecard;
+
+      // Update state
+      const newMap = new Map(groupScorecards);
+      newMap.set(playerId, updatedScorecard);
+      set({ groupScorecards: newMap });
+
+      // Save to offline storage (scorecard save handles the full scorecard including scores)
+      if (currentRoundId) {
+        await saveScorecard(updatedScorecard);
+      }
+    },
+
+    getMultiBallScores: (playerId, hole) => {
+      const { groupScorecards, ballCount } = get();
+      const scorecard = groupScorecards.get(playerId);
+
+      if (!scorecard) {
+        return Array.from({ length: ballCount }, () => ({ strokes: 0 }));
+      }
+
+      const score = scorecard.scores[hole];
+
+      if (isMultiBallScore(score)) {
+        return score.balls;
+      }
+
+      // Return empty array of ball scores if not multi-ball format
+      return Array.from({ length: ballCount }, () => ({ strokes: 0 }));
+    },
+
+    getMultiBallTotals: (playerId) => {
+      const { groupScorecards, holes, ballCount } = get();
+      const scorecard = groupScorecards.get(playerId);
+      const playerHandicap = scorecard?.player?.handicap || 0;
+
+      const totals: Record<string, BallTotals> = {};
+
+      for (let ballIdx = 0; ballIdx < ballCount; ballIdx++) {
+        const ballNum = String(ballIdx + 1);
+        totals[ballNum] = { gross: 0, net: 0, points: 0 };
+
+        if (!scorecard) continue;
+
+        for (const [holeNumStr, score] of Object.entries(scorecard.scores)) {
+          const holeNum = parseInt(holeNumStr, 10);
+          const holeData = holes.find((h) => h.number === holeNum);
+
+          if (!holeData) continue;
+
+          if (isMultiBallScore(score) && score.balls[ballIdx]) {
+            const ballScore = score.balls[ballIdx];
+            if (ballScore.strokes > 0 && ballScore.strokes < 10) { // Exclude pickup (10)
+              totals[ballNum].gross += ballScore.strokes;
+              const netScore = calculateNetScore(ballScore.strokes, playerHandicap, holeData);
+              totals[ballNum].net += netScore;
+              const points = calculateStablefordPoints(ballScore.strokes, playerHandicap, holeData);
+              totals[ballNum].points += points;
+            }
+          }
+        }
+      }
+
+      return totals;
+    },
+
+    // Super admin hole editing - update holes and persist to SQLite
+    updateHoles: async (newHoles: Hole[]) => {
+      const { currentRoundId } = get();
+
+      storeLogger.info('Updating holes', {
+        roundId: currentRoundId?.substring(0, 8) + '...',
+        holeCount: newHoles.length,
+      });
+
+      // Update state immediately
+      set({ holes: newHoles });
+
+      // Persist to SQLite for offline access
+      if (currentRoundId) {
+        try {
+          await saveHoles(currentRoundId, newHoles);
+          storeLogger.debug('Holes saved to SQLite', {
+            roundId: currentRoundId.substring(0, 8) + '...',
+          });
+        } catch (error) {
+          storeLogger.error('Failed to save holes to SQLite', error, {
+            roundId: currentRoundId?.substring(0, 8) + '...',
+          });
+        }
+      }
     },
   };
 });
@@ -565,16 +745,23 @@ function calculatePlayerTotals(
   let totalPoints = 0;
 
   for (const hole of holes) {
-    const holeScore = scorecard.scores[hole.number];
-    if (!holeScore?.strokes) continue;
+    const rawHoleScore = scorecard.scores[hole.number];
+    if (!rawHoleScore) continue;
 
-    totalGross += holeScore.strokes;
+    // Get strokes based on score type
+    const strokes = isSingleBallScore(rawHoleScore)
+      ? rawHoleScore.strokes
+      : rawHoleScore.balls?.[0]?.strokes; // Use first ball for multi-ball
+
+    if (!strokes) continue;
+
+    totalGross += strokes;
 
     if (gameType === 'stableford') {
-      totalPoints += calculateStablefordPoints(holeScore.strokes, playerHandicap, hole);
+      totalPoints += calculateStablefordPoints(strokes, playerHandicap, hole);
       totalNet = totalPoints; // For stableford, net = points
     } else if (gameType === 'stroke') {
-      totalNet += calculateNetScore(holeScore.strokes, playerHandicap, hole);
+      totalNet += calculateNetScore(strokes, playerHandicap, hole);
     }
   }
 

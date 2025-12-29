@@ -13,8 +13,24 @@ import React from 'react';
 import { useSubmitScorecards, useUpdateScore } from '@/hooks/scorecard/useSubmitScorecard';
 import * as offlineDatabase from '@/services/offline/database';
 import * as offlineSync from '@/services/offline/sync';
-import { createTestScorecard, createTestPlayer, create18Holes } from '@/__tests__/utils/testFixtures';
+import { createTestPlayer, create18Holes } from '@/__tests__/utils/testFixtures';
 import type { Scorecard } from '@/types';
+
+// Helper to create app-level Scorecard (camelCase) for testing
+function createAppScorecard(overrides: Partial<Scorecard> = {}): Scorecard {
+  return {
+    id: 'scorecard-1',
+    roundId: 'round-1',
+    playerId: 'player-1',
+    scores: {},
+    totalGross: 0,
+    totalNet: 0,
+    status: 'not-started' as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 // ============================================================================
 // MOCK SETUP
@@ -77,10 +93,10 @@ function createWrapper() {
  * Create a test scorecard with valid UUID-like IDs
  */
 function createValidScorecard(overrides: Partial<Scorecard> = {}): Scorecard {
-  return createTestScorecard({
+  return createAppScorecard({
     id: 'scorecard-11111111-2222-3333-4444-555555555555',
-    round_id: 'round-11111111-2222-3333-4444-555555555555',
-    player_id: 'player-11111111-2222-3333-4444-555555555555',
+    roundId: 'round-11111111-2222-3333-4444-555555555555',
+    playerId: 'player-11111111-2222-3333-4444-555555555555',
     status: 'in-progress',
     ...overrides,
   });
@@ -255,9 +271,9 @@ describe('useSubmitScorecards', () => {
       const { result } = renderHook(() => useSubmitScorecards(), { wrapper });
 
       const scorecards = [
-        createValidScorecard({ id: 'sc-1', player_id: 'player-1' }),
-        createValidScorecard({ id: 'sc-2', player_id: 'player-2' }),
-        createValidScorecard({ id: 'sc-3', player_id: 'player-3' }),
+        createValidScorecard({ id: 'sc-1', playerId: 'player-1' }),
+        createValidScorecard({ id: 'sc-2', playerId: 'player-2' }),
+        createValidScorecard({ id: 'sc-3', playerId: 'player-3' }),
       ];
 
       await act(async () => {

@@ -1,8 +1,12 @@
 /**
  * ScoreIndicator Storybook Stories
  *
- * Visual stories for the ScoreIndicator component showing all score
+ * Visual stories for the unified ScoreIndicator component showing all score
  * types and visual indicators based on performance relative to par.
+ *
+ * Supports two display modes:
+ * - "bordered" (default): Circles and squares with colored borders
+ * - "compact": Solid colored background cells for space-efficient display
  */
 
 import React from 'react';
@@ -38,9 +42,14 @@ const meta: Meta<typeof ScoreIndicator> = {
       control: { type: 'number', min: 3, max: 6 },
       description: 'Par for the hole',
     },
+    display: {
+      control: { type: 'select' },
+      options: ['bordered', 'compact'],
+      description: 'Display mode: bordered (circles/squares) or compact (colored backgrounds)',
+    },
     size: {
       control: { type: 'select' },
-      options: ['small', 'medium', 'large'],
+      options: ['sm', 'md', 'lg'],
       description: 'Size variant of the indicator',
     },
   },
@@ -67,14 +76,15 @@ interface ScoreRowProps {
   label: string;
   strokes: number | undefined;
   par: number;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'sm' | 'md' | 'lg';
+  display?: 'bordered' | 'compact';
 }
 
-function ScoreRow({ label, strokes, par, size = 'medium' }: ScoreRowProps) {
+function ScoreRow({ label, strokes, par, size = 'md', display = 'bordered' }: ScoreRowProps) {
   return (
     <View style={rowStyles.row}>
       <Text style={rowStyles.label}>{label}</Text>
-      <ScoreIndicator strokes={strokes} par={par} size={size} />
+      <ScoreIndicator strokes={strokes} par={par} size={size} display={display} />
     </View>
   );
 }
@@ -103,7 +113,8 @@ export const Default: Story = {
   args: {
     strokes: 4,
     par: 4,
-    size: 'medium',
+    size: 'md',
+    display: 'bordered',
   },
 };
 
@@ -111,7 +122,7 @@ export const NoScore: Story = {
   args: {
     strokes: undefined,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -126,7 +137,7 @@ export const Pickup: Story = {
   args: {
     strokes: 10,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -141,7 +152,7 @@ export const Eagle: Story = {
   args: {
     strokes: 2,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -156,7 +167,7 @@ export const Birdie: Story = {
   args: {
     strokes: 3,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -171,7 +182,7 @@ export const Par: Story = {
   args: {
     strokes: 4,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -186,7 +197,7 @@ export const Bogey: Story = {
   args: {
     strokes: 5,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -201,7 +212,7 @@ export const DoubleBogey: Story = {
   args: {
     strokes: 6,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -216,7 +227,7 @@ export const TripleBogey: Story = {
   args: {
     strokes: 7,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -235,7 +246,7 @@ export const SizeSmall: Story = {
   args: {
     strokes: 3,
     par: 4,
-    size: 'small',
+    size: 'sm',
   },
   parameters: {
     docs: {
@@ -250,7 +261,7 @@ export const SizeMedium: Story = {
   args: {
     strokes: 3,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   parameters: {
     docs: {
@@ -265,7 +276,7 @@ export const SizeLarge: Story = {
   args: {
     strokes: 3,
     par: 4,
-    size: 'large',
+    size: 'lg',
   },
   parameters: {
     docs: {
@@ -284,7 +295,7 @@ export const Par3HoleInOne: Story = {
   args: {
     strokes: 1,
     par: 3,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 3 - Hole in One (Eagle)',
   parameters: {
@@ -300,7 +311,7 @@ export const Par3Birdie: Story = {
   args: {
     strokes: 2,
     par: 3,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 3 - Birdie',
 };
@@ -309,7 +320,7 @@ export const Par3Par: Story = {
   args: {
     strokes: 3,
     par: 3,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 3 - Par',
 };
@@ -318,7 +329,7 @@ export const Par3Bogey: Story = {
   args: {
     strokes: 4,
     par: 3,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 3 - Bogey',
 };
@@ -327,7 +338,7 @@ export const Par3DoubleBogey: Story = {
   args: {
     strokes: 5,
     par: 3,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 3 - Double Bogey',
 };
@@ -340,7 +351,7 @@ export const Par4Albatross: Story = {
   args: {
     strokes: 1,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Hole in One (Albatross)',
   parameters: {
@@ -356,7 +367,7 @@ export const Par4Eagle: Story = {
   args: {
     strokes: 2,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Eagle',
 };
@@ -365,7 +376,7 @@ export const Par4Birdie: Story = {
   args: {
     strokes: 3,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Birdie',
 };
@@ -374,7 +385,7 @@ export const Par4Par: Story = {
   args: {
     strokes: 4,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Par',
 };
@@ -383,7 +394,7 @@ export const Par4Bogey: Story = {
   args: {
     strokes: 5,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Bogey',
 };
@@ -392,7 +403,7 @@ export const Par4DoubleBogey: Story = {
   args: {
     strokes: 6,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 4 - Double Bogey',
 };
@@ -405,7 +416,7 @@ export const Par5Condor: Story = {
   args: {
     strokes: 1,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Condor (4 under)',
   parameters: {
@@ -421,7 +432,7 @@ export const Par5Albatross: Story = {
   args: {
     strokes: 2,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Albatross',
 };
@@ -430,7 +441,7 @@ export const Par5Eagle: Story = {
   args: {
     strokes: 3,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Eagle',
 };
@@ -439,7 +450,7 @@ export const Par5Birdie: Story = {
   args: {
     strokes: 4,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Birdie',
 };
@@ -448,7 +459,7 @@ export const Par5Par: Story = {
   args: {
     strokes: 5,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Par',
 };
@@ -457,7 +468,7 @@ export const Par5Bogey: Story = {
   args: {
     strokes: 6,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Bogey',
 };
@@ -466,7 +477,7 @@ export const Par5DoubleBogey: Story = {
   args: {
     strokes: 7,
     par: 5,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Par 5 - Double Bogey',
 };
@@ -479,7 +490,7 @@ export const ScoreOfNine: Story = {
   args: {
     strokes: 9,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Score of 9 (Just Below Pickup)',
   parameters: {
@@ -495,7 +506,7 @@ export const ZeroStrokes: Story = {
   args: {
     strokes: 0,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'Zero Strokes (Shows Dash)',
   parameters: {
@@ -511,7 +522,7 @@ export const HighPickupScore: Story = {
   args: {
     strokes: 15,
     par: 4,
-    size: 'medium',
+    size: 'md',
   },
   name: 'High Pickup Score (15)',
   parameters: {
@@ -557,15 +568,15 @@ export const AllSizeComparison: Story = {
       <View style={comparisonStyles.sizeRow}>
         <View style={comparisonStyles.sizeItem}>
           <Text style={comparisonStyles.sizeLabel}>Small</Text>
-          <ScoreIndicator strokes={3} par={4} size="small" />
+          <ScoreIndicator strokes={3} par={4} size="sm" />
         </View>
         <View style={comparisonStyles.sizeItem}>
           <Text style={comparisonStyles.sizeLabel}>Medium</Text>
-          <ScoreIndicator strokes={3} par={4} size="medium" />
+          <ScoreIndicator strokes={3} par={4} size="md" />
         </View>
         <View style={comparisonStyles.sizeItem}>
           <Text style={comparisonStyles.sizeLabel}>Large</Text>
-          <ScoreIndicator strokes={3} par={4} size="large" />
+          <ScoreIndicator strokes={3} par={4} size="lg" />
         </View>
       </View>
     </View>
@@ -595,78 +606,78 @@ export const AllSizesAllTypes: Story = {
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Eagle</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={2} par={4} size="small" />
+            <ScoreIndicator strokes={2} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={2} par={4} size="medium" />
+            <ScoreIndicator strokes={2} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={2} par={4} size="large" />
+            <ScoreIndicator strokes={2} par={4} size="lg" />
           </View>
         </View>
         {/* Birdie row */}
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Birdie</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={3} par={4} size="small" />
+            <ScoreIndicator strokes={3} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={3} par={4} size="medium" />
+            <ScoreIndicator strokes={3} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={3} par={4} size="large" />
+            <ScoreIndicator strokes={3} par={4} size="lg" />
           </View>
         </View>
         {/* Par row */}
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Par</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={4} par={4} size="small" />
+            <ScoreIndicator strokes={4} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={4} par={4} size="medium" />
+            <ScoreIndicator strokes={4} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={4} par={4} size="large" />
+            <ScoreIndicator strokes={4} par={4} size="lg" />
           </View>
         </View>
         {/* Bogey row */}
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Bogey</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={5} par={4} size="small" />
+            <ScoreIndicator strokes={5} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={5} par={4} size="medium" />
+            <ScoreIndicator strokes={5} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={5} par={4} size="large" />
+            <ScoreIndicator strokes={5} par={4} size="lg" />
           </View>
         </View>
         {/* Double Bogey row */}
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Double</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={6} par={4} size="small" />
+            <ScoreIndicator strokes={6} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={6} par={4} size="medium" />
+            <ScoreIndicator strokes={6} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={6} par={4} size="large" />
+            <ScoreIndicator strokes={6} par={4} size="lg" />
           </View>
         </View>
         {/* Pickup row */}
         <View style={comparisonStyles.gridRow}>
           <Text style={comparisonStyles.gridCell}>Pickup</Text>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={10} par={4} size="small" />
+            <ScoreIndicator strokes={10} par={4} size="sm" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={10} par={4} size="medium" />
+            <ScoreIndicator strokes={10} par={4} size="md" />
           </View>
           <View style={comparisonStyles.gridCell}>
-            <ScoreIndicator strokes={10} par={4} size="large" />
+            <ScoreIndicator strokes={10} par={4} size="lg" />
           </View>
         </View>
       </View>
@@ -714,7 +725,7 @@ export const ParComparison: Story = {
 export const ScorecardSimulation: Story = {
   render: () => (
     <View style={comparisonStyles.container}>
-      <Text style={comparisonStyles.title}>Sample Front 9 Scores</Text>
+      <Text style={comparisonStyles.title}>Sample Front 9 Scores (Bordered)</Text>
       <View style={comparisonStyles.scorecardRow}>
         {[
           { strokes: 4, par: 4 }, // Par
@@ -729,7 +740,7 @@ export const ScorecardSimulation: Story = {
         ].map((score, index) => (
           <View key={index} style={comparisonStyles.scorecardCell}>
             <Text style={comparisonStyles.holeNumber}>{index + 1}</Text>
-            <ScoreIndicator strokes={score.strokes} par={score.par} size="small" />
+            <ScoreIndicator strokes={score.strokes} par={score.par} size="sm" />
           </View>
         ))}
       </View>
@@ -738,7 +749,178 @@ export const ScorecardSimulation: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Simulates how scores would appear in a row on a scorecard.',
+        story: 'Simulates how scores would appear in a row on a scorecard using bordered display.',
+      },
+    },
+  },
+};
+
+// ===========================================================================
+// COMPACT DISPLAY STORIES
+// ===========================================================================
+
+export const CompactDefault: Story = {
+  args: {
+    strokes: 4,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Compact display mode uses colored backgrounds instead of borders.',
+      },
+    },
+  },
+};
+
+export const CompactBirdie: Story = {
+  args: {
+    strokes: 3,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactEagle: Story = {
+  args: {
+    strokes: 2,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactBogey: Story = {
+  args: {
+    strokes: 5,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactDoubleBogey: Story = {
+  args: {
+    strokes: 6,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactPickup: Story = {
+  args: {
+    strokes: 10,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactNoScore: Story = {
+  args: {
+    strokes: undefined,
+    par: 4,
+    display: 'compact',
+    size: 'md',
+  },
+};
+
+export const CompactAllScoreTypes: Story = {
+  render: () => (
+    <View style={comparisonStyles.container}>
+      <Text style={comparisonStyles.title}>All Score Types (Compact)</Text>
+      <ScoreRow label="No Score" strokes={undefined} par={4} display="compact" />
+      <ScoreRow label="Eagle (2)" strokes={2} par={4} display="compact" />
+      <ScoreRow label="Birdie (3)" strokes={3} par={4} display="compact" />
+      <ScoreRow label="Par (4)" strokes={4} par={4} display="compact" />
+      <ScoreRow label="Bogey (5)" strokes={5} par={4} display="compact" />
+      <ScoreRow label="Double (6)" strokes={6} par={4} display="compact" />
+      <ScoreRow label="Triple (7)" strokes={7} par={4} display="compact" />
+      <ScoreRow label="Pickup (10)" strokes={10} par={4} display="compact" />
+    </View>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Comparison of all score types using the compact display mode.',
+      },
+    },
+  },
+};
+
+export const CompactScorecardSimulation: Story = {
+  render: () => (
+    <View style={comparisonStyles.container}>
+      <Text style={comparisonStyles.title}>Sample Front 9 Scores (Compact)</Text>
+      <View style={comparisonStyles.scorecardRow}>
+        {[
+          { strokes: 4, par: 4 }, // Par
+          { strokes: 3, par: 3 }, // Par
+          { strokes: 5, par: 4 }, // Bogey
+          { strokes: 2, par: 3 }, // Birdie
+          { strokes: 6, par: 5 }, // Bogey
+          { strokes: undefined, par: 4 }, // No score
+          { strokes: 3, par: 4 }, // Birdie
+          { strokes: 4, par: 3 }, // Bogey
+          { strokes: 4, par: 5 }, // Birdie
+        ].map((score, index) => (
+          <View key={index} style={comparisonStyles.scorecardCell}>
+            <Text style={comparisonStyles.holeNumber}>{index + 1}</Text>
+            <ScoreIndicator strokes={score.strokes} par={score.par} size="sm" display="compact" />
+          </View>
+        ))}
+      </View>
+    </View>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Simulates how scores would appear in a row on a scorecard using compact display.',
+      },
+    },
+  },
+};
+
+export const DisplayModeComparison: Story = {
+  render: () => (
+    <View style={comparisonStyles.container}>
+      <Text style={comparisonStyles.title}>Display Mode Comparison</Text>
+      <Text style={comparisonStyles.subtitle}>Same scores, different display modes</Text>
+      <View style={comparisonStyles.grid}>
+        <View style={comparisonStyles.gridRow}>
+          <Text style={[comparisonStyles.gridCell, comparisonStyles.headerCell]}>Score</Text>
+          <Text style={[comparisonStyles.gridCell, comparisonStyles.headerCell]}>Bordered</Text>
+          <Text style={[comparisonStyles.gridCell, comparisonStyles.headerCell]}>Compact</Text>
+        </View>
+        {[
+          { label: 'Eagle', strokes: 2, par: 4 },
+          { label: 'Birdie', strokes: 3, par: 4 },
+          { label: 'Par', strokes: 4, par: 4 },
+          { label: 'Bogey', strokes: 5, par: 4 },
+          { label: 'Double', strokes: 6, par: 4 },
+          { label: 'Pickup', strokes: 10, par: 4 },
+        ].map(({ label, strokes, par }) => (
+          <View key={label} style={comparisonStyles.gridRow}>
+            <Text style={comparisonStyles.gridCell}>{label}</Text>
+            <View style={comparisonStyles.gridCell}>
+              <ScoreIndicator strokes={strokes} par={par} display="bordered" size="md" />
+            </View>
+            <View style={comparisonStyles.gridCell}>
+              <ScoreIndicator strokes={strokes} par={par} display="compact" size="md" />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Side-by-side comparison of bordered vs compact display modes.',
       },
     },
   },

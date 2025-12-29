@@ -34,6 +34,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
@@ -198,6 +199,7 @@ export function createTestRound(overrides: Partial<Round> = {}): Round {
     is_team_round: false,
     team_format: null,
     scoring_pairs_required: false,
+    ball_count: 1,
     status: 'upcoming',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -341,6 +343,7 @@ export function createTestScorecard(overrides: Partial<Scorecard> = {}): Scoreca
     total_gross: 0,
     total_net: 0,
     total_points: 0,
+    ball_totals: null,
     status: 'not-started',
     submitted_at: null,
     submitted_by: null,
@@ -508,7 +511,8 @@ export function calculateTotalStablefordPoints(
 ): number {
   return holes.reduce((total, hole) => {
     const holeScore = scorecard.scores[hole.number.toString()];
-    if (!holeScore?.strokes) return total;
+    // Check if it's a single-ball HoleScore (has strokes property)
+    if (!holeScore || !('strokes' in holeScore) || !holeScore.strokes) return total;
     return total + calculateExpectedStablefordPoints(
       holeScore.strokes,
       hole.par,

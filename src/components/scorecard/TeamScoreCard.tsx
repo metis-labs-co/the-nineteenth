@@ -21,13 +21,14 @@ import {
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
-import type { Player, Hole, HoleScore } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 
 interface TeamScoreCardProps {
   team: TeamWithMembers;
   currentHole: Hole;
-  currentScore: HoleScore | undefined;
+  currentScore: HoleScore | MultiBallHoleScore | undefined;
   onScoreSelect: (strokes: number) => void;
   onContributorSelect?: (playerId: string) => void;
   selectedContributor?: string;
@@ -91,7 +92,9 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
     [teamHandicap, currentHole]
   );
 
-  const selectedScore = currentScore?.strokes;
+  // Narrow to single-ball score for accessing strokes
+  const singleBallScore = currentScore && isSingleBallScore(currentScore) ? currentScore : undefined;
+  const selectedScore = singleBallScore?.strokes;
   const isPickedUp = selectedScore === PICKUP_SCORE;
 
   // Max score before pickup is par + 2 (double bogey)

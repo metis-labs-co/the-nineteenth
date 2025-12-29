@@ -1,0 +1,129 @@
+/**
+ * ScoreInputStepper Component
+ *
+ * A +/- stepper for score entry with current score display.
+ * Large touch targets for on-course use.
+ */
+
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import {
+  spacing,
+  borderRadius,
+} from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
+
+interface ScoreInputStepperProps {
+  score: number | undefined;
+  isPickedUp: boolean;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  disabled?: boolean;
+  minScore?: number;
+  maxScore?: number;
+}
+
+export const ScoreInputStepper = React.memo(function ScoreInputStepper({
+  score,
+  isPickedUp,
+  onDecrement,
+  onIncrement,
+  disabled = false,
+  minScore = 1,
+  maxScore = 12,
+}: ScoreInputStepperProps) {
+  const colors = useThemeColors();
+
+  const canDecrement = !disabled && (score === undefined || score > minScore || isPickedUp);
+  const canIncrement = !disabled && !isPickedUp && (score === undefined || score < maxScore);
+
+  return (
+    <View style={styles.container}>
+      {/* Minus Button */}
+      <TouchableOpacity
+        style={[
+          styles.stepperButton,
+          { borderColor: colors.gray300, backgroundColor: colors.white },
+          !canDecrement && styles.buttonDisabled,
+        ]}
+        onPress={onDecrement}
+        disabled={!canDecrement}
+        activeOpacity={0.7}
+        accessibilityLabel="Decrease score"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</Text>
+      </TouchableOpacity>
+
+      {/* Current Score Display */}
+      <View style={styles.scoreDisplay}>
+        <Text style={[styles.scoreDisplayText, { color: colors.textPrimary }]}>
+          {isPickedUp ? 'P' : (score ?? '-')}
+        </Text>
+      </View>
+
+      {/* Plus Button */}
+      <TouchableOpacity
+        style={[
+          styles.stepperButton,
+          { borderColor: colors.gray300, backgroundColor: colors.white },
+          !canIncrement && styles.buttonDisabled,
+        ]}
+        onPress={onIncrement}
+        disabled={!canIncrement}
+        activeOpacity={0.7}
+        accessibilityLabel="Increase score"
+        accessibilityRole="button"
+      >
+        <Text
+          style={[
+            styles.stepperButtonText,
+            { color: colors.textPrimary },
+            isPickedUp && styles.disabledText,
+          ]}
+        >
+          +
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepperButton: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperButtonText: {
+    fontSize: 32,
+    fontWeight: '400',
+  },
+  scoreDisplay: {
+    width: 56,
+    height: 64,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoreDisplayText: {
+    fontSize: 40,
+    fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  disabledText: {
+    opacity: 0.4,
+  },
+});
+
+export default ScoreInputStepper;

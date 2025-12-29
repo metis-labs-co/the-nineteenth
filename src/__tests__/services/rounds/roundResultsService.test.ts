@@ -27,7 +27,7 @@ import {
   type SaveRoundResultInput,
   type RoundResultsServiceError,
 } from '@/services/rounds/roundResultsService';
-import type { Scorecard, PointSystemConfig, GameType } from '@/types/database.types';
+import type { Scorecard, PointSystemConfig, GameType, HoleScore, MultiBallHoleScore } from '@/types/database.types';
 import {
   createTestPlayer,
   createTestScorecard,
@@ -159,20 +159,24 @@ function createMatchPlayScorecard(
   margin: string = '2&1',
   overrides: Partial<Scorecard> = {}
 ): Scorecard {
+  // Match play scorecards use a different structure for scores
+  // Cast to bypass type check for legacy test data structure
+  const matchPlayScores = {
+    match: {
+      opponent_id: opponentId,
+      result,
+      margin,
+      holes_won: result === 'win' ? 10 : result === 'loss' ? 6 : 9,
+      holes_lost: result === 'win' ? 6 : result === 'loss' ? 10 : 9,
+      holes_halved: 2,
+    },
+  } as unknown as Record<string, HoleScore | MultiBallHoleScore>;
+
   return createTestScorecard({
     id: `scorecard-${playerId}`,
     round_id: roundId,
     player_id: playerId,
-    scores: {
-      match: {
-        opponent_id: opponentId,
-        result,
-        margin,
-        holes_won: result === 'win' ? 10 : result === 'loss' ? 6 : 9,
-        holes_lost: result === 'win' ? 6 : result === 'loss' ? 10 : 9,
-        holes_halved: 2,
-      },
-    },
+    scores: matchPlayScores,
     status: 'completed',
     ...overrides,
   });

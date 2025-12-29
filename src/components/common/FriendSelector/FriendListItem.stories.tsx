@@ -24,6 +24,7 @@ const createMockFriend = (overrides: Partial<Friend> = {}): Friend => ({
   golf_id: null,
   handicap_updated_at: null,
   photo_url: 'https://i.pravatar.cc/150?u=john',
+  home_venue_id: null,
   push_enabled: true,
   push_competition_updates: true,
   push_friend_requests: true,

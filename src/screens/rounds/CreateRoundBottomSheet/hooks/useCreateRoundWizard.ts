@@ -12,6 +12,9 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput } from '@/types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useVenues';
+import { useHomeVenue } from '@/hooks/useHomeVenue';
+import { useIsSocial } from '@/store/subscriptionStore';
+import type { BallCount } from '@/types/multiball.types';
 import type {
   WizardStep,
   WizardData,
@@ -31,7 +34,8 @@ interface UseCreateRoundWizardOptions {
     partners: PlayingPartner[],
     selectedTee?: TeeBox,
     gameType?: GameType,
-    scoringPairs?: ScoringPairsConfig
+    scoringPairs?: ScoringPairsConfig,
+    ballCount?: BallCount
   ) => void;
   onClose: () => void;
 }
@@ -63,6 +67,10 @@ interface UseCreateRoundWizardReturn {
   setScoringPairsEnabled: (enabled: boolean) => void;
   handleScoringPairsChange: (pairs: ScoringPairCreateInput[], type: 'reciprocal' | 'circular') => void;
 
+  // Ball count (solo rounds only)
+  handleSelectBallCount: (ballCount: BallCount) => void;
+  handleStartSoloRound: () => void;
+
   // Navigation
   handleBackToCourse: () => void;
   handleBackToTee: () => void;
@@ -85,6 +93,7 @@ const initialData: WizardData = {
   scoringPairsEnabled: false,
   scoringPairs: [],
   scoringPairingType: 'reciprocal',
+  ballCount: 1,
 };
 
 export function useCreateRoundWizard({
@@ -96,29 +105,67 @@ export function useCreateRoundWizard({
   const [currentStep, setCurrentStep] = useState<WizardStep>('course');
   const [data, setData] = useState<WizardData>(initialData);
 
-  // Handle initial course when sheet opens
+  // Subscription tier for multi-ball feature gating
+  const isSocialOrHigher = useIsSocial();
+
+  // Fetch home venue for pre-fill
+  const { data: homeVenue } = useHomeVenue();
+
+  // Handle initial course when sheet opens (priority: initialCourse > homeVenue single course)
   useEffect(() => {
-    if (visible && initialCourse) {
-      const courseData: SelectedCourse = {
-        courseId: initialCourse.courseId,
-        courseName: initialCourse.courseName,
-        venue: initialCourse.venue,
-        tees: initialCourse.tees,
-      };
+    if (visible) {
+      // Determine which course to use:
+      // 1. Explicit initialCourse (passed from CourseDetailScreen)
+      // 2. Home venue with single course (auto-select the only course)
+      // 3. Home venue with multiple courses: don't pre-fill, user must select
+      let courseToUse: {
+        courseId: string;
+        courseName: string;
+        venue: SelectedCourse['venue'];
+        tees: TeeBox[] | null | undefined;
+      } | null = null;
 
-      setData((prev) => ({
-        ...prev,
-        selectedCourse: courseData,
-      }));
+      if (initialCourse) {
+        courseToUse = {
+          courseId: initialCourse.courseId,
+          courseName: initialCourse.courseName,
+          venue: initialCourse.venue,
+          tees: initialCourse.tees,
+        };
+      } else if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1) {
+        // Single-course venue: auto-select the only course
+        const singleCourse = homeVenue.courses[0];
+        courseToUse = {
+          courseId: singleCourse.id,
+          courseName: singleCourse.name,
+          venue: homeVenue,
+          tees: singleCourse.tees,
+        };
+      }
+      // For multi-course venues, don't pre-fill - user must select a course
 
-      // Go to tee selection if tees available, otherwise match type
-      if (initialCourse.tees && initialCourse.tees.length > 0) {
-        setCurrentStep('tee');
-      } else {
-        setCurrentStep('matchType');
+      if (courseToUse) {
+        const courseData: SelectedCourse = {
+          courseId: courseToUse.courseId,
+          courseName: courseToUse.courseName,
+          venue: courseToUse.venue,
+          tees: courseToUse.tees,
+        };
+
+        setData((prev) => ({
+          ...prev,
+          selectedCourse: courseData,
+        }));
+
+        // Go to tee selection if tees available, otherwise match type
+        if (courseToUse.tees && courseToUse.tees.length > 0) {
+          setCurrentStep('tee');
+        } else {
+          setCurrentStep('matchType');
+        }
       }
     }
-  }, [visible, initialCourse]);
+  }, [visible, initialCourse, homeVenue]);
 
   // Reset state helper
   const resetState = useCallback(() => {
@@ -294,22 +341,49 @@ export function useCreateRoundWizard({
   const handleContinueToScoringSetup = useCallback(() => {
     // Skip scoring setup for solo rounds - scoring pairs are only relevant with partners
     if (data.selectedPartners.length === 0) {
-      // Start round directly for solo practice rounds
-      if (data.selectedCourse) {
-        onStartRound(
-          data.selectedCourse.courseId,
-          data.selectedCourse.courseName,
-          [],
-          data.selectedTee ?? undefined,
-          data.selectedMatchType ?? undefined,
-          undefined // No scoring pairs for solo rounds
-        );
-        resetState();
+      // Solo round - check if user can access multi-ball feature
+      if (isSocialOrHigher) {
+        // Social+ tier: show ball count selection step
+        setCurrentStep('ballCount');
+      } else {
+        // Free tier: start single-ball round directly
+        if (data.selectedCourse) {
+          onStartRound(
+            data.selectedCourse.courseId,
+            data.selectedCourse.courseName,
+            [],
+            data.selectedTee ?? undefined,
+            data.selectedMatchType ?? undefined,
+            undefined, // No scoring pairs for solo rounds
+            1 // Single ball
+          );
+          resetState();
+        }
       }
     } else {
       setCurrentStep('scoringSetup');
     }
-  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, onStartRound, resetState]);
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, onStartRound, resetState, isSocialOrHigher]);
+
+  // Ball count handlers (solo rounds only)
+  const handleSelectBallCount = useCallback((ballCount: BallCount) => {
+    setData((prev) => ({ ...prev, ballCount }));
+  }, []);
+
+  const handleStartSoloRound = useCallback(() => {
+    if (data.selectedCourse) {
+      onStartRound(
+        data.selectedCourse.courseId,
+        data.selectedCourse.courseName,
+        [],
+        data.selectedTee ?? undefined,
+        data.selectedMatchType ?? undefined,
+        undefined, // No scoring pairs for solo rounds
+        data.ballCount
+      );
+      resetState();
+    }
+  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, onStartRound, resetState]);
 
   // Action handlers
   const handleStartScoring = useCallback(() => {
@@ -357,6 +431,8 @@ export function useCreateRoundWizard({
     isPartnerSelected,
     setScoringPairsEnabled,
     handleScoringPairsChange,
+    handleSelectBallCount,
+    handleStartSoloRound,
     handleBackToCourse,
     handleBackToTee,
     handleBackToMatchType,

@@ -15,10 +15,3 @@ export interface RoundFormData {
 export interface RoundWithCourse extends Round {
   courses: Course | null;
 }
-
-export interface TeeSelectorProps {
-  tees: TeeBox[];
-  selectedTee: TeeBox | null;
-  onSelect: (tee: TeeBox) => void;
-  disabled?: boolean;
-}

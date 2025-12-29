@@ -11,6 +11,61 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { BottomSheetHeader } from './BottomSheetHeader';
 import { Text, Icon } from 'react-native-paper';
 
+// ===========================================================================
+// STYLES (defined first to avoid hoisting issues)
+// ===========================================================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+  },
+  headerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+});
+
+const headerStyles = StyleSheet.create({
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#666666',
+  },
+  saveText: {
+    fontSize: 16,
+    color: '#006B3F',
+    fontWeight: '600',
+  },
+  iconWrapper: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+});
+
 const meta: Meta<typeof BottomSheetHeader> = {
   title: 'Common/BottomSheet/BottomSheetHeader',
   component: BottomSheetHeader,
@@ -467,57 +522,3 @@ export const RoundDetailsHeader: Story = {
   },
 };
 
-// ===========================================================================
-// STYLES
-// ===========================================================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-    padding: 16,
-  },
-  headerWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-});
-
-const headerStyles = StyleSheet.create({
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  cancelText: {
-    fontSize: 16,
-    color: '#666666',
-  },
-  saveText: {
-    fontSize: 16,
-    color: '#006B3F',
-    fontWeight: '600',
-  },
-  iconWrapper: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-});

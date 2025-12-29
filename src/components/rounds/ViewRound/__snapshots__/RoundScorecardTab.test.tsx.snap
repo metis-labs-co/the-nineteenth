@@ -3,56 +3,35 @@
 exports[`RoundScorecardTab Snapshots matches snapshot with empty state 1`] = `
 <View
   style={
-    [
-      {
-        "flex": 1,
-      },
-      undefined,
-    ]
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
   }
 >
   <View
-    collapsable={false}
-    pointerEvents="box-none"
-    style={
-      {
-        "flex": 1,
-      }
-    }
+    testID="empty-state"
   >
-    <View
-      style={
-        {
-          "backgroundColor": "#f9fafb",
-          "flex": 1,
-        }
-      }
+    <Text
+      testID="empty-state-icon"
     >
-      <View
-        testID="empty-state"
-      >
-        <Text
-          testID="empty-state-icon"
-        >
-          card-text-outline
-        </Text>
-        <Text
-          testID="empty-state-title"
-        >
-          No players yet
-        </Text>
-        <Text
-          testID="empty-state-message"
-        >
-          Players will appear here once they are added to the round.
-        </Text>
-        <Text
-          testID="empty-state-compact"
-        >
-          compact
-        </Text>
-      </View>
-    </View>
+      card-text-outline
+    </Text>
+    <Text
+      testID="empty-state-title"
+    >
+      No players yet
+    </Text>
+    <Text
+      testID="empty-state-message"
+    >
+      Players will appear here once they are added to the round.
+    </Text>
+    <Text
+      testID="empty-state-compact"
+    >
+      compact
+    </Text>
   </View>
 </View>
 `;
@@ -60,444 +39,347 @@ exports[`RoundScorecardTab Snapshots matches snapshot with empty state 1`] = `
 exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
 <View
   style={
-    [
-      {
-        "flex": 1,
-      },
-      undefined,
-    ]
+    {
+      "backgroundColor": "#f9fafb",
+      "flex": 1,
+    }
   }
 >
   <View
-    collapsable={false}
-    pointerEvents="box-none"
     style={
       {
-        "flex": 1,
+        "gap": 12,
       }
     }
   >
     <View
       style={
         {
-          "backgroundColor": "#f9fafb",
-          "flex": 1,
+          "alignItems": "center",
+          "flexDirection": "row",
+          "justifyContent": "space-between",
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 18,
+              "fontWeight": "600",
+              "lineHeight": 26,
+            },
+            {
+              "color": "#1A1A1A",
+            },
+          ]
+        }
+      >
+        Scorecard
+      </Text>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 8,
+              "flexDirection": "row",
+              "gap": 4,
+              "padding": 4,
+            },
+            {
+              "backgroundColor": "#F5F5F5",
+            },
+          ]
+        }
+      >
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+          style={
+            {
+              "alignItems": "center",
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 4,
+              "elevation": 2,
+              "height": 32,
+              "justifyContent": "center",
+              "opacity": 1,
+              "shadowColor": "#000",
+              "shadowOffset": {
+                "height": 1,
+                "width": 0,
+              },
+              "shadowOpacity": 0.05,
+              "shadowRadius": 2,
+              "width": 36,
+            }
+          }
+        >
+          <View
+            style={
+              {
+                "height": 18,
+                "width": 18,
+              }
+            }
+            testID="icon-table"
+          />
+        </View>
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+          style={
+            {
+              "alignItems": "center",
+              "borderRadius": 4,
+              "height": 32,
+              "justifyContent": "center",
+              "opacity": 1,
+              "width": 36,
+            }
+          }
+        >
+          <View
+            style={
+              {
+                "height": 18,
+                "width": 18,
+              }
+            }
+            testID="icon-card-account-details-outline"
+          />
+        </View>
+      </View>
+    </View>
+    <View
+      testID="scorecard-table"
+    >
+      <Text>
+        ScorecardTable
+      </Text>
+      <Text
+        testID="player-count"
+      >
+        2
+      </Text>
+      <Text
+        testID="hole-count"
+      >
+        18
+      </Text>
+      <Text
+        onPress={[Function]}
+        testID="table-player-player-1"
+      >
+        John
+      </Text>
+      <Text
+        onPress={[Function]}
+        testID="table-player-player-2"
+      >
+        Jane
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "flexWrap": "wrap",
+          "gap": 12,
+          "paddingTop": 4,
         }
       }
     >
       <View
         style={
           {
-            "gap": 12,
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 4,
           }
         }
       >
         <View
           style={
-            {
-              "alignItems": "center",
-              "flexDirection": "row",
-              "justifyContent": "space-between",
-            }
+            [
+              {
+                "borderRadius": 7,
+                "borderWidth": 1.5,
+                "height": 14,
+                "width": 14,
+              },
+              {
+                "borderColor": "#1976D2",
+              },
+            ]
+          }
+        />
+        <Text
+          style={
+            [
+              {
+                "fontSize": 12,
+                "fontWeight": "400",
+                "lineHeight": 16,
+              },
+              {
+                "color": "#6B6B6B",
+              },
+            ]
           }
         >
-          <Text
-            style={
-              [
-                {
-                  "textAlign": "left",
-                },
-                {
-                  "color": "#111827",
-                  "fontFamily": "System",
-                  "fontWeight": "400",
-                  "letterSpacing": 0,
-                },
-                {
-                  "writingDirection": "ltr",
-                },
-                [
-                  {
-                    "fontSize": 18,
-                    "fontWeight": "600",
-                    "lineHeight": 26,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ],
-              ]
-            }
-          >
-            Scorecard
-          </Text>
-          <View
-            style={
-              [
-                {
-                  "borderRadius": 8,
-                  "flexDirection": "row",
-                  "gap": 4,
-                  "padding": 4,
-                },
-                {
-                  "backgroundColor": "#F5F5F5",
-                },
-              ]
-            }
-          >
-            <View
-              accessibilityState={
-                {
-                  "busy": undefined,
-                  "checked": undefined,
-                  "disabled": undefined,
-                  "expanded": undefined,
-                  "selected": undefined,
-                }
-              }
-              accessibilityValue={
-                {
-                  "max": undefined,
-                  "min": undefined,
-                  "now": undefined,
-                  "text": undefined,
-                }
-              }
-              accessible={true}
-              collapsable={false}
-              focusable={true}
-              onClick={[Function]}
-              onResponderGrant={[Function]}
-              onResponderMove={[Function]}
-              onResponderRelease={[Function]}
-              onResponderTerminate={[Function]}
-              onResponderTerminationRequest={[Function]}
-              onStartShouldSetResponder={[Function]}
-              style={
-                {
-                  "alignItems": "center",
-                  "backgroundColor": "#FFFFFF",
-                  "borderRadius": 4,
-                  "elevation": 2,
-                  "height": 32,
-                  "justifyContent": "center",
-                  "opacity": 1,
-                  "shadowColor": "#000",
-                  "shadowOffset": {
-                    "height": 1,
-                    "width": 0,
-                  },
-                  "shadowOpacity": 0.05,
-                  "shadowRadius": 2,
-                  "width": 36,
-                }
-              }
-            >
-              <Text
-                accessibilityElementsHidden={true}
-                importantForAccessibility="no-hide-descendants"
-                pointerEvents="none"
-                selectable={false}
-                style={
-                  [
-                    {
-                      "backgroundColor": "transparent",
-                    },
-                    {
-                      "color": "#2E7D32",
-                      "fontSize": 18,
-                    },
-                  ]
-                }
-              >
-                □
-              </Text>
-            </View>
-            <View
-              accessibilityState={
-                {
-                  "busy": undefined,
-                  "checked": undefined,
-                  "disabled": undefined,
-                  "expanded": undefined,
-                  "selected": undefined,
-                }
-              }
-              accessibilityValue={
-                {
-                  "max": undefined,
-                  "min": undefined,
-                  "now": undefined,
-                  "text": undefined,
-                }
-              }
-              accessible={true}
-              collapsable={false}
-              focusable={true}
-              onClick={[Function]}
-              onResponderGrant={[Function]}
-              onResponderMove={[Function]}
-              onResponderRelease={[Function]}
-              onResponderTerminate={[Function]}
-              onResponderTerminationRequest={[Function]}
-              onStartShouldSetResponder={[Function]}
-              style={
-                {
-                  "alignItems": "center",
-                  "borderRadius": 4,
-                  "height": 32,
-                  "justifyContent": "center",
-                  "opacity": 1,
-                  "width": 36,
-                }
-              }
-            >
-              <Text
-                accessibilityElementsHidden={true}
-                importantForAccessibility="no-hide-descendants"
-                pointerEvents="none"
-                selectable={false}
-                style={
-                  [
-                    {
-                      "backgroundColor": "transparent",
-                    },
-                    {
-                      "color": "#6B6B6B",
-                      "fontSize": 18,
-                    },
-                  ]
-                }
-              >
-                □
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View
-          testID="scorecard-table"
-        >
-          <Text>
-            ScorecardTable
-          </Text>
-          <Text
-            testID="player-count"
-          >
-            2
-          </Text>
-          <Text
-            testID="hole-count"
-          >
-            18
-          </Text>
-          <Text
-            onPress={[Function]}
-            testID="table-player-player-1"
-          >
-            John
-          </Text>
-          <Text
-            onPress={[Function]}
-            testID="table-player-player-2"
-          >
-            Jane
-          </Text>
-        </View>
+          Birdie
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 4,
+          }
+        }
+      >
         <View
           style={
-            {
-              "flexDirection": "row",
-              "flexWrap": "wrap",
-              "gap": 12,
-              "paddingTop": 4,
-            }
+            [
+              {
+                "borderRadius": 2,
+                "borderWidth": 1.5,
+                "height": 14,
+                "width": 14,
+              },
+              {
+                "borderColor": "#F57C00",
+              },
+            ]
+          }
+        />
+        <Text
+          style={
+            [
+              {
+                "fontSize": 12,
+                "fontWeight": "400",
+                "lineHeight": 16,
+              },
+              {
+                "color": "#6B6B6B",
+              },
+            ]
+          }
+        >
+          Bogey
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 4,
+          }
+        }
+      >
+        <View
+          style={
+            [
+              {
+                "alignItems": "center",
+                "borderRadius": 2,
+                "borderWidth": 1.5,
+                "height": 18,
+                "justifyContent": "center",
+                "width": 18,
+              },
+              {
+                "borderColor": "#D32F2F",
+              },
+            ]
           }
         >
           <View
             style={
-              {
-                "alignItems": "center",
-                "flexDirection": "row",
-                "gap": 4,
-              }
+              [
+                {
+                  "borderRadius": 2,
+                  "borderWidth": 1.5,
+                  "height": 12,
+                  "width": 12,
+                },
+                {
+                  "borderColor": "#D32F2F",
+                },
+              ]
             }
-          >
-            <View
-              style={
-                [
-                  {
-                    "borderRadius": 7,
-                    "borderWidth": 1.5,
-                    "height": 14,
-                    "width": 14,
-                  },
-                  {
-                    "borderColor": "#1976D2",
-                  },
-                ]
-              }
-            />
-            <Text
-              style={
-                [
-                  {
-                    "textAlign": "left",
-                  },
-                  {
-                    "color": "#111827",
-                    "fontFamily": "System",
-                    "fontWeight": "400",
-                    "letterSpacing": 0,
-                  },
-                  {
-                    "writingDirection": "ltr",
-                  },
-                  [
-                    {
-                      "fontSize": 12,
-                      "fontWeight": "400",
-                      "lineHeight": 16,
-                    },
-                    {
-                      "color": "#6B6B6B",
-                    },
-                  ],
-                ]
-              }
-            >
-              Birdie
-            </Text>
-          </View>
-          <View
-            style={
-              {
-                "alignItems": "center",
-                "flexDirection": "row",
-                "gap": 4,
-              }
-            }
-          >
-            <View
-              style={
-                [
-                  {
-                    "borderRadius": 2,
-                    "borderWidth": 1.5,
-                    "height": 14,
-                    "width": 14,
-                  },
-                  {
-                    "borderColor": "#F57C00",
-                  },
-                ]
-              }
-            />
-            <Text
-              style={
-                [
-                  {
-                    "textAlign": "left",
-                  },
-                  {
-                    "color": "#111827",
-                    "fontFamily": "System",
-                    "fontWeight": "400",
-                    "letterSpacing": 0,
-                  },
-                  {
-                    "writingDirection": "ltr",
-                  },
-                  [
-                    {
-                      "fontSize": 12,
-                      "fontWeight": "400",
-                      "lineHeight": 16,
-                    },
-                    {
-                      "color": "#6B6B6B",
-                    },
-                  ],
-                ]
-              }
-            >
-              Bogey
-            </Text>
-          </View>
-          <View
-            style={
-              {
-                "alignItems": "center",
-                "flexDirection": "row",
-                "gap": 4,
-              }
-            }
-          >
-            <View
-              style={
-                [
-                  {
-                    "alignItems": "center",
-                    "borderRadius": 2,
-                    "borderWidth": 1.5,
-                    "height": 18,
-                    "justifyContent": "center",
-                    "width": 18,
-                  },
-                  {
-                    "borderColor": "#D32F2F",
-                  },
-                ]
-              }
-            >
-              <View
-                style={
-                  [
-                    {
-                      "borderRadius": 2,
-                      "borderWidth": 1.5,
-                      "height": 12,
-                      "width": 12,
-                    },
-                    {
-                      "borderColor": "#D32F2F",
-                    },
-                  ]
-                }
-              />
-            </View>
-            <Text
-              style={
-                [
-                  {
-                    "textAlign": "left",
-                  },
-                  {
-                    "color": "#111827",
-                    "fontFamily": "System",
-                    "fontWeight": "400",
-                    "letterSpacing": 0,
-                  },
-                  {
-                    "writingDirection": "ltr",
-                  },
-                  [
-                    {
-                      "fontSize": 12,
-                      "fontWeight": "400",
-                      "lineHeight": 16,
-                    },
-                    {
-                      "color": "#6B6B6B",
-                    },
-                  ],
-                ]
-              }
-            >
-              2+
-            </Text>
-          </View>
+          />
         </View>
+        <Text
+          style={
+            [
+              {
+                "fontSize": 12,
+                "fontWeight": "400",
+                "lineHeight": 16,
+              },
+              {
+                "color": "#6B6B6B",
+              },
+            ]
+          }
+        >
+          2+
+        </Text>
       </View>
     </View>
   </View>

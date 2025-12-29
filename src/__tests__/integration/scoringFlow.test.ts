@@ -16,18 +16,23 @@ import {
   create18Holes,
   createTestRound,
 } from '../utils/testFixtures';
-import type { Player, Hole, HoleScore } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
+
+// Helper to get strokes from a score in tests (casts union type for assertions)
+const getStrokes = (score: HoleScore | MultiBallHoleScore | undefined): number | undefined =>
+  score && isSingleBallScore(score) ? score.strokes : undefined;
 
 // ============================================================================
 // Mocks
 // ============================================================================
 
 // Mock the offline database service
-const mockSaveScorecard = jest.fn(() => Promise.resolve());
-const mockSaveHoleScore = jest.fn(() => Promise.resolve());
-const mockGetScorecardsByRound = jest.fn(() => Promise.resolve([]));
-const mockSaveHoles = jest.fn(() => Promise.resolve());
-const mockGetHoles = jest.fn(() => Promise.resolve([]));
+const mockSaveScorecard = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockSaveHoleScore = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockGetScorecardsByRound = jest.fn((..._args: unknown[]) => Promise.resolve([] as unknown[]));
+const mockSaveHoles = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockGetHoles = jest.fn((..._args: unknown[]) => Promise.resolve([] as unknown[]));
 
 jest.mock('@/services/offline/database', () => ({
   saveScorecard: (...args: unknown[]) => mockSaveScorecard(...args),
@@ -39,7 +44,7 @@ jest.mock('@/services/offline/database', () => ({
 
 // Mock the sync service with state tracking
 let mockIsOnline = true;
-const mockQueueScorecardSync = jest.fn(() => Promise.resolve());
+const mockQueueScorecardSync = jest.fn((..._args: unknown[]) => Promise.resolve());
 const mockSyncSubscribers: Array<(state: { status: string; pendingCount: number; error: null }) => void> = [];
 
 jest.mock('@/services/offline/sync', () => ({
@@ -322,9 +327,9 @@ describe('Scoring Flow Integration Tests', () => {
       await store.setPlayerScore(player.id, 3, 3);
 
       // Verify in-memory state
-      expect(getStore().getPlayerScore(player.id, 1)?.strokes).toBe(4);
-      expect(getStore().getPlayerScore(player.id, 2)?.strokes).toBe(5);
-      expect(getStore().getPlayerScore(player.id, 3)?.strokes).toBe(3);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 1))).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 2))).toBe(5);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 3))).toBe(3);
       expect(getStore().getPlayerTotals(player.id).gross).toBe(12);
 
       // Verify persistence calls
@@ -380,8 +385,8 @@ describe('Scoring Flow Integration Tests', () => {
         updatedAt: new Date(),
       }));
 
-      mockGetScorecardsByRound.mockResolvedValue(mockScorecards);
-      mockGetHoles.mockResolvedValue(testHoles);
+      mockGetScorecardsByRound.mockResolvedValue(mockScorecards as unknown[]);
+      mockGetHoles.mockResolvedValue(testHoles as unknown[]);
 
       // Load from offline
       const loaded = await store.loadFromOffline(testRoundId);
@@ -413,8 +418,8 @@ describe('Scoring Flow Integration Tests', () => {
         updatedAt: new Date(),
       }));
 
-      mockGetScorecardsByRound.mockResolvedValue(mockScorecards);
-      mockGetHoles.mockResolvedValue(testHoles);
+      mockGetScorecardsByRound.mockResolvedValue(mockScorecards as unknown[]);
+      mockGetHoles.mockResolvedValue(testHoles as unknown[]);
 
       await store.loadFromOffline(testRoundId);
 
@@ -444,8 +449,8 @@ describe('Scoring Flow Integration Tests', () => {
         updatedAt: new Date(),
       }));
 
-      mockGetScorecardsByRound.mockResolvedValue(mockScorecards);
-      mockGetHoles.mockResolvedValue(testHoles);
+      mockGetScorecardsByRound.mockResolvedValue(mockScorecards as unknown[]);
+      mockGetHoles.mockResolvedValue(testHoles as unknown[]);
 
       // Load from cache
       await store.loadFromOffline(testRoundId);
@@ -503,10 +508,10 @@ describe('Scoring Flow Integration Tests', () => {
       ]);
 
       // All scores should be recorded
-      expect(getStore().getPlayerScore(testPlayers[0].id, 1)?.strokes).toBe(4);
-      expect(getStore().getPlayerScore(testPlayers[1].id, 1)?.strokes).toBe(5);
-      expect(getStore().getPlayerScore(testPlayers[2].id, 1)?.strokes).toBe(3);
-      expect(getStore().getPlayerScore(testPlayers[3].id, 1)?.strokes).toBe(6);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[0].id, 1))).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[1].id, 1))).toBe(5);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[2].id, 1))).toBe(3);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[3].id, 1))).toBe(6);
     });
 
     it('handles concurrent score updates for different holes', async () => {
@@ -523,10 +528,10 @@ describe('Scoring Flow Integration Tests', () => {
         store.setPlayerScore(player.id, 4, 4),
       ]);
 
-      expect(getStore().getPlayerScore(player.id, 1)?.strokes).toBe(4);
-      expect(getStore().getPlayerScore(player.id, 2)?.strokes).toBe(3);
-      expect(getStore().getPlayerScore(player.id, 3)?.strokes).toBe(5);
-      expect(getStore().getPlayerScore(player.id, 4)?.strokes).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 1))).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 2))).toBe(3);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 3))).toBe(5);
+      expect(getStrokes(getStore().getPlayerScore(player.id, 4))).toBe(4);
       expect(getStore().getPlayerTotals(player.id).gross).toBe(16);
     });
 
@@ -648,7 +653,7 @@ describe('Scoring Flow Integration Tests', () => {
 
       // Score for allowed players should work
       await store.setPlayerScore(testPlayers[0].id, 1, 4);
-      expect(getStore().getPlayerScore(testPlayers[0].id, 1)?.strokes).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[0].id, 1))).toBe(4);
 
       // Score for non-allowed players should be ignored
       await store.setPlayerScore(testPlayers[2].id, 1, 5);
@@ -666,7 +671,7 @@ describe('Scoring Flow Integration Tests', () => {
       // Should not throw, score should still be in memory
       await store.setPlayerScore(testPlayers[0].id, 1, 4);
 
-      expect(getStore().getPlayerScore(testPlayers[0].id, 1)?.strokes).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[0].id, 1))).toBe(4);
     });
 
     it('prevents submission when no round ID set', async () => {
@@ -691,7 +696,8 @@ describe('Scoring Flow Integration Tests', () => {
         greenInRegulation: true,
       });
 
-      const score = getStore().getPlayerScore(player.id, 1);
+      const rawScore = getStore().getPlayerScore(player.id, 1);
+      const score = rawScore && isSingleBallScore(rawScore) ? rawScore : undefined;
       expect(score?.strokes).toBe(4);
       expect(score?.putts).toBe(2);
       expect(score?.fairwayHit).toBe(true);
@@ -700,7 +706,8 @@ describe('Scoring Flow Integration Tests', () => {
       // Update just strokes - should preserve other stats
       await store.setPlayerScore(player.id, 1, 5);
 
-      const updatedScore = getStore().getPlayerScore(player.id, 1);
+      const rawUpdatedScore = getStore().getPlayerScore(player.id, 1);
+      const updatedScore = rawUpdatedScore && isSingleBallScore(rawUpdatedScore) ? rawUpdatedScore : undefined;
       expect(updatedScore?.strokes).toBe(5);
       expect(updatedScore?.putts).toBe(2);
       expect(updatedScore?.fairwayHit).toBe(true);

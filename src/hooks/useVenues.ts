@@ -32,6 +32,7 @@ export interface VenueWithCourses extends Venue {
   courses: CourseWithFavoriteStatus[];
   course_count: number;
   is_multi_course: boolean; // true if venue has 2+ courses
+  is_home: boolean; // true if this is user's home venue
 }
 
 /**
@@ -41,6 +42,7 @@ export interface VenueCourseDisplayItem {
   type: 'single-course' | 'multi-course-venue';
   venue: Venue;
   courses: CourseWithFavoriteStatus[];
+  is_home?: boolean; // true if this venue is the user's home venue, defaults to false
   // For single-course venues, this is the one course
   // For multi-course venues, these are all courses at the venue
 }
@@ -94,9 +96,11 @@ export function useVenuesWithCourses(state?: AustralianState) {
 
       if (venuesError) throw venuesError;
 
-      // Fetch user's favorite course IDs
+      // Fetch user's favorite course IDs and home venue ID
       let favoriteIds: string[] = [];
+      let homeVenueId: string | null = null;
       if (user) {
+        // Fetch favorites
         const { data: favorites, error: favError } = await supabase
           .from('favorite_courses')
           .select('course_id')
@@ -105,6 +109,15 @@ export function useVenuesWithCourses(state?: AustralianState) {
         if (!favError && favorites) {
           favoriteIds = favorites.map((f: { course_id: string }) => f.course_id);
         }
+
+        // Fetch player's home venue ID
+        const { data: player } = await (supabase as any)
+          .from('players')
+          .select('home_venue_id')
+          .eq('id', user.id)
+          .single();
+
+        homeVenueId = player?.home_venue_id ?? null;
       }
 
       // Transform to VenueWithCourses
@@ -119,6 +132,7 @@ export function useVenuesWithCourses(state?: AustralianState) {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
+          is_home: venue.id === homeVenueId,
         };
       });
     },
@@ -158,9 +172,11 @@ export function useSearchVenues(query: string, state?: AustralianState) {
 
       if (error) throw error;
 
-      // Fetch user's favorite course IDs
+      // Fetch user's favorite course IDs and home venue ID
       let favoriteIds: string[] = [];
+      let homeVenueId: string | null = null;
       if (user) {
+        // Fetch favorites
         const { data: favorites } = await supabase
           .from('favorite_courses')
           .select('course_id')
@@ -169,6 +185,15 @@ export function useSearchVenues(query: string, state?: AustralianState) {
         if (favorites) {
           favoriteIds = favorites.map((f: { course_id: string }) => f.course_id);
         }
+
+        // Fetch player's home venue ID
+        const { data: player } = await (supabase as any)
+          .from('players')
+          .select('home_venue_id')
+          .eq('id', user.id)
+          .single();
+
+        homeVenueId = player?.home_venue_id ?? null;
       }
 
       // Transform to VenueWithCourses
@@ -183,6 +208,7 @@ export function useSearchVenues(query: string, state?: AustralianState) {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
+          is_home: venue.id === homeVenueId,
         };
       });
     },
@@ -219,6 +245,7 @@ export function useVenueCourseDisplayItems(state?: AustralianState) {
       updated_at: venue.updated_at,
     },
     courses: venue.courses,
+    is_home: venue.is_home,
   }));
 
   return { data: displayItems, ...rest };
@@ -235,6 +262,7 @@ export function useFavoriteCoursesWithVenues() {
     queryFn: async (): Promise<(CourseWithFavoriteStatus & { venue: Venue })[]> => {
       if (!user) return [];
 
+      // Fetch favorites with course and venue data
       const { data, error } = await supabase
         .from('favorite_courses')
         .select(`

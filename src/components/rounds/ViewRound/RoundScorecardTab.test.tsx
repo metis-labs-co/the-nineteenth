@@ -17,7 +17,7 @@ import { create18Holes, createTestPlayer } from '@/__tests__/utils/testFixtures'
 import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
 import type { Hole, Player } from '@/types/database.types';
 
-// Mock the ScorecardTable component
+// Mock the ScorecardTable and ScoreIndicator components
 jest.mock('@/components/scorecard', () => {
   const { View, Text } = require('react-native');
   return {
@@ -45,14 +45,16 @@ jest.mock('@/components/scorecard', () => {
         ))}
       </View>
     ),
-    CompactScoreIndicator: ({
+    ScoreIndicator: ({
       strokes,
       par,
+      display,
     }: {
       strokes?: number;
       par: number;
+      display?: 'bordered' | 'compact';
     }) => (
-      <View testID={`compact-indicator-${strokes ?? 'empty'}`}>
+      <View testID={`score-indicator-${display ?? 'bordered'}-${strokes ?? 'empty'}`}>
         <Text>{strokes ?? '-'}</Text>
       </View>
     ),
@@ -186,9 +188,15 @@ function createScorecardWithPlayer(
       golf_id: null,
       handicap_updated_at: null,
       photo_url: null,
+      home_venue_id: null,
+      push_enabled: true,
+      push_competition_updates: true,
+      push_friend_requests: true,
+      push_scorecard_updates: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
+    ball_totals: null,
   };
 }
 
@@ -206,10 +214,14 @@ function createRoundPlayer(
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    pairing_id: 'pairing-1',
-    competition_player_id: `comp-player-${id}`,
+    has_scorecard: false,
   };
 }
 
@@ -752,6 +764,7 @@ describe('RoundScorecardTab', () => {
           total_gross: 0,
           total_net: 0,
           total_points: 0,
+          ball_totals: null,
           status: 'not-started',
           submitted_at: null,
           submitted_by: null,

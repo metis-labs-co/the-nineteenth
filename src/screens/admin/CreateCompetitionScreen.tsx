@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   stepDot: {
     width: 8,
     height: 8,
-    borderRadius: 5,
+    borderRadius: borderRadius.full,
   },
   stepLine: {
     width: 32,

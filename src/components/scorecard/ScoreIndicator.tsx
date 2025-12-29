@@ -1,7 +1,9 @@
 /**
  * ScoreIndicator
  *
- * Displays a score with visual indicators based on performance relative to par:
+ * Unified score display component with two display modes:
+ *
+ * display="bordered" (default):
  * - Eagle or better (-2+): Double circle
  * - Birdie (-1): Single circle
  * - Par (0): No indicator
@@ -9,48 +11,64 @@
  * - Double bogey (+2+): Double square
  * - Pickup (10+): Red "P"
  *
- * Reused by ReviewScorecardScreen and RoundScorecardTab for consistent display.
+ * display="compact":
+ * - Uses background colors instead of borders
+ * - More space-efficient for individual scorecard views
+ * - Eagle: Green background
+ * - Birdie: Light green background
+ * - Par: Light blue background
+ * - Bogey: Light amber background
+ * - Double bogey+: Light red background
+ *
+ * Reused by ReviewScorecardScreen, RoundScorecardTab, and other scorecard views.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { typography } from '@/constants/theme';
+import { typography, borderRadius } from '@/constants/theme';
 import { getScoreColor } from '@/utils/scoring';
+import { getScoreBackgroundColor } from '@/utils/displayHelpers';
 import { PICKUP_SCORE } from '@/utils/scorecardLayout';
 
 // =====================================================
 // TYPES
 // =====================================================
 
+export type ScoreIndicatorDisplay = 'bordered' | 'compact';
+export type ScoreIndicatorSize = 'sm' | 'md' | 'lg';
+
 export interface ScoreIndicatorProps {
   /** Strokes for the hole (undefined or 0 shows "-") */
   strokes: number | undefined;
   /** Par for the hole */
   par: number;
-  /** Optional size variant */
-  size?: 'small' | 'medium' | 'large';
+  /** Display mode: "bordered" uses circles/squares, "compact" uses colored backgrounds */
+  display?: ScoreIndicatorDisplay;
+  /** Size variant */
+  size?: ScoreIndicatorSize;
 }
 
 // =====================================================
 // SIZE CONFIGURATIONS
 // =====================================================
 
-const sizeConfig = {
-  small: {
+// Bordered mode sizes (circles/squares with borders)
+const borderedSizeConfig = {
+  sm: {
     inner: 22,
     outer: 28,
     borderWidth: 1.5,
     fontSize: 12,
   },
-  medium: {
+  md: {
     inner: 28,
     outer: 34,
     borderWidth: 1.5,
     fontSize: 14,
   },
-  large: {
+  lg: {
     inner: 32,
     outer: 40,
     borderWidth: 2,
@@ -58,17 +76,30 @@ const sizeConfig = {
   },
 };
 
+// Compact mode sizes (solid background cells)
+const compactSizeConfig = {
+  sm: 20,
+  md: 24,
+  lg: 32,
+};
+
 // =====================================================
-// COMPONENT
+// BORDERED DISPLAY COMPONENT
 // =====================================================
 
-export const ScoreIndicator = React.memo(function ScoreIndicator({
+interface BorderedIndicatorProps {
+  strokes: number | undefined;
+  par: number;
+  size: ScoreIndicatorSize;
+}
+
+const BorderedIndicator = React.memo(function BorderedIndicator({
   strokes,
   par,
-  size = 'medium',
-}: ScoreIndicatorProps) {
+  size,
+}: BorderedIndicatorProps) {
   const colors = useThemeColors();
-  const config = sizeConfig[size];
+  const config = borderedSizeConfig[size];
 
   // No score
   if (!strokes) {
@@ -215,10 +246,85 @@ export const ScoreIndicator = React.memo(function ScoreIndicator({
 });
 
 // =====================================================
+// COMPACT DISPLAY COMPONENT
+// =====================================================
+
+interface CompactIndicatorProps {
+  strokes: number | undefined;
+  par: number;
+  size: ScoreIndicatorSize;
+}
+
+const CompactIndicator = React.memo(function CompactIndicator({
+  strokes,
+  par,
+  size,
+}: CompactIndicatorProps) {
+  const colors = useThemeColors();
+  const cellSize = compactSizeConfig[size];
+
+  // No score
+  if (!strokes) {
+    return (
+      <View style={[styles.compactCell, { width: cellSize, height: cellSize }]}>
+        <Text style={[styles.compactText, { color: colors.textSecondary }]}>-</Text>
+      </View>
+    );
+  }
+
+  // Pickup: show red background with "P"
+  if (strokes >= PICKUP_SCORE) {
+    return (
+      <View
+        style={[
+          styles.compactCell,
+          { width: cellSize, height: cellSize, backgroundColor: colors.doubleBogeyBackground },
+        ]}
+      >
+        <Text style={[styles.compactText, { color: colors.doubleBogey }]}>P</Text>
+      </View>
+    );
+  }
+
+  const scoreColor = getScoreColor(strokes, par);
+  const bgColor = getScoreBackgroundColor(strokes, par, colors);
+
+  return (
+    <View
+      style={[
+        styles.compactCell,
+        { width: cellSize, height: cellSize },
+        bgColor && { backgroundColor: bgColor },
+      ]}
+    >
+      <Text style={[styles.compactText, { color: scoreColor }]}>{strokes}</Text>
+    </View>
+  );
+});
+
+// =====================================================
+// MAIN COMPONENT
+// =====================================================
+
+export const ScoreIndicator = React.memo(function ScoreIndicator({
+  strokes,
+  par,
+  display = 'bordered',
+  size = 'md',
+}: ScoreIndicatorProps) {
+  if (display === 'compact') {
+    return <CompactIndicator strokes={strokes} par={par} size={size} />;
+  }
+
+  return <BorderedIndicator strokes={strokes} par={par} size={size} />;
+});
+
+// =====================================================
 // STYLES
 // =====================================================
 
 const styles = StyleSheet.create({
+  // Bordered display styles
   indicatorContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -243,6 +349,17 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     ...typography.bodyBold,
+  },
+
+  // Compact display styles
+  compactCell: {
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compactText: {
+    ...typography.small,
+    fontWeight: '600',
   },
 });
 

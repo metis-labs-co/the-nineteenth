@@ -15,6 +15,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useHomeVenue } from '@/hooks/useHomeVenue';
 import { PageHeader } from '@/components/common/PageHeader';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { APP_NAME, APP_VERSION } from '@/constants/app';
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { player, user, logout, isLoading } = useAuth();
   const colors = useThemeColors();
+  const { data: homeVenue } = useHomeVenue();
 
   // Get display values from player profile or fall back to user data
   const displayName = player?.name || user?.user_metadata?.name || 'Guest User';
@@ -140,6 +142,50 @@ export default function ProfileScreen() {
             )}
           </View>
           <Icon source="chevron-right" size={20} color={colors.gray400} />
+        </TouchableOpacity>
+
+        {/* Home Venue Section */}
+        <TouchableOpacity
+          style={[styles.homeVenueCard, { backgroundColor: colors.surface }]}
+          activeOpacity={homeVenue ? 0.7 : 1}
+          onPress={homeVenue ? () => navigation.navigate('Venue', { venueId: homeVenue.id }) : undefined}
+          accessibilityRole={homeVenue ? 'button' : 'none'}
+          accessibilityLabel={homeVenue ? `View home venue: ${homeVenue.name}` : 'No home venue set'}
+        >
+          <View
+            style={[
+              styles.homeVenueIcon,
+              { backgroundColor: homeVenue ? colors.primaryLighter : colors.gray100 },
+            ]}
+          >
+            <Icon
+              source={homeVenue ? 'home' : 'home-outline'}
+              size={20}
+              color={homeVenue ? colors.primary : colors.gray400}
+            />
+          </View>
+          <View style={styles.homeVenueInfo}>
+            <Text style={[styles.homeVenueLabel, { color: colors.textSecondary }]}>
+              Home Venue
+            </Text>
+            {homeVenue ? (
+              <>
+                <Text style={[styles.homeVenueName, { color: colors.textPrimary }]}>
+                  {homeVenue.name}
+                </Text>
+                {homeVenue.courses && homeVenue.courses.length > 0 && (
+                  <Text style={[styles.homeVenueCourses, { color: colors.textSecondary }]}>
+                    {homeVenue.courses.length} course{homeVenue.courses.length !== 1 ? 's' : ''}
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text style={[styles.homeVenueName, { color: colors.textTertiary }]}>
+                Not set
+              </Text>
+            )}
+          </View>
+          {homeVenue && <Icon source="chevron-right" size={20} color={colors.gray400} />}
         </TouchableOpacity>
 
         {/* Menu Items */}
@@ -264,6 +310,36 @@ const styles = StyleSheet.create({
   userHandicap: {
     ...typography.small,
     marginTop: spacing.xs,
+  },
+  homeVenueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  homeVenueIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  homeVenueInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  homeVenueLabel: {
+    ...typography.caption,
+  },
+  homeVenueName: {
+    ...typography.bodyBold,
+    marginTop: 2,
+  },
+  homeVenueCourses: {
+    ...typography.small,
+    marginTop: 2,
   },
   menuSection: {
     marginTop: spacing.xl,

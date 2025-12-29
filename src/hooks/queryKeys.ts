@@ -58,6 +58,7 @@ export const venueKeys = {
     [...venueKeys.withCourses(), filters] as const,
   details: () => [...venueKeys.all, 'detail'] as const,
   detail: (id: string) => [...venueKeys.details(), id] as const,
+  homeVenue: (playerId: string) => [...venueKeys.all, 'home', playerId] as const,
 } as const;
 
 // =====================================================

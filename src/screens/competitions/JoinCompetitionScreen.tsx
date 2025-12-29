@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   notFoundIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,

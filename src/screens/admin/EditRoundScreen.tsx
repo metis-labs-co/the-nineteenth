@@ -3,4 +3,4 @@
  */
 
 export { default } from './EditRoundScreen/index';
-export type { RoundFormData, RoundWithCourse, TeeSelectorProps } from './EditRoundScreen/types';
+export type { RoundFormData, RoundWithCourse } from './EditRoundScreen/types';

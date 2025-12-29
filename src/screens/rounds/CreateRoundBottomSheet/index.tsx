@@ -40,6 +40,7 @@ import {
   MatchTypeStep,
   PartnersStep,
   ScoringSetupStep,
+  BallCountStep,
 } from './steps';
 export type {
   CreateRoundBottomSheetProps,
@@ -99,6 +100,7 @@ export default function CreateRoundBottomSheet({
             updated_at: venue.updated_at,
           },
           courses: venue.courses,
+          is_home: false,
         }))
       : (allVenues ?? []);
 
@@ -116,6 +118,8 @@ export default function CreateRoundBottomSheet({
           : wizard.handleBackToCourse;
       case 'partners':
         return wizard.handleBackToMatchType;
+      case 'ballCount':
+        return wizard.handleBackToPartners;
       case 'scoringSetup':
         return wizard.handleBackToPartners;
       default:
@@ -134,6 +138,8 @@ export default function CreateRoundBottomSheet({
         return 'Match Type';
       case 'partners':
         return 'Playing Partners';
+      case 'ballCount':
+        return 'Practice Mode';
       case 'scoringSetup':
         return 'Scoring Setup';
     }
@@ -168,10 +174,15 @@ export default function CreateRoundBottomSheet({
       {/* Step Indicator */}
       <View style={styles.stepIndicator}>
         {(
-          // Hide scoringSetup step for solo rounds (no partners)
+          // Adjust steps based on flow:
+          // - With partners: course → tee → matchType → partners → scoringSetup
+          // - Solo with ballCount step: course → tee → matchType → partners → ballCount
+          // - Solo without ballCount: course → tee → matchType → partners
           wizard.data.selectedPartners.length > 0
             ? (['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const)
-            : (['course', 'tee', 'matchType', 'partners'] as const)
+            : wizard.currentStep === 'ballCount'
+              ? (['course', 'tee', 'matchType', 'partners', 'ballCount'] as const)
+              : (['course', 'tee', 'matchType', 'partners'] as const)
         ).map((step, index, arr) => (
           <React.Fragment key={step}>
             <View
@@ -242,6 +253,17 @@ export default function CreateRoundBottomSheet({
         />
       )}
 
+      {wizard.currentStep === 'ballCount' && wizard.data.selectedMatchType && (
+        <BallCountStep
+          selectedCourse={wizard.data.selectedCourse}
+          selectedTee={wizard.data.selectedTee}
+          selectedMatchType={wizard.data.selectedMatchType}
+          ballCount={wizard.data.ballCount}
+          onBallCountChange={wizard.handleSelectBallCount}
+          onStartRound={wizard.handleStartSoloRound}
+        />
+      )}
+
       {wizard.currentStep === 'scoringSetup' &&
         wizard.data.selectedMatchType && (
           <ScoringSetupStep
@@ -279,7 +301,7 @@ const styles = StyleSheet.create({
   stepDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
   stepLine: {
     width: 40,

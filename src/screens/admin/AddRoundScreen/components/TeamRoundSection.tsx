@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   moreAvatar: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },

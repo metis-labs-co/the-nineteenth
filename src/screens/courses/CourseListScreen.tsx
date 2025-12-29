@@ -106,6 +106,7 @@ export default function CourseListScreen() {
         type: courses.length > 1 ? 'multi-course-venue' : 'single-course',
         venue,
         courses,
+        is_home: false,
       }));
     }
 
@@ -131,6 +132,7 @@ export default function CourseListScreen() {
         updated_at: venue.updated_at,
       },
       courses: venue.courses,
+      is_home: false,
     }));
   }, [showFavoritesOnly, favoriteCourses, isSearchActive, searchResults, allVenues]);
 

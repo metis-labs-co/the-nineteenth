@@ -24,7 +24,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import type { StepProps } from '../OnboardingScreen';
 
 export function HandicapCaptureStep({
-  onComplete,
+  onNext,
   handicap,
   setHandicap,
   isSubmitting,
@@ -57,20 +57,15 @@ export function HandicapCaptureStep({
     }
   };
 
-  const handleGetStarted = async () => {
+  const handleContinue = () => {
     Keyboard.dismiss();
 
     if (!validateHandicap(localHandicap)) {
       return;
     }
 
-    console.log('[HandicapCaptureStep] Get Started pressed, handicap:', localHandicap);
-
-    try {
-      await onComplete(false);
-    } catch (err) {
-      console.error('[HandicapCaptureStep] Error completing onboarding:', err);
-    }
+    console.log('[HandicapCaptureStep] Continue pressed, handicap:', localHandicap);
+    onNext();
   };
 
   return (
@@ -123,35 +118,29 @@ export function HandicapCaptureStep({
               leftAffix="HC:"
               accessibilityHint="Enter your golf handicap between 0 and 54"
               returnKeyType="done"
-              onSubmitEditing={handleGetStarted}
+              onSubmitEditing={handleContinue}
             />
           </View>
         </View>
 
-        {/* Get Started Button */}
+        {/* Next Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[
-              styles.getStartedButton,
+              styles.nextButton,
               { backgroundColor: colors.primary },
               isSubmitting && { opacity: 0.7 },
             ]}
-            onPress={handleGetStarted}
+            onPress={handleContinue}
             disabled={isSubmitting}
-            accessibilityLabel="Get started with the app"
+            accessibilityLabel="Continue to next step"
             accessibilityRole="button"
             activeOpacity={0.8}
           >
-            {isSubmitting ? (
-              <GolfBallLoader size="sm" />
-            ) : (
-              <>
-                <Text style={[styles.buttonText, { color: colors.textInverse }]}>
-                  Get Started
-                </Text>
-                <Icon source="check" size={20} color={colors.textInverse} />
-              </>
-            )}
+            <Text style={[styles.buttonText, { color: colors.textInverse }]}>
+              Next
+            </Text>
+            <Icon source="arrow-right" size={20} color={colors.textInverse} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -177,7 +166,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 140,
     height: 140,
-    borderRadius: 70,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -203,7 +192,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
   },
-  getStartedButton: {
+  nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

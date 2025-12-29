@@ -233,11 +233,19 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     queryFn: async (): Promise<PushPreferences | undefined> => {
       if (!userId) return undefined;
 
-      const { data, error } = await supabase
-        .from('players')
+      type PushPrefsRow = {
+        push_enabled: boolean;
+        push_competition_updates: boolean;
+        push_friend_requests: boolean;
+        push_scorecard_updates: boolean;
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('user_preferences')
         .select('push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates')
-        .eq('id', userId)
-        .single();
+        .eq('user_id', userId)
+        .single() as { data: PushPrefsRow | null; error: Error | null };
 
       if (error) {
         console.error('[usePushNotifications] Error fetching preferences:', error);
@@ -354,8 +362,15 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         throw new Error('User must be authenticated to update push preferences');
       }
 
+      type PushPrefsRow = {
+        push_enabled: boolean;
+        push_competition_updates: boolean;
+        push_friend_requests: boolean;
+        push_scorecard_updates: boolean;
+      };
+
       // Build update object with only provided fields
-      const updateData: Record<string, boolean> = {};
+      const updateData: Partial<PushPrefsRow> = {};
 
       if (input.pushEnabled !== undefined) {
         updateData.push_enabled = input.pushEnabled;
@@ -374,16 +389,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         throw new Error('No preferences to update');
       }
 
-      const { data, error } = await supabase
-        .from('players')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('user_preferences')
         .update(updateData)
-        .eq('id', userId)
+        .eq('user_id', userId)
         .select('push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates')
-        .single();
+        .single() as { data: PushPrefsRow | null; error: Error | null };
 
       if (error) {
         console.error('[usePushNotifications] Error updating preferences:', error);
         throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned from update');
       }
 
       return {
@@ -630,11 +650,19 @@ export function usePushPreferences(userId: string) {
     queryFn: async (): Promise<PushPreferences | undefined> => {
       if (!userId) return undefined;
 
-      const { data, error } = await supabase
-        .from('players')
+      type PushPrefsRow = {
+        push_enabled: boolean;
+        push_competition_updates: boolean;
+        push_friend_requests: boolean;
+        push_scorecard_updates: boolean;
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('user_preferences')
         .select('push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates')
-        .eq('id', userId)
-        .single();
+        .eq('user_id', userId)
+        .single() as { data: PushPrefsRow | null; error: Error | null };
 
       if (error || !data) return undefined;
 

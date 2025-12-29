@@ -32,6 +32,9 @@ export interface Round {
   // Scoring pairs
   scoring_pairs_required: boolean; // TRUE if scoring pairs must be set up before round starts
 
+  // Multi-ball scoring (solo rounds only)
+  ball_count: number; // 1-4, defaults to 1. Requires Social tier+ for > 1
+
   // Status
   status: RoundStatus;
 

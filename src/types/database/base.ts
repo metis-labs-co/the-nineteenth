@@ -28,7 +28,7 @@ export interface Hole {
 export interface TeeBox {
   name: string; // 'Championship', 'Men', 'Women', etc.
   color: string; // 'blue', 'white', 'red', etc.
-  totalYardage: number;
+  totalYardage?: number | null; // Optional - some tees may not have yardage data
   courseRating?: number; // NUMERIC(4,1)
   slopeRating?: number; // NUMERIC(4,1)
 }
@@ -44,4 +44,39 @@ export interface HoleScore {
   fairwayHit?: boolean; // Phase 2
   greenInRegulation?: boolean; // Phase 2 (GIR)
   penalties?: number; // Phase 2
+}
+
+/**
+ * Multi-ball hole score for solo practice rounds
+ * Contains an array of scores, one per ball (2-4 balls)
+ */
+export interface MultiBallHoleScore {
+  balls: HoleScore[];
+}
+
+/**
+ * Type guard to check if a hole score is multi-ball format
+ */
+export function isMultiBallScore(
+  score: HoleScore | MultiBallHoleScore | undefined
+): score is MultiBallHoleScore {
+  return score !== undefined && 'balls' in score && Array.isArray(score.balls);
+}
+
+/**
+ * Type guard to check if a hole score is single-ball format
+ */
+export function isSingleBallScore(
+  score: HoleScore | MultiBallHoleScore | undefined
+): score is HoleScore {
+  return score !== undefined && 'strokes' in score && !('balls' in score);
+}
+
+/**
+ * Per-ball totals for multi-ball rounds
+ */
+export interface BallTotals {
+  gross: number;
+  net: number;
+  points: number;
 }

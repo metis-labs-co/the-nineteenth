@@ -11,8 +11,9 @@ import { supabase } from '@/services/supabase/client';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { getPlayersToScore, hasScoringPairs } from '@/services/scoringPairs';
 import { roundDataLogger } from '@/utils/debugLogger';
-import type { Player, Hole } from '@/types';
+import type { Player, Hole, TeeBox } from '@/types';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
+import type { BallCount } from '@/types/multiball.types';
 
 // Default holes (fallback if course has no hole data)
 const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
@@ -24,6 +25,9 @@ const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
 
 interface RoundDataState {
   courseName: string | null;
+  courseId: string | null;
+  courseTees: TeeBox[];
+  selectedTee: string | null; // The tee color being played for this round
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
   teams: TeamWithMembers[];
@@ -32,6 +36,9 @@ interface RoundDataState {
   // Scoring pairs support
   scoringPairsEnabled: boolean;
   playersToScore: Player[];
+  // Multi-ball support (solo rounds only)
+  ballCount: BallCount;
+  isSoloRound: boolean;
 }
 
 interface UseRoundDataParams {
@@ -51,6 +58,9 @@ interface UseRoundDataResult extends RoundDataState {
 export function useRoundData({ roundId, competitionId, currentUserId }: UseRoundDataParams): UseRoundDataResult {
   const [state, setState] = useState<RoundDataState>({
     courseName: null,
+    courseId: null,
+    courseTees: [],
+    selectedTee: null,
     isTeamRound: false,
     teamFormat: null,
     teams: [],
@@ -58,6 +68,8 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
     isLoading: true,
     scoringPairsEnabled: false,
     playersToScore: [],
+    ballCount: 1,
+    isSoloRound: false,
   });
 
   const {
@@ -85,7 +97,7 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
       roundDataLogger.info('Store already initialized for this round, fetching metadata only');
 
       try {
-        // Fetch round metadata (teams, team format, scoring pairs, etc.)
+        // Fetch round metadata (teams, team format, scoring pairs, ball count, selected tee, etc.)
         const { data: roundData } = await (supabase.from('rounds') as any)
           .select(`
             id,
@@ -93,9 +105,12 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
             is_team_round,
             team_format,
             scoring_pairs_required,
+            ball_count,
+            selected_tee,
             courses!course_id (
               id,
-              name
+              name,
+              tees
             )
           `)
           .eq('id', roundId)
@@ -183,8 +198,19 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
           }
         }
 
+        // Determine if this is a solo round and get ball count
+        const playerCount = currentPlayers.length;
+        const isSoloRound = playerCount === 1 && !roundIsTeamRound;
+        const ballCount = (roundData?.ball_count ?? 1) as BallCount;
+        // Extract tee color from selected_tee object
+        const selectedTeeData = roundData?.selected_tee as TeeBox | null;
+        const selectedTeeColor = selectedTeeData?.color?.toLowerCase() || null;
+
         setState({
           courseName: roundData?.courses?.name || null,
+          courseId: roundData?.courses?.id || null,
+          courseTees: (roundData?.courses?.tees as TeeBox[]) || [],
+          selectedTee: selectedTeeColor,
           isTeamRound: roundIsTeamRound,
           teamFormat: roundTeamFormat,
           teams: fetchedTeams,
@@ -192,6 +218,8 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
           isLoading: false,
           scoringPairsEnabled,
           playersToScore: playersToScoreList,
+          ballCount,
+          isSoloRound,
         });
       } catch (error) {
         roundDataLogger.error('Failed to fetch metadata for initialized round', error);
@@ -228,9 +256,12 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
             is_team_round,
             team_format,
             scoring_pairs_required,
+            ball_count,
+            selected_tee,
             courses!course_id (
               id,
-              name
+              name,
+              tees
             )
           `)
           .eq('id', roundId)
@@ -295,13 +326,28 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
           }
         }
 
+        // Determine if this is a solo round and get ball count
+        // For offline loading, we need to check if scorecard store has 1 player
+        const offlinePlayers = useScorecardStore.getState().currentPlayers;
+        const offlinePlayerCount = offlinePlayers.length;
+        const isSoloRound = offlinePlayerCount === 1 && !roundIsTeamRound;
+        const ballCount = (roundData?.ball_count ?? 1) as BallCount;
+        // Extract tee color from selected_tee object
+        const selectedTeeData = roundData?.selected_tee as TeeBox | null;
+        const selectedTeeColor = selectedTeeData?.color?.toLowerCase() || null;
+
         setState((prev) => ({
           ...prev,
           isLoading: false,
           courseName: roundData?.courses?.name || null,
+          courseId: roundData?.courses?.id || null,
+          courseTees: (roundData?.courses?.tees as TeeBox[]) || [],
+          selectedTee: selectedTeeColor,
           isTeamRound: roundIsTeamRound,
           teamFormat: roundTeamFormat,
           teams: fetchedTeams,
+          ballCount,
+          isSoloRound,
         }));
       } catch (error) {
         roundDataLogger.error('Failed to fetch team data for offline round', error);
@@ -399,7 +445,7 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
         isStandalone: isStandaloneRound,
       });
 
-      // Fetch round and course data to get holes (including team round and scoring pairs fields)
+      // Fetch round and course data to get holes (including team round, scoring pairs, ball count, and selected tee fields)
       const { data: roundData, error: roundError } = await (supabase.from('rounds') as any)
         .select(
           `
@@ -408,10 +454,13 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
           is_team_round,
           team_format,
           scoring_pairs_required,
+          ball_count,
+          selected_tee,
           courses!course_id (
             id,
             name,
-            holes
+            holes,
+            tees
           )
         `
         )
@@ -672,16 +721,30 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
       });
       await initializeRound(roundId, playersToInitialize, holes, gameType);
 
+      // Determine if this is a solo round and get ball count
+      const playerCount = playersToInitialize.length;
+      const isSoloRound = playerCount === 1 && !roundIsTeamRound;
+      const fetchedBallCount = (roundData?.ball_count ?? 1) as BallCount;
+      // Extract tee color from selected_tee object
+      const selectedTeeData = roundData?.selected_tee as TeeBox | null;
+      const selectedTeeColor = selectedTeeData?.color?.toLowerCase() || null;
+
       roundDataLogger.info('Round initialization complete', {
         courseName: roundData?.courses?.name || 'Unknown',
         isTeamRound: roundIsTeamRound,
         teamFormat: roundTeamFormat,
         scoringPairsEnabled,
         playersToScoreCount: playersToScoreList.length,
+        ballCount: fetchedBallCount,
+        isSoloRound,
+        selectedTee: selectedTeeColor,
       });
 
       setState({
         courseName: roundData?.courses?.name || null,
+        courseId: roundData?.courses?.id || null,
+        courseTees: (roundData?.courses?.tees as TeeBox[]) || [],
+        selectedTee: selectedTeeColor,
         isTeamRound: roundIsTeamRound,
         teamFormat: roundTeamFormat,
         teams: fetchedTeams,
@@ -689,6 +752,8 @@ export function useRoundData({ roundId, competitionId, currentUserId }: UseRound
         isLoading: false,
         scoringPairsEnabled,
         playersToScore: playersToScoreList,
+        ballCount: fetchedBallCount,
+        isSoloRound,
       });
     } catch (error) {
       roundDataLogger.error('Error initializing round data', error);

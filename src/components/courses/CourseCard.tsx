@@ -14,6 +14,7 @@ import { GolfBallLoader } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useFormattedDistance } from '@/store/settingsStore';
 import type { Course, Hole } from '@/types/database.types';
 
 // =====================================================
@@ -48,23 +49,15 @@ function calculateTotalPar(holes: Hole[] | null | undefined): number | null {
 }
 
 /**
- * Get tee box summary (e.g., "3 tees: 5,800 - 6,400 yds")
+ * Get sorted tee yardages for display
  */
-function getTeeBoxSummary(tees: Course['tees']): string | null {
-  if (!tees || tees.length === 0) return null;
+function getSortedTeeYardages(tees: Course['tees']): number[] {
+  if (!tees || tees.length === 0) return [];
 
-  const yardages = tees
+  return tees
     .map((tee) => tee.totalYardage)
     .filter((y): y is number => y != null)
     .sort((a, b) => a - b);
-
-  if (yardages.length === 0) return null;
-
-  if (yardages.length === 1) {
-    return `${yardages[0].toLocaleString()} yds`;
-  }
-
-  return `${yardages[0].toLocaleString()} - ${yardages[yardages.length - 1].toLocaleString()} yds`;
 }
 
 // =====================================================
@@ -81,6 +74,7 @@ export const CourseCard = React.memo(function CourseCard({
   venueName,
 }: CourseCardProps) {
   const colors = useThemeColors();
+  const { formatDistance } = useFormattedDistance();
 
   const handlePress = useCallback(() => {
     onPress?.(course);
@@ -92,7 +86,14 @@ export const CourseCard = React.memo(function CourseCard({
 
   const holeCount = course.holes?.length ?? 0;
   const totalPar = calculateTotalPar(course.holes);
-  const teeBoxSummary = getTeeBoxSummary(course.tees);
+  const teeYardages = getSortedTeeYardages(course.tees);
+
+  // Build tee box summary with user's preferred distance unit
+  const teeBoxSummary = teeYardages.length === 0
+    ? null
+    : teeYardages.length === 1
+      ? formatDistance(teeYardages[0])
+      : `${formatDistance(teeYardages[0])} - ${formatDistance(teeYardages[teeYardages.length - 1])}`;
 
   return (
     <TouchableOpacity
@@ -111,9 +112,11 @@ export const CourseCard = React.memo(function CourseCard({
 
         {/* Course Info */}
         <View style={styles.courseInfo}>
-          <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {course.name}
-          </Text>
+          <View style={styles.courseNameRow}>
+            <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {course.name}
+            </Text>
+          </View>
 
           {venueName && (
             <Text style={[styles.venueName, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -237,8 +240,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
+  courseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   courseName: {
     ...typography.bodyBold,
+    flex: 1,
   },
   venueName: {
     ...typography.small,

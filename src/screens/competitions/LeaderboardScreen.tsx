@@ -24,7 +24,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useAuth } from '@/hooks/useAuth';
 import { LeaderboardTable } from '@/components/leaderboard';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   errorIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   retryButton: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     minHeight: 44,
     justifyContent: 'center',
   },

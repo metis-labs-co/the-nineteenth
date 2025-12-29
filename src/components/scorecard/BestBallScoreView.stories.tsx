@@ -31,6 +31,11 @@ function createPlayer(id: string, name: string, handicap: number): Player {
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };

@@ -2,7 +2,7 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 4 steps: Welcome -> Create Competitions -> Notifications -> Handicap Capture
+ * 5 steps: Welcome -> Create Competitions -> Notifications -> Handicap Capture -> Home Venue
  *
  * Features:
  * - Swipeable cards (FlatList with pagingEnabled)
@@ -10,6 +10,7 @@
  * - Progress dots
  * - Push notification permission request
  * - Handicap input with validation (0-54)
+ * - Home venue selection (optional)
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -32,6 +33,7 @@ import WelcomeStep from './components/WelcomeStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
+import HomeVenueStep from './components/HomeVenueStep';
 import OnboardingDots from './components/OnboardingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -56,6 +58,7 @@ const STEPS: StepItem[] = [
   { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
+  { key: 'homeVenue', component: HomeVenueStep },
 ];
 
 export default function OnboardingScreen() {

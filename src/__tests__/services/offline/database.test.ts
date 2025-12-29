@@ -30,7 +30,8 @@ import {
   markAllScorecardsAsSynced,
   deleteOrphanedScorecards,
 } from '@/services/offline/database';
-import type { Scorecard, Hole, HoleScore, PendingSync } from '@/types';
+import type { Scorecard, Hole, HoleScore, PendingSync, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 
 // ============================================================================
 // MOCK SETUP
@@ -464,8 +465,9 @@ describe('Scorecard Operations', () => {
       mockGetAllAsync.mockResolvedValueOnce(mockRows);
 
       const result = await getHoleScores('scorecard-1');
+      const score = result[1];
 
-      expect(result[1].putts).toBeUndefined();
+      expect(score && isSingleBallScore(score) ? score.putts : undefined).toBeUndefined();
     });
   });
 

@@ -23,7 +23,8 @@ import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useScorecardStore } from '@/store/scorecardStore';
-import type { Player, Hole, HoleScore, GameType } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
 interface DebugData {
@@ -171,7 +172,7 @@ export function ScorecardDebugPanel({
 
   // Copy all debug data to clipboard
   const handleCopyAll = useCallback(async () => {
-    const allScores: Record<string, Record<number, HoleScore | undefined>> = {};
+    const allScores: Record<string, Record<number, HoleScore | MultiBallHoleScore | undefined>> = {};
     currentPlayers.forEach((player) => {
       allScores[player.name] = {};
       for (let h = 1; h <= 18; h++) {
@@ -251,7 +252,8 @@ export function ScorecardDebugPanel({
     debugData.players.forEach((player) => {
       const score = getPlayerScore(player.id, debugData.currentHole);
       const totals = getPlayerTotals(player.id);
-      console.log(`${player.name}: Hole ${debugData.currentHole} = ${score?.strokes ?? '-'} | Total: gross=${totals.gross}, net=${totals.net}, pts=${totals.points}`);
+      const strokes = score && isSingleBallScore(score) ? score.strokes : '-';
+      console.log(`${player.name}: Hole ${debugData.currentHole} = ${strokes} | Total: gross=${totals.gross}, net=${totals.net}, pts=${totals.points}`);
     });
     console.groupEnd();
 
@@ -463,6 +465,8 @@ export function ScorecardDebugPanel({
             {debugData.players.map((player) => {
               const score = getPlayerScore(player.id, debugData.currentHole);
               const totals = getPlayerTotals(player.id);
+              // Narrow the union type to access HoleScore properties
+              const singleBallScore = score && isSingleBallScore(score) ? score : undefined;
               return (
                 <View
                   key={player.id}
@@ -475,25 +479,25 @@ export function ScorecardDebugPanel({
                     <View style={styles.scoreItem}>
                       <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>Strokes</Text>
                       <Text style={[styles.scoreValue, { color: colors.textPrimary }]}>
-                        {score?.strokes ?? '-'}
+                        {singleBallScore?.strokes ?? '-'}
                       </Text>
                     </View>
                     <View style={styles.scoreItem}>
                       <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>Putts</Text>
                       <Text style={[styles.scoreValue, { color: colors.textPrimary }]}>
-                        {score?.putts ?? '-'}
+                        {singleBallScore?.putts ?? '-'}
                       </Text>
                     </View>
                     <View style={styles.scoreItem}>
                       <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>FIR</Text>
-                      <Text style={[styles.scoreValue, { color: score?.fairwayHit ? colors.success : colors.textSecondary }]}>
-                        {score?.fairwayHit === true ? 'Y' : score?.fairwayHit === false ? 'N' : '-'}
+                      <Text style={[styles.scoreValue, { color: singleBallScore?.fairwayHit ? colors.success : colors.textSecondary }]}>
+                        {singleBallScore?.fairwayHit === true ? 'Y' : singleBallScore?.fairwayHit === false ? 'N' : '-'}
                       </Text>
                     </View>
                     <View style={styles.scoreItem}>
                       <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>GIR</Text>
-                      <Text style={[styles.scoreValue, { color: score?.greenInRegulation ? colors.success : colors.textSecondary }]}>
-                        {score?.greenInRegulation === true ? 'Y' : score?.greenInRegulation === false ? 'N' : '-'}
+                      <Text style={[styles.scoreValue, { color: singleBallScore?.greenInRegulation ? colors.success : colors.textSecondary }]}>
+                        {singleBallScore?.greenInRegulation === true ? 'Y' : singleBallScore?.greenInRegulation === false ? 'N' : '-'}
                       </Text>
                     </View>
                   </View>

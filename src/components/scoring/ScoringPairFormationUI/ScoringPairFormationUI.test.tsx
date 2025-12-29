@@ -160,12 +160,18 @@ function createPlayer(id: string, name: string, handicap: number = 15): Player {
     id,
     name,
     email: `${name.toLowerCase().replace(' ', '.')}@test.com`,
+    phone: null,
     handicap,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
-    user_id: `user-${id}`,
-    status: 'active',
   };
 }
 
@@ -571,8 +577,8 @@ describe('ScoringPairFormationUI', () => {
           name: 'Team Alpha',
           competition_id: 'comp-1',
           members: [
-            { id: 'm1', player_id: 'player-1', team_id: 'team-1', player: createPlayer('player-1', 'John') },
-            { id: 'm2', player_id: 'player-2', team_id: 'team-1', player: createPlayer('player-2', 'Jane') },
+            { player_id: 'player-1', team_id: 'team-1', joined_at: '2025-01-01T00:00:00Z', player: createPlayer('player-1', 'John') },
+            { player_id: 'player-2', team_id: 'team-1', joined_at: '2025-01-01T00:00:00Z', player: createPlayer('player-2', 'Jane') },
           ],
           created_at: '2025-01-01',
           updated_at: '2025-01-01',
@@ -582,8 +588,8 @@ describe('ScoringPairFormationUI', () => {
           name: 'Team Beta',
           competition_id: 'comp-1',
           members: [
-            { id: 'm3', player_id: 'player-3', team_id: 'team-2', player: createPlayer('player-3', 'Bob') },
-            { id: 'm4', player_id: 'player-4', team_id: 'team-2', player: createPlayer('player-4', 'Alice') },
+            { player_id: 'player-3', team_id: 'team-2', joined_at: '2025-01-01T00:00:00Z', player: createPlayer('player-3', 'Bob') },
+            { player_id: 'player-4', team_id: 'team-2', joined_at: '2025-01-01T00:00:00Z', player: createPlayer('player-4', 'Alice') },
           ],
           created_at: '2025-01-01',
           updated_at: '2025-01-01',

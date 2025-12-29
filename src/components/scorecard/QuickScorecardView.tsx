@@ -10,16 +10,23 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
-import type { Hole, HoleScore, Player } from '@/types';
+import type { Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 
 // Pick up score - represents player giving up on the hole (no points in Stableford)
 const PICKUP_SCORE = 10;
+
+// Helper to get strokes from a score that might be single or multi-ball
+const getStrokes = (score: HoleScore | MultiBallHoleScore | undefined): number | undefined => {
+  if (!score) return undefined;
+  return isSingleBallScore(score) ? score.strokes : score.balls?.[0]?.strokes;
+};
 
 interface QuickScorecardViewProps {
   holes: Hole[];
   currentHole: number;
   players: Player[];
-  getPlayerHoleScore: (playerId: string, holeNumber: number) => HoleScore | undefined;
+  getPlayerHoleScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   isHoleComplete: (holeNumber: number) => boolean;
   onHolePress: (holeNumber: number) => void;
 }
@@ -65,18 +72,22 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
     const isCurrent = holeNumber === currentHole;
 
     // Get scores for all players
-    const playerScores = players.map((player) => ({
-      playerId: player.id,
-      score: getPlayerHoleScore(player.id, holeNumber),
-    }));
+    const playerScores = players.map((player) => {
+      const score = getPlayerHoleScore(player.id, holeNumber);
+      return {
+        playerId: player.id,
+        score,
+        strokes: getStrokes(score),
+      };
+    });
 
     // Find first player with a score to display as representative
-    const firstScoredPlayer = playerScores.find((ps) => ps.score?.strokes);
-    const displayScore = firstScoredPlayer?.score?.strokes;
+    const firstScoredPlayer = playerScores.find((ps) => ps.strokes);
+    const displayScore = firstScoredPlayer?.strokes;
     const isPickedUp = displayScore === PICKUP_SCORE;
 
     // Count completed scores
-    const completedCount = playerScores.filter((ps) => ps.score?.strokes).length;
+    const completedCount = playerScores.filter((ps) => ps.strokes).length;
 
     return (
       <TouchableOpacity
@@ -119,12 +130,12 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         {/* Player completion dots */}
         {players.length > 1 && (
           <View style={styles.playerDotsContainer}>
-            {playerScores.map((ps, index) => (
+            {playerScores.map((ps) => (
               <View
                 key={ps.playerId}
                 style={[
                   styles.playerDot,
-                  { backgroundColor: ps.score?.strokes ? colors.success : colors.gray300 },
+                  { backgroundColor: ps.strokes ? colors.success : colors.gray300 },
                 ]}
               />
             ))}

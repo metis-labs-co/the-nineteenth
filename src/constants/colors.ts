@@ -14,6 +14,41 @@ import type { BrandConfig } from '@/config/brand.types';
 // COLOR MANIPULATION UTILITIES
 // ============================================================================
 
+/**
+ * Add opacity to a hex color, returning an 8-character hex color.
+ *
+ * @param hexColor - Hex color string (e.g., '#6eac4d' or '#fff')
+ * @param opacity - Opacity value from 0 to 1 (e.g., 0.2 for 20%)
+ * @returns 8-character hex color with alpha (e.g., '#6eac4d33')
+ *
+ * @example
+ * withOpacity('#6eac4d', 0.2)  // Returns '#6eac4d33'
+ * withOpacity(colors.primary, 0.3)  // Returns primary color with 30% opacity
+ *
+ * Common opacity values:
+ * - 0.05 = '0D' (very subtle)
+ * - 0.10 = '1A' (subtle)
+ * - 0.15 = '26'
+ * - 0.20 = '33' (light tint)
+ * - 0.30 = '4D' (medium tint)
+ * - 0.40 = '66'
+ * - 0.50 = '80' (half)
+ */
+export function withOpacity(hexColor: string, opacity: number): string {
+  // Normalize hex color (handle shorthand like #fff)
+  let hex = hexColor.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+
+  // Convert opacity to 2-digit hex (0-255)
+  const alphaHex = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+
+  return `#${hex}${alphaHex}`;
+}
+
 interface RGB {
   r: number;
   g: number;

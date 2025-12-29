@@ -11,6 +11,7 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SearchBar } from '@/components/common';
 import { VenueCard } from '@/components/courses/VenueCard';
@@ -68,7 +69,7 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
                 key={course.id}
                 style={[
                   styles.favoritePill,
-                  { backgroundColor: colors.warningLight + '20', borderColor: colors.warning + '40' },
+                  { backgroundColor: withOpacity(colors.warningLight, 0.13), borderColor: withOpacity(colors.warning, 0.25) },
                 ]}
                 onPress={() => onSelectFavoriteCourse(course)}
                 activeOpacity={0.7}

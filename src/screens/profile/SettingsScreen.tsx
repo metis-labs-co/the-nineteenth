@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },

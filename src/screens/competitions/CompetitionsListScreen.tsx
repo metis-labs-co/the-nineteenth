@@ -26,6 +26,7 @@ import { IconPlus, IconSparkles } from '@tabler/icons-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { EmptyState, Tabs, FilterPill, FeatureButton } from '@/components/common';
@@ -489,7 +490,7 @@ export default function CompetitionsListScreen() {
                 {/* Legacy badge for grandfathered competitions */}
                 {competition.isLegacy && (
                   <View
-                    style={[styles.legacyBadge, { backgroundColor: colors.warning + '20' }]}
+                    style={[styles.legacyBadge, { backgroundColor: withOpacity(colors.warning, 0.13) }]}
                     accessibilityLabel="Legacy competition - grandfathered from previous subscription"
                   >
                     <Icon source="history" size={12} color={colors.warning} />

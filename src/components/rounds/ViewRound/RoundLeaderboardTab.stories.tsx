@@ -47,24 +47,24 @@ function createMockScorecard(
   id: string,
   playerName: string,
   handicap: number,
-  totalPoints: number | null
+  totalPoints: number
 ): ScorecardWithPlayer {
   return {
     id,
     round_id: 'round-1',
     player_id: `player-${id}`,
-    team_id: null,
-    total_strokes: null,
+    scores: {},
+    total_gross: 72,
+    total_net: 72 - handicap,
     total_points: totalPoints,
-    total_net_score: null,
-    score_data: {},
-    is_submitted: false,
+    ball_totals: null,
+    status: 'completed',
     submitted_at: null,
-    attested_by: null,
-    attestation_status: null,
+    submitted_by: null,
+    device_id: null,
+    synced_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    competition_id: 'comp-1',
     player: {
       id: `player-${id}`,
       name: playerName,
@@ -74,6 +74,11 @@ function createMockScorecard(
       golf_id: null,
       handicap_updated_at: null,
       photo_url: null,
+      home_venue_id: null,
+      push_enabled: true,
+      push_competition_updates: true,
+      push_friend_requests: true,
+      push_scorecard_updates: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -248,8 +253,8 @@ export const ZeroScores: Story = {
 export const NullScores: Story = {
   args: {
     scorecards: [
-      createMockScorecard('1', 'Not Started', 15, null),
-      createMockScorecard('2', 'Also Not Started', 18, null),
+      createMockScorecard('1', 'Not Started', 15, 0),
+      createMockScorecard('2', 'Also Not Started', 18, 0),
     ],
   },
 };
@@ -259,7 +264,7 @@ export const MixedNullAndValid: Story = {
     scorecards: [
       createMockScorecard('1', 'Finished', 15, 38),
       createMockScorecard('2', 'In Progress', 18, 20),
-      createMockScorecard('3', 'Not Started', 20, null),
+      createMockScorecard('3', 'Not Started', 20, 0),
     ],
   },
 };

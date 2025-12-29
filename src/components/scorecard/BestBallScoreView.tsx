@@ -20,12 +20,13 @@ import {
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getStrokesOnHole, calculateNetScore, calculateStablefordPoints } from '@/utils/scoring';
-import type { Player, Hole, HoleScore } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 
 interface BestBallPlayerScore {
   player: Player;
-  score: HoleScore | undefined;
+  score: HoleScore | MultiBallHoleScore | undefined;
   netScore: number | null;
   stablefordPoints: number;
   isBest: boolean;
@@ -34,7 +35,7 @@ interface BestBallPlayerScore {
 interface BestBallScoreViewProps {
   team: TeamWithMembers;
   currentHole: Hole;
-  playerScores: Map<string, HoleScore | undefined>;
+  playerScores: Map<string, HoleScore | MultiBallHoleScore | undefined>;
   onScoreSelect: (playerId: string, strokes: number) => void;
   disabled?: boolean;
   /** Set of player IDs that can be edited. If undefined, all players can be edited (when not disabled). */
@@ -73,7 +74,9 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
       }
 
       const score = playerScores.get(player.id);
-      const strokes = score?.strokes;
+      // Narrow to single-ball score for accessing strokes
+      const singleBallScore = score && isSingleBallScore(score) ? score : undefined;
+      const strokes = singleBallScore?.strokes;
       const isPickedUp = strokes === PICKUP_SCORE;
 
       let netScore: number | null = null;
@@ -183,7 +186,9 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   const colors = useThemeColors();
   const { player, score, stablefordPoints, isBest } = data;
 
-  const selectedScore = score?.strokes;
+  // Narrow to single-ball score for accessing strokes
+  const singleBallScore = score && isSingleBallScore(score) ? score : undefined;
+  const selectedScore = singleBallScore?.strokes;
   const isPickedUp = selectedScore === PICKUP_SCORE;
   const strokesOnHole = getStrokesOnHole(player.handicap ?? 0, currentHole);
 

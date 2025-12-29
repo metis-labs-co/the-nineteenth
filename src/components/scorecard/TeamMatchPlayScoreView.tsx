@@ -20,15 +20,16 @@ import {
   shadows,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { Hole, HoleScore } from '@/types';
+import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 
 interface TeamMatchPlayScoreViewProps {
   team1: TeamWithMembers;
   team2: TeamWithMembers;
   currentHole: Hole;
-  team1Score: HoleScore | undefined;
-  team2Score: HoleScore | undefined;
+  team1Score: HoleScore | MultiBallHoleScore | undefined;
+  team2Score: HoleScore | MultiBallHoleScore | undefined;
   onTeam1ScoreSelect: (strokes: number) => void;
   onTeam2ScoreSelect: (strokes: number) => void;
   /** Map of hole number -> 'team1' | 'team2' | 'halved' */
@@ -118,10 +119,14 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
     [holeResults, team1.name, team2.name]
   );
 
+  // Narrow to single-ball scores for accessing strokes
+  const team1SingleBall = team1Score && isSingleBallScore(team1Score) ? team1Score : undefined;
+  const team2SingleBall = team2Score && isSingleBallScore(team2Score) ? team2Score : undefined;
+
   // Determine current hole result
   const currentHoleResult = useMemo(() => {
-    const t1Strokes = team1Score?.strokes;
-    const t2Strokes = team2Score?.strokes;
+    const t1Strokes = team1SingleBall?.strokes;
+    const t2Strokes = team2SingleBall?.strokes;
 
     if (!t1Strokes || !t2Strokes) return null;
     if (t1Strokes === PICKUP_SCORE && t2Strokes === PICKUP_SCORE) return 'halved';
@@ -130,7 +135,7 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
     if (t1Strokes < t2Strokes) return 'team1';
     if (t2Strokes < t1Strokes) return 'team2';
     return 'halved';
-  }, [team1Score?.strokes, team2Score?.strokes]);
+  }, [team1SingleBall?.strokes, team2SingleBall?.strokes]);
 
   return (
     <View style={styles.container}>
@@ -225,7 +230,7 @@ export const TeamMatchPlayScoreView = React.memo(function TeamMatchPlayScoreView
 interface TeamScorePanelProps {
   team: TeamWithMembers;
   currentHole: Hole;
-  currentScore: HoleScore | undefined;
+  currentScore: HoleScore | MultiBallHoleScore | undefined;
   onScoreSelect: (strokes: number) => void;
   isWinning: boolean;
   isLosing: boolean;
@@ -245,7 +250,9 @@ const TeamScorePanel = React.memo(function TeamScorePanel({
 }: TeamScorePanelProps) {
   const colors = useThemeColors();
 
-  const selectedScore = currentScore?.strokes;
+  // Narrow to single-ball score for accessing strokes
+  const singleBallScore = currentScore && isSingleBallScore(currentScore) ? currentScore : undefined;
+  const selectedScore = singleBallScore?.strokes;
   const isPickedUp = selectedScore === PICKUP_SCORE;
   const maxScoreBeforePickup = currentHole.par + 2;
 

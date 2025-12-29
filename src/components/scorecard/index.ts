@@ -4,6 +4,7 @@
 
 // Individual scoring
 export { PlayerScoreCard } from './PlayerScoreCard';
+export { MultiBallScoreInput } from './MultiBallScoreInput';
 export { HoleProgressBar } from './HoleProgressBar';
 export { QuickScorecardView } from './QuickScorecardView';
 export { HoleHeader } from './HoleHeader';
@@ -18,9 +19,11 @@ export { SwipeableHoleNavigator } from './SwipeableHoleNavigator';
 
 // Shared score display components
 export { ScoreIndicator } from './ScoreIndicator';
-export type { ScoreIndicatorProps } from './ScoreIndicator';
-export { CompactScoreIndicator } from './CompactScoreIndicator';
-export type { CompactScoreIndicatorProps } from './CompactScoreIndicator';
+export type {
+  ScoreIndicatorProps,
+  ScoreIndicatorDisplay,
+  ScoreIndicatorSize,
+} from './ScoreIndicator';
 
 // Shared scorecard table
 export { ScorecardTable } from './ScorecardTable';

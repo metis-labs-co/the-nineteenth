@@ -37,12 +37,18 @@ function createPlayer(id: string, name: string, handicap: number = 15): Player {
     id,
     name,
     email: `${name.toLowerCase().replace(/\s/g, '.')}@test.com`,
+    phone: null,
     handicap,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
-    user_id: `user-${id}`,
-    status: 'active',
   };
 }
 
@@ -258,8 +264,8 @@ export const TeamMatchPlay: Story = {
             name: 'Team Alpha',
             competition_id: 'comp-1',
             members: [
-              { id: 'm1', player_id: 'player-1', team_id: 'team-1', player: fourPlayers[0] },
-              { id: 'm2', player_id: 'player-2', team_id: 'team-1', player: fourPlayers[1] },
+              { player_id: 'player-1', team_id: 'team-1', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[0] },
+              { player_id: 'player-2', team_id: 'team-1', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[1] },
             ],
             created_at: '2025-01-01',
             updated_at: '2025-01-01',
@@ -269,8 +275,8 @@ export const TeamMatchPlay: Story = {
             name: 'Team Beta',
             competition_id: 'comp-1',
             members: [
-              { id: 'm3', player_id: 'player-3', team_id: 'team-2', player: fourPlayers[2] },
-              { id: 'm4', player_id: 'player-4', team_id: 'team-2', player: fourPlayers[3] },
+              { player_id: 'player-3', team_id: 'team-2', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[2] },
+              { player_id: 'player-4', team_id: 'team-2', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[3] },
             ],
             created_at: '2025-01-01',
             updated_at: '2025-01-01',

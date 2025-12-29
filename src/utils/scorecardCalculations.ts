@@ -5,7 +5,9 @@
  * for scorecard displays. Used by ReviewScorecardScreen and RoundScorecardTab.
  */
 
-import type { Hole } from '@/types/database.types';
+import type { Hole, HoleScore } from '@/types/database.types';
+import type { MultiBallHoleScore } from '@/types/database/base';
+import { isSingleBallScore } from '@/types/database/base';
 import { getStrokesReceived, calculateStablefordPointsNet } from './scoring';
 
 // =====================================================
@@ -14,8 +16,9 @@ import { getStrokesReceived, calculateStablefordPointsNet } from './scoring';
 
 /**
  * Scores record format - maps hole number (as string) to score data
+ * Supports both single-ball (HoleScore) and multi-ball (MultiBallHoleScore) formats
  */
-export type ScoresRecord = Record<string, { strokes: number }>;
+export type ScoresRecord = Record<string, HoleScore | MultiBallHoleScore>;
 
 /**
  * Minimal player info needed for scorecard calculations
@@ -91,7 +94,8 @@ export function calculatePlayerStats(
 
     holes.forEach((hole) => {
       const score = scores?.[String(hole.number)];
-      const strokes = score?.strokes || 0;
+      // Only process single-ball scores (for multi-ball, we'd use ball_totals)
+      const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
       if (strokes > 0) hasScores = true;
       const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
       const stablefordPoints =

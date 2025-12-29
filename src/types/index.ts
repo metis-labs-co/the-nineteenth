@@ -21,6 +21,7 @@ import type {
   Hole,
   TeeBox,
   HoleScore,
+  MultiBallHoleScore,
 } from './database.types';
 
 // Re-export enums from database.types.ts (single source of truth for enum values)
@@ -99,11 +100,19 @@ export type {
   Hole,
   TeeBox,
   HoleScore,
+  MultiBallHoleScore,
+  BallTotals,
   // Also export DB versions of entities used in tests
   Player as DBPlayer,
   Scorecard as DBScorecard,
   Competition as DBCompetition,
   Round as DBRound,
+  // Team types
+  Team,
+  TeamMember,
+  TeamWithMembers,
+  // Scoring pair types
+  ScoringPairWithPlayers,
 } from './database.types';
 
 // App-specific type (not in database schema)
@@ -233,11 +242,12 @@ export interface Player {
   id: string;
   name: string;
   email: string;
-  phone?: string;
-  handicap?: number;
-  photoUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  phone?: string | null;
+  handicap?: number | null; // Nullable to match database type
+  photoUrl?: string | null;
+  // Optional since most components don't need these
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface PlayerCreateInput {
@@ -280,7 +290,8 @@ export interface Scorecard {
   roundId: string;
   playerId: string;
   player?: Player;
-  scores: { [holeNumber: number]: HoleScore };
+  /** Hole scores indexed by hole number. Supports both single-ball and multi-ball scores */
+  scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore };
   totalGross: number;
   totalNet: number;
   status: ScorecardStatus;
@@ -295,7 +306,7 @@ export interface Scorecard {
 // HoleScore is re-exported from database.types.ts above
 
 export interface ScorecardUpdateInput {
-  scores: { [holeNumber: number]: HoleScore };
+  scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore };
   status?: ScorecardStatus;
 }
 
@@ -303,7 +314,7 @@ export interface ScorecardUpdateInput {
 export interface LeaderboardEntry {
   playerId: string;
   playerName: string;
-  handicap: number;
+  handicap: number | null;
   position: number;
   totalGross: number;
   totalNet: number;

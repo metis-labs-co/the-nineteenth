@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   performanceIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,

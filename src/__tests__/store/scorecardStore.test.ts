@@ -14,10 +14,24 @@ import {
   createTestPlayer,
   create18Holes,
 } from '../utils/testFixtures';
-import type { Player, Hole, Scorecard, HoleScore } from '@/types';
+import type { Player, Hole, Scorecard, HoleScore, MultiBallHoleScore } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 
 // Helper to get store state
 const getStore = () => useScorecardStore.getState();
+
+// Helpers to access score properties (handles union type)
+const getStrokes = (score: HoleScore | MultiBallHoleScore | undefined): number | undefined =>
+  score && isSingleBallScore(score) ? score.strokes : undefined;
+
+const getPutts = (score: HoleScore | MultiBallHoleScore | undefined): number | undefined =>
+  score && isSingleBallScore(score) ? score.putts : undefined;
+
+const getFairwayHit = (score: HoleScore | MultiBallHoleScore | undefined): boolean | undefined =>
+  score && isSingleBallScore(score) ? score.fairwayHit : undefined;
+
+const getGreenInRegulation = (score: HoleScore | MultiBallHoleScore | undefined): boolean | undefined =>
+  score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
 
 // Helper to wait for async operations
 const waitFor = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -338,7 +352,7 @@ describe('ScorecardStore', () => {
       await store.setPlayerScore(playerId, 1, 4);
 
       const score = getStore().getPlayerScore(playerId, 1);
-      expect(score?.strokes).toBe(4);
+      expect(getStrokes(score)).toBe(4);
     });
 
     it('rejects scores for non-allowed players when allowedPlayerIds is set', async () => {
@@ -370,10 +384,10 @@ describe('ScorecardStore', () => {
       await store.setPlayerScore(playerId, 1, 5);
 
       const score = getStore().getPlayerScore(playerId, 1);
-      expect(score?.strokes).toBe(5);
-      expect(score?.putts).toBe(2);
-      expect(score?.fairwayHit).toBe(true);
-      expect(score?.greenInRegulation).toBe(true);
+      expect(getStrokes(score)).toBe(5);
+      expect(getPutts(score)).toBe(2);
+      expect(getFairwayHit(score)).toBe(true);
+      expect(getGreenInRegulation(score)).toBe(true);
     });
 
     it('recalculates totals after update', async () => {
@@ -455,8 +469,8 @@ describe('ScorecardStore', () => {
       await store.updatePlayerHoleScore(playerId, 1, { putts: 2 });
 
       const score = getStore().getPlayerScore(playerId, 1);
-      expect(score?.strokes).toBe(4);
-      expect(score?.putts).toBe(2);
+      expect(getStrokes(score)).toBe(4);
+      expect(getPutts(score)).toBe(2);
     });
 
     it('rejects updates for non-allowed players', async () => {
@@ -488,7 +502,7 @@ describe('ScorecardStore', () => {
       await store.setPlayerScore(playerId, 5, 6);
 
       const score = getStore().getPlayerScore(playerId, 5);
-      expect(score?.strokes).toBe(6);
+      expect(getStrokes(score)).toBe(6);
     });
 
     it('returns undefined for unscored hole', () => {
@@ -723,9 +737,9 @@ describe('ScorecardStore', () => {
       ]);
 
       // All scores should be set
-      expect(getStore().getPlayerScore(testPlayers[0].id, 1)?.strokes).toBe(4);
-      expect(getStore().getPlayerScore(testPlayers[1].id, 1)?.strokes).toBe(5);
-      expect(getStore().getPlayerScore(testPlayers[2].id, 1)?.strokes).toBe(6);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[0].id, 1))).toBe(4);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[1].id, 1))).toBe(5);
+      expect(getStrokes(getStore().getPlayerScore(testPlayers[2].id, 1))).toBe(6);
     });
 
     it('setAllowedPlayers updates allowed list', () => {
@@ -837,7 +851,7 @@ describe('ScorecardStore', () => {
 
         // Score should still be set in memory
         const score = getStore().getPlayerScore(playerId, 1);
-        expect(score?.strokes).toBe(4);
+        expect(getStrokes(score)).toBe(4);
       });
 
       it('handles saveScorecard failure gracefully', async () => {
@@ -853,7 +867,7 @@ describe('ScorecardStore', () => {
 
         // Score should still be set in memory
         const score = getStore().getPlayerScore(playerId, 1);
-        expect(score?.strokes).toBe(4);
+        expect(getStrokes(score)).toBe(4);
       });
     });
 

@@ -20,6 +20,7 @@ import {
 import { supabase } from '@/services/supabase/client';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
 import type { Scorecard, PendingSync } from '@/types';
+import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 
 const MAX_RETRY_COUNT = 3;
@@ -392,7 +393,7 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
   const scoresForDb: Record<string, { strokes: number; putts?: number; penalties?: number }> = {};
   let holesWithScores = 0;
   for (const [holeNum, score] of Object.entries(scorecard.scores)) {
-    if (score && score.strokes !== undefined) {
+    if (score && isSingleBallScore(score) && score.strokes !== undefined) {
       scoresForDb[String(holeNum)] = {
         strokes: score.strokes,
         putts: score.putts,

@@ -350,14 +350,14 @@ export const PartialYardageData: Story = {
  */
 export const MixedYardageAvailability: Story = {
   args: {
-    holes: create18Holes().map((hole, i) => ({
-      ...hole,
-      yardages: {
-        blue: i < 9 ? 400 + i * 10 : undefined, // Blue only for front 9
+    holes: create18Holes().map((hole, i) => {
+      const yardages: Record<string, number> = {
         white: 380 + i * 10, // White for all
-        red: i >= 9 ? 340 + i * 10 : undefined, // Red only for back 9
-      },
-    })),
+      };
+      if (i < 9) yardages.blue = 400 + i * 10; // Blue only for front 9
+      if (i >= 9) yardages.red = 340 + i * 10; // Red only for back 9
+      return { ...hole, yardages };
+    }),
     selectedTee: 'white',
     useMetres: false,
   },

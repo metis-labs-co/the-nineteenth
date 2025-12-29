@@ -50,6 +50,7 @@ interface CourseRowProps {
   showFavoriteButton?: boolean;
   isNested?: boolean; // true when shown inside expanded venue
   selectionMode?: boolean;
+  isHomeVenue?: boolean; // true if this venue is the user's home venue
 }
 
 // =====================================================
@@ -65,6 +66,7 @@ const CourseRow = React.memo(function CourseRow({
   showFavoriteButton = true,
   isNested = false,
   selectionMode = false,
+  isHomeVenue = false,
 }: CourseRowProps) {
   const colors = useThemeColors();
   const handlePress = useCallback(() => {
@@ -95,6 +97,12 @@ const CourseRow = React.memo(function CourseRow({
             <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
               {course.name}
             </Text>
+            {/* Home badge for single-course venues */}
+            {!isNested && isHomeVenue && (
+              <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
+                <Icon source="home" size={14} color={colors.primary} />
+              </View>
+            )}
           </View>
 
           {/* Show venue name for non-nested (single course venues) */}
@@ -202,6 +210,7 @@ export const VenueCard = React.memo(function VenueCard({
           isTogglingFavorite={isTogglingFavorite === course.id}
           showFavoriteButton={showFavoriteButton}
           selectionMode={selectionMode}
+          isHomeVenue={item.is_home}
         />
       </View>
     );
@@ -230,6 +239,12 @@ export const VenueCard = React.memo(function VenueCard({
               <Text style={[styles.venueName, { color: colors.textPrimary }]} numberOfLines={1}>
                 {item.venue.name}
               </Text>
+              {/* Home badge for multi-course venues */}
+              {item.is_home && (
+                <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
+                  <Icon source="home" size={14} color={colors.primary} />
+                </View>
+              )}
               <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.courseCountText, { color: colors.textOnColored }]}>
                   {item.courses.length}
@@ -343,6 +358,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: borderRadius.full,
     minWidth: 24,
+    alignItems: 'center',
+  },
+  homeBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   courseCountText: {

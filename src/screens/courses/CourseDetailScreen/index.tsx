@@ -18,7 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, GolfBallLoader } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconGolf } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -27,17 +27,23 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureButton } from '@/components/common/FeatureButton';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
+import { useHomeVenue, useSetHomeVenue } from '@/hooks/useHomeVenue';
+import { useUpdateCourseHoles } from '@/hooks';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useFormattedDistance } from '@/store/settingsStore';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
+import { EditHoleBottomSheet } from '@/components/courses';
 import { supabase } from '@/services/supabase/client';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TeeBox, GameType, Venue, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
 
-import { TeeSelector, HoleTable } from './components';
-import { getTeeColor, DEFAULT_HOLES } from './utils';
+import { HoleTable } from './components';
+import { TeeSelector, getTeeColor } from '@/components/common';
+import { DEFAULT_HOLES } from './utils';
 import type { PlayingPartner } from './types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Course'>;
@@ -48,6 +54,7 @@ export default function CourseScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
 
   const cardBackground = colors.surface;
+  const { formatDistance } = useFormattedDistance();
 
   // Fetch course details
   const {
@@ -59,25 +66,42 @@ export default function CourseScreen({ route, navigation }: Props) {
   } = useCourseDetails(courseId);
 
   // Selected tee for yardage display
-  const [selectedTee, setSelectedTee] = useState<string | null>(null);
+  const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
 
   // Initialize selected tee when course loads
   React.useEffect(() => {
     if (course?.tees && course.tees.length > 0 && !selectedTee) {
-      setSelectedTee(course.tees[0].name);
+      setSelectedTee(course.tees[0]);
     }
   }, [course?.tees, selectedTee]);
+
+  // Get selected tee color for HoleTable and EditHoleBottomSheet (yardages are keyed by color)
+  const selectedTeeColor = selectedTee?.color?.toLowerCase() ?? null;
 
   // Favorite mutations
   const addFavorite = useAddCourseFavorite();
   const removeFavorite = useRemoveCourseFavorite();
   const [togglingFavorite, setTogglingFavorite] = useState(false);
 
+  // Home venue state
+  const { data: currentHomeVenue } = useHomeVenue();
+  const setHomeVenue = useSetHomeVenue();
+  const [showHomeConfirmDialog, setShowHomeConfirmDialog] = useState(false);
+  const [isSettingHome, setIsSettingHome] = useState(false);
+
+  // Check if this course's venue is the home venue
+  const isHomeVenue = course?.venue?.id === currentHomeVenue?.id;
+
   // Round creation state
   const { user, player } = useAuth();
   const { initializeRound } = useScorecardStore();
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
   const [isStartingRound, setIsStartingRound] = useState(false);
+
+  // Super admin hole editing
+  const isSuperAdmin = useIsSuperAdmin();
+  const [editingHole, setEditingHole] = useState<Hole | null>(null);
+  const updateCourseHolesMutation = useUpdateCourseHoles();
 
   // Hide React Navigation header (we use PageHeader)
   React.useLayoutEffect(() => {
@@ -107,6 +131,37 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course, addFavorite, removeFavorite, refetch]);
 
+  // Handle set as home venue
+  const handleSetAsHome = useCallback(() => {
+    if (!course?.venue) return;
+
+    // If already home venue, do nothing
+    if (isHomeVenue) return;
+
+    // If there's a different home venue, show confirmation
+    if (currentHomeVenue && currentHomeVenue.id !== course.venue.id) {
+      setShowHomeConfirmDialog(true);
+      return;
+    }
+
+    // Otherwise, set directly
+    performSetAsHome();
+  }, [course, currentHomeVenue, isHomeVenue]);
+
+  const performSetAsHome = useCallback(async () => {
+    if (!course?.venue) return;
+    setIsSettingHome(true);
+    try {
+      await setHomeVenue.mutateAsync(course.venue.id);
+      refetch();
+    } catch {
+      Alert.alert('Error', 'Failed to set home venue');
+    } finally {
+      setIsSettingHome(false);
+      setShowHomeConfirmDialog(false);
+    }
+  }, [course, setHomeVenue, refetch]);
+
   // Navigate to venue
   const handleVenuePress = useCallback(() => {
     if (course?.venue) {
@@ -114,16 +169,51 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course?.venue, navigation]);
 
-  // Get selected tee box info
-  const selectedTeeBox = useMemo(
-    () => course?.tees?.find((t) => t.name === selectedTee) || null,
-    [course?.tees, selectedTee]
-  );
+  // Get selected tee box info (alias for compatibility)
+  const selectedTeeBox = selectedTee;
 
   // Handle opening social round bottom sheet
   const handleOpenSocialRound = useCallback(() => {
     setIsBottomSheetVisible(true);
   }, []);
+
+  // Super admin hole editing handlers
+  const handleHolePress = useCallback(
+    (hole: Hole) => {
+      if (isSuperAdmin) {
+        setEditingHole(hole);
+      }
+    },
+    [isSuperAdmin]
+  );
+
+  const handleSaveHole = useCallback(
+    async (updatedHole: Hole) => {
+      if (!course?.holes) return;
+
+      // Update the holes array with the edited hole
+      const updatedHoles = course.holes.map((h) =>
+        h.number === updatedHole.number ? updatedHole : h
+      );
+
+      try {
+        // Update in database
+        await updateCourseHolesMutation.mutateAsync({
+          courseId: course.id,
+          holes: updatedHoles,
+        });
+
+        // Refetch to get updated data
+        refetch();
+
+        // Close the modal
+        setEditingHole(null);
+      } catch {
+        Alert.alert('Error', 'Failed to save hole data. Please try again.');
+      }
+    },
+    [course, updateCourseHolesMutation, refetch]
+  );
 
   const handleCloseBottomSheet = useCallback(() => {
     setIsBottomSheetVisible(false);
@@ -328,25 +418,54 @@ export default function CourseScreen({ route, navigation }: Props) {
               )}
             </View>
 
-            {/* Favorite Button */}
-            <TouchableOpacity
-              style={[styles.favoriteButtonLarge, course.is_favorite && { backgroundColor: colors.warningLight + '30' }]}
-              activeOpacity={0.7}
-              onPress={handleToggleFavorite}
-              disabled={togglingFavorite}
-              accessibilityRole="button"
-              accessibilityLabel={course.is_favorite ? 'Remove from favourites' : 'Add to favourites'}
-            >
-              {togglingFavorite ? (
-                <GolfBallLoader size="sm" />
-              ) : (
-                <Icon
-                  source={course.is_favorite ? 'star' : 'star-outline'}
-                  size={28}
-                  color={course.is_favorite ? colors.warning : colors.gray400}
-                />
-              )}
-            </TouchableOpacity>
+            {/* Action Buttons */}
+            <View style={styles.headerActions}>
+              {/* Home Venue Button */}
+              <TouchableOpacity
+                style={[
+                  styles.actionButtonLarge,
+                  isHomeVenue && { backgroundColor: colors.primaryLighter },
+                ]}
+                activeOpacity={0.7}
+                onPress={handleSetAsHome}
+                disabled={isSettingHome || isHomeVenue}
+                accessibilityRole="button"
+                accessibilityLabel={isHomeVenue ? 'This is your home venue' : 'Set venue as home'}
+              >
+                {isSettingHome ? (
+                  <GolfBallLoader size="sm" />
+                ) : (
+                  <Icon
+                    source={isHomeVenue ? 'home' : 'home-outline'}
+                    size={24}
+                    color={isHomeVenue ? colors.primary : colors.gray400}
+                  />
+                )}
+              </TouchableOpacity>
+
+              {/* Favorite Button */}
+              <TouchableOpacity
+                style={[
+                  styles.actionButtonLarge,
+                  course.is_favorite && { backgroundColor: colors.warningLight + '30' },
+                ]}
+                activeOpacity={0.7}
+                onPress={handleToggleFavorite}
+                disabled={togglingFavorite}
+                accessibilityRole="button"
+                accessibilityLabel={course.is_favorite ? 'Remove from favourites' : 'Add to favourites'}
+              >
+                {togglingFavorite ? (
+                  <GolfBallLoader size="sm" />
+                ) : (
+                  <Icon
+                    source={course.is_favorite ? 'star' : 'star-outline'}
+                    size={24}
+                    color={course.is_favorite ? colors.warning : colors.gray400}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Description */}
@@ -386,7 +505,7 @@ export default function CourseScreen({ route, navigation }: Props) {
               <View style={styles.selectedTeeDetails}>
                 <Text style={[styles.selectedTeeName, { color: colors.textPrimary }]}>{selectedTeeBox.name} Tees</Text>
                 <Text style={[styles.selectedTeeYardage, { color: colors.textSecondary }]}>
-                  {selectedTeeBox.totalYardage?.toLocaleString()} yards
+                  {selectedTeeBox.totalYardage ? formatDistance(selectedTeeBox.totalYardage) : ''}
                   {selectedTeeBox.courseRating && ` · CR: ${selectedTeeBox.courseRating}`}
                   {selectedTeeBox.slopeRating && ` · Slope: ${selectedTeeBox.slopeRating}`}
                 </Text>
@@ -397,7 +516,12 @@ export default function CourseScreen({ route, navigation }: Props) {
 
         {/* Tee Selector */}
         {course.tees && course.tees.length > 0 && (
-          <TeeSelector tees={course.tees} selectedTee={selectedTee} onSelectTee={setSelectedTee} />
+          <TeeSelector
+            tees={course.tees}
+            selectedTee={selectedTee}
+            onSelectTee={setSelectedTee}
+            variant="pills"
+          />
         )}
 
         {/* Hole Breakdown Section */}
@@ -412,7 +536,12 @@ export default function CourseScreen({ route, navigation }: Props) {
               </Text>
             </View>
           ) : (
-            <HoleTable holes={course.holes} selectedTee={selectedTee} />
+            <HoleTable
+              holes={course.holes}
+              selectedTee={selectedTeeColor}
+              isSuperAdmin={isSuperAdmin}
+              onHolePress={handleHolePress}
+            />
           )}
         </View>
       </ScrollView>
@@ -436,6 +565,34 @@ export default function CourseScreen({ route, navigation }: Props) {
         onStartRound={handleStartRound}
         initialCourse={initialCourseData}
       />
+
+      {/* Home Venue Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showHomeConfirmDialog}
+        title="Change Home Venue?"
+        message={`You already have "${currentHomeVenue?.name}" set as your home venue. Would you like to replace it with "${course?.venue?.name}"?`}
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        confirmVariant="primary"
+        onConfirm={performSetAsHome}
+        onCancel={() => setShowHomeConfirmDialog(false)}
+        loading={isSettingHome}
+        icon="home-switch"
+      />
+
+      {/* Super admin hole editing modal */}
+      {editingHole && course?.holes && (
+        <EditHoleBottomSheet
+          visible={!!editingHole}
+          onClose={() => setEditingHole(null)}
+          hole={editingHole}
+          allHoles={course.holes}
+          courseTees={course.tees ?? []}
+          selectedTee={selectedTeeColor}
+          onSave={handleSaveHole}
+          loading={updateCourseHolesMutation.isPending}
+        />
+      )}
     </View>
   );
 }
@@ -509,9 +666,13 @@ const styles = StyleSheet.create({
   venueLinkText: {
     ...typography.small,
   },
-  favoriteButtonLarge: {
-    width: 52,
-    height: 52,
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButtonLarge: {
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',

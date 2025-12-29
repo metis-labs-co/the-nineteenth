@@ -88,6 +88,7 @@ const mockCurrentPlayer: Player = {
   golf_id: null,
   handicap_updated_at: null,
   photo_url: null,
+  home_venue_id: null,
   push_enabled: true,
   push_competition_updates: true,
   push_friend_requests: true,
@@ -117,6 +118,7 @@ const mockFriends: Friend[] = [
     golf_id: null,
     handicap_updated_at: null,
     photo_url: 'https://example.com/john.jpg',
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
@@ -136,6 +138,7 @@ const mockFriends: Friend[] = [
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
@@ -155,6 +158,7 @@ const mockFriends: Friend[] = [
     golf_id: null,
     handicap_updated_at: null,
     photo_url: 'https://example.com/bob.jpg',
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
@@ -174,6 +178,7 @@ const mockFriends: Friend[] = [
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
@@ -645,12 +650,12 @@ describe('AddPlayersStep', () => {
 
   describe('Edge Cases', () => {
     it('handles friend with null handicap', () => {
-      const friendsWithNullHandicap = [
+      const friendsWithNullHandicap: Friend[] = [
         {
           ...mockFriends[0],
           id: 'friend-null-hc',
           name: 'No Handicap Player',
-          handicap: null,
+          handicap: null as unknown as number, // Test edge case
         },
       ];
 
@@ -666,12 +671,12 @@ describe('AddPlayersStep', () => {
     });
 
     it('handles friend with null email', () => {
-      const friendsWithNullEmail = [
+      const friendsWithNullEmail: Friend[] = [
         {
           ...mockFriends[0],
           id: 'friend-null-email',
           name: 'No Email Player',
-          email: null,
+          email: null as unknown as string, // Test edge case
         },
       ];
 

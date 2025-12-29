@@ -12,6 +12,14 @@ export type { UpgradePromptConfig } from './UpgradePrompt';
 export { LimitIndicator } from './LimitIndicator';
 export { Paywall } from './Paywall';
 export type { PaywallProps } from './Paywall';
+export { TierCard } from './TierCard';
+export type { TierCardProps } from './TierCard';
+export { FeatureRow } from './FeatureRow';
+export type { FeatureRowProps } from './FeatureRow';
+export { FeaturesList } from './FeaturesList';
+export type { FeaturesListProps } from './FeaturesList';
+export { TIER_CONFIGS, TIER_COLORS, getTierConfig, getTierColor, getTierFeatures } from './tierConfig';
+export type { PaywallTier, TierConfig } from './tierConfig';
 
 // New reusable components
 export { TrialBadge } from './TrialBadge';

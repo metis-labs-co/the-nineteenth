@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { PromptInput } from './PromptInput';
 
@@ -567,7 +568,7 @@ describe('PromptInput', () => {
               onChangeText={setValue}
               onSubmit={() => setSubmitted(true)}
             />
-            {submitted && <text testID="submitted">Submitted</text>}
+            {submitted && <Text testID="submitted">Submitted</Text>}
           </>
         );
       };

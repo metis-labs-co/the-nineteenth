@@ -16,7 +16,7 @@ import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { TierBadge } from './TierBadge';
 import { useTier, useTierLimits } from '@/context/SubscriptionContext';
-import type { SubscriptionTier } from '@/types/subscription.types';
+import type { SubscriptionTier, TierLimits, GameType } from '@/types/subscription.types';
 
 // ============================================================================
 // MOCKS
@@ -34,23 +34,33 @@ const mockUseTierLimits = useTierLimits as jest.MockedFunction<typeof useTierLim
 // TEST FIXTURES
 // ============================================================================
 
-const createMockLimits = (tier: SubscriptionTier = 'free') => ({
+const createMockLimits = (tier: SubscriptionTier = 'free'): TierLimits => ({
   tier,
   displayName: tier === 'super_admin' ? 'Super Admin' : tier.charAt(0).toUpperCase() + tier.slice(1),
+  description: null,
   badgeColor: {
     free: '#6b7280',
     social: '#3b82f6',
     premium: '#f59e0b',
     super_admin: '#dc2626',
-  }[tier],
-  maxCompetitions: 3,
+  }[tier] as string,
+  maxCompetitionsOwned: 3,
   maxRoundsPerCompetition: 2,
   maxPlayersPerCompetition: 10,
   maxFriends: 10,
-  teamFormats: false,
-  scoringPairs: false,
-  strokePlay: false,
-  matchPlay: false,
+  maxRoundsPlayed: 50,
+  allowedGameTypes: ['stableford'] as GameType[],
+  canUseTeamFormats: false,
+  canUseScoringPairs: false,
+  canExportData: false,
+  canUseApiCourseSearch: false,
+  canViewBasicStats: true,
+  canViewScoreDistribution: false,
+  canViewAdvancedStats: false,
+  canCompareStats: false,
+  canAccessAdminTools: tier === 'super_admin',
+  requiresPayment: tier !== 'free' && tier !== 'super_admin',
+  canExpire: tier !== 'super_admin',
 });
 
 // ============================================================================

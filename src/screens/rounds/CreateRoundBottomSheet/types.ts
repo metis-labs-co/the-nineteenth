@@ -5,11 +5,12 @@
 import type { ScoringPairCreateInput } from '@/types';
 import type { Venue, TeeBox, GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
+import type { BallCount } from '@/types/multiball.types';
 
 /**
  * Wizard step identifiers
  */
-export type WizardStep = 'course' | 'tee' | 'matchType' | 'partners' | 'scoringSetup';
+export type WizardStep = 'course' | 'tee' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup';
 
 /**
  * Playing partner selected for the round
@@ -73,6 +74,8 @@ export interface WizardData {
   scoringPairsEnabled: boolean;
   scoringPairs: ScoringPairCreateInput[];
   scoringPairingType: 'reciprocal' | 'circular';
+  /** Number of balls to score per hole (1-4). Solo rounds only. Default: 1 */
+  ballCount: BallCount;
 }
 
 /**
@@ -87,7 +90,8 @@ export interface CreateRoundBottomSheetProps {
     partners: PlayingPartner[],
     selectedTee?: TeeBox,
     gameType?: GameType,
-    scoringPairs?: ScoringPairsConfig
+    scoringPairs?: ScoringPairsConfig,
+    ballCount?: BallCount
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;

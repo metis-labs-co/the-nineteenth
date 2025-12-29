@@ -26,12 +26,14 @@ export type {
 } from './enums';
 
 // Base types
-export type { GeoPoint, Hole, TeeBox, HoleScore } from './base';
+export type { GeoPoint, Hole, TeeBox, HoleScore, MultiBallHoleScore, BallTotals } from './base';
+export { isMultiBallScore, isSingleBallScore } from './base';
 
 // Player types
 export type {
   Player,
   PushPreferences,
+  UserPreferences,
   Friendship,
   Friend,
   FriendRequest,

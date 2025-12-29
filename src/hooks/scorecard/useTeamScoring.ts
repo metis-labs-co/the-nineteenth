@@ -10,7 +10,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { teamScoringLogger } from '@/utils/debugLogger';
-import type { HoleScore, Player } from '@/types';
+import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
 interface UseTeamScoringParams {
@@ -26,14 +27,14 @@ interface UseTeamScoringResult {
   teamMatchPlayResults: Map<number, 'team1' | 'team2' | 'halved'>;
 
   // Memoized data
-  playerScoresMap: Map<string, HoleScore | undefined>;
+  playerScoresMap: Map<string, HoleScore | MultiBallHoleScore | undefined>;
 
   // Actions
   setSelectedContributor: (playerId: string | undefined) => void;
   handleTeamScoreSelect: (teamIndex: number, strokes: number) => Promise<void>;
   handleBestBallScoreSelect: (playerId: string, strokes: number) => Promise<void>;
   handleTeamMatchPlayScoreSelect: (teamIndex: number, strokes: number) => Promise<void>;
-  getTeamScore: (teamIndex: number) => HoleScore | undefined;
+  getTeamScore: (teamIndex: number) => HoleScore | MultiBallHoleScore | undefined;
 }
 
 /**
@@ -56,7 +57,7 @@ export function useTeamScoring({
   // Memoized player scores map for team components
   // Includes both players array AND team members to ensure all rendered players have scores
   const playerScoresMap = useMemo(() => {
-    const map = new Map<string, HoleScore | undefined>();
+    const map = new Map<string, HoleScore | MultiBallHoleScore | undefined>();
 
     // Add players from players array
     players.forEach((player) => {
@@ -80,7 +81,7 @@ export function useTeamScoring({
       scoresMapSize: map.size,
       scores: Array.from(map.entries()).map(([id, score]) => ({
         playerId: id.substring(0, 8),
-        strokes: score?.strokes ?? null,
+        strokes: score && isSingleBallScore(score) ? score.strokes : null,
       })),
     });
 
@@ -172,7 +173,7 @@ export function useTeamScoring({
 
   // Get team score for match play
   const getTeamScore = useCallback(
-    (teamIndex: number): HoleScore | undefined => {
+    (teamIndex: number): HoleScore | MultiBallHoleScore | undefined => {
       const team = teams[teamIndex];
       if (!team) {
         teamScoringLogger.debug('getTeamScore: Team not found', { teamIndex });
@@ -188,7 +189,7 @@ export function useTeamScoring({
         teamIndex,
         teamName: team.name,
         hole: currentHole,
-        strokes: score?.strokes ?? null,
+        strokes: score && isSingleBallScore(score) ? score.strokes : null,
       });
       return score;
     },

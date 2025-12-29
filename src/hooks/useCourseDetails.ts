@@ -19,6 +19,7 @@ import type { Course, Venue } from '@/types/database.types';
 
 /**
  * Course with venue details and favorite status
+ * Note: Home status is now at venue level, use useHomeVenue() to check
  */
 export interface CourseWithVenueDetail extends Course {
   venue: Venue;

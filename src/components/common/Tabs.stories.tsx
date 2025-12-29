@@ -654,6 +654,8 @@ export const SizeMatrix: Story = {
 
 export const Playground: Story = {
   render: (args) => {
+    // Destructure to avoid duplicate props
+    const { tabs: _tabs, selectedTab: _selectedTab, onTabChange: _onTabChange, ...restArgs } = args;
     const StatefulPlayground = () => {
       const [selected, setSelected] = useState('tab1');
       return (
@@ -665,7 +667,7 @@ export const Playground: Story = {
           ]}
           selectedTab={selected}
           onTabChange={setSelected}
-          {...args}
+          {...restArgs}
         />
       );
     };

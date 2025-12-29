@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   confirmationIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,

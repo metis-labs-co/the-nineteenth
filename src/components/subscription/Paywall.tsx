@@ -17,7 +17,6 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  StyleSheet,
   View,
   TouchableOpacity,
   Modal,
@@ -29,17 +28,17 @@ import {
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, shadows } from '@/constants/theme';
 import {
   subscriptionService,
   SubscriptionProduct,
 } from '@/services/subscription/SubscriptionService';
-import {
-  DEFAULT_PRICING_AUD,
-  FREE_TRIAL_DAYS,
-  PRODUCT_IDS,
-} from '@/constants/products';
+import { DEFAULT_PRICING_AUD, FREE_TRIAL_DAYS, PRODUCT_IDS } from '@/constants/products';
 import type { SubscriptionTier } from '@/types/subscription.types';
+import { TierCard } from './TierCard';
+import { FeaturesList } from './FeaturesList';
+import { styles } from './Paywall.styles';
+import type { PaywallTier } from './tierConfig';
 
 // ============================================================================
 // TYPES
@@ -53,7 +52,7 @@ export interface PaywallProps {
   /** Called when paywall is dismissed */
   onDismiss: () => void;
   /** Pre-selected tier (optional) */
-  initialTier?: 'social' | 'premium';
+  initialTier?: PaywallTier;
 }
 
 type BillingPeriod = 'monthly' | 'yearly';
@@ -64,27 +63,6 @@ type BillingPeriod = 'monthly' | 'yearly';
 
 const TERMS_URL = 'https://thenineteenth.golf/terms';
 const PRIVACY_URL = 'https://thenineteenth.golf/privacy';
-
-/**
- * Feature lists for each tier
- */
-const TIER_FEATURES: Record<'social' | 'premium', string[]> = {
-  social: [
-    'Up to 8 competitions',
-    'Up to 16 players per competition',
-    'Stroke Play & Match Play',
-    'Compare stats with friends',
-    'Score distribution analytics',
-  ],
-  premium: [
-    'Unlimited competitions',
-    'Up to 40 players per competition',
-    'All game types including team formats',
-    'Advanced analytics & trends',
-    'Scoring pairs for competitive rounds',
-    'Priority support',
-  ],
-};
 
 // ============================================================================
 // COMPONENT
@@ -100,7 +78,7 @@ export function Paywall({
   const insets = useSafeAreaInsets();
 
   // State
-  const [selectedTier, setSelectedTier] = useState<'social' | 'premium'>(initialTier);
+  const [selectedTier, setSelectedTier] = useState<PaywallTier>(initialTier);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [products, setProducts] = useState<SubscriptionProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -139,11 +117,9 @@ export function Paywall({
           ? PRODUCT_IDS.PREMIUM_MONTHLY
           : PRODUCT_IDS.PREMIUM_YEARLY;
 
-    // Try to find from fetched products (real prices)
     const fetchedProduct = products.find((p) => p.id === productId);
     if (fetchedProduct) return fetchedProduct;
 
-    // Fallback to default pricing
     const defaultPricing = DEFAULT_PRICING_AUD[productId as keyof typeof DEFAULT_PRICING_AUD];
     return {
       id: productId,
@@ -194,10 +170,7 @@ export function Paywall({
             [{ text: 'OK', onPress: onDismiss }]
           );
         } else {
-          Alert.alert(
-            'No Purchases Found',
-            'We could not find any previous purchases to restore.'
-          );
+          Alert.alert('No Purchases Found', 'We could not find any previous purchases to restore.');
         }
       } else {
         Alert.alert('Restore Failed', result.error ?? 'Please try again.');
@@ -210,16 +183,9 @@ export function Paywall({
     }
   }, [onDismiss]);
 
-  // Handle opening links
   const handleOpenLink = useCallback((url: string) => {
-    Linking.openURL(url).catch((err) => {
-      console.error('[Paywall] Failed to open URL:', err);
-    });
+    Linking.openURL(url).catch((err) => console.error('[Paywall] Failed to open URL:', err));
   }, []);
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
 
   return (
     <Modal
@@ -233,123 +199,61 @@ export function Paywall({
         <View
           style={[
             styles.header,
-            {
-              paddingTop: insets.top + spacing.md,
-              backgroundColor: colors.surface,
-              borderBottomColor: colors.border,
-            },
+            { paddingTop: insets.top + spacing.md, backgroundColor: colors.surface, borderBottomColor: colors.border },
           ]}
         >
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onDismiss}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
+          <TouchableOpacity style={styles.closeButton} onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close">
             <Icon source="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            Upgrade Your Plan
-          </Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Upgrade Your Plan</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + spacing.xxl },
-          ]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing.xxl }]}
         >
           {/* Free Trial Badge */}
           <View style={[styles.trialBadge, { backgroundColor: colors.successBackground }]}>
             <Icon source="gift-outline" size={20} color={colors.success} />
-            <Text style={[styles.trialText, { color: colors.success }]}>
-              {FREE_TRIAL_DAYS}-day free trial
-            </Text>
+            <Text style={[styles.trialText, { color: colors.success }]}>{FREE_TRIAL_DAYS}-day free trial</Text>
           </View>
 
           {/* Tier Selection */}
           <View style={styles.tierSelection}>
-            <TierCard
-              tier="social"
-              selected={selectedTier === 'social'}
-              onSelect={() => setSelectedTier('social')}
-              colors={colors}
-            />
-            <TierCard
-              tier="premium"
-              selected={selectedTier === 'premium'}
-              onSelect={() => setSelectedTier('premium')}
-              colors={colors}
-            />
+            <TierCard tier="social" selected={selectedTier === 'social'} onSelect={() => setSelectedTier('social')} />
+            <TierCard tier="premium" selected={selectedTier === 'premium'} onSelect={() => setSelectedTier('premium')} />
           </View>
 
           {/* Billing Period Toggle */}
           <View style={[styles.periodToggle, { backgroundColor: colors.surfaceVariant }]}>
             <TouchableOpacity
-              style={[
-                styles.periodOption,
-                billingPeriod === 'monthly' && {
-                  backgroundColor: colors.surface,
-                  ...shadows.sm,
-                },
-              ]}
+              style={[styles.periodOption, billingPeriod === 'monthly' && { backgroundColor: colors.surface, ...shadows.sm }]}
               onPress={() => setBillingPeriod('monthly')}
               accessibilityRole="button"
               accessibilityState={{ selected: billingPeriod === 'monthly' }}
             >
-              <Text
-                style={[
-                  styles.periodText,
-                  { color: billingPeriod === 'monthly' ? colors.textPrimary : colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.periodText, { color: billingPeriod === 'monthly' ? colors.textPrimary : colors.textSecondary }]}>
                 Monthly
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.periodOption,
-                billingPeriod === 'yearly' && {
-                  backgroundColor: colors.surface,
-                  ...shadows.sm,
-                },
-              ]}
+              style={[styles.periodOption, billingPeriod === 'yearly' && { backgroundColor: colors.surface, ...shadows.sm }]}
               onPress={() => setBillingPeriod('yearly')}
               accessibilityRole="button"
               accessibilityState={{ selected: billingPeriod === 'yearly' }}
             >
-              <Text
-                style={[
-                  styles.periodText,
-                  { color: billingPeriod === 'yearly' ? colors.textPrimary : colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.periodText, { color: billingPeriod === 'yearly' ? colors.textPrimary : colors.textSecondary }]}>
                 Yearly
               </Text>
               <View style={[styles.saveBadge, { backgroundColor: colors.success }]}>
-                <Text style={[styles.saveBadgeText, { color: colors.white }]}>
-                  Save 33%
-                </Text>
+                <Text style={[styles.saveBadgeText, { color: colors.white }]}>Save 33%</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           {/* Features List */}
-          <View style={[styles.featuresCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.featuresTitle, { color: colors.textPrimary }]}>
-              {selectedTier === 'social' ? 'Social' : 'Premium'} includes:
-            </Text>
-            {TIER_FEATURES[selectedTier].map((feature, index) => (
-              <View key={index} style={styles.featureRow}>
-                <Icon source="check-circle" size={20} color={colors.success} />
-                <Text style={[styles.featureText, { color: colors.textSecondary }]}>
-                  {feature}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <FeaturesList tier={selectedTier} />
 
           {/* Price Display */}
           <View style={styles.priceSection}>
@@ -357,9 +261,7 @@ export function Paywall({
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
-                <Text style={[styles.price, { color: colors.textPrimary }]}>
-                  {selectedProduct.price}
-                </Text>
+                <Text style={[styles.price, { color: colors.textPrimary }]}>{selectedProduct.price}</Text>
                 <Text style={[styles.priceSubtext, { color: colors.textSecondary }]}>
                   per {billingPeriod === 'monthly' ? 'month' : 'year'}
                 </Text>
@@ -369,11 +271,7 @@ export function Paywall({
 
           {/* Purchase Button */}
           <TouchableOpacity
-            style={[
-              styles.purchaseButton,
-              { backgroundColor: colors.primary },
-              (isPurchasing || isLoadingProducts) && styles.purchaseButtonDisabled,
-            ]}
+            style={[styles.purchaseButton, { backgroundColor: colors.primary }, (isPurchasing || isLoadingProducts) && styles.purchaseButtonDisabled]}
             onPress={handlePurchase}
             disabled={isPurchasing || isLoadingProducts}
             accessibilityRole="button"
@@ -382,9 +280,7 @@ export function Paywall({
             {isPurchasing ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={[styles.purchaseButtonText, { color: colors.white }]}>
-                Start Free Trial
-              </Text>
+              <Text style={[styles.purchaseButtonText, { color: colors.white }]}>Start Free Trial</Text>
             )}
           </TouchableOpacity>
 
@@ -392,289 +288,38 @@ export function Paywall({
             Cancel anytime during your {FREE_TRIAL_DAYS}-day free trial
           </Text>
 
-          <Divider style={{ backgroundColor: colors.border, marginVertical: spacing.lg }} />
+          <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Restore Purchases */}
-          <TouchableOpacity
-            style={styles.restoreButton}
-            onPress={handleRestore}
-            disabled={isRestoring}
-            accessibilityRole="button"
-            accessibilityLabel="Restore purchases"
-          >
+          <TouchableOpacity style={styles.restoreButton} onPress={handleRestore} disabled={isRestoring} accessibilityRole="button" accessibilityLabel="Restore purchases">
             {isRestoring ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Text style={[styles.restoreText, { color: colors.primary }]}>
-                Restore Purchases
-              </Text>
+              <Text style={[styles.restoreText, { color: colors.primary }]}>Restore Purchases</Text>
             )}
           </TouchableOpacity>
 
           {/* Legal Links */}
           <View style={styles.legalLinks}>
             <TouchableOpacity onPress={() => handleOpenLink(TERMS_URL)}>
-              <Text style={[styles.legalLink, { color: colors.textSecondary }]}>
-                Terms of Service
-              </Text>
+              <Text style={[styles.legalLink, { color: colors.textSecondary }]}>Terms of Service</Text>
             </TouchableOpacity>
             <Text style={[styles.legalSeparator, { color: colors.textSecondary }]}>•</Text>
             <TouchableOpacity onPress={() => handleOpenLink(PRIVACY_URL)}>
-              <Text style={[styles.legalLink, { color: colors.textSecondary }]}>
-                Privacy Policy
-              </Text>
+              <Text style={[styles.legalLink, { color: colors.textSecondary }]}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
 
           {/* Subscription Info */}
           <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
-            Payment will be charged to your Apple ID account at the confirmation of
-            purchase. Subscription automatically renews unless it is cancelled at least
-            24 hours before the end of the current period. You can manage and cancel your
-            subscriptions by going to your account settings on the App Store after purchase.
+            Payment will be charged to your Apple ID account at the confirmation of purchase. Subscription automatically
+            renews unless it is cancelled at least 24 hours before the end of the current period. You can manage and cancel
+            your subscriptions by going to your account settings on the App Store after purchase.
           </Text>
         </ScrollView>
       </View>
     </Modal>
   );
 }
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-interface TierCardProps {
-  tier: 'social' | 'premium';
-  selected: boolean;
-  onSelect: () => void;
-  colors: ReturnType<typeof useThemeColors>;
-}
-
-// Tier-specific colors (matching UpgradePrompt)
-const TIER_COLORS = {
-  social: '#3b82f6',
-  premium: '#f59e0b',
-} as const;
-
-function TierCard({ tier, selected, onSelect, colors }: TierCardProps) {
-  const tierColor = TIER_COLORS[tier];
-  const icon = tier === 'social' ? 'account-group-outline' : 'crown-outline';
-  const name = tier === 'social' ? 'Social' : 'Premium';
-  const description =
-    tier === 'social'
-      ? 'For casual golfers'
-      : 'For serious organisers';
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.tierCard,
-        {
-          backgroundColor: colors.surface,
-          borderColor: selected ? tierColor : colors.border,
-          borderWidth: selected ? 2 : 1,
-        },
-      ]}
-      onPress={onSelect}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-    >
-      <View style={[styles.tierIcon, { backgroundColor: tierColor + '20' }]}>
-        <Icon source={icon} size={24} color={tierColor} />
-      </View>
-      <Text style={[styles.tierName, { color: colors.textPrimary }]}>{name}</Text>
-      <Text style={[styles.tierDescription, { color: colors.textSecondary }]}>
-        {description}
-      </Text>
-      {selected && (
-        <View style={[styles.selectedIndicator, { backgroundColor: tierColor }]}>
-          <Icon source="check" size={16} color={colors.white} />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-// ============================================================================
-// STYLES
-// ============================================================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.h3,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  trialBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  trialText: {
-    ...typography.bodyBold,
-  },
-  tierSelection: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  tierCard: {
-    flex: 1,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  tierIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tierName: {
-    ...typography.bodyBold,
-  },
-  tierDescription: {
-    ...typography.caption,
-    textAlign: 'center',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  periodToggle: {
-    flexDirection: 'row',
-    padding: spacing.xs,
-    borderRadius: borderRadius.lg,
-  },
-  periodOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  periodText: {
-    ...typography.bodyBold,
-  },
-  saveBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  saveBadgeText: {
-    ...typography.caption,
-    fontWeight: '700',
-  },
-  featuresCard: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  featuresTitle: {
-    ...typography.bodyBold,
-    marginBottom: spacing.xs,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  featureText: {
-    ...typography.body,
-    flex: 1,
-  },
-  priceSection: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  price: {
-    ...typography.h1,
-  },
-  priceSubtext: {
-    ...typography.body,
-  },
-  purchaseButton: {
-    height: 56,
-    borderRadius: borderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.md,
-  },
-  purchaseButtonDisabled: {
-    opacity: 0.6,
-  },
-  purchaseButtonText: {
-    ...typography.bodyBold,
-    fontSize: 18,
-  },
-  trialNote: {
-    ...typography.small,
-    textAlign: 'center',
-  },
-  restoreButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  restoreText: {
-    ...typography.body,
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  legalLink: {
-    ...typography.small,
-    textDecorationLine: 'underline',
-  },
-  legalSeparator: {
-    ...typography.small,
-  },
-  subscriptionInfo: {
-    ...typography.caption,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-});
 
 export default Paywall;

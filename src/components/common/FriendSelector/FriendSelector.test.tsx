@@ -191,13 +191,21 @@ const createMockFriend = (overrides: Partial<Friend> = {}): Friend => ({
   id: 'friend-1',
   name: 'John Smith',
   email: 'john@example.com',
+  phone: null,
   handicap: 12,
+  golf_id: null,
+  handicap_updated_at: null,
   photo_url: 'https://example.com/john.jpg',
-  friendship_status: 'accepted',
+  home_venue_id: null,
   push_enabled: true,
   push_competition_updates: true,
   push_friend_requests: true,
   push_scorecard_updates: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  friendship_id: 'friendship-1',
+  friendship_status: 'accepted',
+  is_requester: true,
   ...overrides,
 });
 
@@ -680,18 +688,13 @@ describe('FriendSelector', () => {
 
     it('prevents removing current user when includeCurrentUser is set', () => {
       const onSelectionChange = jest.fn();
-      const currentUserAsFriend: Friend = {
+      const currentUserAsFriend: Friend = createMockFriend({
         id: 'current-user',
         name: 'Current User',
         email: 'current@example.com',
         handicap: 15,
         photo_url: null,
-        friendship_status: 'accepted',
-        push_enabled: true,
-        push_competition_updates: true,
-        push_friend_requests: true,
-        push_scorecard_updates: true,
-      };
+      });
       const currentUserSelected: SelectedPlayer = {
         id: 'current-user',
         name: 'Current User',
@@ -715,18 +718,13 @@ describe('FriendSelector', () => {
 
     it('allows removing current user when includeCurrentUser is not set', () => {
       const onSelectionChange = jest.fn();
-      const currentUserAsFriend: Friend = {
+      const currentUserAsFriend: Friend = createMockFriend({
         id: 'current-user',
         name: 'Current User',
         email: 'current@example.com',
         handicap: 15,
         photo_url: null,
-        friendship_status: 'accepted',
-        push_enabled: true,
-        push_competition_updates: true,
-        push_friend_requests: true,
-        push_scorecard_updates: true,
-      };
+      });
       const currentUserSelected: SelectedPlayer = {
         id: 'current-user',
         name: 'Current User',
@@ -898,7 +896,7 @@ describe('FriendSelector', () => {
   describe('Edge Cases', () => {
     it('handles friends without email', () => {
       const friendsWithoutEmail: Friend[] = [
-        createMockFriend({ id: 'friend-no-email', name: 'No Email Friend', email: null }),
+        createMockFriend({ id: 'friend-no-email', name: 'No Email Friend', email: '' as string }),
       ];
       render(<FriendSelector {...defaultProps} friends={friendsWithoutEmail} />);
       expect(screen.getByTestId('friend-item-friend-no-email')).toBeTruthy();
@@ -906,7 +904,7 @@ describe('FriendSelector', () => {
 
     it('handles friends without handicap', () => {
       const friendsWithoutHandicap: Friend[] = [
-        createMockFriend({ id: 'friend-no-hcp', name: 'No Handicap Friend', handicap: null }),
+        createMockFriend({ id: 'friend-no-hcp', name: 'No Handicap Friend', handicap: 0 }),
       ];
       render(<FriendSelector {...defaultProps} friends={friendsWithoutHandicap} />);
       expect(screen.getByTestId('friend-item-friend-no-hcp')).toBeTruthy();

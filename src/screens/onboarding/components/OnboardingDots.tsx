@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 interface OnboardingDotsProps {
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   },
   dot: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
 });
 

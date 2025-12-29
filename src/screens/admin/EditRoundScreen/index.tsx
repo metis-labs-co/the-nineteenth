@@ -10,7 +10,7 @@
  * - Shuffle scoring pairs (if enabled and premium)
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,66 +18,42 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Switch,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import {
-  Text,
-  TextInput,
-  Icon,
-  Divider,
-} from 'react-native-paper';
+import { useQuery } from '@tanstack/react-query';
+import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
-import { roundKeys, scoringPairsKeys } from '@/hooks/queryKeys';
-import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
-import type { GameType, TeeBox } from '@/types/database.types';
+import { roundKeys } from '@/hooks/queryKeys';
 
-import { TeeSelector } from './components';
-import { fetchRoundWithCourse, updateRound, shuffleScoringPairs } from './hooks';
+// Local imports
 import {
-  parseAustralianDate,
-  formatAustralianDate,
-  formatTime,
-  parseTime,
-  parseISODate,
-} from './utils';
-import type { RoundFormData } from './types';
+  fetchRoundWithCourse,
+  useEditRoundForm,
+  useRoundSubmission,
+} from './hooks';
+import {
+  CourseSection,
+  DateTimeSection,
+  GameTypeSection,
+  TeesSection,
+  ScoringPairsSection,
+} from './components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditRound'>;
 
 export default function EditRoundScreen({ navigation, route }: Props) {
   const { roundId, competitionId } = route.params;
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
-
-  // Form state
-  const [formData, setFormData] = useState<RoundFormData>({
-    date: '',
-    teeTime: '',
-    gameType: 'stableford',
-    selectedTee: null,
-    scoringPairsRequired: false,
-  });
-
-  // Original values for dirty check
-  const [originalData, setOriginalData] = useState<RoundFormData | null>(null);
-
-  // Date picker state
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Fetch round data
   const {
@@ -90,85 +66,35 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     enabled: !!roundId,
   });
 
-  // Populate form when data loads
-  useEffect(() => {
-    if (round) {
-      const parsedDate = parseISODate(round.date);
-      const data: RoundFormData = {
-        date: parsedDate ? formatAustralianDate(parsedDate) : '',
-        teeTime: round.tee_time || '',
-        gameType: round.game_type,
-        selectedTee: round.selected_tee,
-        scoringPairsRequired: round.scoring_pairs_required,
-      };
-      setFormData(data);
-      setOriginalData(data);
-    }
-  }, [round]);
+  // Form state management
+  const {
+    formData,
+    isDirty,
+    availableTees,
+    setDate,
+    setTeeTime,
+    clearTeeTime,
+    setGameType,
+    setSelectedTee,
+    setScoringPairsRequired,
+    getSelectedDate,
+    getSelectedTime,
+  } = useEditRoundForm({ round });
 
-  // Check if form is dirty
-  const isDirty = useMemo(() => {
-    if (!originalData) return false;
-    return (
-      formData.date !== originalData.date ||
-      formData.teeTime !== originalData.teeTime ||
-      formData.gameType !== originalData.gameType ||
-      formData.selectedTee?.name !== originalData.selectedTee?.name ||
-      formData.scoringPairsRequired !== originalData.scoringPairsRequired
-    );
-  }, [formData, originalData]);
-
-  // Get available tees from course
-  const availableTees = useMemo(() => {
-    return round?.courses?.tees || [];
-  }, [round?.courses?.tees]);
-
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      const parsedDate = parseAustralianDate(formData.date);
-      if (!parsedDate) {
-        throw new Error('Invalid date format');
-      }
-
-      await updateRound(roundId, {
-        date: format(parsedDate, 'yyyy-MM-dd'),
-        tee_time: formData.teeTime || null,
-        game_type: formData.gameType,
-        selected_tee: formData.selectedTee,
-        scoring_pairs_required: formData.scoringPairsRequired,
-      });
-    },
-    onSuccess: () => {
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
-      if (competitionId) {
-        queryClient.invalidateQueries({ queryKey: ['competition', competitionId, 'details'] });
-      }
-      navigation.goBack();
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to update round');
-    },
+  // Submission handling
+  const {
+    handleSubmit,
+    handleShuffleScoringPairs,
+    isSubmitting,
+    isShuffling,
+  } = useRoundSubmission({
+    roundId,
+    competitionId,
+    formData,
+    onSuccess: () => navigation.goBack(),
   });
 
-  // Shuffle scoring pairs mutation
-  const shuffleMutation = useMutation({
-    mutationFn: () => shuffleScoringPairs(roundId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: scoringPairsKeys.list(roundId) });
-      Alert.alert(
-        'Scoring Pairs Shuffled',
-        'Existing scoring pairs have been cleared. New pairs will be auto-generated when players view the round.',
-        [{ text: 'OK' }]
-      );
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to shuffle scoring pairs');
-    },
-  });
-
-  // Handlers
+  // Navigation handlers
   const handleBack = useCallback(() => {
     if (isDirty) {
       Alert.alert(
@@ -184,86 +110,9 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     }
   }, [navigation, isDirty]);
 
-  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (event.type === 'set' && date) {
-      setFormData((prev) => ({ ...prev, date: formatAustralianDate(date) }));
-    }
-  };
-
-  const handleDatePickerDismiss = () => {
-    setShowDatePicker(false);
-  };
-
-  const handleTimeChange = (event: DateTimePickerEvent, time?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
-    if (event.type === 'set' && time) {
-      setFormData((prev) => ({ ...prev, teeTime: formatTime(time) }));
-    }
-  };
-
-  const handleTimePickerDismiss = () => {
-    setShowTimePicker(false);
-  };
-
-  const clearTeeTime = () => {
-    setFormData((prev) => ({ ...prev, teeTime: '' }));
-  };
-
-  const handleGameTypeChange = useCallback((gameType: GameType) => {
-    setFormData((prev) => ({ ...prev, gameType }));
-  }, []);
-
-  const handleTeeSelect = useCallback((tee: TeeBox) => {
-    setFormData((prev) => ({ ...prev, selectedTee: tee }));
-  }, []);
-
-  const handleScoringPairsToggle = useCallback((value: boolean) => {
-    setFormData((prev) => ({ ...prev, scoringPairsRequired: value }));
-  }, []);
-
-  const handleShuffleScoringPairs = useCallback(() => {
-    Alert.alert(
-      'Shuffle Scoring Pairs',
-      'This will clear all existing scoring pairs and generate new random ones. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Shuffle',
-          style: 'destructive',
-          onPress: () => shuffleMutation.mutate(),
-        },
-      ]
-    );
-  }, [shuffleMutation]);
-
-  const handleSubmit = useCallback(() => {
-    if (!formData.date) {
-      Alert.alert('Error', 'Please select a date');
-      return;
-    }
-    updateMutation.mutate();
-  }, [formData.date, updateMutation]);
-
-  // Get selected date for picker
-  const getSelectedDate = () => {
-    if (formData.date) {
-      return parseAustralianDate(formData.date) || new Date();
-    }
-    return new Date();
-  };
-
-  // Get selected time for picker
-  const getSelectedTime = () => {
-    if (formData.teeTime) {
-      return parseTime(formData.teeTime) || new Date();
-    }
-    return new Date();
-  };
+  const handleUpgradePress = useCallback(() => {
+    navigation.navigate('Subscription');
+  }, [navigation]);
 
   // Loading state
   if (isLoading) {
@@ -337,247 +186,52 @@ export default function EditRoundScreen({ navigation, route }: Props) {
         </Text>
 
         {/* Course Info (Read-only) */}
-        <View style={[styles.courseInfoSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.courseInfoRow}>
-            <View style={[styles.courseIcon, { backgroundColor: colors.primaryLighter }]}>
-              <Icon source="golf" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.courseDetails}>
-              <Text style={[styles.courseLabel, { color: colors.textSecondary }]}>Course</Text>
-              <Text style={[styles.courseName, { color: colors.textPrimary }]}>
-                {round.courses?.name || 'Unknown Course'}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <CourseSection courseName={round.courses?.name || 'Unknown Course'} />
 
         {/* Form Section */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {/* Date Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Date *</Text>
-            <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
-              <TextInput
-                mode="outlined"
-                value={formData.date}
-                placeholder="Select a date"
-                editable={false}
-                pointerEvents="none"
-                style={[styles.input, { backgroundColor: colors.surface }]}
-                outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
-                textColor={colors.textPrimary}
-                placeholderTextColor={colors.textTertiary}
-                right={
-                  <TextInput.Icon
-                    icon="calendar"
-                    onPress={() => setShowDatePicker(true)}
-                    color={colors.primary}
-                  />
-                }
-              />
-            </TouchableOpacity>
+        <View
+          style={[
+            styles.formSection,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <DateTimeSection
+            date={formData.date}
+            teeTime={formData.teeTime}
+            onDateChange={setDate}
+            onTeeTimeChange={setTeeTime}
+            onClearTeeTime={clearTeeTime}
+            getSelectedDate={getSelectedDate}
+            getSelectedTime={getSelectedTime}
+            disabled={isSubmitting}
+          />
 
-            {/* Date Picker */}
-            {showDatePicker &&
-              (Platform.OS === 'ios' ? (
-                <View
-                  style={[styles.datePickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                  <View style={[styles.datePickerHeader, { borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={handleDatePickerDismiss} style={styles.doneButton}>
-                      <Text style={[styles.doneButtonText, { color: colors.primary }]}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <DateTimePicker
-                    value={getSelectedDate()}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleDateChange}
-                  />
-                </View>
-              ) : (
-                <DateTimePicker
-                  value={getSelectedDate()}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                />
-              ))}
-          </View>
+          <GameTypeSection
+            value={formData.gameType}
+            onChange={setGameType}
+            disabled={isSubmitting}
+            allowedGameTypes={limits?.allowedGameTypes}
+            onUpgradePress={handleUpgradePress}
+          />
 
-          {/* Tee Time (Optional) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Tee Time (Optional)</Text>
-            <TouchableOpacity onPress={() => setShowTimePicker(true)} activeOpacity={0.7}>
-              <TextInput
-                mode="outlined"
-                value={formData.teeTime}
-                placeholder="Select tee time"
-                editable={false}
-                pointerEvents="none"
-                style={[styles.input, { backgroundColor: colors.surface }]}
-                outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
-                textColor={colors.textPrimary}
-                placeholderTextColor={colors.textTertiary}
-                right={
-                  formData.teeTime ? (
-                    <TextInput.Icon icon="close" onPress={clearTeeTime} color={colors.textTertiary} />
-                  ) : (
-                    <TextInput.Icon
-                      icon="clock-outline"
-                      onPress={() => setShowTimePicker(true)}
-                      color={colors.primary}
-                    />
-                  )
-                }
-              />
-            </TouchableOpacity>
-
-            {/* Time Picker */}
-            {showTimePicker &&
-              (Platform.OS === 'ios' ? (
-                <View
-                  style={[styles.datePickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                  <View style={[styles.datePickerHeader, { borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={handleTimePickerDismiss} style={styles.doneButton}>
-                      <Text style={[styles.doneButtonText, { color: colors.primary }]}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <DateTimePicker
-                    value={getSelectedTime()}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleTimeChange}
-                    minuteInterval={5}
-                  />
-                </View>
-              ) : (
-                <DateTimePicker
-                  value={getSelectedTime()}
-                  mode="time"
-                  display="default"
-                  onChange={handleTimeChange}
-                  minuteInterval={5}
-                />
-              ))}
-          </View>
-
-          {/* Game Type Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Format *</Text>
-            <RoundGameTypeSelector
-              value={formData.gameType}
-              onChange={handleGameTypeChange}
-              disabled={updateMutation.isPending}
-              allowedGameTypes={limits?.allowedGameTypes}
-              onUpgradePress={() => navigation.navigate('Subscription')}
-            />
-          </View>
-
-          {/* Tee Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Tee</Text>
-            <TeeSelector
-              tees={availableTees}
-              selectedTee={formData.selectedTee}
-              onSelect={handleTeeSelect}
-              disabled={updateMutation.isPending}
-            />
-          </View>
+          <TeesSection
+            tees={availableTees}
+            selectedTee={formData.selectedTee}
+            onSelectTee={setSelectedTee}
+            disabled={isSubmitting}
+          />
         </View>
 
-        {/* Scoring Pairs Section - Premium Only */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Scoring Pairs</Text>
-
-          {isPremium ? (
-            <>
-              {/* Toggle */}
-              <View style={styles.toggleContainer}>
-                <View style={styles.toggleContent}>
-                  <View style={[styles.toggleIcon, { backgroundColor: colors.primaryLighter }]}>
-                    <Icon source="account-switch" size={24} color={colors.primary} />
-                  </View>
-                  <View style={styles.toggleTextContainer}>
-                    <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
-                      Require Scoring Pairs
-                    </Text>
-                    <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
-                      Specify which players score each other
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={formData.scoringPairsRequired}
-                  onValueChange={handleScoringPairsToggle}
-                  trackColor={{ false: colors.border, true: colors.primaryLight }}
-                  thumbColor={formData.scoringPairsRequired ? colors.primary : colors.surfaceVariant}
-                  disabled={updateMutation.isPending}
-                />
-              </View>
-
-              {/* Shuffle Button - Only show if scoring pairs are enabled */}
-              {formData.scoringPairsRequired && (
-                <>
-                  <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
-                  <TouchableOpacity
-                    style={[styles.shuffleButton, { borderColor: colors.border }]}
-                    onPress={handleShuffleScoringPairs}
-                    disabled={shuffleMutation.isPending}
-                    activeOpacity={0.7}
-                  >
-                    <Icon
-                      source="shuffle-variant"
-                      size={20}
-                      color={shuffleMutation.isPending ? colors.textDisabled : colors.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.shuffleButtonText,
-                        { color: shuffleMutation.isPending ? colors.textDisabled : colors.primary },
-                      ]}
-                    >
-                      {shuffleMutation.isPending ? 'Shuffling...' : 'Shuffle Scoring Pairs'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.shuffleHint, { color: colors.textSecondary }]}>
-                    Clear existing pairs and generate new random assignments
-                  </Text>
-                </>
-              )}
-            </>
-          ) : (
-            // Locked for non-premium
-            <TouchableOpacity
-              style={styles.lockedContainer}
-              onPress={() => navigation.navigate('Subscription')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.toggleContent}>
-                <View style={[styles.toggleIcon, { backgroundColor: colors.surfaceVariant }]}>
-                  <Icon source="lock" size={24} color={colors.textSecondary} />
-                </View>
-                <View style={styles.toggleTextContainer}>
-                  <View style={styles.lockedLabelRow}>
-                    <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
-                      Require Scoring Pairs
-                    </Text>
-                    <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                      <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.toggleDescription, { color: colors.textTertiary }]}>
-                    Upgrade to Premium to assign designated markers
-                  </Text>
-                </View>
-              </View>
-              <Icon source="chevron-right" size={24} color={colors.textTertiary} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Scoring Pairs Section */}
+        <ScoringPairsSection
+          isPremium={isPremium}
+          scoringPairsRequired={formData.scoringPairsRequired}
+          onToggle={setScoringPairsRequired}
+          onShuffle={handleShuffleScoringPairs}
+          onUpgradePress={handleUpgradePress}
+          isSubmitting={isSubmitting}
+          isShuffling={isShuffling}
+        />
       </ScrollView>
 
       {/* Footer */}
@@ -596,9 +250,9 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           style={[
             styles.cancelButton,
             { borderColor: colors.border },
-            updateMutation.isPending && styles.buttonDisabled,
+            isSubmitting && styles.buttonDisabled,
           ]}
-          disabled={updateMutation.isPending}
+          disabled={isSubmitting}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
@@ -612,15 +266,15 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           style={[
             styles.saveButton,
             { backgroundColor: colors.primary },
-            (updateMutation.isPending || !isDirty) && { backgroundColor: colors.surfaceVariant },
+            (isSubmitting || !isDirty) && { backgroundColor: colors.surfaceVariant },
           ]}
-          disabled={updateMutation.isPending || !isDirty}
+          disabled={isSubmitting || !isDirty}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Save Changes"
-          accessibilityState={{ disabled: updateMutation.isPending || !isDirty }}
+          accessibilityState={{ disabled: isSubmitting || !isDirty }}
         >
-          {updateMutation.isPending ? (
+          {isSubmitting ? (
             <ActivityIndicator color={colors.textOnColored} size="small" />
           ) : (
             <Text
@@ -650,7 +304,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56, // Match BottomSheet HEADER_HEIGHT for consistency
+    height: 56,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
   },
@@ -696,39 +350,6 @@ const styles = StyleSheet.create({
   errorBackButtonText: {
     ...typography.bodyBold,
   },
-
-  // Course Info Section
-  courseInfoSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    ...shadows.sm,
-  },
-  courseInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  courseIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  courseDetails: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  courseLabel: {
-    ...typography.caption,
-  },
-  courseName: {
-    ...typography.bodyBold,
-    marginTop: 2,
-  },
-
-  // Form Section
   formSection: {
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
@@ -736,114 +357,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     ...shadows.sm,
   },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.md,
-  },
-  fieldContainer: {
-    marginBottom: spacing.lg,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
-  },
-  input: {},
-  datePickerContainer: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    ...shadows.sm,
-  },
-  doneButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  doneButtonText: {
-    ...typography.bodyBold,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    borderBottomWidth: 1,
-  },
-
-  // Toggle
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.md,
-  },
-  toggleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toggleTextContainer: {
-    flex: 1,
-  },
-  toggleLabel: {
-    ...typography.bodyBold,
-  },
-  toggleDescription: {
-    ...typography.small,
-    marginTop: 2,
-  },
-
-  // Locked state
-  lockedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lockedLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-
-  // Shuffle button
-  divider: {
-    marginVertical: spacing.md,
-  },
-  shuffleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  shuffleButtonText: {
-    ...typography.bodyBold,
-  },
-  shuffleHint: {
-    ...typography.caption,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-
-  // Footer
   footer: {
     flexDirection: 'row',
     padding: spacing.lg,

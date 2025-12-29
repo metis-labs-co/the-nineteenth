@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { FormInput } from './FormInput';
 
@@ -706,7 +707,7 @@ describe('FormInput', () => {
               onChangeText={setValue}
               testID="name-input"
             />
-            <text testID="value-display">{value}</text>
+            <Text testID="value-display">{value}</Text>
           </>
         );
       };

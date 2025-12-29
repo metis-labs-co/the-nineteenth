@@ -61,9 +61,15 @@ function createScorecardWithPlayer(
       golf_id: null,
       handicap_updated_at: null,
       photo_url: null,
+      home_venue_id: null,
+      push_enabled: true,
+      push_competition_updates: true,
+      push_friend_requests: true,
+      push_scorecard_updates: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
+    ball_totals: null,
   };
 }
 
@@ -77,10 +83,14 @@ function createRoundPlayer(id: string, name: string, handicap: number): RoundPla
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    pairing_id: 'pairing-1',
-    competition_player_id: `comp-player-${id}`,
+    has_scorecard: false,
   };
 }
 
@@ -481,6 +491,7 @@ export const NullPlayerData: Story = {
         total_gross: 72,
         total_net: 60,
         total_points: 36,
+        ball_totals: null,
         status: 'completed',
         submitted_at: null,
         submitted_by: null,

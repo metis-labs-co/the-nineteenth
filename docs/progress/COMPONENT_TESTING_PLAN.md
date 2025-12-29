@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 82 of 129 components (63.6%) have test coverage.
+This document outlines all **React components** that need testing in The Nineteenth golf app. Currently 83 of 129 components (64.3%) have test coverage.
 
 > **Note:** FriendSelector was already in the tested list but tests were fixed on 2024-12-25.
 
@@ -14,9 +14,10 @@ This document outlines all **React components** that need testing in The Ninetee
 
 ## Current Test Coverage
 
-### Components WITH Tests (82 total)
+### Components WITH Tests (83 total)
 | Component | Lines | Has Stories |
 |-----------|-------|-------------|
+| `src/components/common/SearchBar.tsx` | 106 | Yes |
 | `src/components/ai/GeneratedPreview.tsx` | 511 | Yes |
 | `src/components/ai/PromptInput.tsx` | 175 | Yes |
 | `src/components/ai/SuggestionChips.tsx` | 129 | Yes |
@@ -117,13 +118,13 @@ All Tier 2 components have been tested.
 
 All Tier 3 components have been tested.
 
-### TIER 4: Lower Priority (100-199 lines) - 29 components
+### TIER 4: Lower Priority (100-199 lines) - 28 components
 
 #### AI (0)
 All AI components have been tested.
 
-#### Common (1)
-- `SearchBar.tsx` (106)
+#### Common (0)
+All Common components have been tested.
 
 #### Competition Wizard (5)
 - `CompetitionHeaderCard.tsx` (230), `CourseSelectionModal.tsx` (221)
@@ -214,13 +215,13 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 | Tier | Components | % of Total |
 |------|------------|------------|
-| Already Tested | 82 | 63.6% |
+| Already Tested | 83 | 64.3% |
 | Tier 1 (Critical) | 0 | 0.0% |
 | Tier 2 (High) | 0 | 0.0% |
 | Tier 3 (Medium) | 0 | 0.0% |
-| Tier 4 (Lower) | 29 | 22.5% |
+| Tier 4 (Lower) | 28 | 21.7% |
 | Tier 5 (Small) | 3 | 2.3% |
-| **Total Needing Tests** | **32** | **24.8%** |
+| **Total Needing Tests** | **31** | **24.0%** |
 
 ---
 
@@ -311,6 +312,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/subscription/LimitIndicator.test.tsx`
 - `src/components/subscription/TierBadge.test.tsx`
 - `src/components/common/NotificationBell.test.tsx`
+- `src/components/common/SearchBar.test.tsx`
 
 ---
 
@@ -327,6 +329,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 **Status Legend:** PENDING | IN_PROGRESS | REVIEW | COMPLETED | BLOCKED
 
 ### Recent Test Additions:
+- **2024-12-27**: `SearchBar.tsx` - 57 tests, 37 stories (Tier 4 - Common COMPLETE)
 - **2024-12-26**: `NotificationBell.tsx` - 70 tests, 20 stories (Tier 4)
 - **2024-12-26**: `TierBadge.tsx` - 69 tests, 38 stories (Tier 4)
 - **2024-12-25**: `LimitIndicator.tsx` - 63 tests, 38 stories (Tier 4)

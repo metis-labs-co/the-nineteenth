@@ -23,6 +23,7 @@ import { usePlayer } from '@/hooks/usePlayer';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useStatsVisibility } from '@/store/settingsStore';
 import { spacing, borderRadius, shadows } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
 // Common components
@@ -231,7 +232,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
 
           {/* No stats warning */}
           {(!hasStats1 || !hasStats2) && (
-            <View style={[styles.noStatsCard, { backgroundColor: colors.warningLight + '30' }]}>
+            <View style={[styles.noStatsCard, { backgroundColor: withOpacity(colors.warningLight, 0.19) }]}>
               <Icon source="information" size={24} color={colors.warning} />
               <Text style={[styles.noStatsText, { color: colors.warningDark }]}>
                 {!hasStats1 && !hasStats2
@@ -247,7 +248,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
           {hasStats1 && hasStats2 && stats1 && stats2 && diffs && (
             <>
               {/* Overview Comparison */}
-              <SectionHeader title="Overview" icon="golf" primaryIcon={false} style={{ marginTop: spacing.xl }} />
+              <SectionHeader title="Overview" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Rounds"
@@ -280,7 +281,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Averages Comparison */}
-              <SectionHeader title="Averages" icon="chart-line" primaryIcon={false} style={{ marginTop: spacing.xl }} />
+              <SectionHeader title="Averages" icon="chart-line" primaryIcon={false} style={styles.sectionHeader} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Avg Score"
@@ -318,7 +319,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Score Distribution Comparison */}
-              <SectionHeader title="Score Distribution" icon="chart-bar" primaryIcon={false} style={{ marginTop: spacing.xl }} />
+              <SectionHeader title="Score Distribution" icon="chart-bar" primaryIcon={false} style={styles.sectionHeader} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <DistributionComparison
                   label="Eagles"
@@ -363,7 +364,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               </View>
 
               {/* Performance Records */}
-              <SectionHeader title="Best Performances" icon="medal" primaryIcon={false} style={{ marginTop: spacing.xl }} />
+              <SectionHeader title="Best Performances" icon="medal" primaryIcon={false} style={styles.sectionHeader} />
               <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <ComparisonRow
                   label="Best Score"
@@ -402,7 +403,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
               {/* Game Stats (Putting, FIR, GIR) - Shown based on settings */}
               {(showPutts || showFairwayHit || showGreenInRegulation) && (
                 <>
-                  <SectionHeader title="Game Stats" icon="golf" primaryIcon={false} style={{ marginTop: spacing.xl }} />
+                  <SectionHeader title="Game Stats" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
                   <View style={[styles.card, { backgroundColor: colors.surface }]}>
                     {/* Putting Comparison */}
                     {showPutts && (
@@ -482,6 +483,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.massive,
+  },
+  sectionHeader: {
+    marginTop: spacing.xl,
   },
   card: {
     borderRadius: borderRadius.lg,

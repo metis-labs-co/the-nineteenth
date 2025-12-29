@@ -2,4 +2,8 @@
  * Component exports for EditRoundScreen
  */
 
-export { TeeSelector } from './TeeSelector';
+export { CourseSection } from './CourseSection';
+export { DateTimeSection } from './DateTimeSection';
+export { GameTypeSection } from './GameTypeSection';
+export { TeesSection } from './TeesSection';
+export { ScoringPairsSection } from './ScoringPairsSection';

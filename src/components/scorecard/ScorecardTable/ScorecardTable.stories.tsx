@@ -130,9 +130,7 @@ function StoryWrapper({ children, title }: StoryWrapperProps) {
     <ScrollView style={styles.container}>
       {title && (
         <View style={styles.titleContainer}>
-          <View style={styles.titleText}>
-            {/* Title would be Text component but keeping simple for story */}
-          </View>
+          {/* Title container - content handled by story if needed */}
         </View>
       )}
       {children}
@@ -149,10 +147,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: '#FFFFFF',
     marginBottom: spacing.md,
-  },
-  titleText: {
-    fontSize: 18,
-    fontWeight: '600',
   },
 });
 

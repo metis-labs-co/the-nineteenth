@@ -84,8 +84,8 @@ const createPlayer = (id: string, name: string): Player => ({
   name,
   email: `${name.toLowerCase()}@example.com`,
   handicap: 10,
-  created_at: '2024-01-01',
-  updated_at: '2024-01-01',
+  createdAt: '2024-01-01',
+  updatedAt: '2024-01-01',
 });
 
 const createPlayers = (count: number): Player[] =>
@@ -116,7 +116,7 @@ const createDefaultProps = () => ({
   currentHole: 1,
   players: createPlayers(1),
   getPlayerHoleScore: getMockPlayerHoleScore,
-  isHoleComplete: jest.fn(() => false),
+  isHoleComplete: jest.fn((_holeNumber: number) => false),
   onHolePress: jest.fn(),
 });
 
@@ -279,7 +279,7 @@ describe('QuickScorecardView', () => {
 
     it('does not show complete state when isHoleComplete returns false', () => {
       const props = createDefaultProps();
-      props.isHoleComplete = jest.fn(() => false);
+      props.isHoleComplete = jest.fn((_holeNumber: number) => false);
       render(<QuickScorecardView {...props} />);
 
       const holeButtons = screen.getAllByRole('button');

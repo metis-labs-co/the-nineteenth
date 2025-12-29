@@ -35,7 +35,77 @@ import {
   createTestScorecard,
   createCompletedScorecard,
 } from './testFixtures';
-import type { Hole } from '@/types/database.types';
+import type { Hole, Player as DBPlayer } from '@/types/database.types';
+import type { Scorecard as AppScorecard, Player as AppPlayer } from '@/types';
+
+/**
+ * Helper to create an app-level Scorecard with player attached
+ * Converts from database type to app type and attaches the player
+ */
+function createScorecardWithPlayer(
+  playerId: string,
+  roundId: string,
+  holes: Hole[],
+  player: DBPlayer,
+  scoreOffset = 0
+): AppScorecard {
+  const dbScorecard = createCompletedScorecard(playerId, roundId, holes, scoreOffset);
+  return {
+    id: dbScorecard.id,
+    roundId: dbScorecard.round_id,
+    playerId: dbScorecard.player_id,
+    player: {
+      id: player.id,
+      name: player.name,
+      email: player.email,
+      phone: player.phone,
+      handicap: player.handicap ?? undefined,
+      photoUrl: player.photo_url,
+    } as AppPlayer,
+    scores: dbScorecard.scores as { [holeNumber: number]: any },
+    totalGross: dbScorecard.total_gross,
+    totalNet: dbScorecard.total_net,
+    status: dbScorecard.status,
+    submittedAt: dbScorecard.submitted_at ? new Date(dbScorecard.submitted_at) : undefined,
+    submittedBy: dbScorecard.submitted_by ?? undefined,
+    createdAt: new Date(dbScorecard.created_at),
+    updatedAt: new Date(dbScorecard.updated_at),
+  };
+}
+
+/**
+ * Helper to create an app-level Scorecard with custom scores and player attached
+ */
+function createCustomScorecardWithPlayer(
+  player: DBPlayer,
+  scores: { [holeNumber: string]: { strokes: number; putts?: number } }
+): AppScorecard {
+  const dbScorecard = createTestScorecard({
+    player_id: player.id,
+    scores: scores as any,
+  });
+  return {
+    id: dbScorecard.id,
+    roundId: dbScorecard.round_id,
+    playerId: dbScorecard.player_id,
+    player: {
+      id: player.id,
+      name: player.name,
+      email: player.email,
+      phone: player.phone,
+      handicap: player.handicap ?? undefined,
+      photoUrl: player.photo_url,
+    } as AppPlayer,
+    scores: dbScorecard.scores as { [holeNumber: number]: any },
+    totalGross: dbScorecard.total_gross,
+    totalNet: dbScorecard.total_net,
+    status: dbScorecard.status,
+    submittedAt: dbScorecard.submitted_at ? new Date(dbScorecard.submitted_at) : undefined,
+    submittedBy: dbScorecard.submitted_by ?? undefined,
+    createdAt: new Date(dbScorecard.created_at),
+    updatedAt: new Date(dbScorecard.updated_at),
+  };
+}
 
 // ============================================================================
 // Individual Scoring Tests
@@ -95,17 +165,17 @@ describe('Individual Scoring', () => {
       const player = createTestPlayer({ handicap: 18 });
 
       // Gross 5, 1 stroke received = Net 4
-      expect(calculateNetScore(5, player.handicap, hole)).toBe(4);
+      expect(calculateNetScore(5, player.handicap ?? 0, hole)).toBe(4);
 
       // Gross 4, 1 stroke received = Net 3
-      expect(calculateNetScore(4, player.handicap, hole)).toBe(3);
+      expect(calculateNetScore(4, player.handicap ?? 0, hole)).toBe(3);
     });
 
     it('handles no strokes received', () => {
       const hole = holes[0];
       const player = createTestPlayer({ handicap: 0 });
 
-      expect(calculateNetScore(5, player.handicap, hole)).toBe(5);
+      expect(calculateNetScore(5, player.handicap ?? 0, hole)).toBe(5);
     });
   });
 
@@ -630,7 +700,7 @@ describe('Statistics Calculation', () => {
       const holes = create18Holes();
       const scorecard = createCompletedScorecard('p1', 'r1', holes, 0);
 
-      const stats = calculateStatistics(scorecard, holes);
+      const stats = calculateStatistics(scorecard as any, holes);
 
       expect(stats.totalPutts).toBeGreaterThanOrEqual(0);
       expect(stats.avgPutts).toBeGreaterThanOrEqual(0);
@@ -641,7 +711,7 @@ describe('Statistics Calculation', () => {
       const holes = create18Holes();
       const scorecard = createTestScorecard({ scores: {} });
 
-      const stats = calculateStatistics(scorecard, holes);
+      const stats = calculateStatistics(scorecard as any, holes);
 
       expect(stats.totalPutts).toBe(0);
       expect(stats.avgPutts).toBe(0);
@@ -800,8 +870,7 @@ describe('Total Score Calculation', () => {
   describe('calculateTotalScore for Stroke Play', () => {
     it('calculates gross and net totals for stroke play', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 0);
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -815,8 +884,7 @@ describe('Total Score Calculation', () => {
 
     it('calculates correctly for over-par round', () => {
       const player = createTestPlayer({ handicap: 10 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 1); // +1 over par each hole
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 1); // +1 over par each hole
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -828,8 +896,7 @@ describe('Total Score Calculation', () => {
 
     it('calculates correctly for under-par round', () => {
       const player = createTestPlayer({ handicap: 5 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, -1); // -1 under par each hole
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, -1); // -1 under par each hole
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -841,8 +908,7 @@ describe('Total Score Calculation', () => {
 
     it('handles zero handicap player', () => {
       const player = createTestPlayer({ handicap: 0 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 0);
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -854,8 +920,7 @@ describe('Total Score Calculation', () => {
   describe('calculateTotalScore for Stableford', () => {
     it('calculates Stableford points correctly', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 0);
 
       const result = calculateTotalScore(scorecard, holes, 'stableford');
 
@@ -869,8 +934,7 @@ describe('Total Score Calculation', () => {
 
     it('handles high Stableford round (many eagles with 36 handicap)', () => {
       const player = createTestPlayer({ handicap: 36 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 0);
 
       const result = calculateTotalScore(scorecard, holes, 'stableford');
 
@@ -882,8 +946,7 @@ describe('Total Score Calculation', () => {
 
     it('handles low Stableford round (many double bogeys)', () => {
       const player = createTestPlayer({ handicap: 0 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 2); // Double bogey each hole
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 2); // Double bogey each hole
 
       const result = calculateTotalScore(scorecard, holes, 'stableford');
 
@@ -895,11 +958,7 @@ describe('Total Score Calculation', () => {
   describe('calculateTotalScore edge cases', () => {
     it('handles empty scorecard (no scores)', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createTestScorecard({
-        player_id: player.id,
-        scores: {},
-      });
-      scorecard.player = player;
+      const scorecard = createCustomScorecardWithPlayer(player, {});
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -909,15 +968,11 @@ describe('Total Score Calculation', () => {
 
     it('handles partial scorecard (only some holes scored)', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createTestScorecard({
-        player_id: player.id,
-        scores: {
-          '1': { strokes: 5, putts: 2 },
-          '2': { strokes: 4, putts: 2 },
-          '3': { strokes: 6, putts: 3 },
-        },
+      const scorecard = createCustomScorecardWithPlayer(player, {
+        '1': { strokes: 5, putts: 2 },
+        '2': { strokes: 4, putts: 2 },
+        '3': { strokes: 6, putts: 3 },
       });
-      scorecard.player = player;
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -927,8 +982,20 @@ describe('Total Score Calculation', () => {
     });
 
     it('handles missing player handicap (defaults to 0)', () => {
-      const scorecard = createCompletedScorecard('player-1', 'round-1', holes, 0);
+      const dbScorecard = createCompletedScorecard('player-1', 'round-1', holes, 0);
       // No player attached, so handicap defaults to 0
+      // Convert to app scorecard without player
+      const scorecard: AppScorecard = {
+        id: dbScorecard.id,
+        roundId: dbScorecard.round_id,
+        playerId: dbScorecard.player_id,
+        scores: dbScorecard.scores as { [holeNumber: number]: any },
+        totalGross: dbScorecard.total_gross,
+        totalNet: dbScorecard.total_net,
+        status: dbScorecard.status,
+        createdAt: new Date(dbScorecard.created_at),
+        updatedAt: new Date(dbScorecard.updated_at),
+      };
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -938,8 +1005,7 @@ describe('Total Score Calculation', () => {
 
     it('handles unsupported game type (neither stroke nor stableford)', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createCompletedScorecard(player.id, 'round-1', holes, 0);
-      scorecard.player = player;
+      const scorecard = createScorecardWithPlayer(player.id, 'round-1', holes, player, 0);
 
       // Cast to test unsupported game type
       const result = calculateTotalScore(scorecard, holes, 'match-play' as any);
@@ -952,15 +1018,11 @@ describe('Total Score Calculation', () => {
 
     it('skips holes with zero strokes', () => {
       const player = createTestPlayer({ handicap: 18 });
-      const scorecard = createTestScorecard({
-        player_id: player.id,
-        scores: {
-          '1': { strokes: 5, putts: 2 },
-          '2': { strokes: 0, putts: 0 }, // Not played
-          '3': { strokes: 4, putts: 2 },
-        },
+      const scorecard = createCustomScorecardWithPlayer(player, {
+        '1': { strokes: 5, putts: 2 },
+        '2': { strokes: 0, putts: 0 }, // Not played
+        '3': { strokes: 4, putts: 2 },
       });
-      scorecard.player = player;
 
       const result = calculateTotalScore(scorecard, holes, 'stroke');
 
@@ -1061,7 +1123,7 @@ describe('Edge Cases', () => {
         },
       });
 
-      const stats = calculateStatistics(scorecard, holes);
+      const stats = calculateStatistics(scorecard as any, holes);
 
       // Picked-up score of 10 on par 4 = +6 = doubleBogeyOrWorse
       expect(stats.doubleBogeyOrWorse).toBe(1);
@@ -1164,7 +1226,7 @@ describe('Edge Cases', () => {
         },
       });
 
-      const stats = calculateStatistics(scorecard, holes.slice(0, 6));
+      const stats = calculateStatistics(scorecard as any, holes.slice(0, 6));
 
       expect(stats.birdiesOrBetter).toBe(2); // Eagle + Birdie
       expect(stats.pars).toBe(1);
@@ -1190,7 +1252,7 @@ describe('Edge Cases', () => {
         };
       });
 
-      const stats = calculateStatistics(scorecard, holes);
+      const stats = calculateStatistics(scorecard as any, holes);
 
       expect(stats.fairwaysHit).toBe(fairwaysHit);
       expect(stats.fairwayPercentage).toBeCloseTo((fairwaysHit / par4And5Holes.length) * 100, 1);
@@ -1210,7 +1272,7 @@ describe('Edge Cases', () => {
         };
       });
 
-      const stats = calculateStatistics(scorecard, holes);
+      const stats = calculateStatistics(scorecard as any, holes);
 
       expect(stats.greensInRegulation).toBe(12);
       expect(stats.girPercentage).toBeCloseTo((12 / 18) * 100, 1);
@@ -1225,7 +1287,7 @@ describe('Edge Cases', () => {
         },
       });
 
-      const stats = calculateStatistics(scorecard, holes.slice(0, 3));
+      const stats = calculateStatistics(scorecard as any, holes.slice(0, 3));
 
       // Should handle missing putts gracefully (undefined || 0 = 0)
       expect(stats.totalPutts).toBe(3); // 0 + 2 + 1
@@ -1254,7 +1316,7 @@ describe('Edge Cases', () => {
         };
       });
 
-      const stats = calculateStatistics(scorecard, par3Holes);
+      const stats = calculateStatistics(scorecard as any, par3Holes);
 
       // With no par 4/5 holes, fairway percentage should be 0 (not NaN)
       expect(stats.fairwayPercentage).toBe(0);

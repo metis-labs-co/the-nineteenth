@@ -17,6 +17,7 @@ import { Text } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { IconTrophy, IconChartBar, IconChevronDown, IconChevronUp, IconUser } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
 // Enable LayoutAnimation on Android
@@ -207,9 +208,9 @@ export function TeamLeaderboardTable({
                 { borderBottomColor: colors.gray100 },
                 entry.hasCurrentUser && [
                   styles.tableRowHighlighted,
-                  { backgroundColor: colors.primaryLighter + '30' },
+                  { backgroundColor: withOpacity(colors.primaryLighter, 0.19) },
                 ],
-                isFirstPlace && [styles.tableRowFirst, { backgroundColor: colors.warningLight + '20' }],
+                isFirstPlace && [styles.tableRowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
               ]}
               onPress={() => toggleExpanded(entry.teamId)}
               activeOpacity={0.7}

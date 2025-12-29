@@ -139,49 +139,81 @@ const mockFriends: Friend[] = [
     id: 'friend-1',
     name: 'John Smith',
     email: 'john@example.com',
+    phone: null,
     handicap: 12,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: 'https://example.com/john.jpg',
-    friendship_status: 'accepted',
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    friendship_id: 'friendship-1',
+    friendship_status: 'accepted',
+    is_requester: true,
   },
   {
     id: 'friend-2',
     name: 'Jane Doe',
     email: 'jane@example.com',
+    phone: null,
     handicap: 18,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: null,
-    friendship_status: 'accepted',
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    friendship_id: 'friendship-2',
+    friendship_status: 'accepted',
+    is_requester: false,
   },
   {
     id: 'friend-3',
     name: 'Bob Wilson',
     email: 'bob@example.com',
+    phone: null,
     handicap: 8,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: 'https://example.com/bob.jpg',
-    friendship_status: 'accepted',
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    friendship_id: 'friendship-3',
+    friendship_status: 'accepted',
+    is_requester: true,
   },
   {
     id: 'friend-4',
     name: 'Alice Brown',
     email: 'alice@example.com',
+    phone: null,
     handicap: 24,
+    golf_id: null,
+    handicap_updated_at: null,
     photo_url: null,
-    friendship_status: 'pending', // Should not show - pending status
+    home_venue_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    friendship_id: 'friendship-4',
+    friendship_status: 'pending', // Should not show - pending status
+    is_requester: true,
   },
 ];
 
@@ -690,14 +722,14 @@ describe('AddPlayersBottomSheet', () => {
 
   describe('Edge Cases', () => {
     it('handles null handicap', () => {
-      const friendsWithNullHandicap = [
+      const friendsWithNullHandicap: Friend[] = [
         {
+          ...mockFriends[0],
           id: 'friend-null',
           name: 'No Handicap Player',
           email: 'nohandicap@example.com',
-          handicap: null,
+          handicap: null as unknown as number, // Test edge case
           photo_url: null,
-          friendship_status: 'accepted' as const,
         },
       ];
 
@@ -714,14 +746,14 @@ describe('AddPlayersBottomSheet', () => {
     });
 
     it('handles null email', () => {
-      const friendsWithNullEmail = [
+      const friendsWithNullEmail: Friend[] = [
         {
+          ...mockFriends[0],
           id: 'friend-null-email',
           name: 'No Email Player',
-          email: null,
+          email: null as unknown as string, // Test edge case
           handicap: 10,
           photo_url: null,
-          friendship_status: 'accepted' as const,
         },
       ];
 

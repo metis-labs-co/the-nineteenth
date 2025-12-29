@@ -855,16 +855,18 @@ describe('Competition Scenarios', () => {
     for (let i = 0; i < players.length; i++) {
       for (let j = i + 1; j < players.length; j++) {
         // Simulate match - lower handicap player has slight advantage
-        const playerAdvantage = players[j].handicap - players[i].handicap;
+        const playerIHandicap = players[i].handicap ?? 0;
+        const playerJHandicap = players[j].handicap ?? 0;
+        const playerAdvantage = playerJHandicap - playerIHandicap;
         const holeResults: MatchPlayHoleResult[] = [];
 
         for (const hole of holes) {
           // Higher handicap player scores worse on average
           const result = calculateMatchPlayHoleResultWithHandicaps(
             hole.par,
-            players[i].handicap,
+            playerIHandicap,
             hole.par + (playerAdvantage > 5 ? 1 : 0),
-            players[j].handicap,
+            playerJHandicap,
             hole
           );
           holeResults.push(result);

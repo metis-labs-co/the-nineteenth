@@ -3,4 +3,4 @@
  */
 
 export { default } from './CourseDetailScreen/index';
-export type { TeeSelectorProps, HoleTableProps, PlayingPartner, InitialCourseData } from './CourseDetailScreen/types';
+export type { HoleTableProps, PlayingPartner, InitialCourseData } from './CourseDetailScreen/types';

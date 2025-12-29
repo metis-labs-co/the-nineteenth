@@ -67,15 +67,11 @@ describe('RoundCard', () => {
   });
 
   const createMockTee = (overrides?: Partial<TeeBox>): TeeBox => ({
-    id: 'tee-1',
-    course_id: 'course-1',
     name: 'Blue Tees',
     color: 'blue',
-    total_yardage: 6500,
-    course_rating: 72.5,
-    slope_rating: 130,
-    created_at: '2025-01-01T00:00:00Z',
-    updated_at: '2025-01-01T00:00:00Z',
+    totalYardage: 6500,
+    courseRating: 72.5,
+    slopeRating: 130,
     ...overrides,
   });
 

@@ -18,7 +18,7 @@ import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundDetailsTab } from './index';
 import { create18Holes, createTestCourse, createTestRound } from '@/__tests__/utils/testFixtures';
 import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
-import type { Hole, GameType, RoundStatus } from '@/types/database.types';
+import type { Hole, GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // Store reference to mock navigate function
 const mockNavigate = jest.fn();
@@ -131,7 +131,7 @@ function createTestVenue() {
     id: 'venue-1',
     name: 'Test Golf Club',
     city: 'Melbourne',
-    state: 'VIC',
+    state: 'VIC' as AustralianState,
     address: '123 Golf Street',
   };
 }
@@ -163,7 +163,7 @@ function createCompetitionSummary(overrides: Partial<CompetitionSummary> = {}): 
     id: 'comp-1',
     name: 'Summer Championship',
     competition_type: 'event',
-    status: 'active',
+    status: 'in-progress' as CompetitionStatus,
     start_date: '2025-01-15',
     end_date: '2025-01-17',
     ...overrides,
@@ -180,10 +180,11 @@ function createRoundWithCourse(overrides: Partial<RoundWithCourse> = {}): RoundW
     date: '2025-01-15',
     tee_time: '08:00:00',
     game_type: 'stableford' as GameType,
-    selected_tee: { name: 'White', color: 'white' },
+    selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     is_team_round: false,
     team_format: null,
     scoring_pairs_required: false,
+    ball_count: 1,
     status: 'upcoming' as RoundStatus,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -357,7 +358,7 @@ describe('RoundDetailsTab', () => {
             id: 'venue-1',
             name: 'Royal Melbourne',
             city: '',
-            state: '',
+            state: null,
             address: '',
           },
         }),
@@ -482,7 +483,7 @@ describe('RoundDetailsTab', () => {
 
     it('displays selected tee name', () => {
       const round = createRoundWithCourse({
-        selected_tee: { name: 'Blue', color: 'blue' },
+        selected_tee: { name: 'Blue', color: 'blue', totalYardage: 6800 } as TeeBox,
       });
 
       render(<RoundDetailsTab round={round} />);
@@ -658,7 +659,7 @@ describe('RoundDetailsTab', () => {
 
     it('passes selected tee to hole table', () => {
       const round = createRoundWithCourse({
-        selected_tee: { name: 'Blue', color: 'blue' },
+        selected_tee: { name: 'Blue', color: 'blue', totalYardage: 6800 } as TeeBox,
       });
 
       render(<RoundDetailsTab round={round} />);
@@ -790,7 +791,7 @@ describe('RoundDetailsTab', () => {
         competition_id: null,
         user_id: null,
         round_number: 1,
-        course_id: null,
+        course_id: '',
         date: '2025-01-01',
         tee_time: null,
         game_type: 'stableford',
@@ -798,7 +799,8 @@ describe('RoundDetailsTab', () => {
         is_team_round: false,
         team_format: null,
         scoring_pairs_required: false,
-        status: 'draft',
+        ball_count: 1,
+        status: 'upcoming' as RoundStatus,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         course: null,
@@ -873,7 +875,7 @@ describe('RoundDetailsTab', () => {
             id: 'venue-1',
             name: 'Local Club',
             city: 'Sydney',
-            state: '',
+            state: null,
             address: '',
           },
         }),

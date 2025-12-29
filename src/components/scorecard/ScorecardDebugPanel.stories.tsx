@@ -62,10 +62,10 @@ type Story = StoryObj<typeof ScorecardDebugPanel>;
 // ===========================================================================
 
 const mockPlayers: Player[] = [
-  { id: 'player-1', name: 'John Smith', email: 'john@test.com', handicap: 15, phone: null, golf_id: null, handicap_updated_at: null, photo_url: null, created_at: '', updated_at: '' },
-  { id: 'player-2', name: 'Jane Doe', email: 'jane@test.com', handicap: 20, phone: null, golf_id: null, handicap_updated_at: null, photo_url: null, created_at: '', updated_at: '' },
-  { id: 'player-3', name: 'Bob Wilson', email: 'bob@test.com', handicap: 10, phone: null, golf_id: null, handicap_updated_at: null, photo_url: null, created_at: '', updated_at: '' },
-  { id: 'player-4', name: 'Alice Brown', email: 'alice@test.com', handicap: 25, phone: null, golf_id: null, handicap_updated_at: null, photo_url: null, created_at: '', updated_at: '' },
+  { id: 'player-1', name: 'John Smith', email: 'john@test.com', handicap: 15, phone: null },
+  { id: 'player-2', name: 'Jane Doe', email: 'jane@test.com', handicap: 20, phone: null },
+  { id: 'player-3', name: 'Bob Wilson', email: 'bob@test.com', handicap: 10, phone: null },
+  { id: 'player-4', name: 'Alice Brown', email: 'alice@test.com', handicap: 25, phone: null },
 ];
 
 const mockTeams: TeamWithMembers[] = [
@@ -76,8 +76,8 @@ const mockTeams: TeamWithMembers[] = [
     created_at: '',
     updated_at: '',
     members: [
-      { team_id: 'team-1', player_id: 'player-1', joined_at: '', player: mockPlayers[0] },
-      { team_id: 'team-1', player_id: 'player-2', joined_at: '', player: mockPlayers[1] },
+      { team_id: 'team-1', player_id: 'player-1', joined_at: '', player: mockPlayers[0] as any },
+      { team_id: 'team-1', player_id: 'player-2', joined_at: '', player: mockPlayers[1] as any },
     ],
   },
   {
@@ -87,8 +87,8 @@ const mockTeams: TeamWithMembers[] = [
     created_at: '',
     updated_at: '',
     members: [
-      { team_id: 'team-2', player_id: 'player-3', joined_at: '', player: mockPlayers[2] },
-      { team_id: 'team-2', player_id: 'player-4', joined_at: '', player: mockPlayers[3] },
+      { team_id: 'team-2', player_id: 'player-3', joined_at: '', player: mockPlayers[2] as any },
+      { team_id: 'team-2', player_id: 'player-4', joined_at: '', player: mockPlayers[3] as any },
     ],
   },
 ];

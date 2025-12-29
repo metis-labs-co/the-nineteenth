@@ -20,6 +20,11 @@ const meta: Meta<typeof BottomSheet> = {
   parameters: {
     layout: 'fullscreen',
   },
+  args: {
+    // Default args required by BottomSheetProps - wrapper handles these internally
+    visible: false,
+    onClose: () => {},
+  },
   argTypes: {
     visible: { control: 'boolean' },
     height: {
@@ -37,17 +42,28 @@ const meta: Meta<typeof BottomSheet> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof BottomSheet>;
+// Custom Story type - the wrapper handles visible and onClose internally,
+// so we use a more permissive type that doesn't require them in args
+type Story = Omit<StoryObj<typeof BottomSheet>, 'args'> & {
+  args?: Partial<React.ComponentProps<typeof BottomSheet>>;
+};
 
 // ===========================================================================
 // WRAPPER COMPONENT FOR INTERACTIVE STORIES
 // ===========================================================================
 
+// Wrapper props - visible and onClose are optional since the wrapper manages them
+type BottomSheetWrapperProps = Omit<React.ComponentProps<typeof BottomSheet>, 'visible' | 'onClose'> & {
+  buttonText?: string;
+  visible?: boolean;
+  onClose?: () => void;
+};
+
 function BottomSheetWrapper({
   children,
   buttonText = 'Open Bottom Sheet',
   ...props
-}: React.ComponentProps<typeof BottomSheet> & { buttonText?: string }) {
+}: BottomSheetWrapperProps) {
   const [visible, setVisible] = useState(props.visible ?? false);
 
   return (

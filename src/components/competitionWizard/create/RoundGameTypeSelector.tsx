@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, RadioButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
@@ -189,7 +190,7 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
           {
             borderColor: isSelected && isAllowed ? colors.primary : colors.gray300,
             backgroundColor: isSelected && isAllowed
-              ? colors.primaryLighter + '20'
+              ? withOpacity(colors.primaryLighter, 0.13)
               : !isAllowed
                 ? colors.surfaceVariant
                 : colors.surface,

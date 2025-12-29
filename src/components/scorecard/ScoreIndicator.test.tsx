@@ -1,8 +1,10 @@
 /**
  * ScoreIndicator Component Tests
  *
- * Tests for the ScoreIndicator component that displays golf scores
- * with visual styling based on performance relative to par:
+ * Tests for the unified ScoreIndicator component that displays golf scores
+ * with visual styling based on performance relative to par.
+ *
+ * Bordered display (default):
  * - Eagle or better (-2+): Double circle
  * - Birdie (-1): Single circle
  * - Par (0): No indicator (just text)
@@ -10,6 +12,10 @@
  * - Double bogey (+2+): Double square
  * - Pickup (10+): Red "P"
  * - No score (undefined/0): Dash "-"
+ *
+ * Compact display:
+ * - Uses colored backgrounds instead of borders
+ * - More space-efficient for individual scorecard views
  */
 
 import React from 'react';
@@ -24,6 +30,18 @@ jest.mock('@/utils/scoring', () => ({
     if (diff === 0) return '#3b82f6'; // Blue for par
     if (diff === 1) return '#f59e0b'; // Orange for bogey
     return '#ef4444'; // Red for double bogey or worse
+  },
+}));
+
+// Mock the display helpers utility
+jest.mock('@/utils/displayHelpers', () => ({
+  getScoreBackgroundColor: (score: number, par: number, colors: any) => {
+    const diff = score - par;
+    if (diff <= -2) return colors.eagleBackground || '#dcfce7';
+    if (diff === -1) return colors.birdieBackground || '#bbf7d0';
+    if (diff === 0) return colors.parBackground || '#dbeafe';
+    if (diff === 1) return colors.bogeyBackground || '#fef3c7';
+    return colors.doubleBogeyBackground || '#fee2e2';
   },
 }));
 
@@ -281,103 +299,103 @@ describe('ScoreIndicator', () => {
   // =========================================================================
 
   describe('Size Variants', () => {
-    describe('Small Size', () => {
+    describe('Small Size (sm)', () => {
       it('renders small size indicator', () => {
-        renderScoreIndicator({ strokes: 4, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 4, par: 4, size: 'sm' });
         expect(screen.getByText('4')).toBeTruthy();
       });
 
       it('renders small birdie', () => {
-        renderScoreIndicator({ strokes: 3, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 3, par: 4, size: 'sm' });
         expect(screen.getByText('3')).toBeTruthy();
       });
 
       it('renders small eagle', () => {
-        renderScoreIndicator({ strokes: 2, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 2, par: 4, size: 'sm' });
         expect(screen.getByText('2')).toBeTruthy();
       });
 
       it('renders small bogey', () => {
-        renderScoreIndicator({ strokes: 5, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 5, par: 4, size: 'sm' });
         expect(screen.getByText('5')).toBeTruthy();
       });
 
       it('renders small double bogey', () => {
-        renderScoreIndicator({ strokes: 6, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 6, par: 4, size: 'sm' });
         expect(screen.getByText('6')).toBeTruthy();
       });
 
       it('renders small pickup', () => {
-        renderScoreIndicator({ strokes: 10, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: 10, par: 4, size: 'sm' });
         expect(screen.getByText('P')).toBeTruthy();
       });
 
       it('renders small no score', () => {
-        renderScoreIndicator({ strokes: undefined, par: 4, size: 'small' });
+        renderScoreIndicator({ strokes: undefined, par: 4, size: 'sm' });
         expect(screen.getByText('-')).toBeTruthy();
       });
     });
 
-    describe('Medium Size (Default)', () => {
+    describe('Medium Size (md - Default)', () => {
       it('uses medium as default size', () => {
         renderScoreIndicator({ strokes: 4, par: 4 });
         expect(screen.getByText('4')).toBeTruthy();
       });
 
       it('renders medium birdie', () => {
-        renderScoreIndicator({ strokes: 3, par: 4, size: 'medium' });
+        renderScoreIndicator({ strokes: 3, par: 4, size: 'md' });
         expect(screen.getByText('3')).toBeTruthy();
       });
 
       it('renders medium eagle', () => {
-        renderScoreIndicator({ strokes: 2, par: 4, size: 'medium' });
+        renderScoreIndicator({ strokes: 2, par: 4, size: 'md' });
         expect(screen.getByText('2')).toBeTruthy();
       });
 
       it('renders medium bogey', () => {
-        renderScoreIndicator({ strokes: 5, par: 4, size: 'medium' });
+        renderScoreIndicator({ strokes: 5, par: 4, size: 'md' });
         expect(screen.getByText('5')).toBeTruthy();
       });
 
       it('renders medium double bogey', () => {
-        renderScoreIndicator({ strokes: 6, par: 4, size: 'medium' });
+        renderScoreIndicator({ strokes: 6, par: 4, size: 'md' });
         expect(screen.getByText('6')).toBeTruthy();
       });
     });
 
-    describe('Large Size', () => {
+    describe('Large Size (lg)', () => {
       it('renders large size indicator', () => {
-        renderScoreIndicator({ strokes: 4, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 4, par: 4, size: 'lg' });
         expect(screen.getByText('4')).toBeTruthy();
       });
 
       it('renders large birdie', () => {
-        renderScoreIndicator({ strokes: 3, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 3, par: 4, size: 'lg' });
         expect(screen.getByText('3')).toBeTruthy();
       });
 
       it('renders large eagle', () => {
-        renderScoreIndicator({ strokes: 2, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 2, par: 4, size: 'lg' });
         expect(screen.getByText('2')).toBeTruthy();
       });
 
       it('renders large bogey', () => {
-        renderScoreIndicator({ strokes: 5, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 5, par: 4, size: 'lg' });
         expect(screen.getByText('5')).toBeTruthy();
       });
 
       it('renders large double bogey', () => {
-        renderScoreIndicator({ strokes: 6, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 6, par: 4, size: 'lg' });
         expect(screen.getByText('6')).toBeTruthy();
       });
 
       it('renders large pickup', () => {
-        renderScoreIndicator({ strokes: 10, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: 10, par: 4, size: 'lg' });
         expect(screen.getByText('P')).toBeTruthy();
       });
 
       it('renders large no score', () => {
-        renderScoreIndicator({ strokes: undefined, par: 4, size: 'large' });
+        renderScoreIndicator({ strokes: undefined, par: 4, size: 'lg' });
         expect(screen.getByText('-')).toBeTruthy();
       });
     });
@@ -585,12 +603,27 @@ describe('ScoreIndicator', () => {
     });
 
     it('matches snapshot for small size birdie', () => {
-      const { toJSON } = renderScoreIndicator({ strokes: 3, par: 4, size: 'small' });
+      const { toJSON } = renderScoreIndicator({ strokes: 3, par: 4, size: 'sm' });
       expect(toJSON()).toMatchSnapshot();
     });
 
     it('matches snapshot for large size birdie', () => {
-      const { toJSON } = renderScoreIndicator({ strokes: 3, par: 4, size: 'large' });
+      const { toJSON } = renderScoreIndicator({ strokes: 3, par: 4, size: 'lg' });
+      expect(toJSON()).toMatchSnapshot();
+    });
+
+    it('matches snapshot for compact display birdie', () => {
+      const { toJSON } = renderScoreIndicator({ strokes: 3, par: 4, display: 'compact' });
+      expect(toJSON()).toMatchSnapshot();
+    });
+
+    it('matches snapshot for compact display par', () => {
+      const { toJSON } = renderScoreIndicator({ strokes: 4, par: 4, display: 'compact' });
+      expect(toJSON()).toMatchSnapshot();
+    });
+
+    it('matches snapshot for compact display bogey', () => {
+      const { toJSON } = renderScoreIndicator({ strokes: 5, par: 4, display: 'compact' });
       expect(toJSON()).toMatchSnapshot();
     });
   });
@@ -616,6 +649,120 @@ describe('ScoreIndicator', () => {
       renderScoreIndicator({ strokes: undefined, par: 4 });
       const dashText = screen.getByText('-');
       expect(dashText).toBeTruthy();
+    });
+  });
+
+  // =========================================================================
+  // COMPACT DISPLAY MODE
+  // =========================================================================
+
+  describe('Compact Display Mode', () => {
+    describe('Rendering', () => {
+      it('renders compact mode without crashing', () => {
+        expect(() => renderScoreIndicator({ strokes: 4, par: 4, display: 'compact' })).not.toThrow();
+      });
+
+      it('renders compact mode with score', () => {
+        renderScoreIndicator({ strokes: 4, par: 4, display: 'compact' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+
+      it('uses bordered as default display mode', () => {
+        renderScoreIndicator({ strokes: 4, par: 4 });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+    });
+
+    describe('Score Types in Compact Mode', () => {
+      it('displays eagle in compact mode', () => {
+        renderScoreIndicator({ strokes: 2, par: 4, display: 'compact' });
+        expect(screen.getByText('2')).toBeTruthy();
+      });
+
+      it('displays birdie in compact mode', () => {
+        renderScoreIndicator({ strokes: 3, par: 4, display: 'compact' });
+        expect(screen.getByText('3')).toBeTruthy();
+      });
+
+      it('displays par in compact mode', () => {
+        renderScoreIndicator({ strokes: 4, par: 4, display: 'compact' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+
+      it('displays bogey in compact mode', () => {
+        renderScoreIndicator({ strokes: 5, par: 4, display: 'compact' });
+        expect(screen.getByText('5')).toBeTruthy();
+      });
+
+      it('displays double bogey in compact mode', () => {
+        renderScoreIndicator({ strokes: 6, par: 4, display: 'compact' });
+        expect(screen.getByText('6')).toBeTruthy();
+      });
+
+      it('displays pickup in compact mode', () => {
+        renderScoreIndicator({ strokes: 10, par: 4, display: 'compact' });
+        expect(screen.getByText('P')).toBeTruthy();
+      });
+
+      it('displays no score in compact mode', () => {
+        renderScoreIndicator({ strokes: undefined, par: 4, display: 'compact' });
+        expect(screen.getByText('-')).toBeTruthy();
+      });
+    });
+
+    describe('Size Variants in Compact Mode', () => {
+      it('renders small compact indicator', () => {
+        renderScoreIndicator({ strokes: 4, par: 4, display: 'compact', size: 'sm' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+
+      it('renders medium compact indicator', () => {
+        renderScoreIndicator({ strokes: 4, par: 4, display: 'compact', size: 'md' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+
+      it('renders large compact indicator', () => {
+        renderScoreIndicator({ strokes: 4, par: 4, display: 'compact', size: 'lg' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+    });
+
+    describe('Par Variations in Compact Mode', () => {
+      it('displays birdie on par 3 in compact mode', () => {
+        renderScoreIndicator({ strokes: 2, par: 3, display: 'compact' });
+        expect(screen.getByText('2')).toBeTruthy();
+      });
+
+      it('displays par on par 5 in compact mode', () => {
+        renderScoreIndicator({ strokes: 5, par: 5, display: 'compact' });
+        expect(screen.getByText('5')).toBeTruthy();
+      });
+
+      it('displays bogey on par 3 in compact mode', () => {
+        renderScoreIndicator({ strokes: 4, par: 3, display: 'compact' });
+        expect(screen.getByText('4')).toBeTruthy();
+      });
+    });
+  });
+
+  // =========================================================================
+  // DISPLAY MODE PROP
+  // =========================================================================
+
+  describe('Display Mode Prop', () => {
+    it('defaults to bordered display', () => {
+      renderScoreIndicator({ strokes: 4, par: 4 });
+      expect(screen.getByText('4')).toBeTruthy();
+    });
+
+    it('accepts bordered display explicitly', () => {
+      renderScoreIndicator({ strokes: 4, par: 4, display: 'bordered' });
+      expect(screen.getByText('4')).toBeTruthy();
+    });
+
+    it('accepts compact display', () => {
+      renderScoreIndicator({ strokes: 4, par: 4, display: 'compact' });
+      expect(screen.getByText('4')).toBeTruthy();
     });
   });
 });

@@ -6,7 +6,8 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import type { Scorecard, HoleScore, Hole, PendingSync } from '@/types';
+import type { Scorecard, HoleScore, Hole, PendingSync, MultiBallHoleScore } from '@/types';
+import { isMultiBallScore } from '@/types/database/base';
 import { dbLogger } from '@/utils/debugLogger';
 
 const DB_NAME = 'the_nineteenth.db';
@@ -54,22 +55,32 @@ export async function initDatabase(): Promise<void> {
     }
 
     // Create hole_scores table
+    // Note: strokes can be NULL for multi-ball scores (stored in ball_scores instead)
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS hole_scores (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         scorecard_id TEXT NOT NULL,
         hole_number INTEGER NOT NULL,
-        strokes INTEGER NOT NULL,
+        strokes INTEGER,
         putts INTEGER,
         fairway_hit INTEGER,
         green_in_regulation INTEGER,
         penalties INTEGER DEFAULT 0,
+        ball_scores TEXT,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (scorecard_id) REFERENCES scorecards(id),
         UNIQUE(scorecard_id, hole_number)
       );
     `);
     dbLogger.debug('Hole scores table ready');
+
+    // Migration: Add ball_scores column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync(`ALTER TABLE hole_scores ADD COLUMN ball_scores TEXT`);
+      dbLogger.debug('Added ball_scores column');
+    } catch {
+      // Column already exists, ignore
+    }
 
     // Create pending_syncs table for tracking changes
     await db.execAsync(`
@@ -179,31 +190,55 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
 }
 
 /**
- * Save a single hole score
+ * Save a single hole score (supports both single-ball and multi-ball scores)
  */
 export async function saveHoleScore(
   scorecardId: string,
   holeNumber: number,
-  score: HoleScore
+  score: HoleScore | MultiBallHoleScore
 ): Promise<void> {
   const database = await getDb();
   const now = new Date().toISOString();
 
-  await database.runAsync(
-    `INSERT OR REPLACE INTO hole_scores
-     (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      scorecardId,
-      holeNumber,
-      score.strokes,
-      score.putts ?? null,
-      score.fairwayHit ? 1 : 0,
-      score.greenInRegulation ? 1 : 0,
-      score.penalties ?? 0,
-      now,
-    ]
-  );
+  if (isMultiBallScore(score)) {
+    // Multi-ball score: serialize balls array to JSON
+    // Use strokes=0 as placeholder for NOT NULL constraint compatibility with older databases
+    const ballScoresJson = JSON.stringify(score.balls);
+    await database.runAsync(
+      `INSERT OR REPLACE INTO hole_scores
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        scorecardId,
+        holeNumber,
+        0, // Placeholder for multi-ball (actual scores in ball_scores)
+        null,
+        0,
+        0,
+        0,
+        ballScoresJson,
+        now,
+      ]
+    );
+  } else {
+    // Single-ball score: store normally
+    await database.runAsync(
+      `INSERT OR REPLACE INTO hole_scores
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        scorecardId,
+        holeNumber,
+        score.strokes,
+        score.putts ?? null,
+        score.fairwayHit ? 1 : 0,
+        score.greenInRegulation ? 1 : 0,
+        score.penalties ?? 0,
+        null, // No ball_scores for single-ball
+        now,
+      ]
+    );
+  }
 }
 
 /**
@@ -262,11 +297,11 @@ export async function getScorecardsByRound(roundId: string): Promise<Scorecard[]
 }
 
 /**
- * Get hole scores for a scorecard
+ * Get hole scores for a scorecard (supports both single-ball and multi-ball scores)
  */
 export async function getHoleScores(
   scorecardId: string
-): Promise<{ [holeNumber: number]: HoleScore }> {
+): Promise<{ [holeNumber: number]: HoleScore | MultiBallHoleScore }> {
   const database = await getDb();
 
   const rows = await database.getAllAsync<{
@@ -276,18 +311,36 @@ export async function getHoleScores(
     fairway_hit: number;
     green_in_regulation: number;
     penalties: number;
+    ball_scores: string | null;
   }>('SELECT * FROM hole_scores WHERE scorecard_id = ?', [scorecardId]);
 
-  const scores: { [holeNumber: number]: HoleScore } = {};
+  const scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore } = {};
 
   for (const row of rows) {
-    scores[row.hole_number] = {
-      strokes: row.strokes,
-      putts: row.putts ?? undefined,
-      fairwayHit: row.fairway_hit === 1,
-      greenInRegulation: row.green_in_regulation === 1,
-      penalties: row.penalties,
-    };
+    if (row.ball_scores) {
+      // Multi-ball score: parse JSON ball data
+      try {
+        const balls = JSON.parse(row.ball_scores) as HoleScore[];
+        scores[row.hole_number] = { balls };
+      } catch (error) {
+        dbLogger.warn('Failed to parse ball_scores JSON', {
+          scorecardId: scorecardId.substring(0, 8) + '...',
+          holeNumber: row.hole_number,
+          error,
+        });
+        // Fallback to empty balls array
+        scores[row.hole_number] = { balls: [] };
+      }
+    } else {
+      // Single-ball score
+      scores[row.hole_number] = {
+        strokes: row.strokes,
+        putts: row.putts ?? undefined,
+        fairwayHit: row.fairway_hit === 1,
+        greenInRegulation: row.green_in_regulation === 1,
+        penalties: row.penalties,
+      };
+    }
   }
 
   return scores;

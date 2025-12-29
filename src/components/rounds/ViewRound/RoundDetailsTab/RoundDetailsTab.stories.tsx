@@ -15,7 +15,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { RoundDetailsTab } from './index';
 import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
-import type { Hole, GameType, RoundStatus, CompetitionType, TeamFormat } from '@/types/database.types';
+import type { Hole, GameType, RoundStatus, CompetitionType, TeamFormat, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // ===========================================================================
 // HELPER FUNCTIONS
@@ -42,7 +42,7 @@ function createVenue(overrides = {}) {
     id: 'venue-1',
     name: 'Royal Melbourne Golf Club',
     city: 'Melbourne',
-    state: 'VIC',
+    state: 'VIC' as AustralianState,
     address: '123 Golf Lane',
     ...overrides,
   };
@@ -74,7 +74,7 @@ function createCompetition(overrides: Partial<CompetitionSummary> = {}): Competi
     id: 'comp-1',
     name: 'Summer Championship 2025',
     competition_type: 'event',
-    status: 'active',
+    status: 'in-progress' as CompetitionStatus,
     start_date: '2025-01-15',
     end_date: '2025-01-17',
     ...overrides,
@@ -91,10 +91,11 @@ function createRound(overrides: Partial<RoundWithCourse> = {}): RoundWithCourse 
     date: '2025-01-15',
     tee_time: '08:00:00',
     game_type: 'stableford',
-    selected_tee: { name: 'White', color: 'white' },
+    selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     is_team_round: false,
     team_format: null,
     scoring_pairs_required: false,
+    ball_count: 1,
     status: 'upcoming',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -195,17 +196,11 @@ export const CompletedRound: Story = {
   },
 };
 
-export const DraftRound: Story = {
+export const UpcomingOrganizerView: Story = {
   args: {
-    round: createRound({ status: 'draft' }),
+    round: createRound({ status: 'upcoming' }),
     isOrganizer: true,
     onEditPress: () => console.log('Edit pressed'),
-  },
-};
-
-export const CancelledRound: Story = {
-  args: {
-    round: createRound({ status: 'cancelled' }),
   },
 };
 
@@ -314,7 +309,7 @@ export const CourseWithNoHoles: Story = {
 export const BlueTeeSelected: Story = {
   args: {
     round: createRound({
-      selected_tee: { name: 'Blue', color: 'blue' },
+      selected_tee: { name: 'Blue', color: 'blue', totalYardage: 6800 } as TeeBox,
     }),
   },
 };
@@ -322,7 +317,7 @@ export const BlueTeeSelected: Story = {
 export const WhiteTeeSelected: Story = {
   args: {
     round: createRound({
-      selected_tee: { name: 'White', color: 'white' },
+      selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     }),
   },
 };
@@ -330,7 +325,7 @@ export const WhiteTeeSelected: Story = {
 export const RedTeeSelected: Story = {
   args: {
     round: createRound({
-      selected_tee: { name: 'Red', color: 'red' },
+      selected_tee: { name: 'Red', color: 'red', totalYardage: 5600 } as TeeBox,
     }),
   },
 };
@@ -508,7 +503,7 @@ export const CasualRound: Story = {
       status: 'upcoming',
       competition: null,
       tee_time: '14:30:00',
-      selected_tee: { name: 'White', color: 'white' },
+      selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     }),
   },
 };
@@ -589,7 +584,7 @@ export const MinimalData: Story = {
       competition_id: null,
       user_id: null,
       round_number: 1,
-      course_id: null,
+      course_id: '',
       date: '2025-01-01',
       tee_time: null,
       game_type: 'stableford',
@@ -597,7 +592,8 @@ export const MinimalData: Story = {
       is_team_round: false,
       team_format: null,
       scoring_pairs_required: false,
-      status: 'draft',
+      ball_count: 1,
+      status: 'upcoming' as RoundStatus,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       course: null,

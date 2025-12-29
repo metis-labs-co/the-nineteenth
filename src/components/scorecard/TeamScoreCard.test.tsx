@@ -72,7 +72,7 @@ jest.mock('react-native-paper', () => {
   };
 
   // Create a mock Menu component with Item sub-component
-  const Menu = ({ children, visible, anchor, onDismiss }) => {
+  const Menu = ({ children, visible, anchor, onDismiss }: { children: React.ReactNode; visible: boolean; anchor: React.ReactNode; onDismiss: () => void }) => {
     return React.createElement(
       View,
       { testID: 'menu-container' },
@@ -83,7 +83,7 @@ jest.mock('react-native-paper', () => {
     );
   };
 
-  Menu.Item = ({ title, onPress, leadingIcon }) => {
+  Menu.Item = ({ title, onPress, leadingIcon }: { title: string; onPress: () => void; leadingIcon?: string }) => {
     return React.createElement(
       TouchableOpacity,
       { onPress, testID: `menu-item-${title}` },
@@ -95,33 +95,33 @@ jest.mock('react-native-paper', () => {
   return {
     MD3LightTheme: mockTheme,
     MD3DarkTheme: mockDarkTheme,
-    Provider: ({ children }) => children,
-    PaperProvider: ({ children }) => children,
-    Text: ({ children, style, variant, numberOfLines, ...props }) =>
+    Provider: ({ children }: { children: React.ReactNode }) => children,
+    PaperProvider: ({ children }: { children: React.ReactNode }) => children,
+    Text: ({ children, style, variant, numberOfLines, ...props }: { children?: React.ReactNode; style?: object; variant?: string; numberOfLines?: number; [key: string]: unknown }) =>
       React.createElement(RNText, { style, numberOfLines, ...props }, children),
-    TextInput: ({ label, value, onChangeText, style, ...props }) =>
+    TextInput: ({ label, value, onChangeText, style, ...props }: { label?: string; value?: string; onChangeText?: (text: string) => void; style?: object; [key: string]: unknown }) =>
       React.createElement(RNText, { ...props }, value || label),
-    Button: ({ children, onPress, mode, style, ...props }) =>
+    Button: ({ children, onPress, mode, style, ...props }: { children?: React.ReactNode; onPress?: () => void; mode?: string; style?: object; [key: string]: unknown }) =>
       React.createElement(
         View,
         { ...props, onPress },
         React.createElement(RNText, null, children)
       ),
-    IconButton: ({ icon, onPress, ...props }) =>
+    IconButton: ({ icon, onPress, ...props }: { icon: string; onPress?: () => void; [key: string]: unknown }) =>
       React.createElement(View, { testID: `icon-button-${icon}`, onPress, ...props }),
-    Icon: ({ source, size, color }) =>
+    Icon: ({ source, size, color }: { source: string; size?: number; color?: string }) =>
       React.createElement(View, { testID: `icon-${source}`, style: { width: size, height: size } }),
-    ActivityIndicator: ({ animating, color, size, ...props }) =>
+    ActivityIndicator: ({ animating, color, size, ...props }: { animating?: boolean; color?: string; size?: number | string; [key: string]: unknown }) =>
       React.createElement(View, { testID: 'activity-indicator', ...props }),
-    Surface: ({ children, style, ...props }) =>
+    Surface: ({ children, style, ...props }: { children?: React.ReactNode; style?: object; [key: string]: unknown }) =>
       React.createElement(View, { style, ...props }, children),
-    Card: ({ children, style, ...props }) =>
+    Card: ({ children, style, ...props }: { children?: React.ReactNode; style?: object; [key: string]: unknown }) =>
       React.createElement(View, { style, ...props }, children),
-    Divider: ({ style, ...props }) =>
+    Divider: ({ style, ...props }: { style?: object; [key: string]: unknown }) =>
       React.createElement(View, { style: [{ height: 1, backgroundColor: '#ccc' }, style], ...props }),
     Menu,
     useTheme: () => mockTheme,
-    withTheme: (Component) => (props) => React.createElement(Component, { ...props, theme: mockTheme }),
+    withTheme: <T extends object>(Component: React.ComponentType<T>) => (props: T) => React.createElement(Component, { ...props, theme: mockTheme }),
     configureFonts: jest.fn(() => ({})),
   };
 });

@@ -59,7 +59,10 @@ import type {
   PasswordResetResponse,
 } from '@/types/auth';
 import type { Session, AuthError } from '@supabase/supabase-js';
-import type { Player } from '@/types/database.types';
+import type { Player, Database } from '@/types/database.types';
+
+// Type alias for player insert (Supabase Insert type)
+type PlayerInsert = Database['public']['Tables']['players']['Insert'];
 
 /**
  * Main authentication hook
@@ -645,18 +648,26 @@ export function useAuth(): UseAuthReturn {
       const email = userEmail || '';
       const defaultName = userMetadata?.name || email.split('@')[0] || 'Player';
 
-      const { data: newProfile, error: insertError } = await supabase
-        .from('players')
-        .upsert(
-          {
-            id: userId,
-            email: email,
-            name: defaultName,
-            handicap: userMetadata?.handicap ?? 0,
-            phone: userMetadata?.phone || null,
-          },
-          { onConflict: 'id' }
-        )
+      const playerData: PlayerInsert = {
+        id: userId,
+        email: email,
+        name: defaultName,
+        handicap: userMetadata?.handicap ?? 0,
+        phone: userMetadata?.phone || null,
+        golf_id: null,
+        handicap_updated_at: null,
+        photo_url: null,
+        home_venue_id: null,
+        push_enabled: true,
+        push_competition_updates: true,
+        push_friend_requests: true,
+        push_scorecard_updates: true,
+      };
+
+      // Note: Type assertion needed due to Supabase type inference limitation with Database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newProfile, error: insertError } = await (supabase.from('players') as any)
+        .upsert(playerData, { onConflict: 'id' })
         .select()
         .single();
 

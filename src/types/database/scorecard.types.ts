@@ -4,7 +4,7 @@
  */
 
 import type { ScorecardStatus } from './enums';
-import type { HoleScore } from './base';
+import type { HoleScore, MultiBallHoleScore, BallTotals } from './base';
 import type { Player } from './player.types';
 
 /**
@@ -18,12 +18,18 @@ export interface Scorecard {
   player_id: string; // UUID, references players(id)
 
   // Score Data (JSONB object)
-  scores: Record<string, HoleScore>; // e.g., { "1": { strokes: 4, putts: 2 }, "2": ... }
+  // Single-ball: { "1": { strokes: 4, putts: 2 }, "2": ... }
+  // Multi-ball: { "1": { balls: [{ strokes: 4 }, { strokes: 5 }] }, "2": ... }
+  scores: Record<string, HoleScore | MultiBallHoleScore>;
 
-  // Calculated Totals
+  // Calculated Totals (for single-ball or Ball 1 in multi-ball)
   total_gross: number; // Sum of all strokes
   total_net: number; // Gross - handicap adjustments
   total_points: number; // Stableford points
+
+  // Per-ball totals for multi-ball rounds (null for single-ball)
+  // Format: { "1": { gross, net, points }, "2": {...}, ... }
+  ball_totals: Record<string, BallTotals> | null;
 
   // Status
   status: ScorecardStatus;
@@ -48,7 +54,7 @@ export interface LeaderboardEntry {
   rank: number;
   player_id: string; // UUID
   player_name: string;
-  handicap: number; // NUMERIC(4,1)
+  handicap: number | null; // NUMERIC(4,1)
   total_gross: number;
   total_net: number;
   total_points: number; // Stableford points

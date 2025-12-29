@@ -18,7 +18,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import {
   ScorecardTable,
-  CompactScoreIndicator,
+  ScoreIndicator,
   type ScorecardTablePlayer,
 } from '@/components/scorecard';
 import {
@@ -32,7 +32,7 @@ import {
   INDIVIDUAL_TOTAL_WIDTH,
 } from '@/utils/scorecardLayout';
 import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
-import type { Hole, Player } from '@/types/database.types';
+import { isSingleBallScore, type Hole, type Player } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -148,10 +148,10 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
             </View>
             {holeList.map((hole) => {
               const score = scores?.[String(hole.number)];
-              const strokes = score?.strokes;
+              const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
               return (
                 <View key={hole.number} style={individualStyles.cell}>
-                  <CompactScoreIndicator strokes={strokes} par={hole.par} />
+                  <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
                 </View>
               );
             })}
@@ -169,7 +169,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
             </View>
             {holeList.map((hole) => {
               const score = scores?.[String(hole.number)];
-              const strokes = score?.strokes || 0;
+              const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
               const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
               const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
               return (

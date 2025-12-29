@@ -1,4 +1,5 @@
 import { Hole, GameType, Scorecard } from '@/types';
+import { isSingleBallScore } from '@/types/database/base';
 
 /**
  * Calculate the number of strokes a player receives on a specific hole
@@ -96,15 +97,22 @@ export function calculateTotalScore(
   let totalPoints = 0;
   
   holes.forEach((hole) => {
-    const holeScore = scorecard.scores[hole.number];
-    if (!holeScore?.strokes) return;
-    
-    totalGross += holeScore.strokes;
-    
+    const rawHoleScore = scorecard.scores[hole.number];
+    if (!rawHoleScore) return;
+
+    // Get strokes based on score type
+    const strokes = isSingleBallScore(rawHoleScore)
+      ? rawHoleScore.strokes
+      : rawHoleScore.balls?.[0]?.strokes; // Use first ball for multi-ball
+
+    if (!strokes) return;
+
+    totalGross += strokes;
+
     if (gameType === 'stroke') {
-      totalNet += calculateNetScore(holeScore.strokes, playerHandicap, hole);
+      totalNet += calculateNetScore(strokes, playerHandicap, hole);
     } else if (gameType === 'stableford') {
-      totalPoints += calculateStablefordPoints(holeScore.strokes, playerHandicap, hole);
+      totalPoints += calculateStablefordPoints(strokes, playerHandicap, hole);
       totalNet = totalPoints; // For stableford, net is points
     }
   });
@@ -179,8 +187,12 @@ export function getScoreColor(score: number, par: number): string {
 /**
  * Calculate statistics from hole scores
  * Accepts any object with a `scores` property matching the HoleScore format
+ * Works with both app-level (number keys) and database (string keys) Scorecard types
  */
-export function calculateStatistics(scorecard: Pick<Scorecard, 'scores'>, holes: Hole[]) {
+export function calculateStatistics(
+  scorecard: { scores: Record<string | number, { strokes: number; putts?: number; fairwayHit?: boolean; greenInRegulation?: boolean }> },
+  holes: Hole[]
+) {
   const scores = Object.values(scorecard.scores).filter((s) => s.strokes);
   
   if (scores.length === 0) {

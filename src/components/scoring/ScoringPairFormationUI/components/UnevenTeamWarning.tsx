@@ -84,7 +84,7 @@ export const UnevenTeamWarning = React.memo(function UnevenTeamWarning({
         <Text style={styles.explanationText}>
           {strategyUsed === 'wrap' ? (
             <>
-              <Text style={{ fontWeight: '600' }}>Wrap strategy applied: </Text>
+              <Text style={styles.boldText}>Wrap strategy applied: </Text>
               {sizeDifference === 1
                 ? `${reusedPlayerNames} from the smaller team will score ${extraPairingsCount} additional player.`
                 : `${reusedPlayerNames} from the smaller team will score ${extraPairingsCount} additional players.`}
@@ -92,7 +92,7 @@ export const UnevenTeamWarning = React.memo(function UnevenTeamWarning({
             </>
           ) : (
             <>
-              <Text style={{ fontWeight: '600' }}>Partial strategy applied: </Text>
+              <Text style={styles.boldText}>Partial strategy applied: </Text>
               {unassignedPlayerIds.length === 1
                 ? `${unassignedPlayerNames} was left unassigned.`
                 : `${unassignedPlayerNames} were left unassigned.`}
@@ -168,6 +168,9 @@ const createStyles = (colors: ColorPalette) =>
       color: colors.textSecondary,
       flex: 1,
       lineHeight: 18,
+    },
+    boldText: {
+      fontWeight: '600',
     },
   });
 

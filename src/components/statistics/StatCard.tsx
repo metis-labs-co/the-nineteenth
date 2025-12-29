@@ -9,6 +9,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
 // =====================================================
@@ -57,7 +58,7 @@ export const StatCard = React.memo(function StatCard({
       >
         {icon && (
           <View
-            style={[styles.iconContainer, { backgroundColor: resolvedIconColor + '15' }]}
+            style={[styles.iconContainer, { backgroundColor: withOpacity(resolvedIconColor, 0.08) }]}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >

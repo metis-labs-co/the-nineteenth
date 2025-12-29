@@ -10,6 +10,9 @@
 
 import type { GameType } from './database.types';
 
+// Re-export GameType for convenience when working with subscription features
+export type { GameType };
+
 // =====================================================
 // MAPPER FUNCTIONS (DB <-> App)
 // =====================================================

@@ -1,22 +1,52 @@
 /**
  * HoleTable - Displays hole breakdown with OUT/IN/TOTAL summaries
+ *
+ * Super admins can tap on hole rows to edit hole data.
  */
 
-import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useMemo, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { useSettingsStore } from '@/store/settingsStore';
 import type { HoleTableProps } from '../types';
 import type { Hole } from '@/types/database.types';
 
-export function HoleTable({ holes, selectedTee }: HoleTableProps) {
+/**
+ * Converts yards to metres (1 yard = 0.9144 metres)
+ */
+function yardsToMetres(yards: number): number {
+  return Math.round(yards * 0.9144);
+}
+
+export function HoleTable({
+  holes,
+  selectedTee,
+  isSuperAdmin = false,
+  onHolePress,
+}: HoleTableProps) {
   const colors = useThemeColors();
+  const distanceUnit = useSettingsStore((state) => state.distanceUnit);
+  const useMetres = distanceUnit === 'metres';
 
   const headerBg = colors.surfaceVariant;
   const rowBg = colors.surface;
   const altRowBg = colors.surfaceVariant;
   const totalRowBg = colors.primaryLighter;
+
+  // Determine if rows should be tappable
+  const canEditHole = isSuperAdmin && onHolePress;
+
+  // Handle hole press
+  const handleHolePress = useCallback(
+    (hole: Hole) => {
+      if (canEditHole) {
+        onHolePress(hole);
+      }
+    },
+    [canEditHole, onHolePress]
+  );
 
   // Sort holes by number
   const sortedHoles = useMemo(
@@ -43,12 +73,22 @@ export function HoleTable({ holes, selectedTee }: HoleTableProps) {
   );
   const totalYardage = frontYardage + backYardage;
 
+  // Convert to display distance based on user preference
+  const formatDistance = (yards: number | undefined | null): string | number => {
+    if (!yards) return '-';
+    return useMetres ? yardsToMetres(yards) : yards;
+  };
+
+  // Distance column header based on user preference
+  const distanceHeader = useMetres ? 'Mtrs' : 'Yds';
+
   const renderHoleRow = (hole: Hole, index: number) => {
-    const yardage = selectedTee && hole.yardages?.[selectedTee];
+    const yardage = selectedTee ? hole.yardages?.[selectedTee] : undefined;
+    const displayDistance = formatDistance(yardage);
     const bgColor = index % 2 === 0 ? rowBg : altRowBg;
 
-    return (
-      <View key={hole.number} style={[styles.tableRow, { backgroundColor: bgColor }]}>
+    const rowContent = (
+      <>
         <View style={[styles.tableCell, styles.holeCellWide]}>
           <Text style={[styles.holeNumber, { color: colors.textPrimary }]}>{hole.number}</Text>
         </View>
@@ -60,31 +100,61 @@ export function HoleTable({ holes, selectedTee }: HoleTableProps) {
         </View>
         <View style={[styles.tableCell, styles.cellCenter]}>
           <Text style={[styles.cellText, { color: yardage ? colors.textPrimary : colors.textTertiary }]}>
-            {yardage || '-'}
+            {displayDistance}
+          </Text>
+        </View>
+        {canEditHole && (
+          <View style={styles.editIconCell}>
+            <Icon source="pencil-outline" size={14} color={colors.textSecondary} />
+          </View>
+        )}
+      </>
+    );
+
+    if (canEditHole) {
+      return (
+        <TouchableOpacity
+          key={hole.number}
+          style={[styles.tableRow, { backgroundColor: bgColor }]}
+          onPress={() => handleHolePress(hole)}
+          activeOpacity={0.7}
+          accessibilityLabel={`Edit hole ${hole.number}`}
+          accessibilityRole="button"
+          accessibilityHint="Opens editor for par, stroke index, and yardage"
+        >
+          {rowContent}
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View key={hole.number} style={[styles.tableRow, { backgroundColor: bgColor }]}>
+        {rowContent}
+      </View>
+    );
+  };
+
+  const renderTotalRow = (label: string, par: number, yardage: number) => {
+    const displayDistance = formatDistance(yardage);
+    return (
+      <View key={label} style={[styles.tableRow, styles.totalRow, { backgroundColor: totalRowBg }]}>
+        <View style={[styles.tableCell, styles.holeCellWide]}>
+          <Text style={[styles.totalLabel, { color: colors.primary }]}>{label}</Text>
+        </View>
+        <View style={[styles.tableCell, styles.cellCenter]}>
+          <Text style={[styles.totalValue, { color: colors.primary }]}>{par}</Text>
+        </View>
+        <View style={[styles.tableCell, styles.cellCenter]}>
+          <Text style={[styles.totalValue, { color: colors.primary }]}>-</Text>
+        </View>
+        <View style={[styles.tableCell, styles.cellCenter]}>
+          <Text style={[styles.totalValue, { color: yardage ? colors.primary : colors.textTertiary }]}>
+            {displayDistance}
           </Text>
         </View>
       </View>
     );
   };
-
-  const renderTotalRow = (label: string, par: number, yardage: number) => (
-    <View key={label} style={[styles.tableRow, styles.totalRow, { backgroundColor: totalRowBg }]}>
-      <View style={[styles.tableCell, styles.holeCellWide]}>
-        <Text style={[styles.totalLabel, { color: colors.primary }]}>{label}</Text>
-      </View>
-      <View style={[styles.tableCell, styles.cellCenter]}>
-        <Text style={[styles.totalValue, { color: colors.primary }]}>{par}</Text>
-      </View>
-      <View style={[styles.tableCell, styles.cellCenter]}>
-        <Text style={[styles.totalValue, { color: colors.primary }]}>-</Text>
-      </View>
-      <View style={[styles.tableCell, styles.cellCenter]}>
-        <Text style={[styles.totalValue, { color: yardage ? colors.primary : colors.textTertiary }]}>
-          {yardage || '-'}
-        </Text>
-      </View>
-    </View>
-  );
 
   return (
     <View style={[styles.tableContainer, { borderColor: colors.border }]}>
@@ -100,7 +170,7 @@ export function HoleTable({ holes, selectedTee }: HoleTableProps) {
           <Text style={[styles.headerText, { color: colors.textSecondary }]}>SI</Text>
         </View>
         <View style={[styles.tableCell, styles.cellCenter]}>
-          <Text style={[styles.headerText, { color: colors.textSecondary }]}>Yds</Text>
+          <Text style={[styles.headerText, { color: colors.textSecondary }]}>{distanceHeader}</Text>
         </View>
       </View>
 
@@ -126,7 +196,7 @@ export function HoleTable({ holes, selectedTee }: HoleTableProps) {
           </View>
           <View style={[styles.tableCell, styles.cellCenter]}>
             <Text style={[styles.grandTotalValue, { color: totalYardage ? colors.white : colors.gray300 }]}>
-              {totalYardage || '-'}
+              {formatDistance(totalYardage)}
             </Text>
           </View>
         </View>
@@ -188,6 +258,11 @@ const styles = StyleSheet.create({
   },
   grandTotalValue: {
     ...typography.bodyBold,
+  },
+  editIconCell: {
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -27,13 +27,21 @@ const createMockFriend = (overrides: Partial<Friend> = {}): Friend => ({
   id: 'friend-1',
   name: 'John Smith',
   email: 'john@example.com',
+  phone: null,
   handicap: 12,
+  golf_id: null,
+  handicap_updated_at: null,
   photo_url: 'https://i.pravatar.cc/150?u=john',
-  friendship_status: 'accepted',
+  home_venue_id: null,
   push_enabled: true,
   push_competition_updates: true,
   push_friend_requests: true,
   push_scorecard_updates: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  friendship_id: 'friendship-1',
+  friendship_status: 'accepted',
+  is_requester: true,
   ...overrides,
 });
 
@@ -58,9 +66,9 @@ const mockFriendsWithPending: Friend[] = [
 ];
 
 const mockFriendsWithoutDetails: Friend[] = [
-  createMockFriend({ id: 'friend-no-email', name: 'No Email Friend', email: null, handicap: 12 }),
-  createMockFriend({ id: 'friend-no-handicap', name: 'No Handicap Friend', email: 'friend@example.com', handicap: null }),
-  createMockFriend({ id: 'friend-minimal', name: 'Minimal Friend', email: null, handicap: null, photo_url: null }),
+  createMockFriend({ id: 'friend-no-email', name: 'No Email Friend', email: '' as string, handicap: 12 }),
+  createMockFriend({ id: 'friend-no-handicap', name: 'No Handicap Friend', email: 'friend@example.com', handicap: 0 }),
+  createMockFriend({ id: 'friend-minimal', name: 'Minimal Friend', email: '' as string, handicap: 0, photo_url: null }),
 ];
 
 const mockCurrentUser = {

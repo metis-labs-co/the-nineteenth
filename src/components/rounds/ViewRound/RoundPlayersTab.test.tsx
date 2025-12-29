@@ -343,8 +343,8 @@ describe('RoundPlayersTab', () => {
       expect(screen.getByText('pts')).toBeTruthy();
     });
 
-    it('displays 0 points when total_points is null', () => {
-      const scorecard = createScorecardWithPlayer({ total_points: null });
+    it('displays 0 points when total_points is undefined', () => {
+      const scorecard = createScorecardWithPlayer({ total_points: undefined });
       const holes = createTestHoles();
 
       render(<RoundPlayersTab scorecards={[scorecard]} holes={holes} />);
@@ -495,8 +495,8 @@ describe('RoundPlayersTab', () => {
       expect(screen.getByText('Not started')).toBeTruthy();
     });
 
-    it('shows Not started when scores is null', () => {
-      const scorecard = createScorecardWithPlayer({ scores: null });
+    it('shows Not started when scores is undefined', () => {
+      const scorecard = createScorecardWithPlayer({ scores: undefined });
       const holes = createTestHoles();
 
       render(<RoundPlayersTab scorecards={[scorecard]} holes={holes} />);

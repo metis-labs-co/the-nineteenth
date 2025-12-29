@@ -45,6 +45,11 @@ function createPlayer(
     golf_id: null,
     handicap_updated_at: null,
     photo_url: photoUrl,
+    home_venue_id: null,
+    push_enabled: true,
+    push_competition_updates: true,
+    push_friend_requests: true,
+    push_scorecard_updates: true,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   };

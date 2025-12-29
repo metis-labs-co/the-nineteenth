@@ -10,7 +10,7 @@
  * - Course tees storage
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parse, isValid } from 'date-fns';
 import type { TeeBox, Venue } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
@@ -19,6 +19,7 @@ import {
   useSearchVenues,
   useFavoriteCoursesWithVenues,
 } from '@/hooks/useVenues';
+import { useHomeVenue } from '@/hooks/useHomeVenue';
 import {
   type RoundDetailsFormData,
   type GameType,
@@ -109,10 +110,48 @@ export function useRoundDetailsForm({
   // Filter game types based on allowed types
   const availableGameTypes = getFilteredGameTypes(allowedGameTypes);
 
+  // Fetch home venue for pre-fill
+  const { data: homeVenue } = useHomeVenue();
+
+  // Create initial round with home venue's course if single-course venue
+  const createInitialRound = useCallback((): RoundDetailsFormData => {
+    const emptyRound = createEmptyRound(competitionStartDate);
+    // Only pre-fill if home venue has exactly 1 course
+    if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1) {
+      const singleCourse = homeVenue.courses[0];
+      return {
+        ...emptyRound,
+        courseId: singleCourse.id,
+        courseName: singleCourse.name,
+      };
+    }
+    return emptyRound;
+  }, [competitionStartDate, homeVenue]);
+
   // Rounds state - use competition start date as default for initial empty round
   const [rounds, setRounds] = useState<RoundDetailsFormData[]>(
     initialData && initialData.length > 0 ? initialData : [createEmptyRound(competitionStartDate)]
   );
+
+  // Pre-fill first empty round with home venue's course (if single-course venue) when it becomes available
+  useEffect(() => {
+    // Only pre-fill if home venue has exactly 1 course
+    if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1 && rounds.length === 1 && !rounds[0].courseId) {
+      const singleCourse = homeVenue.courses[0];
+      setRounds([{
+        ...rounds[0],
+        courseId: singleCourse.id,
+        courseName: singleCourse.name,
+      }]);
+      // Store tees if available
+      if (singleCourse.tees && singleCourse.tees.length > 0) {
+        setCourseTees((prev) => ({
+          ...prev,
+          [singleCourse.id]: singleCourse.tees as TeeBox[],
+        }));
+      }
+    }
+  }, [homeVenue, rounds]);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({});
@@ -164,6 +203,7 @@ export function useRoundDetailsForm({
         updated_at: venue.updated_at,
       },
       courses: venue.courses,
+      is_home: venue.is_home,
     }));
   }, [courseSearchQuery, searchResults, allVenues]);
 
@@ -193,9 +233,9 @@ export function useRoundDetailsForm({
 
   const addRound = useCallback(() => {
     if (rounds.length < effectiveMaxRounds) {
-      setRounds((prev) => [...prev, createEmptyRound(competitionStartDate)]);
+      setRounds((prev) => [...prev, createInitialRound()]);
     }
-  }, [rounds.length, effectiveMaxRounds, competitionStartDate]);
+  }, [rounds.length, effectiveMaxRounds, createInitialRound]);
 
   const removeRound = useCallback((index: number) => {
     setRounds((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
@@ -291,7 +331,7 @@ export function useRoundDetailsForm({
           selectedTee: {
             name: tee.name,
             color: tee.color,
-            totalYardage: tee.totalYardage,
+            totalYardage: tee.totalYardage ?? undefined,
             courseRating: tee.courseRating,
             slopeRating: tee.slopeRating,
           },
