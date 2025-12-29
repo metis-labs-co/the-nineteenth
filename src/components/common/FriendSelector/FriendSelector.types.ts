@@ -5,7 +5,7 @@
  * round creation (PartnersStep) and competition creation (AddPlayersStep).
  */
 
-import type { Friend } from '@/types/database.types';
+import type { Friend, PlaceholderPlayerWithStats } from '@/types/database.types';
 
 /**
  * Unified type for selected players (works with both Friend and Player types)
@@ -16,6 +16,8 @@ export interface SelectedPlayer {
   email?: string | null;
   handicap?: number | null;
   photo_url?: string | null;
+  /** True if this player is a placeholder/guest without an app account */
+  is_placeholder?: boolean;
 }
 
 /**
@@ -101,6 +103,17 @@ export interface FriendSelectorProps {
 
   /** Test ID prefix for testing */
   testID?: string;
+
+  // --- Placeholder player props ---
+
+  /** List of user's placeholder (guest) players */
+  placeholderPlayers?: PlaceholderPlayerWithStats[];
+
+  /** Callback when "Add Guest" button is pressed */
+  onAddPlaceholderPress?: () => void;
+
+  /** Label for add placeholder button (default: "Add Guest") */
+  addPlaceholderLabel?: string;
 }
 
 /**

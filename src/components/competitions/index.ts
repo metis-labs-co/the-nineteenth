@@ -2,6 +2,7 @@ export { CompetitionListCard } from './CompetitionListCard';
 export type {
   CompetitionListCardProps,
   CompetitionListCardData,
+  CompetitionWinnerInfo,
 } from './CompetitionListCard';
 
 // Competition Detail Tab Components

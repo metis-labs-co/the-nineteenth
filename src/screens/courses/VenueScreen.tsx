@@ -7,7 +7,7 @@
  * - Links to contact venue (phone, email, website)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -18,12 +18,13 @@ import {
   Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useVenueDetails } from '@/hooks/useVenueDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
+import { useHomeVenue, useSetHomeVenue } from '@/hooks/useHomeVenue';
 import { CourseCard } from '@/components/courses/CourseCard';
 import { PageHeader } from '@/components/common/PageHeader';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -100,8 +101,44 @@ export default function VenueScreen({ route, navigation }: Props) {
   // Favorite mutations
   const addFavorite = useAddCourseFavorite();
   const removeFavorite = useRemoveCourseFavorite();
-  const [togglingFavorite, setTogglingFavorite] = React.useState<string | null>(null);
+  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
+  // Home venue state
+  const { data: currentHomeVenue } = useHomeVenue();
+  const setHomeVenue = useSetHomeVenue();
+  const [showHomeConfirmDialog, setShowHomeConfirmDialog] = useState(false);
+  const [isSettingHome, setIsSettingHome] = useState(false);
+
+  // Check if this venue is the home venue
+  const isHomeVenue = venue?.id === currentHomeVenue?.id;
+
+  // Handle set as home venue
+  const handleSetAsHome = useCallback(() => {
+    if (!venue || isHomeVenue) return;
+
+    // If there's a different home venue, show confirmation
+    if (currentHomeVenue && currentHomeVenue.id !== venue.id) {
+      setShowHomeConfirmDialog(true);
+      return;
+    }
+
+    // Otherwise, set directly
+    performSetAsHome();
+  }, [venue, currentHomeVenue, isHomeVenue]);
+
+  const performSetAsHome = useCallback(async () => {
+    if (!venue) return;
+    setIsSettingHome(true);
+    try {
+      await setHomeVenue.mutateAsync(venue.id);
+      refetch();
+    } catch {
+      Alert.alert('Error', 'Failed to set home venue');
+    } finally {
+      setIsSettingHome(false);
+      setShowHomeConfirmDialog(false);
+    }
+  }, [venue, setHomeVenue, refetch]);
 
   // Handle course press - navigate to CourseScreen
   const handleCoursePress = useCallback(
@@ -277,6 +314,44 @@ export default function VenueScreen({ route, navigation }: Props) {
           </View>
         </View>
 
+        {/* Set as Home Venue Button */}
+        <TouchableOpacity
+          style={[
+            styles.homeVenueButton,
+            { borderTopColor: colors.border },
+            isHomeVenue && { backgroundColor: colors.primaryLighter },
+          ]}
+          activeOpacity={isHomeVenue ? 1 : 0.7}
+          onPress={handleSetAsHome}
+          disabled={isSettingHome || isHomeVenue}
+          accessibilityRole="button"
+          accessibilityLabel={isHomeVenue ? 'This is your home venue' : 'Set as home venue'}
+        >
+          {isSettingHome ? (
+            <GolfBallLoader size="sm" />
+          ) : (
+            <>
+              <Icon
+                source={isHomeVenue ? 'home' : 'home-outline'}
+                size={20}
+                color={isHomeVenue ? colors.primary : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.homeVenueButtonText,
+                  { color: isHomeVenue ? colors.primary : colors.textSecondary },
+                  isHomeVenue && styles.homeVenueButtonTextActive,
+                ]}
+              >
+                {isHomeVenue ? 'Your Home Venue' : 'Set as Home Venue'}
+              </Text>
+              {isHomeVenue && (
+                <Icon source="check" size={18} color={colors.primary} />
+              )}
+            </>
+          )}
+        </TouchableOpacity>
+
         {/* Full Address (if different from location) */}
         {venue.address && (
           <TouchableOpacity
@@ -365,6 +440,20 @@ export default function VenueScreen({ route, navigation }: Props) {
         )}
       </View>
     </ScrollView>
+
+      {/* Home Venue Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={showHomeConfirmDialog}
+        title="Change Home Venue?"
+        message={`You already have "${currentHomeVenue?.name}" set as your home venue. Would you like to replace it with "${venue?.name}"?`}
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        confirmVariant="primary"
+        onConfirm={performSetAsHome}
+        onCancel={() => setShowHomeConfirmDialog(false)}
+        loading={isSettingHome}
+        icon="home-switch"
+      />
     </View>
   );
 }
@@ -454,6 +543,21 @@ const styles = StyleSheet.create({
   },
   holesText: {
     ...typography.small,
+  },
+  homeVenueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
+    gap: spacing.sm,
+  },
+  homeVenueButtonText: {
+    ...typography.body,
+  },
+  homeVenueButtonTextActive: {
+    fontWeight: '600',
   },
   addressContainer: {
     flexDirection: 'row',

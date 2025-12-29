@@ -3,6 +3,7 @@
  *
  * Uses the PartnersStep design: custom View with border instead of Paper Chip.
  * Special styling for current user (darker background, no remove button).
+ * Shows "Guest" badge for placeholder players.
  */
 
 import React, { memo } from 'react';
@@ -18,6 +19,14 @@ export const SelectedPlayerChip = memo(function SelectedPlayerChip({
   isCurrentUser = false,
 }: SelectedPlayerChipProps) {
   const colors = useThemeColors();
+  const isPlaceholder = player.is_placeholder === true;
+
+  // Determine suffix text
+  const getSuffixText = () => {
+    if (isCurrentUser) return ' (You)';
+    if (isPlaceholder) return ' (Guest)';
+    return '';
+  };
 
   return (
     <View
@@ -37,7 +46,11 @@ export const SelectedPlayerChip = memo(function SelectedPlayerChip({
         numberOfLines={1}
       >
         {player.name}
-        {isCurrentUser && ' (You)'}
+        {getSuffixText() && (
+          <Text style={[styles.suffix, { color: isCurrentUser ? colors.white : colors.textSecondary }]}>
+            {getSuffixText()}
+          </Text>
+        )}
       </Text>
       {!isCurrentUser && onRemove && (
         <TouchableOpacity
@@ -67,5 +80,9 @@ const styles = StyleSheet.create({
   name: {
     ...typography.small,
     fontWeight: '600',
+  },
+  suffix: {
+    ...typography.caption,
+    fontWeight: '400',
   },
 });

@@ -7,6 +7,7 @@
 export { FriendSelector } from './FriendSelector';
 export { SelectedPlayerChip } from './SelectedPlayerChip';
 export { FriendListItem } from './FriendListItem';
+export { PlaceholderListItem } from './PlaceholderListItem';
 export type {
   FriendSelectorProps,
   SelectedPlayer,
@@ -15,3 +16,4 @@ export type {
   SelectedPlayerChipProps,
   FriendListItemProps,
 } from './FriendSelector.types';
+export type { PlaceholderListItemProps } from './PlaceholderListItem';

@@ -38,7 +38,13 @@ export type {
   Friend,
   FriendRequest,
   PlayerSearchResult,
+  // Placeholder player types
+  PlaceholderPlayerInput,
+  PlaceholderPlayerWithStats,
+  LinkablePlayer,
+  LinkPlaceholderResult,
 } from './player.types';
+export { isPlaceholderPlayer, isLinkedPlaceholder, isRealPlayer } from './player.types';
 
 // Competition types
 export type {

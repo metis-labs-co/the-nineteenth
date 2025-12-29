@@ -7,13 +7,15 @@
  * - Display selected partners as chips
  */
 
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconGolf } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
-import type { Friend, TeeBox, GameType } from '@/types/database.types';
+import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
+import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
+import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, MATCH_TYPES } from '../types';
 
@@ -46,6 +48,12 @@ export const PartnersStep = memo(function PartnersStep({
 }: PartnersStepProps) {
   const colors = useThemeColors();
 
+  // State for Add Guest modal
+  const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
+
+  // Fetch placeholder players
+  const { data: placeholderPlayers } = usePlaceholderPlayers();
+
   // Convert PlayingPartner[] to SelectedPlayer[] for FriendSelector
   const selectedPlayers: SelectedPlayer[] = useMemo(
     () =>
@@ -67,26 +75,66 @@ export const PartnersStep = memo(function PartnersStep({
       // Find added player
       for (const player of players) {
         if (!currentIds.has(player.id)) {
+          // Check if it's a friend
           const friend = friends?.find((f) => f.id === player.id);
           if (friend) {
             onTogglePartner(friend);
+            return;
           }
-          return;
+
+          // Check if it's a placeholder player
+          const placeholder = placeholderPlayers?.find((p) => p.id === player.id);
+          if (placeholder) {
+            // Cast to Friend - wizard only uses id, name, handicap
+            onTogglePartner({
+              id: placeholder.id,
+              name: placeholder.name,
+              handicap: placeholder.handicap,
+            } as Friend);
+            return;
+          }
         }
       }
 
       // Find removed player
       for (const partner of selectedPartners) {
         if (!newIds.has(partner.id)) {
+          // Check if it's a friend
           const friend = friends?.find((f) => f.id === partner.id);
           if (friend) {
             onTogglePartner(friend);
+            return;
           }
-          return;
+
+          // Check if it's a placeholder player
+          const placeholder = placeholderPlayers?.find((p) => p.id === partner.id);
+          if (placeholder) {
+            // Cast to Friend - wizard only uses id, name, handicap
+            onTogglePartner({
+              id: placeholder.id,
+              name: placeholder.name,
+              handicap: placeholder.handicap,
+            } as Friend);
+            return;
+          }
         }
       }
     },
-    [selectedPartners, friends, onTogglePartner]
+    [selectedPartners, friends, placeholderPlayers, onTogglePartner]
+  );
+
+  // Handle placeholder player creation - auto-add to selected players
+  const handlePlaceholderCreated = useCallback(
+    (player: Player) => {
+      // Cast to Friend - wizard only uses id, name, handicap
+      onTogglePartner({
+        id: player.id,
+        name: player.name,
+        handicap: player.handicap,
+      } as Friend);
+      setShowAddPlaceholderModal(false);
+    },
+    [onTogglePartner]
   );
 
   // Filter to accepted friends only
@@ -134,9 +182,12 @@ export const PartnersStep = memo(function PartnersStep({
         limits={{ max: MAX_PARTNERS, min: 0 }}
         limitIndicator={{ show: false }}
         selectedTitle={`Playing with (${selectedPartners.length}/${MAX_PARTNERS})`}
-        listTitle={`Select up to ${MAX_PARTNERS} friends (optional)`}
+        listTitle={`Select up to ${MAX_PARTNERS} players (optional)`}
         emptyMessage="Add friends from the Friends tab to play together"
         testID="partners-step"
+        placeholderPlayers={placeholderPlayers || []}
+        onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
+        addPlaceholderLabel="Add Guest"
       />
 
       {/* Continue Button */}
@@ -153,6 +204,13 @@ export const PartnersStep = memo(function PartnersStep({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Add Guest Modal */}
+      <AddPlaceholderModal
+        visible={showAddPlaceholderModal}
+        onClose={() => setShowAddPlaceholderModal(false)}
+        onPlayerCreated={handlePlaceholderCreated}
+      />
     </>
   );
 });

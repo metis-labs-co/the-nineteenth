@@ -18,7 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconGolf } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -27,7 +27,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureButton } from '@/components/common/FeatureButton';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
-import { useHomeVenue, useSetHomeVenue } from '@/hooks/useHomeVenue';
+import { useHomeVenue } from '@/hooks/useHomeVenue';
 import { useUpdateCourseHoles } from '@/hooks';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,13 +83,8 @@ export default function CourseScreen({ route, navigation }: Props) {
   const removeFavorite = useRemoveCourseFavorite();
   const [togglingFavorite, setTogglingFavorite] = useState(false);
 
-  // Home venue state
+  // Home venue check (for indicator display)
   const { data: currentHomeVenue } = useHomeVenue();
-  const setHomeVenue = useSetHomeVenue();
-  const [showHomeConfirmDialog, setShowHomeConfirmDialog] = useState(false);
-  const [isSettingHome, setIsSettingHome] = useState(false);
-
-  // Check if this course's venue is the home venue
   const isHomeVenue = course?.venue?.id === currentHomeVenue?.id;
 
   // Round creation state
@@ -130,37 +125,6 @@ export default function CourseScreen({ route, navigation }: Props) {
       setTogglingFavorite(false);
     }
   }, [course, addFavorite, removeFavorite, refetch]);
-
-  // Handle set as home venue
-  const handleSetAsHome = useCallback(() => {
-    if (!course?.venue) return;
-
-    // If already home venue, do nothing
-    if (isHomeVenue) return;
-
-    // If there's a different home venue, show confirmation
-    if (currentHomeVenue && currentHomeVenue.id !== course.venue.id) {
-      setShowHomeConfirmDialog(true);
-      return;
-    }
-
-    // Otherwise, set directly
-    performSetAsHome();
-  }, [course, currentHomeVenue, isHomeVenue]);
-
-  const performSetAsHome = useCallback(async () => {
-    if (!course?.venue) return;
-    setIsSettingHome(true);
-    try {
-      await setHomeVenue.mutateAsync(course.venue.id);
-      refetch();
-    } catch {
-      Alert.alert('Error', 'Failed to set home venue');
-    } finally {
-      setIsSettingHome(false);
-      setShowHomeConfirmDialog(false);
-    }
-  }, [course, setHomeVenue, refetch]);
 
   // Navigate to venue
   const handleVenuePress = useCallback(() => {
@@ -416,33 +380,18 @@ export default function CourseScreen({ route, navigation }: Props) {
                   <Icon source="chevron-right" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )}
+
+              {/* Home Venue Badge */}
+              {isHomeVenue && (
+                <View style={[styles.homeVenueBadge, { backgroundColor: colors.primaryLighter }]}>
+                  <Icon source="home" size={14} color={colors.primary} />
+                  <Text style={[styles.homeVenueBadgeText, { color: colors.primary }]}>Home Venue</Text>
+                </View>
+              )}
             </View>
 
             {/* Action Buttons */}
             <View style={styles.headerActions}>
-              {/* Home Venue Button */}
-              <TouchableOpacity
-                style={[
-                  styles.actionButtonLarge,
-                  isHomeVenue && { backgroundColor: colors.primaryLighter },
-                ]}
-                activeOpacity={0.7}
-                onPress={handleSetAsHome}
-                disabled={isSettingHome || isHomeVenue}
-                accessibilityRole="button"
-                accessibilityLabel={isHomeVenue ? 'This is your home venue' : 'Set venue as home'}
-              >
-                {isSettingHome ? (
-                  <GolfBallLoader size="sm" />
-                ) : (
-                  <Icon
-                    source={isHomeVenue ? 'home' : 'home-outline'}
-                    size={24}
-                    color={isHomeVenue ? colors.primary : colors.gray400}
-                  />
-                )}
-              </TouchableOpacity>
-
               {/* Favorite Button */}
               <TouchableOpacity
                 style={[
@@ -566,20 +515,6 @@ export default function CourseScreen({ route, navigation }: Props) {
         initialCourse={initialCourseData}
       />
 
-      {/* Home Venue Confirmation Dialog */}
-      <ConfirmationDialog
-        visible={showHomeConfirmDialog}
-        title="Change Home Venue?"
-        message={`You already have "${currentHomeVenue?.name}" set as your home venue. Would you like to replace it with "${course?.venue?.name}"?`}
-        confirmLabel="Replace"
-        cancelLabel="Cancel"
-        confirmVariant="primary"
-        onConfirm={performSetAsHome}
-        onCancel={() => setShowHomeConfirmDialog(false)}
-        loading={isSettingHome}
-        icon="home-switch"
-      />
-
       {/* Super admin hole editing modal */}
       {editingHole && course?.holes && (
         <EditHoleBottomSheet
@@ -665,6 +600,20 @@ const styles = StyleSheet.create({
   },
   venueLinkText: {
     ...typography.small,
+  },
+  homeVenueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+  },
+  homeVenueBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   headerActions: {
     flexDirection: 'row',

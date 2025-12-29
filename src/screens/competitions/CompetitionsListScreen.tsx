@@ -37,6 +37,9 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getCompetitionsOverLimit } from '@/services/subscription/grandfathering';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
+import { getCompetitionResults } from '@/services/rounds/roundResultsService';
+import { aggregateCompetitionStandings } from '@/utils/competitionPoints';
+import type { CompetitionWinnerInfo } from '@/components/competitions/CompetitionListCard';
 
 type TabValue = 'my' | 'joined';
 type StatusFilter = 'active' | 'completed';
@@ -51,6 +54,90 @@ interface CompetitionItem {
   startDate: string | null;
   /** Whether this competition is grandfathered (over tier limit) */
   isLegacy?: boolean;
+  /** Winner information (only for completed competitions) */
+  winner?: CompetitionWinnerInfo;
+}
+
+/**
+ * Fetches the winner for a completed competition
+ * Returns the first place participant (player or team) with their total points
+ */
+async function fetchCompetitionWinner(competitionId: string): Promise<CompetitionWinnerInfo | undefined> {
+  try {
+    const competitionResults = await getCompetitionResults(competitionId);
+
+    if (!competitionResults.rounds || competitionResults.rounds.length === 0) {
+      return undefined;
+    }
+
+    // Build participant lookup map
+    const participantMap = new Map<
+      string,
+      { name: string; isTeam: boolean }
+    >();
+
+    // Build round results for aggregation
+    const roundResultsForAggregation = [];
+
+    for (const round of competitionResults.rounds) {
+      const results = [];
+
+      for (const result of round.results) {
+        const id = result.player_id || result.team_id;
+        if (!id) continue;
+
+        const isTeam = result.is_team_result;
+        const name = isTeam ? result.team?.name : result.player?.name;
+
+        if (!participantMap.has(id) && name) {
+          participantMap.set(id, { name, isTeam });
+        }
+
+        results.push({
+          participantId: id,
+          rawScore: result.raw_score ?? 0,
+          position: result.position ?? 0,
+          tied: false,
+          competitionPoints: result.competition_points,
+        });
+      }
+
+      if (results.length > 0) {
+        roundResultsForAggregation.push({
+          roundId: round.roundId,
+          results,
+        });
+      }
+    }
+
+    if (roundResultsForAggregation.length === 0) {
+      return undefined;
+    }
+
+    // Aggregate standings
+    const standings = aggregateCompetitionStandings(roundResultsForAggregation);
+
+    if (standings.length === 0) {
+      return undefined;
+    }
+
+    // Get the winner (position 1)
+    const winner = standings[0];
+    const participant = participantMap.get(winner.participantId);
+
+    if (!participant) {
+      return undefined;
+    }
+
+    return {
+      name: participant.name,
+      points: winner.totalPoints,
+      isTeam: participant.isTeam,
+    };
+  } catch (error) {
+    console.error(`Error fetching winner for competition ${competitionId}:`, error);
+    return undefined;
+  }
 }
 
 export default function CompetitionsListScreen() {
@@ -103,15 +190,30 @@ export default function CompetitionsListScreen() {
         return [];
       }
 
-      return (organizedComps || []).map((comp: any) => ({
-        id: comp.id,
-        name: comp.name,
-        status: comp.status || 'draft',
-        startDate: comp.start_date,
-        rounds: comp.rounds?.[0]?.count || 0,
-        players: comp.players?.[0]?.count || 0,
-        isOrganizer: true,
-      }));
+      // Map competitions and fetch winner data for completed ones
+      const competitions = await Promise.all(
+        (organizedComps || []).map(async (comp: any) => {
+          const baseCompetition: CompetitionItem = {
+            id: comp.id,
+            name: comp.name,
+            status: comp.status || 'draft',
+            startDate: comp.start_date,
+            rounds: comp.rounds?.[0]?.count || 0,
+            players: comp.players?.[0]?.count || 0,
+            isOrganizer: true,
+          };
+
+          // Fetch winner for completed competitions
+          if (comp.status === 'completed') {
+            const winner = await fetchCompetitionWinner(comp.id);
+            return { ...baseCompetition, winner };
+          }
+
+          return baseCompetition;
+        })
+      );
+
+      return competitions;
     },
     enabled: !!user?.id,
   });
@@ -151,17 +253,34 @@ export default function CompetitionsListScreen() {
       }
 
       // Filter out competitions where user is the organizer
-      return (playerComps || [])
-        .filter((pc: any) => pc.competition && pc.competition.organizer_id !== user.id)
-        .map((pc: any) => ({
-          id: pc.competition.id,
-          name: pc.competition.name,
-          status: pc.competition.status || 'draft',
-          startDate: pc.competition.start_date,
-          rounds: pc.competition.rounds?.[0]?.count || 0,
-          players: pc.competition.players?.[0]?.count || 0,
-          isOrganizer: false,
-        }));
+      const filtered = (playerComps || []).filter(
+        (pc: any) => pc.competition && pc.competition.organizer_id !== user.id
+      );
+
+      // Map competitions and fetch winner data for completed ones
+      const competitions = await Promise.all(
+        filtered.map(async (pc: any) => {
+          const baseCompetition: CompetitionItem = {
+            id: pc.competition.id,
+            name: pc.competition.name,
+            status: pc.competition.status || 'draft',
+            startDate: pc.competition.start_date,
+            rounds: pc.competition.rounds?.[0]?.count || 0,
+            players: pc.competition.players?.[0]?.count || 0,
+            isOrganizer: false,
+          };
+
+          // Fetch winner for completed competitions
+          if (pc.competition.status === 'completed') {
+            const winner = await fetchCompetitionWinner(pc.competition.id);
+            return { ...baseCompetition, winner };
+          }
+
+          return baseCompetition;
+        })
+      );
+
+      return competitions;
     },
     enabled: !!user?.id,
   });

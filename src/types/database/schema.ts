@@ -587,6 +587,55 @@ export interface Database {
           user_id: string;
         }[];
       };
+      // Placeholder player functions
+      create_placeholder_player: {
+        Args: {
+          p_name: string;
+          p_handicap?: number | null;
+        };
+        Returns: string; // UUID of created placeholder
+      };
+      link_placeholder_player: {
+        Args: {
+          p_placeholder_id: string; // UUID
+          p_real_player_id: string; // UUID
+        };
+        Returns: {
+          success: boolean;
+          placeholder_id: string;
+          real_player_id: string;
+          transferred: {
+            competitions: number;
+            scorecards: number;
+            pairings: number;
+          };
+        };
+      };
+      get_my_placeholder_players: {
+        Args: Record<string, never>; // No arguments
+        Returns: {
+          id: string;
+          name: string;
+          email: string;
+          handicap: number | null;
+          created_at: string;
+          competitions_count: number;
+          scorecards_count: number;
+        }[];
+      };
+      search_linkable_players: {
+        Args: {
+          p_search_term: string;
+          p_limit?: number;
+        };
+        Returns: {
+          id: string;
+          name: string;
+          email: string;
+          handicap: number | null;
+          photo_url: string | null;
+        }[];
+      };
     };
     Enums: {
       handicap_system: HandicapSystem;

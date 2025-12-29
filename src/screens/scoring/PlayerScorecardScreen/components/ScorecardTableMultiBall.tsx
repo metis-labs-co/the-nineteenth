@@ -292,12 +292,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   holeCell: {
-    flex: 0.9,
-    minWidth: 40,
+    width: 36,
   },
   narrowCell: {
-    flex: 0.7,
-    minWidth: 32,
+    width: 28,
   },
   ballColumnGroup: {
     flex: 1,
@@ -308,12 +306,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ballScoreCell: {
-    flex: 0.5,
-    minWidth: 40,
+    flex: 0.6,
+    minWidth: 36,
   },
   ballPtsCell: {
-    flex: 0.5,
-    minWidth: 40,
+    flex: 0.4,
+    minWidth: 28,
   },
   holeCellText: {
     ...typography.bodyBold,

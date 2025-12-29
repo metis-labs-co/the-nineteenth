@@ -7,10 +7,11 @@ import type { FriendshipStatus } from './enums';
 
 /**
  * Player profile extending Supabase auth.users
- * One-to-one relationship with auth.users
+ * One-to-one relationship with auth.users for real players.
+ * Placeholder players don't have an auth.users entry.
  */
 export interface Player {
-  id: string; // UUID, references auth.users(id)
+  id: string; // UUID, references auth.users(id) for real players
   name: string;
   email: string;
   phone: string | null;
@@ -19,6 +20,10 @@ export interface Player {
   handicap_updated_at: string | null; // ISO timestamp when handicap was last updated
   photo_url: string | null;
   home_venue_id: string | null; // UUID, reference to player's designated home golf club (venue)
+  // Placeholder player fields
+  is_placeholder: boolean; // TRUE for guest/placeholder players without auth accounts
+  created_by: string | null; // UUID of user who created this placeholder (NULL for real players)
+  linked_player_id: string | null; // UUID of real player this placeholder was merged into
   // Push notification preferences
   push_enabled: boolean; // Global toggle for all push notifications
   push_competition_updates: boolean; // Competition-related notifications
@@ -106,4 +111,77 @@ export interface PlayerSearchResult extends Player {
   is_friend: boolean;
   has_pending_request: boolean;
   request_direction?: 'sent' | 'received'; // if has_pending_request is true
+}
+
+// =====================================================
+// PLACEHOLDER PLAYER TYPES
+// =====================================================
+
+/**
+ * Input for creating a placeholder player
+ */
+export interface PlaceholderPlayerInput {
+  name: string;
+  handicap?: number | null;
+}
+
+/**
+ * Placeholder player with usage statistics
+ * Returned by get_my_placeholder_players()
+ */
+export interface PlaceholderPlayerWithStats {
+  id: string;
+  name: string;
+  email: string;
+  handicap: number | null;
+  created_at: string;
+  competitions_count: number;
+  scorecards_count: number;
+}
+
+/**
+ * Real player that can be linked to a placeholder
+ * Returned by search_linkable_players()
+ */
+export interface LinkablePlayer {
+  id: string;
+  name: string;
+  email: string;
+  handicap: number | null;
+  photo_url: string | null;
+}
+
+/**
+ * Result of linking a placeholder to a real player
+ */
+export interface LinkPlaceholderResult {
+  success: boolean;
+  placeholder_id: string;
+  real_player_id: string;
+  transferred: {
+    competitions: number;
+    scorecards: number;
+    pairings: number;
+  };
+}
+
+/**
+ * Type guard to check if a player is a placeholder
+ */
+export function isPlaceholderPlayer(player: Player): boolean {
+  return player.is_placeholder === true;
+}
+
+/**
+ * Type guard to check if a placeholder has been linked
+ */
+export function isLinkedPlaceholder(player: Player): boolean {
+  return player.is_placeholder === true && player.linked_player_id !== null;
+}
+
+/**
+ * Type guard to check if a player is a real (non-placeholder) player
+ */
+export function isRealPlayer(player: Player): boolean {
+  return player.is_placeholder === false;
 }

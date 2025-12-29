@@ -7,8 +7,10 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriendsWithPendingSent, useCheckCanAddFriend } from '@/hooks/useFriends';
+import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
 import { AddFriendModal } from '@/components/social/AddFriendModal';
+import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
 import type { Friend, Player } from '@/types/database.types';
 
 interface AddPlayersStepProps {
@@ -40,9 +42,12 @@ export default function AddPlayersStep({
   const { player: currentPlayer, user } = useAuth();
   const { data: friends = [], isLoading: isLoadingFriends } = useFriendsWithPendingSent();
   const friendsAccess = useCheckCanAddFriend();
+  const { data: placeholderPlayers } = usePlaceholderPlayers();
 
   // Modal state for adding friends
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  // Modal state for adding placeholder/guest players
+  const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
 
   // Determine effective max players (default to 40 for unlimited/-1 or if not provided)
   const effectiveMaxPlayers =
@@ -145,6 +150,36 @@ export default function AddPlayersStep({
     setShowAddFriendModal(true);
   }, [friendsAccess.allowed, friendsAccess.reason]);
 
+  // Handle placeholder player creation - auto-add to selected players
+  const handlePlaceholderCreated = useCallback(
+    (player: Player) => {
+      // Check if adding would exceed limit
+      if (selectedPlayers.length >= effectiveMaxPlayers) {
+        Alert.alert(
+          'Player Limit Reached',
+          `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`,
+          [{ text: 'OK' }]
+        );
+        setShowAddPlaceholderModal(false);
+        return;
+      }
+
+      // Add the new placeholder player to selected players
+      setSelectedPlayers((prev) => [
+        ...prev,
+        {
+          id: player.id,
+          name: player.name,
+          email: player.email,
+          handicap: player.handicap,
+          is_placeholder: true,
+        },
+      ]);
+      setShowAddPlaceholderModal(false);
+    },
+    [selectedPlayers.length, effectiveMaxPlayers]
+  );
+
   // Proceed to next step
   const handleNext = () => {
     if (selectedPlayers.length < 2) {
@@ -214,6 +249,9 @@ export default function AddPlayersStep({
           onAddFriendPress={handleAddFriendPress}
           emptyMessage="No friends yet"
           testID="add-players-step"
+          placeholderPlayers={placeholderPlayers || []}
+          onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
+          addPlaceholderLabel="Add Guest"
         />
       </ScrollView>
 
@@ -231,6 +269,13 @@ export default function AddPlayersStep({
           );
         }}
         testID="add-players-add-friend-modal"
+      />
+
+      {/* Add Guest Modal */}
+      <AddPlaceholderModal
+        visible={showAddPlaceholderModal}
+        onClose={() => setShowAddPlaceholderModal(false)}
+        onPlayerCreated={handlePlaceholderCreated}
       />
 
       {/* Action Buttons - Sticky Footer */}

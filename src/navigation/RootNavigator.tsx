@@ -32,6 +32,7 @@ import AddRoundScreen from '@/screens/admin/AddRoundScreen';
 import EditRoundScreen from '@/screens/admin/EditRoundScreen';
 import TeamManagementScreen from '@/screens/admin/TeamManagementScreen';
 import ScoringPairsScreen from '@/screens/admin/ScoringPairsScreen';
+import LinkPlaceholderScreen from '@/screens/admin/LinkPlaceholderScreen';
 
 // Competition Detail Screen (moved from admin)
 import CompetitionDetailScreen from '@/screens/competitions/CompetitionDetailScreen';
@@ -423,6 +424,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={SubscriptionScreen}
               options={{
                 title: 'Subscription',
+                headerShown: false,
+              }}
+            />
+
+            {/* Admin - Placeholder Players */}
+            <Stack.Screen
+              name="LinkPlaceholder"
+              component={LinkPlaceholderScreen}
+              options={{
+                title: 'Manage Guest Players',
                 headerShown: false,
               }}
             />

@@ -100,6 +100,9 @@ export type RootStackParamList = {
 
   // Help & Support
   HelpAndSupport: undefined;
+
+  // Admin - Placeholder Players
+  LinkPlaceholder: undefined;
 };
 
 /**

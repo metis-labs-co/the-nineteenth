@@ -5,14 +5,15 @@
  * Features:
  * - Selected players displayed as rounded pill chips
  * - Optional limit indicator with progress bar
- * - Search/filter friends
+ * - Search/filter friends and placeholder players
  * - Loading and empty states
+ * - Placeholder (guest) players support with "Add Guest" button
  */
 
 import React, { memo, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-paper';
-import { IconUsers, IconUserPlus } from '@tabler/icons-react-native';
+import { IconUsers, IconUserPlus, IconUserQuestion } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SearchBar } from '@/components/common/SearchBar';
@@ -20,8 +21,9 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { SelectedPlayerChip } from './SelectedPlayerChip';
 import { FriendListItem } from './FriendListItem';
+import { PlaceholderListItem } from './PlaceholderListItem';
 import type { FriendSelectorProps, SelectedPlayer } from './FriendSelector.types';
-import type { Friend } from '@/types/database.types';
+import type { Friend, PlaceholderPlayerWithStats } from '@/types/database.types';
 
 export const FriendSelector = memo(function FriendSelector({
   selectedPlayers,
@@ -42,6 +44,10 @@ export const FriendSelector = memo(function FriendSelector({
   onAddFriendPress,
   addFriendLabel = 'Add Friend',
   testID,
+  // Placeholder player props
+  placeholderPlayers,
+  onAddPlaceholderPress,
+  addPlaceholderLabel = 'Add Guest',
 }: FriendSelectorProps) {
   const colors = useThemeColors();
 
@@ -60,6 +66,22 @@ export const FriendSelector = memo(function FriendSelector({
         friend.email?.toLowerCase().includes(query)
     );
   }, [friends, searchQuery]);
+
+  // Filter placeholder players by search query
+  const filteredPlaceholders = useMemo(() => {
+    if (!placeholderPlayers || placeholderPlayers.length === 0) return [];
+    if (!searchQuery.trim()) return placeholderPlayers;
+    const query = searchQuery.toLowerCase();
+    return placeholderPlayers.filter((placeholder) =>
+      placeholder.name.toLowerCase().includes(query)
+    );
+  }, [placeholderPlayers, searchQuery]);
+
+  // Check if a placeholder is selected
+  const isPlaceholderSelected = useCallback(
+    (placeholderId: string) => selectedPlayers.some((p) => p.id === placeholderId),
+    [selectedPlayers]
+  );
 
   // Check if a friend is selected
   const isSelected = useCallback(
@@ -103,6 +125,30 @@ export const FriendSelector = memo(function FriendSelector({
       }
     },
     [selectedPlayers, onSelectionChange, limits?.includeCurrentUser, currentUser?.id, isAtLimit]
+  );
+
+  // Handle placeholder toggle
+  const handlePlaceholderToggle = useCallback(
+    (placeholder: PlaceholderPlayerWithStats) => {
+      const alreadySelected = selectedPlayers.some((p) => p.id === placeholder.id);
+
+      if (alreadySelected) {
+        onSelectionChange(selectedPlayers.filter((p) => p.id !== placeholder.id));
+      } else {
+        // Don't add if at limit
+        if (isAtLimit) return;
+
+        const newPlayer: SelectedPlayer = {
+          id: placeholder.id,
+          name: placeholder.name,
+          email: placeholder.email,
+          handicap: placeholder.handicap,
+          is_placeholder: true,
+        };
+        onSelectionChange([...selectedPlayers, newPlayer]);
+      }
+    },
+    [selectedPlayers, onSelectionChange, isAtLimit]
   );
 
   // Handle chip removal
@@ -190,19 +236,29 @@ export const FriendSelector = memo(function FriendSelector({
         </View>
       </View>
 
-      {/* Search Bar with Add Friend Button */}
+      {/* Search Bar with Add Friend / Add Guest Buttons */}
       <View style={styles.searchRow}>
         <View style={styles.searchBarWrapper}>
           <SearchBar
             value={searchQuery}
             onChangeText={onSearchQueryChange}
-            placeholder="Search friends..."
+            placeholder={placeholderPlayers ? 'Search friends & guests...' : 'Search friends...'}
             accessibilityLabel="Search friends"
           />
         </View>
+        {onAddPlaceholderPress && (
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.gray600 }]}
+            onPress={onAddPlaceholderPress}
+            accessibilityLabel={addPlaceholderLabel}
+            accessibilityRole="button"
+          >
+            <IconUserQuestion size={22} color={colors.white} />
+          </TouchableOpacity>
+        )}
         {onAddFriendPress && (
           <TouchableOpacity
-            style={[styles.addFriendButton, { backgroundColor: colors.primary }]}
+            style={[styles.addButton, { backgroundColor: colors.primary }]}
             onPress={onAddFriendPress}
             accessibilityLabel={addFriendLabel}
             accessibilityRole="button"
@@ -212,7 +268,7 @@ export const FriendSelector = memo(function FriendSelector({
         )}
       </View>
 
-      {/* Friends List */}
+      {/* Players List - Guests section followed by Friends section */}
       <View style={styles.section}>
         {listTitle && (
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
@@ -224,25 +280,63 @@ export const FriendSelector = memo(function FriendSelector({
           <View style={styles.loadingContainer}>
             <LoadingSpinner size="lg" />
           </View>
-        ) : filteredFriends.length > 0 ? (
-          <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
-            {filteredFriends.map((friend, index) => {
-              const selected = isSelected(friend.id);
-              const disabled = !selected && isAtLimit;
+        ) : filteredPlaceholders.length > 0 || filteredFriends.length > 0 ? (
+          <>
+            {/* GUESTS Section */}
+            {filteredPlaceholders.length > 0 && (
+              <>
+                <Text style={[styles.listSectionTitle, { color: colors.textSecondary }]}>
+                  GUESTS
+                </Text>
+                <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
+                  {filteredPlaceholders.map((placeholder, index) => {
+                    const selected = isPlaceholderSelected(placeholder.id);
+                    const disabled = !selected && isAtLimit;
 
-              return (
-                <FriendListItem
-                  key={friend.id}
-                  friend={friend}
-                  isSelected={selected}
-                  isDisabled={disabled}
-                  onToggle={() => handleToggle(friend)}
-                  showDivider={index < filteredFriends.length - 1}
-                  showPendingBadge={showPendingBadge}
-                />
-              );
-            })}
-          </View>
+                    return (
+                      <PlaceholderListItem
+                        key={placeholder.id}
+                        placeholder={placeholder}
+                        isSelected={selected}
+                        isDisabled={disabled}
+                        onToggle={() => handlePlaceholderToggle(placeholder)}
+                        showDivider={index < filteredPlaceholders.length - 1}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
+            {/* FRIENDS Section */}
+            {filteredFriends.length > 0 && (
+              <>
+                {filteredPlaceholders.length > 0 && (
+                  <Text style={[styles.listSectionTitle, { color: colors.textSecondary }]}>
+                    FRIENDS
+                  </Text>
+                )}
+                <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
+                  {filteredFriends.map((friend, index) => {
+                    const selected = isSelected(friend.id);
+                    const disabled = !selected && isAtLimit;
+
+                    return (
+                      <FriendListItem
+                        key={friend.id}
+                        friend={friend}
+                        isSelected={selected}
+                        isDisabled={disabled}
+                        onToggle={() => handleToggle(friend)}
+                        showDivider={index < filteredFriends.length - 1}
+                        showPendingBadge={showPendingBadge}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            )}
+          </>
         ) : (
           <View style={styles.emptyContainer}>
             <IconUsers size={48} color={colors.gray300} />
@@ -351,12 +445,20 @@ const styles = StyleSheet.create({
   searchBarWrapper: {
     flex: 1,
   },
-  addFriendButton: {
+  addButton: {
     width: 48,
     height: 48,
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  listSectionTitle: {
+    ...typography.smallBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   friendsContainer: {
     marginHorizontal: spacing.lg,

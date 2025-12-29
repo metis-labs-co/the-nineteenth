@@ -142,6 +142,8 @@ interface TeeBox {
 }
 
 // Player
+// Real players have id referencing auth.users(id)
+// Placeholder players have generated UUID and @placeholder.local email
 interface Player {
   id: string;
   name: string;
@@ -151,8 +153,32 @@ interface Player {
   handicapUpdatedAt?: Date; // Timestamp when handicap was last updated
   golfId?: string;          // 10-digit Golf Australia ID
   photoUrl?: string;
+  // Placeholder player fields
+  isPlaceholder: boolean;   // TRUE for guest/placeholder players without auth accounts
+  createdBy?: string;       // UUID of user who created this placeholder (NULL for real players)
+  linkedPlayerId?: string;  // UUID of real player this placeholder was merged into
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Placeholder player with usage statistics (from get_my_placeholder_players())
+interface PlaceholderPlayerWithStats {
+  id: string;
+  name: string;
+  email: string;
+  handicap?: number;
+  createdAt: Date;
+  competitionsCount: number;
+  scorecardsCount: number;
+}
+
+// Real player that can be linked to a placeholder
+interface LinkablePlayer {
+  id: string;
+  name: string;
+  email: string;
+  handicap?: number;
+  photoUrl?: string;
 }
 
 // Competition Player (join table)
@@ -531,40 +557,85 @@ Data isolation is achieved through:
 
 ### `players`
 
-Player profiles extending Supabase auth.users.
+Player profiles. Real players have a 1:1 relationship with auth.users.
+Placeholder players (guests) are created without an auth account and can be linked to real players later.
 
 **Columns:**
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `id` | UUID | PK, FK → auth.users(id) | Player unique identifier |
+| `id` | UUID | PK | Player unique identifier (references auth.users for real players) |
 | `name` | TEXT | NOT NULL | Player display name |
-| `email` | TEXT | NOT NULL, UNIQUE | Contact email |
+| `email` | TEXT | NOT NULL, UNIQUE | Contact email (generated for placeholders: `{uuid}@placeholder.local`) |
 | `phone` | TEXT | NULL | Contact phone (optional) |
 | `handicap` | NUMERIC(4,1) | DEFAULT 0 | Golf handicap (e.g., 12.5) |
 | `handicap_updated_at` | TIMESTAMPTZ | NULL | Timestamp when handicap was last updated |
 | `golf_id` | TEXT | NULL, CHECK (10 digits) | 10-digit Golf Australia ID |
 | `photo_url` | TEXT | NULL | Profile photo URL |
+| `is_placeholder` | BOOLEAN | NOT NULL DEFAULT FALSE | TRUE for guest/placeholder players |
+| `created_by` | UUID | FK → auth.users(id) | User who created this placeholder (NULL for real players) |
+| `linked_player_id` | UUID | FK → players(id) | Real player this placeholder was merged into |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
 **Indexes:**
 - `idx_players_email` on `email`
 - `idx_players_golf_id` on `golf_id` (partial, WHERE golf_id IS NOT NULL)
+- `idx_players_created_by` on `created_by` (partial, WHERE created_by IS NOT NULL)
+- `idx_players_unlinked_placeholders` on `id` (partial, WHERE is_placeholder = TRUE AND linked_player_id IS NULL)
+- `idx_players_linked_player` on `linked_player_id` (partial, WHERE linked_player_id IS NOT NULL)
+- `idx_players_is_placeholder` on `is_placeholder`
 
 **Constraints:**
 - `golf_id_format` - CHECK (golf_id IS NULL OR golf_id ~ '^[0-9]{10}$')
+- `chk_real_player_no_creator` - Real players (is_placeholder=FALSE) must have NULL created_by
+- `chk_placeholder_has_creator` - Placeholders (is_placeholder=TRUE) must have non-NULL created_by
+- `chk_only_placeholders_linkable` - Only placeholders can have linked_player_id set
+- `chk_no_self_link` - Cannot link a placeholder to itself
 
 **RLS Policies:**
 - Users can view/update their own profile
-- Users can view other players in their competitions
+- Users can view other players in their competitions (including placeholders)
+- Users can view placeholders they created
+- Users can create placeholders (with their user_id as created_by)
+- Only creator can UPDATE/DELETE their unlinked placeholders
 
-**Example:**
+**Placeholder Player Functions:**
+- `create_placeholder_player(name, handicap)` - Creates a placeholder with generated email
+- `link_placeholder_player(placeholder_id, real_player_id)` - Transfers ALL history to real player
+- `get_my_placeholder_players()` - Returns unlinked placeholders created by current user
+- `search_linkable_players(search_term, limit)` - Search for real players to link
+
+**Example (Real Player):**
 ```typescript
 const { data: player } = await supabase
   .from('players')
   .select('*')
   .eq('id', userId)
   .single();
+```
+
+**Example (Create Placeholder):**
+```typescript
+const { data, error } = await supabase.rpc('create_placeholder_player', {
+  p_name: 'Guest Player',
+  p_handicap: 18
+});
+// Returns the new placeholder's UUID
+```
+
+**Example (Link Placeholder to Real Player):**
+```typescript
+const { data, error } = await supabase.rpc('link_placeholder_player', {
+  p_placeholder_id: placeholderId,
+  p_real_player_id: realPlayerId
+});
+// Returns TRUE on success, transfers all competition history
+```
+
+**Example (Get My Placeholders):**
+```typescript
+const { data: placeholders } = await supabase.rpc('get_my_placeholder_players');
+// Returns: [{ id, name, email, handicap, created_at, competitions_count, scorecards_count }]
 ```
 
 ---

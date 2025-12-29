@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconTrophy,
   IconTrash,
+  IconCrown,
 } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -21,6 +22,18 @@ import type { StatusVariant } from '@/components/common';
 
 const DELETE_BUTTON_WIDTH = 80;
 const SWIPE_THRESHOLD = 40;
+
+/**
+ * Winner information for completed competitions
+ */
+export interface CompetitionWinnerInfo {
+  /** Winner's name (player name or team name) */
+  name: string;
+  /** Total points the winner accumulated */
+  points: number;
+  /** Whether the winner is a team */
+  isTeam: boolean;
+}
 
 /**
  * Competition data structure for the list card
@@ -40,6 +53,8 @@ export interface CompetitionListCardData {
   isOrganizer: boolean;
   /** Competition start date (ISO string) */
   startDate: string | null;
+  /** Winner information (only for completed competitions) */
+  winner?: CompetitionWinnerInfo;
 }
 
 export interface CompetitionListCardProps<T extends CompetitionListCardData = CompetitionListCardData> {
@@ -278,6 +293,22 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
             </View>
           </View>
 
+          {/* Winner Row - Only for completed competitions */}
+          {competition.status?.toLowerCase() === 'completed' && competition.winner && (
+            <View style={[styles.winnerRow, { backgroundColor: colors.primaryLight }]}>
+              <IconCrown size={14} color={colors.primary} />
+              <Text
+                style={[styles.winnerText, { color: colors.primary }]}
+                numberOfLines={1}
+              >
+                {competition.winner.name}
+              </Text>
+              <Text style={[styles.winnerPoints, { color: colors.primary }]}>
+                {competition.winner.points} pts
+              </Text>
+            </View>
+          )}
+
           {/* Date Row */}
           <DateTimeDisplay
             date={competition.startDate}
@@ -369,6 +400,22 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
               </View>
             </View>
 
+            {/* Winner Row - Only for completed competitions */}
+            {competition.status?.toLowerCase() === 'completed' && competition.winner && (
+              <View style={[styles.winnerRow, { backgroundColor: colors.primaryLight }]}>
+                <IconCrown size={14} color={colors.primary} />
+                <Text
+                  style={[styles.winnerText, { color: colors.primary }]}
+                  numberOfLines={1}
+                >
+                  {competition.winner.name}
+                </Text>
+                <Text style={[styles.winnerPoints, { color: colors.primary }]}>
+                  {competition.winner.points} pts
+                </Text>
+              </View>
+            )}
+
             {/* Date Row */}
             <DateTimeDisplay
               date={competition.startDate}
@@ -452,6 +499,24 @@ const styles = StyleSheet.create({
   },
   metaText: {
     ...typography.small,
+  },
+  winnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+  },
+  winnerText: {
+    ...typography.small,
+    fontWeight: '600',
+    flex: 1,
+  },
+  winnerPoints: {
+    ...typography.small,
+    fontWeight: '700',
   },
   dateRow: {
     marginTop: spacing.xs,

@@ -237,6 +237,18 @@ export const pushKeys = {
 } as const;
 
 // =====================================================
+// PLACEHOLDER PLAYERS
+// =====================================================
+
+export const placeholderPlayersKeys = {
+  all: ['placeholderPlayers'] as const,
+  lists: () => [...placeholderPlayersKeys.all, 'list'] as const,
+  list: (userId: string) => [...placeholderPlayersKeys.lists(), userId] as const,
+  details: () => [...placeholderPlayersKeys.all, 'detail'] as const,
+  detail: (id: string) => [...placeholderPlayersKeys.details(), id] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -270,4 +282,5 @@ export const allQueryKeys = [
   subscriptionKeys.all,
   aiKeys.all,
   pushKeys.all,
+  placeholderPlayersKeys.all,
 ] as const;

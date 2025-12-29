@@ -662,6 +662,9 @@ export function useAuth(): UseAuthReturn {
         push_competition_updates: true,
         push_friend_requests: true,
         push_scorecard_updates: true,
+        is_placeholder: false,
+        created_by: null,
+        linked_player_id: null,
       };
 
       // Note: Type assertion needed due to Supabase type inference limitation with Database types

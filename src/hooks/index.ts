@@ -22,6 +22,7 @@ export {
   notificationKeys,
   subscriptionKeys,
   pushKeys,
+  placeholderPlayersKeys,
   allQueryKeys,
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
@@ -231,4 +232,14 @@ export type { HomeVenueWithCourses } from './useHomeVenue';
 // Course update hooks
 export { useUpdateCourseHoles } from './useUpdateCourseHoles';
 export type { UpdateCourseHolesInput } from './useUpdateCourseHoles';
+
+// Placeholder players hooks
+export {
+  usePlaceholderPlayers,
+  usePlaceholderPlayer,
+  useCreatePlaceholderPlayer,
+  useLinkPlaceholderPlayer,
+  useDeletePlaceholderPlayer,
+  useUpdatePlaceholderPlayer,
+} from './usePlaceholderPlayers';
 

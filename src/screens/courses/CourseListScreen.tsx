@@ -85,16 +85,20 @@ export default function CourseListScreen() {
   const isRefreshing = isRefetchingAll || isRefetchingFavorites;
   const error = allError || searchError;
 
-  // Transform venues to display items
+  // Transform venues to display items and sort (home venue first)
   const displayItems: VenueCourseDisplayItem[] = useMemo(() => {
+    let items: VenueCourseDisplayItem[];
+
     // For favorites view, create items from favorite courses grouped by venue
     if (showFavoritesOnly && favoriteCourses) {
       // Group favorites by venue
-      const venueMap = new Map<string, { venue: Venue; courses: CourseWithFavoriteStatus[] }>();
+      const venueMap = new Map<string, { venue: Venue; courses: CourseWithFavoriteStatus[]; is_home: boolean }>();
       for (const course of favoriteCourses) {
         const venue = course.venue;
         if (!venueMap.has(venue.id)) {
-          venueMap.set(venue.id, { venue, courses: [] });
+          // Check if this venue is home (need to get from allVenues data)
+          const venueData = allVenues?.find(v => v.id === venue.id);
+          venueMap.set(venue.id, { venue, courses: [], is_home: venueData?.is_home ?? false });
         }
         venueMap.get(venue.id)!.courses.push({
           ...course,
@@ -102,38 +106,45 @@ export default function CourseListScreen() {
         });
       }
 
-      return Array.from(venueMap.values()).map(({ venue, courses }) => ({
+      items = Array.from(venueMap.values()).map(({ venue, courses, is_home }) => ({
         type: courses.length > 1 ? 'multi-course-venue' : 'single-course',
         venue,
         courses,
-        is_home: false,
+        is_home,
+      }));
+    } else {
+      // For search or all venues view
+      const venues = isSearchActive ? searchResults : allVenues;
+      items = (venues ?? []).map((venue) => ({
+        type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
+        venue: {
+          id: venue.id,
+          source: venue.source,
+          api_id: venue.api_id,
+          name: venue.name,
+          state: venue.state,
+          city: venue.city,
+          address: venue.address,
+          phone: venue.phone,
+          email: venue.email,
+          website: venue.website,
+          location: venue.location,
+          total_holes: venue.total_holes,
+          last_synced: venue.last_synced,
+          created_at: venue.created_at,
+          updated_at: venue.updated_at,
+        },
+        courses: venue.courses,
+        is_home: venue.is_home,
       }));
     }
 
-    // For search or all venues view
-    const venues = isSearchActive ? searchResults : allVenues;
-    return (venues ?? []).map((venue) => ({
-      type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-      venue: {
-        id: venue.id,
-        source: venue.source,
-        api_id: venue.api_id,
-        name: venue.name,
-        state: venue.state,
-        city: venue.city,
-        address: venue.address,
-        phone: venue.phone,
-        email: venue.email,
-        website: venue.website,
-        location: venue.location,
-        total_holes: venue.total_holes,
-        last_synced: venue.last_synced,
-        created_at: venue.created_at,
-        updated_at: venue.updated_at,
-      },
-      courses: venue.courses,
-      is_home: false,
-    }));
+    // Sort: home venue first, then alphabetically by name
+    return items.sort((a, b) => {
+      if (a.is_home && !b.is_home) return -1;
+      if (!a.is_home && b.is_home) return 1;
+      return a.venue.name.localeCompare(b.venue.name);
+    });
   }, [showFavoritesOnly, favoriteCourses, isSearchActive, searchResults, allVenues]);
 
   // Handlers
