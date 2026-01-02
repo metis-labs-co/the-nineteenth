@@ -1,6 +1,6 @@
 // src/components/rounds/RoundListCard/types.ts
 
-import type { StatusVariant } from '@/components/common';
+import type { StatusVariant, WinnerInfo } from '@/components/common';
 
 /**
  * Player information for the round
@@ -83,6 +83,8 @@ export interface RoundListCardData {
   players?: RoundPlayerInfo[];
   /** User's score data (only populated for completed rounds) */
   userScore?: UserScoreData;
+  /** Winner information (only for completed rounds) */
+  winner?: WinnerInfo;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {
@@ -119,27 +121,6 @@ export interface RoundListCardProps<T extends RoundListCardData = RoundListCardD
 // =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
-
-/**
- * Formats game type to human-readable string
- */
-export const formatGameType = (gameType: string): string => {
-  switch (gameType) {
-    case 'stableford':
-      return 'Stableford';
-    case 'stroke':
-      return 'Stroke Play';
-    case 'match_play':
-      return 'Match Play';
-    case 'ambrose':
-      return 'Ambrose';
-    case 'fourball_bestball':
-      return 'Best Ball';
-    default:
-      // Capitalize first letter of unknown game types
-      return gameType.charAt(0).toUpperCase() + gameType.slice(1).replace(/_/g, ' ');
-  }
-};
 
 /**
  * Maps round status to StatusBadge variant

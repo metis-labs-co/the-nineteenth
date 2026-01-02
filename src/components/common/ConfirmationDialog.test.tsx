@@ -43,7 +43,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </Text>
     ),
-    Icon: ({ source, size, color, ...props }: any) => (
+    Icon: ({ source, _size, _color, ...props }: any) => (
       <View testID={`icon-${source}`} accessibilityLabel={source} {...props} />
     ),
   };
@@ -53,7 +53,7 @@ jest.mock('react-native-paper', () => {
 jest.mock('./GolfBallLoader', () => {
   const { View, Text } = require('react-native');
   return {
-    GolfBallLoader: ({ size }: { size?: string }) => (
+    GolfBallLoader: ({ _size }: { _size?: string }) => (
       <View testID="golf-ball-loader">
         <Text>Loading...</Text>
       </View>

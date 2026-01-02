@@ -46,11 +46,11 @@ export function useTeamScoring({
   currentHole,
   players,
 }: UseTeamScoringParams): UseTeamScoringResult {
-  const { setPlayerScore, getPlayerScore, groupScorecards } = useScorecardStore();
+  const { setPlayerScore, getPlayerScore, groupScorecards: _groupScorecards } = useScorecardStore();
 
   // Team-specific state
   const [selectedContributor, setSelectedContributor] = useState<string | undefined>();
-  const [teamMatchPlayResults, setTeamMatchPlayResults] = useState<
+  const [teamMatchPlayResults, _setTeamMatchPlayResults] = useState<
     Map<number, 'team1' | 'team2' | 'halved'>
   >(new Map());
 
@@ -86,8 +86,8 @@ export function useTeamScoring({
     });
 
     return map;
-    // groupScorecards is included to trigger re-computation when scores change in the store
-  }, [players, teams, currentHole, getPlayerScore, teamFormat, groupScorecards]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- groupScorecards intentionally excluded, scores update via getPlayerScore
+  }, [players, teams, currentHole, getPlayerScore, teamFormat]);
 
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(

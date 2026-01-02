@@ -60,7 +60,7 @@ const DistanceDisplay = React.memo(function DistanceDisplay({
   if (showAddButton) {
     return (
       <View style={styles.addContainer}>
-        <View style={[styles.addDistanceBadge, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.addDistanceBadge, { backgroundColor: colors.surfaceVariant }]}>
           <Icon source="plus" size={16} color={colors.primary} />
         </View>
       </View>

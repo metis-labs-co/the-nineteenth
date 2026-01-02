@@ -41,9 +41,7 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
 
         {/* User Score - only show for completed rounds */}
         {formattedScore && (
-          <Text style={[styles.scoreText, { color: colors.textSecondary }]}>
-            {formattedScore}
-          </Text>
+          <Pill label={`You: ${formattedScore}`} size="sm" variant="default" />
         )}
       </View>
 
@@ -69,11 +67,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flex: 1,
-  },
-  scoreText: {
-    ...typography.caption,
-    flexShrink: 0,
-    marginLeft: spacing.sm,
   },
   competitionName: {
     ...typography.bodyBold,

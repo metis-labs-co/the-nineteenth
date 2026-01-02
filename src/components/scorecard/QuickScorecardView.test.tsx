@@ -64,7 +64,7 @@ jest.mock('react-native-paper', () => {
 });
 
 // Mock scrollTo
-const mockScrollTo = jest.fn();
+const _mockScrollTo = jest.fn();
 
 // =====================================================
 // TEST FIXTURES
@@ -626,6 +626,64 @@ describe('QuickScorecardView', () => {
       holeButtons = screen.getAllByRole('button');
       expect(holeButtons[0].props.accessibilityState?.selected).toBe(false);
       expect(holeButtons[4].props.accessibilityState?.selected).toBe(true);
+    });
+  });
+
+  // ===========================================================================
+  // TOUCH EVENT TESTS (for disabling parent swipe gestures)
+  // ===========================================================================
+
+  describe('Touch Events', () => {
+    it('calls onScrollingChange with true on touch start', () => {
+      const onScrollingChange = jest.fn();
+      const props = { ...createDefaultProps(), onScrollingChange };
+      render(<QuickScorecardView {...props} />);
+
+      // Find the container by its text content
+      const container = screen.getByText('Quick View').parent?.parent;
+      if (container) {
+        fireEvent(container, 'touchStart');
+      }
+
+      expect(onScrollingChange).toHaveBeenCalledWith(true);
+    });
+
+    it('calls onScrollingChange with false on touch end', () => {
+      const onScrollingChange = jest.fn();
+      const props = { ...createDefaultProps(), onScrollingChange };
+      render(<QuickScorecardView {...props} />);
+
+      const container = screen.getByText('Quick View').parent?.parent;
+      if (container) {
+        fireEvent(container, 'touchEnd');
+      }
+
+      expect(onScrollingChange).toHaveBeenCalledWith(false);
+    });
+
+    it('calls onScrollingChange with false on touch cancel', () => {
+      const onScrollingChange = jest.fn();
+      const props = { ...createDefaultProps(), onScrollingChange };
+      render(<QuickScorecardView {...props} />);
+
+      const container = screen.getByText('Quick View').parent?.parent;
+      if (container) {
+        fireEvent(container, 'touchCancel');
+      }
+
+      expect(onScrollingChange).toHaveBeenCalledWith(false);
+    });
+
+    it('does not fail when onScrollingChange is not provided', () => {
+      const props = createDefaultProps();
+      render(<QuickScorecardView {...props} />);
+
+      const container = screen.getByText('Quick View').parent?.parent;
+      // These should not throw
+      if (container) {
+        expect(() => fireEvent(container, 'touchStart')).not.toThrow();
+        expect(() => fireEvent(container, 'touchEnd')).not.toThrow();
+      }
     });
   });
 

@@ -65,6 +65,7 @@ function PlayerAvatarComponent({
         <GolferIcon
           size={size}
           colorPalette={colorPalette}
+          testID="avatar-icon"
         />
       );
     }
@@ -76,6 +77,7 @@ function PlayerAvatarComponent({
           size={size}
           source={{ uri: photoUrl }}
           style={styles.image}
+          testID="avatar-image"
         />
       );
     }
@@ -85,6 +87,7 @@ function PlayerAvatarComponent({
       <GolferIcon
         size={size}
         colorPalette={getDefaultAvatar().colorPalette}
+        testID="avatar-icon"
       />
     );
   };

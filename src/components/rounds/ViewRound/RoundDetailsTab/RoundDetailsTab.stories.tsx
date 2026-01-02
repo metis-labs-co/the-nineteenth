@@ -11,11 +11,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { RoundDetailsTab } from './index';
 import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
-import type { Hole, GameType, RoundStatus, CompetitionType, TeamFormat, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
+import type { Hole, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // ===========================================================================
 // HELPER FUNCTIONS

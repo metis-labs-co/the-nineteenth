@@ -24,12 +24,12 @@ import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
   return {
-    IconTrophy: (props: { size?: number; color?: string }) => (
+    IconTrophy: (_props: { size?: number; color?: string }) => (
       <View testID="icon-trophy">
         <Text>TrophyIcon</Text>
       </View>
     ),
-    IconChartBar: (props: { size?: number; color?: string }) => (
+    IconChartBar: (_props: { size?: number; color?: string }) => (
       <View testID="icon-chart-bar">
         <Text>ChartBarIcon</Text>
       </View>
@@ -41,10 +41,9 @@ jest.mock('@tabler/icons-react-native', () => {
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
   return {
-    LoadingSpinner: ({ message, size }: { message?: string; size?: string }) => (
+    LoadingSpinner: ({ message, size: _size }: { message?: string; size?: string }) => (
       <View testID="loading-spinner">
         <Text>{message || 'Loading...'}</Text>
-        <Text>{size}</Text>
       </View>
     ),
   };

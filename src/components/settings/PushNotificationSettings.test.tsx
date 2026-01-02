@@ -18,6 +18,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { Linking, Platform } from 'react-native';
 import { PushNotificationSettings, PushNotificationSettingsProps } from './PushNotificationSettings';
 
+// Import the mocked hook
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -71,9 +74,6 @@ const mockUsePushNotifications = {
 jest.mock('@/hooks/usePushNotifications', () => ({
   usePushNotifications: jest.fn(() => mockUsePushNotifications),
 }));
-
-// Import the mocked hook
-import { usePushNotifications } from '@/hooks/usePushNotifications';
 const mockUsePushNotificationsHook = usePushNotifications as jest.MockedFunction<typeof usePushNotifications>;
 
 // Mock react-native-paper
@@ -92,12 +92,12 @@ jest.mock('react-native-paper', () => {
         {children}
       </Text>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, color: _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }}>
         <Text>{source}</Text>
       </View>
     ),
-    ActivityIndicator: ({ size, color }: any) => (
+    ActivityIndicator: ({ size: _size, color: _color }: any) => (
       <View testID="activity-indicator">
         <Text>Loading</Text>
       </View>
@@ -711,7 +711,7 @@ describe('PushNotificationSettings', () => {
         preferences: { ...mockUsePushNotifications.preferences, pushEnabled: true },
         permissionStatus: 'granted',
       } as any);
-      const { rerender, unmount } = render(<PushNotificationSettings testID="push-settings" />);
+      const { rerender: _rerender, unmount } = render(<PushNotificationSettings testID="push-settings" />);
       expect(screen.getByText('Notification Types')).toBeTruthy();
       unmount();
 

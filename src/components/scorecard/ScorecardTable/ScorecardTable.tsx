@@ -44,14 +44,14 @@ const FixedHeaderCells = React.memo(function FixedHeaderCells(_props: FixedHeade
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>Hole</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Hole</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>SI</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>SI</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>Par</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Par</Text>
       </View>
     </>
   );
@@ -75,10 +75,10 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
       {players.map((playerData) => {
         const content = (
           <>
-            <Text style={[styles.headerText, { color: colors.textInverse }]} numberOfLines={1}>
+            <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
               {getFirstName(playerData.player?.name)}
             </Text>
-            <Text style={[styles.handicapText, { color: colors.gray400 }]}>
+            <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
               HC: {playerData.player?.handicap || 0}
             </Text>
           </>
@@ -88,7 +88,7 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
           return (
             <TouchableOpacity
               key={playerData.id}
-              style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+              style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
               onPress={() => onPlayerPress(playerData.playerId)}
               activeOpacity={0.7}
             >
@@ -100,7 +100,7 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
         return (
           <View
             key={playerData.id}
-            style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+            style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
           >
             {content}
           </View>
@@ -119,13 +119,13 @@ const FixedHoleCells = React.memo(function FixedHoleCells({ hole }: FixedHoleCel
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray100 }]}>
+      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
         <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{hole.number}</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, { backgroundColor: colors.gray50 }]}>
+      <View style={[styles.tableCell, styles.indexCell, { backgroundColor: colors.surface }]}>
         <Text style={[styles.indexCellText, { color: colors.textSecondary }]}>{hole.strokeIndex}</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, { backgroundColor: colors.gray50 }]}>
+      <View style={[styles.tableCell, styles.parCell, { backgroundColor: colors.surface }]}>
         <Text style={[styles.parCellText, { color: colors.textSecondary }]}>{hole.par}</Text>
       </View>
     </>
@@ -172,13 +172,13 @@ const FixedSubtotalCells = React.memo(function FixedSubtotalCells({
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.subtotalCell, { backgroundColor: colors.gray200 }]}>
+      <View style={[styles.tableCell, styles.holeCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
         <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{label}</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.subtotalCell, { backgroundColor: colors.gray200 }]}>
+      <View style={[styles.tableCell, styles.indexCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
         <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.subtotalCell, { backgroundColor: colors.gray200 }]}>
+      <View style={[styles.tableCell, styles.parCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
         <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{par}</Text>
       </View>
     </>
@@ -205,7 +205,7 @@ const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCells({
         return (
           <View
             key={stats.playerId}
-            style={[styles.tableCell, styles.subtotalCell, { width: playerCellWidth, backgroundColor: colors.gray200 }]}
+            style={[styles.tableCell, styles.subtotalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
           >
             <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
               {gross || '-'}
@@ -226,14 +226,14 @@ const FixedGrossCells = React.memo(function FixedGrossCells({ parTotal }: FixedG
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalLabelText, { color: colors.textInverse }]}>Gross</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>Gross</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalText, { color: colors.textInverse }]}>-</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalText, { color: colors.textInverse }]}>{parTotal}</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalText, { color: colors.textPrimary }]}>{parTotal}</Text>
       </View>
     </>
   );
@@ -257,7 +257,7 @@ const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
         >
           <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total) }]}>
             {stats.totalGross || '-'}
@@ -273,14 +273,14 @@ const FixedNetCells = React.memo(function FixedNetCells() {
 
   return (
     <>
-      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalLabelText, { color: colors.textInverse }]}>Net</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>Net</Text>
       </View>
-      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalText, { color: colors.textInverse }]}>-</Text>
+      <View style={[styles.tableCell, styles.indexCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
       </View>
-      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.totalText, { color: colors.textInverse }]}>-</Text>
+      <View style={[styles.tableCell, styles.parCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
       </View>
     </>
   );
@@ -304,7 +304,7 @@ const ScrollableNetCells = React.memo(function ScrollableNetCells({
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.gray800 }]}
+          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
         >
           <Text style={[styles.totalText, { color: getScoreColor(stats.totalNet, parTotals.total) }]}>
             {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
@@ -410,7 +410,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               </View>
             ))}
             {/* OUT */}
-            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
               <FixedSubtotalCells label="OUT" par={parTotals.front9} />
             </View>
             {/* Back 9 */}
@@ -420,15 +420,15 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               </View>
             ))}
             {/* IN */}
-            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+            <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
               <FixedSubtotalCells label="IN" par={parTotals.back9} />
             </View>
             {/* Gross */}
-            <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+            <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
               <FixedGrossCells parTotal={parTotals.total} />
             </View>
             {/* Net */}
-            <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+            <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
               <FixedNetCells />
             </View>
             {/* Pts */}
@@ -455,7 +455,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
                 </View>
               ))}
               {/* OUT */}
-              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} />
               </View>
               {/* Back 9 */}
@@ -465,15 +465,15 @@ export const ScorecardTable = React.memo(function ScorecardTable({
                 </View>
               ))}
               {/* IN */}
-              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+              <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} />
               </View>
               {/* Gross */}
-              <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+              <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
               </View>
               {/* Net */}
-              <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+              <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
               </View>
               {/* Pts */}
@@ -505,7 +505,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       ))}
 
       {/* OUT subtotal */}
-      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="OUT" par={parTotals.front9} />
         <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} />
       </View>
@@ -519,19 +519,19 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       ))}
 
       {/* IN subtotal */}
-      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}>
+      <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="IN" par={parTotals.back9} />
         <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} />
       </View>
 
       {/* Gross row */}
-      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedGrossCells parTotal={parTotals.total} />
         <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
       </View>
 
       {/* Net row */}
-      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800, borderBottomColor: colors.border }]}>
+      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedNetCells />
         <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
       </View>

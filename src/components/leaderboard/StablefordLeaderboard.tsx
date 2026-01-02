@@ -65,9 +65,12 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
           scoreDisplay = String(entry.scoreData.teamScore);
         }
 
+        // Use proper type narrowing for key
+        const key = entry.isTeamResult ? entry.teamId : entry.playerId;
+
         return (
           <LeaderboardRow
-            key={entry.isTeamResult ? (entry as any).teamId : (entry as any).playerId}
+            key={key}
             entry={entry}
             currentUserId={currentUserId}
             isTied={isTied}

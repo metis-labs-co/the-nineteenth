@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "golf.thenineteenth",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "appleTeamId": "9D3K8VW249",
       "associatedDomains": [
         "applinks:thenineteenth.golf",

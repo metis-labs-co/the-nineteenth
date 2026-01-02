@@ -95,7 +95,7 @@ export const ExpandableItem = React.memo(function ExpandableItem({
     <View
       style={[
         styles.container,
-        showBorder && !isLast && { borderBottomColor: colors.gray100 },
+        showBorder && !isLast && { borderBottomColor: colors.border },
         showBorder && !isLast && styles.withBorder,
         style,
       ]}
@@ -118,7 +118,7 @@ export const ExpandableItem = React.memo(function ExpandableItem({
         <Icon
           source={isExpanded ? expandedIcon : collapsedIcon}
           size={20}
-          color={colors.gray400}
+          color={colors.textSecondary}
         />
       </TouchableOpacity>
 
@@ -126,7 +126,7 @@ export const ExpandableItem = React.memo(function ExpandableItem({
         <Animated.View
           style={[
             styles.content,
-            { backgroundColor: colors.gray50 },
+            { backgroundColor: colors.surfaceVariant },
             animated && { opacity: animatedOpacity },
           ]}
         >

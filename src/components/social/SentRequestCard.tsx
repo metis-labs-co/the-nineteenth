@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';

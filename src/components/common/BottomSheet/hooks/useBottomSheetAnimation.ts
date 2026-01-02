@@ -7,7 +7,7 @@
  * - Supports dynamic height configuration
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { Animated } from 'react-native';
 import { DEFAULT_ANIMATION_CONFIG } from '../constants';
 import type { UseBottomSheetAnimationOptions } from '../types';
@@ -31,11 +31,12 @@ export function useBottomSheetAnimation({
   animationConfig,
   onCloseComplete,
 }: UseBottomSheetAnimationOptions): UseBottomSheetAnimationReturn {
-  // Merge with defaults
-  const config = {
+  // Merge with defaults - memoize to avoid dependency changes
+  const config = useMemo(() => ({
     ...DEFAULT_ANIMATION_CONFIG,
     ...animationConfig,
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animationConfig is stable from parent props
+  }), []);
 
   // Animation values - start off-screen
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
@@ -109,10 +110,29 @@ export function useBottomSheetAnimation({
   useEffect(() => {
     if (visible) {
       animateOpen();
+    } else {
+      // Animate close when visible becomes false
+      // This ensures the backdrop properly fades out even when close is triggered
+      // by setting visible=false directly (e.g., from custom headers)
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: sheetHeight,
+          useNativeDriver: true,
+          damping: config.damping,
+          stiffness: config.stiffness,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: config.backdropCloseDuration,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        if (isMounted.current) {
+          onCloseComplete?.();
+        }
+      });
     }
-    // Note: Close animation is handled externally via animateClose
-    // to allow for proper sequencing with onClose callback
-  }, [visible, animateOpen]);
+  }, [visible, animateOpen, translateY, backdropOpacity, sheetHeight, config, onCloseComplete]);
 
   // Update sheet height if it changes while open
   useEffect(() => {

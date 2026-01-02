@@ -15,14 +15,11 @@
 import {
   generateBalancedTeams,
   getTeamStats,
-  type GeneratedTeam,
 } from '@/utils/teamGeneration';
 import {
-  calculateStablefordPoints,
   calculateBestBallScore,
   calculateBestBallStablefordPoints,
   calculateScrambleTeamHandicap,
-  calculateNetScore,
   calculateMatchPlayHole,
   calculateTeamMatchPlayHoleResult,
   calculateMatchPlayStatus,
@@ -30,7 +27,6 @@ import {
 } from '@/utils/scoring';
 import {
   calculateCompetitionPoints,
-  calculateMatchPlayPoints,
   aggregateCompetitionStandings,
   STANDARD_POINT_SYSTEM,
   type RoundResult,
@@ -40,21 +36,13 @@ import {
 import {
   createTestPlayer,
   createPlayersWithHandicaps,
-  createTestCompetition,
   createFixedTeamCompetition,
   createPerRoundTeamCompetition,
   createTestRound,
-  createBestBallRound,
-  createScrambleRound,
-  createMatchPlayRound,
-  createTeamMatchPlayRound,
   create18Holes,
   createTeamWithMembers,
-  createMultipleTeams,
-  createCompletedScorecard,
-  STANDARD_POINT_SYSTEM as FIXTURE_POINT_SYSTEM,
 } from '../utils/testFixtures';
-import type { Hole, Player, Competition, Round, TeamWithMembers, Scorecard } from '@/types/database.types';
+import type { Hole, TeamWithMembers } from '@/types/database.types';
 
 // ============================================================================
 // Test Helpers
@@ -214,7 +202,7 @@ describe('Fixed Teams Competition', () => {
     ];
 
     // For each round, teams should be the same
-    rounds.forEach((round) => {
+    rounds.forEach((_round) => {
       const roundTeams = fixedTeams; // Same teams used
 
       // Verify team composition
@@ -405,7 +393,7 @@ describe('Team Best Ball Round Scoring', () => {
   const holes = create18Holes();
 
   it('uses best score among team members for each hole', () => {
-    const team = createTeamWithMembers(
+    const _team = createTeamWithMembers(
       { id: 'team-1', name: 'Team Alpha' },
       [
         createTestPlayer({ id: 'p1', handicap: 10 }),
@@ -530,7 +518,7 @@ describe('Team Scramble Round Scoring', () => {
   });
 
   it('applies team handicap correctly to net score', () => {
-    const team = createTeamWithMembers(
+    const _team = createTeamWithMembers(
       { id: 'team-1', name: 'Team Test' },
       [
         createTestPlayer({ id: 'p1', handicap: 10 }),
@@ -688,7 +676,6 @@ describe('Match Play Round Scoring', () => {
       let team1Wins = 0;
       let team2Wins = 0;
       let matchOver = false;
-      let finalStatus = '';
 
       holeResults.forEach((result, index) => {
         if (matchOver) return;
@@ -706,7 +693,6 @@ describe('Match Play Round Scoring', () => {
 
         if (status.isMatchOver) {
           matchOver = true;
-          finalStatus = status.status;
         }
       });
 
@@ -723,7 +709,7 @@ describe('Match Play Round Scoring', () => {
 
 describe('Competition Leaderboard - Mixed Formats', () => {
   it('aggregates points across different round formats', () => {
-    const players = [
+    const _players = [
       createTestPlayer({ id: 'p1', name: 'Alice' }),
       createTestPlayer({ id: 'p2', name: 'Bob' }),
       createTestPlayer({ id: 'p3', name: 'Charlie' }),

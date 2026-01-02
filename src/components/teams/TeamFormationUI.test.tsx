@@ -22,7 +22,7 @@ import { createTestPlayer, createTeamWithMembers } from '@/__tests__/utils/testF
 
 // Mock icons
 jest.mock('@tabler/icons-react-native', () => {
-  const { View, Text } = require('react-native');
+  const { Text } = require('react-native');
   return {
     IconWand: () => <Text>WandIcon</Text>,
     IconRefresh: () => <Text>RefreshIcon</Text>,
@@ -41,7 +41,7 @@ jest.mock('@/components/common', () => {
         <Text>Loading...</Text>
       </View>
     ),
-    PlayerAvatar: ({ name, size: avatarSize }: { name: string; size: number }) => (
+    PlayerAvatar: ({ name, size: _avatarSize }: { name: string; size: number }) => (
       <View testID={`player-avatar-${name}`}>
         <Text>{name.charAt(0)}</Text>
       </View>
@@ -62,7 +62,7 @@ jest.mock('@/hooks/useTeams', () => ({
 // TEST FIXTURES
 // =====================================================
 
-const twoPlayers: Player[] = [
+const _twoPlayers: Player[] = [
   createTestPlayer({ id: 'player-1', name: 'John Smith', handicap: 15 }),
   createTestPlayer({ id: 'player-2', name: 'Jane Doe', handicap: 20 }),
 ];

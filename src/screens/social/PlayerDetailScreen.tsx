@@ -3,6 +3,8 @@
  *
  * Shows:
  * - Player profile header (avatar, name, email, handicap)
+ * - Equipped cosmetics (frame, badge, title)
+ * - Achievements summary with View Achievements button
  * - Overview stats (rounds, competitions, wins)
  * - Score distribution (eagles, birdies, pars, bogeys, etc.)
  * - Best performances
@@ -25,12 +27,15 @@ import type { RootStackParamList } from '@/navigation/types';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useAuth } from '@/hooks/useAuth';
+import { useAchievementSummary } from '@/hooks/achievements';
+import { useEquippedCosmetics } from '@/hooks/cosmetics';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/social';
 import { StatCard, ScoreDistributionBar } from '@/components/statistics';
 import { FeatureLockButton } from '@/components/subscription/FeatureLockButton';
+import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { formatDateAustralian } from '@/utils/formatting';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PlayerDetail'>;
@@ -64,6 +69,12 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
     isRefetching,
   } = usePlayerStatistics(playerId);
 
+  // Fetch equipped cosmetics for this player
+  const { data: equipped } = useEquippedCosmetics(playerId);
+
+  // Fetch achievements summary for this player
+  const { data: achievementSummary } = useAchievementSummary(playerId);
+
   const isLoading = isLoadingPlayer || isLoadingStats;
   const error = playerError || statsError;
 
@@ -84,6 +95,10 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
       });
     }
   }, [navigation, user?.id, playerId]);
+
+  const handleViewAchievements = useCallback(() => {
+    navigation.navigate('Achievements', { playerId });
+  }, [navigation, playerId]);
 
   // Render loading state
   if (isLoading) {
@@ -157,12 +172,18 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
       >
         {/* Player Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: cardBg }, shadows.sm]}>
-          <PlayerAvatar
-            photoUrl={player.photo_url}
-            name={player.name}
-            size={80}
-          />
-          <Text style={[styles.playerName, { color: colors.textPrimary }]}>{player.name}</Text>
+          <ProfileFrame frame={equipped?.frame ?? null} size={88}>
+            <PlayerAvatar
+              photoUrl={player.photo_url}
+              name={player.name}
+              size={80}
+            />
+          </ProfileFrame>
+          <View style={styles.nameRow}>
+            <Text style={[styles.playerName, { color: colors.textPrimary }]}>{player.name}</Text>
+            <ProfileBadge badge={equipped?.badge ?? null} size={18} />
+          </View>
+          <ProfileTitle title={equipped?.title ?? null} />
           <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
           {player.handicap !== null && player.handicap !== undefined && (
             <View style={[styles.handicapBadge, { backgroundColor: colors.primaryLighter }]}>
@@ -170,6 +191,28 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
                 HC: {player.handicap}
               </Text>
             </View>
+          )}
+
+          {/* Achievements Summary */}
+          {achievementSummary && (
+            <TouchableOpacity
+              style={[styles.achievementsSummary, { backgroundColor: colors.surfaceVariant }]}
+              onPress={handleViewAchievements}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${player.name}'s achievements`}
+            >
+              <View style={styles.achievementsInfo}>
+                <Icon source="trophy" size={20} color={colors.warning} />
+                <Text style={[styles.achievementsText, { color: colors.textPrimary }]}>
+                  {achievementSummary.total_earned} achievements
+                </Text>
+                <Text style={[styles.achievementsPoints, { color: colors.textSecondary }]}>
+                  {achievementSummary.total_points} pts
+                </Text>
+              </View>
+              <Icon source="chevron-right" size={20} color={colors.gray400} />
+            </TouchableOpacity>
           )}
 
           {/* Compare Stats Button */}
@@ -471,10 +514,15 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
   },
-  playerName: {
-    ...typography.h2,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+  },
+  playerName: {
+    ...typography.h2,
     textAlign: 'center',
   },
   playerEmail: {
@@ -489,6 +537,27 @@ const styles = StyleSheet.create({
   },
   handicapText: {
     ...typography.bodyBold,
+  },
+  achievementsSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  achievementsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  achievementsText: {
+    ...typography.bodyBold,
+  },
+  achievementsPoints: {
+    ...typography.small,
   },
   compareButton: {
     flexDirection: 'row',

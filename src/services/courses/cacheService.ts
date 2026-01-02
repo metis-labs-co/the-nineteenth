@@ -145,13 +145,13 @@ class CourseCacheService {
 
     if (existingCourse) {
       // Update existing course
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('courses')
         .update({
           ...courseData,
           last_synced: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        })
+        } as unknown as never)
         .eq('id', existingCourse.id)
         .select()
         .single();
@@ -169,7 +169,7 @@ class CourseCacheService {
           ...courseData,
           source: 'api',
           last_synced: new Date().toISOString(),
-        } as any)
+        } as unknown as never)
         .select()
         .single();
 

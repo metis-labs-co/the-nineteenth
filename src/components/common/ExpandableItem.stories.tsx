@@ -11,7 +11,6 @@ import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
 import {
   ExpandableItem,
-  ExpandableItemProps,
   ExpandableList,
 } from './ExpandableItem';
 import { spacing } from '@/constants/theme';

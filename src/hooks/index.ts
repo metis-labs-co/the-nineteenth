@@ -23,6 +23,8 @@ export {
   subscriptionKeys,
   pushKeys,
   placeholderPlayersKeys,
+  achievementKeys,
+  cosmeticKeys,
   allQueryKeys,
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
@@ -195,15 +197,7 @@ export {
 } from './useNotifications';
 
 // Subscription hooks
-export {
-  useSubscription,
-  useCheckFeature,
-  useCanCreateCompetition,
-  useCanAddRound,
-  useCanAddPlayer,
-  useCanAddFriend,
-  useCanUseGameType,
-} from './useSubscription';
+export { useSubscription, useCompetitionCount } from './useSubscription';
 export type {
   FeatureCheckContext,
   UseSubscriptionReturn,
@@ -242,4 +236,42 @@ export {
   useDeletePlaceholderPlayer,
   useUpdatePlaceholderPlayer,
 } from './usePlaceholderPlayers';
+
+// Achievement hooks
+export {
+  useAchievementDefinitions,
+  usePlayerAchievements,
+  useAchievementProgress,
+  useAchievementSummary,
+  useAchievementLeaderboard,
+  useAwardAchievement,
+  useUpdateProgress,
+  useHasAchievement,
+  useAchievementPoints,
+  useAchievementsByCategory,
+} from './achievements';
+
+// Cosmetics hooks
+export {
+  useCosmeticDefinitions,
+  usePlayerCosmetics,
+  useEquippedCosmetics,
+  useUnlockableCosmetics,
+  useCosmeticsWithStatus,
+  useUnlockCosmetic,
+  useEquipCosmetic,
+  useUnequipCosmetic,
+  useHasCosmetic,
+  useNextUnlockableCosmetic,
+  useCosmeticCounts,
+} from './cosmetics';
+
+// Online status hooks
+export {
+  useOnlineStatus,
+  useOnlineStatusWithRefresh,
+  checkIsOnline,
+  getIsOnlineCached,
+  initOnlineStatus,
+} from './useOnlineStatus';
 

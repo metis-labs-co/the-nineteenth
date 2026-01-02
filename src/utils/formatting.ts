@@ -5,24 +5,93 @@
  * to ensure consistent formatting across the application.
  */
 
+import { format, parse, isValid } from 'date-fns';
+
+// ============================================================================
+// PARSING FUNCTIONS
+// ============================================================================
+
+/**
+ * Parse DD/MM/YYYY string to Date object
+ *
+ * @param dateString - Date string in DD/MM/YYYY format
+ * @returns Date object or null if invalid/empty
+ *
+ * @example
+ * parseAustralianDate('15/01/2025') // Date object for Jan 15, 2025
+ * parseAustralianDate('') // null
+ * parseAustralianDate('invalid') // null
+ */
+export function parseAustralianDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
+  return isValid(parsed) ? parsed : null;
+}
+
+/**
+ * Parse ISO date string to Date object
+ *
+ * @param dateString - ISO date string (YYYY-MM-DD or full ISO) or null
+ * @returns Date object or null if invalid/empty
+ *
+ * @example
+ * parseISODate('2025-01-15') // Date object for Jan 15, 2025
+ * parseISODate('2025-01-15T10:30:00Z') // Date object with time
+ * parseISODate(null) // null
+ */
+export function parseISODate(dateString: string | null): Date | null {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return isValid(date) ? date : null;
+}
+
+/**
+ * Parse HH:MM time string to Date object (today's date with parsed time)
+ *
+ * @param timeString - Time string in HH:MM format
+ * @returns Date object with parsed time or null if invalid/empty
+ *
+ * @example
+ * parseTime('09:30') // Date object with 9:30 AM today
+ * parseTime('14:00') // Date object with 2:00 PM today
+ * parseTime('') // null
+ */
+export function parseTime(timeString: string): Date | null {
+  if (!timeString) return null;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+// ============================================================================
+// DATE FORMATTING FUNCTIONS
+// ============================================================================
+
 /**
  * Format date to Australian format (DD/MM/YYYY)
  *
- * @param dateString - ISO date string (YYYY-MM-DD) or null
- * @returns Formatted date string or 'Date TBD' if null
+ * Accepts either a Date object or ISO date string.
+ *
+ * @param date - Date object, ISO date string (YYYY-MM-DD), or null
+ * @returns Formatted date string or 'Date TBD' if null/invalid
  *
  * @example
+ * formatDateAustralian(new Date(2025, 0, 15)) // '15/01/2025'
  * formatDateAustralian('2025-01-15') // '15/01/2025'
  * formatDateAustralian(null) // 'Date TBD'
  */
-export function formatDateAustralian(dateString: string | null): string {
-  if (!dateString) return 'Date TBD';
-  const date = new Date(dateString);
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+export function formatDateAustralian(date: Date | string | null): string {
+  if (!date) return 'Date TBD';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (!isValid(dateObj)) return 'Date TBD';
+  return format(dateObj, 'dd/MM/yyyy');
 }
+
+// ============================================================================
+// TIME FORMATTING FUNCTIONS
+// ============================================================================
 
 /**
  * Format time for display (e.g., "9:30 AM")
@@ -41,6 +110,22 @@ export function formatTime(timeString: string | null): string | null {
   const period = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+/**
+ * Format Date object to 24-hour time string (HH:MM)
+ *
+ * Used for form field values where time is stored as "HH:MM" string.
+ *
+ * @param date - Date object
+ * @returns Time string in HH:MM format
+ *
+ * @example
+ * formatTimeHHMM(new Date(2025, 0, 15, 9, 30)) // '09:30'
+ * formatTimeHHMM(new Date(2025, 0, 15, 14, 0)) // '14:00'
+ */
+export function formatTimeHHMM(date: Date): string {
+  return format(date, 'HH:mm');
 }
 
 /**

@@ -18,7 +18,7 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ToastConfig, ToastConfigParams } from 'react-native-toast-message';
+import Toast, { type ToastConfig, type ToastConfigParams } from 'react-native-toast-message';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Notification, NotificationType } from '@/types/database.types';
@@ -218,9 +218,6 @@ export function showNotificationToast(
   notification: Notification,
   onPress?: () => void
 ) {
-  // Dynamic import to avoid circular dependencies
-  const Toast = require('react-native-toast-message').default;
-
   Toast.show({
     type: 'notification',
     props: {

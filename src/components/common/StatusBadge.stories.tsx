@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { StatusBadge, StatusBadgeProps, StatusVariant, StatusBadgeSize } from './StatusBadge';
+import { StatusBadge } from './StatusBadge';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================
@@ -43,7 +43,6 @@ const meta: Meta<typeof StatusBadge> = {
     },
     accessibilityLabel: { control: 'text' },
     backgroundColor: { control: 'color' },
-    textColor: { control: 'color' },
   },
 };
 
@@ -184,7 +183,6 @@ export const Custom: Story = {
     status: 'custom',
     label: 'You',
     backgroundColor: '#DBEAFE',
-    textColor: '#1E40AF',
   },
 };
 
@@ -326,7 +324,6 @@ export const CustomColors: Story = {
     status: 'custom',
     label: 'VIP',
     backgroundColor: '#FFD700',
-    textColor: '#7C2D12',
   },
 };
 
@@ -339,19 +336,16 @@ export const CustomColorVariants: Story = {
             status="custom"
             label="You"
             backgroundColor="#DBEAFE"
-            textColor="#1E40AF"
           />
           <StatusBadge
             status="custom"
             label="Organiser"
             backgroundColor="#FEF3C7"
-            textColor="#92400E"
           />
           <StatusBadge
             status="custom"
             label="Pro"
             backgroundColor="#FDF2F8"
-            textColor="#9D174D"
           />
         </Row>
       </Section>
@@ -361,19 +355,16 @@ export const CustomColorVariants: Story = {
             status="custom"
             label="Team A"
             backgroundColor="#DCFCE7"
-            textColor="#166534"
           />
           <StatusBadge
             status="custom"
             label="Team B"
             backgroundColor="#FEE2E2"
-            textColor="#991B1B"
           />
           <StatusBadge
             status="custom"
             label="Team C"
             backgroundColor="#E0E7FF"
-            textColor="#3730A3"
           />
         </Row>
       </Section>
@@ -383,19 +374,16 @@ export const CustomColorVariants: Story = {
             status="custom"
             label="1st"
             backgroundColor="#FEF3C7"
-            textColor="#92400E"
           />
           <StatusBadge
             status="custom"
             label="2nd"
             backgroundColor="#F3F4F6"
-            textColor="#374151"
           />
           <StatusBadge
             status="custom"
             label="3rd"
             backgroundColor="#FFEDD5"
-            textColor="#9A3412"
           />
         </Row>
       </Section>
@@ -463,21 +451,18 @@ export const PlayerIdentifiers: Story = {
             label="You"
             size="sm"
             backgroundColor="#DBEAFE"
-            textColor="#1E40AF"
           />
           <StatusBadge
             status="custom"
             label="Organiser"
             size="sm"
             backgroundColor="#FEF3C7"
-            textColor="#92400E"
           />
           <StatusBadge
             status="custom"
             label="Scorer"
             size="sm"
             backgroundColor="#F3E8FF"
-            textColor="#7C3AED"
           />
         </Row>
       </Section>
@@ -514,21 +499,18 @@ export const LeaderboardBadges: Story = {
             label="1st"
             size="sm"
             backgroundColor="#FEF3C7"
-            textColor="#92400E"
           />
           <StatusBadge
             status="custom"
             label="2nd"
             size="sm"
             backgroundColor="#F3F4F6"
-            textColor="#374151"
           />
           <StatusBadge
             status="custom"
             label="3rd"
             size="sm"
             backgroundColor="#FFEDD5"
-            textColor="#9A3412"
           />
           <StatusBadge
             status="custom"
@@ -697,6 +679,5 @@ export const Playground: Story = {
     size: 'md',
     accessibilityLabel: '',
     backgroundColor: '',
-    textColor: '',
   },
 };

@@ -103,14 +103,41 @@ async function fetchCompetitionDetails(competitionId: string): Promise<Competiti
     throw new Error(`Failed to fetch players: ${playersError.message}`);
   }
 
-  // Transform rounds data
-  const transformedRounds: RoundWithCourse[] = (rounds || []).map((round: any) => ({
-    ...round,
-    course: round.courses || null,
-  }));
+  // Define types for the joined data
+  interface RoundRowWithCourses {
+    id: string;
+    courses: {
+      id: string;
+      name: string;
+      venue_id: string | null;
+      venues: { name: string; city: string | null; state: string | null } | null;
+    } | null;
+    [key: string]: unknown;
+  }
+
+  interface CompetitionPlayerRow {
+    player_id: string;
+    status: string;
+    players: {
+      id: string;
+      name: string;
+      email: string | null;
+      handicap: number | null;
+      photo_url: string | null;
+    } | null;
+  }
+
+  // Transform rounds data - rename courses to course for RoundWithCourse interface
+  const transformedRounds: RoundWithCourse[] = (rounds || []).map((round: RoundRowWithCourses) => {
+    const { courses, ...rest } = round;
+    return {
+      ...rest,
+      course: courses || null,
+    } as RoundWithCourse;
+  });
 
   // Transform players data
-  const transformedPlayers: CompetitionPlayer[] = (players || []).map((cp: any) => ({
+  const transformedPlayers: CompetitionPlayer[] = (players || []).map((cp: CompetitionPlayerRow) => ({
     player_id: cp.player_id,
     status: cp.status,
     player: cp.players || null,
@@ -394,11 +421,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       // Close dialog and navigate back
       setShowDeleteDialog(false);
       navigation.goBack();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsDeleting(false);
       Alert.alert(
         'Error',
-        error.message || 'Failed to delete competition. Please try again.'
+        error instanceof Error ? error.message : 'Failed to delete competition. Please try again.'
       );
     }
   }, [id, navigation, queryClient]);

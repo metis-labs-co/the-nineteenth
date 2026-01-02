@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
-import { DateTimeFieldGroup, DateTimeFieldGroupProps } from './DateTimeFieldGroup';
+import { DateTimeFieldGroup } from './DateTimeFieldGroup';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

@@ -1,3 +1,4 @@
+/* eslint-disable react/display-name -- Test mocks don't need display names */
 /**
  * TeamCard Component Tests
  *
@@ -104,7 +105,7 @@ jest.mock('react-native-paper', () => {
   );
 
   const Avatar: any = {};
-  Avatar.Image = ({ size, source, style, ...props }: any) => (
+  Avatar.Image = ({ size, source: _source, style, ...props }: any) => (
     <View
       testID="avatar-image"
       style={[{ width: size, height: size, borderRadius: size / 2 }, style]}
@@ -128,13 +129,13 @@ jest.mock('react-native-paper', () => {
     PaperProvider: ({ children }: any) => children,
     useTheme: () => mockTheme,
     Card,
-    Text: ({ children, style, numberOfLines, ellipsizeMode, ...props }: any) => (
+    Text: ({ children, style, numberOfLines, ellipsizeMode: _ellipsizeMode, ...props }: any) => (
       <Text style={style} numberOfLines={numberOfLines} {...props}>
         {children}
       </Text>
     ),
     Avatar,
-    IconButton: ({ icon, size, onPress, accessibilityLabel, accessibilityHint, style, ...props }: any) => (
+    IconButton: ({ icon, size: _size, onPress, accessibilityLabel, accessibilityHint, style, ...props }: any) => (
       <TouchableOpacity
         testID={`icon-button-${icon}`}
         onPress={onPress}

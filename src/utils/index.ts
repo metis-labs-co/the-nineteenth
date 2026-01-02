@@ -28,3 +28,20 @@ export * from './displayHelpers';
 // Push notification test utilities (DEV only)
 export { pushTestUtils } from './pushNotificationTest';
 export type { TestResult, PushDebugInfo } from './pushNotificationTest';
+
+// Achievement calculation utilities
+export {
+  calculateAchievementProgress,
+  checkThresholdMet,
+  getNextTierAchievement,
+  calculateTotalPoints,
+  groupAchievementsByCategory,
+  getAchievementProgress,
+  filterEarnableAchievements,
+  calculateCompletionPercentage,
+  checkCosmeticUnlocks,
+  createProgressMap,
+  sortByProgress,
+  getNextAchievementInCategory,
+} from './achievementCalculations';
+export type { AchievementProgressResult, ProgressMap } from './achievementCalculations';

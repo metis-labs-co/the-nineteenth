@@ -235,7 +235,7 @@ export const UpgradeFromSocialToPremium: Story = {
   args: {
     visible: true,
     initialTier: 'premium',
-    onPurchaseSuccess: (tier) => {
+    onPurchaseSuccess: (_tier) => {
       Alert.alert('Upgrade Complete', 'You are now a Premium member!');
     },
     onDismiss: () => console.log('Dismissed'),
@@ -392,7 +392,7 @@ export const FeatureLockedPrompt: Story = {
   args: {
     visible: true,
     initialTier: 'premium',
-    onPurchaseSuccess: (tier) => {
+    onPurchaseSuccess: (_tier) => {
       Alert.alert('Feature Unlocked', 'You can now use scoring pairs!');
     },
     onDismiss: () => {

@@ -16,7 +16,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundDetailsTab } from './index';
-import { create18Holes, createTestCourse, createTestRound } from '@/__tests__/utils/testFixtures';
+import { create18Holes } from '@/__tests__/utils/testFixtures';
 import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
 import type { Hole, GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
@@ -108,7 +108,7 @@ jest.mock('@/components/common/StatusBadge', () => {
 jest.mock('@/components/common/Pill', () => {
   const { View, Text } = require('react-native');
   return {
-    Pill: ({ label, variant, size }: { label: string; variant?: string; size?: string }) => (
+    Pill: ({ label, variant: _variant, size: _size }: { label: string; variant?: string; size?: string }) => (
       <View testID={`pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
         <Text>{label}</Text>
       </View>
@@ -538,7 +538,7 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
 
-      expect(screen.getByText('Edit')).toBeTruthy();
+      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
     });
 
     it('does not show edit button for non-organizers', () => {
@@ -547,7 +547,7 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={false} onEditPress={onEditPress} />);
 
-      expect(screen.queryByText('Edit')).toBeNull();
+      expect(screen.queryByLabelText('Edit round details')).toBeNull();
     });
 
     it('does not show edit button when no callback', () => {
@@ -555,7 +555,7 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      expect(screen.queryByText('Edit')).toBeNull();
+      expect(screen.queryByLabelText('Edit round details')).toBeNull();
     });
 
     it('calls onEditPress when edit button pressed', () => {
@@ -564,7 +564,7 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
 
-      fireEvent.press(screen.getByText('Edit'));
+      fireEvent.press(screen.getByLabelText('Edit round details'));
 
       expect(onEditPress).toHaveBeenCalledTimes(1);
     });
@@ -760,7 +760,7 @@ describe('RoundDetailsTab', () => {
   // ===========================================================================
 
   describe('Game Type Labels', () => {
-    const gameTypes: Array<{ type: GameType; expectedLabel: string }> = [
+    const gameTypes: { type: GameType; expectedLabel: string }[] = [
       { type: 'stableford', expectedLabel: 'Stableford' },
       { type: 'stroke', expectedLabel: 'Stroke Play' },
       { type: 'match-play', expectedLabel: 'Match Play' },
@@ -819,7 +819,7 @@ describe('RoundDetailsTab', () => {
       render(<RoundDetailsTab round={round} />);
 
       // Should render with isOrganizer=false, isPremium=false
-      expect(screen.queryByText('Edit')).toBeNull();
+      expect(screen.queryByLabelText('Edit round details')).toBeNull();
     });
 
     it('handles rapid prop changes', () => {
@@ -923,7 +923,7 @@ describe('RoundDetailsTab', () => {
         />
       );
 
-      expect(screen.getByText('Edit')).toBeTruthy();
+      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
       expect(screen.getByTestId('scoring-pairs-premium').children[0]).toBe('true');
       expect(screen.getByTestId('scoring-pairs-required').children[0]).toBe('true');
     });
@@ -941,7 +941,7 @@ describe('RoundDetailsTab', () => {
         />
       );
 
-      expect(screen.getByText('Edit')).toBeTruthy();
+      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
       expect(screen.getByTestId('scoring-pairs-premium').children[0]).toBe('false');
     });
   });

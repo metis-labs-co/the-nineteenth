@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { DetailsTab } from './DetailsTab';
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode, PointSystemConfig } from '@/types/database.types';
+import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 import { spacing } from '@/constants/theme';

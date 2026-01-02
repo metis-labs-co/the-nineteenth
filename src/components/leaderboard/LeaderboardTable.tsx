@@ -105,8 +105,8 @@ export function LeaderboardTable({
     return (
       <View style={[styles.emptyCard, { backgroundColor: colors.surface }]} testID={testID ? `${testID}-empty` : undefined}>
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: colors.gray200 }]}>
-            <IconChartBar size={48} color={colors.gray400} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.surfaceVariant }]}>
+            <IconChartBar size={48} color={colors.textDisabled} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No scores yet</Text>
           <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
@@ -118,7 +118,7 @@ export function LeaderboardTable({
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
-      <View style={[styles.tableHeader, { borderBottomColor: colors.gray200 }]}>
+      <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
         <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>#</Text>
         <Text style={[styles.tableHeaderCell, styles.playerCol, { color: colors.textSecondary }]}>Player</Text>
         <Text style={[styles.tableHeaderCell, styles.handicapCol, { color: colors.textSecondary }]}>HC</Text>
@@ -135,7 +135,7 @@ export function LeaderboardTable({
             key={entry.playerId}
             style={[
               styles.tableRow,
-              { borderBottomColor: colors.gray100 },
+              { borderBottomColor: colors.border },
               isCurrentUser && [styles.tableRowHighlighted, { backgroundColor: withOpacity(colors.primaryLighter, 0.19) }],
               isFirstPlace && [styles.tableRowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
             ]}

@@ -1,0 +1,189 @@
+/**
+ * ProfileMenuSection - Navigation menu items for profile screen
+ *
+ * Displays grouped menu items for account settings, app settings,
+ * and logout action using the MenuItemRow component.
+ */
+
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { MenuItemRow } from './MenuItemRow';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+
+interface ProfileMenuSectionProps {
+  /** Achievement points for badge display */
+  achievementPoints: number;
+  /** Number of placeholder players for badge display */
+  placeholderPlayersCount: number;
+  /** Navigation callbacks */
+  onEditProfile: () => void;
+  onMyStatistics: () => void;
+  onAchievements: () => void;
+  onCustomizeProfile: () => void;
+  onSubscription: () => void;
+  onGuestPlayers: () => void;
+  onSettings: () => void;
+  onNotifications: () => void;
+  onHelpAndSupport: () => void;
+  onSignOut: () => void;
+}
+
+export const ProfileMenuSection = React.memo(function ProfileMenuSection({
+  achievementPoints,
+  placeholderPlayersCount,
+  onEditProfile,
+  onMyStatistics,
+  onAchievements,
+  onCustomizeProfile,
+  onSubscription,
+  onGuestPlayers,
+  onSettings,
+  onNotifications,
+  onHelpAndSupport,
+  onSignOut,
+}: ProfileMenuSectionProps) {
+  const colors = useThemeColors();
+
+  return (
+    <>
+      {/* Account Section */}
+      <View style={styles.menuSection}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          Account
+        </Text>
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
+          <MenuItemRow
+            icon="account-edit"
+            title="Edit Profile"
+            onPress={onEditProfile}
+            testID="menu-edit-profile"
+          />
+          <MenuItemRow
+            icon="chart-bar"
+            title="My Statistics"
+            onPress={onMyStatistics}
+            testID="menu-statistics"
+          />
+          <MenuItemRow
+            icon="trophy"
+            title="Achievements"
+            onPress={onAchievements}
+            rightContent={
+              achievementPoints > 0 ? (
+                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.badgeText, { color: colors.white }]}>
+                    {achievementPoints > 99 ? '99+' : achievementPoints}
+                  </Text>
+                </View>
+              ) : undefined
+            }
+            testID="menu-achievements"
+          />
+          <MenuItemRow
+            icon="palette"
+            title="Customize Profile"
+            onPress={onCustomizeProfile}
+            testID="menu-customize"
+          />
+          <MenuItemRow
+            icon="star-circle"
+            title="My Subscription"
+            onPress={onSubscription}
+            testID="menu-subscription"
+          />
+          <MenuItemRow
+            icon="account-multiple-outline"
+            title="Manage Guest Players"
+            onPress={onGuestPlayers}
+            rightContent={
+              placeholderPlayersCount > 0 ? (
+                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.badgeText, { color: colors.white }]}>
+                    {placeholderPlayersCount > 99 ? '99+' : placeholderPlayersCount}
+                  </Text>
+                </View>
+              ) : undefined
+            }
+            testID="menu-guest-players"
+          />
+        </View>
+      </View>
+
+      {/* App Section */}
+      <View style={styles.menuSection}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          App
+        </Text>
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
+          <MenuItemRow
+            icon="cog"
+            title="Settings"
+            onPress={onSettings}
+            testID="menu-settings"
+          />
+          <MenuItemRow
+            icon="bell-outline"
+            title="Push Notifications"
+            onPress={onNotifications}
+            testID="menu-notifications"
+          />
+          <MenuItemRow
+            icon="help-circle"
+            title="Help & Support"
+            onPress={onHelpAndSupport}
+            testID="menu-help"
+          />
+        </View>
+      </View>
+
+      {/* Sign Out Section */}
+      <View style={styles.menuSection}>
+        <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
+          <MenuItemRow
+            icon="logout"
+            title="Sign Out"
+            onPress={onSignOut}
+            showChevron={false}
+            destructive
+            testID="menu-logout"
+          />
+        </View>
+      </View>
+    </>
+  );
+});
+
+const styles = StyleSheet.create({
+  menuSection: {
+    marginTop: spacing.xl,
+  },
+  sectionTitle: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  menuGroup: {
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 11,
+  },
+});
+
+export default ProfileMenuSection;

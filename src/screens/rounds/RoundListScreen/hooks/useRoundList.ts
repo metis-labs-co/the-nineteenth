@@ -9,6 +9,7 @@ import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { RoundItem, RoundListData, RoundPlayerInfo, UseRoundListReturn } from '../types';
 import type { UserScoreData } from '@/components/rounds/RoundListCard/types';
+import type { WinnerInfo } from '@/components/common';
 
 export function useRoundList(): UseRoundListReturn {
   const { user } = useAuth();
@@ -58,9 +59,28 @@ export function useRoundList(): UseRoundListReturn {
 
       const allRounds: RoundItem[] = [];
 
+      // Define types for query results
+      interface StandaloneRoundRow {
+        id: string;
+        round_number: number;
+        game_type: string;
+        status: string;
+        date: string | null;
+        tee_time: string | null;
+        courses: {
+          id: string;
+          name: string;
+          venue: {
+            name: string;
+            city: string | null;
+            state: string | null;
+          } | null;
+        } | null;
+      }
+
       // 1. Fetch standalone rounds (user's own rounds without competition)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: standaloneRounds, error: standaloneError } = await (supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
         .from('rounds') as any)
         .select(`
           id,
@@ -89,7 +109,7 @@ export function useRoundList(): UseRoundListReturn {
       if (standaloneError) {
         console.error('Error fetching standalone rounds:', standaloneError);
       } else {
-        for (const round of (standaloneRounds || []) as any[]) {
+        for (const round of (standaloneRounds || []) as StandaloneRoundRow[]) {
           standaloneRoundIds.push(round.id);
           allRounds.push({
             id: round.id,
@@ -105,8 +125,8 @@ export function useRoundList(): UseRoundListReturn {
               id: round.courses?.id || '',
               name: round.courses?.name || 'Unknown Course',
               venueName: round.courses?.venue?.name,
-              city: round.courses?.venue?.city,
-              state: round.courses?.venue?.state,
+              city: round.courses?.venue?.city ?? undefined,
+              state: round.courses?.venue?.state ?? undefined,
             },
             holesCompleted: 0,
             totalHoles: 18,
@@ -119,8 +139,12 @@ export function useRoundList(): UseRoundListReturn {
       // This shows rounds synced from friends
       // Note: round_players table may not exist if migration hasn't been applied
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        interface ParticipantRoundRow {
+          round: StandaloneRoundRow & { user_id: string };
+        }
+
         const { data: participantRounds, error: participantError } = await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
           .from('round_players') as any)
           .select(`
             round:rounds!inner(
@@ -152,7 +176,7 @@ export function useRoundList(): UseRoundListReturn {
             console.error('Error fetching participant rounds:', participantError);
           }
         } else {
-          for (const rp of (participantRounds || []) as any[]) {
+          for (const rp of (participantRounds || []) as ParticipantRoundRow[]) {
             const round = rp.round;
             if (!round) continue;
 
@@ -173,8 +197,8 @@ export function useRoundList(): UseRoundListReturn {
                 id: round.courses?.id || '',
                 name: round.courses?.name || 'Unknown Course',
                 venueName: round.courses?.venue?.name,
-                city: round.courses?.venue?.city,
-                state: round.courses?.venue?.state,
+                city: round.courses?.venue?.city ?? undefined,
+                state: round.courses?.venue?.state ?? undefined,
               },
               holesCompleted: 0,
               totalHoles: 18,
@@ -195,8 +219,13 @@ export function useRoundList(): UseRoundListReturn {
 
       if (allStandaloneRoundIds.length > 0) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          interface RoundPlayerRow {
+            round_id: string;
+            player: { id: string; name: string } | null;
+          }
+
           const { data: roundPlayersData, error: playersError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
             .from('round_players') as any)
             .select(`
               round_id,
@@ -214,7 +243,7 @@ export function useRoundList(): UseRoundListReturn {
           } else if (roundPlayersData) {
             // Group players by round_id
             const playersByRound = new Map<string, RoundPlayerInfo[]>();
-            for (const rp of roundPlayersData as any[]) {
+            for (const rp of roundPlayersData as RoundPlayerRow[]) {
               if (!rp.player) continue;
               const roundId = rp.round_id;
               if (!playersByRound.has(roundId)) {
@@ -245,8 +274,16 @@ export function useRoundList(): UseRoundListReturn {
 
       if (completedRoundIds.length > 0) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          interface ScorecardRow {
+            round_id: string;
+            total_gross: number | null;
+            total_net: number | null;
+            total_points: number | null;
+            status: string;
+          }
+
           const { data: scorecardsData, error: scorecardsError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
             .from('scorecards') as any)
             .select(`
               round_id,
@@ -263,7 +300,7 @@ export function useRoundList(): UseRoundListReturn {
           } else if (scorecardsData) {
             // Map scorecards by round_id
             const scorecardsByRound = new Map<string, UserScoreData>();
-            for (const sc of scorecardsData as any[]) {
+            for (const sc of scorecardsData as ScorecardRow[]) {
               const isCompleted = sc.status === 'completed' || sc.status === 'confirmed';
               scorecardsByRound.set(sc.round_id, {
                 totalGross: sc.total_gross,
@@ -289,6 +326,66 @@ export function useRoundList(): UseRoundListReturn {
           }
         } catch (err) {
           console.log('scorecards fetch for completed rounds skipped');
+        }
+      }
+
+      // 5. Fetch winner for completed rounds
+      // Get all scorecards for completed rounds to determine winner
+      if (completedRoundIds.length > 0) {
+        try {
+          interface WinnerScorecardRow {
+            round_id: string;
+            player_id: string;
+            total_gross: number | null;
+            total_net: number | null;
+            total_points: number | null;
+            player: { id: string; name: string } | null;
+          }
+
+          const { data: allScorecardsData, error: allScorecardsError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('scorecards') as any)
+            .select(`
+              round_id,
+              player_id,
+              total_gross,
+              total_net,
+              total_points,
+              player:players!player_id(
+                id,
+                name
+              )
+            `)
+            .in('round_id', completedRoundIds)
+            .in('status', ['completed', 'confirmed']);
+
+          if (allScorecardsError) {
+            console.error('Error fetching all scorecards for winners:', allScorecardsError);
+          } else if (allScorecardsData) {
+            // Group scorecards by round_id
+            const scorecardsByRound = new Map<string, WinnerScorecardRow[]>();
+            for (const sc of allScorecardsData as WinnerScorecardRow[]) {
+              if (!scorecardsByRound.has(sc.round_id)) {
+                scorecardsByRound.set(sc.round_id, []);
+              }
+              scorecardsByRound.get(sc.round_id)!.push(sc);
+            }
+
+            // Determine winner for each completed round
+            for (const round of allRounds) {
+              if (round.status !== 'completed') continue;
+
+              const scorecards = scorecardsByRound.get(round.id);
+              if (!scorecards || scorecards.length === 0) continue;
+
+              const winner = determineWinner(scorecards, round.gameType);
+              if (winner) {
+                round.winner = winner;
+              }
+            }
+          }
+        } catch (err) {
+          console.log('winner calculation for completed rounds skipped');
         }
       }
 
@@ -327,5 +424,79 @@ export function useRoundList(): UseRoundListReturn {
     isRefetching,
     refetch,
     roundsPlayedCount,
+  };
+}
+
+/**
+ * Determine the winner from a list of scorecards based on game type
+ */
+interface ScorecardForWinner {
+  player_id: string;
+  total_gross: number | null;
+  total_net: number | null;
+  total_points: number | null;
+  player: { id: string; name: string } | null;
+}
+
+function determineWinner(
+  scorecards: ScorecardForWinner[],
+  gameType: string
+): WinnerInfo | null {
+  if (scorecards.length === 0) return null;
+
+  // Filter out scorecards without player info
+  const validScorecards = scorecards.filter(sc => sc.player);
+  if (validScorecards.length === 0) return null;
+
+  let winner: ScorecardForWinner | null = null;
+  let winningScore = 0;
+
+  switch (gameType) {
+    case 'stableford':
+    case 'fourball_bestball':
+      // Highest points wins
+      for (const sc of validScorecards) {
+        const points = sc.total_points ?? 0;
+        if (!winner || points > winningScore) {
+          winner = sc;
+          winningScore = points;
+        }
+      }
+      break;
+
+    case 'stroke':
+    case 'ambrose':
+      // Lowest net score wins (use gross if net not available)
+      for (const sc of validScorecards) {
+        const score = sc.total_net ?? sc.total_gross ?? 999;
+        if (!winner || score < winningScore) {
+          winner = sc;
+          winningScore = score;
+        }
+      }
+      break;
+
+    case 'match_play':
+      // Match play doesn't have a traditional "winner" with points
+      // Skip for now - match play results would be handled differently
+      return null;
+
+    default:
+      // Default to stableford-style (highest points)
+      for (const sc of validScorecards) {
+        const points = sc.total_points ?? 0;
+        if (!winner || points > winningScore) {
+          winner = sc;
+          winningScore = points;
+        }
+      }
+  }
+
+  if (!winner || !winner.player) return null;
+
+  return {
+    name: winner.player.name,
+    points: winningScore,
+    isTeam: false,
   };
 }

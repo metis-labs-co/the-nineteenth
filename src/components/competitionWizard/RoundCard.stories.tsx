@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Text, Alert } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
-import { RoundCard, RoundCardProps } from './RoundCard';
+import { RoundCard } from './RoundCard';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================
@@ -649,7 +649,7 @@ export const UseCaseSocialGolfDay: Story = {
         teeTime="10:00:00"
         gameType="best-ball"
         status="upcoming"
-        onStartRound={(id) => Alert.alert('Let\'s Go!', 'Starting your round at Yarra Yarra')}
+        onStartRound={(_id) => Alert.alert('Let\'s Go!', 'Starting your round at Yarra Yarra')}
         onPress={() => console.log('View round details')}
       />
     </CardWrapper>

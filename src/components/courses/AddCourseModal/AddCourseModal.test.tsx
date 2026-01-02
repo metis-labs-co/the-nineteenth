@@ -14,9 +14,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { AddCourseModal } from './index';
-import type { WizardState, TeeFormData, HoleFormData } from './types';
+import type { TeeFormData, HoleFormData } from './types';
 import type { Venue, Course } from '@/types/database.types';
 
 // =====================================================
@@ -44,7 +44,7 @@ jest.mock('@/context/ThemeContext', () => ({
 
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
-  const { View, Text: RNText } = require('react-native');
+  const { Text: RNText } = require('react-native');
   const actualPaper = jest.requireActual('react-native-paper');
   return {
     ...actualPaper,
@@ -123,7 +123,7 @@ jest.mock('@/components/common/BottomSheet', () => {
   return {
     BottomSheet: ({
       visible,
-      onClose,
+      onClose: _onClose,
       children,
       customHeader,
       testID,
@@ -150,9 +150,9 @@ jest.mock('@/components/common/StepIndicator', () => {
     StepIndicator: ({
       steps,
       currentStep,
-      showProgress,
+      showProgress: _showProgress,
     }: {
-      steps: Array<{ number: number; title: string }>;
+      steps: { number: number; title: string }[];
       currentStep: number;
       showProgress?: boolean;
     }) => (
@@ -167,7 +167,7 @@ jest.mock('@/components/common/StepIndicator', () => {
             {step.title}
           </Text>
         ))}
-        {showProgress && <Text testID="progress-bar">Progress</Text>}
+        {_showProgress && <Text testID="progress-bar">Progress</Text>}
       </View>
     ),
   };
@@ -181,7 +181,7 @@ jest.mock('./steps/VenueDetailsStep', () => {
       data,
       onVenueNameChange,
       onCityChange,
-      onStateChange,
+      onStateChange: _onStateChange,
     }: {
       data: { venueName: string; city: string; state: string | null };
       onVenueNameChange: (text: string) => void;
@@ -290,7 +290,7 @@ const defaultProps = {
   onVenueCreated: jest.fn(),
 };
 
-const createMockVenue = (): Venue => ({
+const _createMockVenue = (): Venue => ({
   id: 'venue-1',
   name: 'Test Venue',
   city: 'Melbourne',
@@ -308,7 +308,7 @@ const createMockVenue = (): Venue => ({
   updated_at: '2024-01-01',
 });
 
-const createMockCourse = (): Course => ({
+const _createMockCourse = (): Course => ({
   id: 'course-1',
   venue_id: 'venue-1',
   name: 'Championship Course',

@@ -105,8 +105,9 @@ function generateScores(
 
 /**
  * Generate mixed scores (some birdies, pars, bogeys)
+ * Note: Available for test expansion if needed
  */
-function generateMixedScores(holes: Hole[]): Record<string, { strokes: number }> {
+function _generateMixedScores(holes: Hole[]): Record<string, { strokes: number }> {
   const scores: Record<string, { strokes: number }> = {};
   holes.forEach((hole, index) => {
     // Vary scores: birdie (-1), par (0), bogey (+1), double (+2)

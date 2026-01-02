@@ -239,7 +239,7 @@ describe('Individual Scoring', () => {
 // ============================================================================
 
 describe('Team Best Ball Scoring', () => {
-  const holes = create18Holes();
+  const _holes = create18Holes();
 
   describe('calculateBestBallScore', () => {
     it('returns the best (lowest) net score among team members', () => {

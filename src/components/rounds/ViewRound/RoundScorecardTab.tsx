@@ -87,27 +87,27 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
       return (
         <View style={individualStyles.nineSection}>
           {/* Header Row: Hole numbers */}
-          <View style={[individualStyles.row, { backgroundColor: colors.gray800 }]}>
-            <View style={[individualStyles.labelCell, { backgroundColor: colors.gray800 }]}>
-              <Text style={[individualStyles.labelText, { color: colors.textInverse }]}>Hole</Text>
+          <View style={[individualStyles.row, { backgroundColor: colors.surfaceVariant }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.labelText, { color: colors.textPrimary }]}>Hole</Text>
             </View>
             {holeList.map((hole) => (
               <View key={hole.number} style={individualStyles.cell}>
-                <Text style={[individualStyles.headerText, { color: colors.textInverse }]}>
+                <Text style={[individualStyles.headerText, { color: colors.textPrimary }]}>
                   {hole.number}
                 </Text>
               </View>
             ))}
-            <View style={[individualStyles.totalCell, { backgroundColor: colors.gray900 }]}>
-              <Text style={[individualStyles.headerText, { color: colors.textInverse }]}>
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[individualStyles.headerText, { color: colors.textPrimary }]}>
                 {isBack9Section ? 'IN' : 'OUT'}
               </Text>
             </View>
           </View>
 
           {/* SI Row */}
-          <View style={[individualStyles.row, { backgroundColor: colors.gray100 }]}>
-            <View style={[individualStyles.labelCell, { backgroundColor: colors.gray200 }]}>
+          <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>SI</Text>
             </View>
             {holeList.map((hole) => (
@@ -117,14 +117,14 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                 </Text>
               </View>
             ))}
-            <View style={[individualStyles.totalCell, { backgroundColor: colors.gray200 }]}>
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
             </View>
           </View>
 
           {/* Par Row */}
-          <View style={[individualStyles.row, { backgroundColor: colors.gray50 }]}>
-            <View style={[individualStyles.labelCell, { backgroundColor: colors.gray100 }]}>
+          <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Par</Text>
             </View>
             {holeList.map((hole) => (
@@ -134,7 +134,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                 </Text>
               </View>
             ))}
-            <View style={[individualStyles.totalCell, { backgroundColor: colors.gray100 }]}>
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.totalText, { color: colors.textPrimary }]}>
                 {ninePar}
               </Text>
@@ -143,7 +143,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
 
           {/* Score Row */}
           <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-            <View style={[individualStyles.labelCell, { backgroundColor: colors.gray100 }]}>
+            <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.labelText, { color: colors.textPrimary }]}>Score</Text>
             </View>
             {holeList.map((hole) => {
@@ -155,7 +155,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                 </View>
               );
             })}
-            <View style={[individualStyles.totalCell, { backgroundColor: colors.gray100 }]}>
+            <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[individualStyles.totalText, { color: colors.textPrimary }]}>
                 {nineGross || '-'}
               </Text>
@@ -165,7 +165,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
           {/* Stableford Row */}
           <View style={[individualStyles.row, { backgroundColor: colors.primary }]}>
             <View style={[individualStyles.labelCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
-              <Text style={[individualStyles.labelText, { color: colors.textInverse }]}>Pts</Text>
+              <Text style={[individualStyles.labelText, { color: colors.textOnColored }]}>Pts</Text>
             </View>
             {holeList.map((hole) => {
               const score = scores?.[String(hole.number)];
@@ -174,14 +174,14 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
               const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
               return (
                 <View key={hole.number} style={individualStyles.cell}>
-                  <Text style={[individualStyles.cellText, { color: colors.textInverse }]}>
+                  <Text style={[individualStyles.cellText, { color: colors.textOnColored }]}>
                     {strokes > 0 ? points : '-'}
                   </Text>
                 </View>
               );
             })}
             <View style={[individualStyles.totalCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
-              <Text style={[individualStyles.totalText, { color: colors.textInverse }]}>
+              <Text style={[individualStyles.totalText, { color: colors.textOnColored }]}>
                 {nineStableford}
               </Text>
             </View>
@@ -193,7 +193,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
     return (
       <View key={displayPlayer.id} style={[individualStyles.playerCard, { backgroundColor: colors.surface }]}>
         {/* Player Header */}
-        <View style={[individualStyles.playerHeader, { backgroundColor: colors.gray100 }]}>
+        <View style={[individualStyles.playerHeader, { backgroundColor: colors.surfaceVariant }]}>
           <View style={individualStyles.playerInfo}>
             <Text style={[individualStyles.playerName, { color: colors.textPrimary }]}>
               {player?.name || 'Unknown'}
@@ -216,8 +216,8 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
               </Text>
             </View>
             <View style={[individualStyles.totalItem, individualStyles.stablefordTotal, { backgroundColor: colors.primary }]}>
-              <Text style={[individualStyles.totalLabel, { color: colors.textInverse }]}>Pts</Text>
-              <Text style={[individualStyles.stablefordValue, { color: colors.textInverse }]}>
+              <Text style={[individualStyles.totalLabel, { color: colors.textOnColored }]}>Pts</Text>
+              <Text style={[individualStyles.stablefordValue, { color: colors.textOnColored }]}>
                 {stats.totalStableford}
               </Text>
             </View>
@@ -307,7 +307,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
       {/* Header with title and view toggle */}
       <View style={styles.headerRow}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Scorecard</Text>
-        <View style={[styles.toggleContainer, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.toggleContainer, { backgroundColor: colors.surfaceVariant }]}>
           <TouchableOpacity
             style={[
               styles.toggleButton,

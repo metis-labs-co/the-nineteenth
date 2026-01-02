@@ -18,6 +18,9 @@ import NotificationToastComponent, {
 } from './NotificationToast';
 import type { Notification, NotificationType } from '@/types/database.types';
 
+// Import the mocked module to access mock functions
+import Toast from 'react-native-toast-message';
+
 // Mock ThemeContext
 const mockColors = {
   surface: '#FFFFFF',
@@ -47,7 +50,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </Text>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, color: _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }}>
         <Text>{source}</Text>
       </View>
@@ -56,13 +59,14 @@ jest.mock('react-native-paper', () => {
 });
 
 // Mock react-native-toast-message
-const mockToast = {
-  show: jest.fn(),
-  hide: jest.fn(),
-};
 jest.mock('react-native-toast-message', () => ({
-  default: mockToast,
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
 }));
+const mockToast = Toast as { show: jest.Mock; hide: jest.Mock };
 
 // ===========================================================================
 // TEST FIXTURES

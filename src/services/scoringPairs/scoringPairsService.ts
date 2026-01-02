@@ -24,6 +24,31 @@ import type {
 import type { Player as AppPlayer, ScoringPairCreateInput } from '@/types';
 
 // =====================================================
+// SUPABASE QUERY RESPONSE TYPES
+// =====================================================
+
+/**
+ * Raw scoring pair from Supabase join query with player data
+ */
+interface ScoringPairQueryRow {
+  id: string;
+  round_id: string;
+  scorer_id: string;
+  player_id: string;
+  created_at: string;
+  updated_at: string;
+  scorer: Player | null;
+  player: Player | null;
+}
+
+/**
+ * Raw scoring pair for players to score query
+ */
+interface PlayerToScoreQueryRow {
+  player: Player | null;
+}
+
+// =====================================================
 // TYPES
 // =====================================================
 
@@ -110,15 +135,16 @@ export async function getRoundScoringPairs(
   }
 
   // Transform to ScoringPairWithPlayers format
-  return ((pairs as any[]) || []).map((pair) => ({
+  const typedPairs = (pairs as ScoringPairQueryRow[]) || [];
+  return typedPairs.map((pair) => ({
     id: pair.id,
     round_id: pair.round_id,
     scorer_id: pair.scorer_id,
     player_id: pair.player_id,
     created_at: pair.created_at,
     updated_at: pair.updated_at,
-    scorer: pair.scorer as Player | undefined,
-    player: pair.player as Player | undefined,
+    scorer: pair.scorer ?? undefined,
+    player: pair.player ?? undefined,
   }));
 }
 
@@ -168,8 +194,9 @@ export async function getPlayersToScore(
   }
 
   // Extract player data and convert to app Player format
-  return ((pairs as any[]) || [])
-    .map((pair) => pair.player as Player)
+  const typedPairs = (pairs as PlayerToScoreQueryRow[]) || [];
+  return typedPairs
+    .map((pair) => pair.player)
     .filter((player): player is Player => player !== null)
     .map(toAppPlayer);
 }

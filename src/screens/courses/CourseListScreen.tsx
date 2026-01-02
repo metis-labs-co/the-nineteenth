@@ -20,7 +20,6 @@ import { LoadingSpinner, SearchBar, PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
   AddCourseModal,
-  ApiSearchModal,
   StateFilterList,
   CourseListContent,
 } from '@/components/courses';
@@ -33,16 +32,14 @@ import {
   type CourseWithFavoriteStatus,
   type VenueCourseDisplayItem,
 } from '@/hooks/useVenues';
-import { useIsApiAvailable } from '@/hooks/useApiCourses';
 import { useSubscription } from '@/hooks/useSubscription';
-import type { AustralianState, Course, LegacyCourse, Venue } from '@/types/database.types';
+import type { AustralianState, Course, Venue } from '@/types/database.types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CourseListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
-  const isApiAvailable = useIsApiAvailable();
   const { isSuperAdmin } = useSubscription();
 
   // State
@@ -50,7 +47,6 @@ export default function CourseListScreen() {
   const [selectedState, setSelectedState] = useState<AustralianState | undefined>();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showApiSearchModal, setShowApiSearchModal] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
 
   // Data fetching - venues with courses for hybrid display
@@ -181,10 +177,6 @@ export default function CourseListScreen() {
     // The query will be invalidated by the mutation
   }, []);
 
-  const handleApiCourseImported = useCallback((_course: LegacyCourse) => {
-    // The query will be invalidated by the mutation
-  }, []);
-
   // Navigate to venue details
   const handleVenuePress = useCallback(
     (venue: Venue) => {
@@ -205,13 +197,6 @@ export default function CourseListScreen() {
   // AddCourseModal is only available for Super Admin users
   const headerRightActions = useMemo(() => {
     const actions = [];
-    if (isApiAvailable) {
-      actions.push({
-        icon: 'cloud-search',
-        onPress: () => setShowApiSearchModal(true),
-        accessibilityLabel: 'Search online database',
-      });
-    }
     // Only Super Admin can add courses manually
     if (isSuperAdmin) {
       actions.push({
@@ -221,7 +206,7 @@ export default function CourseListScreen() {
       });
     }
     return actions;
-  }, [isApiAvailable, isSuperAdmin]);
+  }, [isSuperAdmin]);
 
   // Loading state
   if (isLoading) {
@@ -280,14 +265,12 @@ export default function CourseListScreen() {
         showFavoritesOnly={showFavoritesOnly}
         isSearchActive={isSearchActive}
         searchQuery={searchQuery}
-        isApiAvailable={isApiAvailable}
         isSuperAdmin={isSuperAdmin}
         onRefresh={handleRefresh}
         onCourseSelect={handleCourseSelect}
         onVenuePress={handleVenuePress}
         onToggleFavorite={handleToggleFavorite}
         togglingFavoriteId={togglingFavoriteId}
-        onShowApiSearchModal={() => setShowApiSearchModal(true)}
         onShowAddModal={() => setShowAddModal(true)}
       />
 
@@ -299,13 +282,6 @@ export default function CourseListScreen() {
           onVenueCreated={handleVenueCreated}
         />
       )}
-
-      {/* API Search Modal */}
-      <ApiSearchModal
-        visible={showApiSearchModal}
-        onClose={() => setShowApiSearchModal(false)}
-        onCourseImported={handleApiCourseImported}
-      />
     </View>
   );
 }

@@ -25,13 +25,10 @@ import {
   deleteRoundResults,
   isRoundFinalized,
   type SaveRoundResultInput,
-  type RoundResultsServiceError,
 } from '@/services/rounds/roundResultsService';
 import type { Scorecard, PointSystemConfig, GameType, HoleScore, MultiBallHoleScore } from '@/types/database.types';
 import {
-  createTestPlayer,
   createTestScorecard,
-  create18Holes,
   STANDARD_POINT_SYSTEM,
 } from '../../utils/testFixtures';
 
@@ -222,7 +219,7 @@ describe('saveRoundResults()', () => {
       ];
 
       await expect(saveRoundResults(roundId, results)).rejects.toMatchObject({
-        message: 'Each result must have either a playerId or teamId',
+        message: 'Each result must have either playerId or teamId',
         code: 'VALIDATION',
       });
     });
@@ -234,7 +231,7 @@ describe('saveRoundResults()', () => {
       ];
 
       await expect(saveRoundResults(roundId, results)).rejects.toMatchObject({
-        message: 'Each result must have only one of playerId or teamId, not both',
+        message: 'Each result must have only one of playerId or teamId',
         code: 'VALIDATION',
       });
     });

@@ -67,7 +67,7 @@ export function ScorecardPlayerHeader({
         </Text>
       </View>
       {showViewToggle && onViewModeChange ? (
-        <View style={[styles.toggleContainer, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.toggleContainer, { backgroundColor: colors.surfaceVariant }]}>
           <TouchableOpacity
             style={[
               styles.toggleButton,

@@ -74,6 +74,7 @@ export function AddPlaceholderModal({
       setApiError(undefined);
       createPlaceholder.reset();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- createPlaceholder.reset is stable
   }, [visible]);
 
   // Validate name
@@ -273,7 +274,7 @@ export function AddPlaceholderModal({
                     style={[
                       styles.button,
                       styles.cancelButton,
-                      { backgroundColor: colors.gray100 },
+                      { backgroundColor: colors.surfaceVariant },
                     ]}
                     onPress={onClose}
                     disabled={isLoading}
@@ -304,9 +305,9 @@ export function AddPlaceholderModal({
                       <GolfBallLoader size="sm" />
                     ) : (
                       <View style={styles.submitContent}>
-                        <Icon source="account-plus" size={20} color={colors.textInverse} />
+                        <Icon source="account-plus" size={20} color={colors.textOnColored} />
                         <Text
-                          style={[styles.buttonText, { color: colors.textInverse }]}
+                          style={[styles.buttonText, { color: colors.textOnColored }]}
                         >
                           Add Guest
                         </Text>

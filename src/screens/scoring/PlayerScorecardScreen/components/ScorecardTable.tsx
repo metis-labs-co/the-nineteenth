@@ -11,11 +11,12 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
 import { ScorecardTableMultiBall } from './ScorecardTableMultiBall';
+import { ScorecardTableBallsAsPlayers } from './ScorecardTableBallsAsPlayers';
 import type { HoleRowData, PlayerStats, MultiBallHoleRowData, MultiBallStats } from '../hooks';
 import type { BallCount } from '@/types/multiball.types';
 import type { ScorecardViewMode } from './ScorecardPlayerHeader';
@@ -33,6 +34,9 @@ interface ScorecardTableProps {
   multiBallStats?: MultiBallStats;
   // View mode - for multi-ball, 'compact' shows single best score per hole
   viewMode?: ScorecardViewMode;
+  // Stats visibility (Premium-only)
+  showFIR?: boolean;
+  showGIR?: boolean;
 }
 
 export function ScorecardTable({
@@ -46,29 +50,56 @@ export function ScorecardTable({
   multiBallBack9 = [],
   multiBallStats,
   viewMode = 'standard',
+  showFIR = false,
+  showGIR = false,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
 
-  // Render multi-ball table if in multi-ball mode and standard view
-  // In 'compact' mode, we show the single-ball table with best scores
-  if (isMultiBall && ballCount > 1 && multiBallStats && viewMode === 'standard') {
-    return (
-      <ScorecardTableMultiBall
-        front9Holes={multiBallFront9}
-        back9Holes={multiBallBack9}
-        multiBallStats={multiBallStats}
-        ballCount={ballCount}
-        playerHandicap={playerHandicap}
-      />
-    );
+  // Render multi-ball table if in multi-ball mode
+  if (isMultiBall && ballCount > 1 && multiBallStats) {
+    if (viewMode === 'standard') {
+      // Standard view: Show all balls as columns side-by-side
+      return (
+        <ScorecardTableMultiBall
+          front9Holes={multiBallFront9}
+          back9Holes={multiBallBack9}
+          multiBallStats={multiBallStats}
+          ballCount={ballCount}
+          playerHandicap={playerHandicap}
+          showFIR={showFIR}
+          showGIR={showGIR}
+        />
+      );
+    } else {
+      // Compact view: Show each ball as a separate player-like card
+      return (
+        <ScorecardTableBallsAsPlayers
+          front9Holes={multiBallFront9}
+          back9Holes={multiBallBack9}
+          multiBallStats={multiBallStats}
+          ballCount={ballCount}
+          playerHandicap={playerHandicap}
+          showFIR={showFIR}
+          showGIR={showGIR}
+        />
+      );
+    }
   }
 
   // Single-ball mode - render standard table
 
+  // Build header labels based on visible columns
+  const getHeaderLabels = () => {
+    const labels = ['Hole', 'SI', 'Par', 'Shots', 'Score', 'Pts', 'Putts'];
+    if (showFIR) labels.push('FIR');
+    if (showGIR) labels.push('GIR');
+    return labels;
+  };
+
   // Render header row
   const renderHeaderRow = () => (
     <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-      {['Hole', 'SI', 'Par', 'Shots', 'Score', 'Pts', 'Putts'].map((label) => (
+      {getHeaderLabels().map((label) => (
         <View
           key={label}
           style={[
@@ -78,10 +109,11 @@ export function ScorecardTable({
             (label === 'SI' || label === 'Par' || label === 'Shots') && styles.narrowCell,
             label === 'Score' && styles.scoreCell,
             (label === 'Pts' || label === 'Putts') && styles.wideCell,
-            { backgroundColor: colors.gray800 },
+            (label === 'FIR' || label === 'GIR') && styles.statCell,
+            { backgroundColor: colors.surfaceVariant },
           ]}
         >
-          <Text style={[styles.headerText, { color: colors.textInverse }]}>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>
             {label}
           </Text>
         </View>
@@ -91,24 +123,26 @@ export function ScorecardTable({
 
   // Render hole row
   const renderHoleRow = (data: HoleRowData) => {
-    const { hole, strokes, putts, stablefordPoints, strokesReceived } = data;
+    const { hole, strokes, putts, stablefordPoints, strokesReceived, fairwayHit, greenInRegulation, isPickup } = data;
+    // FIR only applicable for par 4+ holes
+    const isFIRApplicable = hole.par >= 4;
 
     return (
       <View
         key={hole.number}
         style={[styles.tableRow, { borderBottomColor: colors.border }]}
       >
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>
             {hole.number}
           </Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray50 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.smallText, { color: colors.textSecondary }]}>
             {hole.strokeIndex}
           </Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray50 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
             {hole.par}
           </Text>
@@ -148,6 +182,36 @@ export function ScorecardTable({
             {putts ?? '-'}
           </Text>
         </View>
+        {/* FIR column - only applicable for par 4+ holes */}
+        {showFIR && (
+          <View style={[styles.tableCell, styles.statCell]}>
+            {isPickup || strokes === undefined ? (
+              <Text style={[styles.smallText, { color: colors.textSecondary }]}>-</Text>
+            ) : !isFIRApplicable ? (
+              <Text style={[styles.smallText, { color: colors.textSecondary }]}>N/A</Text>
+            ) : fairwayHit === true ? (
+              <Icon source="check" size={16} color={colors.success} />
+            ) : fairwayHit === false ? (
+              <Icon source="close" size={16} color={colors.error} />
+            ) : (
+              <Text style={[styles.smallText, { color: colors.textSecondary }]}>-</Text>
+            )}
+          </View>
+        )}
+        {/* GIR column */}
+        {showGIR && (
+          <View style={[styles.tableCell, styles.statCell]}>
+            {isPickup || strokes === undefined ? (
+              <Text style={[styles.smallText, { color: colors.textSecondary }]}>-</Text>
+            ) : greenInRegulation === true ? (
+              <Icon source="check" size={16} color={colors.success} />
+            ) : greenInRegulation === false ? (
+              <Icon source="close" size={16} color={colors.error} />
+            ) : (
+              <Text style={[styles.smallText, { color: colors.textSecondary }]}>-</Text>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -162,29 +226,40 @@ export function ScorecardTable({
     return (
       <View
         key={label}
-        style={[styles.tableRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}
+        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}
       >
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{label}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{par}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
         </View>
-        <View style={[styles.tableCell, styles.scoreCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.scoreCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{gross || '-'}</Text>
         </View>
-        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{stableford}</Text>
         </View>
-        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{putts || '-'}</Text>
         </View>
+        {/* Empty FIR/GIR cells for subtotal row */}
+        {showFIR && (
+          <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
+          </View>
+        )}
+        {showGIR && (
+          <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -195,23 +270,33 @@ export function ScorecardTable({
     const grossDiffDisplay =
       grossDiff > 0 ? `+${grossDiff}` : grossDiff === 0 ? 'E' : grossDiff.toString();
 
+    // FIR/GIR totals display (e.g., "7/14")
+    const firDisplay =
+      playerStats.totalFairwaysPossible > 0
+        ? `${playerStats.totalFairwaysHit}/${playerStats.totalFairwaysPossible}`
+        : '-';
+    const girDisplay =
+      playerStats.totalGIRPossible > 0
+        ? `${playerStats.totalGIR}/${playerStats.totalGIRPossible}`
+        : '-';
+
     return (
-      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800 }]}>
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalLabelText, { color: colors.textInverse }]}>TOTAL</Text>
+      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant }]}>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>TOTAL</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>-</Text>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>{playerStats.totalPar}</Text>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerStats.totalPar}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>{playerHandicap || '-'}</Text>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerHandicap || '-'}</Text>
         </View>
-        <View style={[styles.tableCell, styles.scoreCell, { backgroundColor: colors.gray800 }]}>
+        <View style={[styles.tableCell, styles.scoreCell, { backgroundColor: colors.surfaceVariant }]}>
           <View style={styles.grossContainer}>
-            <Text style={[styles.totalGrossText, { color: colors.textInverse }]}>
+            <Text style={[styles.totalGrossText, { color: colors.textPrimary }]}>
               {playerStats.totalGross || '-'}
             </Text>
             {playerStats.totalGross > 0 && (
@@ -223,7 +308,7 @@ export function ScorecardTable({
                       grossDiff < 0
                         ? colors.successLight
                         : grossDiff === 0
-                          ? colors.gray300
+                          ? colors.textSecondary
                           : colors.errorLight,
                   },
                 ]}
@@ -234,14 +319,26 @@ export function ScorecardTable({
           </View>
         </View>
         <View style={[styles.tableCell, styles.wideCell, styles.stablefordTotalCell, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.stablefordTotalText, { color: colors.textInverse }]}>
+          <Text style={[styles.stablefordTotalText, { color: colors.textOnColored }]}>
             {playerStats.totalStableford}
           </Text>
           <Text style={[styles.stablefordPtsLabel, { color: colors.primaryLighter }]}>pts</Text>
         </View>
-        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>{playerStats.totalPutts || '-'}</Text>
+        <View style={[styles.tableCell, styles.wideCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{playerStats.totalPutts || '-'}</Text>
         </View>
+        {/* FIR total */}
+        {showFIR && (
+          <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.statTotalText, { color: colors.textPrimary }]}>{firDisplay}</Text>
+          </View>
+        )}
+        {/* GIR total */}
+        {showGIR && (
+          <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.statTotalText, { color: colors.textPrimary }]}>{girDisplay}</Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -331,5 +428,13 @@ const styles = StyleSheet.create({
   stablefordPtsLabel: {
     ...typography.caption,
     marginTop: 2,
+  },
+  // FIR/GIR stat cell styles
+  statCell: {
+    flex: 0.9,
+  },
+  statTotalText: {
+    ...typography.smallBold,
+    textAlign: 'center',
   },
 });

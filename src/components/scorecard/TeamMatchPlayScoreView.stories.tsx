@@ -44,6 +44,12 @@ function createTestTeam(
         push_competition_updates: true,
         push_friend_requests: true,
         push_scorecard_updates: true,
+        equipped_badge_id: null,
+        equipped_frame_id: null,
+        equipped_title_id: null,
+        is_placeholder: false,
+        created_by: null,
+        linked_player_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -453,7 +459,7 @@ export const AllEighteenHolesPlayed: Story = {
 const InteractiveStory = () => {
   const [team1Score, setTeam1Score] = useState<HoleScore | undefined>(undefined);
   const [team2Score, setTeam2Score] = useState<HoleScore | undefined>(undefined);
-  const [holeResults, setHoleResults] = useState<Map<number, 'team1' | 'team2' | 'halved'>>(
+  const [holeResults, _setHoleResults] = useState<Map<number, 'team1' | 'team2' | 'halved'>>(
     new Map()
   );
 
@@ -489,10 +495,10 @@ export const Interactive: Story = {
 // ===========================================================================
 
 const MatchProgressionStory = () => {
-  const [currentHoleIndex, setCurrentHoleIndex] = useState(0);
+  const [currentHoleIndex, _setCurrentHoleIndex] = useState(0);
   const [team1Score, setTeam1Score] = useState<HoleScore | undefined>(undefined);
   const [team2Score, setTeam2Score] = useState<HoleScore | undefined>(undefined);
-  const [holeResults, setHoleResults] = useState<Map<number, 'team1' | 'team2' | 'halved'>>(
+  const [holeResults, _setHoleResults] = useState<Map<number, 'team1' | 'team2' | 'halved'>>(
     new Map()
   );
 

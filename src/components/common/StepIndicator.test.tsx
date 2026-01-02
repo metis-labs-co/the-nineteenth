@@ -36,7 +36,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </Text>
     ),
-    ProgressBar: ({ progress, color, style, ...props }: any) => (
+    ProgressBar: ({ progress, _color, style, ...props }: any) => (
       <View
         testID="progress-bar"
         accessibilityValue={{ now: progress * 100, min: 0, max: 100 }}

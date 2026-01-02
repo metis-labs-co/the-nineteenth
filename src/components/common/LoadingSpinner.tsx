@@ -88,7 +88,7 @@ export const LoadingSpinner = React.memo(function LoadingSpinner({
         {spinner}
         <Text
           variant="bodySmall"
-          style={[styles.message, styles.messageInline, { color: colors.gray600 }]}
+          style={[styles.message, styles.messageInline, { color: colors.textSecondary }]}
         >
           {message}
         </Text>
@@ -104,7 +104,7 @@ export const LoadingSpinner = React.memo(function LoadingSpinner({
       {message && (
         <Text
           variant="bodyMedium"
-          style={[styles.message, { color: colors.gray600 }]}
+          style={[styles.message, { color: colors.textSecondary }]}
         >
           {message}
         </Text>

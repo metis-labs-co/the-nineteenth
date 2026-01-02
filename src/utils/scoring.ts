@@ -1,5 +1,6 @@
 import { Hole, GameType, Scorecard } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
+import { STABLEFORD_POINTS, PICKUP_SCORE, STANDARD_SLOPE_RATING } from '@/constants/scoring';
 
 /**
  * Calculate the number of strokes a player receives on a specific hole
@@ -40,12 +41,31 @@ export function calculateNetScore(
 }
 
 /**
+ * Calculate net score from pre-calculated strokes received.
+ * Use this when you've already determined the strokes received for the hole.
+ *
+ * This is the primitive form - for convenience, use calculateNetScore() when
+ * you have a Hole object and want automatic stroke calculation.
+ *
+ * @param grossScore - The player's gross score on the hole
+ * @param strokesReceived - Number of strokes received on this hole
+ * @returns Net score for the hole
+ */
+export function calculateNetScoreFromStrokes(
+  grossScore: number,
+  strokesReceived: number
+): number {
+  return grossScore - strokesReceived;
+}
+
+/**
  * Calculate Stableford points for a hole
- * Par = 2 points
- * 1 under par = 3 points
- * 2 under par = 4 points
- * 1 over par = 1 point
- * 2+ over par = 0 points
+ * Uses standard Stableford scoring:
+ * - 2+ under par: 4 points (eagle or better)
+ * - 1 under par: 3 points (birdie)
+ * - Even with par: 2 points (par)
+ * - 1 over par: 1 point (bogey)
+ * - 2+ over par: 0 points (double bogey or worse)
  */
 export function calculateStablefordPoints(
   grossScore: number,
@@ -55,16 +75,22 @@ export function calculateStablefordPoints(
   const netScore = calculateNetScore(grossScore, playerHandicap, hole);
   const diff = hole.par - netScore;
 
-  if (diff >= 2) return 4; // Eagle or better
-  if (diff === 1) return 3; // Birdie
-  if (diff === 0) return 2; // Par
-  if (diff === -1) return 1; // Bogey
-  return 0; // Double bogey or worse
+  if (diff >= 2) return STABLEFORD_POINTS.EAGLE_OR_BETTER;
+  if (diff === 1) return STABLEFORD_POINTS.BIRDIE;
+  if (diff === 0) return STABLEFORD_POINTS.PAR;
+  if (diff === -1) return STABLEFORD_POINTS.BOGEY;
+  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
 }
 
 /**
  * Calculate Stableford points with pre-calculated strokes received
- * (Use when you already know the strokes received for the hole)
+ * Uses extended Stableford scoring (includes albatross):
+ * - 3+ under par: 5 points (albatross or better)
+ * - 2 under par: 4 points (eagle)
+ * - 1 under par: 3 points (birdie)
+ * - Even with par: 2 points (par)
+ * - 1 over par: 1 point (bogey)
+ * - 2+ over par: 0 points (double bogey or worse)
  */
 export function calculateStablefordPointsNet(
   strokes: number,
@@ -74,12 +100,12 @@ export function calculateStablefordPointsNet(
   const netStrokes = strokes - strokesReceived;
   const relativeToPar = netStrokes - par;
 
-  if (relativeToPar <= -3) return 5; // Albatross or better
-  if (relativeToPar === -2) return 4; // Eagle
-  if (relativeToPar === -1) return 3; // Birdie
-  if (relativeToPar === 0) return 2; // Par
-  if (relativeToPar === 1) return 1; // Bogey
-  return 0; // Double bogey or worse
+  if (relativeToPar <= -3) return STABLEFORD_POINTS.ALBATROSS_OR_BETTER;
+  if (relativeToPar === -2) return STABLEFORD_POINTS.EAGLE;
+  if (relativeToPar === -1) return STABLEFORD_POINTS.BIRDIE;
+  if (relativeToPar === 0) return STABLEFORD_POINTS.PAR;
+  if (relativeToPar === 1) return STABLEFORD_POINTS.BOGEY;
+  return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
 }
 
 /**
@@ -268,13 +294,13 @@ export function sortLeaderboard<T extends { totalNet: number; totalGross: number
  */
 export function calculatePlayingHandicap(
   handicapIndex: number,
-  slopeRating: number = 113, // Default USGA slope rating
+  slopeRating: number = STANDARD_SLOPE_RATING,
   courseRating: number,
   par: number
 ): number {
   // Playing Handicap = Handicap Index × (Slope Rating / 113) + (Course Rating - Par)
   return Math.round(
-    handicapIndex * (slopeRating / 113) + (courseRating - par)
+    handicapIndex * (slopeRating / STANDARD_SLOPE_RATING) + (courseRating - par)
   );
 }
 
@@ -354,7 +380,7 @@ export function calculateBestBallStablefordPoints(
   let bestPoints = 0;
 
   playerScores.forEach((ps) => {
-    if (ps.strokes > 0 && ps.strokes < 10) { // Exclude picked up scores
+    if (ps.strokes > 0 && ps.strokes < PICKUP_SCORE) { // Exclude picked up scores
       const points = calculateStablefordPoints(ps.strokes, ps.handicap, hole);
       if (points > bestPoints) {
         bestPoints = points;
@@ -396,11 +422,10 @@ export function calculateTeamMatchPlayHoleResult(
 ): 'team1' | 'team2' | 'halved' | null {
   if (team1Score === null || team2Score === null) return null;
 
-  // Handle picked up (score of 10) - auto-loss
-  const PICKUP = 10;
-  if (team1Score === PICKUP && team2Score === PICKUP) return 'halved';
-  if (team1Score === PICKUP) return 'team2';
-  if (team2Score === PICKUP) return 'team1';
+  // Handle picked up - auto-loss
+  if (team1Score === PICKUP_SCORE && team2Score === PICKUP_SCORE) return 'halved';
+  if (team1Score === PICKUP_SCORE) return 'team2';
+  if (team2Score === PICKUP_SCORE) return 'team1';
 
   if (team1Score < team2Score) return 'team1';
   if (team2Score < team1Score) return 'team2';

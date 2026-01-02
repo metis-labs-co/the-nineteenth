@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { StepIndicator, StepIndicatorProps, Step } from './StepIndicator';
+import { StepIndicator, Step } from './StepIndicator';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

@@ -56,7 +56,11 @@ export interface ScorecardScoreContentProps {
   isMultiBall?: boolean;
   ballCount?: BallCount;
   onMultiBallScoreChange?: (playerId: string, ballIndex: number, strokes: number) => void;
+  onMultiBallStatsChange?: (playerId: string, ballIndex: number, updates: Partial<HoleScore>) => void;
   getMultiBallScores?: (playerId: string, hole: number) => HoleScore[];
+  // Stats visibility (Premium-only)
+  showFIR?: boolean;
+  showGIR?: boolean;
 }
 
 export function ScorecardScoreContent({
@@ -84,7 +88,11 @@ export function ScorecardScoreContent({
   isMultiBall = false,
   ballCount = 1,
   onMultiBallScoreChange,
+  onMultiBallStatsChange,
   getMultiBallScores,
+  // Stats visibility
+  showFIR = false,
+  showGIR = false,
 }: ScorecardScoreContentProps) {
   // Determine which players to render based on scoring pairs setting
   const playersToRender =
@@ -180,6 +188,9 @@ export function ScorecardScoreContent({
         ballCount={ballCount}
         ballScores={ballScores}
         onBallScoreChange={(ballIndex, strokes) => onMultiBallScoreChange(player.id, ballIndex, strokes)}
+        onBallStatsChange={onMultiBallStatsChange ? (ballIndex, updates) => onMultiBallStatsChange(player.id, ballIndex, updates) : undefined}
+        showFIR={showFIR}
+        showGIR={showGIR}
       />
     );
   }

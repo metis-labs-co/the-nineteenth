@@ -54,3 +54,10 @@ After creating the list:
 2. Document the item component
 3. Explain the pagination strategy
 4. Describe search/filter implementation (if applicable)
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

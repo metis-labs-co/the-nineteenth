@@ -1,18 +1,79 @@
 /**
  * useVenues - Hook for venue and course data fetching
  *
- * Provides functionality for:
- * - Fetching all venues with their courses (for hybrid list display)
- * - Searching venues by name/state
- * - Creating new venues
- * - Managing favorite courses (at venue level display)
+ * ## Hook Responsibilities (Venue/Course Hook Architecture)
+ *
+ * This module is part of a clear hook hierarchy for venue/course data:
+ *
+ * ### VENUE HOOKS (this file)
+ * - `useVenuesWithCourses(state?)` - List all venues with nested courses
+ *   Use for: Course selection lists, venue browsing, home venue selection
+ * - `useSearchVenues(query, state?)` - Search venues by name
+ *   Use for: Search functionality in course selection
+ * - `useFavoriteCoursesWithVenues()` - User's favorite courses with venue info
+ *   Use for: Favorites section in course selection
+ *
+ * ### SINGLE VENUE HOOKS (useVenueDetails.ts)
+ * - `useVenueDetails(venueId)` - Single venue with all its courses
+ *   Use for: Venue detail screen, viewing all courses at a venue
+ *
+ * ### COURSE HOOKS (useCourses.ts)
+ * - `useCourses()` - List all courses (flat, without venue nesting)
+ *   Use for: Admin course management, flat course lists
+ * - `useSearchCourses(query, state?)` - Search courses by name
+ *   Use for: Course-only search (when venue grouping not needed)
+ *
+ * ### SINGLE COURSE HOOKS (useCourseDetails.ts)
+ * - `useCourseDetails(courseId)` - Single course with venue info
+ *   Use for: Course detail screen, scorecard setup
+ *
+ * ### MUTATION HOOKS
+ * - `useCreateVenue()` - Create new venue
+ * - `useCreateCourse()` - Create course at venue
+ * - `useCreateVenueWithCourse()` - Create venue + course together
+ * - `useAddCourseFavorite/useRemoveCourseFavorite` - Manage favorites
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { venueKeys, courseKeys } from '@/hooks/queryKeys';
+import {
+  useFavoriteEnrichment,
+  useAddFavorite as useAddFavoriteBase,
+  useRemoveFavorite as useRemoveFavoriteBase,
+} from '@/hooks/useFavoriteCourses';
 import type { Venue, Course, AustralianState } from '@/types/database.types';
+
+// Re-export mutations with venue-specific names for backward compatibility
+export const useAddCourseFavorite = useAddFavoriteBase;
+export const useRemoveCourseFavorite = useRemoveFavoriteBase;
+
+// =====================================================
+// SUPABASE RESPONSE TYPES
+// =====================================================
+
+/**
+ * Venue with courses from Supabase join
+ */
+interface SupabaseVenueWithCourses extends Venue {
+  courses: Course[];
+}
+
+/**
+ * Player with home venue ID
+ */
+interface SupabasePlayerHomeVenue {
+  home_venue_id: string | null;
+}
+
+/**
+ * Favorite course with course and venue data
+ */
+interface SupabaseFavoriteCourseWithVenue {
+  course_id: string;
+  courses: Course & { venue: Venue };
+}
 
 // =====================================================
 // TYPES
@@ -75,12 +136,16 @@ export interface CreateCourseInput {
  */
 export function useVenuesWithCourses(state?: AustralianState) {
   const { user } = useAuth();
+  const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: venueKeys.withCoursesFiltered({ state }),
-    queryFn: async (): Promise<VenueWithCourses[]> => {
+    queryFn: async (): Promise<{
+      venues: SupabaseVenueWithCourses[];
+      homeVenueId: string | null;
+    }> => {
       // Fetch venues with their courses
-      let query = supabase
+      let venueQuery = supabase
         .from('venues')
         .select(`
           *,
@@ -89,42 +154,39 @@ export function useVenuesWithCourses(state?: AustralianState) {
         .order('name', { ascending: true });
 
       if (state) {
-        query = query.eq('state', state);
+        venueQuery = venueQuery.eq('state', state);
       }
 
-      const { data: venues, error: venuesError } = await query;
+      const { data: venues, error: venuesError } = await venueQuery;
 
       if (venuesError) throw venuesError;
 
-      // Fetch user's favorite course IDs and home venue ID
-      let favoriteIds: string[] = [];
+      // Fetch player's home venue ID
       let homeVenueId: string | null = null;
       if (user) {
-        // Fetch favorites
-        const { data: favorites, error: favError } = await supabase
-          .from('favorite_courses')
-          .select('course_id')
-          .eq('player_id', user.id);
-
-        if (!favError && favorites) {
-          favoriteIds = favorites.map((f: { course_id: string }) => f.course_id);
-        }
-
-        // Fetch player's home venue ID
-        const { data: player } = await (supabase as any)
+        const { data: player } = (await supabase
           .from('players')
           .select('home_venue_id')
           .eq('id', user.id)
-          .single();
+          .single()) as { data: SupabasePlayerHomeVenue | null };
 
         homeVenueId = player?.home_venue_id ?? null;
       }
 
-      // Transform to VenueWithCourses
-      return (venues ?? []).map((venue: any) => {
+      return {
+        venues: (venues as SupabaseVenueWithCourses[] | null) ?? [],
+        homeVenueId,
+      };
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Transform to VenueWithCourses with favorite status from shared hook
+  const data = query.data
+    ? query.data.venues.map((venue: SupabaseVenueWithCourses) => {
         const courses = (venue.courses ?? []).map((course: Course) => ({
           ...course,
-          is_favorite: favoriteIds.includes(course.id),
+          is_favorite: isFavorite(course.id),
         }));
 
         return {
@@ -132,23 +194,31 @@ export function useVenuesWithCourses(state?: AustralianState) {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
-          is_home: venue.id === homeVenueId,
+          is_home: venue.id === query.data.homeVenueId,
         };
-      });
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+      })
+    : undefined;
+
+  return {
+    ...query,
+    data,
+    isLoading: query.isLoading || favoritesLoading,
+  };
 }
 
 /**
  * Search venues by name
  */
-export function useSearchVenues(query: string, state?: AustralianState) {
+export function useSearchVenues(searchQuery: string, state?: AustralianState) {
   const { user } = useAuth();
+  const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
-  return useQuery({
-    queryKey: venueKeys.withCoursesFiltered({ search: query, state }),
-    queryFn: async (): Promise<VenueWithCourses[]> => {
+  const query = useQuery({
+    queryKey: venueKeys.withCoursesFiltered({ search: searchQuery, state }),
+    queryFn: async (): Promise<{
+      venues: SupabaseVenueWithCourses[];
+      homeVenueId: string | null;
+    }> => {
       let queryBuilder = supabase
         .from('venues')
         .select(`
@@ -157,8 +227,8 @@ export function useSearchVenues(query: string, state?: AustralianState) {
         `);
 
       // Apply search filter (case-insensitive)
-      if (query.length >= 2) {
-        queryBuilder = queryBuilder.ilike('name', `%${query}%`);
+      if (searchQuery.length >= 2) {
+        queryBuilder = queryBuilder.ilike('name', `%${searchQuery}%`);
       }
 
       // Apply state filter
@@ -172,35 +242,33 @@ export function useSearchVenues(query: string, state?: AustralianState) {
 
       if (error) throw error;
 
-      // Fetch user's favorite course IDs and home venue ID
-      let favoriteIds: string[] = [];
+      // Fetch player's home venue ID
       let homeVenueId: string | null = null;
       if (user) {
-        // Fetch favorites
-        const { data: favorites } = await supabase
-          .from('favorite_courses')
-          .select('course_id')
-          .eq('player_id', user.id);
-
-        if (favorites) {
-          favoriteIds = favorites.map((f: { course_id: string }) => f.course_id);
-        }
-
-        // Fetch player's home venue ID
-        const { data: player } = await (supabase as any)
+        const { data: player } = (await supabase
           .from('players')
           .select('home_venue_id')
           .eq('id', user.id)
-          .single();
+          .single()) as { data: SupabasePlayerHomeVenue | null };
 
         homeVenueId = player?.home_venue_id ?? null;
       }
 
-      // Transform to VenueWithCourses
-      return (venues ?? []).map((venue: any) => {
+      return {
+        venues: (venues as SupabaseVenueWithCourses[] | null) ?? [],
+        homeVenueId,
+      };
+    },
+    enabled: searchQuery.length >= 2 || !!state,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Transform to VenueWithCourses with favorite status from shared hook
+  const data = query.data
+    ? query.data.venues.map((venue: SupabaseVenueWithCourses) => {
         const courses = (venue.courses ?? []).map((course: Course) => ({
           ...course,
-          is_favorite: favoriteIds.includes(course.id),
+          is_favorite: isFavorite(course.id),
         }));
 
         return {
@@ -208,19 +276,34 @@ export function useSearchVenues(query: string, state?: AustralianState) {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
-          is_home: venue.id === homeVenueId,
+          is_home: venue.id === query.data.homeVenueId,
         };
-      });
-    },
-    enabled: query.length >= 2 || !!state,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+      })
+    : undefined;
+
+  return {
+    ...query,
+    data,
+    isLoading: query.isLoading || favoritesLoading,
+  };
 }
 
 /**
  * Get display items for hybrid list
  * - Single-course venues: show course directly with venue as subtitle
  * - Multi-course venues: show as expandable venue with nested courses
+ *
+ * @deprecated Use useVenuesWithCourses() and transform inline. This wrapper
+ * adds unnecessary indirection. Transform example:
+ * ```
+ * const { data: venues } = useVenuesWithCourses();
+ * const displayItems = (venues ?? []).map((venue) => ({
+ *   type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
+ *   venue: { ...venue },
+ *   courses: venue.courses,
+ *   is_home: venue.is_home,
+ * }));
+ * ```
  */
 export function useVenueCourseDisplayItems(state?: AustralianState) {
   const { data: venues, ...rest } = useVenuesWithCourses(state);
@@ -276,13 +359,14 @@ export function useFavoriteCoursesWithVenues() {
 
       if (error) throw error;
 
-      return (data ?? [])
-        .map((item: any) => ({
+      const typedData = data as SupabaseFavoriteCourseWithVenue[] | null;
+      return (typedData ?? [])
+        .map((item: SupabaseFavoriteCourseWithVenue) => ({
           ...item.courses,
           venue: item.courses.venue,
           is_favorite: true,
         }))
-        .filter((course: any) => course.id);
+        .filter((course) => course.id);
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
@@ -301,6 +385,7 @@ export function useCreateVenue() {
 
   return useMutation({
     mutationFn: async (input: CreateVenueInput): Promise<Venue> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { data, error } = await (supabase as any)
         .from('venues')
         .insert({
@@ -309,12 +394,13 @@ export function useCreateVenue() {
           city: input.city ?? null,
           address: input.address ?? null,
           total_holes: input.total_holes ?? 18,
-          source: 'manual' as const,
+          source: 'manual',
         })
         .select()
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error('No data returned from insert');
       return data as Venue;
     },
     onSuccess: () => {
@@ -331,6 +417,7 @@ export function useCreateCourse() {
 
   return useMutation({
     mutationFn: async (input: CreateCourseInput): Promise<Course> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { data, error } = await (supabase as any)
         .from('courses')
         .insert({
@@ -346,6 +433,7 @@ export function useCreateCourse() {
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error('No data returned from insert');
       return data as Course;
     },
     onSuccess: () => {
@@ -368,6 +456,7 @@ export function useCreateVenueWithCourse() {
       course?: Partial<CreateCourseInput>;
     }): Promise<{ venue: Venue; course: Course }> => {
       // Create venue first
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { data: venue, error: venueError } = await (supabase as any)
         .from('venues')
         .insert({
@@ -376,15 +465,17 @@ export function useCreateVenueWithCourse() {
           city: input.venue.city ?? null,
           address: input.venue.address ?? null,
           total_holes: input.venue.total_holes ?? 18,
-          source: 'manual' as const,
+          source: 'manual',
         })
         .select()
         .single();
 
       if (venueError) throw venueError;
+      if (!venue) throw new Error('No venue data returned from insert');
 
       // Create default course at venue
       const courseName = input.course?.name || input.venue.name;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { data: course, error: courseError } = await (supabase as any)
         .from('courses')
         .insert({
@@ -400,6 +491,7 @@ export function useCreateVenueWithCourse() {
         .single();
 
       if (courseError) throw courseError;
+      if (!course) throw new Error('No course data returned from insert');
 
       return { venue: venue as Venue, course: course as Course };
     },
@@ -410,66 +502,5 @@ export function useCreateVenueWithCourse() {
   });
 }
 
-/**
- * Add course to favorites
- * Uses upsert to handle race conditions where favorite might already exist
- */
-export function useAddCourseFavorite() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (courseId: string) => {
-      if (!user) throw new Error('Must be logged in to add favorites');
-
-      // Use upsert to handle the case where favorite already exists
-      // onConflict: ignore will silently succeed if the record exists
-      const { error } = await (supabase as any)
-        .from('favorite_courses')
-        .upsert(
-          {
-            player_id: user.id,
-            course_id: courseId,
-          },
-          {
-            onConflict: 'player_id,course_id',
-            ignoreDuplicates: true,
-          }
-        );
-
-      if (error) throw error;
-      return courseId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
-      queryClient.invalidateQueries({ queryKey: courseKeys.all });
-    },
-  });
-}
-
-/**
- * Remove course from favorites
- */
-export function useRemoveCourseFavorite() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (courseId: string) => {
-      if (!user) throw new Error('Must be logged in to remove favorites');
-
-      const { error } = await supabase
-        .from('favorite_courses')
-        .delete()
-        .eq('player_id', user.id)
-        .eq('course_id', courseId);
-
-      if (error) throw error;
-      return courseId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
-      queryClient.invalidateQueries({ queryKey: courseKeys.all });
-    },
-  });
-}
+// Note: useAddCourseFavorite and useRemoveCourseFavorite are now re-exported
+// from useFavoriteCourses at the top of this file for backward compatibility

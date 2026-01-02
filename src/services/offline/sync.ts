@@ -3,6 +3,9 @@
  *
  * Handles synchronization between local SQLite database and Supabase.
  * Implements background sync when network becomes available.
+ *
+ * Note: This service uses the centralized online status from @/hooks/useOnlineStatus.
+ * The getIsOnline() export is maintained for backward compatibility.
  */
 
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
@@ -45,6 +48,7 @@ let currentState: SyncState = {
   error: null,
 };
 
+// Module-level online status - kept in sync with centralized hook
 let isOnline = true;
 let isSyncing = false;
 
@@ -441,8 +445,9 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
   });
 
   // Use type assertion due to Supabase types configuration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error, data } = await (supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  const { error, data: _data } = await (supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
     .from('scorecards') as any)
     .upsert(scorecardData, {
       onConflict: 'round_id,player_id',

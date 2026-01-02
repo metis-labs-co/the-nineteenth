@@ -19,6 +19,7 @@ import { IconCalendar } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatDateAustralian } from '@/utils/formatting';
+import Toast from 'react-native-toast-message';
 import { Pill } from '@/components/common/Pill';
 import { competitionTypeLabels, type CompetitionInfoSectionProps } from './types';
 
@@ -33,7 +34,6 @@ export function CompetitionInfoSection({
 
   const handleCopyInviteCode = async () => {
     await Clipboard.setStringAsync(competition.invite_code);
-    const Toast = require('react-native-toast-message').default;
     Toast.show({
       type: 'success',
       text1: 'Copied!',

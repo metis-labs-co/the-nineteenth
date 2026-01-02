@@ -6,6 +6,9 @@
  * - All player scorecards in the group
  * - Auto-save to SQLite for offline support
  * - Sync status tracking
+ *
+ * Note: Uses getIsOnline from sync service for consistency with sync operations.
+ * The sync service maintains its own online status cache for performance.
  */
 
 import { create } from 'zustand';
@@ -76,6 +79,7 @@ interface ScorecardState {
   // Multi-ball scoring functions
   setMultiBallConfig: (ballCount: BallCount) => void;
   setMultiBallScore: (playerId: string, hole: number, ballIndex: number, strokes: number) => Promise<void>;
+  updateMultiBallStats: (playerId: string, hole: number, ballIndex: number, updates: Partial<HoleScore>) => Promise<void>;
   getMultiBallScores: (playerId: string, hole: number) => HoleScore[];
   getMultiBallTotals: (playerId: string) => Record<string, BallTotals>;
 
@@ -228,6 +232,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         // Load holes
         const holes = await getHoles(roundId);
         storeLogger.debug('Loaded holes from SQLite', { roundId, holeCount: holes.length });
+
+        // If no holes found in cache, don't use cached data - let network fetch handle it
+        if (holes.length === 0) {
+          storeLogger.warn('No cached holes found, will fetch from network', { roundId });
+          set({ isLoading: false });
+          return false;
+        }
 
         // Convert to Map
         const newScorecards = new Map<string, Scorecard>();
@@ -478,7 +489,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     getCompletedHolesCount: () => {
-      const { holes } = get();
+      const { holes: _holes } = get();
       let count = 0;
 
       for (let h = 1; h <= 18; h++) {
@@ -645,6 +656,83 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       // Save to offline storage (scorecard save handles the full scorecard including scores)
       if (currentRoundId) {
         await saveScorecard(updatedScorecard);
+      }
+    },
+
+    updateMultiBallStats: async (playerId, hole, ballIndex, updates) => {
+      const { groupScorecards, holes, ballCount, currentRoundId } = get();
+
+      storeLogger.debug('Updating multi-ball stats', {
+        playerId: playerId.substring(0, 8) + '...',
+        hole,
+        ballIndex,
+        updates: Object.keys(updates),
+      });
+
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('Scorecard not found for player', { playerId });
+        return;
+      }
+
+      const holeData = holes.find((h) => h.number === hole);
+      if (!holeData) {
+        storeLogger.warn('Hole data not found', { hole });
+        return;
+      }
+
+      // Get or create multi-ball score structure
+      const existingScore = scorecard.scores[hole];
+      let multiBallScore: MultiBallHoleScore;
+
+      if (isMultiBallScore(existingScore)) {
+        // Copy existing multi-ball structure
+        multiBallScore = {
+          balls: existingScore.balls.map((ball) => ({ ...ball })),
+        };
+      } else {
+        // Create new multi-ball structure
+        multiBallScore = {
+          balls: Array.from({ length: ballCount }, () => ({ strokes: 0 })),
+        };
+      }
+
+      // Update the specific ball's stats (preserving existing values)
+      if (ballIndex >= 0 && ballIndex < multiBallScore.balls.length) {
+        multiBallScore.balls[ballIndex] = {
+          ...multiBallScore.balls[ballIndex],
+          ...updates,
+        };
+      }
+
+      // Update the scorecard with type assertion for multi-ball compatibility
+      const updatedScorecard = {
+        ...scorecard,
+        scores: {
+          ...scorecard.scores,
+          [hole]: multiBallScore,
+        },
+        updatedAt: new Date(),
+      } as Scorecard;
+
+      // Update state
+      const newMap = new Map(groupScorecards);
+      newMap.set(playerId, updatedScorecard);
+      set({ groupScorecards: newMap });
+
+      // Save to offline storage
+      if (currentRoundId) {
+        try {
+          await saveScorecard(updatedScorecard);
+          // Queue for sync
+          await queueScorecardSync(updatedScorecard, 'update');
+        } catch (error) {
+          storeLogger.error('Failed to save multi-ball stats', error, {
+            playerId: playerId.substring(0, 8) + '...',
+            hole,
+            ballIndex,
+          });
+        }
       }
     },
 

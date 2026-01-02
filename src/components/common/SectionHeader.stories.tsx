@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { SectionHeader, SectionHeaderProps } from './SectionHeader';
+import { SectionHeader } from './SectionHeader';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

@@ -97,7 +97,7 @@ export const ErrorState = React.memo(function ErrorState({
       {/* Error Title */}
       <Text
         variant={compact ? 'titleSmall' : 'titleMedium'}
-        style={[styles.title, { color: colors.gray900 }]}
+        style={[styles.title, { color: colors.textPrimary }]}
         accessibilityRole="header"
       >
         {title}
@@ -106,7 +106,7 @@ export const ErrorState = React.memo(function ErrorState({
       {/* Error Message */}
       <Text
         variant="bodyMedium"
-        style={[styles.message, { color: colors.gray600 }, compact && styles.messageCompact]}
+        style={[styles.message, { color: colors.textSecondary }, compact && styles.messageCompact]}
         numberOfLines={compact ? 2 : 4}
       >
         {errorMessage}

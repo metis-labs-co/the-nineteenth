@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, Alert } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { DatePicker, DatePickerProps } from './DatePicker';
 import { spacing } from '@/constants/theme';

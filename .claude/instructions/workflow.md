@@ -34,8 +34,10 @@ When implementing a new mobile feature for The Nineteenth golf competition app, 
 
 ### 5. **Component Extraction** [COMPONENT]
 - Extract reusable components to `src/components/`
-- Use NativeBase components as building blocks
+- Use React Native Paper components (Text, Icon, ActivityIndicator)
+- Use TouchableOpacity for touch handling (not Pressable)
 - Apply design tokens from `src/constants/theme.ts`
+- Use `useThemeColors()` hook for all dynamic colors
 - Optimize with React.memo
 - Add proper TypeScript types
 
@@ -56,6 +58,12 @@ When implementing a new mobile feature for The Nineteenth golf competition app, 
 - Unit tests for components and utilities
 - Integration tests for hooks
 - E2E tests for critical flows (scorecard entry, competition creation)
+
+### 9. **Verification** [VERIFY]
+- Run type check: `pnpm typecheck`
+- Run lint check: `pnpm lint`
+- Fix any errors before committing
+- Ensure no regressions in existing functionality
 
 ---
 
@@ -179,38 +187,38 @@ export function useUpdateScorecard() {
 ```typescript
 // src/screens/player/ScorecardScreen.tsx
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Box, VStack, HStack, Text, Button, Spinner } from 'native-base';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useScorecards } from '@/hooks/useScorecards';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { PlayerScoreCard } from '@/components/scorecard/PlayerScoreCard';
+import { ErrorState, OfflineIndicator } from '@/components/common';
 
 export default function ScorecardScreen({ route }) {
   const { roundId } = route.params;
+  const colors = useThemeColors();
   const { data: scorecards, isLoading, error, refetch } = useScorecards(roundId);
   const { currentHole, setCurrentHole } = useScorecardStore();
 
   if (isLoading) {
     return (
-      <Box flex={1} justifyContent="center" alignItems="center">
-        <Spinner size="lg" />
-      </Box>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
   if (error) {
-    return (
-      <Box flex={1} justifyContent="center" alignItems="center" p={4}>
-        <Text fontSize="lg" mb={4}>Error loading scorecards</Text>
-        <Button onPress={() => refetch()}>Retry</Button>
-      </Box>
-    );
+    return <ErrorState error={error.message} onRetry={refetch} />;
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <VStack space={4} p={4}>
-        <Text fontSize="2xl" fontWeight="bold">
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <OfflineIndicator />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={[styles.holeTitle, { color: colors.textPrimary }]}>
           Hole {currentHole}
         </Text>
 
@@ -222,31 +230,69 @@ export default function ScorecardScreen({ route }) {
           />
         ))}
 
-        <HStack space={2} justifyContent="space-between">
-          <Button
-            flex={1}
-            isDisabled={currentHole === 1}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              { borderColor: colors.primary },
+              currentHole === 1 && { opacity: 0.5 },
+            ]}
             onPress={() => setCurrentHole(currentHole - 1)}
+            disabled={currentHole === 1}
           >
-            Previous Hole
-          </Button>
-          <Button
-            flex={1}
-            isDisabled={currentHole === 18}
+            <Text style={[styles.buttonText, { color: colors.primary }]}>
+              Previous Hole
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              { backgroundColor: colors.primary },
+              currentHole === 18 && { opacity: 0.5 },
+            ]}
             onPress={() => setCurrentHole(currentHole + 1)}
+            disabled={currentHole === 18}
           >
-            Next Hole
-          </Button>
-        </HStack>
-      </VStack>
-    </ScrollView>
+            <Text style={[styles.buttonText, { color: colors.white }]}>
+              Next Hole
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  holeTitle: {
+    ...typography.h1,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  navButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    ...typography.bodyBold,
   },
 });
 ```
@@ -255,9 +301,10 @@ const styles = StyleSheet.create({
 ```typescript
 // src/components/scorecard/PlayerScoreCard.tsx
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { Box, HStack, VStack, Text, Pressable } from 'native-base';
-import { colors, spacing } from '@/constants/theme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { Scorecard } from '@/types';
 
 interface PlayerScoreCardProps {
@@ -271,87 +318,101 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   currentHole,
   onScoreUpdate,
 }: PlayerScoreCardProps) {
+  const colors = useThemeColors();
   const currentScore = scorecard.scores[currentHole];
   const scoreButtons = [1, 2, 3, 4, 5, 6, 7, 8];
 
   return (
-    <Box style={styles.card}>
-      <VStack space={3}>
-        <HStack justifyContent="space-between" alignItems="center">
-          <VStack>
-            <Text fontSize="lg" fontWeight="600">
-              {scorecard.player?.name}
-            </Text>
-            <Text fontSize="sm" color="gray.600">
-              HC: {scorecard.player?.handicap || 0}
-            </Text>
-          </VStack>
-          <Box style={styles.scoreDisplay}>
-            <Text fontSize="2xl" fontWeight="bold">
-              {currentScore?.strokes || '-'}
-            </Text>
-          </Box>
-        </HStack>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={[styles.playerName, { color: colors.textPrimary }]}>
+            {scorecard.player?.name}
+          </Text>
+          <Text style={[styles.handicap, { color: colors.textSecondary }]}>
+            HC: {scorecard.player?.handicap || 0}
+          </Text>
+        </View>
+        <View style={[styles.scoreDisplay, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.scoreText, { color: colors.textPrimary }]}>
+            {currentScore?.strokes || '-'}
+          </Text>
+        </View>
+      </View>
 
-        <HStack space={2} flexWrap="wrap">
-          {scoreButtons.map((strokes) => (
-            <Pressable
+      <View style={styles.buttonGrid}>
+        {scoreButtons.map((strokes) => {
+          const isActive = currentScore?.strokes === strokes;
+          return (
+            <TouchableOpacity
               key={strokes}
               style={[
                 styles.scoreButton,
-                currentScore?.strokes === strokes && styles.scoreButtonActive,
+                {
+                  backgroundColor: isActive ? colors.primary : colors.surfaceVariant,
+                  borderColor: isActive ? colors.primary : colors.border,
+                },
               ]}
               onPress={() => onScoreUpdate?.(strokes)}
             >
-              <Text
-                fontSize="lg"
-                fontWeight="bold"
-                color={currentScore?.strokes === strokes ? 'white' : 'gray.700'}
-              >
+              <Text style={[
+                styles.scoreButtonText,
+                { color: isActive ? colors.white : colors.textPrimary },
+              ]}>
                 {strokes}
               </Text>
-            </Pressable>
-          ))}
-        </HStack>
-      </VStack>
-    </Box>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     borderWidth: 2,
-    borderColor: colors.gray300,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.sm,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  playerName: {
+    ...typography.bodyBold,
+  },
+  handicap: {
+    ...typography.small,
   },
   scoreDisplay: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.gray100,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  scoreText: {
+    ...typography.h2,
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   scoreButton: {
     width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.gray100,
+    borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: colors.gray300,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scoreButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  scoreButtonText: {
+    ...typography.bodyBold,
   },
 });
 ```

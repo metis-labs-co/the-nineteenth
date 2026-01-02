@@ -6,10 +6,10 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, TextInput as RNTextInput } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, TextInput } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { FormSection, FormSectionProps } from './FormSection';
+import { FormSection } from './FormSection';
 import { spacing, borderRadius } from '@/constants/theme';
 
 // ===========================================================================

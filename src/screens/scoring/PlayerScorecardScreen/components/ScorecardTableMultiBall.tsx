@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScoreIndicator } from '@/components/scorecard';
@@ -28,6 +28,9 @@ interface ScorecardTableMultiBallProps {
   multiBallStats: MultiBallStats;
   ballCount: BallCount;
   playerHandicap: number;
+  // Stats visibility (Premium-only)
+  showFIR?: boolean;
+  showGIR?: boolean;
 }
 
 export function ScorecardTableMultiBall({
@@ -35,55 +38,70 @@ export function ScorecardTableMultiBall({
   back9Holes,
   multiBallStats,
   ballCount,
-  playerHandicap,
+  playerHandicap: _playerHandicap,
+  showFIR = false,
+  showGIR = false,
 }: ScorecardTableMultiBallProps) {
   const colors = useThemeColors();
 
   // Generate ball column headers
   const ballHeaders = Array.from({ length: ballCount }, (_, i) => getBallLabel(i));
 
+  // Check if any stats columns are visible
+  const hasStats = showFIR || showGIR;
+
   // Render header row
   const renderHeaderRow = () => (
     <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
       {/* Fixed columns */}
-      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>Hole</Text>
+      <View style={[styles.tableCell, styles.holeCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Hole</Text>
       </View>
-      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>SI</Text>
+      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>SI</Text>
       </View>
-      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.gray800 }]}>
-        <Text style={[styles.headerText, { color: colors.textInverse }]}>Par</Text>
+      <View style={[styles.tableCell, styles.narrowCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>Par</Text>
       </View>
 
       {/* Ball columns */}
       {ballHeaders.map((label, index) => (
         <View key={index} style={[styles.ballColumnGroup]}>
-          <View style={[styles.tableCell, styles.ballHeaderCell, { backgroundColor: colors.gray800 }]}>
-            <Text style={[styles.headerText, { color: colors.textInverse }]}>{label}</Text>
+          <View style={[styles.tableCell, styles.ballHeaderCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.headerText, { color: colors.textPrimary }]}>{label}</Text>
           </View>
         </View>
       ))}
     </View>
   );
 
-  // Render sub-header row (Score/Pts labels)
+  // Render sub-header row (Score/Pts/FIR/GIR labels)
   const renderSubHeaderRow = () => (
     <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
       {/* Fixed columns - empty */}
-      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray700 }]} />
-      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray700 }]} />
-      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray700 }]} />
+      <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]} />
+      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]} />
+      <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]} />
 
-      {/* Ball columns - Score/Pts labels */}
+      {/* Ball columns - Score/Pts/FIR/GIR labels */}
       {ballHeaders.map((_, index) => (
         <View key={index} style={[styles.ballColumnGroup]}>
-          <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.gray700 }]}>
-            <Text style={[styles.smallText, { color: colors.gray300 }]}>Score</Text>
+          <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.smallText, { color: colors.textSecondary }]}>Score</Text>
           </View>
-          <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: colors.gray700 }]}>
-            <Text style={[styles.smallText, { color: colors.gray300 }]}>Pts</Text>
+          <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[styles.smallText, { color: colors.textSecondary }]}>Pts</Text>
           </View>
+          {showFIR && (
+            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[styles.tinyText, { color: colors.textSecondary }]}>FIR</Text>
+            </View>
+          )}
+          {showGIR && (
+            <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+              <Text style={[styles.tinyText, { color: colors.textSecondary }]}>GIR</Text>
+            </View>
+          )}
         </View>
       ))}
     </View>
@@ -92,17 +110,19 @@ export function ScorecardTableMultiBall({
   // Render hole row
   const renderHoleRow = (data: MultiBallHoleRowData) => {
     const { hole, balls } = data;
+    // FIR only applicable for par 4+ holes
+    const isFIRApplicable = hole.par >= 4;
 
     return (
       <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         {/* Fixed columns */}
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray100 }]}>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>{hole.number}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray50 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.smallText, { color: colors.textSecondary }]}>{hole.strokeIndex}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray50 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{hole.par}</Text>
         </View>
 
@@ -129,6 +149,36 @@ export function ScorecardTableMultiBall({
                 {ball.strokes !== undefined ? ball.stablefordPoints : '-'}
               </Text>
             </View>
+            {/* FIR column per ball */}
+            {showFIR && (
+              <View style={[styles.tableCell, styles.ballStatCell]}>
+                {ball.isPickup || ball.strokes === undefined ? (
+                  <Text style={[styles.tinyText, { color: colors.textSecondary }]}>-</Text>
+                ) : !isFIRApplicable ? (
+                  <Text style={[styles.tinyText, { color: colors.textSecondary }]}>-</Text>
+                ) : ball.fairwayHit === true ? (
+                  <Icon source="check" size={12} color={colors.success} />
+                ) : ball.fairwayHit === false ? (
+                  <Icon source="close" size={12} color={colors.error} />
+                ) : (
+                  <Text style={[styles.tinyText, { color: colors.textSecondary }]}>-</Text>
+                )}
+              </View>
+            )}
+            {/* GIR column per ball */}
+            {showGIR && (
+              <View style={[styles.tableCell, styles.ballStatCell]}>
+                {ball.isPickup || ball.strokes === undefined ? (
+                  <Text style={[styles.tinyText, { color: colors.textSecondary }]}>-</Text>
+                ) : ball.greenInRegulation === true ? (
+                  <Icon source="check" size={12} color={colors.success} />
+                ) : ball.greenInRegulation === false ? (
+                  <Icon source="close" size={12} color={colors.error} />
+                ) : (
+                  <Text style={[styles.tinyText, { color: colors.textSecondary }]}>-</Text>
+                )}
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -142,16 +192,16 @@ export function ScorecardTableMultiBall({
     return (
       <View
         key={label}
-        style={[styles.tableRow, { backgroundColor: colors.gray100, borderBottomColor: colors.border }]}
+        style={[styles.tableRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}
       >
         {/* Fixed columns */}
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{label}</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>-</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray200 }]}>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{par}</Text>
         </View>
 
@@ -164,12 +214,23 @@ export function ScorecardTableMultiBall({
 
           return (
             <View key={index} style={[styles.ballColumnGroup]}>
-              <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.gray200 }]}>
+              <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{gross || '-'}</Text>
               </View>
-              <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: colors.gray200 }]}>
+              <View style={[styles.tableCell, styles.ballPtsCell, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>{stableford}</Text>
               </View>
+              {/* Empty FIR/GIR cells for subtotal row */}
+              {showFIR && (
+                <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+                  <Text style={[styles.tinyText, { color: colors.textPrimary }]}>-</Text>
+                </View>
+              )}
+              {showGIR && (
+                <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+                  <Text style={[styles.tinyText, { color: colors.textPrimary }]}>-</Text>
+                </View>
+              )}
             </View>
           );
         })}
@@ -180,16 +241,16 @@ export function ScorecardTableMultiBall({
   // Render total row
   const renderTotalRow = () => {
     return (
-      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.gray800 }]}>
+      <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant }]}>
         {/* Fixed columns */}
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalLabelText, { color: colors.textInverse }]}>TOTAL</Text>
+        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalLabelText, { color: colors.textPrimary }]}>TOTAL</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>-</Text>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
         </View>
-        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.gray800 }]}>
-          <Text style={[styles.totalText, { color: colors.textInverse }]}>{multiBallStats.totalPar}</Text>
+        <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>{multiBallStats.totalPar}</Text>
         </View>
 
         {/* Ball columns - totals */}
@@ -210,9 +271,9 @@ export function ScorecardTableMultiBall({
 
           return (
             <View key={index} style={[styles.ballColumnGroup]}>
-              <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.gray800 }]}>
+              <View style={[styles.tableCell, styles.ballScoreCell, { backgroundColor: colors.surfaceVariant }]}>
                 <View style={styles.grossContainer}>
-                  <Text style={[styles.totalText, { color: colors.textInverse }]}>{totalGross || '-'}</Text>
+                  <Text style={[styles.totalText, { color: colors.textPrimary }]}>{totalGross || '-'}</Text>
                   {totalGross > 0 && (
                     <Text
                       style={[
@@ -222,7 +283,7 @@ export function ScorecardTableMultiBall({
                             grossDiff < 0
                               ? colors.successLight
                               : grossDiff === 0
-                                ? colors.gray300
+                                ? colors.textSecondary
                                 : colors.errorLight,
                         },
                       ]}
@@ -233,9 +294,20 @@ export function ScorecardTableMultiBall({
                 </View>
               </View>
               <View style={[styles.tableCell, styles.ballPtsCell, styles.stablefordTotalCell, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.stablefordTotalText, { color: colors.textInverse }]}>{totalStableford}</Text>
+                <Text style={[styles.stablefordTotalText, { color: colors.textOnColored }]}>{totalStableford}</Text>
                 <Text style={[styles.stablefordPtsLabel, { color: colors.primaryLighter }]}>pts</Text>
               </View>
+              {/* FIR/GIR totals - show dash for now */}
+              {showFIR && (
+                <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+                  <Text style={[styles.tinyText, { color: colors.textPrimary }]}>-</Text>
+                </View>
+              )}
+              {showGIR && (
+                <View style={[styles.tableCell, styles.ballStatCell, { backgroundColor: colors.surfaceVariant }]}>
+                  <Text style={[styles.tinyText, { color: colors.textPrimary }]}>-</Text>
+                </View>
+              )}
             </View>
           );
         })}
@@ -348,5 +420,15 @@ const styles = StyleSheet.create({
   stablefordPtsLabel: {
     ...typography.caption,
     marginTop: 2,
+  },
+  // FIR/GIR stat cell styles
+  ballStatCell: {
+    flex: 0.25,
+    minWidth: 24,
+  },
+  tinyText: {
+    fontSize: 10,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

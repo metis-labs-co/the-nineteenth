@@ -23,6 +23,7 @@ import { getStrokesOnHole, calculateNetScore, calculateStablefordPoints } from '
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 interface BestBallPlayerScore {
   player: Player;
@@ -42,7 +43,6 @@ interface BestBallScoreViewProps {
   editablePlayerIds?: Set<string>;
 }
 
-const PICKUP_SCORE = 10;
 const MIN_SCORE = 1;
 const MAX_SCORE = 12;
 
@@ -124,7 +124,7 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
   }, [playerScoreData]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
+    <View style={[styles.container, { backgroundColor: colors.surface }]}>
       {/* Team Header */}
       <View style={styles.header}>
         <View style={styles.teamInfo}>
@@ -270,7 +270,7 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
         <TouchableOpacity
           style={[
             styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
+            { borderColor: colors.gray300, backgroundColor: colors.surface },
             isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
             disabled && styles.buttonDisabled,
           ]}
@@ -294,7 +294,7 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
         <TouchableOpacity
           style={[
             styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
+            { borderColor: colors.gray300, backgroundColor: colors.surface },
             disabled && styles.buttonDisabled,
           ]}
           onPress={handleDecrement}
@@ -316,7 +316,7 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
         <TouchableOpacity
           style={[
             styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
+            { borderColor: colors.gray300, backgroundColor: colors.surface },
             (disabled || isPickedUp) && styles.buttonDisabled,
           ]}
           onPress={handleIncrement}

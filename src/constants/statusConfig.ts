@@ -45,8 +45,8 @@ export function getCompetitionStatusConfig(
     },
     completed: {
       label: 'Completed',
-      backgroundColor: colors.gray200,
-      textColor: colors.gray700,
+      backgroundColor: colors.infoLight,
+      textColor: colors.infoDark,
       icon: 'check-circle-outline',
     },
     cancelled: {
@@ -81,8 +81,8 @@ export function getRoundStatusConfig(
     },
     completed: {
       label: 'Completed',
-      backgroundColor: colors.gray200,
-      textColor: colors.gray700,
+      backgroundColor: colors.infoLight,
+      textColor: colors.infoDark,
       icon: 'check-circle-outline',
     },
   };
@@ -112,9 +112,11 @@ export const HANDICAP_SYSTEM_LABELS: Record<HandicapSystem, string> = {
 
 /**
  * Helper function to get game type label
+ * @param gameType - The game type (can be typed GameType or string for flexibility)
+ * @returns Human-readable label for the game type
  */
-export function getGameTypeLabel(gameType: GameType): string {
-  return GAME_TYPE_LABELS[gameType];
+export function getGameTypeLabel(gameType: GameType | string): string {
+  return GAME_TYPE_LABELS[gameType as GameType] ?? gameType;
 }
 
 /**

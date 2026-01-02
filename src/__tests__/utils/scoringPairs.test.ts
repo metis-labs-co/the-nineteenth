@@ -19,7 +19,6 @@ import {
   generateCrossTeamPairs,
   validateScoringPairsCoverage,
   shuffleForPairing,
-  type CrossTeamPairingStrategy,
 } from '@/utils/scoringPairs';
 
 // ============================================================================
@@ -29,14 +28,14 @@ import {
 /**
  * Create an array of test players with specified IDs
  */
-function createPlayers(ids: string[]): Array<{ id: string }> {
+function createPlayers(ids: string[]): { id: string }[] {
   return ids.map((id) => ({ id }));
 }
 
 /**
  * Create players with numeric IDs (p1, p2, p3, etc.)
  */
-function createNumberedPlayers(count: number): Array<{ id: string }> {
+function createNumberedPlayers(count: number): { id: string }[] {
   return Array.from({ length: count }, (_, i) => ({ id: `p${i + 1}` }));
 }
 
@@ -44,7 +43,7 @@ function createNumberedPlayers(count: number): Array<{ id: string }> {
  * Extract all player IDs from scoring pairs
  */
 function extractPlayerIds(
-  pairs: Array<{ scorerId: string; playerId: string }>
+  pairs: { scorerId: string; playerId: string }[]
 ): { scorerIds: string[]; playerIds: string[] } {
   return {
     scorerIds: pairs.map((p) => p.scorerId),

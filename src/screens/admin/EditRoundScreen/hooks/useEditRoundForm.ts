@@ -7,10 +7,10 @@ import type { GameType, TeeBox } from '@/types/database.types';
 import type { RoundFormData, RoundWithCourse } from '../types';
 import {
   parseISODate,
-  formatAustralianDate,
+  formatDateAustralian,
   parseAustralianDate,
   parseTime,
-} from '../utils';
+} from '@/utils/formatting';
 
 interface UseEditRoundFormOptions {
   round: RoundWithCourse | undefined;
@@ -58,7 +58,7 @@ export function useEditRoundForm({
     if (round) {
       const parsedDate = parseISODate(round.date);
       const data: RoundFormData = {
-        date: parsedDate ? formatAustralianDate(parsedDate) : '',
+        date: parsedDate ? formatDateAustralian(parsedDate) : '',
         teeTime: round.tee_time || '',
         gameType: round.game_type,
         selectedTee: round.selected_tee,

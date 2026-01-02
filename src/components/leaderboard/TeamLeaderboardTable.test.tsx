@@ -20,6 +20,10 @@ import {
   TeamMemberEntry,
 } from './TeamLeaderboardTable';
 
+// Mock react-native LayoutAnimation to avoid issues in test environment
+// LayoutAnimation.configureNext doesn't work in tests, so we mock the entire module
+import { LayoutAnimation } from 'react-native';
+
 // =====================================================
 // MOCKS
 // =====================================================
@@ -28,27 +32,27 @@ import {
 jest.mock('@tabler/icons-react-native', () => {
   const { View, Text } = require('react-native');
   return {
-    IconTrophy: (props: any) => (
+    IconTrophy: (_props: any) => (
       <View testID="icon-trophy" accessibilityLabel="trophy">
         <Text>TrophyIcon</Text>
       </View>
     ),
-    IconChartBar: (props: any) => (
+    IconChartBar: (_props: any) => (
       <View testID="icon-chart-bar">
         <Text>ChartBarIcon</Text>
       </View>
     ),
-    IconChevronDown: (props: any) => (
+    IconChevronDown: (_props: any) => (
       <View testID="icon-chevron-down">
         <Text>ChevronDownIcon</Text>
       </View>
     ),
-    IconChevronUp: (props: any) => (
+    IconChevronUp: (_props: any) => (
       <View testID="icon-chevron-up">
         <Text>ChevronUpIcon</Text>
       </View>
     ),
-    IconUser: (props: any) => (
+    IconUser: (_props: any) => (
       <View testID="icon-user">
         <Text>UserIcon</Text>
       </View>
@@ -68,10 +72,6 @@ jest.mock('@/components/common', () => {
     ),
   };
 });
-
-// Mock react-native LayoutAnimation to avoid issues in test environment
-// LayoutAnimation.configureNext doesn't work in tests, so we mock the entire module
-import { LayoutAnimation } from 'react-native';
 jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {});
 
 // =====================================================

@@ -27,6 +27,8 @@ import { IconSearch } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import { supabase } from '@/services/supabase/client';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -94,6 +96,9 @@ const validateInviteCode = (code: string): boolean => {
 export default function JoinCompetitionScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const { user, player } = useAuth();
+  const playerId = user?.id ?? '';
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(playerId);
+  const { showMultipleToasts } = useAchievementToast();
 
   // State
   const [inviteCode, setInviteCode] = useState('');
@@ -257,7 +262,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
 
     try {
       // Add player to competition
-      const { error: joinError } = await supabase
+      const { error: insertError } = await supabase
         .from('competition_players')
         .insert({
           competition_id: competition.id,
@@ -267,15 +272,44 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
           responded_at: new Date().toISOString(),
         } as unknown as never);
 
-      if (joinError) {
-        if (joinError.code === '23505') {
+      if (insertError) {
+        if (insertError.code === '23505') {
           // Unique constraint violation - already a member
           setJoinError('You have already joined this competition.');
         } else {
           setJoinError('Unable to join competition. Please try again.');
-          console.error('Join competition error:', joinError);
+          console.error('Join competition error:', insertError);
         }
         return;
+      }
+
+      // Check for competition-related achievements
+      if (playerId && isAchievementReady) {
+        try {
+          // Get the count of competitions the player is in
+          const { count } = await supabase
+            .from('competition_players')
+            .select('*', { count: 'exact', head: true })
+            .eq('player_id', playerId)
+            .eq('status', 'accepted');
+
+          const competitionCount = count ?? 0;
+          console.log('[JoinCompetitionScreen] Checking achievements with competition count:', competitionCount);
+
+          // Check and award achievements
+          const result = await checkAndAward('competition_joined', {
+            competition_count: competitionCount,
+            competition_id: competition.id,
+          });
+
+          if (result.hasNewRewards) {
+            console.log('[JoinCompetitionScreen] New achievements:', result.newAchievements.length);
+            showMultipleToasts(result.newAchievements, result.newCosmetics);
+          }
+        } catch (achievementError) {
+          // Don't fail the join if achievement check fails
+          console.error('[JoinCompetitionScreen] Achievement check failed:', achievementError);
+        }
       }
 
       // Navigate to competition detail screen
@@ -286,7 +320,7 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
     } finally {
       setIsJoining(false);
     }
-  }, [competition, user?.id, player, navigation]);
+  }, [competition, user?.id, player, navigation, playerId, isAchievementReady, checkAndAward, showMultipleToasts]);
 
   // Check if lookup button should be enabled (min 4 chars per schema)
   const canLookup = inviteCode.length >= 4 && !isLookingUp;

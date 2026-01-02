@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, Text as RNText, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text, Button, Surface } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
 import { SwipeableHoleNavigator } from './SwipeableHoleNavigator';
@@ -49,7 +49,7 @@ type Story = StoryObj<typeof SwipeableHoleNavigator>;
 // FIXTURES
 // ===========================================================================
 
-const screenWidth = Dimensions.get('window').width;
+const _screenWidth = Dimensions.get('window').width;
 
 interface MockHoleData {
   number: number;

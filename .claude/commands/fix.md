@@ -55,4 +55,11 @@ Fix the following issue: {{arg1}}
 ## Additional Context
 {{arg2}}
 
+## Verification
+
+Before considering the fix complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced
+
 Show the diagnosis, the fix, and verification steps.

@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { FilterPill, FilterPillProps } from './FilterPill';
+import { FilterPill } from './FilterPill';
 
 const meta: Meta<typeof FilterPill> = {
   title: 'Common/FilterPill',

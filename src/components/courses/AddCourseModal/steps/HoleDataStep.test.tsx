@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { HoleDataStep } from './HoleDataStep';
 import type { HoleFormData, TeeFormData } from '../types';
 
@@ -47,7 +47,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </RNText>
     ),
-    Icon: ({ source, size, color }: { source: string; size: number; color: string }) => (
+    Icon: ({ source, size, color: _color }: { source: string; size: number; color: string }) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }}>
         <RNText>{source}</RNText>
       </View>

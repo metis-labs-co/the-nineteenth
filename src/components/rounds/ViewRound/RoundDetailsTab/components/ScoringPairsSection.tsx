@@ -20,8 +20,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 /**
  * Get initials for avatar fallback
+ * Note: Not currently used - PlayerAvatar component handles initials internally
  */
-function getInitials(name: string): string {
+function _getInitials(name: string): string {
   return name
     .split(' ')
     .map((n) => n[0])

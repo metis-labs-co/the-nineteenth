@@ -164,7 +164,7 @@ export function DatePicker({
           editable={false}
           pointerEvents="none"
           style={[styles.input, { backgroundColor: colors.surface }]}
-          outlineColor={error ? colors.error : colors.gray300}
+          outlineColor={error ? colors.error : colors.border}
           activeOutlineColor={error ? colors.error : colors.primary}
           textColor={colors.textPrimary}
           disabled={disabled}
@@ -173,13 +173,13 @@ export function DatePicker({
               <TextInput.Icon
                 icon="close"
                 onPress={handleClear}
-                color={colors.gray400}
+                color={colors.textSecondary}
               />
             ) : (
               <TextInput.Icon
                 icon={displayIcon}
                 onPress={openPicker}
-                color={disabled ? colors.gray400 : colors.primary}
+                color={disabled ? colors.textDisabled : colors.primary}
               />
             )
           }
@@ -208,7 +208,7 @@ export function DatePicker({
                 <View
                   style={[
                     styles.pickerHeader,
-                    { borderBottomColor: colors.gray200 },
+                    { borderBottomColor: colors.border },
                   ]}
                 >
                   <Button onPress={handleDismiss} textColor={colors.primary}>

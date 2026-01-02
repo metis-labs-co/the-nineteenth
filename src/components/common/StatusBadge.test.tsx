@@ -280,7 +280,6 @@ describe('StatusBadge', () => {
           status="custom"
           label="VIP"
           backgroundColor="#FFD700"
-          textColor="#000000"
         />
       );
       expect(screen.getByText('VIP')).toBeTruthy();
@@ -292,7 +291,6 @@ describe('StatusBadge', () => {
           status="custom"
           label="Special"
           backgroundColor="#FFFFFF"
-          textColor="#FF0000"
         />
       );
       expect(screen.getByText('Special')).toBeTruthy();
@@ -309,7 +307,6 @@ describe('StatusBadge', () => {
         <StatusBadge
           status="active"
           backgroundColor="#FFD700"
-          textColor="#000000"
         />
       );
       expect(screen.getByText('Active')).toBeTruthy();
@@ -387,7 +384,6 @@ describe('StatusBadge', () => {
           size="sm"
           accessibilityLabel="Custom status badge"
           backgroundColor="#FF6B6B"
-          textColor="#FFFFFF"
         />
       );
       expect(screen.getByText('Full Props')).toBeTruthy();
@@ -406,7 +402,6 @@ describe('StatusBadge', () => {
           label="You"
           size="sm"
           backgroundColor="#E0F2FE"
-          textColor="#0369A1"
         />
       );
       expect(screen.getByText('You')).toBeTruthy();
@@ -450,7 +445,6 @@ describe('StatusBadge', () => {
           status="custom"
           label="Hex"
           backgroundColor="#FF0000"
-          textColor="#00FF00"
         />
       );
       expect(screen.getByText('Hex')).toBeTruthy();
@@ -462,7 +456,6 @@ describe('StatusBadge', () => {
           status="custom"
           label="RGBA"
           backgroundColor="rgba(255, 0, 0, 0.5)"
-          textColor="rgba(0, 0, 0, 1)"
         />
       );
       expect(screen.getByText('RGBA')).toBeTruthy();
@@ -525,7 +518,6 @@ describe('StatusBadge', () => {
           status="custom"
           label="You"
           backgroundColor="#DBEAFE"
-          textColor="#1E40AF"
         />
       );
       expect(screen.getByText('You')).toBeTruthy();
@@ -610,22 +602,22 @@ describe('StatusBadge', () => {
       expect(screen.getByText('Active')).toBeTruthy();
     });
 
-    it('uses gray colors for completed status', () => {
+    it('uses info/blue colors for completed status', () => {
       render(<StatusBadge status="completed" />);
       expect(screen.getByText('Completed')).toBeTruthy();
     });
 
-    it('uses primary colors for upcoming status', () => {
+    it('uses neutral/gray colors for upcoming status', () => {
       render(<StatusBadge status="upcoming" />);
       expect(screen.getByText('Upcoming')).toBeTruthy();
     });
 
-    it('uses primary colors for scheduled status', () => {
+    it('uses neutral/gray colors for scheduled status', () => {
       render(<StatusBadge status="scheduled" />);
       expect(screen.getByText('Scheduled')).toBeTruthy();
     });
 
-    it('uses warning colors for draft status', () => {
+    it('uses neutral/gray colors for draft status', () => {
       render(<StatusBadge status="draft" />);
       expect(screen.getByText('Draft')).toBeTruthy();
     });

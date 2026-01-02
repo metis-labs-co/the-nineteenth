@@ -17,7 +17,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { GolfBallLoader, FormInput } from '@/components/common';
+import { FormInput } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';

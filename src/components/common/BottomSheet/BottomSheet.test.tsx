@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { BottomSheet } from './BottomSheet';
 
 // Mock the hooks used by BottomSheet

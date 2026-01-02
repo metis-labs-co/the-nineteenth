@@ -46,3 +46,10 @@ After creating the hook:
 3. Explain cache invalidation strategy
 4. Note offline behavior (if applicable)
 5. Document optimistic updates (if mutation)
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

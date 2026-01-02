@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import AddPlayersStep from './AddPlayersStep';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 
 // ===========================================================================
 // META

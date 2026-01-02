@@ -13,7 +13,7 @@
 
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Divider } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
 import { VenueCard } from './VenueCard';
 import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
@@ -346,7 +346,7 @@ export const InteractiveSingleCourse: Story = {
         <VenueCard
           item={item}
           showFavoriteButton={true}
-          onCourseSelect={(course, venue) => console.log('Selected:', course.name)}
+          onCourseSelect={(course, _venue) => console.log('Selected:', course.name)}
           onToggleFavorite={handleToggle}
           isTogglingFavorite={isToggling ? 'course-1' : null}
         />
@@ -616,12 +616,12 @@ export const VenueList: Story = {
         <Text variant="bodySmall" style={styles.subtitle}>
           Shows how VenueCards look in a list with mixed types
         </Text>
-        {items.map((item, index) => (
+        {items.map((item) => (
           <View key={item.venue.id} style={styles.cardWrapper}>
             <VenueCard
               item={item}
               showFavoriteButton={true}
-              onCourseSelect={(course, venue) => console.log('Selected:', course.name)}
+              onCourseSelect={(course, _venue) => console.log('Selected:', course.name)}
               onVenuePress={(venue) => console.log('Venue:', venue.name)}
               onToggleFavorite={(course) => console.log('Toggle:', course.name)}
             />

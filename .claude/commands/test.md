@@ -72,4 +72,11 @@ describe('{{arg1}}', () => {
 ## Additional Context
 {{arg2}}
 
-After writing tests, confirm they pass and show coverage.
+## Verification
+
+After writing tests:
+1. Run tests to confirm they pass: `pnpm test`
+2. Run type check: `pnpm typecheck`
+3. Run lint check: `pnpm lint`
+4. Fix any errors or warnings that were introduced
+5. Show coverage results

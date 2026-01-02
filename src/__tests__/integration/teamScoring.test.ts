@@ -29,7 +29,7 @@ import {
   createTeamWithMembers,
   createMultipleTeams,
 } from '../utils/testFixtures';
-import type { Hole, Player, TeamWithMembers } from '@/types';
+import type { Hole, TeamWithMembers } from '@/types';
 
 // ============================================================================
 // Test Fixtures
@@ -38,7 +38,7 @@ import type { Hole, Player, TeamWithMembers } from '@/types';
 /**
  * Create team member scores for a specific hole
  */
-function createScoresForHole(
+function _createScoresForHole(
   team: TeamWithMembers,
   hole: Hole,
   grossScores: number[]
@@ -67,9 +67,9 @@ function playBestBallRound(
   team: TeamWithMembers,
   holes: Hole[],
   scoreGenerator: (hole: Hole, playerIndex: number) => number
-): { total: number; holeResults: Array<{ hole: number; bestNet: number; contributor: string }> } {
+): { total: number; holeResults: { hole: number; bestNet: number; contributor: string }[] } {
   let total = 0;
-  const holeResults: Array<{ hole: number; bestNet: number; contributor: string }> = [];
+  const holeResults: { hole: number; bestNet: number; contributor: string }[] = [];
 
   for (const hole of holes) {
     const scores: TeamMemberScore[] = team.members.map((member, i) => ({
@@ -97,11 +97,11 @@ function playScrambleRound(
   team: TeamWithMembers,
   holes: Hole[],
   teamScoreGenerator: (hole: Hole) => number
-): { totalGross: number; totalNet: number; holeScores: Array<{ hole: number; gross: number; net: number }> } {
+): { totalGross: number; totalNet: number; holeScores: { hole: number; gross: number; net: number }[] } {
   const teamHandicap = calculateTeamHandicap(teamToHandicapMembers(team));
   let totalGross = 0;
   let totalNet = 0;
-  const holeScores: Array<{ hole: number; gross: number; net: number }> = [];
+  const holeScores: { hole: number; gross: number; net: number }[] = [];
 
   for (const hole of holes) {
     const gross = teamScoreGenerator(hole);
@@ -265,7 +265,7 @@ describe('Best Ball Full Round Integration', () => {
   describe('team competition', () => {
     it('correctly ranks teams by best ball total', () => {
       const teams = createMultipleTeams(4, 2);
-      const teamResults: Array<{ teamId: string; total: number }> = [];
+      const teamResults: { teamId: string; total: number }[] = [];
 
       // Each team scores with different offsets
       const offsets = [0, 1, 2, -1]; // Team 1 par, Team 2 bogey, etc.
@@ -366,7 +366,7 @@ describe('Scramble Full Round Integration', () => {
       const teamHandicap = calculateTeamHandicap(teamToHandicapMembers(team));
       expect(teamHandicap).toBe(7);
 
-      const { totalGross, totalNet } = playScrambleRound(team, holes, (hole) => hole.par);
+      const { totalGross: _totalGross2, totalNet } = playScrambleRound(team, holes, (hole) => hole.par);
 
       expect(totalNet).toBe(72 - 7);
     });
@@ -375,7 +375,7 @@ describe('Scramble Full Round Integration', () => {
   describe('scramble competition', () => {
     it('correctly ranks teams by net score', () => {
       const teams = createMultipleTeams(4, 4);
-      const teamResults: Array<{ teamId: string; gross: number; net: number }> = [];
+      const teamResults: { teamId: string; gross: number; net: number }[] = [];
 
       teams.forEach((team, index) => {
         // Each team scores differently
@@ -750,8 +750,8 @@ describe('Team Scoring Edge Cases', () => {
       const teamHandicap = calculateTeamHandicap(teamToHandicapMembers(team));
       expect(teamHandicap).toBe(0);
 
-      const { totalGross, totalNet } = playScrambleRound(team, holes, (hole) => hole.par);
-      expect(totalGross).toBe(totalNet); // No strokes
+      const { totalGross: _totalGross, totalNet } = playScrambleRound(team, holes, (hole) => hole.par);
+      expect(_totalGross).toBe(totalNet); // No strokes
     });
   });
 
@@ -803,7 +803,7 @@ describe('Competition Scenarios', () => {
 
   it('simulates 4-team best ball competition', () => {
     const teams = createMultipleTeams(4, 2);
-    const results: Array<{ teamId: string; name: string; total: number }> = [];
+    const results: { teamId: string; name: string; total: number }[] = [];
 
     teams.forEach((team) => {
       // Random-ish scores based on team index

@@ -21,6 +21,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { LoadingSpinner } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useStatsVisibilityWithTier } from '@/store/settingsStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
 import {
@@ -30,7 +31,6 @@ import {
 } from '@/components/scorecard';
 import { EditHoleBottomSheet } from '@/components/courses';
 import { useUpdateCourseHoles } from '@/hooks';
-import { useDebugMode } from '@/store/settingsStore';
 import { scoringLogger } from '@/utils/debugLogger';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -65,8 +65,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Edit hole state (for super admins)
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
 
-  // Debug mode
-  const { debugModeEnabled } = useDebugMode();
+  // Track when QuickScorecardView is being scrolled (to disable swipe gestures)
+  const [isQuickViewScrolling, setIsQuickViewScrolling] = useState(false);
 
   // Dialog state management
   const dialogs = useScorecardDialogs();
@@ -93,9 +93,13 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     resetRound,
     setMultiBallConfig,
     setMultiBallScore,
+    updateMultiBallStats,
     getMultiBallScores,
-    getMultiBallTotals,
+    getMultiBallTotals: _getMultiBallTotals,
   } = useScorecardStore();
+
+  // Stats visibility (respects Premium tier)
+  const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
 
   // Data fetching hook
   const {
@@ -226,6 +230,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     [currentHole, setMultiBallScore, currentPlayers]
   );
 
+  // Multi-ball stats handler (FIR/GIR)
+  const handleMultiBallStatsChange = useCallback(
+    async (playerId: string, ballIndex: number, updates: Partial<HoleScore>) => {
+      const player = currentPlayers.find((p) => p.id === playerId);
+      scoringLogger.info('MULTI-BALL STATS: Ball stats update', {
+        playerId: playerId.substring(0, 8),
+        playerName: player?.name,
+        hole: currentHole,
+        ballIndex,
+        updates: Object.keys(updates),
+      });
+      await updateMultiBallStats(playerId, currentHole, ballIndex, updates);
+    },
+    [currentHole, updateMultiBallStats, currentPlayers]
+  );
+
   const handlePlayerPress = useCallback(
     (playerId: string) => {
       navigation.navigate('PlayerScorecard', {
@@ -302,8 +322,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const playersToRender =
     scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
 
-  // Loading state
-  if (isLoading || (!isInitialized && !fetchError)) {
+  // Check if holes are available (defensive check for edge cases)
+  const hasHoles = holes.length > 0;
+
+  // Loading state - also wait if initialized but holes are empty (race condition safeguard)
+  if (isLoading || (!isInitialized && !fetchError) || (isInitialized && !hasHoles && !fetchError)) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <LoadingSpinner size="lg" message="Loading scorecard..." />
@@ -350,11 +373,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       {/* Header with offline indicator and sync line */}
       <ScorecardHeader
         courseName={courseName ?? undefined}
+        selectedTee={courseTees.find((t) => t.name === selectedTee) ?? null}
         onBack={nav.handleBackPress}
-        onDebugPress={dialogs.openDebugPanel}
         onDeletePress={submission.handleDeleteRound}
         isStandaloneRound={isStandaloneRound}
-        debugModeEnabled={debugModeEnabled}
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
@@ -368,7 +390,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         currentHole={currentHole}
         totalHoles={18}
         onHoleChange={setCurrentHole}
-        enabled={!isSyncing && !isLoading}
+        enabled={!isSyncing && !isLoading && !isQuickViewScrolling}
         playerCount={playersToRender.length}
       >
         <View style={styles.contentArea}>
@@ -414,7 +436,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               isMultiBall={isMultiBall}
               ballCount={storeBallCount}
               onMultiBallScoreChange={handleMultiBallScoreChange}
+              onMultiBallStatsChange={handleMultiBallStatsChange}
               getMultiBallScores={getMultiBallScores}
+              // Stats visibility (Premium-only)
+              showFIR={showFairwayHit}
+              showGIR={showGreenInRegulation}
             />
 
             {/* Quick Scorecard View - only show for individual scoring */}
@@ -427,6 +453,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
                   getPlayerHoleScore={getPlayerScore}
                   isHoleComplete={isHoleComplete}
                   onHolePress={nav.handleHolePress}
+                  onScrollingChange={setIsQuickViewScrolling}
                 />
               </View>
             )}
@@ -457,16 +484,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onIncompleteCancel={dialogs.closeIncompleteDialog}
         showSubmitErrorDialog={dialogs.showSubmitErrorDialog}
         onSubmitErrorDismiss={dialogs.closeSubmitErrorDialog}
-        showDebugPanel={dialogs.showDebugPanel}
-        onDebugPanelClose={dialogs.closeDebugPanel}
-        roundId={roundId}
-        competitionId={competitionId}
-        courseName={courseName}
-        isTeamRound={isTeamRound}
-        teamFormat={teamFormat}
-        teams={teams}
-        scoringPairsEnabled={scoringPairsEnabled}
-        playersToScore={playersToScore}
       />
 
       {/* Super admin hole editing modal */}

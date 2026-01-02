@@ -33,6 +33,25 @@ jest.mock('@/components/common', () => {
   };
 });
 
+// Mock useFormattedDistance to return yards format
+jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn(() => ({
+    distanceUnit: 'yards',
+  })),
+  useFormattedDistance: () => ({
+    formatDistance: (yards: number): string => {
+      return `${yards.toLocaleString()} yds`;
+    },
+    unit: 'yards',
+    unitLabel: 'yds',
+  }),
+  useStatsVisibility: () => ({
+    showPutts: true,
+    showFairwayHit: true,
+    showGreenInRegulation: true,
+  }),
+}));
+
 // =====================================================
 // TEST FIXTURES
 // =====================================================
@@ -201,7 +220,8 @@ describe('CourseCard', () => {
       render(<CourseCard {...defaultProps} />);
       // 3 tees with 5,800, 6,400, 6,800 yardages
       expect(screen.getByText(/3 tees:/)).toBeTruthy();
-      expect(screen.getByText(/5,800 - 6,800 yds/)).toBeTruthy();
+      // Format is: "5,800 yds - 6,800 yds"
+      expect(screen.getByText(/5,800 yds.*6,800 yds/)).toBeTruthy();
     });
 
     it('renders single tee yardage correctly', () => {
@@ -210,6 +230,7 @@ describe('CourseCard', () => {
       });
       render(<CourseCard {...defaultProps} course={course} />);
       expect(screen.getByText(/1 tee:/)).toBeTruthy();
+      // Format is: "6,200 yds"
       expect(screen.getByText(/6,200 yds/)).toBeTruthy();
     });
 
@@ -241,7 +262,8 @@ describe('CourseCard', () => {
       render(<CourseCard {...defaultProps} course={course} />);
       // Should show range based on available yardages only
       expect(screen.getByText(/3 tees:/)).toBeTruthy();
-      expect(screen.getByText(/5,500 - 6,800 yds/)).toBeTruthy();
+      // Format is: "5,500 yds - 6,800 yds"
+      expect(screen.getByText(/5,500 yds.*6,800 yds/)).toBeTruthy();
     });
 
     it('formats large yardages with commas', () => {
@@ -249,7 +271,8 @@ describe('CourseCard', () => {
         tees: [{ name: 'Long', color: 'black', totalYardage: 7500, courseRating: 76.0, slopeRating: 155 }],
       });
       render(<CourseCard {...defaultProps} course={course} />);
-      expect(screen.getByText(/7,500 yds/)).toBeTruthy();
+      // Format is: "1 tee: 7,500 yds"
+      expect(screen.getByText(/1 tee:.*7,500 yds/)).toBeTruthy();
     });
   });
 

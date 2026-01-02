@@ -516,24 +516,15 @@ Refactor Paywall component:
 
 ---
 
-### 5.2 ApiSearchModal (628 lines)
-**File:** `src/components/courses/ApiSearchModal.tsx`
+### 5.2 ApiSearchModal (REMOVED)
+**Status:** Component deleted (January 2025)
 
-**Refactor Prompt:**
-```
-Refactor ApiSearchModal:
-
-1. Extract custom hooks:
-   - useApiCourseSearch() - Already exists, ensure proper usage
-   - useSearchDebounce() - Debounced search input
-
-2. Extract sub-components:
-   - SearchResultItem.tsx - Individual search result
-   - SearchEmpty.tsx - No results state
-   - SearchLoading.tsx - Loading state
-
-3. Target: Under 300 lines
-```
+**Reason:** The ApiSearchModal component is no longer needed. All related code has been removed from the codebase including:
+- `src/components/courses/ApiSearchModal.tsx`
+- `src/components/courses/ApiSearchModal.test.tsx`
+- `src/components/courses/ApiSearchModal.stories.tsx`
+- Export from `src/components/courses/index.ts`
+- Usage in `CourseListScreen.tsx` and `CourseListContent.tsx`
 
 ---
 
@@ -1519,7 +1510,7 @@ import { FormSection } from '@/components/common';
 
 ### Phase 5: Large Components
 - [x] 5.1 Paywall (684 lines → 326 lines)
-- [ ] 5.2 ApiSearchModal (628 lines)
+- [x] 5.2 ApiSearchModal (REMOVED - component deleted, no longer needed)
 - [x] 5.3 RoundListCard (593 lines → 170 lines)
 - [x] 5.4 DetailsTab (709 lines → 101 lines)
 - [x] 5.5 PlayerScoreCard (581 lines → 209 lines)

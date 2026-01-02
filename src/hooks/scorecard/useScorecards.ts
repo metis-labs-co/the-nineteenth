@@ -3,10 +3,14 @@
  *
  * TanStack Query hooks for fetching and caching scorecard data.
  * Includes offline support via SQLite fallback.
+ *
+ * Note: Uses getIsOnline from sync service for consistency with sync logic.
+ * For React components that need reactive online status, use
+ * useOnlineStatus from '@/hooks/useOnlineStatus' instead.
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/services/api/client';
+import { apiClient as _apiClient } from '@/services/api/client';
 import { getScorecardsByRound } from '@/services/offline/database';
 import { getIsOnline } from '@/services/offline/sync';
 import { scorecardKeys } from '@/hooks/queryKeys';

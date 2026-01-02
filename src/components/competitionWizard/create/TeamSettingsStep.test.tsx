@@ -25,7 +25,7 @@ import { DEFAULT_POINT_SYSTEM, type TeamSettingsFormData } from '@/schemas/compe
 // TEST FIXTURES
 // =====================================================
 
-const defaultInitialData: TeamSettingsFormData = {
+const _defaultInitialData: TeamSettingsFormData = {
   teamMode: 'none',
   teamSize: 2,
   pointSystem: DEFAULT_POINT_SYSTEM,

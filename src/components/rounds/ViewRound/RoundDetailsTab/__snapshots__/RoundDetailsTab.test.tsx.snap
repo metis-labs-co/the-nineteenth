@@ -653,41 +653,24 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           style={
             {
               "alignItems": "center",
-              "backgroundColor": "#E8F5E9",
-              "borderRadius": 8,
-              "flexDirection": "row",
-              "gap": 4,
+              "backgroundColor": "#F5F5F5",
+              "borderRadius": 9999,
+              "height": 44,
+              "justifyContent": "center",
               "opacity": 1,
-              "paddingHorizontal": 8,
-              "paddingVertical": 4,
+              "width": 44,
             }
           }
         >
           <View
             style={
               {
-                "height": 16,
-                "width": 16,
+                "height": 20,
+                "width": 20,
               }
             }
             testID="icon-pencil"
           />
-          <Text
-            style={
-              [
-                {
-                  "fontSize": 14,
-                  "fontWeight": "600",
-                  "lineHeight": 20,
-                },
-                {
-                  "color": "#2E7D32",
-                },
-              ]
-            }
-          >
-            Edit
-          </Text>
         </View>
       </View>
       <View

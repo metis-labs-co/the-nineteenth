@@ -13,15 +13,18 @@ import React, { useCallback, useState } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text, Switch, Icon, Divider } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common';
+import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, ThemeMode } from '@/constants/theme';
 import { useTheme, useThemeColors } from '@/context/ThemeContext';
-import { useSettingsStore, type DistanceUnit } from '@/store/settingsStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { clearSyncQueue } from '@/services/offline/sync';
 import { PageHeader } from '@/components/common/PageHeader';
+import { FeatureLock } from '@/components/subscription/FeatureLock';
+import { useSubscription } from '@/hooks/useSubscription';
 
 import type { ColorPalette } from '@/constants/theme';
 
@@ -66,50 +69,6 @@ const SettingRow = React.memo(function SettingRow({
   );
 });
 
-interface DistanceOptionProps {
-  unit: DistanceUnit;
-  label: string;
-  isSelected: boolean;
-  onSelect: () => void;
-  colors: ColorPalette;
-}
-
-const DistanceOption = React.memo(function DistanceOption({
-  unit,
-  label,
-  isSelected,
-  onSelect,
-  colors,
-}: DistanceOptionProps) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.distanceOption,
-        { backgroundColor: colors.surface, borderColor: colors.gray200 },
-        isSelected && { borderColor: colors.primary, backgroundColor: colors.primaryLighter + '20' },
-      ]}
-      activeOpacity={0.7}
-      onPress={onSelect}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`Use ${label} for distances`}
-    >
-      <Text
-        style={[
-          styles.distanceOptionText,
-          { color: colors.textSecondary },
-          isSelected && { color: colors.primary },
-        ]}
-      >
-        {label}
-      </Text>
-      {isSelected && (
-        <Icon source="check" size={20} color={colors.primary} />
-      )}
-    </TouchableOpacity>
-  );
-});
-
 interface ThemeModeOptionProps {
   mode: ThemeMode;
   label: string;
@@ -120,7 +79,7 @@ interface ThemeModeOptionProps {
 }
 
 const ThemeModeOption = React.memo(function ThemeModeOption({
-  mode,
+  mode: _mode,
   label,
   icon,
   isSelected,
@@ -167,20 +126,19 @@ export default function SettingsScreen() {
   // Get theme colors and mode
   const colors = useThemeColors();
   const { themeMode, setThemeMode } = useTheme();
+  const { isSuperAdmin } = useSubscription();
 
   // Get settings from store
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const showPutts = useSettingsStore((state) => state.showPutts);
   const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
   const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
-  const debugModeEnabled = useSettingsStore((state) => state.debugModeEnabled);
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
   const setShowPutts = useSettingsStore((state) => state.setShowPutts);
   const setShowFairwayHit = useSettingsStore((state) => state.setShowFairwayHit);
   const setShowGreenInRegulation = useSettingsStore((state) => state.setShowGreenInRegulation);
-  const setDebugModeEnabled = useSettingsStore((state) => state.setDebugModeEnabled);
   const resetToDefaults = useSettingsStore((state) => state.resetToDefaults);
 
   const handleBack = useCallback(() => {
@@ -278,20 +236,26 @@ export default function SettingsScreen() {
             Choose how distances are displayed throughout the app
           </Text>
           <View style={styles.distanceOptions}>
-            <DistanceOption
-              unit="metres"
-              label="Metres"
-              isSelected={distanceUnit === 'metres'}
-              onSelect={() => setDistanceUnit('metres')}
-              colors={colors}
-            />
-            <DistanceOption
-              unit="yards"
-              label="Yards"
-              isSelected={distanceUnit === 'yards'}
-              onSelect={() => setDistanceUnit('yards')}
-              colors={colors}
-            />
+            <View style={styles.distanceOptionWrapper}>
+              <RadioButtonOption
+                label="Metres"
+                description="Metric measurement (international standard)"
+                selected={distanceUnit === 'metres'}
+                onSelect={() => setDistanceUnit('metres')}
+                icon="ruler"
+                testID="distance-option-metres"
+              />
+            </View>
+            <View style={styles.distanceOptionWrapper}>
+              <RadioButtonOption
+                label="Yards"
+                description="Imperial measurement (US standard)"
+                selected={distanceUnit === 'yards'}
+                onSelect={() => setDistanceUnit('yards')}
+                icon="ruler"
+                testID="distance-option-yards"
+              />
+            </View>
           </View>
         </View>
 
@@ -312,22 +276,28 @@ export default function SettingsScreen() {
               onValueChange={setShowPutts}
               colors={colors}
             />
-            <SettingRow
-              icon="arrow-right-bold"
-              label="Fairways Hit (FIR)"
-              description="Track fairways hit on par 4s and 5s"
-              value={showFairwayHit}
-              onValueChange={setShowFairwayHit}
-              colors={colors}
-            />
-            <SettingRow
-              icon="flag-checkered"
-              label="Greens in Regulation (GIR)"
-              description="Track greens hit in regulation"
-              value={showGreenInRegulation}
-              onValueChange={setShowGreenInRegulation}
-              colors={colors}
-            />
+            <FeatureLock
+              feature="fir_gir_tracking"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+              lockedMessage="FIR/GIR tracking requires Premium"
+            >
+              <SettingRow
+                icon="arrow-right-bold"
+                label="Fairways Hit (FIR)"
+                description="Track fairways hit on par 4s and 5s"
+                value={showFairwayHit}
+                onValueChange={setShowFairwayHit}
+                colors={colors}
+              />
+              <SettingRow
+                icon="flag-checkered"
+                label="Greens in Regulation (GIR)"
+                description="Track greens hit in regulation"
+                value={showGreenInRegulation}
+                onValueChange={setShowGreenInRegulation}
+                colors={colors}
+              />
+            </FeatureLock>
           </View>
         </View>
 
@@ -350,56 +320,40 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+        {/* Troubleshooting Section - Super Admin only */}
+        {isSuperAdmin && (
+          <>
+            <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
-        {/* Troubleshooting Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Troubleshooting</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            If you&apos;re experiencing sync issues, clearing the sync queue may help.
-          </Text>
-          <TouchableOpacity
-            onPress={handleClearSyncQueue}
-            disabled={isClearing}
-            style={[
-              styles.troubleshootButton,
-              { backgroundColor: colors.surface, borderColor: colors.gray300 },
-              isClearing && styles.troubleshootButtonDisabled,
-            ]}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Clear sync queue"
-          >
-            {isClearing ? (
-              <GolfBallLoader size="sm" />
-            ) : (
-              <Icon source="sync-off" size={20} color={colors.textSecondary} />
-            )}
-            <Text style={[styles.troubleshootButtonText, { color: colors.textSecondary }]}>
-              {isClearing ? 'Clearing...' : 'Clear Sync Queue'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
-
-        {/* Developer Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Developer</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Tools for debugging and troubleshooting the app.
-          </Text>
-          <View style={[styles.settingsGroup, { backgroundColor: colors.surface }]}>
-            <SettingRow
-              icon="bug-outline"
-              label="Debug Mode"
-              description="Show debug panels on scoring screens with detailed state information"
-              value={debugModeEnabled}
-              onValueChange={setDebugModeEnabled}
-              colors={colors}
-            />
-          </View>
-        </View>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Troubleshooting</Text>
+              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+                If you&apos;re experiencing sync issues, clearing the sync queue may help.
+              </Text>
+              <TouchableOpacity
+                onPress={handleClearSyncQueue}
+                disabled={isClearing}
+                style={[
+                  styles.troubleshootButton,
+                  { backgroundColor: colors.surface, borderColor: colors.gray300 },
+                  isClearing && styles.troubleshootButtonDisabled,
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Clear sync queue"
+              >
+                {isClearing ? (
+                  <GolfBallLoader size="sm" />
+                ) : (
+                  <Icon source="sync-off" size={20} color={colors.textSecondary} />
+                )}
+                <Text style={[styles.troubleshootButtonText, { color: colors.textSecondary }]}>
+                  {isClearing ? 'Clearing...' : 'Clear Sync Queue'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Info Footer */}
         <View style={[styles.infoFooter, { backgroundColor: colors.gray100 }]}>
@@ -468,22 +422,10 @@ const styles = StyleSheet.create({
   },
   // Distance options
   distanceOptions: {
-    flexDirection: 'row',
     gap: spacing.md,
   },
-  distanceOption: {
+  distanceOptionWrapper: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-  },
-  distanceOptionText: {
-    ...typography.bodyBold,
   },
   // Settings group
   settingsGroup: {

@@ -6,7 +6,7 @@
 
 import React, { useCallback } from 'react';
 import { DateTimeFieldGroup } from '@/components/common';
-import { formatAustralianDate, formatTime } from '../utils';
+import { formatDateAustralian, formatTimeHHMM } from '@/utils/formatting';
 
 interface DateTimeSectionProps {
   date: string;
@@ -20,7 +20,7 @@ interface DateTimeSectionProps {
 }
 
 export function DateTimeSection({
-  date,
+  date: _date,
   teeTime,
   onDateChange,
   onTeeTimeChange,
@@ -32,14 +32,14 @@ export function DateTimeSection({
   // Convert Date to string format for parent
   const handleDateChange = useCallback(
     (selectedDate: Date) => {
-      onDateChange(formatAustralianDate(selectedDate));
+      onDateChange(formatDateAustralian(selectedDate));
     },
     [onDateChange]
   );
 
   const handleTimeChange = useCallback(
     (selectedTime: Date) => {
-      onTeeTimeChange(formatTime(selectedTime));
+      onTeeTimeChange(formatTimeHHMM(selectedTime));
     },
     [onTeeTimeChange]
   );

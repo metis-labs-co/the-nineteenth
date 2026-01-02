@@ -20,6 +20,40 @@ import type {
 import type { Player as AppPlayer } from '@/types';
 
 // =====================================================
+// SUPABASE QUERY RESPONSE TYPES
+// =====================================================
+
+/**
+ * Raw team member from Supabase join query
+ */
+interface TeamMemberQueryRow {
+  team_id: string;
+  player_id: string;
+  joined_at: string;
+  player: Player | null;
+}
+
+/**
+ * Raw team from Supabase query with nested team_members
+ */
+interface TeamQueryRow {
+  id: string;
+  competition_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  team_members: TeamMemberQueryRow[];
+}
+
+/**
+ * Raw competition player from Supabase query
+ */
+interface CompetitionPlayerQueryRow {
+  player_id: string;
+  player: Player | null;
+}
+
+// =====================================================
 // TYPES
 // =====================================================
 
@@ -201,17 +235,18 @@ export async function getCompetitionTeams(
   }
 
   // Transform response to TeamWithMembers format
-  return ((teams as any[]) || []).map((team) => ({
+  const typedTeams = (teams as TeamQueryRow[]) || [];
+  return typedTeams.map((team) => ({
     id: team.id,
     competition_id: team.competition_id,
     name: team.name,
     created_at: team.created_at,
     updated_at: team.updated_at,
-    members: (team.team_members || []).map((member: any) => ({
+    members: (team.team_members || []).map((member: TeamMemberQueryRow) => ({
       team_id: member.team_id,
       player_id: member.player_id,
       joined_at: member.joined_at,
-      player: member.player as Player | undefined,
+      player: member.player ?? undefined,
     })),
   }));
 }
@@ -254,7 +289,7 @@ export async function getTeamWithMembers(
     throw createError(`Failed to fetch team: ${error.message}`, 'DATABASE');
   }
 
-  const teamData = team as any;
+  const teamData = team as TeamQueryRow;
 
   return {
     id: teamData.id,
@@ -262,11 +297,11 @@ export async function getTeamWithMembers(
     name: teamData.name,
     created_at: teamData.created_at,
     updated_at: teamData.updated_at,
-    members: (teamData.team_members || []).map((member: any) => ({
+    members: (teamData.team_members || []).map((member: TeamMemberQueryRow) => ({
       team_id: member.team_id,
       player_id: member.player_id,
       joined_at: member.joined_at,
-      player: member.player as Player | undefined,
+      player: member.player ?? undefined,
     })),
   };
 }
@@ -465,8 +500,9 @@ export async function autoGenerateTeams(
   }
 
   // Extract player data and convert to app Player format
-  const dbPlayers = (competitionPlayers as any[])
-    .map((cp) => cp.player as Player)
+  const typedCompetitionPlayers = competitionPlayers as CompetitionPlayerQueryRow[];
+  const dbPlayers = typedCompetitionPlayers
+    .map((cp) => cp.player)
     .filter((p): p is Player => p !== null);
 
   const players: AppPlayer[] = dbPlayers.map(toAppPlayer);
@@ -509,6 +545,87 @@ export async function autoGenerateTeams(
   }
 
   return createdTeams;
+}
+
+/**
+ * Add a single member to a team
+ *
+ * @param teamId - Team UUID
+ * @param playerId - Player UUID to add
+ * @throws TeamServiceError if operation fails
+ *
+ * @example
+ * ```typescript
+ * await addTeamMember('team-123', 'player-456');
+ * ```
+ */
+export async function addTeamMember(
+  teamId: string,
+  playerId: string
+): Promise<void> {
+  if (!teamId) {
+    throw createError('Team ID is required', 'VALIDATION');
+  }
+  if (!playerId) {
+    throw createError('Player ID is required', 'VALIDATION');
+  }
+
+  const { error } = await supabase
+    .from('team_members')
+    .insert({
+      team_id: teamId,
+      player_id: playerId,
+    } as unknown as never);
+
+  if (error) {
+    if (error.code === '23505') {
+      // Player already in team - not an error
+      return;
+    }
+    console.error('[TeamService] Failed to add team member:', error);
+    throw createError(
+      `Failed to add team member: ${error.message}`,
+      'DATABASE'
+    );
+  }
+}
+
+/**
+ * Remove a single member from a team
+ *
+ * @param teamId - Team UUID
+ * @param playerId - Player UUID to remove
+ * @throws TeamServiceError if operation fails
+ *
+ * @example
+ * ```typescript
+ * await removeTeamMember('team-123', 'player-456');
+ * ```
+ */
+export async function removeTeamMember(
+  teamId: string,
+  playerId: string
+): Promise<void> {
+  if (!teamId) {
+    throw createError('Team ID is required', 'VALIDATION');
+  }
+  if (!playerId) {
+    throw createError('Player ID is required', 'VALIDATION');
+  }
+
+  const { error } = await supabase
+    .from('team_members')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('player_id', playerId);
+
+  if (error) {
+    console.error('[TeamService] Failed to remove team member:', error);
+    throw createError(
+      `Failed to remove team member: ${error.message}`,
+      'DATABASE'
+    );
+  }
 }
 
 /**
@@ -572,6 +689,8 @@ export const teamService = {
   updateTeamName,
   deleteTeam,
   autoGenerateTeams,
+  addTeamMember,
+  removeTeamMember,
 };
 
 export default teamService;

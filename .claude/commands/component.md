@@ -1,5 +1,5 @@
 ---
-description: Create a reusable React Native component with TypeScript and NativeBase (project)
+description: Create a reusable React Native component with TypeScript and React Native Paper (project)
 ---
 
 Create a new React Native component: **{{arg1}}**
@@ -30,7 +30,7 @@ Create a new React Native component: **{{arg1}}**
 
 ### Patterns
 - Use React Native Paper for basic components (Text, ActivityIndicator, Icon)
-- Use Pressable (not TouchableOpacity) for touch handling
+- Use TouchableOpacity for touch handling (not Pressable)
 - Use forwardRef for form components
 
 ## Additional Context
@@ -43,3 +43,10 @@ After creating the component:
 2. Provide the import path
 3. List related components that pair well with it
 4. Note any accessibility or platform-specific considerations
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

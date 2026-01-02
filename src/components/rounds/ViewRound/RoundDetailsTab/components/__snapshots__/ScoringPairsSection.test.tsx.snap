@@ -734,25 +734,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PA
                   </Text>
@@ -805,25 +795,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PB
                   </Text>
@@ -878,25 +858,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PB
                   </Text>
@@ -949,25 +919,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PC
                   </Text>
@@ -1024,25 +984,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PC
                   </Text>
@@ -1095,25 +1045,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PA
                   </Text>
@@ -1503,25 +1443,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PA
                   </Text>
@@ -1574,25 +1504,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PB
                   </Text>
@@ -1649,25 +1569,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PC
                   </Text>
@@ -1720,25 +1630,15 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
               >
                 <View
                   style={
-                    [
-                      {
-                        "height": 32,
-                        "width": 32,
-                      },
-                      {
-                        "backgroundColor": "#2E7D32",
-                      },
-                    ]
+                    {
+                      "height": 32,
+                      "width": 32,
+                    }
                   }
-                  testID="avatar-text"
+                  testID="player-avatar"
                 >
                   <Text
-                    style={
-                      {
-                        "color": "#FFFFFF",
-                        "fontSize": 12,
-                      }
-                    }
+                    testID="player-avatar-initials"
                   >
                     PD
                   </Text>

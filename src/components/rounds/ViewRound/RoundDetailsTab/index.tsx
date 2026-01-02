@@ -187,14 +187,13 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           </Text>
           {isOrganizer && onEditPress && (
             <TouchableOpacity
-              style={[styles.editButton, { backgroundColor: colors.primaryLighter }]}
+              style={[styles.editButton, { backgroundColor: colors.gray100 }]}
               onPress={onEditPress}
               accessibilityLabel="Edit round details"
               accessibilityRole="button"
               activeOpacity={0.7}
             >
-              <Icon source="pencil" size={16} color={colors.primary} />
-              <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
+              <Icon source="pencil" size={20} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -416,15 +415,11 @@ const styles = StyleSheet.create({
     ...typography.h4,
   },
   editButton: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  editButtonText: {
-    ...typography.smallBold,
   },
 
   // Details Card

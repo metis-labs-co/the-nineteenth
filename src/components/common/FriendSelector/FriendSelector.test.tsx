@@ -16,7 +16,6 @@ import {
   render,
   screen,
   fireEvent,
-  waitFor,
 } from '@/__tests__/utils/renderHelpers';
 import { FriendSelector } from './FriendSelector';
 import type { FriendSelectorProps, SelectedPlayer } from './FriendSelector.types';
@@ -98,7 +97,7 @@ jest.mock('./FriendListItem', () => {
       isDisabled,
       onToggle,
       showDivider,
-      showPendingBadge,
+      showPendingBadge: _showPendingBadge,
     }: {
       friend: { id: string; name: string; email?: string | null };
       isSelected: boolean;
@@ -201,6 +200,12 @@ const createMockFriend = (overrides: Partial<Friend> = {}): Friend => ({
   push_competition_updates: true,
   push_friend_requests: true,
   push_scorecard_updates: true,
+  equipped_badge_id: null,
+  equipped_frame_id: null,
+  equipped_title_id: null,
+  is_placeholder: false,
+  created_by: null,
+  linked_player_id: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   friendship_id: 'friendship-1',

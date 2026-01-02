@@ -18,6 +18,8 @@ export interface GolferIconProps {
   size?: number;
   /** Color palette with 5 shades for dynamic coloring */
   colorPalette: ColorPalette;
+  /** Test ID for testing purposes */
+  testID?: string;
 }
 
 // Static colors that remain constant across all avatar variations
@@ -51,7 +53,7 @@ const STATIC_COLORS = {
  * />
  * ```
  */
-function GolferIconComponent({ size = 100, colorPalette }: GolferIconProps) {
+function GolferIconComponent({ size = 100, colorPalette, testID }: GolferIconProps) {
   // Dynamic colors mapped from colorPalette
   const st0 = colorPalette.mid;
   const st2 = colorPalette.dark;
@@ -63,7 +65,7 @@ function GolferIconComponent({ size = 100, colorPalette }: GolferIconProps) {
   const { st1, st3, st4, st5, st6, st8, st9 } = STATIC_COLORS;
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 1080 1080">
+    <Svg width={size} height={size} viewBox="0 0 1080 1080" testID={testID}>
       {/* Cloud/background elements - st3 */}
       <Path
         fill={st3}

@@ -11,6 +11,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { NavigationContainer, Theme } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
@@ -73,6 +74,10 @@ import NotificationsScreen from '@/screens/notifications/NotificationsScreen';
 // Subscription
 import SubscriptionScreen from '@/screens/subscription/SubscriptionScreen';
 
+// Achievements
+import AchievementsScreen from '@/screens/profile/AchievementsScreen';
+import AchievementLeaderboardScreen from '@/screens/profile/AchievementLeaderboardScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 interface RootNavigatorProps {
@@ -116,7 +121,7 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   }
 
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer ref={navigationRef} theme={theme}>
       <NotificationProvider>
         <Stack.Navigator
           screenOptions={{
@@ -434,6 +439,25 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={LinkPlaceholderScreen}
               options={{
                 title: 'Manage Guest Players',
+                headerShown: false,
+              }}
+            />
+
+            {/* Achievements */}
+            <Stack.Screen
+              name="Achievements"
+              component={AchievementsScreen}
+              options={{
+                title: 'My Achievements',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="AchievementLeaderboard"
+              component={AchievementLeaderboardScreen}
+              options={{
+                title: 'Achievement Leaders',
                 headerShown: false,
               }}
             />

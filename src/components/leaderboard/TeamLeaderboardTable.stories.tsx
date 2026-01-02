@@ -123,7 +123,7 @@ const largeTeams: TeamLeaderboardEntry[] = [
   ]),
 ];
 
-const singleMemberTeams: TeamLeaderboardEntry[] = [
+const _singleMemberTeams: TeamLeaderboardEntry[] = [
   createTeam('team-1', 'Solo Player', 15.0, 42, [
     createMember('player-1', 'Lone Wolf', 15, 42),
   ]),

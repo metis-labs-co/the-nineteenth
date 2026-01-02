@@ -50,3 +50,10 @@ After creating the component:
 2. Demonstrate integration with other layouts
 3. Show safe area handling
 4. Show variant examples (if applicable)
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

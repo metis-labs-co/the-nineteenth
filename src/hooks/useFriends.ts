@@ -26,9 +26,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { friendsKeys } from './queryKeys';
 import { useAuth } from './useAuth';
-import { useCanAddFriend } from './useSubscription';
+import { useSubscription } from './useSubscription';
+import { useCheckAchievements } from './achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
-import { isUnlimited } from '@/types/subscription.types';
 import type { FeatureAccess } from '@/types/subscription.types';
 import type {
   Friend,
@@ -79,7 +80,8 @@ export function useFriendsCount() {
  */
 export function useCheckCanAddFriend(): FeatureAccess & { isLoading: boolean } {
   const { data: friendCount = 0, isLoading } = useFriendsCount();
-  const access = useCanAddFriend(friendCount);
+  const { checkFeature } = useSubscription();
+  const access = checkFeature('add_friend', { friendCount });
 
   return {
     ...access,
@@ -433,10 +435,14 @@ export function useAddFriend() {
 
 /**
  * Hook: useAcceptFriendRequest
- * Accept a pending friend request
+ * Accept a pending friend request and check for friend-related achievements
  */
 export function useAcceptFriendRequest() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const playerId = user?.id ?? '';
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(playerId);
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: async (friendshipId: string) => {
@@ -454,9 +460,40 @@ export function useAcceptFriendRequest() {
 
       return data as Friendship;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       // Invalidate to refresh friends list and requests
       queryClient.invalidateQueries({ queryKey: friendsKeys.all });
+
+      // Check for friend-related achievements
+      if (!playerId || !isAchievementReady) {
+        console.log('[useAcceptFriendRequest] Skipping achievement check - not ready');
+        return;
+      }
+
+      try {
+        // Get the updated friend count
+        const { count } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .or(`requester_id.eq.${playerId},addressee_id.eq.${playerId}`)
+          .eq('status', 'accepted');
+
+        const friendCount = count ?? 0;
+        console.log('[useAcceptFriendRequest] Checking achievements with friend count:', friendCount);
+
+        // Check and award achievements
+        const result = await checkAndAward('friend_added', {
+          friend_count: friendCount,
+        });
+
+        if (result.hasNewRewards) {
+          console.log('[useAcceptFriendRequest] New achievements:', result.newAchievements.length);
+          showMultipleToasts(result.newAchievements, result.newCosmetics);
+        }
+      } catch (error) {
+        // Don't fail the friend accept if achievement check fails
+        console.error('[useAcceptFriendRequest] Achievement check failed:', error);
+      }
     },
   });
 }

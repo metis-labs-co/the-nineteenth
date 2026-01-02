@@ -431,60 +431,129 @@ async function saveToSQLite(scorecard: Scorecard) {
 
 ## Error Handling
 
-### Query Error Boundary
+### Using Existing Common Components
 ```tsx
-import { useQuery } from '@tanstack/react-query';
-import { Box, Text, Button } from 'native-base';
+import { ErrorState, LoadingSpinner } from '@/components/common';
 
-function ErrorFallback({ error, resetErrorBoundary }: any) {
-  return (
-    <Box flex={1} justifyContent="center" alignItems="center" p={4}>
-      <Text fontSize="xl" fontWeight="600" mb={2}>
-        Error loading data
-      </Text>
-      <Text color="gray.600" mb={4}>
-        {error.message}
-      </Text>
-      <Button onPress={resetErrorBoundary}>Try Again</Button>
-    </Box>
-  );
+// Recommended: Use existing ErrorState component
+if (error) {
+  return <ErrorState error={error.message} onRetry={refetch} />;
+}
+
+// Recommended: Use existing LoadingSpinner
+if (isLoading) {
+  return <LoadingSpinner message="Loading competitions..." />;
 }
 ```
 
-### Manual Error Handling
+### Custom Error Handling
 ```tsx
-const { error, refetch } = useCompetitions();
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
-if (error) {
+function CustomErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  const colors = useThemeColors();
+
   return (
-    <Box flex={1} justifyContent="center" alignItems="center" p={4}>
-      <Text fontSize="lg" mb={4}>
-        Failed to load competitions
+    <View style={[styles.centered, { backgroundColor: colors.background }]}>
+      <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
+        Error loading data
       </Text>
-      <Text color="gray.600" mb={4}>
-        {error.message}
+      <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+        {error}
       </Text>
-      <Button onPress={() => refetch()}>Retry</Button>
-    </Box>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: colors.primary }]}
+        onPress={onRetry}
+      >
+        <Text style={[styles.buttonText, { color: colors.white }]}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  errorTitle: {
+    ...typography.h3,
+    marginBottom: spacing.sm,
+  },
+  errorMessage: {
+    ...typography.body,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  button: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  buttonText: {
+    ...typography.bodyBold,
+  },
+});
+```
+
+### Manual Error Handling in Screen
+```tsx
+const { data, error, refetch, isLoading } = useCompetitions();
+
+if (isLoading) {
+  return <LoadingSpinner />;
+}
+
+if (error) {
+  return <ErrorState error={error.message} onRetry={refetch} />;
+}
+
+// Render data...
 ```
 
 ## Loading States
 
-### Query Loading
+### Using Common Components
 ```tsx
+import { LoadingSpinner, GolfBallLoader } from '@/components/common';
+
+// Standard loading
+if (isLoading) return <LoadingSpinner />;
+
+// Golf-themed loading (for scorecard screens)
+if (isLoading) return <GolfBallLoader />;
+```
+
+### Query Loading Pattern
+```tsx
+import { View, StyleSheet } from 'react-native';
+import { ActivityIndicator } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { ProgressBar } from '@/components/common';
+
 const { data, isLoading, isFetching, isRefetching } = useCompetitions();
+const colors = useThemeColors();
 
 // Initial load
-if (isLoading) return <Spinner size="lg" />;
+if (isLoading) {
+  return (
+    <View style={[styles.centered, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+    </View>
+  );
+}
 
-// Background refetch (show existing data)
+// Background refetch (show existing data with indicator)
 return (
-  <Box flex={1}>
+  <View style={{ flex: 1, backgroundColor: colors.background }}>
     {isFetching && <ProgressBar />}
     <CompetitionsList competitions={data} />
-  </Box>
+  </View>
 );
 ```
 

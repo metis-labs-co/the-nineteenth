@@ -283,7 +283,7 @@ describe('PageHeader', () => {
     });
 
     it('renders badge when showBadge is true', () => {
-      const { UNSAFE_root } = render(
+      const { UNSAFE_root: _UNSAFE_root } = render(
         <PageHeader
           title="Title"
           rightActions={[

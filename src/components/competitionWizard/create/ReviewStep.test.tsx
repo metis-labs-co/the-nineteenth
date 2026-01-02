@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import ReviewStep from './ReviewStep';
 import {
   DEFAULT_POINT_SYSTEM,
@@ -34,22 +34,22 @@ jest.mock('react-native-paper', () => {
 
   // Create Avatar namespace with Text component
   const Avatar = {
-    Text: ({ label, size, style }: { label: string; size: number; style?: any }) =>
+    Text: ({ label, size: _size, style }: { label: string; size: number; style?: any }) =>
       React.createElement(
         View,
         { testID: 'avatar-text', style },
         React.createElement(Text, null, label)
       ),
-    Icon: ({ icon, size, style }: { icon: string; size: number; style?: any }) =>
+    Icon: ({ icon, size: _size, style }: { icon: string; size: number; style?: any }) =>
       React.createElement(View, { testID: `avatar-icon-${icon}`, style }),
-    Image: ({ source, size, style }: { source: any; size: number; style?: any }) =>
+    Image: ({ source: _source, size: _size, style }: { source: any; size: number; style?: any }) =>
       React.createElement(View, { testID: 'avatar-image', style }),
   };
 
   return {
     ...actual,
     Avatar,
-    Chip: ({ children, mode, style, textStyle }: { children: React.ReactNode; mode?: string; style?: any; textStyle?: any }) =>
+    Chip: ({ children, mode: _mode, style, textStyle }: { children: React.ReactNode; mode?: string; style?: any; textStyle?: any }) =>
       React.createElement(
         View,
         { testID: 'chip', style },
@@ -107,7 +107,7 @@ const perRoundTeamsData: TeamSettingsFormData = {
   pointSystem: DEFAULT_POINT_SYSTEM,
 };
 
-const customPointSystem: TeamSettingsFormData = {
+const _customPointSystem: TeamSettingsFormData = {
   teamMode: 'none',
   teamSize: 2,
   pointSystem: [
@@ -119,7 +119,7 @@ const customPointSystem: TeamSettingsFormData = {
   ],
 };
 
-const largePointSystem: TeamSettingsFormData = {
+const _largePointSystem: TeamSettingsFormData = {
   teamMode: 'none',
   teamSize: 2,
   pointSystem: [

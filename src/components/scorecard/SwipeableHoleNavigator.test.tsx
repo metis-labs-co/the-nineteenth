@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { View, Text, Dimensions } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { SwipeableHoleNavigator } from './SwipeableHoleNavigator';
 
 // ===========================================================================
@@ -190,7 +190,7 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Accessibility', () => {
     it('has accessible role of adjustable', () => {
-      const { UNSAFE_getByType } = render(<SwipeableHoleNavigator {...defaultProps} />);
+      const { UNSAFE_getByType: _UNSAFE_getByType } = render(<SwipeableHoleNavigator {...defaultProps} />);
 
       // The animated container should have accessibility props
       expect(screen.getByTestId('test-child')).toBeTruthy();

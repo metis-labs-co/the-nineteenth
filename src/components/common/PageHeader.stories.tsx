@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
-import { PageHeader, PageHeaderProps } from './PageHeader';
+import { PageHeader } from './PageHeader';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

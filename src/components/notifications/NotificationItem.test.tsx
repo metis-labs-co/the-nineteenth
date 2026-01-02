@@ -35,7 +35,7 @@ jest.mock('@/context/ThemeContext', () => ({
 
 // Mock date-fns
 jest.mock('date-fns', () => ({
-  formatDistanceToNow: jest.fn((date) => '5 minutes ago'),
+  formatDistanceToNow: jest.fn((_date) => '5 minutes ago'),
 }));
 
 // Mock react-native-paper
@@ -47,7 +47,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </Text>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, color: _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }}>
         <Text>{source}</Text>
       </View>

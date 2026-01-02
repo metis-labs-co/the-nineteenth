@@ -27,7 +27,7 @@ jest.mock('react-native-paper', () => {
   const actual = jest.requireActual('react-native-paper');
   return {
     ...actual,
-    Icon: ({ source, size, color }: { source: string; size: number; color: string }) => (
+    Icon: ({ source, size: _size, color: _color }: { source: string; size: number; color: string }) => (
       <View testID={`icon-${source}`}>
         <Text>{source}</Text>
       </View>
@@ -68,7 +68,7 @@ jest.mock('@/utils/scoring', () => ({
 // TEST FIXTURES
 // ===========================================================================
 
-function createTestTeam(id: string, name: string, playerData: Array<{ name: string; handicap: number }>): TeamWithMembers {
+function createTestTeam(id: string, name: string, playerData: { name: string; handicap: number }[]): TeamWithMembers {
   const players = playerData.map((data, i) =>
     createTestPlayer({
       id: `${id}-player-${i + 1}`,

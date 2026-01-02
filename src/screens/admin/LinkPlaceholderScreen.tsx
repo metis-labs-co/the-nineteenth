@@ -17,15 +17,15 @@ import {
 } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconUserQuestion, IconLink, IconTrash, IconUsers } from '@tabler/icons-react-native';
+import { IconUserQuestion, IconLink, IconTrash } from '@tabler/icons-react-native';
 import Toast from 'react-native-toast-message';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
-import { LoadingSpinner, SearchBar, BottomSheet } from '@/components/common';
-import { SearchResultCard } from '@/components/social/SearchResultCard';
+import { LoadingSpinner, SearchBar, BottomSheet, EmptyState, ErrorState } from '@/components/common';
+// SearchResultCard removed - using custom LinkSearchResultCard below
 import {
   usePlaceholderPlayers,
   useLinkPlaceholderPlayer,
@@ -293,18 +293,12 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
 
   // Render empty state
   const renderEmpty = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <IconUsers size={64} color={colors.gray300} />
-      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-        No Guest Players to Link
-      </Text>
-      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-        Guest players are people you add to competitions without requiring them to have an app account.
-        {'\n\n'}
-        When they sign up, you can link their guest profile here to transfer all their scores and history.
-      </Text>
-    </View>
-  ), [colors]);
+    <EmptyState
+      title="No Guest Players to Link"
+      message="Guest players are people you add to competitions without requiring them to have an app account. When they sign up, you can link their guest profile here to transfer all their scores and history."
+      icon="account-group"
+    />
+  ), []);
 
   // Loading state
   if (isLoading) {
@@ -332,19 +326,11 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
           onBack={() => navigation.goBack()}
         />
         <View style={styles.centered}>
-          <Icon source="alert-circle" size={48} color={colors.error} />
-          <Text style={[styles.errorText, { color: colors.textPrimary }]}>
-            Failed to load guest players
-          </Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {error.message}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => refetch()}
-          >
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
-          </TouchableOpacity>
+          <ErrorState
+            error={error}
+            title="Failed to load guest players"
+            onRetry={refetch}
+          />
         </View>
       </View>
     );
@@ -447,7 +433,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
             <View style={styles.noResults}>
               <Icon source="account-question" size={48} color={colors.gray300} />
               <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                No players found matching "{searchQuery}"
+                No players found matching &ldquo;{searchQuery}&rdquo;
               </Text>
               <Text style={[styles.noResultsHint, { color: colors.textSecondary }]}>
                 The player must have an account to be linked
@@ -560,46 +546,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // Empty state
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxl,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    marginTop: spacing.lg,
-    textAlign: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-
-  // Error state
-  errorText: {
-    ...typography.h3,
-    marginTop: spacing.lg,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  retryButtonText: {
-    ...typography.bodyBold,
   },
 
   // Search modal

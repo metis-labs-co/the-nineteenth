@@ -26,6 +26,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
+import { SWIPE_GESTURE } from '@/constants/gestures';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.15; // 15% of screen width to trigger
@@ -177,8 +178,8 @@ export function SwipeableHoleNavigator({
     Animated.spring(slideAnim, {
       toValue: 0,
       useNativeDriver: true,
-      tension: 40,
-      friction: 8,
+      tension: SWIPE_GESTURE.ANIMATION_TENSION,
+      friction: SWIPE_GESTURE.ANIMATION_FRICTION,
     }).start(() => {
       setTransitionState(null);
       transitionRef.current = null;
@@ -351,33 +352,33 @@ export function SwipeableHoleNavigator({
   // Memoized skeleton player cards - only recreate when playerCount or colors change
   const skeletonCards = useMemo(() => {
     return Array.from({ length: playerCount }, (_, index) => (
-      <View key={index} style={[styles.skeletonCard, { backgroundColor: colors.gray100 }]}>
+      <View key={index} style={[styles.skeletonCard, { backgroundColor: colors.surfaceVariant }]}>
         {/* Header row: name placeholder and stats */}
         <View style={styles.skeletonHeader}>
           <View style={styles.skeletonPlayerInfo}>
-            <View style={[styles.skeletonBar, styles.skeletonName, { backgroundColor: colors.gray300 }]} />
-            <View style={[styles.skeletonBar, styles.skeletonHandicap, { backgroundColor: colors.gray200 }]} />
+            <View style={[styles.skeletonBar, styles.skeletonName, { backgroundColor: colors.border }]} />
+            <View style={[styles.skeletonBar, styles.skeletonHandicap, { backgroundColor: colors.surfaceVariant }]} />
           </View>
           <View style={styles.skeletonStats}>
-            <View style={[styles.skeletonStatBox, { backgroundColor: colors.gray200 }]} />
-            <View style={[styles.skeletonStatBox, { backgroundColor: colors.gray200 }]} />
+            <View style={[styles.skeletonStatBox, { backgroundColor: colors.surfaceVariant }]} />
+            <View style={[styles.skeletonStatBox, { backgroundColor: colors.surfaceVariant }]} />
           </View>
         </View>
         {/* Divider */}
         <View style={[styles.skeletonDivider, { backgroundColor: colors.border }]} />
         {/* Controls row */}
         <View style={styles.skeletonControls}>
-          <View style={[styles.skeletonButton, { backgroundColor: colors.gray200 }]} />
+          <View style={[styles.skeletonButton, { backgroundColor: colors.surfaceVariant }]} />
           <View style={styles.skeletonStepper}>
-            <View style={[styles.skeletonButton, { backgroundColor: colors.gray200 }]} />
-            <View style={[styles.skeletonScoreDisplay, { backgroundColor: colors.gray100 }]} />
-            <View style={[styles.skeletonButton, { backgroundColor: colors.gray200 }]} />
+            <View style={[styles.skeletonButton, { backgroundColor: colors.surfaceVariant }]} />
+            <View style={[styles.skeletonScoreDisplay, { backgroundColor: colors.surfaceVariant }]} />
+            <View style={[styles.skeletonButton, { backgroundColor: colors.surfaceVariant }]} />
           </View>
-          <View style={[styles.skeletonButton, { backgroundColor: colors.gray200 }]} />
+          <View style={[styles.skeletonButton, { backgroundColor: colors.surfaceVariant }]} />
         </View>
       </View>
     ));
-  }, [playerCount, colors.gray100, colors.gray200, colors.gray300, colors.border]);
+  }, [playerCount, colors.surfaceVariant, colors.border]);
 
   // Render the incoming hole preview during transition
   const renderIncomingPreview = () => {
@@ -413,8 +414,8 @@ export function SwipeableHoleNavigator({
           <View style={[styles.skeletonHeaderDivider, { backgroundColor: colors.border }]} />
           {/* Details placeholders */}
           <View style={styles.skeletonDetailsContainer}>
-            <View style={[styles.skeletonParBadge, { backgroundColor: colors.gray300 }]} />
-            <View style={[styles.skeletonDetailItem, { backgroundColor: colors.gray200 }]} />
+            <View style={[styles.skeletonParBadge, { backgroundColor: colors.border }]} />
+            <View style={[styles.skeletonDetailItem, { backgroundColor: colors.surfaceVariant }]} />
           </View>
         </View>
 

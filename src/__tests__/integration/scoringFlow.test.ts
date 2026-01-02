@@ -14,7 +14,6 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import {
   createTestPlayer,
   create18Holes,
-  createTestRound,
 } from '../utils/testFixtures';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -45,7 +44,7 @@ jest.mock('@/services/offline/database', () => ({
 // Mock the sync service with state tracking
 let mockIsOnline = true;
 const mockQueueScorecardSync = jest.fn((..._args: unknown[]) => Promise.resolve());
-const mockSyncSubscribers: Array<(state: { status: string; pendingCount: number; error: null }) => void> = [];
+const mockSyncSubscribers: ((state: { status: string; pendingCount: number; error: null }) => void)[] = [];
 
 jest.mock('@/services/offline/sync', () => ({
   queueScorecardSync: (...args: unknown[]) => mockQueueScorecardSync(...args),
@@ -118,8 +117,8 @@ async function scoreAllHoles(
 /**
  * Score specific holes for specific players
  */
-async function scoreHoles(
-  playerScores: Array<{ playerId: string; holeNumber: number; strokes: number }>
+async function _scoreHoles(
+  playerScores: { playerId: string; holeNumber: number; strokes: number }[]
 ): Promise<void> {
   const store = getStore();
 

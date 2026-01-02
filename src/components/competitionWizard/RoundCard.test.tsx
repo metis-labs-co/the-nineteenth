@@ -1,3 +1,4 @@
+/* eslint-disable react/display-name -- Test mocks don't need display names */
 /**
  * RoundCard Component Tests
  *
@@ -122,9 +123,9 @@ jest.mock('react-native-paper', () => {
     MD3LightTheme: mockTheme,
     MD3DarkTheme: { ...mockTheme, dark: true },
     Card,
-    Text: ({ children, style, variant, numberOfLines, ...props }: any) =>
+    Text: ({ children, style, variant: _variant, numberOfLines, ...props }: any) =>
       React.createElement(RNText, { style, numberOfLines, ...props }, children),
-    Button: ({ children, onPress, mode, style, icon, contentStyle, labelStyle, ...props }: any) =>
+    Button: ({ children, onPress, mode: _mode, style, icon: _icon, contentStyle: _contentStyle, labelStyle, ...props }: any) =>
       React.createElement(
         TouchableOpacity,
         { onPress, style, ...props },
@@ -132,7 +133,7 @@ jest.mock('react-native-paper', () => {
       ),
     IconButton: ({ icon, onPress, ...props }: any) =>
       React.createElement(View, { testID: `icon-button-${icon}`, onPress, ...props }),
-    Icon: ({ source, size, color }: any) =>
+    Icon: ({ source, size, color: _color }: any) =>
       React.createElement(View, { testID: `icon-${source}`, style: { width: size, height: size } }),
     Provider: ({ children }: any) => children,
     PaperProvider: ({ children }: any) => children,

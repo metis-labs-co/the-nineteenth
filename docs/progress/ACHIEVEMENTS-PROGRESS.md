@@ -1,7 +1,7 @@
 # Achievements System Implementation Plan
 
 **Goal:** Add achievements/rewards system with unlockable cosmetics, leaderboard, and progress tracking across rounds, competitions, scoring, social, and courses
-**Status:** Not Started - 0% (0/25 tasks)
+**Status:** Complete - 100% (25/25 tasks)
 
 ---
 
@@ -420,96 +420,158 @@ Add "Achievements" row to Profile screen:
 ## Sprint 1: Database Foundation
 
 ### Task 1: Database Migration - Achievement Tables
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create migration for achievements system. New tables: (1) achievement_definitions - id UUID PK, code TEXT UNIQUE NOT NULL (e.g., 'ROUND_VETERAN_3'), category TEXT NOT NULL CHECK IN ('rounds', 'game_types', 'scoring', 'competitions', 'social', 'courses', 'match_play', 'streaks', 'milestones'), name TEXT NOT NULL, description TEXT NOT NULL, icon TEXT NOT NULL (Material icon name), tier INTEGER NOT NULL DEFAULT 1 CHECK BETWEEN 1 AND 6, threshold INTEGER NOT NULL (number required to unlock), base_achievement TEXT NULL (parent code for tiers e.g., 'ROUND_VETERAN'), points INTEGER NOT NULL DEFAULT 10, rarity TEXT DEFAULT 'common' CHECK IN ('common', 'uncommon', 'rare', 'epic', 'legendary'), is_hidden BOOLEAN DEFAULT FALSE (secret achievements), created_at TIMESTAMPTZ DEFAULT NOW(). (2) player_achievements - id UUID PK, player_id UUID FK to players ON DELETE CASCADE, achievement_id UUID FK to achievement_definitions, earned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), progress INTEGER DEFAULT 0, notified BOOLEAN DEFAULT FALSE, UNIQUE(player_id, achievement_id). (3) achievement_progress - id UUID PK, player_id UUID FK to players ON DELETE CASCADE, achievement_code TEXT NOT NULL (base achievement code), current_value INTEGER NOT NULL DEFAULT 0, last_updated TIMESTAMPTZ DEFAULT NOW(), UNIQUE(player_id, achievement_code). Add indexes on all foreign keys, player_id columns, and earned_at for sorting."
-```
+**Status:** Completed
+**Completed:** 2024-12-30
+**Migration File:** `supabase/migrations/20251230000000_achievements.sql`
+
 **Deliverables:**
-- [ ] `supabase/migrations/2025XXXX_achievements.sql`
-- [ ] `achievement_definitions` table with constraints
-- [ ] `player_achievements` table with unique constraint
-- [ ] `achievement_progress` table for tracking
-- [ ] Indexes for efficient queries
+- [x] `supabase/migrations/20251230000000_achievements.sql`
+- [x] `achievement_definitions` table with constraints (category enum, rarity enum, tier 1-6 check)
+- [x] `player_achievements` table with unique constraint (player_id, achievement_id)
+- [x] `achievement_progress` table for tracking with unique (player_id, achievement_code)
+- [x] Comprehensive indexes on all foreign keys, player_id columns, and earned_at
+
+**Additional deliverables included in this migration:**
+- [x] RLS policies for all tables (Tasks 3 deliverables)
+- [x] `achievement_leaderboard` view
+- [x] `get_achievement_leaderboard()` function with scope filtering
+- [x] `get_player_achievement_summary()` function
+- [x] `get_achievements_with_progress()` function
+- [x] `upsert_achievement_progress()` function
+- [x] `increment_achievement_progress()` function
+- [x] `award_achievement()` function
 
 **Dependencies:** None
 
 ---
 
 ### Task 2: Database Migration - Cosmetics Tables
-**Status:** Not Started
-**Command:**
-```bash
-/db "Add cosmetics tables to achievements migration. New tables: (1) cosmetic_definitions - id UUID PK, code TEXT UNIQUE NOT NULL (e.g., 'BADGE_ROOKIE', 'FRAME_GOLD'), type TEXT NOT NULL CHECK IN ('badge', 'frame', 'title'), name TEXT NOT NULL, description TEXT NULL, icon TEXT NULL, points_required INTEGER NOT NULL, sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(). (2) player_cosmetics - id UUID PK, player_id UUID FK to players ON DELETE CASCADE, cosmetic_id UUID FK to cosmetic_definitions, unlocked_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(player_id, cosmetic_id). Add columns to players table: equipped_badge_id UUID FK to cosmetic_definitions NULL, equipped_frame_id UUID FK to cosmetic_definitions NULL, equipped_title_id UUID FK to cosmetic_definitions NULL. Add indexes on foreign keys."
-```
+**Status:** Completed
+**Completed:** 2024-12-30
+**Migration File:** `supabase/migrations/20251230000000_achievements.sql` (appended to achievements migration)
+
 **Deliverables:**
-- [ ] `cosmetic_definitions` table
-- [ ] `player_cosmetics` table
-- [ ] Equipped cosmetic columns on `players` table
-- [ ] Foreign key constraints
+- [x] `cosmetic_type` enum ('badge', 'frame', 'title')
+- [x] `cosmetic_definitions` table with constraints
+- [x] `player_cosmetics` table with UNIQUE(player_id, cosmetic_id)
+- [x] Equipped cosmetic columns on `players` table (equipped_badge_id, equipped_frame_id, equipped_title_id)
+- [x] Foreign key constraints with ON DELETE SET NULL for equipped, ON DELETE CASCADE for player_cosmetics
+- [x] Indexes on all foreign keys and query columns
+- [x] RLS policies for cosmetic_definitions (public read) and player_cosmetics (owner + friends + competition members)
+- [x] Database functions:
+  - `get_player_equipped_cosmetics()` - Get equipped cosmetics for a player
+  - `get_player_unlocked_cosmetics()` - Get all unlocked cosmetics with equipped status
+  - `get_cosmetics_with_status()` - Get all cosmetics with unlock/equipped status
+  - `equip_cosmetic()` - Equip a cosmetic (validates unlock first)
+  - `unequip_cosmetic()` - Unequip a cosmetic by type
+  - `unlock_cosmetic()` - Unlock a cosmetic for a player
+  - `check_cosmetic_unlocks()` - Check and unlock cosmetics based on points
+- [x] Updated `achievement_leaderboard` view to include equipped cosmetics
+- [x] Updated `get_achievement_leaderboard()` function to return equipped cosmetics
+
+**TypeScript Types Created:**
+- [x] `src/types/database/cosmetic.types.ts` - All cosmetic types and constants
+- [x] Updated `src/types/database/player.types.ts` - Added equipped_*_id fields to Player
+- [x] Updated `src/types/database/index.ts` - Exported cosmetic types
 
 **Dependencies:** Task 1
 
 ---
 
 ### Task 3: Database Migration - RLS Policies
-**Status:** Not Started
-**Command:**
-```bash
-/db "Add RLS policies for achievements tables. achievement_definitions: enable RLS, policy 'anyone_can_read' SELECT using TRUE (public read). player_achievements: enable RLS, policy 'players_view_own' SELECT using player_id = auth.uid(), policy 'friends_view_public' SELECT using player_id IN (SELECT CASE WHEN requester_id = auth.uid() THEN addressee_id ELSE requester_id END FROM friendships WHERE (requester_id = auth.uid() OR addressee_id = auth.uid()) AND status = 'accepted'), policy 'competition_members_view' SELECT using player_id IN (SELECT player_id FROM competition_players WHERE competition_id IN (SELECT competition_id FROM competition_players WHERE player_id = auth.uid())), policy 'insert_own' INSERT with check player_id = auth.uid(), policy 'update_own' UPDATE using player_id = auth.uid(). achievement_progress: enable RLS, policy 'players_own_progress' ALL using player_id = auth.uid(). cosmetic_definitions: enable RLS, policy 'anyone_can_read' SELECT using TRUE. player_cosmetics: same policies as player_achievements."
-```
+**Status:** Completed (included in Task 1 migration)
+**Completed:** 2024-12-30
+
 **Deliverables:**
-- [ ] RLS enabled on all tables
-- [ ] Public read for definitions
-- [ ] Friend/competition visibility for player achievements
-- [ ] Own data policies
+- [x] RLS enabled on all achievement tables
+- [x] Public read for `achievement_definitions`
+- [x] Friend visibility for `player_achievements` (via friendships table)
+- [x] Competition member visibility for `player_achievements` (via competition_players)
+- [x] Own data policies for insert/update
+- [x] Service role full access policies
+- [x] `achievement_progress` private to owner only
+
+**Note:** All RLS policies were included in the main Task 1 migration file.
 
 **Dependencies:** Tasks 1, 2
 
 ---
 
 ### Task 4: Database Migration - Leaderboard View
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create achievement leaderboard view. CREATE VIEW achievement_leaderboard AS SELECT p.id as player_id, p.name, p.photo_url, p.equipped_badge_id, p.equipped_frame_id, p.equipped_title_id, COALESCE(SUM(ad.points), 0) as total_points, COUNT(pa.id) as achievements_earned, MAX(pa.earned_at) as last_achievement_at FROM players p LEFT JOIN player_achievements pa ON p.id = pa.player_id LEFT JOIN achievement_definitions ad ON pa.achievement_id = ad.id GROUP BY p.id, p.name, p.photo_url, p.equipped_badge_id, p.equipped_frame_id, p.equipped_title_id ORDER BY total_points DESC. Create function get_achievement_leaderboard(p_scope TEXT, p_user_id UUID, p_competition_id UUID DEFAULT NULL) RETURNS TABLE that filters by scope ('global', 'friends', 'competition')."
-```
+**Status:** Completed (included in Task 1 migration)
+**Completed:** 2024-12-30
+
 **Deliverables:**
-- [ ] `achievement_leaderboard` view
-- [ ] `get_achievement_leaderboard()` function
-- [ ] Scope filtering (global/friends/competition)
+- [x] `achievement_leaderboard` view (aggregates points and achievement counts per player)
+- [x] `get_achievement_leaderboard(p_scope, p_user_id, p_competition_id, p_limit)` function
+- [x] Scope filtering: 'global', 'friends', 'competition'
+- [x] `get_player_achievement_summary()` function for player profile display
+- [x] `get_achievements_with_progress()` function for achievements screen
+
+**Note:** Leaderboard view and functions were included in the main Task 1 migration file.
 
 **Dependencies:** Tasks 1, 2, 3
 
 ---
 
 ### Task 5: Seed Achievement Definitions
-**Status:** Not Started
-**Command:**
-```bash
-/db "Seed achievement_definitions with 40+ achievements. ROUND MILESTONES: Practice Makes Perfect (1,5,10,25,50,100 practice rounds), Competitor (1,5,10,25,50,100 competition rounds), Round Veteran (1,10,25,50,100,250,500 total rounds). GAME TYPES: Stableford Specialist (1,10,25,50), Stroke Player (1,10,25,50), Match Play Master (1,5,10,25), Team Player (1,5,10,25 team formats), Format Explorer (2,3,4,5 unique game types). SCORING: Birdie Hunter (1,10,25,50,100,250), Eagle Eye (1,5,10,25,50), Albatross Rare (1,3,5), Ace (1,2,3 hole-in-ones), Par Machine (10,50,100,250,500), Stableford Star (30,36,40,45 single-round points), Low Scorer (under 100,90,85,80,75,70 gross). COMPETITIONS: First Timer (1), Competition Junkie (1,3,5,10,20,50), Champion (1,3,5,10,25 wins), Podium Finish (1,5,10,25 top 3), Organizer (1,3,5,10 created). SOCIAL: First Friend (1), Social Circle (5,10,20,30,50), Playing Partners (5,10,25,50,100 unique players). COURSES: Course Explorer (3,5,10,20,50 unique), Home Advantage (5,10,25,50,100 home venue). Points: common=10, uncommon=20, rare=50, epic=100, legendary=250. Rarity based on difficulty."
-```
+**Status:** Completed
+**Completed:** 2024-12-30
+**Migration File:** `supabase/migrations/20251230000001_seed_achievements.sql`
+
 **Deliverables:**
-- [ ] 40+ achievement definitions seeded
-- [ ] Proper tier/threshold values
-- [ ] Points and rarity assigned
-- [ ] Icons assigned (Material icons)
+- [x] 100+ achievement definitions seeded across all categories
+- [x] Proper tier/threshold values following spec exactly
+- [x] Points and rarity assigned (common=10, uncommon=20, rare=50, epic=100, legendary=250)
+- [x] Icons assigned (Material Community Icons)
+
+**Achievement Count by Category:**
+- Rounds: 19 achievements (Practice Makes Perfect x6, Competitor x6, Round Veteran x6, First Timer x1)
+- Game Types: 18 achievements (Stableford Specialist x4, Stroke Player x4, Match Play Master x4, Team Player x4, Format Explorer x4)
+- Scoring: 33 achievements (Birdie Hunter x6, Eagle Eye x5, Albatross Rare x3, Ace x3, Par Machine x5, Stableford Star x4, Low Scorer x6)
+- Competitions: 21 achievements (Competition Junkie x6, Champion x5, Podium Finish x4, Organizer x4, First Timer x1)
+- Social: 11 achievements (First Friend x1, Social Circle x5, Playing Partners x5)
+- Courses: 10 achievements (Course Explorer x5, Home Advantage x5)
 
 **Dependencies:** Task 1
 
 ---
 
 ### Task 6: Seed Cosmetic Definitions
-**Status:** Not Started
-**Command:**
-```bash
-/db "Seed cosmetic_definitions with unlockable rewards. BADGES (points_required): Rookie (100), Rising Star (750), Achiever (1500), Legend (3000), Champion (5000). FRAMES: Bronze (250), Silver (1000), Gold (2000), Platinum (4000), Diamond (6000). TITLES: Weekend Warrior (500), Course Conqueror (1500), Golf Legend (3000), Hall of Famer (5000), The Greatest (10000). Sort_order should match points_required for display. All should have appropriate icons (medal, star, trophy, crown icons)."
-```
+**Status:** Completed
+**Completed:** 2025-12-30
+**Migration File:** `supabase/migrations/20251230000002_seed_cosmetics.sql`
+
 **Deliverables:**
-- [ ] Badge definitions (5)
-- [ ] Frame definitions (5)
-- [ ] Title definitions (5)
-- [ ] Progressive point thresholds
+- [x] Badge definitions (5): Rookie (100), Rising Star (750), Achiever (1500), Legend (3000), Champion (5000)
+- [x] Frame definitions (5): Bronze (250), Silver (1000), Gold (2000), Platinum (4000), Diamond (6000)
+- [x] Title definitions (5): Weekend Warrior (500), Course Conqueror (1500), Golf Legend (3000), Hall of Famer (5000), The Greatest (10000)
+- [x] Progressive point thresholds with sort_order matching points_required
+- [x] Appropriate icons for all cosmetics (Material Community Icons)
+
+**TypeScript Constants Added:**
+- [x] `BADGE_STYLES` - Color and icon mappings for badge rendering
+- [x] `TITLE_STYLES` - Display text and color mappings for title rendering
+- [x] `COSMETIC_POINTS` - Points required for each cosmetic code
+
+**Cosmetic Summary:**
+| Type | Code | Points | Icon |
+|------|------|--------|------|
+| Badge | BADGE_ROOKIE | 100 | medal-outline |
+| Badge | BADGE_RISING_STAR | 750 | star-rising |
+| Badge | BADGE_ACHIEVER | 1500 | shield-star |
+| Badge | BADGE_LEGEND | 3000 | trophy-award |
+| Badge | BADGE_CHAMPION | 5000 | crown |
+| Frame | FRAME_BRONZE | 250 | hexagon-outline |
+| Frame | FRAME_SILVER | 1000 | hexagon-slice-4 |
+| Frame | FRAME_GOLD | 2000 | hexagon-slice-6 |
+| Frame | FRAME_PLATINUM | 4000 | octagon |
+| Frame | FRAME_DIAMOND | 6000 | octagram |
+| Title | TITLE_WEEKEND_WARRIOR | 500 | golf |
+| Title | TITLE_COURSE_CONQUEROR | 1500 | flag-checkered |
+| Title | TITLE_GOLF_LEGEND | 3000 | trophy |
+| Title | TITLE_HALL_OF_FAMER | 5000 | star-circle |
+| Title | TITLE_THE_GREATEST | 10000 | crown-circle |
 
 **Dependencies:** Task 2
 
@@ -518,32 +580,44 @@ Add "Achievements" row to Profile screen:
 ## Sprint 2: TypeScript Types
 
 ### Task 7: Achievement Type Definitions
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Create src/types/database/achievement.types.ts with TypeScript types. Types: AchievementCategory = 'rounds' | 'game_types' | 'scoring' | 'competitions' | 'social' | 'courses' | 'match_play' | 'streaks' | 'milestones'. AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'. Interfaces: AchievementDefinition (id, code, category, name, description, icon, tier, threshold, base_achievement nullable, points, rarity, is_hidden). PlayerAchievement (id, player_id, achievement_id, earned_at, progress, notified, achievement?: AchievementDefinition joined). AchievementProgress (id, player_id, achievement_code, current_value, last_updated). AchievementWithProgress extends AchievementDefinition with earned boolean, earned_at nullable, current_progress number, next_tier nullable. AchievementSummary (total_earned, total_available, total_points, recent_achievements array, by_category Record). CheckAchievementEvent type with event_type and data. Export from src/types/database/index.ts."
-```
+**Status:** Completed
+**Completed:** 2025-12-30
+
 **Deliverables:**
-- [ ] `src/types/database/achievement.types.ts`
-- [ ] All type definitions
-- [ ] Event types for achievement checking
-- [ ] Export from index
+- [x] `src/types/database/achievement.types.ts`
+- [x] All type definitions (AchievementCategory, AchievementRarity, AchievementDefinition, PlayerAchievement, PlayerAchievementWithDefinition, AchievementProgress, AchievementWithProgress, AchievementSummary, RecentAchievement, CategoryProgress, AchievementLeaderboardEntry, AchievementLeaderboardScope)
+- [x] Event types for achievement checking (AchievementEventType, AchievementEventData, AchievementCheckEvent, AchievementCheckResult, AchievementProgressUpdate)
+- [x] Input types (AwardAchievementInput, UpdateProgressInput)
+- [x] Constants (RARITY_POINTS, RARITY_COLORS, CATEGORY_DISPLAY_NAMES, CATEGORY_ICONS)
+- [x] Export from src/types/database/index.ts
 
 **Dependencies:** Task 1 (schema reference)
 
 ---
 
 ### Task 8: Cosmetic Type Definitions
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Create src/types/database/cosmetic.types.ts with TypeScript types. Types: CosmeticType = 'badge' | 'frame' | 'title'. Interfaces: CosmeticDefinition (id, code, type, name, description nullable, icon nullable, points_required, sort_order). PlayerCosmetic (id, player_id, cosmetic_id, unlocked_at, cosmetic?: CosmeticDefinition joined). EquippedCosmetics (badge nullable, frame nullable, title nullable - all CosmeticDefinition or null). PlayerWithCosmetics extends Player with equipped_badge, equipped_frame, equipped_title. Export from src/types/database/index.ts. Update Player type in player.types.ts to add equipped_badge_id, equipped_frame_id, equipped_title_id UUID nullable fields."
-```
+**Status:** Completed
+**Completed:** 2025-12-30
+
 **Deliverables:**
-- [ ] `src/types/database/cosmetic.types.ts`
-- [ ] All cosmetic types
-- [ ] Player type updated
-- [ ] Export from index
+- [x] `src/types/database/cosmetic.types.ts` - Full cosmetic type definitions
+- [x] All cosmetic types implemented:
+  - `CosmeticType` - Union type ('badge' | 'frame' | 'title')
+  - `CosmeticDefinition` - Master cosmetic record
+  - `PlayerCosmetic` - Player unlock record
+  - `PlayerCosmeticWithDefinition` - With joined definition
+  - `CosmeticWithStatus` - With unlock/equipped status
+  - `EquippedCosmetics` - Badge/frame/title nullable objects
+  - `EquippedCosmeticsFlat` - Flattened for API response
+  - `PlayerWithCosmetics` - Player with equipped cosmetics
+  - `CosmeticsByType` - Grouped by type for display
+  - `CosmeticProgress` - Summary of unlock progress
+  - `EquipCosmeticInput` / `UnequipCosmeticInput` - Input types
+  - `NewlyUnlockedCosmetic` - Result from unlock check
+  - `FrameStyle` / `BadgeStyle` / `TitleStyle` - Rendering styles
+- [x] Player type updated in `player.types.ts` with equipped_badge_id, equipped_frame_id, equipped_title_id
+- [x] Export from `src/types/database/index.ts`
+- [x] Constants exported: `COSMETIC_TYPE_DISPLAY_NAMES`, `COSMETIC_TYPE_ICONS`, `FRAME_STYLES`, `BADGE_STYLES`, `TITLE_STYLES`, `COSMETIC_POINTS`
 
 **Dependencies:** Task 2 (schema reference)
 
@@ -552,16 +626,34 @@ Add "Achievements" row to Profile screen:
 ## Sprint 3: Achievement Calculation Utilities
 
 ### Task 9: Achievement Calculation Utilities
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Create src/utils/achievementCalculations.ts with pure functions. Functions: (1) calculateAchievementProgress(currentValue, achievements: AchievementDefinition[]) - returns array of {achievement, earned boolean, progress number 0-100}. (2) getNextTierAchievement(baseCode, currentTier, allDefinitions) - returns next tier achievement or null. (3) checkThresholdMet(currentValue, threshold) - simple boolean check. (4) calculateTotalPoints(earnedAchievements: PlayerAchievement[]) - sums points. (5) groupAchievementsByCategory(achievements) - returns Record<AchievementCategory, array>. (6) getAchievementProgress(baseCode, progressMap) - gets current value from progress. (7) filterEarnableAchievements(allDefinitions, earnedIds) - returns definitions not yet earned. (8) calculateCompletionPercentage(earned, total) - returns percentage. (9) checkCosmeticUnlocks(totalPoints, cosmetics: CosmeticDefinition[], unlockedIds) - returns newly unlockable cosmetics. Export from src/utils/index.ts with JSDoc documentation."
-```
+**Status:** Completed
+**Completed:** 2025-12-30
+
 **Deliverables:**
-- [ ] `src/utils/achievementCalculations.ts`
-- [ ] All calculation functions
-- [ ] JSDoc documentation
-- [ ] Export from utils index
+- [x] `src/utils/achievementCalculations.ts`
+- [x] All calculation functions (9 core + 3 helper functions)
+- [x] JSDoc documentation
+- [x] Export from utils index
+
+**Functions Implemented:**
+| Function | Purpose |
+|----------|---------|
+| `calculateAchievementProgress()` | Calculate progress for multiple achievements |
+| `checkThresholdMet()` | Simple threshold comparison |
+| `getNextTierAchievement()` | Find next tier achievement |
+| `calculateTotalPoints()` | Sum points from earned achievements |
+| `groupAchievementsByCategory()` | Group achievements by category |
+| `getAchievementProgress()` | Get progress value from map |
+| `filterEarnableAchievements()` | Filter out already earned |
+| `calculateCompletionPercentage()` | Calculate completion % |
+| `checkCosmeticUnlocks()` | Find newly unlockable cosmetics |
+| `createProgressMap()` | Helper: Create map from progress records |
+| `sortByProgress()` | Helper: Sort by progress descending |
+| `getNextAchievementInCategory()` | Helper: Find next closest achievement |
+
+**Types Exported:**
+- `AchievementProgressResult` - Result type for progress calculation
+- `ProgressMap` - Type for progress value lookup
 
 **Dependencies:** Tasks 7, 8 (types)
 
@@ -570,47 +662,98 @@ Add "Achievements" row to Profile screen:
 ## Sprint 4: React Query Hooks
 
 ### Task 10: Query Keys for Achievements
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Update src/hooks/queryKeys.ts to add achievement and cosmetic query keys. Add achievementKeys object: all: ['achievements'] as const, definitions: () => [...all, 'definitions'], playerAchievements: (playerId) => [...all, 'player', playerId], progress: (playerId) => [...all, 'progress', playerId], summary: (playerId) => [...all, 'summary', playerId], leaderboard: (scope, userId, competitionId) => [...all, 'leaderboard', scope, userId, competitionId]. Add cosmeticKeys object: all: ['cosmetics'] as const, definitions: () => [...all, 'definitions'], playerCosmetics: (playerId) => [...all, 'player', playerId], equipped: (playerId) => [...all, 'equipped', playerId]. Export both."
-```
+**Status:** Completed
+**Completed:** 2025-12-30
+
 **Deliverables:**
-- [ ] `achievementKeys` in queryKeys.ts
-- [ ] `cosmeticKeys` in queryKeys.ts
-- [ ] All key patterns defined
+- [x] `achievementKeys` in queryKeys.ts
+- [x] `cosmeticKeys` in queryKeys.ts
+- [x] All key patterns defined
+- [x] Added to `allQueryKeys` array
+
+**Query Keys Added:**
+
+**achievementKeys:**
+| Key | Pattern |
+|-----|---------|
+| `all` | `['achievements']` |
+| `definitions()` | `['achievements', 'definitions']` |
+| `playerAchievements(playerId)` | `['achievements', 'player', playerId]` |
+| `progress(playerId)` | `['achievements', 'progress', playerId]` |
+| `summary(playerId)` | `['achievements', 'summary', playerId]` |
+| `leaderboard(scope, userId?, competitionId?)` | `['achievements', 'leaderboard', scope, userId, competitionId]` |
+
+**cosmeticKeys:**
+| Key | Pattern |
+|-----|---------|
+| `all` | `['cosmetics']` |
+| `definitions()` | `['cosmetics', 'definitions']` |
+| `playerCosmetics(playerId)` | `['cosmetics', 'player', playerId]` |
+| `equipped(playerId)` | `['cosmetics', 'equipped', playerId]` |
 
 **Dependencies:** None
 
 ---
 
 ### Task 11: Achievement Query Hooks
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Create src/hooks/achievements/useAchievements.ts with TanStack Query hooks. Queries: (1) useAchievementDefinitions() - fetches all achievement_definitions ordered by category, tier, staleTime 1 hour. (2) usePlayerAchievements(playerId) - fetches player_achievements with achievement definition join, staleTime 1 min. (3) useAchievementProgress(playerId) - fetches achievement_progress for player, staleTime 30 sec. (4) useAchievementSummary(playerId) - combines definitions + earned + progress to return AchievementSummary with total_earned, total_points, by_category counts, recent achievements (last 5). (5) useAchievementLeaderboard(scope, competitionId optional) - calls get_achievement_leaderboard RPC, staleTime 1 min. Mutations: (6) useAwardAchievement() - inserts player_achievement, invalidates playerAchievements and summary. (7) useUpdateProgress() - upserts achievement_progress, invalidates progress. Create barrel export at src/hooks/achievements/index.ts and add to src/hooks/index.ts."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/hooks/achievements/useAchievements.ts`
-- [ ] 5 query hooks
-- [ ] 2 mutation hooks
-- [ ] Barrel export
+- [x] `src/hooks/achievements/useAchievements.ts`
+- [x] 5 query hooks (useAchievementDefinitions, usePlayerAchievements, useAchievementProgress, useAchievementSummary, useAchievementLeaderboard)
+- [x] 2 mutation hooks (useAwardAchievement, useUpdateProgress)
+- [x] 3 convenience hooks (useHasAchievement, useAchievementPoints, useAchievementsByCategory)
+- [x] Barrel export at `src/hooks/achievements/index.ts`
+- [x] Added exports to `src/hooks/index.ts`
+- [x] Added achievementKeys and cosmeticKeys to query keys exports
+
+**Hook Details:**
+
+| Hook | Type | Purpose | StaleTime |
+|------|------|---------|-----------|
+| `useAchievementDefinitions()` | Query | Fetch all achievement definitions | 1 hour |
+| `usePlayerAchievements(playerId)` | Query | Fetch player's earned achievements with definitions | 1 min |
+| `useAchievementProgress(playerId)` | Query | Fetch player's progress toward achievements | 30 sec |
+| `useAchievementSummary(playerId)` | Query | Combined summary with stats, counts, recent | Computed |
+| `useAchievementLeaderboard(scope, competitionId?)` | Query | Leaderboard by scope (global/friends/competition) | 1 min |
+| `useAwardAchievement()` | Mutation | Award achievement to player | N/A |
+| `useUpdateProgress()` | Mutation | Update/increment achievement progress | N/A |
+| `useHasAchievement(playerId, code)` | Query | Check if player has specific achievement | Computed |
+| `useAchievementPoints(playerId)` | Query | Get player's total achievement points | Computed |
+| `useAchievementsByCategory(playerId, category)` | Query | Get achievements filtered by category | Computed |
 
 **Dependencies:** Tasks 7, 10
 
 ---
 
 ### Task 12: Cosmetic Query Hooks
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Create src/hooks/cosmetics/useCosmetics.ts with TanStack Query hooks. Queries: (1) useCosmeticDefinitions() - fetches all cosmetic_definitions ordered by type, points_required, staleTime 1 hour. (2) usePlayerCosmetics(playerId) - fetches player_cosmetics with definition join, staleTime 5 min. (3) useEquippedCosmetics(playerId) - fetches player row with equipped cosmetic joins, returns EquippedCosmetics, staleTime 1 min. (4) useUnlockableCosmetics(playerId) - combines definitions + unlocked + total points to show what can be unlocked, staleTime 1 min. Mutations: (5) useUnlockCosmetic() - inserts player_cosmetic, invalidates playerCosmetics. (6) useEquipCosmetic() - updates player equipped column, invalidates equipped. (7) useUnequipCosmetic() - sets player equipped column to null, invalidates equipped. Create barrel export at src/hooks/cosmetics/index.ts and add to src/hooks/index.ts."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/hooks/cosmetics/useCosmetics.ts`
-- [ ] 4 query hooks
-- [ ] 3 mutation hooks
-- [ ] Barrel export
+- [x] `src/hooks/cosmetics/useCosmetics.ts`
+- [x] 5 query hooks (useCosmeticDefinitions, usePlayerCosmetics, useEquippedCosmetics, useUnlockableCosmetics, useCosmeticsWithStatus)
+- [x] 3 mutation hooks (useUnlockCosmetic, useEquipCosmetic, useUnequipCosmetic)
+- [x] 3 convenience hooks (useHasCosmetic, useNextUnlockableCosmetic, useCosmeticCounts)
+- [x] Barrel export at `src/hooks/cosmetics/index.ts`
+- [x] Added exports to `src/hooks/index.ts`
+
+**Hook Details:**
+
+| Hook | Type | Purpose | StaleTime |
+|------|------|---------|-----------|
+| `useCosmeticDefinitions()` | Query | Fetch all cosmetic definitions | 1 hour |
+| `usePlayerCosmetics(playerId)` | Query | Fetch player's unlocked cosmetics with definitions | 5 min |
+| `useEquippedCosmetics(playerId)` | Query | Fetch player's equipped badge/frame/title | 1 min |
+| `useUnlockableCosmetics(playerId)` | Query | Fetch all cosmetics with unlock status + can_unlock flag | Computed |
+| `useCosmeticsWithStatus(playerId)` | Query | All cosmetics grouped by type with unlock/equipped status | Computed |
+| `useUnlockCosmetic()` | Mutation | Unlock a cosmetic for a player | N/A |
+| `useEquipCosmetic()` | Mutation | Equip a cosmetic (updates player equipped column) | N/A |
+| `useUnequipCosmetic()` | Mutation | Unequip a cosmetic (sets column to null) | N/A |
+| `useHasCosmetic(playerId, cosmeticId)` | Query | Check if player has unlocked specific cosmetic | Computed |
+| `useNextUnlockableCosmetic(playerId)` | Query | Get next cosmetic player can unlock + points needed | Computed |
+| `useCosmeticCounts(playerId)` | Query | Get counts of unlocked cosmetics by type | Computed |
 
 **Dependencies:** Tasks 8, 10
 
@@ -619,32 +762,94 @@ Add "Achievements" row to Profile screen:
 ## Sprint 5: Achievement Checking Service
 
 ### Task 13: Achievement Checker Service
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Create src/services/achievements/achievementChecker.ts with core checking logic. Export function checkAchievements(playerId, eventType, eventData, currentProgress, definitions) that: (1) Filters definitions relevant to eventType (map event types to categories). (2) Gets current progress values for relevant base achievements. (3) Calculates new progress values based on eventData. (4) Checks if any thresholds are met. (5) Returns {progressUpdates: array, newlyEarned: AchievementDefinition[], cosmeticUnlocks: CosmeticDefinition[]}. Event types: 'round_completed', 'scorecard_submitted', 'competition_joined', 'competition_won', 'friend_added', 'course_played'. Helper functions: getProgressIncrement(eventType, eventData), getRelevantAchievements(eventType, definitions), calculateNewProgress(current, increment). Keep as pure functions for testability."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/services/achievements/achievementChecker.ts`
-- [ ] `checkAchievements()` function
-- [ ] Event type handlers
-- [ ] Pure function design
+- [x] `src/services/achievements/achievementChecker.ts`
+- [x] `src/services/achievements/index.ts` (barrel export)
+- [x] `checkAchievements()` function - main achievement checking logic
+- [x] `checkAchievementsBatch()` function - batch processing for multiple events
+- [x] Event type handlers for all 16 event types
+- [x] Pure function design for testability
+
+**Functions Implemented:**
+| Function | Purpose |
+|----------|---------|
+| `checkAchievements(input)` | Main function - checks achievements for a single event |
+| `checkAchievementsBatch(events, input)` | Batch check for multiple events (retroactive calculation) |
+| `getRelevantAchievements(eventType, definitions)` | Filters achievements relevant to event type |
+| `getProgressIncrement(eventType, eventData, baseCode)` | Calculates increment based on event data |
+| `calculateNewProgress(current, increment)` | Simple addition helper |
+
+**Mappings Defined:**
+- `EVENT_CATEGORY_MAP` - Maps 16 event types to relevant achievement categories
+- `EVENT_ACHIEVEMENT_MAP` - Maps event types to specific base achievement codes
+
+**Event Types Supported:**
+- `round_completed` - Round completion events
+- `scorecard_submitted` - Scorecard submission with scores
+- `competition_joined` - Joining a competition
+- `competition_won` - Winning a competition (1st place)
+- `competition_podium` - Top 3 finish
+- `friend_added` - Adding a friend
+- `course_played` - Playing a unique course
+- `home_venue_played` - Playing at home venue
+- `birdie_recorded`, `eagle_recorded`, `albatross_recorded`, `ace_recorded`, `par_recorded` - Scoring events
+- `competition_created` - Creating a competition (organizer)
+- `match_play_won` - Winning a match play match
+- `stableford_round` - Completing a Stableford round
+
+**Types Exported:**
+- `AchievementCheckResult` - Result type with progressUpdates, newlyEarned, cosmeticUnlocks
+- `CheckAchievementsInput` - Input type with all required data for checking
 
 **Dependencies:** Tasks 7, 9
 
 ---
 
 ### Task 14: Achievement Check Hook
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Create src/hooks/achievements/useCheckAchievements.ts hook that integrates achievement checking with mutations. Hook takes playerId and returns { checkAndAward: (eventType, eventData) => Promise }. Internally: (1) Fetches current progress via useAchievementProgress. (2) Fetches definitions via useAchievementDefinitions. (3) Calls checkAchievements() from service. (4) Batches progress updates via useUpdateProgress mutation. (5) Awards new achievements via useAwardAchievement mutation. (6) Unlocks cosmetics via useUnlockCosmetic mutation. (7) Returns {newAchievements, newCosmetics} for toast display. Use useMutation with proper error handling. Cache invalidation handled by individual mutations."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/hooks/achievements/useCheckAchievements.ts`
-- [ ] `checkAndAward` function
-- [ ] Integration with mutations
-- [ ] Returns new unlocks for toast
+- [x] `src/hooks/achievements/useCheckAchievements.ts`
+- [x] `checkAndAward` function
+- [x] Integration with mutations
+- [x] Returns new unlocks for toast
+
+**Hooks Created:**
+| Hook | Purpose |
+|------|---------|
+| `useCheckAchievements(playerId)` | Main hook that provides `checkAndAward(eventType, eventData)` function |
+| `useCheckMultipleAchievements(playerId)` | Batch processing hook with `checkMultiple(events[])` function |
+| `useCheckAchievementForEvent(playerId, eventType)` | Pre-bound hook for specific event types |
+
+**Return Value (`CheckAndAwardResult`):**
+```typescript
+{
+  newAchievements: AchievementDefinition[];  // Newly earned achievements
+  newCosmetics: CosmeticDefinition[];        // Newly unlocked cosmetics
+  progressUpdates: { achievement_code, new_value, previous_value }[];
+  hasNewRewards: boolean;                     // True if any new unlocks
+}
+```
+
+**Integration Flow:**
+1. Fetches current progress via `useAchievementProgress`
+2. Fetches definitions via `useAchievementDefinitions`
+3. Fetches cosmetics via `useCosmeticDefinitions`
+4. Calls `checkAchievements()` from service
+5. Batches progress updates via `useUpdateProgress` mutation
+6. Awards new achievements via `useAwardAchievement` mutation
+7. Unlocks cosmetics via `useUnlockCosmetic` mutation
+8. Invalidates relevant caches on success
+9. Returns `{newAchievements, newCosmetics}` for toast display
+
+**Types Exported:**
+- `CheckAndAwardInput`
+- `CheckAndAwardResult`
+- `UseCheckAchievementsReturn`
 
 **Dependencies:** Tasks 11, 12, 13
 
@@ -653,66 +858,108 @@ Add "Achievements" row to Profile screen:
 ## Sprint 6: UI Components - Display
 
 ### Task 15: AchievementBadge Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "AchievementBadge - Small badge display for achievements. Props: achievement (AchievementDefinition), size ('sm' | 'md' | 'lg' default 'md'), earned (boolean), showTooltip (boolean default false), onPress optional. Layout: Circular/rounded container with icon inside. Size: sm=32px, md=44px, lg=64px. Earned state: full color based on rarity (common=gray, uncommon=green, rare=blue, epic=purple, legendary=gold). Locked state: grayscale with lock overlay icon. Rarity adds subtle glow effect on earned. Press shows tooltip with name/description if showTooltip. Uses Icon from react-native-paper. Follow TierBadge.tsx pattern for styling. Accessibility: accessibilityLabel with achievement name and earned status."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/achievements/AchievementBadge.tsx`
-- [ ] Size variants
-- [ ] Earned/locked states
-- [ ] Rarity coloring
-- [ ] Tooltip support
+- [x] `src/components/achievements/AchievementBadge.tsx`
+- [x] Size variants (sm=32px, md=44px, lg=64px)
+- [x] Earned/locked states with lock overlay icon
+- [x] Rarity coloring (common=gray, uncommon=green, rare=blue, epic=purple, legendary=gold)
+- [x] Glow effect for rare+ earned achievements
+- [x] Tooltip modal with name, description, points, rarity pill
+- [x] Proper accessibility labels
+- [x] Barrel export at `src/components/achievements/index.ts`
+
+**Component Features:**
+- Follows TierBadge.tsx pattern for styling
+- Uses `useThemeColors()` hook for theme support
+- Uses React Native Paper `Icon` component
+- Pressable with scale/opacity feedback
+- Platform-specific glow effects (iOS shadow, Android elevation)
 
 **Dependencies:** Task 7 (types)
 
 ---
 
 ### Task 16: AchievementCard Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "AchievementCard - Card display with progress bar. Props: achievement (AchievementWithProgress), onPress optional. Layout: Card with horizontal layout - icon on left (64px), content on right. Content: Name (typography.bodyBold), description (typography.small, textSecondary), progress bar if not earned showing current/threshold, 'Earned: date' if earned, '+X points' and rarity pill at bottom. Progress bar: colored based on rarity, shows percentage filled. Earned card has subtle success border/background. Locked achievements show full progress bar empty. Use Surface from theme for card background. Touch feedback on press. Follow CompetitionHeaderCard.tsx pattern."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/achievements/AchievementCard.tsx`
-- [ ] Progress bar display
-- [ ] Earned/locked states
-- [ ] Points and rarity display
+- [x] `src/components/achievements/AchievementCard.tsx`
+- [x] Progress bar display (with rarity-based coloring)
+- [x] Earned/locked states (earned shows green border + date, locked shows lock icon overlay)
+- [x] Points and rarity pill display
+- [x] Horizontal layout: 64px icon on left, content on right
+- [x] Touch feedback with Pressable
+- [x] Full accessibility support
+- [x] Exported in barrel file `src/components/achievements/index.ts`
+
+**Component Features:**
+- Follows CompetitionHeaderCard.tsx pattern for styling
+- Uses `useThemeColors()` hook for theme support
+- Uses React Native Paper `Icon` and `Text` components
+- Pressable with opacity/scale feedback
+- Progress bar shows percentage fill with rarity color
+- Earned cards have success border and subtle green background
+- Locked icons have lock overlay badge
+- Bottom row displays points and rarity pill
 
 **Dependencies:** Tasks 7, 15
 
 ---
 
 ### Task 17: AchievementProgress Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "AchievementProgress - Reusable progress bar for achievements. Props: current (number), total (number), color (string optional), height (number default 8), showLabel (boolean default true), animated (boolean default true). Layout: Horizontal bar with rounded corners. Fill percentage = current/total * 100 capped at 100. Label shows 'X/Y' on right if showLabel. Animated fill uses Animated.View with timing animation on mount and when current changes. Color defaults to theme primary but can be overridden for rarity colors. Track color is theme border/muted. Use React Native Animated API, not Reanimated for simplicity."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/achievements/AchievementProgress.tsx`
-- [ ] Animated fill
-- [ ] Label display
-- [ ] Color customization
+- [x] `src/components/achievements/AchievementProgress.tsx`
+- [x] Animated fill using React Native Animated API with timing animation
+- [x] Label display (optional via showLabel prop)
+- [x] Color customization (defaults to theme primary, overridable via color prop)
+- [x] Height customization (default 8px)
+- [x] Animation toggle (animated prop, default true)
+- [x] Proper accessibility (progressbar role with accessibilityValue)
+- [x] Barrel export in `src/components/achievements/index.ts`
+
+**Component Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `current` | number | required | Current progress value |
+| `total` | number | required | Target value to reach |
+| `color` | string | theme.primary | Fill color override |
+| `height` | number | 8 | Bar height in pixels |
+| `showLabel` | boolean | true | Show 'X/Y' label on right |
+| `animated` | boolean | true | Animate fill on mount/changes |
+| `testID` | string | - | Test ID for testing |
 
 **Dependencies:** None
 
 ---
 
 ### Task 18: AchievementToast Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "AchievementToast - Celebration toast for achievement unlocks. Props: achievement (AchievementDefinition), cosmetic (CosmeticDefinition optional), visible (boolean), onDismiss (() => void), onViewAll (() => void). Layout: Slide-down toast from top with confetti icon, 'Achievement Unlocked!' title, achievement icon + name, '+X points', optional cosmetic unlock line 'New reward unlocked: Frame Name'. Two buttons: 'Dismiss' and 'View All'. Auto-dismiss after 5 seconds. Entrance animation: slide down + fade in. Exit animation: slide up + fade out. Use Animated API with spring for bounce effect. Position absolute at top with safe area padding. Background uses theme surface with shadow. Z-index high to overlay content."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/achievements/AchievementToast.tsx`
-- [ ] Slide animation
-- [ ] Auto-dismiss
-- [ ] Cosmetic unlock display
-- [ ] Action buttons
+- [x] `src/components/achievements/AchievementToast.tsx`
+- [x] Slide animation (spring bounce entrance, timing exit)
+- [x] Auto-dismiss (5 seconds)
+- [x] Cosmetic unlock display (optional cosmetic prop)
+- [x] Action buttons (Dismiss and View All)
+- [x] Barrel export in `src/components/achievements/index.ts`
+
+**Component Features:**
+- Uses React Native Animated API with spring for bounce effect
+- Position absolute at top with safe area padding
+- Background uses theme surface with shadow
+- Z-index set to toast level for overlay
+- Party popper icon header with "Achievement Unlocked!" title
+- Achievement icon, name, and points display
+- Optional cosmetic unlock row with gift icon
+- Full accessibility support (alert role, live region)
 
 **Dependencies:** Task 7
 
@@ -721,32 +968,74 @@ Add "Achievements" row to Profile screen:
 ## Sprint 7: UI Components - Cosmetics
 
 ### Task 19: ProfileFrame Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "ProfileFrame - Display frame around avatar/image. Props: frame (CosmeticDefinition nullable), size (number), children (ReactNode - the avatar/image inside). Layout: Container with frame border around children. If no frame, render children with default border. Frame types: Bronze (amber border, subtle gradient), Silver (gray border, metallic effect), Gold (gold border, glow effect), Platinum (cool gray, shimmer), Diamond (multi-color gradient, animated sparkle optional). Use borderWidth and borderColor primarily. Premium frames use LinearGradient from expo-linear-gradient for gradient borders. Size prop determines overall container size. Ensure children are properly centered and sized."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/cosmetics/ProfileFrame.tsx`
-- [ ] Frame type styling
-- [ ] Gradient support
-- [ ] Size customization
+- [x] `src/components/cosmetics/ProfileFrame.tsx`
+- [x] Frame type styling (Bronze, Silver, Gold, Platinum, Diamond)
+- [x] Gradient support via expo-linear-gradient
+- [x] Size customization
+- [x] Glow effects for premium frames (Gold+)
+- [x] Default border for no frame equipped
+- [x] Proper accessibility labels
+- [x] Barrel export at `src/components/cosmetics/index.ts`
+
+**Component Features:**
+- Uses `useThemeColors()` hook for theme support
+- Platform-specific glow effects (iOS shadow, Android elevation)
+- Memoized glow style computation for performance
+- LinearGradient for gradient borders on premium frames
+- Centered children with proper overflow handling
+- React.memo for performance optimization
+
+**Frame Styles:**
+| Frame | Border Width | Colors | Effects |
+|-------|-------------|--------|---------|
+| Bronze | 3px | Amber (#CD7F32 → #B87333) | Gradient |
+| Silver | 3px | Gray (#E8E8E8 → #A8A8A8) | Gradient |
+| Gold | 4px | Gold (#FFD700 → #FFA500) | Gradient + Glow |
+| Platinum | 4px | Cool gray (#E5E4E2 → #C0C0C0) | Gradient + Shimmer flag |
+| Diamond | 5px | Multi-color (#B9F2FF → #87CEEB) | Gradient + Animated flag |
 
 **Dependencies:** Task 8
 
 ---
 
 ### Task 20: CosmeticSelector Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "CosmeticSelector - Grid to select and equip cosmetics. Props: type (CosmeticType), cosmetics (CosmeticDefinition[]), unlocked (PlayerCosmetic[]), equipped (CosmeticDefinition nullable), totalPoints (number), onEquip ((cosmetic) => void), onUnequip (() => void). Layout: Section header '{Type}s', horizontal scroll or grid of cosmetic items. Each item: icon/preview, name, points required. States: locked (grayed, shows points needed), unlocked (full color, selectable), equipped (checkmark overlay, primary border). Locked items show 'X more points' needed. Press unlocked to equip, press equipped to unequip. Use FlatList horizontal for scroll. Follow existing selector patterns in codebase."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/components/cosmetics/CosmeticSelector.tsx`
-- [ ] Locked/unlocked/equipped states
-- [ ] Points progress display
-- [ ] Equip/unequip actions
+- [x] `src/components/cosmetics/CosmeticSelector.tsx`
+- [x] Locked/unlocked/equipped states with distinct visual styling
+- [x] Points progress display (shows "X pts" for locked items, "Unlocked" for available)
+- [x] Equip/unequip actions (tap unlocked to equip, tap equipped to unequip)
+- [x] Horizontal FlatList scroll layout
+- [x] Section header with type icon and unlock count
+- [x] Barrel export in `src/components/cosmetics/index.ts`
+
+**Component Features:**
+- Uses `useThemeColors()` hook for theme support
+- `CosmeticSelectorProps` interface with full JSDoc documentation
+- Memoized item data computation for performance
+- Individual `CosmeticItem` component wrapped in React.memo
+- State-based styling: locked (gray/disabled), unlocked (surface/selectable), equipped (primary highlight + checkmark)
+- Cosmetic-specific accent colors from BADGE_STYLES, FRAME_STYLES, TITLE_STYLES
+- Custom icons per cosmetic type
+- Full accessibility support (labels, hints, states)
+
+**Component Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `type` | CosmeticType | Type of cosmetic being displayed |
+| `cosmetics` | CosmeticDefinition[] | All cosmetic definitions of this type |
+| `unlocked` | PlayerCosmetic[] | Player's unlocked cosmetics |
+| `equipped` | CosmeticDefinition \| null | Currently equipped cosmetic |
+| `totalPoints` | number | Player's total achievement points |
+| `onEquip` | (cosmetic) => void | Callback when a cosmetic is equipped |
+| `onUnequip` | () => void | Callback when equipped cosmetic is unequipped |
+| `testID` | string (optional) | Test ID for testing |
 
 **Dependencies:** Tasks 8, 12
 
@@ -755,34 +1044,70 @@ Add "Achievements" row to Profile screen:
 ## Sprint 8: Achievements Screen
 
 ### Task 21: AchievementsScreen
-**Status:** Not Started
-**Command:**
-```bash
-/screen "AchievementsScreen - Main achievements screen accessed from Profile. Use React Navigation, add to RootNavigator as 'Achievements'. Layout: (1) Header with back button, 'My Achievements' title. (2) Summary section: 3 StatCards in row - 'X Earned' (count), 'X Points' (total), 'X%' (completion). (3) Category tabs: horizontal scroll tabs for All, Rounds, Scoring, Social, Competitions, Courses. (4) Achievement list: FlatList of AchievementCard components filtered by category, sorted by earned (earned first), then by tier. (5) Empty state if no achievements in category. Use useAchievementSummary hook for data. Add navigation from ProfileScreen with new row 'Achievements' showing point count and chevron. Pull to refresh. Loading state while fetching."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/screens/profile/AchievementsScreen/index.tsx`
-- [ ] Summary stats section
-- [ ] Category tabs
-- [ ] Achievement list
-- [ ] Navigation from Profile
+- [x] `src/screens/profile/AchievementsScreen.tsx`
+- [x] Summary stats section (3 StatCards: Earned, Points, Complete %)
+- [x] Category tabs (horizontal scroll: All, Rounds, Scoring, Social, Competitions, Courses)
+- [x] Achievement list (FlatList with AchievementCard, sorted by earned then tier)
+- [x] Navigation from Profile (MenuItem with trophy icon and points badge)
+- [x] Route added to `src/navigation/types.ts` as 'Achievements'
+- [x] Screen added to `src/navigation/RootNavigator.tsx`
+- [x] Pull to refresh support
+- [x] Loading state while fetching
+- [x] Empty state for categories with no achievements
+
+**Component Features:**
+- Uses `useAchievementSummary` hook for data fetching
+- Filters achievements by category with category tabs
+- Sorts achievements: earned first (by earned_at desc), then by tier
+- Uses existing `AchievementCard` component for list items
+- Uses existing `EmptyState` component for empty categories
+- Uses `PageHeader` component for consistent header styling
+- Full accessibility support (tab roles, labels)
+
+**Navigation Integration:**
+- ProfileScreen now shows "Achievements" row in Account section
+- Shows badge with total achievement points (e.g., "850")
+- Navigates to AchievementsScreen on tap
 
 **Dependencies:** Tasks 11, 15, 16, 17
 
 ---
 
 ### Task 22: AchievementLeaderboardScreen
-**Status:** Not Started
-**Command:**
-```bash
-/screen "AchievementLeaderboardScreen - Leaderboard for achievement points. Add to RootNavigator as 'AchievementLeaderboard'. Layout: (1) Header with back button, 'Achievement Leaders' title. (2) Scope tabs: Global, Friends, Competition (Competition only shows if navigated from competition context). (3) Leaderboard list: FlatList with rows showing rank, avatar with equipped frame, name, points, achievement count. Top 3 have medal icons (gold/silver/bronze). Current user row highlighted. (4) Current user's rank shown at bottom if not visible in list. Use useAchievementLeaderboard hook with scope parameter. Pass competitionId via route params if applicable. Loading and empty states. Add navigation from AchievementsScreen header with trophy icon."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] `src/screens/profile/AchievementLeaderboardScreen/index.tsx`
-- [ ] Scope tabs
-- [ ] Leaderboard list with ranks
-- [ ] Current user highlight
-- [ ] Medal icons for top 3
+- [x] `src/screens/profile/AchievementLeaderboardScreen.tsx`
+- [x] Scope tabs (Global, Friends, Competition - conditional)
+- [x] Leaderboard list with FlatList
+- [x] LeaderboardRow component with rank, avatar + ProfileFrame, name, points, achievement count
+- [x] Medal icons for top 3 (gold, silver, bronze with colored backgrounds)
+- [x] Current user row highlighted with primary color background
+- [x] CurrentUserFloatingRank component at bottom when user not visible in list
+- [x] Navigation route added to `src/navigation/types.ts` as 'AchievementLeaderboard'
+- [x] Screen added to `src/navigation/RootNavigator.tsx`
+- [x] Navigation from AchievementsScreen header with podium icon
+- [x] Loading and error states
+- [x] Empty states for each scope
+- [x] Pull-to-refresh support
+- [x] Tap to view player profile (navigates to PlayerDetail)
+
+**Component Features:**
+- Uses `useAchievementLeaderboard` hook with scope and optional competitionId
+- ScopeTabItem component for tab buttons
+- LeaderboardRow component displays:
+  - Rank number or medal icon for top 3
+  - Avatar wrapped in ProfileFrame (supports equipped cosmetic frames)
+  - Player name with "(You)" suffix for current user
+  - Achievement count
+  - Total points with styled display
+- Floating rank bar at bottom shows current user rank when scrolled out of view
+- Competition scope tab only shows if navigated with competitionId route param
 
 **Dependencies:** Tasks 11, 19
 
@@ -791,35 +1116,63 @@ Add "Achievements" row to Profile screen:
 ## Sprint 9: Integration
 
 ### Task 23: Integrate Achievement Checking
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Integrate achievement checking into existing flows. (1) In src/hooks/scorecard/useSubmitScorecard.ts: after successful submit, call checkAndAward('scorecard_submitted', {scores, roundId, gameType, courseId}). Calculate birdies/eagles/pars from scores and include in data. (2) In src/hooks/useFriends.ts useAcceptFriendRequest: after success, call checkAndAward('friend_added', {friendCount: newCount}). (3) In competition join flow: call checkAndAward('competition_joined', {competitionCount}). (4) Create useAchievementToastContext provider in src/context/AchievementToastContext.tsx to manage toast visibility globally. Wrap app in provider. Hooks call context.showToast(achievement, cosmetic) when unlocks happen. (5) Add AchievementToast component in App.tsx or MainNavigator using context."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] Scorecard submit integration
-- [ ] Friend add integration
-- [ ] Competition join integration
-- [ ] Toast context provider
-- [ ] Global toast display
+- [x] Scorecard submit integration (`src/hooks/scorecard/useSubmitScorecard.ts`)
+  - Added `useCheckAchievements` and `useAchievementToast` hooks
+  - Added `calculateScoreStats()` helper function to calculate birdies/eagles/pars from scorecard scores
+  - Extended `SubmitScorecardInput` with `holes`, `gameType`, `courseId`, `isCompetition` fields
+  - After successful submit, calls `checkAndAward('scorecard_submitted', eventData)`
+  - Shows achievement toasts via `showMultipleToasts()` on unlock
+- [x] Friend add integration (`src/hooks/useFriends.ts`)
+  - Updated `useAcceptFriendRequest` hook
+  - After friend request acceptance, counts accepted friendships
+  - Calls `checkAndAward('friend_added', {friend_count})`
+  - Shows achievement toasts on unlock
+- [x] Competition join integration (`src/screens/competitions/JoinCompetitionScreen.tsx`)
+  - Added achievement hooks to JoinCompetitionScreen
+  - After successful join, counts player's accepted competition memberships
+  - Calls `checkAndAward('competition_joined', {competition_count, competition_id})`
+  - Shows achievement toasts on unlock
+- [x] Toast context provider (`src/context/AchievementToastContext.tsx`)
+  - Created `AchievementToastProvider` component
+  - Manages toast queue for sequential display
+  - Provides `showAchievementToast()` and `showMultipleToasts()` functions
+  - Handles auto-dismiss and "View All" navigation to Achievements screen
+  - Exported `useAchievementToast` hook for consuming components
+- [x] Global toast display (`App.tsx`)
+  - Added `AchievementToastProvider` wrapping the app
+  - Created `AchievementToastDisplay` component that renders `AchievementToast` from context
+  - Toast appears above all other content with proper z-index
 
 **Dependencies:** Tasks 14, 18
 
 ---
 
 ### Task 24: Profile Screen Updates
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Update ProfileScreen to show achievements and equipped cosmetics. (1) Add useEquippedCosmetics(userId) hook call. (2) Wrap avatar with ProfileFrame component using equipped frame. (3) Show equipped badge next to name if equipped. (4) Show equipped title below name if equipped. (5) Add 'Achievements' navigation row after 'My Statistics' showing '{X} earned • {Y} points' and chevron. (6) Add 'Customize Profile' row that opens bottom sheet with CosmeticSelector for each type (badges, frames, titles). (7) In PlayerDetailScreen (viewing other players): show their equipped cosmetics and public achievements summary. Add 'View Achievements' button that navigates to their achievements (read-only view)."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+
 **Deliverables:**
-- [ ] Avatar with equipped frame
-- [ ] Equipped badge display
-- [ ] Equipped title display
-- [ ] Achievements navigation row
-- [ ] Customize Profile bottom sheet
-- [ ] PlayerDetailScreen updates
+- [x] Avatar with equipped frame (ProfileFrame wraps PlayerAvatar in ProfileScreen)
+- [x] Equipped badge display (ProfileBadge component next to name)
+- [x] Equipped title display (ProfileTitle component below name)
+- [x] Achievements navigation row (with badge showing points)
+- [x] Customize Profile bottom sheet (CosmeticSelector for badges, frames, titles)
+- [x] PlayerDetailScreen updates (equipped cosmetics, achievements summary, View Achievements button)
+
+**New Components Created:**
+- `src/components/cosmetics/ProfileBadge.tsx` - Display equipped badge next to name
+- `src/components/cosmetics/ProfileTitle.tsx` - Display equipped title below name
+
+**Files Modified:**
+- `src/screens/profile/ProfileScreen.tsx` - Added cosmetics hooks, ProfileFrame/Badge/Title, Customize Profile sheet
+- `src/screens/social/PlayerDetailScreen.tsx` - Added cosmetics display, achievements summary, navigation
+- `src/screens/profile/AchievementsScreen.tsx` - Added support for viewing other players' achievements
+- `src/navigation/types.ts` - Updated Achievements route to accept optional playerId
+- `src/components/cosmetics/index.ts` - Exported new components
 
 **Dependencies:** Tasks 12, 19, 20, 21
 
@@ -828,17 +1181,32 @@ Add "Achievements" row to Profile screen:
 ## Sprint 10: Retroactive Calculation
 
 ### Task 25: Retroactive Achievement Calculation
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create retroactive achievement calculation migration. Function calculate_retroactive_achievements() that loops through all players and: (1) Counts completed scorecards for round achievements. (2) Parses scorecard scores JSONB to count birdies/eagles/pars/hole-in-ones. (3) Counts accepted friendships for social achievements. (4) Counts competition_players entries for competition achievements. (5) Counts distinct course_ids from rounds for course achievements. (6) Inserts achievement_progress records. (7) Checks thresholds and inserts player_achievements for earned ones. (8) Calculates total points and inserts player_cosmetics for unlocked cosmetics. Run as one-time migration with DO block calling the function. Add RAISE NOTICE for progress logging. Consider batching for performance with large user bases."
-```
+**Status:** Completed
+**Completed:** 2025-12-31
+**Migration File:** `supabase/migrations/20251231000000_retroactive_achievements.sql`
+
 **Deliverables:**
-- [ ] `calculate_retroactive_achievements()` function
-- [ ] Progress calculation for all categories
-- [ ] Achievement awarding
-- [ ] Cosmetic unlocking
-- [ ] One-time migration execution
+- [x] `calculate_retroactive_achievements()` function - Batched processing for performance
+- [x] `recalculate_player_achievements()` convenience wrapper for single player
+- [x] Progress calculation for all categories:
+  - Rounds: ROUND_VETERAN, PRACTICE_MAKES_PERFECT, COMPETITOR
+  - Game Types: STABLEFORD_SPECIALIST, STROKE_PLAYER, MATCH_PLAY_MASTER, TEAM_PLAYER, FORMAT_EXPLORER
+  - Scoring: BIRDIE_HUNTER, EAGLE_EYE, ALBATROSS_RARE, ACE, PAR_MACHINE (parses JSONB scores)
+  - Social: FIRST_FRIEND, SOCIAL_CIRCLE (from friendships table)
+  - Competitions: FIRST_TIMER, COMPETITION_JUNKIE, ORGANIZER
+  - Courses: COURSE_EXPLORER, HOME_ADVANTAGE
+- [x] Achievement awarding - Checks thresholds and inserts player_achievements
+- [x] Cosmetic unlocking - Calculates total points and unlocks eligible cosmetics
+- [x] One-time migration execution - DO block with formatted result output
+- [x] RAISE NOTICE for progress logging throughout processing
+- [x] Batching with configurable batch_size (default 50) for large user bases
+- [x] Optional p_player_id parameter for single-player recalculation
+
+**Functions Created:**
+| Function | Purpose |
+|----------|---------|
+| `calculate_retroactive_achievements(p_player_id, p_batch_size)` | Main retroactive calculation for all/single player |
+| `recalculate_player_achievements(p_player_id)` | Convenience wrapper for single player |
 
 **Dependencies:** Tasks 5, 6, all tables created
 
@@ -848,24 +1216,24 @@ Add "Achievements" row to Profile screen:
 
 ### Completion Statistics
 - **Total Tasks:** 25
-- **Completed:** 0 (0%)
+- **Completed:** 25 (100%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 25 (100%)
+- **Not Started:** 0 (0%)
 
 ### Sprint Progress
 
 | Sprint | Tasks | Status |
 |--------|-------|--------|
-| Sprint 1: Database Foundation | 1-6 | Not Started |
-| Sprint 2: TypeScript Types | 7-8 | Not Started |
-| Sprint 3: Calculation Utilities | 9 | Not Started |
-| Sprint 4: React Query Hooks | 10-12 | Not Started |
-| Sprint 5: Achievement Checking | 13-14 | Not Started |
-| Sprint 6: UI Components - Display | 15-18 | Not Started |
-| Sprint 7: UI Components - Cosmetics | 19-20 | Not Started |
-| Sprint 8: Achievements Screen | 21-22 | Not Started |
-| Sprint 9: Integration | 23-24 | Not Started |
-| Sprint 10: Retroactive Calculation | 25 | Not Started |
+| Sprint 1: Database Foundation | 1-6 | Complete (6/6) |
+| Sprint 2: TypeScript Types | 7-8 | Complete (2/2) |
+| Sprint 3: Calculation Utilities | 9 | Complete (1/1) |
+| Sprint 4: React Query Hooks | 10-12 | Complete (3/3) |
+| Sprint 5: Achievement Checking | 13-14 | Complete (2/2) |
+| Sprint 6: UI Components - Display | 15-18 | Complete (4/4) |
+| Sprint 7: UI Components - Cosmetics | 19-20 | Complete (2/2) |
+| Sprint 8: Achievements Screen | 21-22 | Complete (2/2) |
+| Sprint 9: Integration | 23-24 | Complete (2/2) |
+| Sprint 10: Retroactive Calculation | 25 | Complete (1/1) |
 
 ---
 
@@ -921,6 +1289,6 @@ Add "Achievements" row to Profile screen:
 
 ---
 
-**Last Updated:** 2025-12-29
-**Next Sprint:** Sprint 1 - Database Foundation
-**Estimated Total Tasks:** 25
+**Last Updated:** 2025-12-31
+**Status:** All tasks complete! Achievement system fully implemented.
+**Total Tasks:** 25

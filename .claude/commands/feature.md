@@ -98,3 +98,10 @@ After implementing:
 3. Navigation setup required
 4. Testing instructions
 5. Known limitations or TODOs
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

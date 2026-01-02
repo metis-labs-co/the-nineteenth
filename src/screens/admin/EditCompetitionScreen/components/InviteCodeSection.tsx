@@ -1,12 +1,14 @@
 /**
  * InviteCodeSection - Read-only invite code display
+ * Uses InfoCard component with highlight variant
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { InfoCard } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
 interface InviteCodeSectionProps {
   inviteCode: string;
@@ -16,34 +18,31 @@ export function InviteCodeSection({ inviteCode }: InviteCodeSectionProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Invite Code</Text>
+    <InfoCard
+      title="Invite Code"
+      icon="key"
+      variant="highlight"
+      style={styles.container}
+      testID="invite-code-section"
+    >
       <View style={[styles.codeContainer, { backgroundColor: colors.primaryLight }]}>
         <Text style={[styles.code, { color: colors.primaryDark }]}>{inviteCode}</Text>
       </View>
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
         Share this code with players to let them join
       </Text>
-    </View>
+    </InfoCard>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
     marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
   },
   codeContainer: {
     borderRadius: borderRadius.md,
     padding: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.sm,
   },
   code: {
     ...typography.h3,

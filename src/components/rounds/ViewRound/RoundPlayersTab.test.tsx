@@ -14,7 +14,7 @@ import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { RoundPlayersTab } from './RoundPlayersTab';
 import { create18Holes, createTestPlayer, createTestScorecard } from '@/__tests__/utils/testFixtures';
-import type { ScorecardWithPlayer, CourseWithVenue } from '@/hooks/useRoundDetails';
+import type { ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 import type { Hole } from '@/types/database.types';
 
 // Mock ProgressBar component
@@ -135,8 +135,8 @@ function createMultipleScorecardsWithPlayers(
 }
 
 function createScorecardWithSpecificScores(
-  holeScores: Array<{ hole: number; strokes: number }>,
-  holes: Hole[]
+  holeScores: { hole: number; strokes: number }[],
+  _holes: Hole[]
 ): ScorecardWithPlayer {
   const scores: Record<string, { strokes: number }> = {};
   holeScores.forEach(({ hole, strokes }) => {

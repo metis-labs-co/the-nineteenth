@@ -269,13 +269,13 @@ export const PlayerSelector = memo(function PlayerSelector<T extends SelectableP
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <IconUsers size={48} color={colors.gray300} />
+            <IconUsers size={48} color={colors.textDisabled} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
               {searchQuery ? emptySearchMessage : emptyMessage}
             </Text>
             {searchQuery && (
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No players match "{searchQuery}"
+                No players match &ldquo;{searchQuery}&rdquo;
               </Text>
             )}
           </View>

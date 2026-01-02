@@ -8,8 +8,6 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { View, StyleSheet } from 'react-native';
-// Note: action helper replaced with console.log for Storybook 9 compatibility
-const action = (name: string) => (...args: unknown[]) => console.log(name, ...args);
 import ReviewStep from './ReviewStep';
 import {
   DEFAULT_POINT_SYSTEM,
@@ -18,6 +16,8 @@ import {
   type RoundDetailsFormData,
   type PlayerFormData,
 } from '@/schemas/competition';
+// Note: action helper replaced with console.log for Storybook 9 compatibility
+const action = (name: string) => (...args: unknown[]) => console.log(name, ...args);
 
 // ============================================================================
 // META CONFIGURATION

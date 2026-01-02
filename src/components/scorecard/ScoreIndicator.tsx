@@ -30,7 +30,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { typography, borderRadius } from '@/constants/theme';
 import { getScoreColor } from '@/utils/scoring';
 import { getScoreBackgroundColor } from '@/utils/displayHelpers';
-import { PICKUP_SCORE } from '@/utils/scorecardLayout';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 // =====================================================
 // TYPES

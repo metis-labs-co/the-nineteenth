@@ -119,12 +119,10 @@ export async function checkPlayerScoringPairs(
   };
 
   // First, get all rounds in this competition
-  const { data: rounds, error: roundsError } = await (
-    supabase
-      .from('rounds')
-      .select('id, round_number, date, courses!inner(name)')
-      .eq('competition_id', competitionId) as any
-  );
+  const { data: rounds, error: roundsError } = await supabase
+    .from('rounds')
+    .select('id, round_number, date, courses!inner(name)')
+    .eq('competition_id', competitionId);
 
   if (roundsError) {
     console.error('[CompetitionPlayersService] Failed to fetch rounds:', roundsError);
@@ -145,13 +143,11 @@ export async function checkPlayerScoringPairs(
   const roundIds = typedRounds.map((r) => r.id);
 
   // Get all scoring pairs where this player is involved (as scorer or player)
-  const { data: scoringPairs, error: pairsError } = await (
-    supabase
-      .from('scoring_pairs')
-      .select('round_id, scorer_id, player_id')
-      .in('round_id', roundIds)
-      .or(`scorer_id.eq.${playerId},player_id.eq.${playerId}`) as any
-  );
+  const { data: scoringPairs, error: pairsError } = await supabase
+    .from('scoring_pairs')
+    .select('round_id, scorer_id, player_id')
+    .in('round_id', roundIds)
+    .or(`scorer_id.eq.${playerId},player_id.eq.${playerId}`);
 
   if (pairsError) {
     console.error('[CompetitionPlayersService] Failed to fetch scoring pairs:', pairsError);
@@ -262,13 +258,11 @@ export async function removePlayerFromCompetition(
   }
 
   // Check if user is the organizer
-  const { data: competition, error: compError } = await (
-    supabase
-      .from('competitions')
-      .select('organizer_id')
-      .eq('id', competitionId)
-      .single() as any
-  );
+  const { data: competition, error: compError } = await supabase
+    .from('competitions')
+    .select('organizer_id')
+    .eq('id', competitionId)
+    .single();
 
   if (compError) {
     console.error('[CompetitionPlayersService] Failed to fetch competition:', compError);
@@ -287,12 +281,10 @@ export async function removePlayerFromCompetition(
   }
 
   // Get all round IDs for this competition
-  const { data: rounds, error: roundsError } = await (
-    supabase
-      .from('rounds')
-      .select('id')
-      .eq('competition_id', competitionId) as any
-  );
+  const { data: rounds, error: roundsError } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('competition_id', competitionId);
 
   if (roundsError) {
     console.error('[CompetitionPlayersService] Failed to fetch rounds:', roundsError);
@@ -389,7 +381,7 @@ export async function getAffectedRoundIds(
  */
 export function checkCanUseScoringPairs(): FeatureAccess {
   const isPremium = hasPremiumAccess();
-  const tier = getCurrentTier();
+  const _tier = getCurrentTier();
 
   if (isPremium) {
     return {

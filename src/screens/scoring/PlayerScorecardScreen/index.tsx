@@ -25,6 +25,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useStatsVisibilityWithTier } from '@/store/settingsStore';
 
 import { usePlayerScorecard } from './hooks';
 import {
@@ -42,6 +43,9 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { playerId } = route.params;
+
+  // Get stats visibility settings (Premium-gated)
+  const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
 
   const {
     player,
@@ -141,6 +145,9 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           multiBallBack9={multiBallBack9}
           multiBallStats={multiBallStats}
           viewMode={viewMode}
+          // Stats visibility (Premium-only)
+          showFIR={showFairwayHit}
+          showGIR={showGreenInRegulation}
         />
       </ScrollView>
     </SafeAreaView>

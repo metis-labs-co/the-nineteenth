@@ -1,15 +1,14 @@
 // src/components/rounds/RoundListCard/RoundListCard.tsx
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { IconChevronRight } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, shadows } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
+import { CardContainer } from '@/components/common';
 import { RoundListCardData, RoundListCardProps } from './types';
-import { useSwipeGesture } from './useSwipeGesture';
 import { RoundCardHeader } from './RoundCardHeader';
 import { RoundCardMeta } from './RoundCardMeta';
-import { RoundCardActions } from './RoundCardActions';
 
 /**
  * RoundListCard - Displays a round card in a list
@@ -55,23 +54,14 @@ export const RoundListCard = React.memo(function RoundListCard<
   testID,
 }: RoundListCardProps<T>) {
   const colors = useThemeColors();
-  const { translateX, panResponder, isSwipeOpen, closeSwipe } =
-    useSwipeGesture(swipeEnabled);
 
   const handlePress = useCallback(() => {
-    if (isSwipeOpen.current) {
-      closeSwipe();
-      return;
-    }
     onPress(round);
-  }, [isSwipeOpen, closeSwipe, onPress, round]);
+  }, [onPress, round]);
 
   const handleDelete = useCallback(() => {
-    if (onDelete) {
-      closeSwipe();
-      onDelete(round);
-    }
-  }, [onDelete, round, closeSwipe]);
+    onDelete?.(round);
+  }, [onDelete, round]);
 
   const getAccessibilityLabel = () => {
     const status = round.status === 'in-progress' ? 'Score' : 'View';
@@ -81,7 +71,7 @@ export const RoundListCard = React.memo(function RoundListCard<
   };
 
   const cardContent = (
-    <>
+    <View style={styles.contentWrapper}>
       <View style={styles.content}>
         <RoundCardHeader round={round} />
         <RoundCardMeta round={round} currentUserId={currentUserId} />
@@ -89,77 +79,48 @@ export const RoundListCard = React.memo(function RoundListCard<
       <View style={styles.arrow}>
         <IconChevronRight size={20} color={colors.gray400} />
       </View>
-    </>
+    </View>
   );
 
-  // Simple card without swipe
-  if (!swipeEnabled) {
+  // If swipeable, use custom delete button via RoundCardActions
+  if (swipeEnabled && onDelete) {
     return (
-      <TouchableOpacity
-        style={[
-          styles.container,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
+      <CardContainer
         onPress={handlePress}
-        activeOpacity={0.7}
-        accessibilityRole="button"
+        swipeable
+        onDelete={handleDelete}
         accessibilityLabel={getAccessibilityLabel()}
+        deleteAccessibilityName={round.course.name}
         testID={testID}
+        style={styles.cardStyle}
       >
         {cardContent}
-      </TouchableOpacity>
+      </CardContainer>
     );
   }
 
-  // Swipe-enabled card with delete button
+  // Simple card without swipe
   return (
-    <View style={styles.swipeContainer}>
-      <RoundCardActions
-        courseName={round.course.name}
-        onDelete={handleDelete}
-      />
-
-      <Animated.View
-        style={[{ transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
-      >
-        <TouchableOpacity
-          style={[
-            styles.container,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-          onPress={handlePress}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={getAccessibilityLabel()}
-          accessibilityActions={[{ name: 'delete', label: 'Delete round' }]}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === 'delete') {
-              handleDelete();
-            }
-          }}
-          testID={testID}
-        >
-          {cardContent}
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+    <CardContainer
+      onPress={handlePress}
+      accessibilityLabel={getAccessibilityLabel()}
+      testID={testID}
+      style={styles.cardStyle}
+    >
+      {cardContent}
+    </CardContainer>
   );
 });
 
 const styles = StyleSheet.create({
-  swipeContainer: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: borderRadius.lg,
-  },
-  container: {
+  cardStyle: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
-    ...shadows.sm,
+  },
+  contentWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

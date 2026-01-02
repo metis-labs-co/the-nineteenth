@@ -103,7 +103,7 @@ export const ProgressBar = React.memo(function ProgressBar({
   const labelText = showPercentage ? `${Math.round(percentage)}%` : label;
 
   // Determine colors
-  const barBackgroundColor = backgroundColor || colors.gray200;
+  const barBackgroundColor = backgroundColor || colors.surfaceVariant;
   const barFillColor = fillColor || colors.success;
 
   const accessibilityValue = accessibilityLabel || `${Math.round(percentage)}% complete`;

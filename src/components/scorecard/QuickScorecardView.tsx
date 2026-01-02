@@ -5,16 +5,14 @@
  * Allows quick navigation to any hole.
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import type { Hole, HoleScore, MultiBallHoleScore, Player } from '@/types';
 import { isSingleBallScore } from '@/types/database';
-
-// Pick up score - represents player giving up on the hole (no points in Stableford)
-const PICKUP_SCORE = 10;
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 // Helper to get strokes from a score that might be single or multi-ball
 const getStrokes = (score: HoleScore | MultiBallHoleScore | undefined): number | undefined => {
@@ -29,6 +27,8 @@ interface QuickScorecardViewProps {
   getPlayerHoleScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   isHoleComplete: (holeNumber: number) => boolean;
   onHolePress: (holeNumber: number) => void;
+  /** Callback when horizontal scrolling state changes (for disabling parent swipe gestures) */
+  onScrollingChange?: (isScrolling: boolean) => void;
 }
 
 export const QuickScorecardView = React.memo(function QuickScorecardView({
@@ -38,9 +38,21 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   getPlayerHoleScore,
   isHoleComplete,
   onHolePress,
+  onScrollingChange,
 }: QuickScorecardViewProps) {
   const colors = useThemeColors();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Notify parent when user is interacting with this component
+  // Using touch events instead of scroll events because they fire BEFORE
+  // the parent's PanResponder can capture the gesture
+  const handleTouchStart = useCallback(() => {
+    onScrollingChange?.(true);
+  }, [onScrollingChange]);
+
+  const handleTouchEnd = useCallback(() => {
+    onScrollingChange?.(false);
+  }, [onScrollingChange]);
 
   // Scroll to current hole when it changes
   useEffect(() => {
@@ -55,7 +67,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   }, [currentHole]);
 
   const getScoreColor = (score: number | undefined, par: number, colors: ColorPalette) => {
-    if (!score) return colors.gray400;
+    if (!score) return colors.textDisabled;
     const diff = score - par;
     if (diff <= -2) return colors.eagle;
     if (diff === -1) return colors.birdie;
@@ -117,13 +129,13 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
           <Text
             style={[
               styles.holeScore,
-              { color: isPickedUp ? colors.gray400 : getScoreColor(displayScore, hole.par, colors) },
+              { color: isPickedUp ? colors.textDisabled : getScoreColor(displayScore, hole.par, colors) },
             ]}
           >
             {isPickedUp ? 'P' : displayScore}
           </Text>
         ) : (
-          <Text style={[styles.holePar, { color: colors.gray400 }]}>
+          <Text style={[styles.holePar, { color: colors.textDisabled }]}>
             P{hole.par}
           </Text>
         )}
@@ -135,7 +147,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
                 key={ps.playerId}
                 style={[
                   styles.playerDot,
-                  { backgroundColor: ps.strokes ? colors.success : colors.gray300 },
+                  { backgroundColor: ps.strokes ? colors.success : colors.textDisabled },
                 ]}
               />
             ))}
@@ -153,7 +165,12 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
   const backNine = Array.from({ length: 9 }, (_, i) => i + 10);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.gray50 }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.surfaceVariant }]}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Quick View</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Tap to jump to hole</Text>
@@ -174,7 +191,7 @@ export const QuickScorecardView = React.memo(function QuickScorecardView({
         </View>
 
         {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: colors.gray300 }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* Back Nine */}
         <View style={styles.nineSection}>

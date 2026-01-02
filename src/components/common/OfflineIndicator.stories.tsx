@@ -603,6 +603,7 @@ function SyncFlowDemo() {
       setStep((prev) => (prev + 1) % steps.length);
     }, 2500);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- steps is constant array
   }, []);
 
   const currentStep = steps[step];

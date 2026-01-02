@@ -190,6 +190,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     (currentCount: number): FeatureAccess => {
       return subscriptionData.checkFeature('create_competition', { currentCount });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscriptionData object changes on every render, but checkFeature is memoized
     [subscriptionData.checkFeature]
   );
 
@@ -202,6 +203,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     (_competitionId: string, currentCount: number): FeatureAccess => {
       return subscriptionData.checkFeature('add_round', { roundCount: currentCount });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscriptionData object changes on every render, but checkFeature is memoized
     [subscriptionData.checkFeature]
   );
 
@@ -214,6 +216,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     (_competitionId: string, currentCount: number): FeatureAccess => {
       return subscriptionData.checkFeature('add_player', { playerCount: currentCount });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscriptionData object changes on every render, but checkFeature is memoized
     [subscriptionData.checkFeature]
   );
 
@@ -225,6 +228,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     (gameType: GameType): FeatureAccess => {
       return subscriptionData.checkFeature('game_type', { gameType });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscriptionData object changes on every render, but checkFeature is memoized
     [subscriptionData.checkFeature]
   );
 

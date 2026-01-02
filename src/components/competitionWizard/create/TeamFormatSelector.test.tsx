@@ -50,20 +50,20 @@ jest.mock('react-native-paper', () => {
   return {
     Text: ({ children, style, numberOfLines, ...props }: any) =>
       React.createElement(RNText, { style, numberOfLines, ...props }, children),
-    Icon: ({ source, size, color }: any) =>
+    Icon: ({ source, size, color: _color }: any) =>
       React.createElement(View, {
         testID: `icon-${source}`,
         style: { width: size, height: size },
       }),
     RadioButton: Object.assign(
-      ({ value, status, onPress, disabled, color, uncheckedColor }: any) =>
+      ({ value, status: _status, onPress, disabled, color: _color2, uncheckedColor: _uncheckedColor }: any) =>
         React.createElement(TouchableOpacity, {
           testID: `radio-button-${value}`,
           onPress: disabled ? undefined : onPress,
           disabled,
         }),
       {
-        Group: ({ children, value, onValueChange }: any) =>
+        Group: ({ children, value: _value, onValueChange: _onValueChange }: any) =>
           React.createElement(View, { testID: 'radio-group' }, children),
       }
     ),

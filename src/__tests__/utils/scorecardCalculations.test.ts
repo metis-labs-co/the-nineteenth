@@ -13,11 +13,9 @@ import {
   generateDefaultHoles,
   calculateHoleStableford,
   type ScorecardPlayerData,
-  type PlayerStats,
-  type ParTotals,
   type ScoresRecord,
 } from '@/utils/scorecardCalculations';
-import { create18Holes, createTestPlayer, createPlayersWithHandicaps } from './testFixtures';
+import { create18Holes } from './testFixtures';
 import type { Hole } from '@/types/database.types';
 
 // ============================================================================
@@ -710,7 +708,7 @@ describe('generateDefaultHoles', () => {
 // ============================================================================
 
 describe('calculateHoleStableford', () => {
-  const par4Hole = { number: 1 as const, par: 4 as const, strokeIndex: 9 };
+  const _par4Hole = { number: 1 as const, par: 4 as const, strokeIndex: 9 };
 
   describe('all point scenarios (0-4+)', () => {
     it('returns 0 points for no score (0 strokes)', () => {

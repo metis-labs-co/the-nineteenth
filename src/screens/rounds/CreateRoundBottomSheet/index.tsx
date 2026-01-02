@@ -21,10 +21,10 @@ import { useIsPremium } from '@/context/SubscriptionContext';
 import { useFriends } from '@/hooks/useFriends';
 import {
   useSearchVenues,
-  useVenueCourseDisplayItems,
+  useVenuesWithCourses,
   useFavoriteCoursesWithVenues,
 } from '@/hooks/useVenues';
-import type { VenueCourseDisplayItem } from '@/hooks/useVenues';
+import type { VenueCourseDisplayItem, VenueWithCourses } from '@/hooks/useVenues';
 import { BottomSheet } from '@/components/common';
 
 // Types
@@ -74,35 +74,37 @@ export default function CreateRoundBottomSheet({
     wizard.data.searchQuery.trim(),
     undefined
   );
-  const { data: allVenues, isLoading: venuesLoading } =
-    useVenueCourseDisplayItems();
+  const { data: allVenues, isLoading: venuesLoading } = useVenuesWithCourses();
 
-  // Transform search results to display items
+  // Helper to transform venues to display items
+  const toDisplayItem = (venue: VenueWithCourses): VenueCourseDisplayItem => ({
+    type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
+    venue: {
+      id: venue.id,
+      source: venue.source,
+      api_id: venue.api_id,
+      name: venue.name,
+      state: venue.state,
+      city: venue.city,
+      address: venue.address,
+      phone: venue.phone,
+      email: venue.email,
+      website: venue.website,
+      location: venue.location,
+      total_holes: venue.total_holes,
+      last_synced: venue.last_synced,
+      created_at: venue.created_at,
+      updated_at: venue.updated_at,
+    },
+    courses: venue.courses,
+    is_home: venue.is_home,
+  });
+
+  // Transform venues to display items (for both search and full list)
   const displayItems: VenueCourseDisplayItem[] =
     wizard.data.searchQuery.trim().length >= 2
-      ? (searchResults ?? []).map((venue) => ({
-          type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-          venue: {
-            id: venue.id,
-            source: venue.source,
-            api_id: venue.api_id,
-            name: venue.name,
-            state: venue.state,
-            city: venue.city,
-            address: venue.address,
-            phone: venue.phone,
-            email: venue.email,
-            website: venue.website,
-            location: venue.location,
-            total_holes: venue.total_holes,
-            last_synced: venue.last_synced,
-            created_at: venue.created_at,
-            updated_at: venue.updated_at,
-          },
-          courses: venue.courses,
-          is_home: false,
-        }))
-      : (allVenues ?? []);
+      ? (searchResults ?? []).map(toDisplayItem)
+      : (allVenues ?? []).map(toDisplayItem);
 
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : venuesLoading;

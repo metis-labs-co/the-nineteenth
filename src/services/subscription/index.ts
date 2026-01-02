@@ -25,6 +25,13 @@ export type {
   ProviderType,
 } from './SubscriptionService';
 
+// RevenueCat user ID management helpers
+export {
+  loginToRevenueCat,
+  logoutFromRevenueCat,
+  isRevenueCatAvailable,
+} from './revenueCatAuth';
+
 // Grandfathering service for downgrade handling
 export {
   grandfatheringService,

@@ -21,6 +21,9 @@ import { subscriptionService, SubscriptionProduct } from '@/services/subscriptio
 import { PRODUCT_IDS, FREE_TRIAL_DAYS } from '@/constants/products';
 import type { SubscriptionTier } from '@/types/subscription.types';
 
+// Mock Linking.openURL
+import { Linking } from 'react-native';
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -33,9 +36,6 @@ jest.mock('@/services/subscription/SubscriptionService', () => ({
     restorePurchases: jest.fn(),
   },
 }));
-
-// Mock Linking.openURL
-import { Linking } from 'react-native';
 const mockOpenURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as any);
 
 // Mock Alert
@@ -913,7 +913,7 @@ describe('Paywall', () => {
 
   describe('Props', () => {
     it('handles visible false correctly', () => {
-      const { queryByText } = render(<Paywall {...defaultProps} visible={false} />);
+      const { queryByText: _queryByText } = render(<Paywall {...defaultProps} visible={false} />);
 
       // Modal not visible means content should not be rendered in a way that's testable
       // Actually, Modal still mounts in tests, but we verify behavior

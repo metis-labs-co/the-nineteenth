@@ -4,14 +4,11 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, EmptyState } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 
-interface LoadingStateProps {}
-
-export function ReviewLoadingState(_props: LoadingStateProps) {
+export function ReviewLoadingState() {
   const colors = useThemeColors();
 
   return (
@@ -26,18 +23,14 @@ interface EmptyStateProps {
 }
 
 export function ReviewEmptyState({ onEnterScores }: EmptyStateProps) {
-  const colors = useThemeColors();
-
   return (
-    <View style={[styles.centeredContainer, { backgroundColor: colors.background }]}>
-      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Scores Recorded</Text>
-      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-        Go back to enter scores for each hole before reviewing.
-      </Text>
-      <Button mode="contained" onPress={onEnterScores} style={styles.emptyButton}>
-        Enter Scores
-      </Button>
-    </View>
+    <EmptyState
+      title="No Scores Recorded"
+      message="Go back to enter scores for each hole before reviewing."
+      icon="clipboard-list-outline"
+      actionLabel="Enter Scores"
+      onAction={onEnterScores}
+    />
   );
 }
 
@@ -47,18 +40,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xxl,
-  },
-  emptyTitle: {
-    ...typography.h2,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  emptyButton: {
-    minWidth: 160,
   },
 });

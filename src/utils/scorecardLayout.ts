@@ -8,6 +8,9 @@
 
 import { spacing } from '@/constants/theme';
 
+// Re-export for backward compatibility with existing imports
+export { PICKUP_SCORE } from '@/constants/scoring';
+
 // =====================================================
 // CONSTANTS
 // =====================================================
@@ -26,9 +29,6 @@ export const MIN_PLAYER_CELL_WIDTH = 72;
 
 /** Total horizontal padding (both sides) */
 export const HORIZONTAL_PADDING = spacing.md * 2;
-
-/** Score indicating pickup (10 strokes) */
-export const PICKUP_SCORE = 10;
 
 /** Fixed column widths combined (Hole + SI + Par) */
 export const FIXED_COLUMNS_WIDTH = HOLE_CELL_WIDTH + INDEX_CELL_WIDTH + PAR_CELL_WIDTH;

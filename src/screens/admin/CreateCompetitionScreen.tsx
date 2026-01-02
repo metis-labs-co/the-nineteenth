@@ -59,7 +59,7 @@ const STEPS = [
 
 export default function CreateCompetitionScreen() {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ScreenRouteProp>();
   const createCompetition = useCreateCompetition();

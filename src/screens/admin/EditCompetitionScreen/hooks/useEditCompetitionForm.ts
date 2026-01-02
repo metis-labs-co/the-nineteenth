@@ -6,8 +6,7 @@ import { useEffect, useCallback, useMemo } from 'react';
 import { useForm, Controller, Control, UseFormHandleSubmit, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Competition, CompetitionType, TeamMode } from '@/types/database.types';
-import type { CompetitionFormData } from '../types';
-import { formatAustralianDate, parseISODate, parseAustralianDate } from '../utils';
+import { formatDateAustralian, parseISODate, parseAustralianDate } from '@/utils/formatting';
 import { editCompetitionSchema, EditCompetitionFormData } from './useCompetitionValidation';
 
 interface UseEditCompetitionFormOptions {
@@ -60,7 +59,7 @@ export function useEditCompetitionForm({
       description: '',
       competitionType: 'event',
       teamMode: 'none',
-      startDate: formatAustralianDate(new Date()),
+      startDate: formatDateAustralian(new Date()),
       endDate: '',
     },
   });
@@ -82,9 +81,9 @@ export function useEditCompetitionForm({
         competitionType: competition.competition_type || 'event',
         teamMode: competition.team_mode || 'none',
         startDate:
-          formatAustralianDate(parseISODate(competition.start_date)) ||
-          formatAustralianDate(new Date()),
-        endDate: formatAustralianDate(parseISODate(competition.end_date)) || '',
+          formatDateAustralian(parseISODate(competition.start_date)) ||
+          formatDateAustralian(new Date()),
+        endDate: formatDateAustralian(parseISODate(competition.end_date)) || '',
       });
     }
   }, [competition, reset]);

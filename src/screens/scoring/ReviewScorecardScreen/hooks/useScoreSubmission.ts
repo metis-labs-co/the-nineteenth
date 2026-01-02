@@ -58,6 +58,7 @@ export function useScoreSubmission({
     try {
       submitLogger.info('Updating round status to completed', { roundId: roundId.substring(0, 8) + '...' });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { error } = await (supabase as any)
         .from('rounds')
         .update({ status: 'completed' })

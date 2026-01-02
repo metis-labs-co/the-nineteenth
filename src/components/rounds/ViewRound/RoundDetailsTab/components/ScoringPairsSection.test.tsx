@@ -38,13 +38,22 @@ jest.mock('@/hooks/useScoringPairs', () => ({
   useScoringPairs: jest.fn(),
 }));
 
-// Mock GolfBallLoader component
+// Mock common components
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
   return {
     GolfBallLoader: ({ size }: { size?: string }) => (
       <View testID="golf-ball-loader">
         <Text testID="loader-size">{size || 'md'}</Text>
+      </View>
+    ),
+    PlayerAvatar: ({ photoUrl, name, size }: { photoUrl?: string; name?: string; size?: number }) => (
+      <View testID="player-avatar" style={{ width: size, height: size }}>
+        {photoUrl ? (
+          <Text testID="player-avatar-photo">{photoUrl}</Text>
+        ) : (
+          <Text testID="player-avatar-initials">{name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?'}</Text>
+        )}
       </View>
     ),
   };
@@ -73,7 +82,7 @@ jest.mock('react-native-paper', () => {
     Text: ({ children, style, numberOfLines }: any) => (
       <RNText style={style} numberOfLines={numberOfLines}>{children}</RNText>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, color: _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }} />
     ),
     Avatar: {
@@ -116,6 +125,12 @@ function createMockPlayer(overrides: Partial<{
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    equipped_badge_id: null,
+    equipped_frame_id: null,
+    equipped_title_id: null,
+    is_placeholder: false,
+    created_by: null,
+    linked_player_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };

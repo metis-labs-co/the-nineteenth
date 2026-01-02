@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { ConfirmationDialog, ConfirmationDialogProps } from './ConfirmationDialog';
+import { ConfirmationDialog } from './ConfirmationDialog';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

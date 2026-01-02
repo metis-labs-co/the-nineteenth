@@ -99,7 +99,7 @@ export function SegmentedButton<T extends string = string>({
     <View
       style={[
         styles.container,
-        { borderColor: colors.gray300, backgroundColor: colors.surfaceVariant },
+        { borderColor: colors.border, backgroundColor: colors.surfaceVariant },
         style,
       ]}
     >

@@ -17,7 +17,7 @@
 
 // Available brands
 import { theNineteenthBrand } from './theNineteenth.brand';
-import { greenGolfBrand } from './greenGolf.brand';
+import { greenGolfBrand as _greenGolfBrand } from './greenGolf.brand';
 
 /**
  * The currently active brand configuration.

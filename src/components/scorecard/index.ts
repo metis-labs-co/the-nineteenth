@@ -5,7 +5,6 @@
 // Individual scoring
 export { PlayerScoreCard } from './PlayerScoreCard';
 export { MultiBallScoreInput } from './MultiBallScoreInput';
-export { HoleProgressBar } from './HoleProgressBar';
 export { QuickScorecardView } from './QuickScorecardView';
 export { HoleHeader } from './HoleHeader';
 
@@ -29,5 +28,3 @@ export type {
 export { ScorecardTable } from './ScorecardTable';
 export type { ScorecardTableProps, ScorecardTablePlayer } from './ScorecardTable';
 
-// Debug
-export { ScorecardDebugPanel } from './ScorecardDebugPanel';

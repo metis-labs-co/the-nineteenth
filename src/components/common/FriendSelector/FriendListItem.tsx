@@ -64,7 +64,6 @@ export const FriendListItem = memo(function FriendListItem({
                   label="Pending"
                   size="sm"
                   backgroundColor={colors.warningBackground}
-                  textColor={colors.warningDark}
                 />
               )}
             </View>
@@ -97,19 +96,19 @@ export const FriendListItem = memo(function FriendListItem({
           <View
             style={[
               styles.selectionButton,
-              { backgroundColor: isSelected ? colors.primary : colors.gray100 },
+              { backgroundColor: isSelected ? colors.primary : colors.surfaceVariant },
             ]}
           >
             {isSelected ? (
               <IconCheck size={20} color={colors.white} />
             ) : (
-              <IconPlus size={20} color={colors.gray400} />
+              <IconPlus size={20} color={colors.textSecondary} />
             )}
           </View>
         </View>
       </TouchableOpacity>
       {showDivider && (
-        <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
       )}
     </>
   );

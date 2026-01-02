@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { VenueCard } from './VenueCard';
 import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
 import type { Venue, Hole } from '@/types/database.types';

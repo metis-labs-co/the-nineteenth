@@ -73,9 +73,12 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
           // Team formats may not have gross score
         }
 
+        // Use proper type narrowing for key
+        const key = entry.isTeamResult ? entry.teamId : entry.playerId;
+
         return (
           <LeaderboardRow
-            key={entry.isTeamResult ? (entry as any).teamId : (entry as any).playerId}
+            key={key}
             entry={entry}
             currentUserId={currentUserId}
             isTied={isTied}

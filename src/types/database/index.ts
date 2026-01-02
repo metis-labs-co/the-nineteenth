@@ -106,6 +106,58 @@ export type { UserSubscription, TierLimits } from './subscription.types';
 // Push token types
 export type { PushToken } from './push-token.types';
 
+// Achievement types
+export type {
+  AchievementCategory,
+  AchievementRarity,
+  AchievementDefinition,
+  PlayerAchievement,
+  PlayerAchievementWithDefinition,
+  AchievementProgress,
+  AchievementWithProgress,
+  AchievementSummary,
+  RecentAchievement,
+  CategoryProgress,
+  AchievementLeaderboardEntry,
+  AchievementLeaderboardScope,
+  AchievementEventType,
+  AchievementEventData,
+  AchievementCheckEvent,
+  AchievementCheckResult,
+  AchievementProgressUpdate,
+  AwardAchievementInput,
+  UpdateProgressInput,
+} from './achievement.types';
+export {
+  RARITY_POINTS,
+  RARITY_COLORS,
+  CATEGORY_DISPLAY_NAMES,
+  CATEGORY_ICONS,
+} from './achievement.types';
+
+// Cosmetic types
+export type {
+  CosmeticType,
+  CosmeticDefinition,
+  PlayerCosmetic,
+  PlayerCosmeticWithDefinition,
+  CosmeticWithStatus,
+  EquippedCosmetics,
+  EquippedCosmeticsFlat,
+  PlayerWithCosmetics,
+  CosmeticsByType,
+  CosmeticProgress,
+  EquipCosmeticInput,
+  UnequipCosmeticInput,
+  NewlyUnlockedCosmetic,
+  FrameStyle,
+} from './cosmetic.types';
+export {
+  COSMETIC_TYPE_DISPLAY_NAMES,
+  COSMETIC_TYPE_ICONS,
+  FRAME_STYLES,
+} from './cosmetic.types';
+
 // Schema type
 export type { Database } from './schema';
 

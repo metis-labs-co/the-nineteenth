@@ -2,17 +2,21 @@
  * Offline Sync Hook
  *
  * Provides sync status and manual sync trigger for components.
+ *
+ * Note: For simple online/offline status checks, prefer using
+ * useOnlineStatus from '@/hooks/useOnlineStatus' directly.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   subscribeSyncState,
-  getSyncState,
+  getSyncState as _getSyncState,
   getIsOnline,
   manualSync,
   initSyncService,
 } from '@/services/offline/sync';
 import { initDatabase, getPendingSyncCount } from '@/services/offline/database';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline';
 
@@ -51,7 +55,7 @@ export function useOfflineSync() {
         unsubscribe = initSyncService();
 
         // Get initial pending count
-        const pendingCount = await getPendingSyncCount();
+        const _pendingCount = await getPendingSyncCount();
 
         // Subscribe to sync state changes
         const syncUnsubscribe = subscribeSyncState((syncState) => {
@@ -109,21 +113,11 @@ export function useOfflineSync() {
 
 /**
  * Hook to get just the online status
+ *
+ * @deprecated Use useOnlineStatus from '@/hooks/useOnlineStatus' instead.
+ * This hook is maintained for backward compatibility.
  */
 export function useIsOnline(): boolean {
-  const [isOnline, setIsOnline] = useState(true);
-
-  useEffect(() => {
-    // Initial check
-    setIsOnline(getIsOnline());
-
-    // Subscribe to changes
-    const unsubscribe = subscribeSyncState(() => {
-      setIsOnline(getIsOnline());
-    });
-
-    return unsubscribe;
-  }, []);
-
-  return isOnline;
+  // Delegate to centralized hook
+  return useOnlineStatus();
 }

@@ -83,17 +83,30 @@ async function fetchTeamManagementData(competitionId: string): Promise<TeamManag
 
   // Transform players data
   const players: Player[] = (competitionPlayers || [])
-    .map((cp: any) => cp.players)
+    .map((cp: { player_id: string; players: Player | null }) => cp.players)
     .filter((p: Player | null): p is Player => p !== null);
 
   // Transform teams data
-  const transformedTeams: TeamWithMembers[] = (teams || []).map((team: any) => ({
+  interface TeamRow {
+    id: string;
+    competition_id: string;
+    name: string;
+    created_at: string;
+    updated_at: string;
+    team_members: {
+      team_id: string;
+      player_id: string;
+      joined_at: string;
+      players: Player | null;
+    }[] | null;
+  }
+  const transformedTeams: TeamWithMembers[] = (teams || []).map((team: TeamRow) => ({
     id: team.id,
     competition_id: team.competition_id,
     name: team.name,
     created_at: team.created_at,
     updated_at: team.updated_at,
-    members: (team.team_members || []).map((tm: any) => ({
+    members: (team.team_members || []).map((tm) => ({
       team_id: tm.team_id,
       player_id: tm.player_id,
       joined_at: tm.joined_at,

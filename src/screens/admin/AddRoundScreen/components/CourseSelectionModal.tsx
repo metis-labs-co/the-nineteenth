@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, SearchBar } from '@/components/common';
+import { LoadingSpinner, SearchBar, EmptyState } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCourses, useSearchCourses, type CourseWithFavorite } from '@/hooks/useCourses';
@@ -135,13 +135,12 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
             <LoadingSpinner size="lg" message="Loading courses..." />
           </View>
         ) : displayCourses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Icon source="golf" size={48} color={colors.gray300} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No courses found</Text>
-            <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-              {searchQuery ? 'Try a different search term' : 'Add courses from the Courses tab'}
-            </Text>
-          </View>
+          <EmptyState
+            title="No courses found"
+            message={searchQuery ? 'Try a different search term' : 'Add courses from the Courses tab'}
+            icon="golf"
+            compact
+          />
         ) : (
           <FlatList
             data={displayCourses}
@@ -186,21 +185,6 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.body,
     marginTop: spacing.md,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-    marginTop: spacing.md,
-  },
-  emptyMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    marginTop: spacing.sm,
   },
   courseList: {
     padding: spacing.md,

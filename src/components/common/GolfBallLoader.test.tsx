@@ -25,7 +25,7 @@ jest.mock('react-native-svg', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: ({ children, width, height, viewBox, style, ...props }: any) => (
+    default: ({ children, width, height, _viewBox, style, ...props }: any) => (
       <View
         testID="svg-container"
         accessibilityLabel={`svg-${width}x${height}`}
@@ -35,7 +35,7 @@ jest.mock('react-native-svg', () => {
         {children}
       </View>
     ),
-    Svg: ({ children, width, height, viewBox, style, ...props }: any) => (
+    Svg: ({ children, width, height, _viewBox, style, ...props }: any) => (
       <View
         testID="svg-container"
         accessibilityLabel={`svg-${width}x${height}`}
@@ -45,7 +45,7 @@ jest.mock('react-native-svg', () => {
         {children}
       </View>
     ),
-    Circle: ({ cx, cy, r, fill, stroke, strokeWidth, opacity, ...props }: any) => (
+    Circle: ({ cx, cy, r, _fill, _stroke, _strokeWidth, _opacity, ...props }: any) => (
       <View
         testID="svg-circle"
         accessibilityLabel={`circle-cx${cx}-cy${cy}-r${r}`}
@@ -70,7 +70,7 @@ jest.mock('react-native-svg', () => {
         {children}
       </View>
     ),
-    G: ({ children, clipPath, fill, ...props }: any) => (
+    G: ({ children, _clipPath, _fill, ...props }: any) => (
       <View testID="svg-group" {...props}>
         {children}
       </View>

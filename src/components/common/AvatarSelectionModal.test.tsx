@@ -49,29 +49,48 @@ jest.mock('./GolferIcon', () => {
 
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
-  const { View, Text, TouchableOpacity } = require('react-native');
+  const { View, Text } = require('react-native');
   return {
-    Modal: ({ visible, onDismiss, children, contentContainerStyle, style }: any) =>
-      visible ? (
-        <View testID="modal-container" style={[style, contentContainerStyle]}>
-          <TouchableOpacity
-            testID="modal-backdrop"
-            onPress={onDismiss}
-            accessibilityRole="button"
-            accessibilityLabel="Close modal"
-          />
-          {children}
-        </View>
-      ) : null,
-    Portal: ({ children }: any) => <View testID="portal">{children}</View>,
     Text: ({ children, style, numberOfLines }: any) => (
       <Text style={style} numberOfLines={numberOfLines}>
         {children}
       </Text>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }} />
     ),
+  };
+});
+
+// Mock BottomSheet component
+jest.mock('./BottomSheet', () => {
+  const { View, TouchableOpacity } = require('react-native');
+  const RNText = require('react-native').Text;
+  return {
+    BottomSheet: ({ visible, onClose, title, children }: any) =>
+      visible ? (
+        <View testID="modal-container">
+          <TouchableOpacity
+            testID="modal-backdrop"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close modal"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <View testID="bottom-sheet-header">
+            <RNText>{title}</RNText>
+            <TouchableOpacity
+              testID="close-button"
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close avatar selection"
+            >
+              <RNText>Close</RNText>
+            </TouchableOpacity>
+          </View>
+          {children}
+        </View>
+      ) : null,
   };
 });
 

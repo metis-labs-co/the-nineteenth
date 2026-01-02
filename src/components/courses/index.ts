@@ -1,4 +1,3 @@
-export { ApiSearchModal } from './ApiSearchModal';
 export { AddCourseModal } from './AddCourseModal';
 export { VenueCard } from './VenueCard';
 export { CourseCard } from './CourseCard';

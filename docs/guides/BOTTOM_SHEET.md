@@ -264,7 +264,6 @@ The following components were migrated to use the unified BottomSheet:
 | `CreateRoundBottomSheet` | `0.8` (80%) | Multi-step round creation wizard |
 | `AddPlayersBottomSheet` | `0.8` (80%) | Player selection for competitions |
 | `AddFriendModal` | `'full'` | Friend search with keyboard input |
-| `ApiSearchModal` | `'full'` | Course search with API integration |
 
 ---
 

@@ -19,7 +19,12 @@ Create a pull request for the current branch and push to remote.
    - Run `git diff main...HEAD` to see all changes
    - Summarize the purpose and scope of changes
 
-5. Create the PR using GitHub CLI:
+5. Before creating the PR, run verification checks:
+   - Run `pnpm typecheck` to ensure no type errors
+   - Run `pnpm lint` to ensure no lint errors
+   - Fix any issues before proceeding
+
+6. Create the PR using GitHub CLI:
    ```bash
    gh pr create --title "<concise title>" --body "$(cat <<'EOF'
    ## Summary
@@ -36,7 +41,7 @@ Create a pull request for the current branch and push to remote.
    )"
    ```
 
-6. Return the PR URL to the user.
+7. Return the PR URL to the user.
 
 ## Notes
 - Use the main branch as the base branch

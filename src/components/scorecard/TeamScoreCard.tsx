@@ -24,6 +24,7 @@ import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 interface TeamScoreCardProps {
   team: TeamWithMembers;
@@ -35,8 +36,6 @@ interface TeamScoreCardProps {
   disabled?: boolean;
 }
 
-// Pick up score - represents team giving up on the hole
-const PICKUP_SCORE = 10;
 const MIN_SCORE = 1;
 const MAX_SCORE = 12;
 
@@ -81,7 +80,8 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
   );
 
   // Create a mock "player" for handicap calculations
-  const teamAsPlayer = useMemo(
+  // Note: Not currently used but kept for future expansion
+  const _teamAsPlayer = useMemo(
     () => ({ handicap: teamHandicap } as Player),
     [teamHandicap]
   );
@@ -149,7 +149,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
   }, [onContributorSelect]);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.white }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface }]}>
       {/* Team Header */}
       <View style={styles.header}>
         <View style={styles.teamInfo}>
@@ -187,7 +187,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           <TouchableOpacity
             style={[
               styles.actionButton,
-              { borderColor: colors.gray300, backgroundColor: colors.white },
+              { borderColor: colors.gray300, backgroundColor: colors.surface },
               isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
               disabled && styles.buttonDisabled,
             ]}
@@ -215,7 +215,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           <TouchableOpacity
             style={[
               styles.stepperButton,
-              { borderColor: colors.gray300, backgroundColor: colors.white },
+              { borderColor: colors.gray300, backgroundColor: colors.surface },
               disabled && styles.buttonDisabled,
             ]}
             onPress={handleDecrement}
@@ -236,7 +236,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           <TouchableOpacity
             style={[
               styles.stepperButton,
-              { borderColor: colors.gray300, backgroundColor: colors.white },
+              { borderColor: colors.gray300, backgroundColor: colors.surface },
               (disabled || isPickedUp) && styles.buttonDisabled,
             ]}
             onPress={handleIncrement}
@@ -254,7 +254,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           <TouchableOpacity
             style={[
               styles.actionButton,
-              { borderColor: colors.gray300, backgroundColor: colors.white },
+              { borderColor: colors.gray300, backgroundColor: colors.surface },
               selectedScore === currentHole.par && { backgroundColor: colors.primary, borderColor: colors.primary },
               disabled && styles.buttonDisabled,
             ]}
@@ -293,7 +293,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
                 <TouchableOpacity
                   style={[
                     styles.contributorButton,
-                    { borderColor: colors.gray300, backgroundColor: colors.white },
+                    { borderColor: colors.gray300, backgroundColor: colors.surface },
                   ]}
                   onPress={() => setContributorMenuVisible(true)}
                   disabled={disabled}

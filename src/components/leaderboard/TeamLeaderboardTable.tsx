@@ -165,8 +165,8 @@ export function TeamLeaderboardTable({
         testID={testID ? `${testID}-empty` : undefined}
       >
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: colors.gray200 }]}>
-            <IconChartBar size={48} color={colors.gray400} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.surfaceVariant }]}>
+            <IconChartBar size={48} color={colors.textDisabled} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No team standings yet</Text>
           <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
@@ -178,7 +178,7 @@ export function TeamLeaderboardTable({
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
-      <View style={[styles.tableHeader, { borderBottomColor: colors.gray200 }]}>
+      <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
         <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>
           #
         </Text>
@@ -205,7 +205,7 @@ export function TeamLeaderboardTable({
             <TouchableOpacity
               style={[
                 styles.tableRow,
-                { borderBottomColor: colors.gray100 },
+                { borderBottomColor: colors.border },
                 entry.hasCurrentUser && [
                   styles.tableRowHighlighted,
                   { backgroundColor: withOpacity(colors.primaryLighter, 0.19) },
@@ -294,7 +294,7 @@ export function TeamLeaderboardTable({
 
             {/* Expanded Team Members */}
             {isExpanded && (
-              <View style={[styles.membersContainer, { backgroundColor: colors.gray50 }]}>
+              <View style={[styles.membersContainer, { backgroundColor: colors.surfaceVariant }]}>
                 {entry.members.map((member, memberIndex) => {
                   const isCurrentUserMember = member.playerId === currentUserId;
 
@@ -305,7 +305,7 @@ export function TeamLeaderboardTable({
                         styles.memberRow,
                         memberIndex < entry.members.length - 1 && {
                           borderBottomWidth: 1,
-                          borderBottomColor: colors.gray200,
+                          borderBottomColor: colors.border,
                         },
                       ]}
                       accessibilityRole="text"

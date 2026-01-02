@@ -38,7 +38,7 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as Notifications from 'expo-notifications';
+// Notifications imported but only used in utils/pushNotificationTest.ts for iOS permissions
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/client';
 import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
@@ -48,7 +48,6 @@ import type {
   PushToken,
   PushPreferences,
   DBPushToken,
-  mapDBPushToken,
 } from '@/types/push.types';
 import type { Player } from '@/types/database.types';
 
@@ -128,8 +127,9 @@ function mapTokenFromDB(db: DBPushToken): PushToken {
 
 /**
  * Extract push preferences from player record
+ * NOTE: Currently unused as preferences are loaded from user_preferences table
  */
-function extractPreferences(player: Player): PushPreferences {
+function _extractPreferences(player: Player): PushPreferences {
   return {
     pushEnabled: player.push_enabled,
     pushCompetitionUpdates: player.push_competition_updates,
@@ -197,7 +197,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const {
     data: tokens,
     isLoading: isLoadingTokens,
-    error: tokensError,
+    error: _tokensError,
   } = useQuery({
     queryKey: pushKeys.tokens(userId),
     queryFn: async (): Promise<PushToken[]> => {
@@ -546,6 +546,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     };
 
     attemptAutoRegister();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- registerTokenMutation is stable, including it would cause re-renders
   }, [isAuthenticated, userId]);
 
   // =====================================================

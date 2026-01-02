@@ -338,11 +338,13 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-// Offline sync
+// Offline sync - data can be any entity type being synced
+// Using a flexible type since sync data is serialized and cast to specific types at usage
 export interface PendingSync {
   id?: number;
   type: 'scorecard' | 'competition' | 'round' | 'player';
   action: 'create' | 'update' | 'delete';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
   timestamp: Date;
   retryCount: number;

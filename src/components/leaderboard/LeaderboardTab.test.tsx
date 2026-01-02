@@ -14,7 +14,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
 import { LeaderboardTab } from './LeaderboardTab';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
-import type { CompetitionLeaderboardEntry, LeaderboardFilter } from '@/hooks/useCompetitionLeaderboard';
+import type { CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
 // =====================================================
 // MOCKS
@@ -54,7 +54,7 @@ jest.mock('@/components/common', () => {
 jest.mock('./LeaderboardTable', () => {
   const { View, Text } = require('react-native');
   return {
-    LeaderboardTable: ({ leaderboard, testID, currentUserId, showRoundsPlayed, showTiedIndicator }: any) => (
+    LeaderboardTable: ({ leaderboard, testID, currentUserId, showRoundsPlayed, showTiedIndicator: _showTiedIndicator }: any) => (
       <View testID={testID || 'leaderboard-table'}>
         <Text>LeaderboardTable</Text>
         <Text testID="leaderboard-count">{leaderboard?.length || 0} entries</Text>
@@ -75,7 +75,7 @@ jest.mock('./LeaderboardTable', () => {
 jest.mock('./TeamLeaderboardTable', () => {
   const { View, Text } = require('react-native');
   return {
-    TeamLeaderboardTable: ({ leaderboard, testID, currentUserId, showTiedIndicator, hideMemberPoints }: any) => (
+    TeamLeaderboardTable: ({ leaderboard, testID, currentUserId, showTiedIndicator: _showTiedIndicator, hideMemberPoints }: any) => (
       <View testID={testID || 'team-leaderboard-table'}>
         <Text>TeamLeaderboardTable</Text>
         <Text testID="team-leaderboard-count">{leaderboard?.length || 0} teams</Text>

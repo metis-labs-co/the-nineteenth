@@ -16,7 +16,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { LayoutAnimation } from 'react-native';
-import { Tabs, TabsProps, TabItem } from './Tabs';
+import { Tabs, TabItem } from './Tabs';
 
 // Mock ThemeContext
 const mockColors = {
@@ -280,7 +280,7 @@ describe('Tabs', () => {
     });
 
     it('renders all sizes consistently', () => {
-      const sizes: Array<'small' | 'medium' | 'large'> = ['small', 'medium', 'large'];
+      const sizes: ('small' | 'medium' | 'large')[] = ['small', 'medium', 'large'];
       sizes.forEach((size) => {
         render(
           <Tabs

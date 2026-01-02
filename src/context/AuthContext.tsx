@@ -19,7 +19,7 @@ import { authKeys, pushKeys } from '@/hooks/queryKeys';
 import {
   loginToRevenueCat,
   logoutFromRevenueCat,
-} from '@/services/subscription/SubscriptionService';
+} from '@/services/subscription';
 import { pushService } from '@/services/notifications/pushService';
 import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';

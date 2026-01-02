@@ -14,7 +14,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { DetailsTab } from './DetailsTab';
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode, PointSystemConfig } from '@/types/database.types';
+import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 
@@ -39,16 +39,16 @@ jest.mock('react-native-toast-message', () => ({
 
 // Mock icons
 jest.mock('@tabler/icons-react-native', () => {
-  const { View } = require('react-native');
+  const { View: _RNView } = require('react-native');
   return {
-    IconCalendar: (props: any) => <View testID="icon-calendar" {...props} />,
-    IconSettings: (props: any) => <View testID="icon-settings" {...props} />,
+    IconCalendar: (props: any) => <_RNView testID="icon-calendar" {...props} />,
+    IconSettings: (props: any) => <_RNView testID="icon-settings" {...props} />,
   };
 });
 
 // Mock CourseCard component
 jest.mock('@/components/courses/CourseCard', () => {
-  const { View, Text, TouchableOpacity } = require('react-native');
+  const { Text, TouchableOpacity } = require('react-native');
   return {
     CourseCard: ({ course, onPress }: { course: { id: string; name: string }; onPress?: () => void }) => (
       <TouchableOpacity

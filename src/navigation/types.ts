@@ -103,6 +103,10 @@ export type RootStackParamList = {
 
   // Admin - Placeholder Players
   LinkPlaceholder: undefined;
+
+  // Achievements
+  Achievements: { playerId?: string } | undefined;
+  AchievementLeaderboard: { competitionId?: string } | undefined;
 };
 
 /**
@@ -137,6 +141,7 @@ export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<
  * Enables type-safe navigation.navigate() throughout the app
  */
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Required for React Navigation type augmentation
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
   }

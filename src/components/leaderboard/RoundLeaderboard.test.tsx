@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { RoundLeaderboard } from './RoundLeaderboard';
 import type {
   RoundLeaderboardEntry,
@@ -47,7 +47,7 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 
 // Mock icons
 jest.mock('@tabler/icons-react-native', () => {
-  const { View, Text } = require('react-native');
+  const { Text } = require('react-native');
   return {
     IconTrophy: () => <Text>TrophyIcon</Text>,
     IconUsers: () => <Text>UsersIcon</Text>,
@@ -59,12 +59,12 @@ jest.mock('@tabler/icons-react-native', () => {
 
 // Mock DateTimeDisplay component
 jest.mock('@/components/common/DateTimeDisplay', () => {
-  const { View, Text } = require('react-native');
+  const { View: _View, Text } = require('react-native');
   return {
     DateTimeDisplay: ({ date }: { date: string }) => (
-      <View testID="datetime-display">
+      <_View testID="datetime-display">
         <Text>{date}</Text>
-      </View>
+      </_View>
     ),
   };
 });

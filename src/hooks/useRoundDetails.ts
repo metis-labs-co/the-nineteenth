@@ -145,11 +145,10 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
 
   // 2. Also try to get players from round_players (standalone/social rounds)
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: roundPlayersData, error: roundPlayersError } = await (supabase
-      .from('round_players') as any)
+    const { data: roundPlayersData, error: roundPlayersError } = await supabase
+      .from('round_players')
       .select('player_id')
-      .eq('round_id', roundId);
+      .eq('round_id', roundId) as { data: { player_id: string }[] | null; error: { code?: string; message: string } | null };
 
     if (roundPlayersError) {
       // Table might not exist - not a critical error
@@ -158,7 +157,7 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
       }
     } else if (roundPlayersData) {
       // Add player IDs from round_players
-      (roundPlayersData as { player_id: string }[]).forEach((rp) => {
+      roundPlayersData.forEach((rp) => {
         playerIds.add(rp.player_id);
       });
     }

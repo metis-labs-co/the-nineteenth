@@ -10,9 +10,6 @@
 
 import type { GameType } from './database.types';
 
-// Re-export GameType for convenience when working with subscription features
-export type { GameType };
-
 // =====================================================
 // MAPPER FUNCTIONS (DB <-> App)
 // =====================================================
@@ -21,6 +18,9 @@ import type {
   UserSubscription as DBUserSubscription,
   TierLimits as DBTierLimits,
 } from './database.types';
+
+// Re-export GameType for convenience when working with subscription features
+export type { GameType };
 
 // =====================================================
 // CONSTANTS
@@ -87,6 +87,7 @@ export type FeatureId =
   | 'basic_stats'
   | 'score_distribution'
   | 'advanced_stats'
+  | 'fir_gir_tracking'
   | 'export_data'
   // Admin features
   | 'admin_tools';
@@ -251,6 +252,7 @@ export function isFeatureId(value: string): value is FeatureId {
     'basic_stats',
     'score_distribution',
     'advanced_stats',
+    'fir_gir_tracking',
     'export_data',
     'admin_tools',
   ];

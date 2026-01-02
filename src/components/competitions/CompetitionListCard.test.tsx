@@ -49,8 +49,31 @@ jest.mock('@tabler/icons-react-native', () => {
 
 // Mock common components
 jest.mock('@/components/common', () => {
-  const { View, Text } = require('react-native');
+  const { View, Text, TouchableOpacity } = require('react-native');
   return {
+    CardContainer: ({ children, onPress, style, testID, accessibilityLabel, swipeable, onDelete, ...props }: any) => (
+      <View>
+        <TouchableOpacity
+          testID={testID || 'card-container'}
+          onPress={onPress}
+          style={style}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityActions={swipeable && onDelete ? [{ name: 'delete', label: 'Delete' }] : undefined}
+          {...props}
+        >
+          {children}
+        </TouchableOpacity>
+        {swipeable && onDelete && (
+          <TouchableOpacity testID="delete-button" onPress={onDelete}>
+            <View testID="icon-trash">
+              <Text>Trash</Text>
+            </View>
+            <Text>Delete</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ),
     StatusBadge: ({ status }: { status: string }) => (
       <View testID={`status-badge-${status}`}>
         <Text>{status}</Text>
@@ -58,7 +81,7 @@ jest.mock('@/components/common', () => {
     ),
     DateTimeDisplay: ({
       date,
-      size,
+      size: _size,
       style,
     }: {
       date: string | null;
@@ -72,8 +95,8 @@ jest.mock('@/components/common', () => {
       ) : null,
     Pill: ({
       label,
-      variant,
-      size,
+      variant: _variant,
+      size: _size,
     }: {
       label: string;
       variant?: string;
@@ -309,7 +332,7 @@ describe('CompetitionListCard', () => {
       const competition = createCompetitionData({ isOrganizer: true });
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('pill-organizer')).toBeTruthy();
+      expect(screen.getByTestId('pill-organiser')).toBeTruthy();
       expect(screen.getByText('Organiser')).toBeTruthy();
     });
 
@@ -641,8 +664,9 @@ describe('CompetitionListCard', () => {
       );
 
       const card = screen.getByTestId('competition-card');
+      // CardContainer uses generic "Delete" label for accessibilityActions
       expect(card.props.accessibilityActions).toEqual([
-        { name: 'delete', label: 'Delete competition' },
+        { name: 'delete', label: 'Delete' },
       ]);
     });
   });
@@ -858,7 +882,7 @@ describe('CompetitionListCard', () => {
 
       expect(screen.getByTestId('full-featured-card')).toBeTruthy();
       expect(screen.getByTestId('status-badge-active')).toBeTruthy();
-      expect(screen.getByTestId('pill-organizer')).toBeTruthy();
+      expect(screen.getByTestId('pill-organiser')).toBeTruthy();
       expect(screen.getByTestId('icon-trash')).toBeTruthy();
     });
 
@@ -904,7 +928,7 @@ describe('CompetitionListCard', () => {
       expect(screen.getByTestId('status-badge-active')).toBeTruthy();
       expect(screen.getByText('6 rounds')).toBeTruthy();
       expect(screen.getByText('24 players')).toBeTruthy();
-      expect(screen.getByTestId('pill-organizer')).toBeTruthy();
+      expect(screen.getByTestId('pill-organiser')).toBeTruthy();
       expect(screen.getByTestId('datetime-display')).toBeTruthy();
     });
   });

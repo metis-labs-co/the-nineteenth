@@ -6,13 +6,10 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LoadingSpinner } from '@/components/common';
+import { EmptyState, ErrorState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
 
 interface ScorecardLoadingStateProps {
   message?: string;
@@ -25,7 +22,7 @@ export function ScorecardLoadingState({
 
   return (
     <SafeAreaView
-      style={[styles.centeredContainer, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       <LoadingSpinner size="lg" message={message} />
     </SafeAreaView>
@@ -43,29 +40,14 @@ export function ScorecardPlayerNotFound({
 
   return (
     <SafeAreaView
-      style={[styles.centeredContainer, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <MaterialCommunityIcons
-        name="account-question"
-        size={64}
-        color={colors.gray400}
+      <ErrorState
+        title="Player Not Found"
+        error="The requested player could not be found in this round."
+        onRetry={onGoBack}
+        retryLabel="Go Back"
       />
-      <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
-        Player Not Found
-      </Text>
-      <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-        The requested player could not be found in this round.
-      </Text>
-      <TouchableOpacity
-        style={[styles.errorButton, { backgroundColor: colors.primary }]}
-        onPress={onGoBack}
-        accessibilityLabel="Go back"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.errorButtonText, { color: colors.textInverse }]}>
-          Go Back
-        </Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -83,57 +65,21 @@ export function ScorecardNoScores({
 
   return (
     <SafeAreaView
-      style={[styles.centeredContainer, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <MaterialCommunityIcons
-        name="card-text-outline"
-        size={64}
-        color={colors.gray400}
+      <EmptyState
+        title="No Scores Yet"
+        message={`${playerName} hasn't recorded any scores for this round yet.`}
+        icon="card-text-outline"
+        actionLabel="Go Back"
+        onAction={onGoBack}
       />
-      <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
-        No Scores Yet
-      </Text>
-      <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-        {playerName} hasn&apos;t recorded any scores for this round yet.
-      </Text>
-      <TouchableOpacity
-        style={[styles.errorButton, { backgroundColor: colors.primary }]}
-        onPress={onGoBack}
-        accessibilityLabel="Go back"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.errorButtonText, { color: colors.textInverse }]}>
-          Go Back
-        </Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  centeredContainer: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxl,
-  },
-  errorTitle: {
-    ...typography.h2,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  errorButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  errorButtonText: {
-    ...typography.bodyBold,
   },
 });

@@ -133,7 +133,7 @@ export function ConfirmationDialog({
                   style={[
                     styles.button,
                     styles.cancelButton,
-                    { backgroundColor: colors.gray100 },
+                    { backgroundColor: colors.surfaceVariant },
                   ]}
                   onPress={onCancel}
                   disabled={loading}
@@ -162,7 +162,7 @@ export function ConfirmationDialog({
                   {loading ? (
                     <GolfBallLoader size="sm" />
                   ) : (
-                    <Text style={[styles.buttonText, { color: colors.textInverse }]}>
+                    <Text style={[styles.buttonText, { color: colors.textOnColored }]}>
                       {confirmLabel}
                     </Text>
                   )}

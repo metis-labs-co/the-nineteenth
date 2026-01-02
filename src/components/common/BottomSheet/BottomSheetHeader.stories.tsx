@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Text as RNText } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { BottomSheetHeader } from './BottomSheetHeader';
 import { Text, Icon } from 'react-native-paper';

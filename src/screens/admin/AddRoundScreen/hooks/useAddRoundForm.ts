@@ -12,39 +12,18 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { format, parse, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import type { GameType, TeamFormat, Competition } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { RoundFormData, FormErrors } from '../types';
 import { INITIAL_FORM_DATA } from '../types';
-
-// Parse DD/MM/YYYY string to Date object
-export const parseAustralianDate = (dateString: string): Date | null => {
-  if (!dateString) return null;
-  const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
-  return isValid(parsed) ? parsed : null;
-};
-
-// Format Date to DD/MM/YYYY string
-export const formatAustralianDate = (date: Date): string => {
-  return format(date, 'dd/MM/yyyy');
-};
-
-// Format time for display (HH:MM)
-export const formatTime = (date: Date): string => {
-  return format(date, 'HH:mm');
-};
-
-// Parse HH:MM string to Date object
-export const parseTime = (timeString: string): Date | null => {
-  if (!timeString) return null;
-  const [hours, minutes] = timeString.split(':').map(Number);
-  if (isNaN(hours) || isNaN(minutes)) return null;
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date;
-};
+import {
+  parseAustralianDate,
+  formatDateAustralian,
+  formatTimeHHMM,
+  parseTime,
+} from '@/utils/formatting';
 
 /**
  * Fetch competition details to get team_mode
@@ -76,6 +55,7 @@ async function createRound(
     throw new Error('Invalid date format');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
   const { data: insertedRound, error } = await (supabase as any)
     .from('rounds')
     .insert({
@@ -225,7 +205,7 @@ export function useAddRoundForm({
 
   // Handle date change
   const handleDateChange = useCallback((date: Date) => {
-    setFormData((prev) => ({ ...prev, date: formatAustralianDate(date) }));
+    setFormData((prev) => ({ ...prev, date: formatDateAustralian(date) }));
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.date;
@@ -235,7 +215,7 @@ export function useAddRoundForm({
 
   // Handle time change
   const handleTimeChange = useCallback((time: Date) => {
-    setFormData((prev) => ({ ...prev, teeTime: formatTime(time) }));
+    setFormData((prev) => ({ ...prev, teeTime: formatTimeHHMM(time) }));
   }, []);
 
   // Clear tee time
@@ -313,6 +293,7 @@ export function useAddRoundForm({
     if (validateForm()) {
       createMutation.mutate();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- createMutation.mutate and validateForm are stable
   }, [formData]);
 
   // Get selected date for picker

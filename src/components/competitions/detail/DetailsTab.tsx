@@ -54,7 +54,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   isOrganizer,
   onViewCourse,
   onEdit,
-  onUpdateCompetition,
+  onUpdateCompetition: _onUpdateCompetition,
 }: DetailsTabProps) {
   // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {

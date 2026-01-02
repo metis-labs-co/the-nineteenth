@@ -48,17 +48,17 @@ jest.mock('@/services/queryClient', () => ({
 }));
 
 // Store the network change handler for testing
-let networkChangeHandler: ((state: { isConnected: boolean | null; type: string; isInternetReachable: boolean | null }) => Promise<void>) | null = null;
+let _networkChangeHandler: ((state: { isConnected: boolean | null; type: string; isInternetReachable: boolean | null }) => Promise<void>) | null = null;
 const mockUnsubscribe = jest.fn();
 
 // Reset mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
-  networkChangeHandler = null;
+  _networkChangeHandler = null;
 
   // Reset NetInfo mock
-  (NetInfo.addEventListener as jest.Mock).mockImplementation((handler) => {
-    networkChangeHandler = handler;
+  (NetInfo.addEventListener as jest.Mock).mockImplementation((_handler) => {
+    _networkChangeHandler = _handler;
     return mockUnsubscribe;
   });
   (NetInfo.fetch as jest.Mock).mockResolvedValue({

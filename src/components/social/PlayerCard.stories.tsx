@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { PlayerCard, PlayerCardProps, PlayerCardData, BadgeConfig } from './PlayerCard';
+import { PlayerCard, PlayerCardData, BadgeConfig } from './PlayerCard';
 import { spacing, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -118,7 +118,6 @@ const createPlayer = (overrides: Partial<PlayerCardData> = {}): PlayerCardData =
 const createBadge = (overrides: Partial<BadgeConfig> = {}): BadgeConfig => ({
   label: 'You',
   backgroundColor: '#DCFCE7',
-  textColor: '#166534',
   ...overrides,
 });
 
@@ -303,7 +302,6 @@ export const WithOrganiserBadge: Story = {
             badge={createBadge({
               label: 'Organiser',
               backgroundColor: '#DBEAFE',
-              textColor: '#1E40AF',
             })}
           />
         </CardWrapper>
@@ -322,7 +320,6 @@ export const WithLeaderBadge: Story = {
             badge={createBadge({
               label: 'Leader',
               backgroundColor: '#FEF3C7',
-              textColor: '#D97706',
             })}
           />
         </CardWrapper>
@@ -345,7 +342,6 @@ export const MultipleBadgeStyles: Story = {
             badge={createBadge({
               label: 'Organiser',
               backgroundColor: '#DBEAFE',
-              textColor: '#1E40AF',
             })}
           />
           <PlayerCard
@@ -353,7 +349,6 @@ export const MultipleBadgeStyles: Story = {
             badge={createBadge({
               label: 'Leader',
               backgroundColor: '#FEF3C7',
-              textColor: '#D97706',
             })}
           />
           <PlayerCard
@@ -361,7 +356,6 @@ export const MultipleBadgeStyles: Story = {
             badge={createBadge({
               label: 'Captain',
               backgroundColor: '#E0E7FF',
-              textColor: '#4338CA',
             })}
           />
         </CardWrapper>
@@ -577,7 +571,6 @@ export const CompetitionPlayerList: Story = {
             badge={createBadge({
               label: 'Organiser',
               backgroundColor: '#DBEAFE',
-              textColor: '#1E40AF',
             })}
             showEmail={false}
           />
@@ -684,7 +677,6 @@ export const LeaderboardPlayers: Story = {
             badge={createBadge({
               label: '1st',
               backgroundColor: '#FEF3C7',
-              textColor: '#D97706',
             })}
             handicapColor="#22C55E"
             showEmail={false}
@@ -695,7 +687,6 @@ export const LeaderboardPlayers: Story = {
             badge={createBadge({
               label: '2nd',
               backgroundColor: '#E5E7EB',
-              textColor: '#4B5563',
             })}
             showEmail={false}
           />
@@ -705,7 +696,6 @@ export const LeaderboardPlayers: Story = {
             badge={createBadge({
               label: '3rd',
               backgroundColor: '#FED7AA',
-              textColor: '#C2410C',
             })}
             showEmail={false}
           />

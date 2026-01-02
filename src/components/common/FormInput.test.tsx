@@ -45,13 +45,13 @@ jest.mock('react-native-paper', () => {
       accessibilityLabel,
       accessibilityHint,
       style,
-      outlineColor,
-      activeOutlineColor,
-      textColor,
+      _outlineColor,
+      _activeOutlineColor,
+      _textColor,
       error,
       left,
       right,
-      mode,
+      _mode,
       ...rest
     } = props;
 
@@ -93,6 +93,7 @@ jest.mock('react-native-paper', () => {
       </View>
     );
   });
+  MockTextInput.displayName = 'MockTextInput';
 
   const TextInputAffix = ({ text }: { text: string }) => (
     <Text testID="text-affix">{text}</Text>
@@ -109,7 +110,7 @@ jest.mock('react-native-paper', () => {
     accessibilityLabel?: string;
     disabled?: boolean;
   }) => {
-    const { TouchableOpacity, View: RNView, Text: RNText } = require('react-native');
+    const { TouchableOpacity, View: _RNView, Text: RNText } = require('react-native');
     return (
       <TouchableOpacity
         testID={`icon-${icon}`}
@@ -535,7 +536,7 @@ describe('FormInput', () => {
   describe('Styling', () => {
     it('applies container style when provided', () => {
       const containerStyle = { marginTop: 20 };
-      const { UNSAFE_root } = render(
+      const { UNSAFE_root: _UNSAFE_root } = render(
         <FormInput {...defaultProps} containerStyle={containerStyle} />
       );
       // Verify component renders (style is applied internally)

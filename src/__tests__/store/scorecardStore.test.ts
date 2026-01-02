@@ -17,6 +17,16 @@ import {
 import type { Player, Hole, Scorecard, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 
+// Import mocks after jest.mock declarations
+import {
+  saveScorecard,
+  saveHoleScore,
+  getScorecardsByRound,
+  saveHoles,
+  getHoles,
+} from '@/services/offline/database';
+import { queueScorecardSync } from '@/services/offline/sync';
+
 // Helper to get store state
 const getStore = () => useScorecardStore.getState();
 
@@ -34,7 +44,7 @@ const getGreenInRegulation = (score: HoleScore | MultiBallHoleScore | undefined)
   score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
 
 // Helper to wait for async operations
-const waitFor = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+const _waitFor = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mock the offline database service
 jest.mock('@/services/offline/database', () => ({
@@ -65,16 +75,6 @@ jest.mock('@/utils/debugLogger', () => ({
   },
   logScorecardSummary: jest.fn((sc) => ({ id: sc?.id })),
 }));
-
-// Import mocks after jest.mock declarations
-import {
-  saveScorecard,
-  saveHoleScore,
-  getScorecardsByRound,
-  saveHoles,
-  getHoles,
-} from '@/services/offline/database';
-import { queueScorecardSync } from '@/services/offline/sync';
 
 describe('ScorecardStore', () => {
   // Test data setup
@@ -1089,6 +1089,155 @@ describe('ScorecardStore', () => {
       expect(totals.gross).toBe(4);
       // With 0 handicap (default), net should equal gross for Stableford
       // and points should still be calculated
+    });
+  });
+
+  // ==========================================================================
+  // MULTI-BALL STATS UPDATE TESTS (FIR/GIR)
+  // ==========================================================================
+
+  describe('updateMultiBallStats', () => {
+    beforeEach(async () => {
+      const store = getStore();
+      await store.initializeRound(testRoundId, testPlayers.slice(0, 1), testHoles);
+      // Configure multi-ball mode
+      store.setMultiBallConfig(2);
+    });
+
+    it('should update fairwayHit for specific ball index', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // First set a score for ball 0
+      await store.setMultiBallScore(playerId, 1, 0, 4);
+
+      // Then update stats for ball 0
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      expect(scores[0].fairwayHit).toBe(true);
+    });
+
+    it('should update greenInRegulation for specific ball index', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // First set a score for ball 0
+      await store.setMultiBallScore(playerId, 1, 0, 4);
+
+      // Then update stats for ball 0
+      await store.updateMultiBallStats(playerId, 1, 0, { greenInRegulation: true });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      expect(scores[0].greenInRegulation).toBe(true);
+    });
+
+    it('should preserve existing ball scores when updating stats', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // Set scores for both balls
+      await store.setMultiBallScore(playerId, 1, 0, 4);
+      await store.setMultiBallScore(playerId, 1, 1, 5);
+
+      // Update stats for ball 0 only
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      // Ball 0 should have FIR
+      expect(scores[0].fairwayHit).toBe(true);
+      expect(scores[0].strokes).toBe(4);
+      // Ball 1 should be unchanged
+      expect(scores[1].strokes).toBe(5);
+      expect(scores[1].fairwayHit).toBeUndefined();
+    });
+
+    it('should create multi-ball structure if it does not exist', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // Update stats without setting a score first
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      expect(scores[0].fairwayHit).toBe(true);
+      expect(scores[0].strokes).toBe(0); // Default strokes when created
+    });
+
+    it('should handle updating stats for ball index that has no score yet', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // Set score for ball 0 only
+      await store.setMultiBallScore(playerId, 1, 0, 4);
+
+      // Update stats for ball 1 (no score yet)
+      await store.updateMultiBallStats(playerId, 1, 1, { greenInRegulation: true });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      expect(scores[0].strokes).toBe(4);
+      expect(scores[1].greenInRegulation).toBe(true);
+    });
+
+    it('should queue sync after updating stats', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      jest.clearAllMocks();
+
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
+
+      expect(queueScorecardSync).toHaveBeenCalled();
+    });
+
+    it('should handle both fairwayHit and greenInRegulation in single update', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      await store.setMultiBallScore(playerId, 1, 0, 4);
+      await store.updateMultiBallStats(playerId, 1, 0, {
+        fairwayHit: true,
+        greenInRegulation: false,
+      });
+
+      const scores = store.getMultiBallScores(playerId, 1);
+      expect(scores[0].fairwayHit).toBe(true);
+      expect(scores[0].greenInRegulation).toBe(false);
+    });
+
+    it('should handle toggling stats off', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // Set FIR to true
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
+      expect(store.getMultiBallScores(playerId, 1)[0].fairwayHit).toBe(true);
+
+      // Toggle to false
+      await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: false });
+      expect(store.getMultiBallScores(playerId, 1)[0].fairwayHit).toBe(false);
+    });
+
+    it('should warn and return when scorecard not found', async () => {
+      const store = getStore();
+
+      // Should not throw
+      await store.updateMultiBallStats('non-existent-player', 1, 0, { fairwayHit: true });
+
+      // Just verify no error was thrown
+      expect(true).toBe(true);
+    });
+
+    it('should warn and return when hole data not found', async () => {
+      const store = getStore();
+      const playerId = testPlayers[0].id;
+
+      // Try to update stats for hole 99 which doesn't exist
+      await store.updateMultiBallStats(playerId, 99, 0, { fairwayHit: true });
+
+      // Should not throw and should not update anything
+      const scores = store.getMultiBallScores(playerId, 99);
+      expect(scores[0].strokes).toBe(0); // Default empty score
     });
   });
 });

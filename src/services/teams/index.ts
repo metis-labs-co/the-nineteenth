@@ -2,6 +2,8 @@
  * Teams Service Module
  *
  * Re-exports all team-related services and types.
+ *
+ * This is the canonical team service. Do not use @/services/api/teams directly.
  */
 
 export {
@@ -13,6 +15,8 @@ export {
   updateTeamName,
   deleteTeam,
   autoGenerateTeams,
+  addTeamMember,
+  removeTeamMember,
 } from './teamService';
 
 export type { CreateTeamInput, TeamServiceError } from './teamService';

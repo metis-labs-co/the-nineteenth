@@ -79,6 +79,7 @@ export function useSetHomeVenue() {
       if (!user) throw new Error('Must be logged in to set home venue');
 
       // Update player's home_venue_id
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { error } = await (supabase as any)
         .from('players')
         .update({ home_venue_id: venueId })
@@ -109,6 +110,8 @@ export function useClearHomeVenue() {
     mutationFn: async () => {
       if (!user) throw new Error('Must be logged in to clear home venue');
 
+      // Type assertion needed because Supabase generated types may not include all Player fields
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { error } = await (supabase as any)
         .from('players')
         .update({ home_venue_id: null })

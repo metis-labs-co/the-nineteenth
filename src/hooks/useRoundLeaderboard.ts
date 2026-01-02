@@ -21,10 +21,6 @@ import { supabase } from '@/services/supabase/client';
 import type {
   GameType,
   TeamFormat,
-  Player,
-  Team,
-  TeamWithMembers,
-  RoundResult,
   RoundResultData,
 } from '@/types/database.types';
 

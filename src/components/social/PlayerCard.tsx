@@ -1,13 +1,13 @@
 // src/components/social/PlayerCard.tsx
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
-import { PlayerAvatar } from '@/components/common';
+import { PlayerAvatar, CardContainer } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { StatusBadge } from '@/components/common/StatusBadge';
 
 /**
@@ -27,7 +27,6 @@ export interface PlayerCardData {
 export interface BadgeConfig {
   label: string;
   backgroundColor: string;
-  textColor: string;
 }
 
 /**
@@ -106,7 +105,7 @@ export interface PlayerCardProps {
  * // With badge and action
  * <PlayerCard
  *   player={player}
- *   badge={{ label: 'You', backgroundColor: colors.primaryLighter, textColor: colors.primaryDark }}
+ *   badge={{ label: 'You', backgroundColor: colors.primaryLighter }}
  *   rightAction={<Icon source="chevron-right" size={20} color={colors.gray400} />}
  *   onPress={() => navigation.navigate('PlayerDetail', { id: player.id })}
  * />
@@ -165,7 +164,6 @@ export const PlayerCard = React.memo(function PlayerCard({
               status="custom"
               label={badge.label}
               backgroundColor={badge.backgroundColor}
-              textColor={badge.textColor}
               size="sm"
             />
           )}
@@ -194,55 +192,44 @@ export const PlayerCard = React.memo(function PlayerCard({
     </View>
   );
 
-  // If not pressable, render without Pressable wrapper
-  if (!isPressable) {
+  // For list-item variant, use simpler styling without card container
+  if (isListItem) {
     return (
-      <View
+      <CardContainer
+        onPress={isPressable ? handlePress : undefined}
+        padding="md"
+        noBorder
+        elevated={false}
         style={[
-          isListItem ? styles.listItemContainer : styles.cardContainer,
-          {
-            backgroundColor: isListItem ? 'transparent' : colors.surface,
-            borderColor: colors.border,
-          },
+          styles.listItemStyle,
+          { backgroundColor: 'transparent' },
           containerStyle,
         ]}
+        accessibilityLabel={`View ${player.name}'s profile`}
+        accessibilityHint="Tap to view profile and stats"
         testID={testID}
       >
         {content}
-      </View>
+      </CardContainer>
     );
   }
 
+  // Card variant with full styling
   return (
-    <TouchableOpacity
-      style={[
-        isListItem ? styles.listItemContainer : styles.cardContainer,
-        {
-          backgroundColor: isListItem ? 'transparent' : colors.surface,
-          borderColor: colors.border,
-        },
-        containerStyle,
-      ]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
+    <CardContainer
+      onPress={isPressable ? handlePress : undefined}
       accessibilityLabel={`View ${player.name}'s profile`}
       accessibilityHint="Tap to view profile and stats"
       testID={testID}
+      style={containerStyle}
     >
       {content}
-    </TouchableOpacity>
+    </CardContainer>
   );
 });
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
-    ...shadows.sm,
-  },
-  listItemContainer: {
+  listItemStyle: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },

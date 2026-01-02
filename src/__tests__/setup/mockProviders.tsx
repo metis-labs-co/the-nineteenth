@@ -184,7 +184,7 @@ export function TestProviders({
   children,
   isDarkMode = false,
   queryClient,
-  initialRoute,
+  initialRoute: _initialRoute,
 }: TestWrapperProps) {
   const testQueryClient = queryClient || createTestQueryClient();
   const paperTheme = isDarkMode ? mockDarkPaperTheme : mockLightPaperTheme;

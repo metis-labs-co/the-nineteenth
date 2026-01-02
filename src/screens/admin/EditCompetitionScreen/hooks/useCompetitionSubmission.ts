@@ -9,7 +9,7 @@ import { supabase } from '@/services/supabase/client';
 import type { Competition } from '@/types/database.types';
 import type { CompetitionUpdateInput } from '../types';
 import type { EditCompetitionFormData } from './useCompetitionValidation';
-import { parseAustralianDate } from '../utils';
+import { parseAustralianDate } from '@/utils/formatting';
 
 interface UseCompetitionSubmissionOptions {
   competitionId: string;

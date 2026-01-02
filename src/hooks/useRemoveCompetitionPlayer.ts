@@ -13,13 +13,13 @@
 
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   checkPlayerScoringPairs,
   removePlayerFromCompetition,
   type PlayerRemovalCheck,
 } from '@/services/competitionPlayers';
-import { competitionKeys, scoringPairsKeys } from './queryKeys';
+import { competitionKeys } from './queryKeys';
 
 // =====================================================
 // TYPES

@@ -3,8 +3,6 @@
 export { RoundListCard } from './RoundListCard';
 export { RoundCardHeader } from './RoundCardHeader';
 export { RoundCardMeta } from './RoundCardMeta';
-export { RoundCardActions } from './RoundCardActions';
-export { useSwipeGesture, DELETE_BUTTON_WIDTH } from './useSwipeGesture';
 export type {
   RoundListCardData,
   RoundListCardProps,
@@ -12,4 +10,4 @@ export type {
   RoundCourse,
   RoundCompetition,
 } from './types';
-export { formatGameType, getStatusVariant } from './types';
+export { getStatusVariant } from './types';

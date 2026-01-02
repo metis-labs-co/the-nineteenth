@@ -32,8 +32,6 @@ import {
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common';
-import { ScorecardDebugPanel } from '@/components/scorecard';
-import { useDebugMode } from '@/store/settingsStore';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 
@@ -47,10 +45,6 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, player1Id, player2Id, team1Id, team2Id } = route.params;
   const colors = useThemeColors();
-
-  // Debug mode
-  const { debugModeEnabled } = useDebugMode();
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // State
   const [isLoading] = useState(false);
@@ -267,18 +261,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         title="Match Play"
         showBack
         onBack={handleBackPress}
-        rightActions={
-          debugModeEnabled
-            ? [
-                {
-                  icon: 'bug-outline' as const,
-                  onPress: () => setShowDebugPanel(true),
-                  accessibilityLabel: 'Show debug panel',
-                  color: colors.warning,
-                },
-              ]
-            : undefined
-        }
       />
 
       {/* Match Status Bar */}
@@ -424,28 +406,6 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
           </View>
         )}
       </View>
-
-      {/* Debug Panel */}
-      <ScorecardDebugPanel
-        visible={showDebugPanel}
-        onClose={() => setShowDebugPanel(false)}
-        roundId={roundId}
-        matchPlayData={{
-          player1: player1,
-          player2: player2,
-          holeResults: Object.fromEntries(
-            Object.entries(holeResults).map(([hole, result]) => [
-              hole,
-              {
-                player1Score: result.player1Score,
-                player2Score: result.player2Score,
-                winner: result.winner,
-              },
-            ])
-          ),
-          matchStatus: matchStatusText,
-        }}
-      />
     </SafeAreaView>
   );
 }

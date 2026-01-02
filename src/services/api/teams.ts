@@ -1,11 +1,58 @@
 /**
  * API Team Functions
  * Functions for team CRUD operations
+ *
+ * @deprecated This module is deprecated. Use @/services/teams instead.
+ *
+ * The canonical team service is at @/services/teams/teamService.ts which provides:
+ * - Better error handling with typed TeamServiceError
+ * - More complete functionality (autoGenerateTeams, updateTeamMembers)
+ * - Consistent with the rest of the codebase
+ *
+ * This file is kept for backward compatibility with apiClient but is not actively used.
+ * All team operations in the app use @/services/teams.
  */
 
 import { supabase } from '@/services/supabase/client';
 import type { Team as DBTeam } from '@/types/database.types';
 import type { Team, TeamCreateInput } from './types';
+
+// =====================================================
+// SUPABASE QUERY RESPONSE TYPES
+// =====================================================
+
+/**
+ * Raw player data from Supabase query
+ */
+interface PlayerQueryRow {
+  id: string;
+  name: string;
+  email: string;
+  handicap: number;
+  photo_url: string | null;
+}
+
+/**
+ * Raw team member from Supabase join query
+ */
+interface TeamMemberQueryRow {
+  team_id: string;
+  player_id: string;
+  joined_at: string;
+  players: PlayerQueryRow | null;
+}
+
+/**
+ * Raw team from Supabase query with nested team_members
+ */
+interface TeamQueryRow {
+  id: string;
+  competition_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  team_members: TeamMemberQueryRow[];
+}
 
 /**
  * Create a new team in a competition
@@ -92,11 +139,12 @@ export async function getTeams(competitionId: string): Promise<Team[]> {
     throw new Error(`Failed to fetch teams: ${error.message}`);
   }
 
-  return (teams || []).map((t: any) => ({
+  const typedTeams = (teams as TeamQueryRow[]) || [];
+  return typedTeams.map((t) => ({
     id: t.id,
     competitionId: t.competition_id,
     name: t.name,
-    members: (t.team_members || []).map((m: any) => ({
+    members: (t.team_members || []).map((m: TeamMemberQueryRow) => ({
       teamId: m.team_id,
       playerId: m.player_id,
       joinedAt: new Date(m.joined_at),
@@ -149,12 +197,12 @@ export async function getTeam(teamId: string): Promise<Team | null> {
     throw new Error(`Failed to fetch team: ${error.message}`);
   }
 
-  const t = team as any;
+  const t = team as TeamQueryRow;
   return {
     id: t.id,
     competitionId: t.competition_id,
     name: t.name,
-    members: (t.team_members || []).map((m: any) => ({
+    members: (t.team_members || []).map((m: TeamMemberQueryRow) => ({
       teamId: m.team_id,
       playerId: m.player_id,
       joinedAt: new Date(m.joined_at),

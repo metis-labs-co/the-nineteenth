@@ -264,7 +264,7 @@ export const WithLoadingInput: Story = {
   render: () => {
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSelect = (prompt: string) => {
+    const handleSelect = (_prompt: string) => {
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 2000);
     };

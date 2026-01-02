@@ -14,15 +14,14 @@ import { Text } from 'react-native-paper';
 import { PageHeader, OfflineIndicator } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import type { Player } from '@/types';
+import type { Player, TeeBox } from '@/types';
 
 export interface ScorecardHeaderProps {
   courseName?: string;
+  selectedTee?: TeeBox | null;
   onBack: () => void;
-  onDebugPress?: () => void;
   onDeletePress?: () => void;
   isStandaloneRound: boolean;
-  debugModeEnabled: boolean;
   // Offline/sync state
   isOnline: boolean;
   isSyncing: boolean;
@@ -35,11 +34,10 @@ export interface ScorecardHeaderProps {
 
 export function ScorecardHeader({
   courseName,
+  selectedTee,
   onBack,
-  onDebugPress,
   onDeletePress,
   isStandaloneRound,
-  debugModeEnabled,
   isOnline,
   isSyncing,
   pendingSyncCount,
@@ -48,6 +46,20 @@ export function ScorecardHeader({
   playersToScore,
 }: ScorecardHeaderProps) {
   const colors = useThemeColors();
+
+  // Build subtitle with course name and tee info
+  const getSubtitle = (): string | undefined => {
+    if (!courseName) return undefined;
+
+    if (selectedTee?.name) {
+      const teeInfo = selectedTee.color
+        ? `${selectedTee.name} (${selectedTee.color})`
+        : selectedTee.name;
+      return `${courseName} - ${teeInfo}`;
+    }
+
+    return courseName;
+  };
 
   // Sync line animation
   const syncLineAnim = useRef(new Animated.Value(0)).current;
@@ -83,17 +95,6 @@ export function ScorecardHeader({
 
   // Build right action buttons
   const rightActions = [
-    // Debug button (only shown when debug mode is enabled)
-    ...(debugModeEnabled && onDebugPress
-      ? [
-          {
-            icon: 'bug-outline' as const,
-            onPress: onDebugPress,
-            accessibilityLabel: 'Show debug panel',
-            color: colors.warning,
-          },
-        ]
-      : []),
     // Delete button for standalone rounds
     ...(isStandaloneRound && onDeletePress
       ? [
@@ -111,7 +112,7 @@ export function ScorecardHeader({
     <>
       <PageHeader
         title="Score Entry"
-        subtitle={courseName ?? undefined}
+        subtitle={getSubtitle()}
         showBack
         onBack={onBack}
         rightActions={rightActions}

@@ -14,19 +14,19 @@ import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FeatureLock } from './FeatureLock';
-import { SubscriptionProvider } from '@/context/SubscriptionContext';
-import type { FeatureId, SubscriptionTier } from '@/types/subscription.types';
+import type { SubscriptionTier } from '@/types/subscription.types';
 
 // ============================================================================
 // MOCK PROVIDER WRAPPER
 // ============================================================================
 
 // We need to mock the subscription context for stories
-const MockSubscriptionProvider = ({
+// Note: Currently not used - stories demonstrate visual states directly
+const _MockSubscriptionProvider = ({
   children,
-  allowed = true,
-  reason,
-  requiredTier,
+  allowed: _allowed = true,
+  reason: _reason,
+  requiredTier: _requiredTier,
 }: {
   children: React.ReactNode;
   allowed?: boolean;
@@ -262,7 +262,7 @@ export const LockedDefault: Story = {
     feature: 'scoring_pairs',
     lockedMessage: 'Upgrade to unlock',
   },
-  render: (args) => (
+  render: (_args) => (
     <View style={{ opacity: 0.5 }}>
       <SampleCard
         title="Scoring Pairs"

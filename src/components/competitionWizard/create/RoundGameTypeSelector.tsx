@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, RadioButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -142,10 +142,14 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
   // Use prop allowedGameTypes if provided, otherwise use subscription limits
   const allowedGameTypes = propAllowedGameTypes ?? limits?.allowedGameTypes ?? ['stableford'];
 
+  // Memoize allowedGameTypes array to ensure stable reference
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- using JSON.stringify for deep comparison
+  const memoizedAllowedTypes = useMemo(() => allowedGameTypes, [JSON.stringify(allowedGameTypes)]);
+
   // Check if a game type is allowed
   const isGameTypeAllowed = useCallback((gameType: GameType): boolean => {
-    return allowedGameTypes.includes(gameType);
-  }, [allowedGameTypes]);
+    return memoizedAllowedTypes.includes(gameType);
+  }, [memoizedAllowedTypes]);
 
   const handlePress = useCallback((option: GameTypeOption) => {
     if (disabled) return;

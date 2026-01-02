@@ -16,9 +16,7 @@ import {
 import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
 import type { Hole, Player, Scorecard, HoleScore } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-
-// Pickup score constant (must match PlayerScoreCard)
-const PICKUP_SCORE = 10;
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 export interface PlayerStats {
   front9Gross: number;
@@ -33,6 +31,11 @@ export interface PlayerStats {
   totalPar: number;
   front9Par: number;
   back9Par: number;
+  // FIR/GIR stats
+  totalFairwaysHit: number;
+  totalFairwaysPossible: number; // Par 4+ holes only
+  totalGIR: number;
+  totalGIRPossible: number;
 }
 
 export interface HoleRowData {
@@ -42,6 +45,8 @@ export interface HoleRowData {
   stablefordPoints: number;
   strokesReceived: number;
   isPickup: boolean;
+  fairwayHit: boolean | undefined;
+  greenInRegulation: boolean | undefined;
 }
 
 // Multi-ball specific types
@@ -49,6 +54,8 @@ export interface BallScoreData {
   strokes: number | undefined;
   stablefordPoints: number;
   isPickup: boolean;
+  fairwayHit: boolean | undefined;
+  greenInRegulation: boolean | undefined;
 }
 
 export interface MultiBallHoleRowData {
@@ -146,6 +153,8 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       const score = rawScore && isSingleBallScore(rawScore) ? rawScore : rawScore?.balls?.[0];
       const strokes = score?.strokes;
       const putts = score?.putts;
+      const fairwayHit = score?.fairwayHit;
+      const greenInRegulation = score?.greenInRegulation;
       const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
       const isPickup = strokes !== undefined && strokes >= PICKUP_SCORE;
 
@@ -161,6 +170,8 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
         stablefordPoints,
         strokesReceived,
         isPickup,
+        fairwayHit,
+        greenInRegulation,
       };
     });
   }, [holes, scorecard, player?.handicap]);
@@ -175,9 +186,14 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     let back9Putts = 0;
     let front9Par = 0;
     let back9Par = 0;
+    // FIR/GIR tracking
+    let totalFairwaysHit = 0;
+    let totalFairwaysPossible = 0; // Par 4+ holes only
+    let totalGIR = 0;
+    let totalGIRPossible = 0;
 
     holeRowData.forEach((data) => {
-      const { hole, strokes, putts, stablefordPoints } = data;
+      const { hole, strokes, putts, stablefordPoints, fairwayHit, greenInRegulation, isPickup } = data;
 
       if (hole.number <= 9) {
         front9Par += hole.par;
@@ -189,6 +205,22 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
         if (strokes) back9Gross += strokes;
         back9Stableford += stablefordPoints;
         if (putts) back9Putts += putts;
+      }
+
+      // FIR: Only count for par 4+ holes where score was entered (not picked up)
+      if (hole.par >= 4 && strokes !== undefined && !isPickup) {
+        totalFairwaysPossible++;
+        if (fairwayHit === true) {
+          totalFairwaysHit++;
+        }
+      }
+
+      // GIR: Count for all holes where score was entered (not picked up)
+      if (strokes !== undefined && !isPickup) {
+        totalGIRPossible++;
+        if (greenInRegulation === true) {
+          totalGIR++;
+        }
       }
     });
 
@@ -205,6 +237,11 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       totalPar: front9Par + back9Par,
       front9Par,
       back9Par,
+      // FIR/GIR stats
+      totalFairwaysHit,
+      totalFairwaysPossible,
+      totalGIR,
+      totalGIRPossible,
     };
   }, [holeRowData]);
 
@@ -236,18 +273,20 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
           const ballScore = score.balls[i] as HoleScore | undefined;
           const strokes = ballScore?.strokes;
           const isPickup = strokes !== undefined && strokes >= PICKUP_SCORE;
+          const fairwayHit = ballScore?.fairwayHit;
+          const greenInRegulation = ballScore?.greenInRegulation;
 
           let stablefordPoints = 0;
           if (strokes && strokes > 0 && !isPickup) {
             stablefordPoints = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
           }
 
-          balls.push({ strokes, stablefordPoints, isPickup });
+          balls.push({ strokes, stablefordPoints, isPickup, fairwayHit, greenInRegulation });
         }
       } else {
         // No scores yet - create empty ball data
         for (let i = 0; i < ballCount; i++) {
-          balls.push({ strokes: undefined, stablefordPoints: 0, isPickup: false });
+          balls.push({ strokes: undefined, stablefordPoints: 0, isPickup: false, fairwayHit: undefined, greenInRegulation: undefined });
         }
       }
 

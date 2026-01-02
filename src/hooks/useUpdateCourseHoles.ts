@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { courseKeys, venueKeys } from '@/hooks/queryKeys';
 import type { Hole } from '@/types/database/base';
+import type { Course } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -42,10 +43,12 @@ export function useUpdateCourseHoles() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ courseId, holes }: UpdateCourseHolesInput) => {
-      // Use 'as any' for the table reference because Supabase generated types
-      // may not include JSONB fields like 'holes' in the update type
-      const { data, error } = await (supabase.from('courses') as any)
+    mutationFn: async ({ courseId, holes }: UpdateCourseHolesInput): Promise<Course> => {
+      // Type assertion needed because Supabase generated types may not include
+      // JSONB fields like 'holes' in the update type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { data, error } = await (supabase as any)
+        .from('courses')
         .update({
           holes,
           updated_at: new Date().toISOString(),
@@ -55,6 +58,7 @@ export function useUpdateCourseHoles() {
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error('No data returned from update');
       return data;
     },
     onSuccess: (_, { courseId }) => {

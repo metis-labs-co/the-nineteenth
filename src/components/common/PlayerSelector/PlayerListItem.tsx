@@ -95,25 +95,25 @@ export const PlayerListItem = memo(function PlayerListItem({
               styles.selectionButton,
               {
                 backgroundColor: isLocked
-                  ? colors.gray200
+                  ? colors.surfaceVariant
                   : effectiveSelected
                     ? colors.primary
-                    : colors.gray100,
+                    : colors.surfaceVariant,
               },
             ]}
           >
             {isLocked ? (
-              <IconLock size={20} color={colors.gray400} />
+              <IconLock size={20} color={colors.textDisabled} />
             ) : effectiveSelected ? (
               <IconCheck size={20} color={colors.white} />
             ) : (
-              <IconPlus size={20} color={colors.gray400} />
+              <IconPlus size={20} color={colors.textSecondary} />
             )}
           </View>
         </View>
       </TouchableOpacity>
       {showDivider && (
-        <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
       )}
     </>
   );

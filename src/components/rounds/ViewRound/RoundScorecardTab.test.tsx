@@ -13,9 +13,9 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundScorecardTab } from './RoundScorecardTab';
-import { create18Holes, createTestPlayer } from '@/__tests__/utils/testFixtures';
-import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
-import type { Hole, Player } from '@/types/database.types';
+import { create18Holes } from '@/__tests__/utils/testFixtures';
+import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
+import type { Hole } from '@/types/database.types';
 
 // Mock the ScorecardTable and ScoreIndicator components
 jest.mock('@/components/scorecard', () => {
@@ -47,13 +47,13 @@ jest.mock('@/components/scorecard', () => {
     ),
     ScoreIndicator: ({
       strokes,
-      par,
+      par: _par,
       display,
     }: {
       strokes?: number;
       par: number;
       display?: 'bordered' | 'compact';
-    }) => (
+    }): JSX.Element => (
       <View testID={`score-indicator-${display ?? 'bordered'}-${strokes ?? 'empty'}`}>
         <Text>{strokes ?? '-'}</Text>
       </View>
@@ -115,7 +115,7 @@ jest.mock('@/utils/scoring', () => ({
 
 // Mock scorecard calculations
 jest.mock('@/utils/scorecardCalculations', () => ({
-  calculatePlayerStats: (players: any[], holes: any[]) =>
+  calculatePlayerStats: (players: any[], _holes: any[]) =>
     players.map(() => ({
       front9Gross: 36,
       back9Gross: 36,
@@ -127,7 +127,7 @@ jest.mock('@/utils/scorecardCalculations', () => ({
       back9Stableford: 18,
       totalStableford: 36,
     })),
-  calculateParTotals: (holes: any[]) => ({
+  calculateParTotals: (_holes: any[]) => ({
     front9: 36,
     back9: 36,
     total: 72,
@@ -193,6 +193,12 @@ function createScorecardWithPlayer(
       push_competition_updates: true,
       push_friend_requests: true,
       push_scorecard_updates: true,
+      equipped_badge_id: null,
+      equipped_frame_id: null,
+      equipped_title_id: null,
+      is_placeholder: false,
+      created_by: null,
+      linked_player_id: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -219,6 +225,12 @@ function createRoundPlayer(
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    equipped_badge_id: null,
+    equipped_frame_id: null,
+    equipped_title_id: null,
+    is_placeholder: false,
+    created_by: null,
+    linked_player_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     has_scorecard: false,
@@ -427,7 +439,7 @@ describe('RoundScorecardTab', () => {
 
       // Find and press the individual view toggle (second toggle button)
       // The toggle buttons are rendered as TouchableOpacity elements
-      const tree = screen.toJSON();
+      const _tree = screen.toJSON();
       // Press the toggle to switch views - we need to find the toggle button
       // In the component, there are two toggle buttons in the toggleContainer
 

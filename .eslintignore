@@ -1,0 +1,10 @@
+# Supabase Edge Functions (Deno runtime - different module system)
+supabase/functions/
+
+# Build outputs
+dist/
+build/
+.expo/
+
+# Dependencies
+node_modules/

@@ -44,7 +44,7 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
       <TouchableOpacity
         style={[
           styles.stepperButton,
-          { borderColor: colors.gray300, backgroundColor: colors.white },
+          { borderColor: colors.gray300, backgroundColor: colors.surface },
           !canDecrement && styles.buttonDisabled,
         ]}
         onPress={onDecrement}
@@ -67,7 +67,7 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
       <TouchableOpacity
         style={[
           styles.stepperButton,
-          { borderColor: colors.gray300, backgroundColor: colors.white },
+          { borderColor: colors.gray300, backgroundColor: colors.surface },
           !canIncrement && styles.buttonDisabled,
         ]}
         onPress={onIncrement}

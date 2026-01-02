@@ -2,7 +2,8 @@
  * Types for AddRoundScreen
  */
 
-import type { GameType, TeamFormat, Competition, TeamWithMembers } from '@/types/database.types';
+import type { GameType, TeamFormat, TeamWithMembers } from '@/types/database.types';
+import type { RootStackScreenProps } from '@/navigation/types';
 
 /**
  * Form data for adding a new round
@@ -40,14 +41,7 @@ export type FormErrors = Record<string, string>;
 /**
  * Props for AddRoundScreen
  */
-export interface AddRoundScreenProps {
-  navigation: any;
-  route: {
-    params: {
-      competitionId: string;
-    };
-  };
-}
+export type AddRoundScreenProps = RootStackScreenProps<'AddRound'>;
 
 /**
  * Props for TeamPreviewCard

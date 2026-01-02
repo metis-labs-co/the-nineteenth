@@ -1,9 +1,9 @@
 // src/components/common/StatusBadge.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { StyleSheet } from 'react-native';
+import { Badge, type BadgeVariant, type BadgeSize } from './Badge';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { borderRadius } from '@/constants/theme';
 
 /**
  * Available status variants for the badge
@@ -46,10 +46,6 @@ export interface StatusBadgeProps {
    * Custom background color. Only used when status is 'custom'.
    */
   backgroundColor?: string;
-  /**
-   * Custom text color. Only used when status is 'custom'.
-   */
-  textColor?: string;
 }
 
 /**
@@ -77,10 +73,26 @@ const getDefaultLabel = (status: StatusVariant): string => {
 };
 
 /**
+ * Map StatusVariant to BadgeVariant
+ */
+const STATUS_TO_BADGE_VARIANT: Record<StatusVariant, BadgeVariant> = {
+  'in-progress': 'warning',
+  'completed': 'info',
+  'upcoming': 'neutral',
+  'scheduled': 'neutral',
+  'active': 'success',
+  'draft': 'neutral',
+  'cancelled': 'error',
+  'custom': 'default',
+};
+
+/**
  * StatusBadge - A reusable status indicator component
  *
  * Used to display status information for rounds, competitions, and other entities.
  * Supports multiple status variants with appropriate color coding.
+ *
+ * This component composes the unified Badge component with status-specific styling.
  *
  * @example
  * ```tsx
@@ -91,7 +103,6 @@ const getDefaultLabel = (status: StatusVariant): string => {
  *   status="custom"
  *   label="You"
  *   backgroundColor={colors.primaryLighter}
- *   textColor={colors.primaryDark}
  * />
  * ```
  */
@@ -101,100 +112,47 @@ export const StatusBadge = React.memo(function StatusBadge({
   size = 'md',
   accessibilityLabel,
   backgroundColor: customBackgroundColor,
-  textColor: customTextColor,
 }: StatusBadgeProps) {
+  // Theme colors needed for custom status fallback
   const colors = useThemeColors();
-
-  // Get colors based on status variant
-  const getStatusColors = () => {
-    switch (status) {
-      case 'in-progress':
-        return {
-          backgroundColor: colors.warningBackground,
-          textColor: colors.warningDark,
-        };
-      case 'active':
-        return {
-          backgroundColor: colors.successBackground,
-          textColor: colors.successDark,
-        };
-      case 'completed':
-        return {
-          backgroundColor: colors.gray100,
-          textColor: colors.gray600,
-        };
-      case 'upcoming':
-      case 'scheduled':
-        return {
-          backgroundColor: colors.primaryBackground,
-          textColor: colors.primaryDark,
-        };
-      case 'draft':
-        return {
-          backgroundColor: colors.warningBackground,
-          textColor: colors.warningDark,
-        };
-      case 'cancelled':
-        return {
-          backgroundColor: colors.errorBackground,
-          textColor: colors.errorDark,
-        };
-      case 'custom':
-        return {
-          backgroundColor: customBackgroundColor || colors.gray100,
-          textColor: customTextColor || colors.gray600,
-        };
-      default:
-        return {
-          backgroundColor: colors.gray100,
-          textColor: colors.gray600,
-        };
-    }
-  };
-
-  const { backgroundColor, textColor } = getStatusColors();
   const displayLabel = label || getDefaultLabel(status);
-  const isSmall = size === 'sm';
+  const badgeVariant = STATUS_TO_BADGE_VARIANT[status];
+
+  // For custom status, we need to use custom styling with theme colors
+  if (status === 'custom') {
+    return (
+      <Badge
+        label={displayLabel}
+        variant="default"
+        size={size as BadgeSize}
+        filled
+        style={[
+          styles.statusBadge,
+          {
+            backgroundColor: customBackgroundColor || colors.surfaceVariant,
+          },
+        ]}
+        accessibilityLabel={accessibilityLabel || `Status: ${displayLabel}`}
+      />
+    );
+  }
 
   return (
-    <View
-      style={[
-        styles.badge,
-        isSmall && styles.badgeSmall,
-        { backgroundColor },
-      ]}
-      accessibilityRole="text"
+    <Badge
+      label={displayLabel}
+      variant={badgeVariant}
+      size={size as BadgeSize}
+      filled
+      style={styles.statusBadge}
       accessibilityLabel={accessibilityLabel || `Status: ${displayLabel}`}
-    >
-      <Text
-        style={[
-          styles.text,
-          isSmall && styles.textSmall,
-          { color: textColor },
-        ]}
-      >
-        {displayLabel}
-      </Text>
-    </View>
+    />
   );
 });
 
 const styles = StyleSheet.create({
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+  statusBadge: {
+    // StatusBadge uses sm border radius instead of full pill shape
     borderRadius: borderRadius.sm,
-  },
-  badgeSmall: {
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
-  },
-  text: {
-    ...typography.captionBold,
-  },
-  textSmall: {
-    fontSize: 10,
-    lineHeight: 14,
+    borderWidth: 0,
   },
 });

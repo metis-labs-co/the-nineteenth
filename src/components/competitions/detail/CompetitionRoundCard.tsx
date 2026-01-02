@@ -60,9 +60,10 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
           <View style={styles.badgeRow}>
             <StatusBadge status={getStatusVariant(round.status)} />
             <StatusBadge
-              status="completed"
+              status="custom"
               label={GAME_TYPE_LABELS[round.game_type]}
               size="md"
+              backgroundColor={colors.gray100}
             />
           </View>
           <Pill label={`Round ${roundNumber}`} size="md" />

@@ -63,8 +63,9 @@ export interface ScoringPairFormationInlineProps {
 
 /**
  * Get initials for avatar fallback
+ * Note: Not currently used - PlayerAvatar component handles initials internally
  */
-const getInitials = (name: string): string => {
+const _getInitials = (name: string): string => {
   return name
     .split(' ')
     .map((n) => n[0])
@@ -100,7 +101,8 @@ export function ScoringPairFormationInline({
     if (pairs.length === 0 && players.length >= 2) {
       generatePairs();
     }
-  }, [players.length]); // Only run when player count changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generatePairs and pairs.length intentionally excluded to only run on player count changes
+  }, [players.length]);
 
   // Generate/regenerate pairs
   const generatePairs = useCallback(() => {

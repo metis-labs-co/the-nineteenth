@@ -7,7 +7,7 @@
  * - Snap-back animation when gesture doesn't meet threshold
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { Animated, PanResponder, type GestureResponderEvent, type PanResponderGestureState } from 'react-native';
 import { DEFAULT_ANIMATION_CONFIG, SWIPE_VELOCITY_THRESHOLD } from '../constants';
 import type { UseBottomSheetGesturesOptions } from '../types';
@@ -30,10 +30,11 @@ export function useBottomSheetGestures({
   const isGestureActive = useRef(false);
   const gestureStartY = useRef(0);
 
-  const config = {
+  const config = useMemo(() => ({
     ...DEFAULT_ANIMATION_CONFIG,
     ...animationConfig,
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animationConfig is stable from parent props
+  }), []);
 
   // Determine if the swipe should dismiss the sheet
   const shouldDismiss = useCallback(

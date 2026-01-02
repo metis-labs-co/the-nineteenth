@@ -40,7 +40,7 @@ export const QuickActionButton = React.memo(function QuickActionButton({
       <TouchableOpacity
         style={[
           styles.button,
-          { borderColor: colors.gray300, backgroundColor: colors.white },
+          { borderColor: colors.gray300, backgroundColor: colors.surface },
           isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
           disabled && styles.buttonDisabled,
         ]}

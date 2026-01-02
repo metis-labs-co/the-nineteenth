@@ -11,7 +11,7 @@
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { courseKeys } from './queryKeys';
-import { courseService, type CourseSearchParams, type CourseSearchResult } from '@/services/courses/courseService';
+import { courseService, type CourseSearchResult } from '@/services/courses/courseService';
 import type { Course, LegacyCourse, AustralianState } from '@/types/database.types';
 
 // =====================================================

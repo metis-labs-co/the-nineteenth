@@ -72,7 +72,7 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
       case 'error':
         return colors.errorLight; // Red
       default:
-        return colors.gray100;
+        return colors.surfaceVariant;
     }
   };
 
@@ -85,7 +85,7 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
       case 'error':
         return colors.errorDark;
       default:
-        return colors.gray700;
+        return colors.textSecondary;
     }
   };
 

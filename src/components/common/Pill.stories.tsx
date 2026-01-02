@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { Pill, PillProps, PillSize, PillVariant } from './Pill';
+import { Pill } from './Pill';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

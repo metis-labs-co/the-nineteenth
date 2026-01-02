@@ -32,9 +32,10 @@ src/hooks/use{{Action}}{{Entity}}.ts               # TanStack Query mutation hoo
 - Add accessibility labels on all inputs
 
 ### Patterns
-- Text Input: React Native Paper TextInput with `mode="outlined"`
-- Error: Display below input with error color
-- Submit: TouchableOpacity with loading state
+- Text Input: Use `FormInput` from `@/components/common` or React Native Paper TextInput with `mode="outlined"`
+- Form Groups: Use `FormSection` from `@/components/common` for grouping related fields
+- Error: Display below input with `colors.error` from `useThemeColors()`
+- Submit: Use `TouchableOpacity` with explicit styling and loading state (NOT Paper Button)
 - Success: Navigate away or show confirmation
 - Error: Display with Alert or toast
 
@@ -48,3 +49,10 @@ After creating the form:
 2. Document the validation schema
 3. Explain mutation hook integration
 4. Provide testing instructions for validation rules
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

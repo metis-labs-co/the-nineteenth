@@ -108,7 +108,7 @@ const fourPlayers: InlinePlayer[] = [
   createInlinePlayer('player-4', 'Alice Brown', 25),
 ];
 
-const playersWithPhotos: InlinePlayer[] = [
+const _playersWithPhotos: InlinePlayer[] = [
   createInlinePlayer('player-1', 'John Smith', 15, 'https://example.com/john.jpg'),
   createInlinePlayer('player-2', 'Jane Doe', 20, 'https://example.com/jane.jpg'),
 ];
@@ -572,13 +572,14 @@ describe('ScoringPairFormationInline', () => {
       expect(screen.getByText('Jane')).toBeTruthy();
     });
 
-    it('shows initials when no photo_url', () => {
+    it('shows player avatars when no photo_url', () => {
       const pairs = createMockPairs(twoPlayers, 'reciprocal');
       render(<ScoringPairFormationInline {...defaultProps} players={twoPlayers} pairs={pairs} />);
 
-      // Initials should be displayed (JS for John Smith, JD for Jane Doe)
-      expect(screen.getByText('JS')).toBeTruthy();
-      expect(screen.getByText('JD')).toBeTruthy();
+      // Players should be displayed by first name
+      // Initials are handled internally by PlayerAvatar/GolferIcon
+      expect(screen.getByText('John')).toBeTruthy();
+      expect(screen.getByText('Jane')).toBeTruthy();
     });
 
     it('handles unknown player names gracefully', () => {
@@ -599,7 +600,7 @@ describe('ScoringPairFormationInline', () => {
       expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
     });
 
-    it('displays ? initials for unknown player', () => {
+    it('displays Unknown label for unknown player', () => {
       const orphanPairs: ScoringPairCreateInput[] = [
         { scorerId: 'unknown-1', playerId: 'unknown-2' },
       ];
@@ -612,8 +613,9 @@ describe('ScoringPairFormationInline', () => {
         />
       );
 
-      // Should show "?" for missing player initials
-      expect(screen.getAllByText('?').length).toBeGreaterThan(0);
+      // Should show "Unknown" for missing players
+      // Note: Initials/fallback icons are handled internally by PlayerAvatar
+      expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
     });
 
     it('handles single-word names correctly', () => {
@@ -631,10 +633,10 @@ describe('ScoringPairFormationInline', () => {
         />
       );
 
+      // Single-word names should display as-is
+      // Initials are handled internally by PlayerAvatar/GolferIcon
       expect(screen.getByText('Madonna')).toBeTruthy();
       expect(screen.getByText('Cher')).toBeTruthy();
-      expect(screen.getByText('M')).toBeTruthy();
-      expect(screen.getByText('C')).toBeTruthy();
     });
   });
 
@@ -750,12 +752,11 @@ describe('ScoringPairFormationInline', () => {
         />
       );
 
-      // First name only
+      // First name only (component uses PlayerAvatar for display)
       expect(screen.getByText('Bartholomew')).toBeTruthy();
       expect(screen.getByText('Alexandra')).toBeTruthy();
-      // Initials (max 2 chars)
-      expect(screen.getByText('BC')).toBeTruthy();
-      expect(screen.getByText('AE')).toBeTruthy();
+      // Note: Initials are now handled internally by PlayerAvatar component
+      // which uses GolferIcon for avatar display
     });
 
     it('handles players with null handicap', () => {

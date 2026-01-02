@@ -14,7 +14,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from './queryKeys';
-import type { Scorecard, Round, Competition, Course, Hole, HoleScore } from '@/types/database.types';
+import type { Hole, HoleScore } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -309,6 +309,7 @@ export function usePlayerStatistics(
       // Track practice vs competition rounds
       let practiceRoundsCount = 0;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex Supabase join response type
       scorecards.forEach((scorecard: any) => {
         const round = scorecard.rounds;
         const course = round?.courses;

@@ -23,7 +23,7 @@ import {
   type MatchPlayHoleResult,
 } from '@/utils/teamScoring';
 import type { Hole } from '@/types';
-import { create18Holes, createTestPlayer } from './testFixtures';
+import { create18Holes } from './testFixtures';
 
 // ============================================================================
 // Test Fixtures
@@ -46,7 +46,7 @@ function createTestHole(overrides: Partial<Hole> = {}): Hole {
  * Create team member scores for testing
  */
 function createTeamMemberScores(
-  data: Array<{ id: string; gross: number; handicap: number }>
+  data: { id: string; gross: number; handicap: number }[]
 ): TeamMemberScore[] {
   return data.map((d) => ({
     playerId: d.id,
@@ -59,7 +59,7 @@ function createTeamMemberScores(
  * Create team members for handicap testing
  */
 function createTeamMembers(
-  data: Array<{ id: string; handicap: number }>
+  data: { id: string; handicap: number }[]
 ): TeamMember[] {
   return data.map((d) => ({
     playerId: d.id,
@@ -71,7 +71,7 @@ function createTeamMembers(
  * Create a series of match play hole results
  */
 function createHoleResults(
-  results: Array<{ player: number; opponent: number }>
+  results: { player: number; opponent: number }[]
 ): MatchPlayHoleResult[] {
   return results.map((r, index) => {
     let result: 'won' | 'lost' | 'halved';
@@ -93,7 +93,7 @@ function createHoleResults(
 // ============================================================================
 
 describe('calculateBestBallHole', () => {
-  const holes = create18Holes();
+  const _holes = create18Holes();
 
   describe('basic functionality', () => {
     it('returns the best net score among team members', () => {
@@ -966,7 +966,7 @@ describe('Full Round Integration', () => {
       // Player wins holes 1, 5, 10, 15
       // Opponent wins holes 3, 8, 12
       // Rest are halved
-      const results: Array<{ player: number; opponent: number }> = holes.map(
+      const results: { player: number; opponent: number }[] = holes.map(
         (hole) => {
           if ([1, 5, 10, 15].includes(hole.number)) {
             return { player: 4, opponent: 5 };
@@ -992,7 +992,7 @@ describe('Full Round Integration', () => {
 
     it('simulates match ending early', () => {
       // Player dominates early, wins 5&3
-      const results: Array<{ player: number; opponent: number }> = [];
+      const results: { player: number; opponent: number }[] = [];
       for (let i = 0; i < 15; i++) {
         if (i < 5) {
           results.push({ player: 4, opponent: 5 }); // 5 wins

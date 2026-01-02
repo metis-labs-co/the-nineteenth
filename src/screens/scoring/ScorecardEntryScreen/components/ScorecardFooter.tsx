@@ -24,7 +24,7 @@ export interface ScorecardFooterProps {
 }
 
 export function ScorecardFooter({
-  currentHole,
+  currentHole: _currentHole,
   onPreviousHole,
   onNextHole,
   onSubmit,

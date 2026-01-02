@@ -17,8 +17,9 @@ import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
 /**
  * Helper function to get player initials
+ * NOTE: Currently unused as PlayerAvatar handles initials internally
  */
-const getInitials = (name: string): string => {
+const _getInitials = (name: string): string => {
   return name
     .split(' ')
     .map((n) => n[0])
@@ -43,7 +44,7 @@ const TeamPreviewCard = memo(function TeamPreviewCard({ team }: TeamPreviewCardP
   const extraMembers = team.members.length > 3 ? ` +${team.members.length - 3}` : '';
 
   return (
-    <View style={[styles.teamCard, { backgroundColor: colors.gray100, borderColor: colors.gray200 }]}>
+    <View style={[styles.teamCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
       <View style={styles.teamCardHeader}>
         <Text style={[styles.teamName, { color: colors.textPrimary }]} numberOfLines={1}>
           {team.name}
@@ -58,6 +59,7 @@ const TeamPreviewCard = memo(function TeamPreviewCard({ team }: TeamPreviewCardP
             key={member.player_id}
             style={[
               styles.avatarContainer,
+              { borderColor: colors.surface },
               index > 0 && styles.avatarOverlap,
             ]}
           >
@@ -69,8 +71,8 @@ const TeamPreviewCard = memo(function TeamPreviewCard({ team }: TeamPreviewCardP
           </View>
         ))}
         {team.members.length > 3 && (
-          <View style={[styles.avatarContainer, styles.avatarOverlap]}>
-            <View style={[styles.moreAvatar, { backgroundColor: colors.gray300 }]}>
+          <View style={[styles.avatarContainer, { borderColor: colors.surface }, styles.avatarOverlap]}>
+            <View style={[styles.moreAvatar, { backgroundColor: colors.surfaceVariant }]}>
               <Text style={[styles.moreAvatarText, { color: colors.textSecondary }]}>
                 +{team.members.length - 3}
               </Text>
@@ -108,7 +110,7 @@ export const TeamRoundSection = memo(function TeamRoundSection({
 
   return (
     <>
-      <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+      <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.toggleContainer}>
         <View style={styles.toggleContent}>
@@ -127,8 +129,8 @@ export const TeamRoundSection = memo(function TeamRoundSection({
         <Switch
           value={isTeamRound}
           onValueChange={onTeamRoundToggle}
-          trackColor={{ false: colors.gray300, true: colors.primaryLight }}
-          thumbColor={isTeamRound ? colors.primary : colors.gray100}
+          trackColor={{ false: colors.border, true: colors.primaryLight }}
+          thumbColor={isTeamRound ? colors.primary : colors.surface}
           disabled={disabled}
         />
       </View>
@@ -280,7 +282,6 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     borderWidth: 2,
-    borderColor: 'white',
     borderRadius: borderRadius.full,
   },
   avatarOverlap: {

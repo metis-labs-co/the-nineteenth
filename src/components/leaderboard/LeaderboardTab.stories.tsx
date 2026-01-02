@@ -79,13 +79,13 @@ function createMockRound(
 }
 
 // Sample rounds for stories
-const sampleRounds: RoundWithCourse[] = [
+const _sampleRounds: RoundWithCourse[] = [
   createMockRound({ id: 'round-1', round_number: 1, status: 'completed', game_type: 'stableford' }),
   createMockRound({ id: 'round-2', round_number: 2, status: 'in-progress', game_type: 'stableford' }),
   createMockRound({ id: 'round-3', round_number: 3, status: 'upcoming', game_type: 'stroke' }),
 ];
 
-const teamRounds: RoundWithCourse[] = [
+const _teamRounds: RoundWithCourse[] = [
   createMockRound({
     id: 'round-1',
     round_number: 1,
@@ -104,7 +104,7 @@ const teamRounds: RoundWithCourse[] = [
   }),
 ];
 
-const scrambleRounds: RoundWithCourse[] = [
+const _scrambleRounds: RoundWithCourse[] = [
   createMockRound({
     id: 'round-1',
     round_number: 1,

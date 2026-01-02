@@ -49,9 +49,9 @@ jest.mock('./GolfBallLoader', () => {
 
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
-  const { View, Text, TouchableOpacity } = require('react-native');
+  const { View: _View, Text, TouchableOpacity } = require('react-native');
   return {
-    Text: ({ children, style, variant, ...props }: any) => (
+    Text: ({ children, style, _variant, ...props }: any) => (
       <Text style={style} {...props}>
         {children}
       </Text>
@@ -59,10 +59,10 @@ jest.mock('react-native-paper', () => {
     Button: ({
       children,
       onPress,
-      mode,
+      _mode,
       style,
       labelStyle,
-      compact,
+      _compact,
       ...props
     }: any) => (
       <TouchableOpacity

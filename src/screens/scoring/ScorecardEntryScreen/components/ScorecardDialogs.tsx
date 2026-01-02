@@ -5,14 +5,10 @@
  * - Leave confirmation (unsaved changes)
  * - Incomplete round confirmation
  * - Submit error dialog
- * - Debug panel
  */
 
 import React from 'react';
 import { ConfirmationDialog } from '@/components/common';
-import { ScorecardDebugPanel } from '@/components/scorecard';
-import type { Player } from '@/types';
-import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
 export interface ScorecardDialogsProps {
   // Leave dialog
@@ -28,17 +24,6 @@ export interface ScorecardDialogsProps {
   // Submit error dialog
   showSubmitErrorDialog: boolean;
   onSubmitErrorDismiss: () => void;
-  // Debug panel
-  showDebugPanel: boolean;
-  onDebugPanelClose: () => void;
-  roundId: string;
-  competitionId: string;
-  courseName: string | null;
-  isTeamRound: boolean;
-  teamFormat: TeamFormat | null;
-  teams: TeamWithMembers[];
-  scoringPairsEnabled: boolean;
-  playersToScore: Player[];
 }
 
 export function ScorecardDialogs({
@@ -55,34 +40,9 @@ export function ScorecardDialogs({
   // Submit error dialog
   showSubmitErrorDialog,
   onSubmitErrorDismiss,
-  // Debug panel
-  showDebugPanel,
-  onDebugPanelClose,
-  roundId,
-  competitionId,
-  courseName,
-  isTeamRound,
-  teamFormat,
-  teams,
-  scoringPairsEnabled,
-  playersToScore,
 }: ScorecardDialogsProps) {
   return (
     <>
-      {/* Debug Panel */}
-      <ScorecardDebugPanel
-        visible={showDebugPanel}
-        onClose={onDebugPanelClose}
-        roundId={roundId}
-        competitionId={competitionId}
-        courseName={courseName}
-        isTeamRound={isTeamRound}
-        teamFormat={teamFormat}
-        teams={teams}
-        scoringPairsEnabled={scoringPairsEnabled}
-        playersToScore={playersToScore}
-      />
-
       {/* Leave Confirmation Dialog */}
       <ConfirmationDialog
         visible={showLeaveDialog}

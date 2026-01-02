@@ -146,15 +146,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     (data: PushNotificationData) => {
       const nav = navigationRef.current;
 
-      // Navigate based on notification type or data
-      if (data.competitionId) {
-        nav.navigate('CompetitionDetail', {
-          id: data.competitionId,
-        });
-      } else if (data.roundId && data.competitionId) {
+      // Navigate based on notification type or data (more specific conditions first)
+      if (data.roundId && data.competitionId) {
         nav.navigate('ViewRound', {
           competitionId: data.competitionId,
           roundId: data.roundId,
+        });
+      } else if (data.competitionId) {
+        nav.navigate('CompetitionDetail', {
+          id: data.competitionId,
         });
       } else if (data.friendshipId || data.type === 'friend_request_received' || data.type === 'friend_request_accepted') {
         nav.navigate('Friends', { fromProfile: true });

@@ -4,7 +4,7 @@
  * Provides functionality for:
  * - Fetching all courses
  * - Searching courses by name/state
- * - Managing favorite courses
+ * - Managing favorite courses (via useFavoriteCourses)
  * - Creating new courses (manual entry)
  */
 
@@ -12,23 +12,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { courseKeys } from '@/hooks/queryKeys';
-import type { Course, AustralianState, FavoriteCourse } from '@/types/database.types';
+import {
+  useFavoriteEnrichment,
+  useAddFavorite,
+  useRemoveFavorite,
+  type CourseWithFavorite,
+} from '@/hooks/useFavoriteCourses';
+import type { Course, AustralianState } from '@/types/database.types';
 
-// Types
-export interface CourseWithFavorite extends Course {
-  is_favorite: boolean;
-}
+// Re-export types and mutations for backward compatibility
+export type { CourseWithFavorite };
+export { useAddFavorite, useRemoveFavorite };
 
 export interface CreateCourseInput {
   name: string;
   state?: AustralianState | null;
   city?: string | null;
   address?: string | null;
-}
-
-// Type for favorite_courses table response
-interface FavoriteCourseRow {
-  course_id: string;
 }
 
 interface FavoriteWithCourse {
@@ -40,12 +40,11 @@ interface FavoriteWithCourse {
  * Fetch all courses with favorite status
  */
 export function useCourses() {
-  const { user } = useAuth();
+  const { enrichCourses, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: courseKeys.list(),
-    queryFn: async (): Promise<CourseWithFavorite[]> => {
-      // Fetch courses
+    queryFn: async (): Promise<Course[]> => {
       const { data: courses, error: coursesError } = await supabase
         .from('courses')
         .select('*')
@@ -53,45 +52,36 @@ export function useCourses() {
 
       if (coursesError) throw coursesError;
 
-      // Fetch user's favorites
-      let favoriteIds: string[] = [];
-      if (user) {
-        const { data: favorites, error: favError } = await (supabase as any)
-          .from('favorite_courses')
-          .select('course_id')
-          .eq('player_id', user.id);
-
-        if (favError) {
-          console.warn('Error fetching favorites:', favError);
-        } else {
-          favoriteIds = (favorites as FavoriteCourseRow[] | null)?.map((f) => f.course_id) ?? [];
-        }
-      }
-
-      // Combine courses with favorite status
-      return ((courses as Course[] | null) ?? []).map((course) => ({
-        ...course,
-        is_favorite: favoriteIds.includes(course.id),
-      }));
+      return (courses as Course[] | null) ?? [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Enrich courses with favorite status
+  const enrichedData = query.data ? enrichCourses(query.data) : undefined;
+
+  return {
+    ...query,
+    data: enrichedData,
+    // Include favorites loading in overall loading state
+    isLoading: query.isLoading || favoritesLoading,
+  };
 }
 
 /**
  * Search courses by name and optionally filter by state
  */
-export function useSearchCourses(query: string, state?: AustralianState) {
-  const { user } = useAuth();
+export function useSearchCourses(searchQuery: string, state?: AustralianState) {
+  const { enrichCourses, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
-  return useQuery({
-    queryKey: courseKeys.apiSearch(query, state),
-    queryFn: async (): Promise<CourseWithFavorite[]> => {
+  const query = useQuery({
+    queryKey: courseKeys.apiSearch(searchQuery, state),
+    queryFn: async (): Promise<Course[]> => {
       let queryBuilder = supabase.from('courses').select('*');
 
       // Apply search filter (case-insensitive)
-      if (query.length >= 2) {
-        queryBuilder = queryBuilder.ilike('name', `%${query}%`);
+      if (searchQuery.length >= 2) {
+        queryBuilder = queryBuilder.ilike('name', `%${searchQuery}%`);
       }
 
       // Apply state filter
@@ -105,29 +95,24 @@ export function useSearchCourses(query: string, state?: AustralianState) {
 
       if (error) throw error;
 
-      // Fetch user's favorites
-      let favoriteIds: string[] = [];
-      if (user) {
-        const { data: favorites } = await (supabase as any)
-          .from('favorite_courses')
-          .select('course_id')
-          .eq('player_id', user.id);
-
-        favoriteIds = (favorites as FavoriteCourseRow[] | null)?.map((f) => f.course_id) ?? [];
-      }
-
-      return ((courses as Course[] | null) ?? []).map((course) => ({
-        ...course,
-        is_favorite: favoriteIds.includes(course.id),
-      }));
+      return (courses as Course[] | null) ?? [];
     },
-    enabled: query.length >= 2 || !!state,
+    enabled: searchQuery.length >= 2 || !!state,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
+
+  // Enrich courses with favorite status
+  const enrichedData = query.data ? enrichCourses(query.data) : undefined;
+
+  return {
+    ...query,
+    data: enrichedData,
+    isLoading: query.isLoading || favoritesLoading,
+  };
 }
 
 /**
- * Fetch user's favorite courses
+ * Fetch user's favorite courses with full course data
  */
 export function useFavoriteCourses() {
   const { user } = useAuth();
@@ -137,7 +122,7 @@ export function useFavoriteCourses() {
     queryFn: async (): Promise<CourseWithFavorite[]> => {
       if (!user) return [];
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('favorite_courses')
         .select(
           `
@@ -162,68 +147,6 @@ export function useFavoriteCourses() {
 }
 
 /**
- * Add course to favorites
- * Uses upsert to handle race conditions where favorite might already exist
- */
-export function useAddFavorite() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (courseId: string) => {
-      if (!user) throw new Error('Must be logged in to add favorites');
-
-      // Use upsert to handle the case where favorite already exists
-      const { error } = await (supabase as any)
-        .from('favorite_courses')
-        .upsert(
-          {
-            player_id: user.id,
-            course_id: courseId,
-          },
-          {
-            onConflict: 'player_id,course_id',
-            ignoreDuplicates: true,
-          }
-        );
-
-      if (error) throw error;
-      return courseId;
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: courseKeys.all });
-    },
-  });
-}
-
-/**
- * Remove course from favorites
- */
-export function useRemoveFavorite() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (courseId: string) => {
-      if (!user) throw new Error('Must be logged in to remove favorites');
-
-      const { error } = await (supabase as any)
-        .from('favorite_courses')
-        .delete()
-        .eq('player_id', user.id)
-        .eq('course_id', courseId);
-
-      if (error) throw error;
-      return courseId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseKeys.all });
-    },
-  });
-}
-
-/**
  * Create a new course (manual entry)
  */
 export function useCreateCourse() {
@@ -231,7 +154,8 @@ export function useCreateCourse() {
 
   return useMutation({
     mutationFn: async (input: CreateCourseInput): Promise<Course> => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+      const { data, error } = await (supabase as any)
         .from('courses')
         .insert({
           name: input.name,
@@ -239,7 +163,7 @@ export function useCreateCourse() {
           city: input.city ?? null,
           address: input.address ?? null,
           source: 'manual' as const,
-        } as any)
+        })
         .select()
         .single();
 
@@ -254,6 +178,10 @@ export function useCreateCourse() {
 
 /**
  * Get single course by ID
+ *
+ * @deprecated Use useCourseDetails() instead which returns the course with
+ * its venue information and favorite status. This hook returns basic course
+ * data only and is not used anywhere in the codebase.
  */
 export function useCourse(id: string | undefined) {
   return useQuery({

@@ -74,12 +74,18 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         }
 
         // Use course holes or default holes (fallback if empty array)
-        const courseHoles = (courseData as any)?.holes;
+        interface CourseWithHoles {
+          id: string;
+          name: string;
+          holes: Hole[] | null;
+        }
+        const typedCourseData = courseData as CourseWithHoles | null;
+        const courseHoles = typedCourseData?.holes;
         const holes: Hole[] = courseHoles && courseHoles.length > 0 ? courseHoles : DEFAULT_HOLES;
 
         // Create the round in Supabase (standalone round - no competition)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: roundData, error: roundError } = await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
           .from('rounds') as any)
           .insert({
             course_id: courseId,
@@ -151,8 +157,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
             })),
           ];
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { error: roundPlayersError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
             .from('round_players') as any)
             .insert(roundPlayersToInsert);
 

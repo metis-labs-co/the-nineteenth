@@ -39,6 +39,7 @@ export async function updateRound(
     scoring_pairs_required?: boolean;
   }
 ): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
   const { error } = await (supabase as any)
     .from('rounds')
     .update(updates)

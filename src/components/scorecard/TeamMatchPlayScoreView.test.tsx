@@ -26,7 +26,7 @@ jest.mock('react-native-paper', () => {
   const actual = jest.requireActual('react-native-paper');
   return {
     ...actual,
-    Icon: ({ source, size, color }: { source: string; size: number; color: string }) => (
+    Icon: ({ source, size: _size, color: _color }: { source: string; size: number; color: string }) => (
       <View testID={`icon-${source}`}>
         <Text>{source}</Text>
       </View>

@@ -76,7 +76,7 @@ export const StepIndicator = React.memo(function StepIndicator({
                 <View
                   style={[
                     styles.stepCircle,
-                    { backgroundColor: colors.gray200 },
+                    { backgroundColor: colors.surfaceVariant },
                     isActive && { backgroundColor: colors.primary },
                   ]}
                 >
@@ -84,7 +84,7 @@ export const StepIndicator = React.memo(function StepIndicator({
                     style={[
                       styles.stepCircleText,
                       { color: colors.textSecondary },
-                      isActive && { color: colors.white },
+                      isActive && { color: colors.textOnColored },
                     ]}
                   >
                     {step.number}
@@ -109,7 +109,7 @@ export const StepIndicator = React.memo(function StepIndicator({
                 <View
                   style={[
                     styles.stepLine,
-                    { backgroundColor: colors.gray200 },
+                    { backgroundColor: colors.border },
                     isCompleted && { backgroundColor: colors.primary },
                   ]}
                 />
@@ -124,7 +124,7 @@ export const StepIndicator = React.memo(function StepIndicator({
         <PaperProgressBar
           progress={progress}
           color={colors.primary}
-          style={[styles.progressBar, { backgroundColor: colors.gray100 }]}
+          style={[styles.progressBar, { backgroundColor: colors.surfaceVariant }]}
         />
       )}
     </View>

@@ -7,7 +7,7 @@
  */
 
 import type { ColorPalette } from '@/constants/theme';
-import { PICKUP_SCORE } from './scorecardLayout';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 // =====================================================
 // SCORE DISPLAY TYPES

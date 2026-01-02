@@ -2,21 +2,16 @@
 
 **Core Philosophy**: Use React Hook Form for form state and validation with Zod schemas for The Nineteenth golf competition app.
 
-## Setup
-```bash
-cd GolfApp
-pnpm add react-hook-form @hookform/resolvers zod
-```
-
 ## Key Principles
 
-1. **Zod schemas** - Define in `src/schemas/`, will be shared with backend when built
+1. **Zod schemas** - Define in `src/schemas/`, shared with backend validation
 2. **Client validation** - React Hook Form + zodResolver for instant feedback
-3. **Server validation** - Always validate in backend (when built)
+3. **Server validation** - Always validate in backend
 4. **Keyboard handling** - Proper KeyboardAvoidingView and dismissal
 5. **Type safety** - Infer TypeScript types from Zod schemas
 6. **Accessibility** - Proper labels and error announcements
-7. **NativeBase forms** - Use NativeBase FormControl and Input components
+7. **Theming** - Use `useThemeColors()` hook for all colors
+8. **Styling** - Use StyleSheet.create() with design tokens from `@/constants/theme`
 
 ## Complete Form Pattern
 
@@ -43,31 +38,28 @@ export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 ```tsx
 // src/screens/admin/CreateCompetitionScreen.tsx
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
-import {
-  Box,
-  VStack,
-  FormControl,
-  Input,
-  TextArea,
-  Button,
-  Select,
-  CheckIcon,
-} from 'native-base';
+import { View, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createCompetitionSchema, type CreateCompetitionInput } from '@/schemas/competition';
-import { apiClient } from '@/services/api/client';
+import { FormSection } from '@/components/common';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 
-export default function CreateCompetitionScreen({ navigation }) {
+type Props = NativeStackScreenProps<RootStackParamList, 'CreateCompetition'>;
+
+export default function CreateCompetitionScreen({ navigation }: Props) {
+  const colors = useThemeColors();
   const queryClient = useQueryClient();
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-    reset,
   } = useForm<CreateCompetitionInput>({
     resolver: zodResolver(createCompetitionSchema),
     defaultValues: {
@@ -80,16 +72,13 @@ export default function CreateCompetitionScreen({ navigation }) {
 
   const mutation = useMutation({
     mutationFn: async (data: CreateCompetitionInput) => {
-      // TODO: Replace with actual API
+      // API call
       const response = await apiClient.post('/competitions', data);
       return response.data;
     },
     onSuccess: (competition) => {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
       navigation.navigate('CompetitionDetail', { id: competition.id });
-    },
-    onError: (error) => {
-      console.error('Failed to create competition:', error);
     },
   });
 
@@ -100,97 +89,89 @@ export default function CreateCompetitionScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       <ScrollView
-        style={styles.scrollView}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
       >
-        <Box p={4}>
-          <VStack space={4}>
-            {/* Competition Name */}
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormControl isInvalid={!!errors.name}>
-                  <FormControl.Label>Competition Name *</FormControl.Label>
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="Enter competition name"
-                    accessibilityLabel="Competition name"
-                  />
-                  {errors.name && (
-                    <FormControl.ErrorMessage>
-                      {errors.name.message}
-                    </FormControl.ErrorMessage>
-                  )}
-                </FormControl>
-              )}
-            />
+        <View style={styles.form}>
+          {/* Competition Name */}
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>
+                  Competition Name *
+                </Text>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Enter competition name"
+                  mode="outlined"
+                  error={!!errors.name}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
+                  accessibilityLabel="Competition name"
+                />
+                {errors.name && (
+                  <Text style={[styles.error, { color: colors.error }]}>
+                    {errors.name.message}
+                  </Text>
+                )}
+              </View>
+            )}
+          />
 
-            {/* Description */}
-            <Controller
-              control={control}
-              name="description"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormControl>
-                  <FormControl.Label>Description</FormControl.Label>
-                  <TextArea
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="Optional description"
-                    numberOfLines={4}
-                    accessibilityLabel="Competition description"
-                  />
-                </FormControl>
-              )}
-            />
+          {/* Description */}
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>
+                  Description
+                </Text>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Optional description"
+                  mode="outlined"
+                  multiline
+                  numberOfLines={4}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
+                  accessibilityLabel="Competition description"
+                />
+              </View>
+            )}
+          />
 
-            {/* Handicap System */}
-            <Controller
-              control={control}
-              name="handicapSystem"
-              render={({ field: { onChange, value } }) => (
-                <FormControl isInvalid={!!errors.handicapSystem}>
-                  <FormControl.Label>Handicap System *</FormControl.Label>
-                  <Select
-                    selectedValue={value}
-                    onValueChange={onChange}
-                    placeholder="Select handicap system"
-                    accessibilityLabel="Handicap system"
-                    _selectedItem={{
-                      endIcon: <CheckIcon size="5" />,
-                    }}
-                  >
-                    <Select.Item label="Honor System" value="honor" />
-                    <Select.Item label="Golf Australia" value="golf-australia" />
-                    <Select.Item label="Gross Only" value="gross-only" />
-                  </Select>
-                  {errors.handicapSystem && (
-                    <FormControl.ErrorMessage>
-                      {errors.handicapSystem.message}
-                    </FormControl.ErrorMessage>
-                  )}
-                </FormControl>
-              )}
-            />
-
-            {/* Submit Button */}
-            <Button
-              onPress={onSubmit}
-              isLoading={mutation.isPending}
-              isDisabled={mutation.isPending}
-              mt={4}
-            >
-              Create Competition
-            </Button>
-          </VStack>
-        </Box>
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: mutation.isPending ? colors.surfaceDisabled : colors.primary },
+            ]}
+            onPress={onSubmit}
+            disabled={mutation.isPending}
+            accessibilityLabel="Create competition"
+            accessibilityRole="button"
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={[styles.buttonText, { color: colors.white }]}>
+                Create Competition
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -200,230 +181,88 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
   },
-  contentContainer: {
-    paddingBottom: 32,
+  form: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  field: {
+    gap: spacing.xs,
+  },
+  label: {
+    ...typography.bodyBold,
+  },
+  error: {
+    ...typography.small,
+  },
+  button: {
+    height: 48,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  buttonText: {
+    ...typography.bodyBold,
   },
 });
 ```
 
-## Form Input Components
+## Using Existing Common Components
 
-### Custom Input with React Hook Form
+### FormInput Component
+Use the existing `FormInput` from `@/components/common`:
+
 ```tsx
-// src/components/forms/FormInput.tsx
-import React, { forwardRef } from 'react';
-import { FormControl, Input as NBInput, IInputProps } from 'native-base';
+import { FormInput, FormSection } from '@/components/common';
 
-interface FormInputProps extends IInputProps {
-  label: string;
-  error?: string;
-  helperText?: string;
-  isRequired?: boolean;
-}
-
-export const FormInput = forwardRef<any, FormInputProps>(
-  function FormInput({ label, error, helperText, isRequired, ...props }, ref) {
-    return (
-      <FormControl isInvalid={!!error} isRequired={isRequired} mb={4}>
-        <FormControl.Label>{label}</FormControl.Label>
-        <NBInput
-          ref={ref}
-          variant="outline"
-          accessibilityLabel={label}
-          {...props}
-        />
-        {error && (
-          <FormControl.ErrorMessage>{error}</FormControl.ErrorMessage>
-        )}
-        {helperText && !error && (
-          <FormControl.HelperText>{helperText}</FormControl.HelperText>
-        )}
-      </FormControl>
-    );
-  }
-);
+<FormSection title="Player Details" required>
+  <Controller
+    control={control}
+    name="name"
+    render={({ field: { onChange, onBlur, value } }) => (
+      <FormInput
+        label="Player Name"
+        value={value}
+        onChangeText={onChange}
+        onBlur={onBlur}
+        error={errors.name?.message}
+        required
+      />
+    )}
+  />
+</FormSection>
 ```
 
-### Select/Picker Component
+### Date Picker
+Use the existing `DatePicker` from `@/components/common`:
+
 ```tsx
-// src/components/forms/FormSelect.tsx
-import React from 'react';
+import { DatePicker } from '@/components/common';
 import { Controller } from 'react-hook-form';
-import { FormControl, Select, CheckIcon } from 'native-base';
 
-interface Option {
-  label: string;
-  value: string;
-}
-
-interface FormSelectProps {
-  control: any;
-  name: string;
-  label: string;
-  options: Option[];
-  error?: string;
-  placeholder?: string;
-  isRequired?: boolean;
-}
-
-export function FormSelect({
-  control,
-  name,
-  label,
-  options,
-  error,
-  placeholder,
-  isRequired,
-}: FormSelectProps) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field: { onChange, value } }) => (
-        <FormControl isInvalid={!!error} isRequired={isRequired} mb={4}>
-          <FormControl.Label>{label}</FormControl.Label>
-          <Select
-            selectedValue={value}
-            onValueChange={onChange}
-            placeholder={placeholder || `Select ${label}`}
-            accessibilityLabel={label}
-            _selectedItem={{
-              endIcon: <CheckIcon size="5" />,
-            }}
-          >
-            {options.map((option) => (
-              <Select.Item
-                key={option.value}
-                label={option.label}
-                value={option.value}
-              />
-            ))}
-          </Select>
-          {error && (
-            <FormControl.ErrorMessage>{error}</FormControl.ErrorMessage>
-          )}
-        </FormControl>
-      )}
+<Controller
+  control={control}
+  name="startDate"
+  render={({ field: { onChange, value } }) => (
+    <DatePicker
+      label="Start Date"
+      value={value}
+      onChange={onChange}
+      mode="date"
+      error={errors.startDate?.message}
     />
-  );
-}
-```
-
-### Checkbox Component
-```tsx
-// src/components/forms/FormCheckbox.tsx
-import React from 'react';
-import { Controller } from 'react-hook-form';
-import { Checkbox, FormControl, HStack } from 'native-base';
-
-interface FormCheckboxProps {
-  control: any;
-  name: string;
-  label: string;
-  error?: string;
-}
-
-export function FormCheckbox({ control, name, label, error }: FormCheckboxProps) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field: { onChange, value } }) => (
-        <FormControl isInvalid={!!error} mb={4}>
-          <HStack space={2} alignItems="center">
-            <Checkbox
-              value={name}
-              isChecked={value}
-              onChange={onChange}
-              accessibilityLabel={label}
-            >
-              {label}
-            </Checkbox>
-          </HStack>
-          {error && (
-            <FormControl.ErrorMessage>{error}</FormControl.ErrorMessage>
-          )}
-        </FormControl>
-      )}
-    />
-  );
-}
-```
-
-### Date Picker Component (React Native)
-```tsx
-// src/components/forms/FormDatePicker.tsx
-import React, { useState } from 'react';
-import { Controller } from 'react-hook-form';
-import { Platform } from 'react-native';
-import { FormControl, Button, Text, HStack } from 'native-base';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
-
-interface FormDatePickerProps {
-  control: any;
-  name: string;
-  label: string;
-  error?: string;
-  isRequired?: boolean;
-}
-
-export function FormDatePicker({
-  control,
-  name,
-  label,
-  error,
-  isRequired,
-}: FormDatePickerProps) {
-  const [show, setShow] = useState(false);
-
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field: { onChange, value } }) => (
-        <FormControl isInvalid={!!error} isRequired={isRequired} mb={4}>
-          <FormControl.Label>{label}</FormControl.Label>
-          <Button
-            variant="outline"
-            onPress={() => setShow(true)}
-            justifyContent="flex-start"
-          >
-            <Text>
-              {value ? format(new Date(value), 'dd/MM/yyyy') : `Select ${label}`}
-            </Text>
-          </Button>
-          {show && (
-            <DateTimePicker
-              value={value || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, selectedDate) => {
-                setShow(Platform.OS === 'ios');
-                if (selectedDate) {
-                  onChange(selectedDate);
-                }
-              }}
-            />
-          )}
-          {error && (
-            <FormControl.ErrorMessage>{error}</FormControl.ErrorMessage>
-          )}
-        </FormControl>
-      )}
-    />
-  );
-}
+  )}
+/>
 ```
 
 ## Keyboard Handling
 
 ### KeyboardAvoidingView Setup
 ```tsx
-import { KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback, ScrollView } from 'react-native';
 
 export function FormScreen() {
   return (
@@ -515,20 +354,6 @@ const schema = z
   );
 ```
 
-### Custom Validation
-```tsx
-const schema = z.object({
-  email: z.string().email().refine(
-    async (email) => {
-      // Check if email is unique (when backend is ready)
-      const exists = await checkEmailExists(email);
-      return !exists;
-    },
-    { message: 'Email already registered' }
-  ),
-});
-```
-
 ## Error Handling
 
 ### Display Server Errors
@@ -537,7 +362,6 @@ const mutation = useMutation({
   mutationFn: submitData,
   onError: (error: any) => {
     if (error.response?.data?.fieldErrors) {
-      // Set field errors from server
       Object.entries(error.response.data.fieldErrors).forEach(([field, message]) => {
         setError(field as any, { message: message as string });
       });
@@ -548,180 +372,35 @@ const mutation = useMutation({
 
 ### Error Summary
 ```tsx
-import { Box, VStack, Text } from 'native-base';
-
 {Object.keys(errors).length > 0 && (
-  <Box bg="red.50" p={4} borderRadius="md" mb={4}>
-    <Text fontSize="md" fontWeight="600" mb={2}>
+  <View style={[styles.errorBox, { backgroundColor: colors.errorLight }]}>
+    <Text style={[styles.errorTitle, { color: colors.error }]}>
       Please fix the following errors:
     </Text>
-    <VStack space={1}>
-      {Object.entries(errors).map(([field, error]) => (
-        <Text key={field} fontSize="sm" color="red.600">
-          • {error.message}
-        </Text>
-      ))}
-    </VStack>
-  </Box>
+    {Object.entries(errors).map(([field, error]) => (
+      <Text key={field} style={[styles.errorItem, { color: colors.error }]}>
+        • {error.message}
+      </Text>
+    ))}
+  </View>
 )}
-```
-
-## Complete Form Example - Add Player
-
-```tsx
-// src/screens/admin/AddPlayerScreen.tsx
-import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
-import { Box, VStack, Button } from 'native-base';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createPlayerSchema, type CreatePlayerInput } from '@/schemas/player';
-import { FormInput } from '@/components/forms/FormInput';
-import { apiClient } from '@/services/api/client';
-
-export default function AddPlayerScreen({ route, navigation }) {
-  const { competitionId } = route.params;
-  const queryClient = useQueryClient();
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<CreatePlayerInput>({
-    resolver: zodResolver(createPlayerSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      handicap: 0,
-    },
-  });
-
-  const mutation = useMutation({
-    mutationFn: async (data: CreatePlayerInput) => {
-      // TODO: Replace with actual API
-      const response = await apiClient.post(`/competitions/${competitionId}/players`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['players', competitionId] });
-      navigation.goBack();
-    },
-  });
-
-  const onSubmit = handleSubmit((data) => {
-    mutation.mutate(data);
-  });
-
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <Box p={4}>
-          <VStack space={4}>
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
-                  label="Player Name"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.name?.message}
-                  isRequired
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
-                  label="Email"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.email?.message}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  isRequired
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
-                  label="Phone"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.phone?.message}
-                  keyboardType="phone-pad"
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="handicap"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
-                  label="Handicap"
-                  value={value?.toString() || ''}
-                  onChangeText={(text) => onChange(parseInt(text) || 0)}
-                  onBlur={onBlur}
-                  error={errors.handicap?.message}
-                  keyboardType="number-pad"
-                  helperText="Official handicap or honor system handicap"
-                />
-              )}
-            />
-
-            <Button
-              onPress={onSubmit}
-              isLoading={mutation.isPending}
-              isDisabled={mutation.isPending}
-              mt={4}
-            >
-              Add Player
-            </Button>
-          </VStack>
-        </Box>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 ```
 
 ## Best Practices
 
-1. **Share Zod schemas** - Define in `src/schemas/` (will be shared with backend later)
+1. **Share Zod schemas** - Define in `src/schemas/` (shared with backend)
 2. **KeyboardAvoidingView** - Handle keyboard properly on iOS/Android
 3. **ScrollView + keyboardShouldPersistTaps** - Allow taps while keyboard is up
 4. **Dismiss keyboard on submit** - Better UX
-5. **Show inline errors** - Below each input field using FormControl.ErrorMessage
+5. **Show inline errors** - Below each input field
 6. **Disable submit while pending** - Prevent duplicate submissions
 7. **Accessibility labels** - On all form inputs
 8. **Auto-focus first input** - Better UX (use autoFocus prop)
 9. **Validate on blur** - Instant feedback
-10. **Loading states** - Show progress in submit button with isLoading
-11. **Success feedback** - Navigate away or show confirmation
-12. **Error retry** - Allow user to retry on error
-13. **Use NativeBase FormControl** - Consistent form styling
+10. **Loading states** - Show ActivityIndicator in submit button
+11. **Use `useThemeColors()`** - For all dynamic colors
+12. **Use TouchableOpacity** - NOT Paper's Button component
+13. **Use existing components** - FormInput, FormSection, DatePicker from `@/components/common`
 14. **Date format** - Use DD/MM/YYYY for Australian users
 
 ## Golf-Specific Form Patterns
@@ -732,41 +411,40 @@ const styles = StyleSheet.create({
   label="Handicap"
   helperText="Enter your official Golf Australia handicap or honor system handicap (0-54)"
   keyboardType="number-pad"
-  // ... other props
 />
 ```
 
 ### Game Type Selection
 ```tsx
-<FormSelect
+import { SegmentedButton } from '@/components/common';
+
+<Controller
   control={control}
   name="gameType"
-  label="Game Type"
-  options={[
-    { label: 'Stroke Play', value: 'stroke' },
-    { label: 'Stableford', value: 'stableford' },
-    { label: 'Match Play', value: 'match-play' },
-    { label: 'Ambrose', value: 'ambrose' },
-    { label: 'Best Ball', value: 'best-ball' },
-  ]}
+  render={({ field: { onChange, value } }) => (
+    <SegmentedButton
+      value={value}
+      onValueChange={onChange}
+      buttons={[
+        { value: 'stableford', label: 'Stableford' },
+        { value: 'stroke', label: 'Stroke' },
+        { value: 'match-play', label: 'Match Play' },
+      ]}
+    />
+  )}
 />
 ```
 
 ### Australian State Selection
 ```tsx
-<FormSelect
-  control={control}
-  name="state"
-  label="State"
-  options={[
-    { label: 'New South Wales', value: 'NSW' },
-    { label: 'Victoria', value: 'VIC' },
-    { label: 'Queensland', value: 'QLD' },
-    { label: 'South Australia', value: 'SA' },
-    { label: 'Western Australia', value: 'WA' },
-    { label: 'Tasmania', value: 'TAS' },
-    { label: 'Northern Territory', value: 'NT' },
-    { label: 'Australian Capital Territory', value: 'ACT' },
-  ]}
-/>
+const AUSTRALIAN_STATES = [
+  { label: 'New South Wales', value: 'NSW' },
+  { label: 'Victoria', value: 'VIC' },
+  { label: 'Queensland', value: 'QLD' },
+  { label: 'South Australia', value: 'SA' },
+  { label: 'Western Australia', value: 'WA' },
+  { label: 'Tasmania', value: 'TAS' },
+  { label: 'Northern Territory', value: 'NT' },
+  { label: 'Australian Capital Territory', value: 'ACT' },
+];
 ```

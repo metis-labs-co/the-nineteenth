@@ -36,7 +36,7 @@ interface NotificationConfig {
 const notificationConfig: Record<NotificationType, NotificationConfig> = {
   competition_player_added: {
     icon: 'trophy-outline',
-    getTitle: (data) => 'Added to Competition',
+    getTitle: (_data) => 'Added to Competition',
     getMessage: (data) =>
       data.added_by_name
         ? `${data.added_by_name} added you to ${data.competition_name || 'a competition'}`
@@ -44,13 +44,13 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
   },
   competition_player_joined: {
     icon: 'account-plus',
-    getTitle: (data) => 'New Player Joined',
+    getTitle: (_data) => 'New Player Joined',
     getMessage: (data) =>
       `${data.player_name || 'Someone'} joined ${data.competition_name || 'your competition'}`,
   },
   new_round_created: {
     icon: 'golf',
-    getTitle: (data) => 'New Round Created',
+    getTitle: (_data) => 'New Round Created',
     getMessage: (data) => {
       const parts: string[] = [];
       if (data.course_name) parts.push(data.course_name);
@@ -62,7 +62,7 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
   },
   competition_status_changed: {
     icon: 'flag-checkered',
-    getTitle: (data) => 'Competition Updated',
+    getTitle: (_data) => 'Competition Updated',
     getMessage: (data) =>
       data.new_status
         ? `${data.competition_name || 'Competition'} is now ${data.new_status.replace('-', ' ')}`
@@ -70,25 +70,25 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
   },
   scorecard_submitted: {
     icon: 'clipboard-check-outline',
-    getTitle: (data) => 'Scorecard Submitted',
+    getTitle: (_data) => 'Scorecard Submitted',
     getMessage: (data) =>
       `${data.player_name || 'A player'} submitted their scorecard${data.date ? ` for ${data.date}` : ''}`,
   },
   friend_request_received: {
     icon: 'account-plus-outline',
-    getTitle: (data) => 'Friend Request',
+    getTitle: (_data) => 'Friend Request',
     getMessage: (data) =>
       `${data.requester_name || 'Someone'} sent you a friend request`,
   },
   friend_request_accepted: {
     icon: 'account-check',
-    getTitle: (data) => 'Friend Request Accepted',
+    getTitle: (_data) => 'Friend Request Accepted',
     getMessage: (data) =>
       `${data.accepter_name || 'Your friend request was'} accepted your friend request`,
   },
   social_round_invitation: {
     icon: 'golf-tee',
-    getTitle: (data) => 'Round Invitation',
+    getTitle: (_data) => 'Round Invitation',
     getMessage: (data) =>
       `${data.inviter_name || 'Someone'} invited you to play${data.venue_name ? ` at ${data.venue_name}` : ''}`,
   },

@@ -32,6 +32,21 @@ jest.mock('@/components/common/BottomSheet/hooks/useBottomSheetGestures', () => 
   }),
 }));
 
+// Mock settings store for distance unit preference
+jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn(() => ({ distanceUnit: 'yards' })),
+  useFormattedDistance: () => ({
+    formatDistance: (yards: number) => `${yards}y`,
+    unit: 'yards',
+    unitLabel: 'y',
+  }),
+  useStatsVisibility: () => ({
+    showPutts: true,
+    showFairwayHit: true,
+    showGreenInRegulation: true,
+  }),
+}));
+
 // Sample test data
 const createHole = (overrides: Partial<Hole> = {}): Hole => ({
   number: 5 as Hole['number'],

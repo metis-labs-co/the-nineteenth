@@ -6,9 +6,9 @@ import {
   FlatList,
   Dimensions,
 } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import {
   AVATARS,
   isAvatarId,

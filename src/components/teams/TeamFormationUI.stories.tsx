@@ -45,6 +45,12 @@ function createPlayer(id: string, name: string, handicap: number = 15): Player {
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    equipped_badge_id: null,
+    equipped_frame_id: null,
+    equipped_title_id: null,
+    is_placeholder: false,
+    created_by: null,
+    linked_player_id: null,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   };
@@ -366,7 +372,7 @@ export const WithTestID: Story = {
  */
 export const PlayersWithPhotos: Story = {
   render: () => {
-    const playersWithPhotos = fourPlayers.map((player, index) => ({
+    const playersWithPhotos = fourPlayers.map((player, _index) => ({
       ...player,
       photo_url: `https://i.pravatar.cc/150?u=${player.id}`,
     }));

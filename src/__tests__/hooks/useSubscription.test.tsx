@@ -14,16 +14,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import {
-  useSubscription,
-  useCheckFeature,
-  useCanCreateCompetition,
-  useCanAddRound,
-  useCanAddPlayer,
-  useCanUseGameType,
-} from '@/hooks/useSubscription';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
-import type { TierLimits, SubscriptionTier, UserSubscription } from '@/types/subscription.types';
+import type { SubscriptionTier } from '@/types/subscription.types';
 import type { GameType } from '@/types/database.types';
 
 // ============================================================================
@@ -677,138 +670,10 @@ describe('useSubscription', () => {
 });
 
 // ============================================================================
-// TEST SUITE: Helper Hooks
+// NOTE: Helper hooks (useCheckFeature, useCanCreateCompetition, etc.) were
+// removed as unnecessary indirection. Use useSubscription().checkFeature() directly.
+// See: docs/progress/CONSOLIDATION-REFACTORING-PLAN.md task 7.2
 // ============================================================================
-
-describe('useCheckFeature', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSubscriptionData = null;
-    mockTierLimitsData = [];
-    useSubscriptionStore.getState().reset();
-  });
-
-  it('should check feature access', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () => useCheckFeature('create_competition', { currentCount: 2 }),
-      { wrapper }
-    );
-
-    await waitFor(() => {
-      expect(result.current.allowed).toBe(true);
-    });
-  });
-});
-
-describe('useCanCreateCompetition', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSubscriptionData = null;
-    mockTierLimitsData = [];
-    useSubscriptionStore.getState().reset();
-  });
-
-  it('should allow when under limit', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanCreateCompetition(1), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.limitValue).toBe(3);
-    });
-
-    expect(result.current.allowed).toBe(true);
-  });
-
-  it('should deny when at limit', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanCreateCompetition(3), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.limitValue).toBe(3);
-    });
-
-    expect(result.current.allowed).toBe(false);
-  });
-});
-
-describe('useCanAddRound', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSubscriptionData = null;
-    mockTierLimitsData = [];
-    useSubscriptionStore.getState().reset();
-  });
-
-  it('should check round limit correctly', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanAddRound(1), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.limitValue).toBe(2);
-    });
-
-    expect(result.current.allowed).toBe(true);
-  });
-});
-
-describe('useCanAddPlayer', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSubscriptionData = null;
-    mockTierLimitsData = [];
-    useSubscriptionStore.getState().reset();
-  });
-
-  it('should check player limit correctly', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanAddPlayer(9), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.limitValue).toBe(10);
-    });
-
-    expect(result.current.allowed).toBe(true);
-  });
-});
-
-describe('useCanUseGameType', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSubscriptionData = null;
-    mockTierLimitsData = [];
-    useSubscriptionStore.getState().reset();
-  });
-
-  it('should allow stableford for free tier', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanUseGameType('stableford'), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.allowed).toBe(true);
-    });
-  });
-
-  it('should deny match-play for free tier', async () => {
-    setupMockData('free');
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useCanUseGameType('match-play'), { wrapper });
-
-    // Wait for limits to be loaded (allowed will be true initially with no limits)
-    // We check that upgradeRequired becomes true which indicates limits are loaded and feature is denied
-    await waitFor(() => {
-      expect(result.current.upgradeRequired).toBe(true);
-    });
-
-    expect(result.current.allowed).toBe(false);
-  });
-});
 
 // ============================================================================
 // TEST SUITE: Additional Feature Checks

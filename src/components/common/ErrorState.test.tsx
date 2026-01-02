@@ -32,7 +32,7 @@ jest.mock('@/context/ThemeContext', () => ({
 jest.mock('react-native-paper', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
   return {
-    Text: ({ children, style, variant, ...props }: any) => (
+    Text: ({ children, style, _variant, ...props }: any) => (
       <Text style={style} {...props}>
         {children}
       </Text>
@@ -40,9 +40,9 @@ jest.mock('react-native-paper', () => {
     Button: ({
       children,
       onPress,
-      mode,
+      _mode,
       style,
-      contentStyle,
+      _contentStyle,
       labelStyle,
       icon,
       ...props
@@ -58,7 +58,7 @@ jest.mock('react-native-paper', () => {
         <Text style={labelStyle}>{children}</Text>
       </TouchableOpacity>
     ),
-    Icon: ({ source, size, color }: any) => (
+    Icon: ({ source, size, _color }: any) => (
       <View testID={`icon-${source}`} style={{ width: size, height: size }}>
         <Text>{source}</Text>
       </View>

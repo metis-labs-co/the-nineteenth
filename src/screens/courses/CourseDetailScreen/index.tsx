@@ -203,6 +203,7 @@ export default function CourseScreen({ route, navigation }: Props) {
 
         // Create the round in Supabase
         const { data: roundData, error: roundError } = await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
           .from('rounds') as any)
           .insert({
             course_id: course.id,
@@ -269,6 +270,7 @@ export default function CourseScreen({ route, navigation }: Props) {
             })),
           ];
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
           await (supabase.from('round_players') as any).insert(roundPlayersToInsert);
         }
 

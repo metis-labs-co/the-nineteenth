@@ -47,29 +47,41 @@ export const PerformanceChart = React.memo(function PerformanceChart({
     return `${date.getDate()}/${date.getMonth() + 1}`;
   };
 
+  // Normalize value to a 0-100 scale for chart display
+  const normalizeValue = (value: number, min: number, max: number): number => {
+    if (max === min) return 50; // Handle edge case where all values are the same
+    // Map to 10-90 range to leave padding at top and bottom
+    return 10 + ((value - min) / (max - min)) * 80;
+  };
+
   // Prepare chart data - reverse to show oldest to newest (left to right)
   const chartData = useMemo(() => {
     const reversedRounds = [...rounds].reverse();
 
+    // Calculate ranges for normalization
+    const strokeValues = reversedRounds.map((r) => r.totalGross);
+    const stablefordValues = reversedRounds.map((r) => r.totalPoints);
+
+    const minStroke = Math.min(...strokeValues);
+    const maxStroke = Math.max(...strokeValues);
+    const minStableford = Math.min(...stablefordValues);
+    const maxStableford = Math.max(...stablefordValues);
+
+    // Normalize both datasets to the same visual scale (10-90)
+    // but keep original values as dataPointText for display
     const strokeData = reversedRounds.map((round) => ({
-      value: round.totalGross,
+      value: normalizeValue(round.totalGross, minStroke, maxStroke),
       dataPointText: round.totalGross.toString(),
       label: formatDateLabel(round.date),
     }));
 
     const stablefordData = reversedRounds.map((round) => ({
-      value: round.totalPoints,
+      value: normalizeValue(round.totalPoints, minStableford, maxStableford),
       dataPointText: round.totalPoints.toString(),
     }));
 
     return { strokeData, stablefordData };
   }, [rounds]);
-
-  // Calculate Y-axis range for stroke scores
-  const strokeValues = chartData.strokeData.map((d) => d.value);
-  const minStroke = Math.min(...strokeValues);
-  const maxStroke = Math.max(...strokeValues);
-  const strokePadding = Math.max(5, Math.ceil((maxStroke - minStroke) * 0.15));
 
   // Calculate chart width based on data points
   const chartWidth = SCREEN_WIDTH - spacing.lg * 2 - spacing.lg * 2 - 50;
@@ -133,8 +145,7 @@ export const PerformanceChart = React.memo(function PerformanceChart({
             fontSize: 10,
           }}
           noOfSections={4}
-          maxValue={Math.max(maxStroke + strokePadding, 50)}
-          yAxisOffset={Math.max(0, minStroke - strokePadding)}
+          maxValue={100}
           pointerConfig={{
             pointerStripHeight: 150,
             pointerStripColor: colors.border,
@@ -145,7 +156,7 @@ export const PerformanceChart = React.memo(function PerformanceChart({
             pointerLabelHeight: 90,
             activatePointersOnLongPress: true,
             autoAdjustPointerLabelPosition: true,
-            pointerLabelComponent: (items: any) => {
+            pointerLabelComponent: (items: { value: number; dataPointText?: string; label?: string }[]) => {
               return (
                 <View
                   style={[
@@ -154,10 +165,10 @@ export const PerformanceChart = React.memo(function PerformanceChart({
                   ]}
                 >
                   <Text style={[styles.tooltipText, { color: colors.textPrimary }]}>
-                    Stroke: {items[0]?.value}
+                    Stroke: {items[0]?.dataPointText}
                   </Text>
                   <Text style={[styles.tooltipText, { color: colors.textPrimary }]}>
-                    Points: {items[1]?.value}
+                    Points: {items[1]?.dataPointText}
                   </Text>
                 </View>
               );

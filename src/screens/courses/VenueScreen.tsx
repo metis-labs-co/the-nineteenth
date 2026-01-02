@@ -124,6 +124,7 @@ export default function VenueScreen({ route, navigation }: Props) {
 
     // Otherwise, set directly
     performSetAsHome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- performSetAsHome is defined below but stable
   }, [venue, currentHomeVenue, isHomeVenue]);
 
   const performSetAsHome = useCallback(async () => {

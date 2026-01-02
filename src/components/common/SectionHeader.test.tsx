@@ -38,7 +38,7 @@ jest.mock('react-native-paper', () => {
         {children}
       </MockText>
     ),
-    Icon: ({ source, size, color, ...props }: any) => (
+    Icon: ({ source, _size, _color, ...props }: any) => (
       <MockView
         testID={`icon-${source}`}
         accessibilityLabel={source}

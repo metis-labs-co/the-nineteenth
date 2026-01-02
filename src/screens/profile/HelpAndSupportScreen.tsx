@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common';
+import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,7 +39,6 @@ import {
   APP_VERSION,
   APP_TAGLINE,
   SUPPORT_EMAIL,
-  CONTACT_EMAIL,
   CONTACT_SUBJECT_MAX_LENGTH,
   CONTACT_MESSAGE_MAX_LENGTH,
   CONTACT_MESSAGE_MIN_LENGTH,
@@ -49,65 +49,6 @@ import {
 } from '@/constants/app';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-// =====================================================
-// SUB-COMPONENTS
-// =====================================================
-
-interface InquiryTypeSelectorProps {
-  selectedType: InquiryType | null;
-  onSelect: (type: InquiryType) => void;
-}
-
-const InquiryTypeSelector = React.memo(function InquiryTypeSelector({
-  selectedType,
-  onSelect,
-}: InquiryTypeSelectorProps) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.inquiryTypeContainer}>
-      {INQUIRY_OPTIONS.map((option) => {
-        const isSelected = selectedType === option.type;
-        return (
-          <TouchableOpacity
-            key={option.type}
-            style={[
-              styles.inquiryTypeButton,
-              { backgroundColor: colors.surface, borderColor: colors.gray200 },
-              isSelected && {
-                borderColor: colors.primary,
-                backgroundColor: colors.primaryLighter + '20',
-              },
-            ]}
-            activeOpacity={0.7}
-            onPress={() => onSelect(option.type)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: isSelected }}
-            accessibilityLabel={option.label}
-            accessibilityHint={option.description}
-          >
-            <Icon
-              source={option.icon}
-              size={20}
-              color={isSelected ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.inquiryTypeLabel,
-                { color: colors.textSecondary },
-                isSelected && { color: colors.primary },
-              ]}
-              numberOfLines={1}
-            >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-});
 
 // =====================================================
 // CUSTOM HOOKS
@@ -387,10 +328,19 @@ export default function HelpAndSupportScreen() {
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>
               What can we help you with?
             </Text>
-            <InquiryTypeSelector
-              selectedType={form.inquiryType}
-              onSelect={form.setInquiryType}
-            />
+            <View style={styles.inquiryTypeContainer}>
+              {INQUIRY_OPTIONS.map((option) => (
+                <RadioButtonOption
+                  key={option.type}
+                  label={option.label}
+                  description={option.description}
+                  icon={option.icon}
+                  selected={form.inquiryType === option.type}
+                  onSelect={() => form.setInquiryType(option.type)}
+                  testID={`inquiry-type-${option.type}`}
+                />
+              ))}
+            </View>
 
             {/* Subject Input */}
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>
@@ -529,25 +479,8 @@ const styles = StyleSheet.create({
   },
   // Inquiry Type Styles
   inquiryTypeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.lg,
-  },
-  inquiryTypeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
-    minWidth: '47%',
-    flexGrow: 1,
-  },
-  inquiryTypeLabel: {
-    ...typography.small,
-    flex: 1,
   },
   // Form Styles
   fieldLabel: {

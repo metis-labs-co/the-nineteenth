@@ -18,9 +18,11 @@ import { FilterPill, FilterPillProps } from './FilterPill';
 const mockColors = {
   primary: '#1E7F5E',
   surfaceVariant: '#F5F5F5',
+  gray100: '#F5F5F5', // Badge uses gray100 for default variant background
   gray200: '#E5E7EB',
   textSecondary: '#6B7280',
   textDisabled: '#9CA3AF',
+  textInverse: '#FFFFFF',
 };
 
 jest.mock('@/context/ThemeContext', () => ({
@@ -136,7 +138,8 @@ describe('FilterPill', () => {
         ? pill.props.style
         : [pill.props.style];
       const flatStyle = Object.assign({}, ...styles.filter(Boolean));
-      expect(flatStyle.backgroundColor).toBe(mockColors.surfaceVariant);
+      // Badge uses gray100 for default variant background color
+      expect(flatStyle.backgroundColor).toBe(mockColors.gray100);
     });
 
     it('applies selected border color style', () => {

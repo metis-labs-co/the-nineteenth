@@ -21,9 +21,18 @@ jest.mock('@tabler/icons-react-native', () => ({
 
 // Mock settingsStore's useFormattedDistance
 jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn(() => ({
+    distanceUnit: 'yards',
+  })),
   useFormattedDistance: () => ({
-    formatDistance: (yards: number) => yards.toString(),
+    formatDistance: (yards: number) => `${yards}y`,
     unit: 'yards',
+    unitLabel: 'y',
+  }),
+  useStatsVisibility: () => ({
+    showPutts: true,
+    showFairwayHit: true,
+    showGreenInRegulation: true,
   }),
 }));
 

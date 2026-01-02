@@ -11,7 +11,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, Divider } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
 import { HoleDataStep } from './HoleDataStep';

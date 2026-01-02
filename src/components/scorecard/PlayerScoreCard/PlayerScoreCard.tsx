@@ -93,7 +93,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   }, [onPlayerPress, player.id]);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.gray100 }]}>
+    <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
       {/* Player Header */}
       <View style={styles.header}>
         <TouchableOpacity

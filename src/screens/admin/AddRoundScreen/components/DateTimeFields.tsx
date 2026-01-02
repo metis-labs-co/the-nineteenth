@@ -20,7 +20,7 @@ interface DateTimeFieldsProps {
 }
 
 export const DateTimeFields = memo(function DateTimeFields({
-  date,
+  date: _date,
   teeTime,
   dateError,
   onDateChange,

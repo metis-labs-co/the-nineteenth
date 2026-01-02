@@ -69,8 +69,7 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
                 status="custom"
                 label="Guest"
                 size="sm"
-                backgroundColor={colors.gray200}
-                textColor={colors.gray600}
+                backgroundColor={colors.surfaceVariant}
               />
             </View>
             {placeholder.handicap !== null && placeholder.handicap !== undefined && (
@@ -90,19 +89,19 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
           <View
             style={[
               styles.selectionButton,
-              { backgroundColor: isSelected ? colors.primary : colors.gray100 },
+              { backgroundColor: isSelected ? colors.primary : colors.surfaceVariant },
             ]}
           >
             {isSelected ? (
               <IconCheck size={20} color={colors.white} />
             ) : (
-              <IconPlus size={20} color={colors.gray400} />
+              <IconPlus size={20} color={colors.textSecondary} />
             )}
           </View>
         </View>
       </TouchableOpacity>
       {showDivider && (
-        <Divider style={[styles.divider, { backgroundColor: colors.gray100 }]} />
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
       )}
     </>
   );

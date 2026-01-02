@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { roundKeys, scoringPairsKeys } from '@/hooks/queryKeys';
 import type { RoundFormData } from '../types';
 import { updateRound, shuffleScoringPairs } from './useEditRoundData';
-import { parseAustralianDate } from '../utils';
+import { parseAustralianDate } from '@/utils/formatting';
 
 interface UseRoundSubmissionOptions {
   roundId: string;

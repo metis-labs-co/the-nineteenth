@@ -45,3 +45,10 @@ After creating the screen:
 2. Provide usage example for navigating to the screen
 3. List any new hooks or components created
 4. Note accessibility and platform considerations
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

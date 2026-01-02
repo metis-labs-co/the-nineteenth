@@ -29,6 +29,10 @@ export interface Player {
   push_competition_updates: boolean; // Competition-related notifications
   push_friend_requests: boolean; // Friend request notifications
   push_scorecard_updates: boolean; // Scorecard notifications
+  // Equipped cosmetics (achievement rewards)
+  equipped_badge_id: string | null; // UUID, reference to cosmetic_definitions
+  equipped_frame_id: string | null; // UUID, reference to cosmetic_definitions
+  equipped_title_id: string | null; // UUID, reference to cosmetic_definitions
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }

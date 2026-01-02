@@ -334,6 +334,38 @@ function calculateStablefordPoints(
 }
 ```
 
+### Extended Stableford Points
+
+Some competitions use an extended Stableford system that awards more points for exceptionally good scores:
+
+```typescript
+/**
+ * Extended Stableford scoring (with Albatross bonus)
+ * - Net 3+ under par: 5 points (Albatross or better)
+ * - Net 2 under par: 4 points (Eagle)
+ * - Net 1 under par: 3 points (Birdie)
+ * - Net par: 2 points
+ * - Net 1 over par: 1 point (Bogey)
+ * - Net 2+ over par: 0 points
+ */
+function calculateExtendedStablefordPoints(
+  grossScore: number,
+  par: number,
+  playerHandicap: number,
+  strokeIndex: number
+): number {
+  const netScore = calculateNetScore(grossScore, playerHandicap, strokeIndex);
+  const scoreToPar = netScore - par;
+
+  if (scoreToPar <= -3) return 5; // Albatross or better
+  if (scoreToPar === -2) return 4; // Eagle
+  if (scoreToPar === -1) return 3; // Birdie
+  if (scoreToPar === 0) return 2;  // Par
+  if (scoreToPar === 1) return 1;  // Bogey
+  return 0;                        // Double bogey or worse
+}
+```
+
 **Example:**
 
 ```typescript
@@ -441,81 +473,426 @@ function calculateRoundScore(
 
 ---
 
+## Match Play Scoring
+
+**Goal**: Track hole-by-hole wins/losses and determine match outcome.
+
+### Match Play Hole Result
+
+```typescript
+/**
+ * Calculate the result of a single match play hole.
+ * Compares net scores - lower score wins the hole.
+ *
+ * @param playerNet - Player's net score on the hole
+ * @param opponentNet - Opponent's net score on the hole
+ * @returns 'won' | 'lost' | 'halved'
+ */
+function calculateMatchPlayHoleResult(
+  playerNet: number,
+  opponentNet: number
+): 'won' | 'lost' | 'halved' {
+  if (playerNet < opponentNet) return 'won';
+  if (playerNet > opponentNet) return 'lost';
+  return 'halved';
+}
+```
+
+**Special Cases:**
+- **Pickup Score (10)**: When a player picks up their ball, score is recorded as 10. This is an automatic loss for that hole.
+- **Conceded Holes**: If a player concedes, opponent wins the hole.
+
+### Match Play Status
+
+The match status is determined by comparing holes won vs holes remaining:
+
+| Condition | Status |
+|-----------|--------|
+| Player up by more holes than remaining | Player Wins (e.g., "3&2") |
+| Opponent up by more holes than remaining | Opponent Wins |
+| Player up by exactly holes remaining | Dormie (Player) |
+| Opponent up by exactly holes remaining | Dormie (Opponent) |
+| All holes played, player ahead | Player Wins (e.g., "2 UP") |
+| All holes played, tied | All Square ("A/S") |
+| Otherwise | In Progress |
+
+```typescript
+/**
+ * Calculate overall match status from hole results.
+ *
+ * @param holesWon - Number of holes won by player
+ * @param holesLost - Number of holes lost by player
+ * @param holesRemaining - Number of holes left to play
+ * @returns Match status and result string
+ */
+function calculateMatchStatus(
+  holesWon: number,
+  holesLost: number,
+  holesRemaining: number
+): { status: MatchStatus; result?: string } {
+  const currentScore = holesWon - holesLost;
+  const absoluteScore = Math.abs(currentScore);
+
+  // Match over - more holes up than remaining
+  if (absoluteScore > holesRemaining) {
+    const result = `${absoluteScore}&${holesRemaining}`;
+    return {
+      status: currentScore > 0 ? 'player_wins' : 'opponent_wins',
+      result,
+    };
+  }
+
+  // All holes played
+  if (holesRemaining === 0) {
+    if (currentScore > 0) return { status: 'player_wins', result: `${absoluteScore} UP` };
+    if (currentScore < 0) return { status: 'opponent_wins', result: `${absoluteScore} UP` };
+    return { status: 'all_square', result: 'A/S' };
+  }
+
+  // Dormie - lead equals remaining holes
+  if (absoluteScore === holesRemaining && absoluteScore > 0) {
+    return { status: currentScore > 0 ? 'dormie_player' : 'dormie_opponent' };
+  }
+
+  return { status: 'in_progress' };
+}
+```
+
+### Match Play Result Formats
+
+| Situation | Format | Example |
+|-----------|--------|---------|
+| Win before 18th | "X&Y" | "3&2" (3 up with 2 to play) |
+| Win on 18th | "X UP" | "2 UP" |
+| Tie after 18 | "A/S" | "A/S" (All Square) |
+
+---
+
+## Team Scoring Formats
+
+### Best Ball (Four Ball)
+
+**Goal**: Each team member plays their own ball. Team takes the best (lowest) net score on each hole.
+
+```typescript
+/**
+ * Calculate best ball team score for a hole.
+ *
+ * @param teamScores - Array of { playerId, grossScore, handicap }
+ * @param hole - Hole with par and stroke index
+ * @returns Best net score and contributing player
+ */
+function calculateBestBallHole(
+  teamScores: TeamMemberScore[],
+  hole: Hole
+): { bestNetScore: number; contributingPlayerId: string } {
+  const netScores = teamScores.map((member) => ({
+    playerId: member.playerId,
+    netScore: calculateNetScore(member.grossScore, member.handicap, hole),
+  }));
+
+  // Find lowest net score
+  const sorted = netScores.sort((a, b) => a.netScore - b.netScore);
+  const best = sorted[0];
+
+  return {
+    bestNetScore: best.netScore,
+    contributingPlayerId: best.playerId,
+  };
+}
+```
+
+**Example:**
+| Player | Gross | Handicap | SI | Strokes | Net |
+|--------|-------|----------|-----|---------|-----|
+| P1     | 6     | 20       | 2   | 2       | 4   |
+| P2     | 5     | 8        | 2   | 0       | 5   |
+
+Team score = **4** (P1's net score)
+
+### Scramble / Ambrose
+
+**Goal**: Team plays one ball, selecting the best shot each time. Team handicap is applied to the single score.
+
+```typescript
+/**
+ * Calculate scramble team score for a hole.
+ *
+ * @param teamGrossScore - Team's gross score on the hole
+ * @param teamHandicap - Calculated team handicap
+ * @param hole - Hole with stroke index
+ * @returns Team's net score
+ */
+function calculateScrambleHole(
+  teamGrossScore: number,
+  teamHandicap: number,
+  hole: Hole
+): number {
+  return calculateNetScore(teamGrossScore, teamHandicap, hole);
+}
+```
+
+### Team Handicap Calculation
+
+| Team Size | Formula |
+|-----------|---------|
+| 1 player | Full handicap |
+| 2 players | 35% of low + 15% of high |
+| 3 players | (Sum of handicaps) / 3 / 3 |
+| 4 players | (Sum of handicaps) / 4 / 4 |
+| 5+ players | Use fallback 5% per player |
+
+**Scramble Team Handicap (USGA Standard):**
+
+```typescript
+/**
+ * Calculate scramble team handicap using USGA percentages.
+ *
+ * @param handicaps - Array of team member handicaps (sorted low to high)
+ * @returns Team handicap rounded to one decimal
+ */
+function calculateScrambleTeamHandicap(handicaps: number[]): number {
+  if (handicaps.length === 0) return 0;
+
+  const sorted = [...handicaps].sort((a, b) => a - b);
+  const percentages = [0.35, 0.15, 0.10, 0.05]; // USGA standard
+
+  let teamHandicap = 0;
+  sorted.forEach((h, index) => {
+    const pct = percentages[index] ?? 0.05; // 5% for 5th player onwards
+    teamHandicap += h * pct;
+  });
+
+  return Math.round(teamHandicap * 10) / 10;
+}
+```
+
+**Example (4-player Scramble):**
+| Player | Handicap | Percentage | Contribution |
+|--------|----------|------------|--------------|
+| P1     | 5        | 35%        | 1.75         |
+| P2     | 10       | 15%        | 1.50         |
+| P3     | 15       | 10%        | 1.50         |
+| P4     | 20       | 5%         | 1.00         |
+| **Total** | | | **5.75 → 6** |
+
+### Aggregate Team Scoring
+
+**Goal**: Sum of all team members' scores (either gross or net).
+
+```typescript
+/**
+ * Calculate aggregate team score for a hole.
+ *
+ * @param teamScores - Array of individual scores
+ * @returns Total team score
+ */
+function calculateAggregateHole(teamScores: number[]): number {
+  return teamScores.reduce((sum, score) => sum + score, 0);
+}
+```
+
+---
+
 ## Leaderboard Calculation
 
 ### Sorting Logic
 
+| Game Type | Primary Sort | Higher/Lower Wins |
+|-----------|--------------|-------------------|
+| Stableford | Points | Higher is better |
+| Stroke Play | Net Score | Lower is better |
+| Match Play | Holes Won | Higher is better |
+
 ```typescript
 /**
- * Sort players for leaderboard display
+ * Sort entries by score.
  *
- * Stableford: Highest points wins
- * Stroke Play: Lowest net score wins
+ * @param entries - Array of leaderboard entries with rawScore
+ * @param options - { higherIsBetter: boolean }
+ * @returns Sorted array (does not mutate original)
  */
-function sortLeaderboard(
-  scorecards: Scorecard[],
-  gameType: 'stroke' | 'stableford'
-): LeaderboardEntry[] {
-  const entries = scorecards.map((sc, index) => ({
-    playerId: sc.playerId,
-    playerName: sc.player.name,
-    handicap: sc.player.handicap,
-    totalGross: sc.totalGross,
-    totalNet: sc.totalNet,
-    totalPoints: sc.totalPoints,
-    position: 0, // Calculated below
-  }));
-
-  // Sort
-  if (gameType === 'stableford') {
-    entries.sort((a, b) => {
-      // Higher points = better
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints;
-      }
-      // Tiebreaker: Lower net score
-      return a.totalNet - b.totalNet;
-    });
-  } else {
-    entries.sort((a, b) => {
-      // Lower net = better
-      if (a.totalNet !== b.totalNet) {
-        return a.totalNet - b.totalNet;
-      }
-      // Tiebreaker: Lower gross score
-      return a.totalGross - b.totalGross;
-    });
-  }
-
-  // Assign positions (handle ties)
-  let currentPosition = 1;
-  entries.forEach((entry, index) => {
-    if (index > 0) {
-      const prev = entries[index - 1];
-      // Check if tied
-      if (gameType === 'stableford') {
-        if (entry.totalPoints === prev.totalPoints &&
-            entry.totalNet === prev.totalNet) {
-          entry.position = prev.position; // Same position
-        } else {
-          entry.position = index + 1;
-          currentPosition = index + 1;
-        }
-      } else {
-        if (entry.totalNet === prev.totalNet &&
-            entry.totalGross === prev.totalGross) {
-          entry.position = prev.position;
-        } else {
-          entry.position = index + 1;
-          currentPosition = index + 1;
-        }
-      }
-    } else {
-      entry.position = 1;
+function sortByScore<T extends { rawScore: number }>(
+  entries: T[],
+  options: { higherIsBetter: boolean }
+): T[] {
+  return [...entries].sort((a, b) => {
+    if (options.higherIsBetter) {
+      return b.rawScore - a.rawScore; // Descending
     }
+    return a.rawScore - b.rawScore; // Ascending
+  });
+}
+```
+
+### Position Assignment
+
+Positions account for ties by giving tied players the same position and skipping subsequent positions:
+
+```typescript
+/**
+ * Assign positions to sorted leaderboard entries.
+ * Handles ties by giving same position and skipping subsequent positions.
+ *
+ * @param entries - Sorted array of entries with rawScore
+ * @returns Entries with position and tied flag added
+ */
+function assignPositions<T extends { rawScore: number }>(
+  entries: T[]
+): (T & { position: number; tied: boolean })[] {
+  if (entries.length === 0) return [];
+
+  return entries.map((entry, index) => {
+    if (index === 0) {
+      // Check if tied with next entry
+      const tied = entries.length > 1 && entries[1].rawScore === entry.rawScore;
+      return { ...entry, position: 1, tied };
+    }
+
+    const prev = entries[index - 1];
+    const isTiedWithPrev = entry.rawScore === prev.rawScore;
+    const position = isTiedWithPrev ? entries[index - 1].position : index + 1;
+
+    // Check if tied (with prev or next)
+    const isTiedWithNext = index < entries.length - 1 &&
+                           entries[index + 1].rawScore === entry.rawScore;
+    const tied = isTiedWithPrev || isTiedWithNext;
+
+    return { ...entry, position, tied };
+  });
+}
+```
+
+**Example:**
+
+| Rank | Player | Points | Position | Tied |
+|------|--------|--------|----------|------|
+| 1    | Alice  | 40     | 1        | Yes  |
+| 2    | Bob    | 40     | 1        | Yes  |
+| 3    | Carol  | 38     | 3        | No   |
+| 4    | Dave   | 35     | 4        | No   |
+
+### Tiebreaker Rules
+
+When players have the same score, tiebreakers are applied in order:
+
+#### 1. Back Nine Countback
+
+Compare scores on holes 10-18, then 13-18, then 16-18:
+
+```typescript
+/**
+ * Apply back 9/6/3 countback tiebreaker.
+ *
+ * @param entries - Tied entries to break
+ * @param holeScores - Map of participantId -> 18 hole scores array
+ * @param higherIsBetter - true for Stableford, false for Stroke
+ * @returns Entries sorted by tiebreaker
+ */
+function applyBackNineTiebreaker<T extends { participantId: string; rawScore: number }>(
+  entries: T[],
+  holeScores: Map<string, number[]>,
+  higherIsBetter: boolean
+): T[] {
+  if (entries.length <= 1) return entries;
+
+  // Calculate back 9, back 6, back 3 scores
+  const withBackScores = entries.map((entry) => {
+    const scores = holeScores.get(entry.participantId) || [];
+    return {
+      ...entry,
+      back9: scores.slice(9, 18).reduce((a, b) => a + b, 0),
+      back6: scores.slice(12, 18).reduce((a, b) => a + b, 0),
+      back3: scores.slice(15, 18).reduce((a, b) => a + b, 0),
+    };
   });
 
-  return entries;
+  // Sort by back 9, then back 6, then back 3
+  return withBackScores.sort((a, b) => {
+    const multiplier = higherIsBetter ? -1 : 1;
+
+    if (a.back9 !== b.back9) return (a.back9 - b.back9) * multiplier;
+    if (a.back6 !== b.back6) return (a.back6 - b.back6) * multiplier;
+    if (a.back3 !== b.back3) return (a.back3 - b.back3) * multiplier;
+
+    return 0; // Still tied
+  });
+}
+```
+
+**Countback Precedence:**
+1. **Back 9** (holes 10-18): Compare totals
+2. **Back 6** (holes 13-18): If back 9 tied
+3. **Back 3** (holes 16-18): If back 6 tied
+
+#### 2. Handicap Tiebreaker
+
+If still tied after countback, lower handicap wins:
+
+```typescript
+/**
+ * Apply handicap tiebreaker (lower handicap wins).
+ *
+ * @param entries - Tied entries to break
+ * @param handicaps - Map of participantId -> handicap
+ * @returns Entries sorted by handicap (ascending)
+ */
+function applyHandicapTiebreaker<T extends { participantId: string }>(
+  entries: T[],
+  handicaps: Map<string, number>
+): T[] {
+  if (entries.length <= 1) return entries;
+
+  return [...entries].sort((a, b) => {
+    const handicapA = handicaps.get(a.participantId) ?? 36;
+    const handicapB = handicaps.get(b.participantId) ?? 36;
+    return handicapA - handicapB; // Lower wins
+  });
+}
+```
+
+### Playing Handicap Allowance
+
+Different game types apply different handicap allowances:
+
+| Game Type | Allowance | Example (18 hcp) |
+|-----------|-----------|------------------|
+| Stableford | 95% | 17 playing handicap |
+| Stroke Play | 95% | 17 playing handicap |
+| Match Play | 100% | 18 playing handicap |
+| Best Ball | 85% | 15 playing handicap |
+
+```typescript
+/**
+ * Get handicap allowance percentage for game type.
+ *
+ * @param gameType - The game type
+ * @returns Allowance as decimal (0.85 - 1.0)
+ */
+function getHandicapAllowance(gameType: GameType): number {
+  switch (gameType) {
+    case 'stableford':
+    case 'stroke':
+      return 0.95;
+    case 'match-play':
+      return 1.0;
+    case 'best-ball':
+      return 0.85;
+    default:
+      return 1.0;
+  }
+}
+
+/**
+ * Calculate playing handicap from handicap index.
+ *
+ * @param handicapIndex - Player's handicap index
+ * @param gameType - Game type for allowance
+ * @returns Playing handicap (rounded)
+ */
+function getPlayingHandicap(handicapIndex: number, gameType: GameType): number {
+  const allowance = getHandicapAllowance(gameType);
+  return Math.round(handicapIndex * allowance);
 }
 ```
 

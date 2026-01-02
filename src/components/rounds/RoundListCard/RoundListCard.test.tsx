@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundListCard } from './RoundListCard';
 import type { RoundListCardData } from './types';
 
@@ -51,9 +51,31 @@ jest.mock('@tabler/icons-react-native', () => {
 
 // Mock common components
 jest.mock('@/components/common', () => {
-  const { View, Text } = require('react-native');
+  const { View, Text, TouchableOpacity } = require('react-native');
   return {
-    StatusBadge: ({ status, label, size }: { status: string; label?: string; size?: string }) => (
+    CardContainer: ({ children, onPress, style, testID, accessibilityLabel, swipeable, onDelete, ...props }: any) => (
+      <View>
+        <TouchableOpacity
+          testID={testID || 'card-container'}
+          onPress={onPress}
+          style={style}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          {...props}
+        >
+          {children}
+        </TouchableOpacity>
+        {swipeable && onDelete && (
+          <TouchableOpacity testID="delete-button" onPress={onDelete}>
+            <View testID="icon-trash">
+              <Text>Trash</Text>
+            </View>
+            <Text>Delete</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ),
+    StatusBadge: ({ status, label, size: _size }: { status: string; label?: string; size?: string }) => (
       <View testID={label ? `game-type-badge-${label}` : `status-badge-${status}`}>
         <Text>{label || status}</Text>
       </View>
@@ -75,7 +97,7 @@ jest.mock('@/components/common', () => {
     DateTimeDisplay: ({
       date,
       time,
-      size,
+      size: _size,
     }: {
       date: string | Date;
       time?: string | null;
@@ -86,7 +108,7 @@ jest.mock('@/components/common', () => {
         {time && <Text testID="time-value">{time}</Text>}
       </View>
     ),
-    Pill: ({ label, size }: { label: string; size?: string }) => (
+    Pill: ({ label, size: _size }: { label: string; size?: string }) => (
       <View testID="pill">
         <Text>{label}</Text>
       </View>
@@ -486,7 +508,7 @@ describe('RoundListCard', () => {
     });
 
     it('displays Match Play game type', () => {
-      const round = createRoundData({ gameType: 'match_play' });
+      const round = createRoundData({ gameType: 'match-play' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Match Play')).toBeTruthy();
@@ -500,17 +522,18 @@ describe('RoundListCard', () => {
     });
 
     it('displays Best Ball game type', () => {
-      const round = createRoundData({ gameType: 'fourball_bestball' });
+      const round = createRoundData({ gameType: 'best-ball' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Best Ball')).toBeTruthy();
     });
 
-    it('formats unknown game type with capitalization', () => {
+    it('displays unknown game type as-is', () => {
       const round = createRoundData({ gameType: 'custom_format' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('Custom format')).toBeTruthy();
+      // Unknown game types are passed through as-is from getGameTypeLabel
+      expect(screen.getByText('custom_format')).toBeTruthy();
     });
   });
 

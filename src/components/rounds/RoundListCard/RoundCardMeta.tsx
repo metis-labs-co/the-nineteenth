@@ -6,8 +6,14 @@ import { Text } from 'react-native-paper';
 import { IconMapPin, IconUsers } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import { StatusBadge, DateTimeDisplay, ProgressBar } from '@/components/common';
-import { RoundListCardData, formatGameType } from './types';
+import {
+  StatusBadge,
+  DateTimeDisplay,
+  ProgressBar,
+  WinnerRow,
+} from '@/components/common';
+import { getGameTypeLabel } from '@/constants/statusConfig';
+import { RoundListCardData } from './types';
 
 interface RoundCardMetaProps {
   round: RoundListCardData;
@@ -72,9 +78,10 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
           <DateTimeDisplay date={round.date} time={round.teeTime} size="md" />
         )}
         <StatusBadge
-          status="completed"
-          label={formatGameType(round.gameType)}
+          status="custom"
+          label={getGameTypeLabel(round.gameType)}
           size="sm"
+          backgroundColor={colors.gray100}
         />
       </View>
 
@@ -87,9 +94,39 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
           style={styles.progressRow}
         />
       )}
+
+      {/* Winner (for completed rounds) */}
+      {round.status === 'completed' && round.winner && (
+        <View style={styles.winnerRow}>
+          <WinnerRow
+            winner={round.winner}
+            pointsLabel={getPointsLabel(round.gameType)}
+            size="sm"
+          />
+        </View>
+      )}
     </>
   );
 });
+
+/**
+ * Get appropriate points label based on game type
+ */
+const getPointsLabel = (gameType: string): string => {
+  switch (gameType) {
+    case 'stableford':
+      return 'pts';
+    case 'stroke':
+    case 'ambrose':
+      return 'strokes';
+    case 'match_play':
+      return '';
+    case 'fourball_bestball':
+      return 'pts';
+    default:
+      return 'pts';
+  }
+};
 
 const styles = StyleSheet.create({
   playersRow: {
@@ -116,6 +153,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   progressRow: {
+    marginTop: spacing.sm,
+  },
+  winnerRow: {
     marginTop: spacing.sm,
   },
 });

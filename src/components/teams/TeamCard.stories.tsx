@@ -50,6 +50,12 @@ function createPlayer(
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    equipped_badge_id: null,
+    equipped_frame_id: null,
+    equipped_title_id: null,
+    is_placeholder: false,
+    created_by: null,
+    linked_player_id: null,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
   };

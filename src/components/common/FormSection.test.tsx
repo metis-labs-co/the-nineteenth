@@ -34,7 +34,7 @@ jest.mock('@/context/ThemeContext', () => ({
 
 // Mock react-native-paper
 jest.mock('react-native-paper', () => {
-  const { Text: MockText, View: MockView } = require('react-native');
+  const { Text: MockText, View: _MockView } = require('react-native');
   return {
     Text: ({ children, style, accessibilityRole, ...props }: any) => (
       <MockText style={style} accessibilityRole={accessibilityRole} {...props}>

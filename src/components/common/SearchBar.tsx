@@ -45,7 +45,7 @@ export function SearchBar({
         styles.searchSection,
         {
           backgroundColor: colors.surface,
-          borderBottomColor: hideBorder ? 'transparent' : colors.gray100,
+          borderBottomColor: hideBorder ? 'transparent' : colors.border,
           borderBottomWidth: hideBorder ? 0 : 1,
         },
         containerStyle,
@@ -57,11 +57,11 @@ export function SearchBar({
           { backgroundColor: inputBackgroundColor ?? colors.surfaceVariant },
         ]}
       >
-        <Icon source="magnify" size={20} color={colors.gray400} />
+        <Icon source="magnify" size={20} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary }]}
           placeholder={placeholder}
-          placeholderTextColor={colors.gray400}
+          placeholderTextColor={colors.textSecondary}
           value={value}
           onChangeText={onChangeText}
           autoCapitalize="none"
@@ -77,7 +77,7 @@ export function SearchBar({
             accessibilityRole="button"
             accessibilityLabel="Clear search"
           >
-            <Icon source="close-circle" size={20} color={colors.gray400} />
+            <Icon source="close-circle" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>

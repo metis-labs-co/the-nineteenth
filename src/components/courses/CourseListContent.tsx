@@ -28,14 +28,12 @@ interface CourseListContentProps {
   showFavoritesOnly: boolean;
   isSearchActive: boolean;
   searchQuery: string;
-  isApiAvailable: boolean;
   isSuperAdmin: boolean;
   onRefresh: () => void;
   onCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
   onVenuePress: (venue: Venue) => void;
   onToggleFavorite: (course: CourseWithFavoriteStatus) => void;
   togglingFavoriteId: string | null;
-  onShowApiSearchModal: () => void;
   onShowAddModal: () => void;
 }
 
@@ -46,14 +44,12 @@ export function CourseListContent({
   showFavoritesOnly,
   isSearchActive,
   searchQuery,
-  isApiAvailable,
   isSuperAdmin,
   onRefresh,
   onCourseSelect,
   onVenuePress,
   onToggleFavorite,
   togglingFavoriteId,
-  onShowApiSearchModal,
   onShowAddModal,
 }: CourseListContentProps) {
   const colors = useThemeColors();
@@ -82,13 +78,7 @@ export function CourseListContent({
         return 'Star courses to add them to your favourites';
       }
       if (isSearchActive) {
-        if (isApiAvailable) {
-          return `No venues match "${searchQuery}". Try searching the online database.`;
-        }
         return `No venues match "${searchQuery}". Try a different search.`;
-      }
-      if (isApiAvailable) {
-        return 'Search the online database to find courses';
       }
       return 'No venues available';
     };
@@ -96,19 +86,10 @@ export function CourseListContent({
     const icon = showFavoritesOnly ? 'star-outline' : 'golf';
 
     // Determine action button - only show "Add Venue" for Super Admin
-    const showApiSearch = isApiAvailable && !showFavoritesOnly;
-    const showAddVenue = !showApiSearch && isSuperAdmin && !showFavoritesOnly;
+    const showAddVenue = isSuperAdmin && !showFavoritesOnly;
 
-    const actionLabel = showApiSearch
-      ? 'Search Online'
-      : showAddVenue
-        ? 'Add Venue'
-        : undefined;
-    const onAction = showApiSearch
-      ? onShowApiSearchModal
-      : showAddVenue
-        ? onShowAddModal
-        : undefined;
+    const actionLabel = showAddVenue ? 'Add Venue' : undefined;
+    const onAction = showAddVenue ? onShowAddModal : undefined;
 
     return (
       <EmptyState

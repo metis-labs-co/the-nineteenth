@@ -77,3 +77,10 @@ After designing the schema:
 2. RLS policy explanation
 3. Index strategy for common queries
 4. TypeScript types to add to `src/types/index.ts`
+
+## Verification
+
+Before considering the task complete:
+1. Run type check: `pnpm typecheck`
+2. Run lint check: `pnpm lint`
+3. Fix any errors or warnings that were introduced

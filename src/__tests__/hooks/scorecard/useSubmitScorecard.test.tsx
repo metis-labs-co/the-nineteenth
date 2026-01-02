@@ -7,13 +7,12 @@
  * @see src/hooks/scorecard/useSubmitScorecard.ts
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useSubmitScorecards, useUpdateScore } from '@/hooks/scorecard/useSubmitScorecard';
 import * as offlineDatabase from '@/services/offline/database';
 import * as offlineSync from '@/services/offline/sync';
-import { createTestPlayer, create18Holes } from '@/__tests__/utils/testFixtures';
 import type { Scorecard } from '@/types';
 
 // Helper to create app-level Scorecard (camelCase) for testing
@@ -58,6 +57,30 @@ jest.mock('@/hooks/scorecard/useScorecards', () => ({
     details: () => ['scorecards', 'detail'],
     detail: (id: string) => ['scorecards', 'detail', id],
   },
+}));
+
+// Mock useAuth hook
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    isAuthenticated: true,
+    isLoading: false,
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    signUp: jest.fn(),
+    resetPassword: jest.fn(),
+    updateProfile: jest.fn(),
+  }),
+}));
+
+// Mock useAchievementToast hook
+jest.mock('@/context/AchievementToastContext', () => ({
+  useAchievementToast: () => ({
+    showAchievementToast: jest.fn(),
+    hideAchievementToast: jest.fn(),
+    isVisible: false,
+    achievement: null,
+  }),
 }));
 
 // ============================================================================

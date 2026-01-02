@@ -50,7 +50,7 @@ jest.mock('date-fns', () => {
 });
 
 // Helper to create safe testID from label
-const createTestId = (label: string, prefix: string) => {
+const _createTestId = (label: string, prefix: string) => {
   const safeName = label?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'unnamed';
   return `${prefix}-${safeName}`;
 };
@@ -98,7 +98,7 @@ jest.mock('@/components/common', () => {
         {hint && !error && <Text testID="input-hint">{hint}</Text>}
       </View>
     ),
-    DatePicker: ({ label, value, onChange, error, hint, minimumDate, placeholder }: any) => (
+    DatePicker: ({ label, value, onChange, error, hint, minimumDate: _minimumDate, placeholder }: any) => (
       <View testID={createSafeTestId(label || '', 'date-picker')}>
         <Text testID={createSafeTestId(label || '', 'date-label')}>{label}</Text>
         <TextInput
@@ -118,7 +118,7 @@ jest.mock('@/components/common', () => {
 jest.mock('react-native-paper', () => {
   const { TouchableOpacity, View, Text } = require('react-native');
   return {
-    Button: ({ children, onPress, mode, style, testID, textColor, buttonColor, disabled }: any) => (
+    Button: ({ children, onPress, mode, style, testID, textColor, buttonColor: _buttonColor, disabled }: any) => (
       <TouchableOpacity
         testID={testID || `button-${mode}`}
         onPress={onPress}
@@ -163,10 +163,10 @@ describe('CompetitionDetailsStep', () => {
     name: 'Summer Championship',
     description: 'A fun summer golf event',
     competitionType: 'event',
-    startDate: '25/12/2025',
-    endDate: '26/12/2025',
+    startDate: '15/06/2026',
+    endDate: '16/06/2026',
     handicapSystem: 'honor',
-    inviteCode: 'SUMMER2025',
+    inviteCode: 'SUMMER2026',
   };
 
   beforeEach(() => {
@@ -249,14 +249,14 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
 
       const inviteCodeInput = screen.getByTestId('input-invite-code-optional');
-      expect(inviteCodeInput.props.value).toBe('SUMMER2025');
+      expect(inviteCodeInput.props.value).toBe('SUMMER2026');
     });
 
     it('populates start date from initial data', () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
 
       const startDateInput = screen.getByTestId('date-input-start-date');
-      expect(startDateInput.props.value).toBe('25/12/2025');
+      expect(startDateInput.props.value).toBe('15/06/2026');
     });
 
     it('defaults competition type to event', () => {
@@ -327,7 +327,7 @@ describe('CompetitionDetailsStep', () => {
       const initialDataWithEndDate = {
         ...validFormData,
         competitionType: 'event' as const,
-        endDate: '26/12/2025',
+        endDate: '16/06/2026',
       };
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={initialDataWithEndDate} />);
@@ -395,9 +395,9 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '25/12/2025');
+      fireEvent.changeText(startDateInput, '15/06/2026');
 
-      expect(startDateInput.props.value).toBe('25/12/2025');
+      expect(startDateInput.props.value).toBe('15/06/2026');
     });
 
     it('updates end date on change', () => {
@@ -445,10 +445,10 @@ describe('CompetitionDetailsStep', () => {
         expect(calledWith.name).toBe('Summer Championship');
         expect(calledWith.description).toBe('A fun summer golf event');
         expect(calledWith.competitionType).toBe('event');
-        expect(calledWith.startDate).toBe('25/12/2025');
-        expect(calledWith.endDate).toBe('26/12/2025');
+        expect(calledWith.startDate).toBe('15/06/2026');
+        expect(calledWith.endDate).toBe('16/06/2026');
         expect(calledWith.handicapSystem).toBe('honor');
-        expect(calledWith.inviteCode).toBe('SUMMER2025');
+        expect(calledWith.inviteCode).toBe('SUMMER2026');
       });
     });
 
@@ -479,7 +479,7 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill start date but leave name empty
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '25/12/2025');
+      fireEvent.changeText(startDateInput, '15/06/2026');
 
       fireEvent.press(screen.getByText('Next: Team Settings'));
 
@@ -567,7 +567,7 @@ describe('CompetitionDetailsStep', () => {
 
   describe('Layout', () => {
     it('renders form section with surface background', () => {
-      const { UNSAFE_root } = render(<CompetitionDetailsStep {...defaultProps} />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Component should render without errors
       expect(screen.getByTestId('segmented-buttons')).toBeTruthy();
@@ -604,6 +604,7 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       const inviteCodeInput = screen.getByTestId('input-invite-code-optional');
+      // The component's actual placeholder text
       expect(inviteCodeInput.props.placeholder).toBe('e.g., SUMMER2025');
     });
 
@@ -797,10 +798,10 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill dates
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '25/12/2025');
+      fireEvent.changeText(startDateInput, '15/06/2026');
 
       const endDateInput = screen.getByTestId('date-input-end-date');
-      fireEvent.changeText(endDateInput, '31/12/2025');
+      fireEvent.changeText(endDateInput, '31/12/2026');
 
       // Submit
       fireEvent.press(screen.getByText('Next: Team Settings'));
@@ -812,8 +813,8 @@ describe('CompetitionDetailsStep', () => {
         expect(calledWith.description).toBe('A test description');
         expect(calledWith.competitionType).toBe('event');
         expect(calledWith.inviteCode).toBe('TEST2025');
-        expect(calledWith.startDate).toBe('25/12/2025');
-        expect(calledWith.endDate).toBe('31/12/2025');
+        expect(calledWith.startDate).toBe('15/06/2026');
+        expect(calledWith.endDate).toBe('31/12/2026');
       });
     });
 
@@ -850,9 +851,9 @@ describe('CompetitionDetailsStep', () => {
       // All fields should be populated
       expect(screen.getByTestId('input-competition-name').props.value).toBe('Summer Championship');
       expect(screen.getByTestId('input-description-optional').props.value).toBe('A fun summer golf event');
-      expect(screen.getByTestId('input-invite-code-optional').props.value).toBe('SUMMER2025');
-      expect(screen.getByTestId('date-input-start-date').props.value).toBe('25/12/2025');
-      expect(screen.getByTestId('date-input-end-date').props.value).toBe('26/12/2025');
+      expect(screen.getByTestId('input-invite-code-optional').props.value).toBe('SUMMER2026');
+      expect(screen.getByTestId('date-input-start-date').props.value).toBe('15/06/2026');
+      expect(screen.getByTestId('date-input-end-date').props.value).toBe('16/06/2026');
     });
   });
 });

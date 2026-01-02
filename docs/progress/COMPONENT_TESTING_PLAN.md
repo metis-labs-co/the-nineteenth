@@ -51,7 +51,6 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/competitionWizard/create/AddPlayersStep.tsx` | 619 | Yes |
 | `src/components/competitionWizard/create/ReviewStep.tsx` | 452 | Yes |
 | `src/components/competitionWizard/create/TeamSettingsStep.tsx` | 587 | Yes |
-| `src/components/courses/ApiSearchModal.tsx` | 628 | Yes |
 | `src/components/courses/VenueCard.tsx` | 444 | Yes |
 | `src/components/leaderboard/LeaderboardTab.tsx` | 567 | Yes |
 | `src/components/leaderboard/RoundLeaderboard.tsx` | 857 | Yes |
@@ -62,7 +61,6 @@ This document outlines all **React components** that need testing in The Ninetee
 | `src/components/rounds/ViewRound/RoundScorecardTab.tsx` | 581 | Yes |
 | `src/components/scorecard/BestBallScoreView.tsx` | 477 | Yes |
 | `src/components/scorecard/PlayerScoreCard.tsx` | 581 | Yes |
-| `src/components/scorecard/ScorecardDebugPanel.tsx` | 771 | Yes |
 | `src/components/scorecard/ScorecardTable/ScorecardTable.tsx` | 548 | Yes |
 | `src/components/scorecard/SwipeableHoleNavigator.tsx` | 529 | Yes |
 | `src/components/scorecard/TeamMatchPlayScoreView.tsx` | 524 | Yes |
@@ -242,7 +240,6 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/competitions/detail/DetailsTab.test.tsx`
 - `src/components/competitionWizard/AddPlayersBottomSheet.test.tsx`
 - `src/components/competitionWizard/create/AddPlayersStep.test.tsx`
-- `src/components/courses/ApiSearchModal.test.tsx`
 - `src/components/courses/VenueCard.test.tsx`
 - `src/components/leaderboard/LeaderboardTab.test.tsx`
 - `src/components/leaderboard/RoundLeaderboard.test.tsx`
@@ -250,7 +247,6 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - `src/components/rounds/ViewRound/RoundScorecardTab.test.tsx`
 - `src/components/scorecard/BestBallScoreView.test.tsx`
 - `src/components/scorecard/PlayerScoreCard.test.tsx`
-- `src/components/scorecard/ScorecardDebugPanel.test.tsx`
 - `src/components/scorecard/ScorecardTable/ScorecardTable.test.tsx`
 - `src/components/scorecard/TeamMatchPlayScoreView.test.tsx`
 - `src/components/scorecard/TeamScoreCard.test.tsx`
@@ -404,7 +400,5 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
 - **2024-12-18**: `TeamSettingsStep.tsx` - 65 tests, 20 stories
 - **2024-12-18**: `RoundListCard.tsx` - 61 tests, 28 stories
 - **2024-12-18**: `AddPlayersStep.tsx` - 46 tests, 10 stories
-- **2024-12-17**: `ApiSearchModal.tsx` - 46 tests, 10 stories
 - **2024-12-17**: `DetailsTab.tsx` - 65 tests, 17 stories
-- **2024-12-17**: `ScorecardDebugPanel.tsx` - 66 tests, 14 stories
 - **2024-12-17**: `AddPlayersBottomSheet.tsx` - 45 tests, 10 stories

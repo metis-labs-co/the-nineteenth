@@ -89,7 +89,7 @@ export const EmptyState = React.memo(function EmptyState({
   iconColor,
 }: EmptyStateProps) {
   const colors = useThemeColors();
-  const resolvedIconColor = iconColor ?? colors.gray400;
+  const resolvedIconColor = iconColor ?? colors.textDisabled;
 
   return (
     <View
@@ -101,7 +101,7 @@ export const EmptyState = React.memo(function EmptyState({
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: colors.gray100 },
+          { backgroundColor: colors.surfaceVariant },
           compact && styles.iconContainerCompact,
         ]}
       >
@@ -115,7 +115,7 @@ export const EmptyState = React.memo(function EmptyState({
       {/* Title */}
       <Text
         variant={compact ? 'titleSmall' : 'titleMedium'}
-        style={[styles.title, { color: colors.gray900 }]}
+        style={[styles.title, { color: colors.textPrimary }]}
         accessibilityRole="header"
       >
         {title}
@@ -124,7 +124,7 @@ export const EmptyState = React.memo(function EmptyState({
       {/* Message */}
       <Text
         variant="bodyMedium"
-        style={[styles.message, { color: colors.gray600 }, compact && styles.messageCompact]}
+        style={[styles.message, { color: colors.textSecondary }, compact && styles.messageCompact]}
         numberOfLines={compact ? 2 : 4}
       >
         {message}

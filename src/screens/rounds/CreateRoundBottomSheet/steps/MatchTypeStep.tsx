@@ -8,7 +8,7 @@
  * - Upgrade prompt for locked game types
  */
 
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -68,10 +68,14 @@ export const MatchTypeStep = memo(function MatchTypeStep({
   // Get allowed game types from subscription
   const allowedGameTypes = limits?.allowedGameTypes ?? ['stableford'];
 
+  // Memoize allowedGameTypes array to ensure stable reference
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- using JSON.stringify for deep comparison
+  const memoizedAllowedTypes = useMemo(() => allowedGameTypes, [JSON.stringify(allowedGameTypes)]);
+
   // Check if a game type is allowed
   const isGameTypeAllowed = useCallback((gameType: GameType): boolean => {
-    return allowedGameTypes.includes(gameType);
-  }, [allowedGameTypes]);
+    return memoizedAllowedTypes.includes(gameType);
+  }, [memoizedAllowedTypes]);
 
   // Handle press on a match type option
   const handlePress = useCallback((matchType: MatchTypeOption) => {
@@ -181,7 +185,6 @@ export const MatchTypeStep = memo(function MatchTypeStep({
                         label={TIER_DISPLAY_NAMES[matchType.requiredTier]}
                         size="sm"
                         backgroundColor={colors.warningBackground}
-                        textColor={colors.warningDark}
                       />
                     )}
                   </View>

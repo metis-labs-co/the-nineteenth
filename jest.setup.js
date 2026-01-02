@@ -15,11 +15,32 @@
 jest.setTimeout(10000);
 
 // ============================================================================
-// CONSOLE WARNING SUPPRESSION
+// CONSOLE OUTPUT SUPPRESSION
 // ============================================================================
 
+const originalLog = console.log;
 const originalWarn = console.warn;
 const originalError = console.error;
+
+// Suppress verbose debug logs during tests
+console.log = (...args) => {
+  const message = typeof args[0] === 'string' ? args[0] : '';
+
+  // Suppress auth hook debug logs and other verbose output
+  const suppressedLogs = [
+    '[useAuthSession]',
+    '[useAuthUser]',
+    '[useAuthMutations]',
+    '[useAuth]',
+    '[AuthProvider]',
+  ];
+
+  if (suppressedLogs.some((log) => message.includes(log))) {
+    return;
+  }
+
+  originalLog.apply(console, args);
+};
 
 console.warn = (...args) => {
   const message = typeof args[0] === 'string' ? args[0] : '';
@@ -44,11 +65,18 @@ console.warn = (...args) => {
 console.error = (...args) => {
   const message = typeof args[0] === 'string' ? args[0] : '';
 
-  // Suppress certain React warnings in tests
+  // Suppress certain React warnings and expected test errors
   const suppressedErrors = [
     'Warning: An update to',
     'Warning: Cannot update a component',
     'Warning: Each child in a list',
+    'was not wrapped in act',
+    // Expected auth error logs during error scenario tests
+    'Login error:',
+    'Signup error:',
+    'Verify OTP error:',
+    'Magic link error:',
+    'Send OTP error:',
   ];
 
   if (suppressedErrors.some((error) => message.includes(error))) {
@@ -334,7 +362,7 @@ jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
-  const { View, Text: RNText } = require('react-native');
+  const { View, Text: RNText, Image } = require('react-native');
 
   // Mock theme colors
   const mockThemeColors = {
@@ -379,6 +407,58 @@ jest.mock('react-native-paper', () => {
     },
   };
 
+  // Avatar component mock
+  const Avatar = {
+    Image: ({ size, source, style, testID, ...props }) =>
+      React.createElement(View, {
+        testID: testID || 'avatar-image',
+        style: [{ width: size, height: size, borderRadius: size / 2 }, style],
+        ...props,
+      }, source?.uri ? React.createElement(Image, { source, style: { width: size, height: size } }) : null),
+    Text: ({ label, size, style, labelStyle, ...props }) =>
+      React.createElement(View, {
+        testID: 'avatar-text',
+        style: [{ width: size, height: size, borderRadius: size / 2 }, style],
+        ...props,
+      }, React.createElement(RNText, { style: labelStyle }, label)),
+    Icon: ({ icon, size, style, ...props }) =>
+      React.createElement(View, {
+        testID: `avatar-icon-${icon}`,
+        style: [{ width: size, height: size, borderRadius: size / 2 }, style],
+        ...props,
+      }),
+  };
+
+  // TextInput with Icon sub-component
+  const TextInputComponent = ({ label, value, onChangeText, placeholder, mode, style, left, right, outlineStyle, editable, ...props }) => {
+    const { TextInput: RNTextInput } = require('react-native');
+    // For editable inputs, use RNTextInput; for display-only, show value as Text
+    return React.createElement(View, { style },
+      left,
+      editable === false
+        ? React.createElement(RNText, null, value || placeholder)
+        : React.createElement(RNTextInput, {
+            value,
+            onChangeText,
+            placeholder,
+            ...props
+          }),
+      right
+    );
+  };
+  TextInputComponent.Icon = ({ icon, onPress, ...props }) =>
+    React.createElement(View, { testID: `textinput-icon-${icon}`, onPress, ...props });
+
+  // Chip component
+  const Chip = ({ children, selected, onPress, style, textStyle, showSelectedCheck, ...props }) => {
+    const { TouchableOpacity } = require('react-native');
+    return React.createElement(
+      TouchableOpacity,
+      { onPress, style, ...props },
+      React.createElement(RNText, { style: textStyle }, children)
+    );
+  };
+
   return {
     MD3LightTheme: mockTheme,
     MD3DarkTheme: mockDarkTheme,
@@ -386,14 +466,17 @@ jest.mock('react-native-paper', () => {
     PaperProvider: ({ children }) => children,
     Text: ({ children, style, variant, numberOfLines, ...props }) =>
       React.createElement(RNText, { style, numberOfLines, ...props }, children),
-    TextInput: ({ label, value, onChangeText, style, ...props }) =>
-      React.createElement(RNText, { ...props }, value || label),
-    Button: ({ children, onPress, mode, style, ...props }) =>
-      React.createElement(
-        View,
-        { ...props, onPress },
-        React.createElement(RNText, null, children)
-      ),
+    TextInput: TextInputComponent,
+    Button: ({ children, onPress, mode, style, loading, disabled, labelStyle, compact, ...props }) => {
+      const { TouchableOpacity } = require('react-native');
+      return React.createElement(
+        TouchableOpacity,
+        { ...props, onPress: disabled ? undefined : onPress, disabled },
+        loading && React.createElement(View, { testID: 'button-loading-indicator' }),
+        React.createElement(RNText, { style: labelStyle }, children)
+      );
+    },
+    Chip,
     IconButton: ({ icon, onPress, ...props }) =>
       React.createElement(View, { testID: `icon-button-${icon}`, onPress, ...props }),
     Icon: ({ source, size, color }) =>
@@ -406,6 +489,7 @@ jest.mock('react-native-paper', () => {
       React.createElement(View, { style, ...props }, children),
     Divider: ({ style, ...props }) =>
       React.createElement(View, { style: [{ height: 1, backgroundColor: '#ccc' }, style], ...props }),
+    Avatar,
     useTheme: () => mockTheme,
     withTheme: (Component) => (props) => React.createElement(Component, { ...props, theme: mockTheme }),
     configureFonts: jest.fn(() => ({})),
@@ -484,6 +568,32 @@ jest.mock('@/context/ThemeContext', () => {
     useIsDark: () => false,
   };
 });
+
+// ============================================================================
+// REVENUECAT MOCK
+// ============================================================================
+
+jest.mock('react-native-purchases', () => ({
+  Purchases: {
+    configure: jest.fn(),
+    getCustomerInfo: jest.fn(() => Promise.resolve({
+      entitlements: { active: {} },
+      activeSubscriptions: [],
+    })),
+    getOfferings: jest.fn(() => Promise.resolve({ current: null, all: {} })),
+    purchasePackage: jest.fn(() => Promise.resolve({ customerInfo: {} })),
+    restorePurchases: jest.fn(() => Promise.resolve({ customerInfo: {} })),
+    addCustomerInfoUpdateListener: jest.fn(() => jest.fn()),
+    logIn: jest.fn(() => Promise.resolve({ customerInfo: {} })),
+    logOut: jest.fn(() => Promise.resolve({ customerInfo: {} })),
+    setEmail: jest.fn(),
+    setDisplayName: jest.fn(),
+    setAttributes: jest.fn(),
+    isConfigured: jest.fn().mockReturnValue(true),
+    isAnonymous: jest.fn().mockReturnValue(false),
+  },
+  LOG_LEVEL: { VERBOSE: 0, DEBUG: 1, INFO: 2, WARN: 3, ERROR: 4 },
+}));
 
 // ============================================================================
 // CLEANUP AFTER EACH TEST

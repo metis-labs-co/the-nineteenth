@@ -38,7 +38,7 @@ type Story = StoryObj<typeof BottomNavigation>;
 // WRAPPER COMPONENTS
 // ===========================================================================
 
-function StoryWrapper({ children, title }: { children: React.ReactNode; title?: string }) {
+function _StoryWrapper({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
     <View style={wrapperStyles.container}>
       {title && <Text style={wrapperStyles.title}>{title}</Text>}

@@ -32,7 +32,12 @@ import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { AuthProvider } from '@/context/AuthContext';
+import {
+  AchievementToastProvider,
+  useAchievementToast,
+} from '@/context/AchievementToastContext';
 import { toastConfig } from '@/components/notifications/NotificationToast';
+import { AchievementToast } from '@/components/achievements';
 import { lightColors, darkColors } from '@/constants/theme';
 
 // ============================================================================
@@ -155,6 +160,34 @@ const CombinedDarkTheme = {
 };
 
 // ============================================================================
+// ACHIEVEMENT TOAST DISPLAY
+// ============================================================================
+
+/**
+ * Component that renders the achievement toast from context
+ * Must be inside AchievementToastProvider
+ */
+function AchievementToastDisplay() {
+  const { currentToast, isVisible, dismissToast, navigateToAchievements } =
+    useAchievementToast();
+
+  if (!currentToast) {
+    return null;
+  }
+
+  return (
+    <AchievementToast
+      achievement={currentToast.achievement}
+      cosmetic={currentToast.cosmetic}
+      visible={isVisible}
+      onDismiss={dismissToast}
+      onViewAll={navigateToAchievements}
+      testID="achievement-toast"
+    />
+  );
+}
+
+// ============================================================================
 // INNER APP (uses theme context)
 // ============================================================================
 
@@ -166,10 +199,14 @@ function AppContent() {
 
   return (
     <PaperProvider theme={paperTheme}>
-      <RootNavigator theme={navigationTheme} />
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      {/* Toast for real-time notification alerts - must be inside ThemeProvider */}
-      <Toast config={toastConfig} />
+      <AchievementToastProvider>
+        <RootNavigator theme={navigationTheme} />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        {/* Toast for real-time notification alerts - must be inside ThemeProvider */}
+        <Toast config={toastConfig} />
+        {/* Achievement unlock toasts - rendered above everything else */}
+        <AchievementToastDisplay />
+      </AchievementToastProvider>
     </PaperProvider>
   );
 }

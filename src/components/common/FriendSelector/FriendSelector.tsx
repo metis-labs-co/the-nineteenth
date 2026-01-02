@@ -248,7 +248,7 @@ export const FriendSelector = memo(function FriendSelector({
         </View>
         {onAddPlaceholderPress && (
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: colors.gray600 }]}
+            style={[styles.addButton, { backgroundColor: colors.textSecondary }]}
             onPress={onAddPlaceholderPress}
             accessibilityLabel={addPlaceholderLabel}
             accessibilityRole="button"
@@ -339,7 +339,7 @@ export const FriendSelector = memo(function FriendSelector({
           </>
         ) : (
           <View style={styles.emptyContainer}>
-            <IconUsers size={48} color={colors.gray300} />
+            <IconUsers size={48} color={colors.textDisabled} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
               {searchQuery ? emptySearchMessage : emptyMessage}
             </Text>

@@ -13,7 +13,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -25,6 +25,7 @@ import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
 import type { Player, Hole, HoleScore } from '@/types';
 import { getBallLabel } from '@/types/multiball.types';
 import type { BallCount } from '@/types/multiball.types';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 interface MultiBallScoreInputProps {
   player: Player;
@@ -34,11 +35,15 @@ interface MultiBallScoreInputProps {
   ballScores: (HoleScore | undefined)[];
   /** Called when a ball's score changes */
   onBallScoreChange: (ballIndex: number, strokes: number) => void;
+  /** Called when a ball's stats (FIR, GIR) change */
+  onBallStatsChange?: (ballIndex: number, updates: Partial<HoleScore>) => void;
+  /** Show FIR checkbox (only for par 4+ holes) */
+  showFIR?: boolean;
+  /** Show GIR checkbox */
+  showGIR?: boolean;
   disabled?: boolean;
 }
 
-// Pick up score - represents player giving up on the hole (no points in Stableford)
-const PICKUP_SCORE = 10;
 const MIN_SCORE = 1;
 const MAX_SCORE = 12;
 
@@ -48,10 +53,16 @@ export const MultiBallScoreInput = React.memo(function MultiBallScoreInput({
   ballCount,
   ballScores,
   onBallScoreChange,
+  onBallStatsChange,
+  showFIR = false,
+  showGIR = false,
   disabled = false,
 }: MultiBallScoreInputProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
+
+  // FIR only shows for par 4+ holes
+  const showFIRForHole = showFIR && currentHole.par >= 4;
 
   // Calculate strokes received on this hole
   const strokesOnHole = useMemo(
@@ -68,7 +79,7 @@ export const MultiBallScoreInput = React.memo(function MultiBallScoreInput({
   }, [ballScores, handicap, currentHole]);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.gray100 }]}>
+    <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
       {/* Player Header */}
       <View style={styles.header}>
         <View style={styles.playerInfo}>
@@ -112,6 +123,9 @@ export const MultiBallScoreInput = React.memo(function MultiBallScoreInput({
             handicap={handicap}
             hole={currentHole}
             onScoreChange={(strokes) => onBallScoreChange(index, strokes)}
+            onStatsChange={onBallStatsChange ? (updates) => onBallStatsChange(index, updates) : undefined}
+            showFIR={showFIRForHole}
+            showGIR={showGIR}
             disabled={disabled}
             isLast={index === ballCount - 1}
           />
@@ -129,6 +143,9 @@ interface BallScoreRowProps {
   handicap: number;
   hole: Hole;
   onScoreChange: (strokes: number) => void;
+  onStatsChange?: (updates: Partial<HoleScore>) => void;
+  showFIR: boolean;
+  showGIR: boolean;
   disabled: boolean;
   isLast: boolean;
 }
@@ -140,6 +157,9 @@ const BallScoreRow = React.memo(function BallScoreRow({
   handicap,
   hole,
   onScoreChange,
+  onStatsChange,
+  showFIR,
+  showGIR,
   disabled,
   isLast,
 }: BallScoreRowProps) {
@@ -147,6 +167,11 @@ const BallScoreRow = React.memo(function BallScoreRow({
 
   const selectedScore = currentScore?.strokes;
   const isPickedUp = selectedScore === PICKUP_SCORE;
+  const fairwayHit = currentScore?.fairwayHit;
+  const greenInRegulation = currentScore?.greenInRegulation;
+
+  // Check if stats are visible
+  const hasVisibleStats = showFIR || showGIR;
 
   // Calculate Stableford points for this ball
   const points = useMemo(() => {
@@ -187,6 +212,18 @@ const BallScoreRow = React.memo(function BallScoreRow({
     }
   }, [disabled, par, onScoreChange]);
 
+  const handleFairwayToggle = useCallback(() => {
+    if (!disabled && !isPickedUp && onStatsChange) {
+      onStatsChange({ fairwayHit: fairwayHit !== true });
+    }
+  }, [disabled, isPickedUp, onStatsChange, fairwayHit]);
+
+  const handleGIRToggle = useCallback(() => {
+    if (!disabled && !isPickedUp && onStatsChange) {
+      onStatsChange({ greenInRegulation: greenInRegulation !== true });
+    }
+  }, [disabled, isPickedUp, onStatsChange, greenInRegulation]);
+
   return (
     <View
       style={[
@@ -195,111 +232,170 @@ const BallScoreRow = React.memo(function BallScoreRow({
         !isLast && { borderBottomColor: colors.border },
       ]}
     >
-      {/* Ball Label and Points */}
-      <View style={styles.ballLabelContainer}>
-        <Text style={[styles.ballLabel, { color: colors.textPrimary }]}>
-          {ballLabel}
-        </Text>
-        <Text style={[styles.ballPoints, { color: colors.textSecondary }]}>
-          {points} pts
-        </Text>
-      </View>
-
-      {/* Compact Score Controls */}
-      <View style={styles.ballControls}>
-        {/* Pick Up Button */}
-        <TouchableOpacity
-          style={[
-            styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
-            isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
-            disabled && styles.buttonDisabled,
-          ]}
-          onPress={handlePickUp}
-          disabled={disabled}
-          activeOpacity={0.7}
-          accessibilityLabel={`Pick up ${ballLabel}`}
-        >
-          <Text
-            style={[
-              styles.compactButtonText,
-              { color: colors.textPrimary },
-              isPickedUp && { color: colors.white },
-            ]}
-          >
-            P
+      {/* Main Row: Ball Label + Score Controls */}
+      <View style={styles.ballMainRow}>
+        {/* Ball Label and Points */}
+        <View style={styles.ballLabelContainer}>
+          <Text style={[styles.ballLabel, { color: colors.textPrimary }]}>
+            {ballLabel}
           </Text>
-        </TouchableOpacity>
-
-        {/* Minus Button */}
-        <TouchableOpacity
-          style={[
-            styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
-            disabled && styles.buttonDisabled,
-          ]}
-          onPress={handleDecrement}
-          disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
-          activeOpacity={0.7}
-          accessibilityLabel={`Decrease ${ballLabel} score`}
-        >
-          <Text style={[styles.compactButtonText, { color: colors.textPrimary }]}>−</Text>
-        </TouchableOpacity>
-
-        {/* Current Score Display */}
-        <View style={styles.compactScoreDisplay}>
-          <Text style={[styles.compactScoreText, { color: colors.textPrimary }]}>
-            {isPickedUp ? 'P' : selectedScore ?? '-'}
+          <Text style={[styles.ballPoints, { color: colors.textSecondary }]}>
+            {points} pts
           </Text>
         </View>
 
-        {/* Plus Button */}
-        <TouchableOpacity
-          style={[
-            styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
-            (disabled || isPickedUp) && styles.buttonDisabled,
-          ]}
-          onPress={handleIncrement}
-          disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
-          activeOpacity={0.7}
-          accessibilityLabel={`Increase ${ballLabel} score`}
-        >
-          <Text
+        {/* Compact Score Controls */}
+        <View style={styles.ballControls}>
+          {/* Pick Up Button */}
+          <TouchableOpacity
             style={[
-              styles.compactButtonText,
-              { color: colors.textPrimary },
-              isPickedUp && styles.disabledText,
+              styles.compactButton,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+              isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
+              disabled && styles.buttonDisabled,
             ]}
+            onPress={handlePickUp}
+            disabled={disabled}
+            activeOpacity={0.7}
+            accessibilityLabel={`Pick up ${ballLabel}`}
           >
-            +
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.compactButtonText,
+                { color: colors.textPrimary },
+                isPickedUp && { color: colors.textOnColored },
+              ]}
+            >
+              P
+            </Text>
+          </TouchableOpacity>
 
-        {/* Par Button */}
-        <TouchableOpacity
-          style={[
-            styles.compactButton,
-            { borderColor: colors.gray300, backgroundColor: colors.white },
-            selectedScore === par && { backgroundColor: colors.primary, borderColor: colors.primary },
-            disabled && styles.buttonDisabled,
-          ]}
-          onPress={handleParSelect}
-          disabled={disabled}
-          activeOpacity={0.7}
-          accessibilityLabel={`Score par ${par} for ${ballLabel}`}
-        >
-          <Text
+          {/* Minus Button */}
+          <TouchableOpacity
             style={[
-              styles.compactButtonText,
-              { color: colors.textPrimary },
-              selectedScore === par && { color: colors.white },
+              styles.compactButton,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+              disabled && styles.buttonDisabled,
             ]}
+            onPress={handleDecrement}
+            disabled={disabled || (selectedScore !== undefined && selectedScore <= MIN_SCORE)}
+            activeOpacity={0.7}
+            accessibilityLabel={`Decrease ${ballLabel} score`}
           >
-            {par}
-          </Text>
-        </TouchableOpacity>
+            <Text style={[styles.compactButtonText, { color: colors.textPrimary }]}>−</Text>
+          </TouchableOpacity>
+
+          {/* Current Score Display */}
+          <View style={styles.compactScoreDisplay}>
+            <Text style={[styles.compactScoreText, { color: colors.textPrimary }]}>
+              {isPickedUp ? 'P' : selectedScore ?? '-'}
+            </Text>
+          </View>
+
+          {/* Plus Button */}
+          <TouchableOpacity
+            style={[
+              styles.compactButton,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+              (disabled || isPickedUp) && styles.buttonDisabled,
+            ]}
+            onPress={handleIncrement}
+            disabled={disabled || isPickedUp || (selectedScore !== undefined && selectedScore >= MAX_SCORE)}
+            activeOpacity={0.7}
+            accessibilityLabel={`Increase ${ballLabel} score`}
+          >
+            <Text
+              style={[
+                styles.compactButtonText,
+                { color: colors.textPrimary },
+                isPickedUp && styles.disabledText,
+              ]}
+            >
+              +
+            </Text>
+          </TouchableOpacity>
+
+          {/* Par Button */}
+          <TouchableOpacity
+            style={[
+              styles.compactButton,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+              selectedScore === par && { backgroundColor: colors.primary, borderColor: colors.primary },
+              disabled && styles.buttonDisabled,
+            ]}
+            onPress={handleParSelect}
+            disabled={disabled}
+            activeOpacity={0.7}
+            accessibilityLabel={`Score par ${par} for ${ballLabel}`}
+          >
+            <Text
+              style={[
+                styles.compactButtonText,
+                { color: colors.textPrimary },
+                selectedScore === par && { color: colors.textOnColored },
+              ]}
+            >
+              {par}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Stats Row: FIR/GIR (separate row when visible) */}
+      {hasVisibleStats && (
+        <View style={styles.statsRow}>
+          {showFIR && (
+            <TouchableOpacity
+              style={[
+                styles.statsButton,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                fairwayHit === true && { backgroundColor: colors.success, borderColor: colors.success },
+                (disabled || isPickedUp) && styles.buttonDisabled,
+              ]}
+              onPress={handleFairwayToggle}
+              disabled={disabled || isPickedUp}
+              activeOpacity={0.7}
+              accessibilityLabel={`${ballLabel} fairway in regulation`}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: fairwayHit === true }}
+            >
+              <Icon
+                source="check"
+                size={16}
+                color={fairwayHit === true ? colors.textOnColored : colors.border}
+              />
+              <Text style={[styles.statsButtonLabel, { color: fairwayHit === true ? colors.textOnColored : colors.textSecondary }]}>
+                FIR
+              </Text>
+            </TouchableOpacity>
+          )}
+          {showGIR && (
+            <TouchableOpacity
+              style={[
+                styles.statsButton,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                greenInRegulation === true && { backgroundColor: colors.success, borderColor: colors.success },
+                (disabled || isPickedUp) && styles.buttonDisabled,
+              ]}
+              onPress={handleGIRToggle}
+              disabled={disabled || isPickedUp}
+              activeOpacity={0.7}
+              accessibilityLabel={`${ballLabel} green in regulation`}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: greenInRegulation === true }}
+            >
+              <Icon
+                source="check"
+                size={16}
+                color={greenInRegulation === true ? colors.textOnColored : colors.border}
+              />
+              <Text style={[styles.statsButtonLabel, { color: greenInRegulation === true ? colors.textOnColored : colors.textSecondary }]}>
+                GIR
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 });
@@ -353,13 +449,15 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   ballRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: spacing.md,
   },
   ballRowBorder: {
     borderBottomWidth: 1,
+  },
+  ballMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   ballLabelContainer: {
     minWidth: 70,
@@ -403,6 +501,27 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     opacity: 0.4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  statsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    height: 40,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    gap: spacing.xs,
+  },
+  statsButtonLabel: {
+    ...typography.small,
+    fontWeight: '600',
   },
 });
 

@@ -90,4 +90,8 @@ module.exports = {
 
   // Verbose output for debugging
   verbose: true,
+
+  // Force exit after all tests complete to prevent open handle warnings
+  // This handles lingering React Query timers and other async operations
+  forceExit: true,
 };

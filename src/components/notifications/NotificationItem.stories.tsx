@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Divider } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { NotificationItem, NotificationItemProps } from './NotificationItem';
+import { NotificationItem } from './NotificationItem';
 import { spacing } from '@/constants/theme';
 import type { Notification, NotificationType } from '@/types/database.types';
 

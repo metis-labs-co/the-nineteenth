@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { BottomNavigation, NavigationTab } from './BottomNavigation';
+import { BottomNavigation } from './BottomNavigation';
 
 // Mock Tabler icons
 jest.mock('@tabler/icons-react-native', () => {

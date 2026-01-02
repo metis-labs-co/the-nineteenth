@@ -6,11 +6,11 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, Alert } from 'react-native';
+import { View, StyleSheet, Text, Alert } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import RoundDetailsStep from './index';
 import type { RoundDetailsStepProps } from './types';
-import type { RoundDetailsFormData, GameType } from '@/schemas/competition';
+import type { RoundDetailsFormData } from '@/schemas/competition';
 import { spacing } from '@/constants/theme';
 
 // ===========================================================================

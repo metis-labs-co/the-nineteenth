@@ -3,7 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import type { RoundTab, RoundItem, RoundListData, UseRoundFiltersReturn } from '../types';
+import type { RoundTab, RoundListData, UseRoundFiltersReturn } from '../types';
 
 export function useRoundFilters(rounds: RoundListData | undefined): UseRoundFiltersReturn {
   const [selectedTab, setSelectedTab] = useState<RoundTab>('active');

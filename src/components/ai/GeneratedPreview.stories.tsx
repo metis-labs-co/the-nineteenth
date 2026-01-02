@@ -12,11 +12,9 @@
  * - Loading states
  */
 
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { GeneratedPreview } from './GeneratedPreview';
 import type { GeneratedCompetition, GeneratedRound, GeneratedPlayer, GeneratedTeam } from '@/hooks/useGenerateAICompetition';
-import type { GameType } from '@/types/database.types';
 
 // ============================================================================
 // META CONFIGURATION

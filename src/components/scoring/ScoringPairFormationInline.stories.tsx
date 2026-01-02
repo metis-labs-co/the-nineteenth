@@ -15,7 +15,7 @@ import {
 } from './ScoringPairFormationInline';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { ScoringPairCreateInput } from '@/types';
-import { autoGenerateScoringPairs } from '@/utils/scoringPairs';
+import { autoGenerateScoringPairs as _autoGenerateScoringPairs } from '@/utils/scoringPairs';
 
 // ===========================================================================
 // META

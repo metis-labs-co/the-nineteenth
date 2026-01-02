@@ -62,6 +62,16 @@ export const venueKeys = {
 } as const;
 
 // =====================================================
+// FAVORITE COURSES
+// =====================================================
+
+export const favoriteKeys = {
+  all: ['favorites'] as const,
+  lists: () => [...favoriteKeys.all, 'list'] as const,
+  list: (userId?: string) => [...favoriteKeys.lists(), userId] as const,
+} as const;
+
+// =====================================================
 // COURSES
 // =====================================================
 
@@ -249,6 +259,39 @@ export const placeholderPlayersKeys = {
 } as const;
 
 // =====================================================
+// ACHIEVEMENTS
+// =====================================================
+
+export const achievementKeys = {
+  all: ['achievements'] as const,
+  definitions: () => [...achievementKeys.all, 'definitions'] as const,
+  playerAchievements: (playerId: string) =>
+    [...achievementKeys.all, 'player', playerId] as const,
+  progress: (playerId: string) =>
+    [...achievementKeys.all, 'progress', playerId] as const,
+  summary: (playerId: string) =>
+    [...achievementKeys.all, 'summary', playerId] as const,
+  leaderboard: (
+    scope: 'global' | 'friends' | 'competition',
+    userId?: string,
+    competitionId?: string
+  ) => [...achievementKeys.all, 'leaderboard', scope, userId, competitionId] as const,
+} as const;
+
+// =====================================================
+// COSMETICS
+// =====================================================
+
+export const cosmeticKeys = {
+  all: ['cosmetics'] as const,
+  definitions: () => [...cosmeticKeys.all, 'definitions'] as const,
+  playerCosmetics: (playerId: string) =>
+    [...cosmeticKeys.all, 'player', playerId] as const,
+  equipped: (playerId: string) =>
+    [...cosmeticKeys.all, 'equipped', playerId] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -259,7 +302,7 @@ export const placeholderPlayersKeys = {
  * type CompetitionDetailKey = QueryKey<typeof competitionKeys.detail>
  * // ['competitions', 'detail', string]
  */
-export type QueryKey<T extends (...args: any[]) => readonly any[]> = ReturnType<T>;
+export type QueryKey<T extends (...args: unknown[]) => readonly unknown[]> = ReturnType<T>;
 
 /**
  * All query keys (for invalidating everything)
@@ -269,6 +312,7 @@ export const allQueryKeys = [
   competitionKeys.all,
   roundKeys.all,
   venueKeys.all,
+  favoriteKeys.all,
   courseKeys.all,
   playerKeys.all,
   scorecardKeys.all,
@@ -283,4 +327,6 @@ export const allQueryKeys = [
   aiKeys.all,
   pushKeys.all,
   placeholderPlayersKeys.all,
+  achievementKeys.all,
+  cosmeticKeys.all,
 ] as const;

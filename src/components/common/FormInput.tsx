@@ -162,10 +162,10 @@ export function FormInput({
   const isDisabled = disabled || !editable;
 
   // Determine background color
-  const backgroundColor = isDisabled ? colors.gray100 : colors.surface;
+  const backgroundColor = isDisabled ? colors.surfaceVariant : colors.surface;
 
   // Determine outline colors
-  const outlineColor = hasError ? colors.error : colors.gray300;
+  const outlineColor = hasError ? colors.error : colors.border;
   const activeOutlineColor = hasError ? colors.error : colors.primary;
 
   // Build left element
@@ -214,7 +214,7 @@ export function FormInput({
         onChangeText={onChangeText}
         onBlur={onBlur}
         placeholder={placeholder}
-        placeholderTextColor={colors.gray400}
+        placeholderTextColor={colors.textSecondary}
         keyboardType={KEYBOARD_TYPE_MAP[keyboardType]}
         autoCapitalize={autoCapitalize}
         autoComplete={autoComplete}
@@ -231,7 +231,7 @@ export function FormInput({
         accessibilityLabel={accessibilityLabel || label}
         accessibilityHint={accessibilityHint}
         style={[styles.input, { backgroundColor }]}
-        outlineColor={isDisabled ? colors.gray200 : outlineColor}
+        outlineColor={isDisabled ? colors.border : outlineColor}
         activeOutlineColor={activeOutlineColor}
         textColor={isDisabled ? colors.textDisabled : colors.textPrimary}
         error={hasError}

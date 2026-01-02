@@ -261,7 +261,8 @@ const MemberRow = React.memo(function MemberRow({ player, isLast, colors }: Memb
     return null;
   }
 
-  const initials = getInitials(player.name);
+  // Note: initials calculated but not used - PlayerAvatar handles this internally
+  const _initials = getInitials(player.name);
   const styles = createMemberStyles(colors);
 
   return (

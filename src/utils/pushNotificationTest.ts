@@ -340,13 +340,13 @@ export interface PushDebugInfo {
   };
   database: {
     tokenCount: number;
-    tokens: Array<{
+    tokens: {
       id: string;
       expoToken: string;
       platform: string | null;
       enabled: boolean;
       lastUsedAt: string | null;
-    }>;
+    }[];
     error?: string;
   };
   preferences: {
@@ -443,7 +443,7 @@ export async function logPushDebugInfo(): Promise<PushDebugInfo> {
   console.log(`   Status: ${permissionStatus}`);
 
   // Get iOS-specific permissions if available
-  const { status: iosStatus, ios: iosPerms } = await Notifications.getPermissionsAsync();
+  const { status: _iosStatus, ios: iosPerms } = await Notifications.getPermissionsAsync();
   if (iosPerms) {
     debugInfo.permissions.ios = {
       allowsAlert: iosPerms.allowsAlert ?? false,

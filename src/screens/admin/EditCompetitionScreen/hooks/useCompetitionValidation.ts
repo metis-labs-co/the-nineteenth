@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { parseAustralianDate } from '../utils';
+import { parseAustralianDate } from '@/utils/formatting';
 
 /**
  * Zod schema for competition form validation

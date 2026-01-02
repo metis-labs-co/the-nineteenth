@@ -89,6 +89,16 @@ jest.mock('@/components/common/StatusBadge', () => {
   };
 });
 
+// Mock GolferIcon
+jest.mock('@/components/common/GolferIcon', () => {
+  const { View } = require('react-native');
+  return {
+    GolferIcon: ({ size, testID }: any) => (
+      <View testID={testID || 'avatar-icon'} style={{ width: size, height: size }} />
+    ),
+  };
+});
+
 // ============================================================================
 // TEST FIXTURES
 // ============================================================================
@@ -105,7 +115,6 @@ const createPlayer = (overrides: Partial<PlayerCardData> = {}): PlayerCardData =
 const createBadge = (overrides: Partial<BadgeConfig> = {}): BadgeConfig => ({
   label: 'You',
   backgroundColor: '#DCFCE7',
-  textColor: '#166534',
   ...overrides,
 });
 
@@ -326,7 +335,6 @@ describe('PlayerCard', () => {
       const badge = createBadge({
         label: 'VIP',
         backgroundColor: '#FFD700',
-        textColor: '#000000',
       });
       render(<PlayerCard {...defaultProps} badge={badge} />);
       expect(screen.getByText('VIP')).toBeTruthy();

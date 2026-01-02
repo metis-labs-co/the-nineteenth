@@ -9,9 +9,10 @@ import { useCallback, useMemo } from 'react';
 import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
 import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
-// Pick up score - represents player giving up on the hole (no points in Stableford)
-export const PICKUP_SCORE = 10;
+// Re-export for backward compatibility
+export { PICKUP_SCORE } from '@/constants/scoring';
 export const MIN_SCORE = 1;
 export const MAX_SCORE = 12;
 export const MAX_PUTTS = 6;

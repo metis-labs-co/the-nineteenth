@@ -29,8 +29,9 @@ import {
   closeDatabase,
   markAllScorecardsAsSynced,
   deleteOrphanedScorecards,
+  __resetDatabaseState,
 } from '@/services/offline/database';
-import type { Scorecard, Hole, HoleScore, PendingSync, MultiBallHoleScore } from '@/types';
+import type { Scorecard, Hole, HoleScore, PendingSync } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 
 // ============================================================================
@@ -64,6 +65,9 @@ const createMockDatabase = () => {
 // Reset database module state between tests
 beforeEach(() => {
   jest.clearAllMocks();
+
+  // Reset internal database state to ensure clean slate
+  __resetDatabaseState();
 
   const mockDb = createMockDatabase();
 
@@ -151,7 +155,8 @@ describe('Database Initialization', () => {
       expect(createHoleScoresCall).toBeDefined();
       expect(createHoleScoresCall).toContain('scorecard_id TEXT NOT NULL');
       expect(createHoleScoresCall).toContain('hole_number INTEGER NOT NULL');
-      expect(createHoleScoresCall).toContain('strokes INTEGER NOT NULL');
+      // strokes is nullable for multi-ball scores (actual data stored in ball_scores JSON)
+      expect(createHoleScoresCall).toContain('strokes INTEGER');
       expect(createHoleScoresCall).toContain('UNIQUE(scorecard_id, hole_number)');
     });
 
