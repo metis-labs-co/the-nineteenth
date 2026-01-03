@@ -180,8 +180,32 @@ jest.mock('@react-navigation/native', () => {
 // GESTURE HANDLER MOCK
 // ============================================================================
 
-jest.mock('react-native-gesture-handler', () => {
+// Helper to create mock gesture handler components
+const createGestureHandlerMocks = () => {
+  const React = require('react');
   const View = require('react-native/Libraries/Components/View/View');
+  const { TouchableOpacity } = require('react-native');
+
+  // Mock Swipeable component that renders children and exposes close method via ref
+  const Swipeable = React.forwardRef(({ children, testID }, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      close: jest.fn(),
+      openLeft: jest.fn(),
+      openRight: jest.fn(),
+    }));
+    return React.createElement(View, { testID }, children);
+  });
+
+  // Mock RectButton as a TouchableOpacity for press handling
+  const RectButton = ({ children, onPress, testID, style }) => {
+    return React.createElement(TouchableOpacity, { onPress, testID, style }, children);
+  };
+
+  return { Swipeable, RectButton, View };
+};
+
+jest.mock('react-native-gesture-handler', () => {
+  const { Swipeable, RectButton, View } = createGestureHandlerMocks();
 
   return {
     GestureHandlerRootView: View,
@@ -191,7 +215,7 @@ jest.mock('react-native-gesture-handler', () => {
     FlingGestureHandler: View,
     PinchGestureHandler: View,
     RotationGestureHandler: View,
-    Swipeable: View,
+    Swipeable,
     DrawerLayout: View,
     ScrollView: View,
     FlatList: View,
@@ -199,10 +223,16 @@ jest.mock('react-native-gesture-handler', () => {
     Directions: {},
     gestureHandlerRootHOC: (component) => component,
     NativeViewGestureHandler: View,
-    RectButton: View,
+    RectButton,
     BaseButton: View,
     BorderlessButton: View,
   };
+});
+
+// Mock the Swipeable subpath import
+jest.mock('react-native-gesture-handler/Swipeable', () => {
+  const { Swipeable } = createGestureHandlerMocks();
+  return Swipeable;
 });
 
 // ============================================================================

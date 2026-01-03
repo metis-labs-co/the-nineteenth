@@ -1,6 +1,23 @@
 /**
  * useSwipeToDelete - Shared hook for swipe-to-delete gesture functionality
  *
+ * @deprecated This hook uses PanResponder which has gesture conflicts with ScrollView/FlatList
+ * (pull-to-refresh takes over horizontal swipes). Use the `SwipeableRow` component instead,
+ * which uses react-native-gesture-handler's Swipeable for proper gesture coordination.
+ *
+ * @see SwipeableRow - The recommended replacement component
+ *
+ * Migration example:
+ * ```tsx
+ * // Before (deprecated):
+ * const { translateX, panResponder } = useSwipeToDelete({ enabled: true });
+ * <Animated.View {...panResponder.panHandlers}>...</Animated.View>
+ *
+ * // After (recommended):
+ * import { SwipeableRow } from '@/components/common/SwipeableRow';
+ * <SwipeableRow onDelete={handleDelete}>...</SwipeableRow>
+ * ```
+ *
  * Provides PanResponder and Animated logic for swipe-to-delete behavior
  * with consistent animations and overscroll resistance.
  *

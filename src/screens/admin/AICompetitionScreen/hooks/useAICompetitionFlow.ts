@@ -17,6 +17,7 @@ import {
   type GeneratedCompetition,
 } from '@/hooks/useGenerateAICompetition';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
+import { useCreatePlaceholderPlayer } from '@/hooks/usePlaceholderPlayers';
 import {
   aiOutputToWizardState,
   getRoundsWithMissingCourses,
@@ -35,9 +36,7 @@ const parseAustralianDate = (dateString: string): Date => {
   return isValid(parsed) ? parsed : new Date();
 };
 
-interface UseAICompetitionFlowOptions {
-  friendsCount: number;
-}
+// Note: friendsCount is no longer required - AI can create placeholder players when needed
 
 interface UseAICompetitionFlowReturn {
   screenState: ScreenState;
@@ -55,9 +54,7 @@ interface UseAICompetitionFlowReturn {
   handleRetry: () => void;
 }
 
-export function useAICompetitionFlow({
-  friendsCount,
-}: UseAICompetitionFlowOptions): UseAICompetitionFlowReturn {
+export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   const navigation = useNavigation<NavigationProp>();
 
   // State
@@ -70,6 +67,7 @@ export function useAICompetitionFlow({
   // Hooks
   const generateAI = useGenerateAICompetition();
   const createCompetition = useCreateCompetition();
+  const createPlaceholder = useCreatePlaceholderPlayer();
 
   // Handle suggestion selection
   const handleSuggestionSelect = useCallback((suggestion: string) => {
@@ -86,21 +84,7 @@ export function useAICompetitionFlow({
       return;
     }
 
-    // Check if user has friends
-    if (friendsCount === 0) {
-      Alert.alert(
-        'No Friends Added',
-        'Please add some friends first before creating a competition with AI. The AI needs players to assign to your competition.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Add Friends',
-            onPress: () => navigation.navigate('Friends' as never),
-          },
-        ]
-      );
-      return;
-    }
+    // Note: We no longer require friends - AI can create placeholder players if needed
 
     setScreenState('loading');
     setErrorMessage('');
@@ -124,13 +108,49 @@ export function useAICompetitionFlow({
       );
       setScreenState('error');
     }
-  }, [prompt, friendsCount, generateAI, navigation]);
+  }, [prompt, generateAI]);
 
   // Actually create the competition
   const doCreateCompetition = useCallback(async () => {
     if (!generatedCompetition) return;
 
     try {
+      // Step 1: Identify new placeholder players that need to be created
+      const newPlaceholders = generatedCompetition.players.filter(
+        (p) => p.isPlaceholder === true
+      );
+
+      // Step 2: Create new placeholder players and map temp IDs to real IDs
+      const idMapping: Record<string, string> = {};
+
+      if (newPlaceholders.length > 0) {
+        console.log(`Creating ${newPlaceholders.length} placeholder players...`);
+
+        for (const placeholder of newPlaceholders) {
+          try {
+            const created = await createPlaceholder.mutateAsync({
+              name: placeholder.name,
+              handicap: placeholder.handicap,
+            });
+            // Map the temporary AI-generated UUID to the real database UUID
+            idMapping[placeholder.id] = created.id;
+            console.log(`Created placeholder: ${placeholder.name} -> ${created.id}`);
+          } catch (error) {
+            console.error(`Failed to create placeholder ${placeholder.name}:`, error);
+            throw new Error(`Failed to create guest player "${placeholder.name}". Please try again.`);
+          }
+        }
+      }
+
+      // Step 3: Build final players list with real IDs
+      const finalPlayers = generatedCompetition.players.map((player) => ({
+        id: idMapping[player.id] || player.id, // Use mapped ID for new placeholders
+        name: player.name,
+        email: '', // AI doesn't collect emails - admin can add later
+        handicap: player.handicap ?? undefined,
+      }));
+
+      // Step 4: Create the competition
       const result = await createCompetition.mutateAsync({
         // Competition details
         name: generatedCompetition.name,
@@ -156,13 +176,8 @@ export function useAICompetitionFlow({
           matchType: round.gameType,
         })),
 
-        // Players
-        players: generatedCompetition.players.map((player) => ({
-          id: player.id,
-          name: player.name,
-          email: '', // AI doesn't collect emails - admin can add later
-          handicap: player.handicap ?? undefined,
-        })),
+        // Players (with real IDs for any new placeholders)
+        players: finalPlayers,
       });
 
       // Navigate to competition detail
@@ -177,7 +192,7 @@ export function useAICompetitionFlow({
         [{ text: 'OK' }]
       );
     }
-  }, [generatedCompetition, createCompetition, navigation]);
+  }, [generatedCompetition, createCompetition, createPlaceholder, navigation]);
 
   // Handle edit manually - navigate to wizard with pre-filled data
   const handleEditManually = useCallback(() => {
@@ -215,6 +230,29 @@ export function useAICompetitionFlow({
           { text: 'Edit Manually', onPress: handleEditManually },
           { text: 'Create Anyway', onPress: doCreateCompetition },
           { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
+    // Check for new placeholder players and warn user
+    const newPlaceholders = generatedCompetition.players.filter(
+      (p) => p.isPlaceholder === true
+    );
+
+    if (newPlaceholders.length > 0) {
+      const placeholderNames = newPlaceholders.map((p) => p.name).join(', ');
+      Alert.alert(
+        'Guest Players Will Be Created',
+        `${newPlaceholders.length} guest player${newPlaceholders.length > 1 ? 's' : ''} will be created: ${placeholderNames}.\n\nYou can link these to real players later, or update their names when editing the competition.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Edit Manually', onPress: handleEditManually },
+          {
+            text: 'Create Competition',
+            onPress: doCreateCompetition,
+            style: 'default',
+          },
         ]
       );
       return;

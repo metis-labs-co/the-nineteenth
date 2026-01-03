@@ -50,6 +50,7 @@ export const generatedPlayerSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
   handicap: z.number().min(-5).max(54).nullable(),
+  isPlaceholder: z.boolean().optional(), // True if this is a new placeholder to be created
 });
 
 /**
@@ -97,6 +98,15 @@ const favoriteCourseSchema = z.object({
 });
 
 /**
+ * Schema for a placeholder player from mobile app
+ */
+const placeholderPlayerSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  handicap: z.number().nullable(),
+});
+
+/**
  * Schema for request body from mobile app
  */
 export const requestBodySchema = z.object({
@@ -114,6 +124,7 @@ export const requestBodySchema = z.object({
     allowedGameTypes: z.array(gameTypeSchema),
   }),
   favoriteCourses: z.array(favoriteCourseSchema).optional(),
+  placeholderPlayers: z.array(placeholderPlayerSchema).optional(),
 });
 
 export type GeneratedCompetitionParsed = z.infer<

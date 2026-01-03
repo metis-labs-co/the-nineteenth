@@ -8,7 +8,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useFriends } from '@/hooks/useFriends';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { GeneratedPreview } from '@/components/ai';
 
@@ -23,7 +22,6 @@ import { useAICompetitionFlow, useAILoadingAnimation } from './hooks';
 
 export default function AICompetitionScreen() {
   const colors = useThemeColors();
-  const { data: friends = [] } = useFriends();
   const { tier } = useSubscriptionContext();
 
   // AI competition flow
@@ -41,7 +39,7 @@ export default function AICompetitionScreen() {
     handleEditManually,
     handleBack,
     handleRetry,
-  } = useAICompetitionFlow({ friendsCount: friends.length });
+  } = useAICompetitionFlow();
 
   // Loading animations
   const { spin, dotOpacity1, dotOpacity2, dotOpacity3, loadingStep } =

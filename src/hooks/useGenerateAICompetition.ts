@@ -33,6 +33,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useFriends } from './useFriends';
+import { usePlaceholderPlayers } from './usePlaceholderPlayers';
 import { useFavoriteCoursesWithVenues } from './useVenues';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { aiKeys } from './queryKeys';
@@ -63,6 +64,7 @@ export interface GeneratedPlayer {
   id: string;
   name: string;
   handicap: number | null;
+  isPlaceholder?: boolean; // True if this is a NEW placeholder to be created
 }
 
 /**
@@ -127,11 +129,12 @@ export type AICompetitionResponse =
 /**
  * Hook for generating a competition configuration from a natural language prompt
  *
- * Uses the user's friends list and subscription tier limits as context
+ * Uses the user's friends list, placeholder players, and subscription tier limits as context
  * for the AI to generate an appropriate competition.
  */
 export function useGenerateAICompetition() {
   const { data: friends = [] } = useFriends();
+  const { data: placeholderPlayers = [] } = usePlaceholderPlayers();
   const { data: favoriteCourses = [] } = useFavoriteCoursesWithVenues();
   const { limits } = useSubscriptionContext();
 
@@ -152,6 +155,13 @@ export function useGenerateAICompetition() {
         id: f.id,
         name: f.name,
         handicap: f.handicap,
+      }));
+
+      // Prepare existing placeholder players for Edge Function
+      const placeholderPlayersPayload = placeholderPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap,
       }));
 
       // Prepare tier limits
@@ -181,6 +191,7 @@ export function useGenerateAICompetition() {
         console.log('[useGenerateAICompetition] raw limits:', { rawMaxRounds, rawMaxPlayers });
         console.log('[useGenerateAICompetition] tierLimitsPayload:', tierLimitsPayload);
         console.log('[useGenerateAICompetition] friends count:', friendsPayload.length);
+        console.log('[useGenerateAICompetition] placeholder players count:', placeholderPlayersPayload.length);
         console.log('[useGenerateAICompetition] favorite courses count:', favoriteCoursesPayload.length);
       }
 
@@ -193,6 +204,7 @@ export function useGenerateAICompetition() {
             friends: friendsPayload,
             tierLimits: tierLimitsPayload,
             favoriteCourses: favoriteCoursesPayload,
+            placeholderPlayers: placeholderPlayersPayload,
           },
         }
       );

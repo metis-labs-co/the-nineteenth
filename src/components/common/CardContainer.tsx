@@ -1,18 +1,9 @@
 // src/components/common/CardContainer.tsx
-import React from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
-import { Text } from 'react-native-paper';
-import { IconTrash } from '@tabler/icons-react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
-import { useSwipeToDelete, SWIPE_GESTURE } from './hooks';
+import { spacing, borderRadius, shadows } from '@/constants/theme';
+import { SwipeableRow, SwipeableRowRef } from './SwipeableRow';
 
 /**
  * Padding size variants for the card container
@@ -157,25 +148,20 @@ export const CardContainer = React.memo(function CardContainer({
   deleteAccessibilityName,
 }: CardContainerProps) {
   const colors = useThemeColors();
+  const swipeableRef = useRef<SwipeableRowRef>(null);
 
-  // Use shared swipe-to-delete hook
-  const { translateX, panResponder, isSwipeOpen, closeSwipe } = useSwipeToDelete({
-    enabled: swipeable && !!onDelete,
-  });
-
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     // If swipe is open, close it instead of triggering onPress
-    if (swipeable && isSwipeOpen.current) {
-      closeSwipe();
+    if (swipeableRef.current?.isOpen()) {
+      swipeableRef.current.close();
       return;
     }
     onPress?.();
-  };
+  }, [onPress]);
 
-  const handleDelete = () => {
-    closeSwipe();
+  const handleDelete = useCallback(() => {
     onDelete?.();
-  };
+  }, [onDelete]);
 
   // Build container style array
   const containerStyle = [
@@ -193,7 +179,7 @@ export const CardContainer = React.memo(function CardContainer({
   // Determine if card is pressable
   const isPressable = !!onPress || !!onLongPress;
 
-  // Content without swipe wrapper
+  // Build the card content (pressable or static)
   const cardContent = isPressable ? (
     <TouchableOpacity
       style={containerStyle}
@@ -204,6 +190,18 @@ export const CardContainer = React.memo(function CardContainer({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
+      accessibilityActions={
+        swipeable && onDelete ? [{ name: 'delete', label: 'Delete' }] : undefined
+      }
+      onAccessibilityAction={
+        swipeable && onDelete
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'delete') {
+                handleDelete();
+              }
+            }
+          : undefined
+      }
       testID={testID}
     >
       {children}
@@ -219,97 +217,26 @@ export const CardContainer = React.memo(function CardContainer({
     return cardContent;
   }
 
-  // Swipe-enabled card with delete button
+  // Swipe-enabled card using SwipeableRow
   return (
-    <View style={styles.swipeContainer}>
-      {/* Delete button (positioned behind the card) */}
-      <View style={[styles.deleteButtonContainer, { backgroundColor: colors.error }]}>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={handleDelete}
-          accessibilityRole="button"
-          accessibilityLabel={
-            deleteAccessibilityName
-              ? `Delete ${deleteAccessibilityName}`
-              : 'Delete'
-          }
-        >
-          <IconTrash size={24} color={colors.white} />
-          <Text style={[styles.deleteButtonText, { color: colors.white }]}>
-            Delete
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Animated card */}
-      <Animated.View
-        style={[{ transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
-      >
-        {isPressable ? (
-          <TouchableOpacity
-            style={containerStyle}
-            onPress={handlePress}
-            onLongPress={onLongPress}
-            disabled={disabled || !onPress}
-            activeOpacity={activeOpacity}
-            accessibilityRole="button"
-            accessibilityLabel={accessibilityLabel}
-            accessibilityHint={accessibilityHint}
-            accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'delete') {
-                handleDelete();
-              }
-            }}
-            testID={testID}
-          >
-            {children}
-          </TouchableOpacity>
-        ) : (
-          <View
-            style={containerStyle}
-            testID={testID}
-            accessibilityLabel={accessibilityLabel}
-          >
-            {children}
-          </View>
-        )}
-      </Animated.View>
-    </View>
+    <SwipeableRow
+      ref={swipeableRef}
+      onDelete={handleDelete}
+      deleteLabel="Delete"
+      deleteAccessibilityLabel={
+        deleteAccessibilityName ? `Delete ${deleteAccessibilityName}` : 'Delete'
+      }
+      enabled={swipeable}
+      testID={testID ? `${testID}-swipeable` : undefined}
+    >
+      {cardContent}
+    </SwipeableRow>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
     borderRadius: borderRadius.lg,
-  },
-  swipeContainer: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: borderRadius.lg,
-  },
-  deleteButtonContainer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: SWIPE_GESTURE.DELETE_BUTTON_WIDTH,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopRightRadius: borderRadius.lg,
-    borderBottomRightRadius: borderRadius.lg,
-  },
-  deleteButton: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    gap: spacing.xs,
-  },
-  deleteButtonText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
 });
 

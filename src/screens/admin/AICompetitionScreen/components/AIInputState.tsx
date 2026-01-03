@@ -56,8 +56,8 @@ export function AIInputState({
           </Text>
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
             Describe your competition in plain English. The AI will create
-            rounds, assign players from your friends list, and configure teams
-            based on your description.
+            rounds, assign players from your friends, and configure teams.
+            Need more players? Specify a number and guest spots will be created.
           </Text>
         </View>
       </View>
@@ -67,11 +67,13 @@ export function AIInputState({
         style={[styles.limitationsCard, { backgroundColor: colors.gray100 }]}
       >
         <Text style={[styles.limitationsTitle, { color: colors.textSecondary }]}>
-          Current limitations
+          Good to know
         </Text>
         <Text style={[styles.limitationsText, { color: colors.textSecondary }]}>
-          • Only courses in your database can be auto-selected{'\n'}
-          • Only friends you&apos;ve added can be assigned{'\n'}
+          • Courses in your database can be auto-selected{'\n'}
+          • Friends you&apos;ve added will be assigned first{'\n'}
+          • If you need more players, guest players will be created{'\n'}
+          • You can link guest players to real accounts later{'\n'}
           • Game types limited to your subscription tier ({tier})
         </Text>
       </View>

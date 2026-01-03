@@ -8,6 +8,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
+import { transformHolesIfNeeded } from '@/utils/holeTransformers';
 import type { Hole, TeeBox } from '@/types/database.types';
 import { DEFAULT_HOLES } from '@/types/supabase/roundQueries';
 
@@ -86,8 +87,10 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
       }
 
       // Get holes from course or use defaults (fallback if empty array)
-      const holes = courseData.holes && courseData.holes.length > 0
-        ? courseData.holes
+      // Transform from database format (snake_case) to app format (camelCase) if needed
+      const rawHoles = courseData.holes as unknown[] | null;
+      const holes = rawHoles && rawHoles.length > 0
+        ? transformHolesIfNeeded(rawHoles)
         : DEFAULT_HOLES;
 
       roundDataLogger.debug('Course data loaded', {

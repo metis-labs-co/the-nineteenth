@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { courseKeys } from '@/hooks/queryKeys';
 import { useFavoriteEnrichment, useIsFavorite } from '@/hooks/useFavoriteCourses';
+import { transformHolesIfNeeded } from '@/utils/holeTransformers';
 import type { Course, Venue } from '@/types/database.types';
 
 // =====================================================
@@ -69,7 +70,7 @@ export function useCourseDetails(courseId: string) {
         venue_id: courseData.venue_id as string,
         name: courseData.name as string,
         description: courseData.description as string | null,
-        holes: courseData.holes as Course['holes'],
+        holes: transformHolesIfNeeded(courseData.holes as unknown[] | null),
         tees: courseData.tees as Course['tees'],
         slope_rating: courseData.slope_rating as number | null,
         course_rating: courseData.course_rating as number | null,
@@ -124,7 +125,7 @@ export function useCoursesByVenue(venueId: string) {
           venue_id: courseData.venue_id as string,
           name: courseData.name as string,
           description: courseData.description as string | null,
-          holes: courseData.holes as Course['holes'],
+          holes: transformHolesIfNeeded(courseData.holes as unknown[] | null),
           tees: courseData.tees as Course['tees'],
           slope_rating: courseData.slope_rating as number | null,
           course_rating: courseData.course_rating as number | null,

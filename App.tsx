@@ -9,7 +9,7 @@
  * - React Navigation for routing
  *
  * Provider order (outermost to innermost):
- * SafeAreaProvider > QueryClientProvider > SubscriptionProvider > ThemeProvider > AppContent
+ * GestureHandlerRootView > SafeAreaProvider > QueryClientProvider > SubscriptionProvider > ThemeProvider > AppContent
  */
 
 import React from 'react';
@@ -25,6 +25,7 @@ import {
   DefaultTheme as NavigationDefaultTheme,
 } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import RootNavigator from '@/navigation/RootNavigator';
 import { queryClient } from '@/services/queryClient';
@@ -217,16 +218,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <SubscriptionProvider>
-            <ThemeProvider>
-              <AppContent />
-            </ThemeProvider>
-          </SubscriptionProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <SubscriptionProvider>
+              <ThemeProvider>
+                <AppContent />
+              </ThemeProvider>
+            </SubscriptionProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

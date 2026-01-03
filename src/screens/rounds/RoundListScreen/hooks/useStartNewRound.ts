@@ -10,6 +10,7 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
+import { transformHolesIfNeeded } from '@/utils/holeTransformers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -74,14 +75,9 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         }
 
         // Use course holes or default holes (fallback if empty array)
-        interface CourseWithHoles {
-          id: string;
-          name: string;
-          holes: Hole[] | null;
-        }
-        const typedCourseData = courseData as CourseWithHoles | null;
-        const courseHoles = typedCourseData?.holes;
-        const holes: Hole[] = courseHoles && courseHoles.length > 0 ? courseHoles : DEFAULT_HOLES;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Raw JSONB data from database
+        const rawHoles = (courseData as any)?.holes as unknown[] | null;
+        const holes: Hole[] = rawHoles && rawHoles.length > 0 ? transformHolesIfNeeded(rawHoles) : DEFAULT_HOLES;
 
         // Create the round in Supabase (standalone round - no competition)
         const { data: roundData, error: roundError } = await (supabase

@@ -44,8 +44,10 @@ export function GeneratedPreview({
   const roundsWithMissingCourses = competition.rounds.filter(
     (r) => r.courseNotFound || !r.courseId
   );
+  const newPlaceholders = competition.players.filter((p) => p.isPlaceholder);
   const hasWarnings =
     roundsWithMissingCourses.length > 0 ||
+    newPlaceholders.length > 0 ||
     (competition.validationErrors && competition.validationErrors.length > 0);
 
   return (
@@ -227,7 +229,11 @@ export function GeneratedPreview({
                 key={index}
                 style={[
                   styles.playerChip,
-                  { backgroundColor: colors.gray100 },
+                  {
+                    backgroundColor: player.isPlaceholder
+                      ? colors.warningLight
+                      : colors.gray100,
+                  },
                 ]}
               >
                 <Text
@@ -235,6 +241,16 @@ export function GeneratedPreview({
                 >
                   {player.name}
                 </Text>
+                {player.isPlaceholder && (
+                  <Text
+                    style={[
+                      styles.guestBadge,
+                      { color: colors.warning },
+                    ]}
+                  >
+                    Guest
+                  </Text>
+                )}
                 {player.handicap !== null && (
                   <Text
                     style={[
@@ -461,6 +477,10 @@ const styles = StyleSheet.create({
   },
   playerName: {
     ...typography.small,
+  },
+  guestBadge: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   playerHandicap: {
     ...typography.caption,

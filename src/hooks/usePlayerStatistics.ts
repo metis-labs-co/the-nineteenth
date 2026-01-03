@@ -14,6 +14,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from './queryKeys';
+import { parseAndTransformHoles } from '@/utils/holeTransformers';
 import type { Hole, HoleScore } from '@/types/database.types';
 
 // =====================================================
@@ -121,20 +122,7 @@ function getScoreCategory(strokes: number, par: number): keyof ScoreDistribution
   return 'triplePlus';
 }
 
-/**
- * Parse holes from course data (could be JSONB or string)
- */
-function parseHoles(holesData: Hole[] | string | null): Hole[] {
-  if (!holesData) return [];
-  if (typeof holesData === 'string') {
-    try {
-      return JSON.parse(holesData);
-    } catch {
-      return [];
-    }
-  }
-  return holesData;
-}
+// parseHoles moved to @/utils/holeTransformers as parseAndTransformHoles
 
 /**
  * Count scores in each hole of a scorecard
@@ -320,7 +308,7 @@ export function usePlayerStatistics(
 
         const isPracticeRound = !competition;
 
-        const holes = parseHoles(course.holes);
+        const holes = parseAndTransformHoles(course.holes);
         const scores = scorecard.scores as Record<string, HoleScore>;
 
         // Count holes played in this scorecard

@@ -30,6 +30,15 @@ export interface FriendInput {
 }
 
 /**
+ * Existing placeholder player data passed from mobile app
+ */
+export interface PlaceholderInput {
+  id: string;
+  name: string;
+  handicap: number | null;
+}
+
+/**
  * Tier limits passed from mobile app
  */
 export interface TierLimitsInput {
@@ -46,6 +55,7 @@ export interface GenerateCompetitionRequest {
   friends: FriendInput[];
   tierLimits: TierLimitsInput;
   favoriteCourses?: FavoriteCourseInput[];
+  placeholderPlayers?: PlaceholderInput[];
 }
 
 /**
@@ -93,6 +103,7 @@ export interface GeneratedPlayer {
   id: string;
   name: string;
   handicap: number | null;
+  isPlaceholder?: boolean; // True if this is a new placeholder to be created
 }
 
 /**
