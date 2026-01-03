@@ -349,6 +349,35 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // 9. Pre-process to fix common AI errors before validation
+
+    // Fix placeholder player UUIDs - Claude can't reliably generate valid UUIDs
+    // So we replace any placeholder player IDs with properly generated UUIDs
+    if (parsedResponse.players && Array.isArray(parsedResponse.players)) {
+      const placeholderIdMap = new Map<string, string>();
+
+      for (const player of parsedResponse.players) {
+        if (player.isPlaceholder === true) {
+          // Store old ID -> new UUID mapping for team updates
+          const oldId = player.id;
+          const newUuid = crypto.randomUUID();
+          placeholderIdMap.set(oldId, newUuid);
+          player.id = newUuid;
+          console.log(`Replaced placeholder ID "${oldId}" with valid UUID "${newUuid}"`);
+        }
+      }
+
+      // Update team playerIds if any placeholders were replaced
+      if (placeholderIdMap.size > 0 && parsedResponse.teams && Array.isArray(parsedResponse.teams)) {
+        for (const team of parsedResponse.teams) {
+          if (team.playerIds && Array.isArray(team.playerIds)) {
+            team.playerIds = team.playerIds.map((id: string) =>
+              placeholderIdMap.get(id) || id
+            );
+          }
+        }
+      }
+    }
+
     if (parsedResponse.teams && Array.isArray(parsedResponse.teams)) {
       const teamSize = parsedResponse.teamSize || 2;
 

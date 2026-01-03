@@ -7,7 +7,7 @@
  * - Display selected partners as chips
  */
 
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconGolf } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -51,8 +51,35 @@ export const PartnersStep = memo(function PartnersStep({
   // State for Add Guest modal
   const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
 
+  // Ref to track pending placeholder that needs to be auto-added
+  // This solves timing issues with React Query cache invalidation
+  const pendingPlaceholderRef = useRef<{ id: string; name: string; handicap: number | null } | null>(null);
+
   // Fetch placeholder players
   const { data: placeholderPlayers } = usePlaceholderPlayers();
+
+  // Auto-add pending placeholder when it appears in the list
+  // This handles the timing issue where cache invalidation triggers a refetch
+  // before the onSuccess callback completes
+  useEffect(() => {
+    if (pendingPlaceholderRef.current && placeholderPlayers) {
+      const pending = pendingPlaceholderRef.current;
+      const placeholder = placeholderPlayers.find((p) => p.id === pending.id);
+
+      // Check if the placeholder is in the list and not already selected
+      if (placeholder && !selectedPartners.some((p) => p.id === pending.id)) {
+        // Clear the pending ref first to prevent re-triggering
+        pendingPlaceholderRef.current = null;
+
+        // Add the placeholder to selected partners
+        onTogglePartner({
+          id: placeholder.id,
+          name: placeholder.name,
+          handicap: placeholder.handicap,
+        } as Friend);
+      }
+    }
+  }, [placeholderPlayers, selectedPartners, onTogglePartner]);
 
   // Convert PlayingPartner[] to SelectedPlayer[] for FriendSelector
   const selectedPlayers: SelectedPlayer[] = useMemo(
@@ -123,18 +150,20 @@ export const PartnersStep = memo(function PartnersStep({
     [selectedPartners, friends, placeholderPlayers, onTogglePartner]
   );
 
-  // Handle placeholder player creation - auto-add to selected players
+  // Handle placeholder player creation - store in ref for auto-add
+  // The useEffect above will detect when the placeholder appears in the list
+  // and add it to selected partners, solving timing issues with React Query
   const handlePlaceholderCreated = useCallback(
     (player: Player) => {
-      // Cast to Friend - wizard only uses id, name, handicap
-      onTogglePartner({
+      // Store the pending placeholder info
+      pendingPlaceholderRef.current = {
         id: player.id,
         name: player.name,
         handicap: player.handicap,
-      } as Friend);
+      };
       setShowAddPlaceholderModal(false);
     },
-    [onTogglePartner]
+    []
   );
 
   // Filter to accepted friends only

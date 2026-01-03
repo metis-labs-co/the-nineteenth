@@ -269,102 +269,109 @@ export const FriendSelector = memo(function FriendSelector({
       </View>
 
       {/* Players List - Guests section followed by Friends section */}
-      <View style={styles.section}>
+      <View style={styles.listSection}>
         {listTitle && (
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             {listTitle}
           </Text>
         )}
 
-        {friendsLoading ? (
-          <View style={styles.loadingContainer}>
-            <LoadingSpinner size="lg" />
-          </View>
-        ) : filteredPlaceholders.length > 0 || filteredFriends.length > 0 ? (
-          <>
-            {/* GUESTS Section */}
-            {filteredPlaceholders.length > 0 && (
-              <>
-                <Text style={[styles.listSectionTitle, { color: colors.textSecondary }]}>
-                  GUESTS
-                </Text>
-                <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
-                  {filteredPlaceholders.map((placeholder, index) => {
-                    const selected = isPlaceholderSelected(placeholder.id);
-                    const disabled = !selected && isAtLimit;
-
-                    return (
-                      <PlaceholderListItem
-                        key={placeholder.id}
-                        placeholder={placeholder}
-                        isSelected={selected}
-                        isDisabled={disabled}
-                        onToggle={() => handlePlaceholderToggle(placeholder)}
-                        showDivider={index < filteredPlaceholders.length - 1}
-                      />
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {/* FRIENDS Section */}
-            {filteredFriends.length > 0 && (
-              <>
-                {filteredPlaceholders.length > 0 && (
+        <ScrollView
+          style={styles.listScrollView}
+          contentContainerStyle={styles.listScrollContent}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          {friendsLoading ? (
+            <View style={styles.loadingContainer}>
+              <LoadingSpinner size="lg" />
+            </View>
+          ) : filteredPlaceholders.length > 0 || filteredFriends.length > 0 ? (
+            <>
+              {/* GUESTS Section */}
+              {filteredPlaceholders.length > 0 && (
+                <>
                   <Text style={[styles.listSectionTitle, { color: colors.textSecondary }]}>
-                    FRIENDS
+                    GUESTS
                   </Text>
-                )}
-                <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
-                  {filteredFriends.map((friend, index) => {
-                    const selected = isSelected(friend.id);
-                    const disabled = !selected && isAtLimit;
+                  <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
+                    {filteredPlaceholders.map((placeholder, index) => {
+                      const selected = isPlaceholderSelected(placeholder.id);
+                      const disabled = !selected && isAtLimit;
 
-                    return (
-                      <FriendListItem
-                        key={friend.id}
-                        friend={friend}
-                        isSelected={selected}
-                        isDisabled={disabled}
-                        onToggle={() => handleToggle(friend)}
-                        showDivider={index < filteredFriends.length - 1}
-                        showPendingBadge={showPendingBadge}
-                      />
-                    );
-                  })}
-                </View>
-              </>
-            )}
-          </>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <IconUsers size={48} color={colors.textDisabled} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {searchQuery ? emptySearchMessage : emptyMessage}
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery
-                ? `No friends match "${searchQuery}"`
-                : onAddFriendPress
-                  ? 'Tap the + button above to add friends'
-                  : 'Add friends from the Friends tab'}
-            </Text>
-            {!searchQuery && onAddFriendPress && (
-              <TouchableOpacity
-                style={[styles.emptyAddButton, { backgroundColor: colors.primary }]}
-                onPress={onAddFriendPress}
-                accessibilityLabel={addFriendLabel}
-                accessibilityRole="button"
-              >
-                <IconUserPlus size={18} color={colors.white} />
-                <Text style={[styles.emptyAddButtonText, { color: colors.white }]}>
-                  {addFriendLabel}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+                      return (
+                        <PlaceholderListItem
+                          key={placeholder.id}
+                          placeholder={placeholder}
+                          isSelected={selected}
+                          isDisabled={disabled}
+                          onToggle={() => handlePlaceholderToggle(placeholder)}
+                          showDivider={index < filteredPlaceholders.length - 1}
+                        />
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {/* FRIENDS Section */}
+              {filteredFriends.length > 0 && (
+                <>
+                  {filteredPlaceholders.length > 0 && (
+                    <Text style={[styles.listSectionTitle, { color: colors.textSecondary }]}>
+                      FRIENDS
+                    </Text>
+                  )}
+                  <View style={[styles.friendsContainer, { backgroundColor: colors.surface }]}>
+                    {filteredFriends.map((friend, index) => {
+                      const selected = isSelected(friend.id);
+                      const disabled = !selected && isAtLimit;
+
+                      return (
+                        <FriendListItem
+                          key={friend.id}
+                          friend={friend}
+                          isSelected={selected}
+                          isDisabled={disabled}
+                          onToggle={() => handleToggle(friend)}
+                          showDivider={index < filteredFriends.length - 1}
+                          showPendingBadge={showPendingBadge}
+                        />
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <IconUsers size={48} color={colors.textDisabled} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                {searchQuery ? emptySearchMessage : emptyMessage}
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {searchQuery
+                  ? `No friends match "${searchQuery}"`
+                  : onAddFriendPress
+                    ? 'Tap the + button above to add friends'
+                    : 'Add friends from the Friends tab'}
+              </Text>
+              {!searchQuery && onAddFriendPress && (
+                <TouchableOpacity
+                  style={[styles.emptyAddButton, { backgroundColor: colors.primary }]}
+                  onPress={onAddFriendPress}
+                  accessibilityLabel={addFriendLabel}
+                  accessibilityRole="button"
+                >
+                  <IconUserPlus size={18} color={colors.white} />
+                  <Text style={[styles.emptyAddButtonText, { color: colors.white }]}>
+                    {addFriendLabel}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </ScrollView>
       </View>
     </View>
   );
@@ -376,6 +383,16 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: spacing.md,
+  },
+  listSection: {
+    flex: 1,
+    marginTop: spacing.md,
+  },
+  listScrollView: {
+    flex: 1,
+  },
+  listScrollContent: {
+    paddingBottom: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',

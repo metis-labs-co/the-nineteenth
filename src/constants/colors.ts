@@ -11,6 +11,17 @@
 import type { BrandConfig } from '@/config/brand.types';
 
 // ============================================================================
+// STATIC ACCENT COLORS (consistent across all brands)
+// ============================================================================
+
+/** Purple accent colors for AI features and secondary actions */
+const accentColors = {
+  accent: '#8b5cf6', // Violet 500
+  accentDark: '#7c3aed', // Violet 600
+  accentLight: '#a78bfa', // Violet 400
+};
+
+// ============================================================================
 // COLOR MANIPULATION UTILITIES
 // ============================================================================
 
@@ -280,6 +291,11 @@ export function generateLightColors(brand: BrandConfig) {
     // Overlays
     overlay: 'rgba(0, 0, 0, 0.5)',
     scrim: 'rgba(0, 0, 0, 0.3)',
+
+    // Accent colors (static across brands - purple for AI features)
+    accent: accentColors.accent,
+    accentDark: accentColors.accentDark,
+    accentLight: accentColors.accentLight,
   };
 }
 
@@ -379,5 +395,10 @@ export function generateDarkColors(brand: BrandConfig) {
     // Overlays
     overlay: 'rgba(0, 0, 0, 0.7)',
     scrim: 'rgba(0, 0, 0, 0.5)',
+
+    // Accent colors (static across brands - purple for AI features)
+    accent: accentColors.accentLight, // Lighter for dark mode visibility
+    accentDark: accentColors.accent,
+    accentLight: brightenColor(accentColors.accentLight, 0.15),
   };
 }

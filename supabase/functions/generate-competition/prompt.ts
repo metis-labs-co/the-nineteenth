@@ -48,7 +48,7 @@ You MUST return valid JSON matching this exact schema:
   ],
   "players": [
     {
-      "id": "UUID from friends/placeholders list OR generated UUID for new placeholders",
+      "id": "UUID from friends/placeholders list OR any placeholder string like 'new-1', 'new-2' for new placeholders (will be replaced with valid UUIDs)",
       "name": "string",
       "handicap": number | null,
       "isPlaceholder": boolean (true if this is a NEW placeholder to be created, false/omit for existing friends/placeholders)
@@ -83,7 +83,7 @@ You MUST return valid JSON matching this exact schema:
 
 ## Placeholder Player Rules
 - When the user specifies a number of players (e.g., "8 players") and doesn't have enough friends, fill the remaining spots with placeholder players
-- For NEW placeholder players (not from existing list), set isPlaceholder: true and generate a valid UUID v4 for their id
+- For NEW placeholder players (not from existing list), set isPlaceholder: true and use a simple placeholder id like "new-1", "new-2", etc. (the system will generate proper UUIDs)
 - Name new placeholders as "Player 2", "Player 3", etc. (starting from 2, assuming Player 1 is the organizer)
 - ALWAYS prioritize using existing friends first, then existing placeholders, then create new placeholders
 - New placeholder players should have handicap: null (they can set it later)

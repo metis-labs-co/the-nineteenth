@@ -138,7 +138,7 @@ export default function CompetitionsListScreen() {
             <IconSparkles size={20} color={colors.white} strokeWidth={2.5} />
           }
           onPress={canCreateCompetition ? handleCreateWithAI : handleUpgrade}
-          backgroundColor={colors.secondary}
+          backgroundColor={colors.accent}
           disabled={false}
           accessibilityLabel="Create competition with AI"
           variant="compact"

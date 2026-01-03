@@ -347,7 +347,7 @@ You MUST return valid JSON matching this exact schema:
   ],
   "players": [
     {
-      "id": "UUID from friends/placeholders list OR generated UUID for new placeholders",
+      "id": "UUID from friends/placeholders list OR any placeholder string like 'new-1', 'new-2' for new placeholders (will be replaced with valid UUIDs)",
       "name": "string",
       "handicap": number | null,
       "isPlaceholder": boolean (true if this is a NEW placeholder to be created, false/omit for existing friends/placeholders)
@@ -382,7 +382,7 @@ You MUST return valid JSON matching this exact schema:
 
 ## Placeholder Player Rules
 - When the user specifies a number of players (e.g., "8 players") and doesn't have enough friends, fill the remaining spots with placeholder players
-- For NEW placeholder players (not from existing list), set isPlaceholder: true and generate a valid UUID v4 for their id
+- For NEW placeholder players (not from existing list), set isPlaceholder: true and use a simple placeholder id like "new-1", "new-2", etc. (the system will generate proper UUIDs)
 - Name new placeholders as "Player 2", "Player 3", etc. (starting from 2, assuming Player 1 is the organizer)
 - ALWAYS prioritize using existing friends first, then existing placeholders, then create new placeholders
 - New placeholder players should have handicap: null (they can set it later)
@@ -837,6 +837,35 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // 9. Pre-process to fix common AI errors before validation
+
+    // Fix placeholder player UUIDs - Claude can't reliably generate valid UUIDs
+    // So we replace any placeholder player IDs with properly generated UUIDs
+    if (parsedResponse.players && Array.isArray(parsedResponse.players)) {
+      const placeholderIdMap = new Map<string, string>();
+
+      for (const player of parsedResponse.players) {
+        if (player.isPlaceholder === true) {
+          // Store old ID -> new UUID mapping for team updates
+          const oldId = player.id;
+          const newUuid = crypto.randomUUID();
+          placeholderIdMap.set(oldId, newUuid);
+          player.id = newUuid;
+          console.log(`Replaced placeholder ID "${oldId}" with valid UUID "${newUuid}"`);
+        }
+      }
+
+      // Update team playerIds if any placeholders were replaced
+      if (placeholderIdMap.size > 0 && parsedResponse.teams && Array.isArray(parsedResponse.teams)) {
+        for (const team of parsedResponse.teams) {
+          if (team.playerIds && Array.isArray(team.playerIds)) {
+            team.playerIds = team.playerIds.map((id: string) =>
+              placeholderIdMap.get(id) || id
+            );
+          }
+        }
+      }
+    }
+
     if (parsedResponse.teams && Array.isArray(parsedResponse.teams)) {
       const teamSize = parsedResponse.teamSize || 2;
 
