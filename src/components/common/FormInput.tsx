@@ -62,6 +62,38 @@ const KEYBOARD_TYPE_MAP = {
 
 type KeyboardTypeShorthand = keyof typeof KEYBOARD_TYPE_MAP;
 
+// Text content type for iOS password manager integration
+// See: https://developer.apple.com/documentation/uikit/uitextcontenttype
+type TextContentType =
+  | 'none'
+  | 'URL'
+  | 'addressCity'
+  | 'addressCityAndState'
+  | 'addressState'
+  | 'countryName'
+  | 'creditCardNumber'
+  | 'emailAddress'
+  | 'familyName'
+  | 'fullStreetAddress'
+  | 'givenName'
+  | 'jobTitle'
+  | 'location'
+  | 'middleName'
+  | 'name'
+  | 'namePrefix'
+  | 'nameSuffix'
+  | 'nickname'
+  | 'organizationName'
+  | 'postalCode'
+  | 'streetAddressLine1'
+  | 'streetAddressLine2'
+  | 'sublocality'
+  | 'telephoneNumber'
+  | 'username'
+  | 'password'
+  | 'newPassword'
+  | 'oneTimeCode';
+
 export interface FormInputProps {
   // Core props
   label?: string;
@@ -89,6 +121,20 @@ export interface FormInputProps {
   maxLength?: number;
   editable?: boolean;
   disabled?: boolean;
+
+  /**
+   * iOS textContentType for password manager integration.
+   * Helps 3rd party password managers (1Password, LastPass, etc.) recognize fields.
+   * Common values:
+   * - 'emailAddress' for email fields
+   * - 'username' for username fields
+   * - 'password' for existing password fields (login)
+   * - 'newPassword' for new password fields (signup/change password)
+   * - 'givenName' for first name
+   * - 'familyName' for last name
+   * - 'oneTimeCode' for OTP/verification codes
+   */
+  textContentType?: TextContentType;
 
   // Accessories
   leftAffix?: string;
@@ -136,6 +182,7 @@ export function FormInput({
   maxLength,
   editable = true,
   disabled = false,
+  textContentType,
 
   // Accessories
   leftAffix,
@@ -230,6 +277,8 @@ export function FormInput({
         testID={testID}
         accessibilityLabel={accessibilityLabel || label}
         accessibilityHint={accessibilityHint}
+        // Password manager integration (iOS)
+        textContentType={textContentType}
         style={[styles.input, { backgroundColor }]}
         outlineColor={isDisabled ? colors.border : outlineColor}
         activeOutlineColor={activeOutlineColor}

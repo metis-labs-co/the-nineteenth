@@ -98,6 +98,44 @@ export function getScoreIndicatorType(
 // =====================================================
 
 /**
+ * Check if a string looks like an email address
+ *
+ * @param value The string to check
+ * @returns True if the string appears to be an email address
+ */
+export function looksLikeEmail(value: string | undefined | null): boolean {
+  if (!value) return false;
+  // Simple check: contains @ and at least one dot after @
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/**
+ * Get a display-friendly name from a potentially email-based name
+ *
+ * If the name looks like an email address, extracts the username part.
+ * Otherwise returns the name as-is.
+ *
+ * @param name The name to sanitize
+ * @param fallback Optional fallback if name is empty
+ * @returns A display-friendly name
+ */
+export function getDisplayName(
+  name: string | undefined | null,
+  fallback: string = 'Unknown'
+): string {
+  if (!name || name.trim() === '') return fallback;
+
+  // If the name looks like an email, extract the username part
+  if (looksLikeEmail(name)) {
+    const username = name.split('@')[0];
+    // Capitalize first letter for better display
+    return username.charAt(0).toUpperCase() + username.slice(1);
+  }
+
+  return name;
+}
+
+/**
  * Get the first name from a full name
  *
  * @param fullName The full name string

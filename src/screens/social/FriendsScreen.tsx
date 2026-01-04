@@ -30,7 +30,7 @@ import { FriendRequestCard } from '@/components/social/FriendRequestCard';
 import { SentRequestCard } from '@/components/social/SentRequestCard';
 import { AddFriendModal } from '@/components/social/AddFriendModal';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
-import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
+import type{ UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import {
   useFriends,
   useFriendRequests,

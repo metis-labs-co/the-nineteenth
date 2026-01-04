@@ -286,6 +286,8 @@ export default function LoginScreen({ navigation }: Props) {
                       if (otpError) validateOtpCode(cleanedText);
                     }}
                     keyboardType="number"
+                    autoComplete="one-time-code"
+                    textContentType="oneTimeCode"
                     maxLength={8}
                     error={otpError || undefined}
                     disabled={isAuthenticating}
@@ -346,6 +348,7 @@ export default function LoginScreen({ navigation }: Props) {
                     keyboardType="email"
                     autoCapitalize="none"
                     autoComplete="email"
+                    textContentType="emailAddress"
                     error={emailError || undefined}
                     disabled={isAuthenticating}
                     accessibilityHint="Enter your email address"
@@ -364,7 +367,8 @@ export default function LoginScreen({ navigation }: Props) {
                       onBlur={() => validatePassword(password)}
                       secureTextEntry
                       autoCapitalize="none"
-                      autoComplete="password"
+                      autoComplete="current-password"
+                      textContentType="password"
                       error={passwordError || undefined}
                       disabled={isAuthenticating}
                       accessibilityHint="Enter your password"

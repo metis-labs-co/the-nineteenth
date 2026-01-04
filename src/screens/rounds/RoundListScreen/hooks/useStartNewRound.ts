@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
 import { transformHolesIfNeeded } from '@/utils/holeTransformers';
+import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -109,10 +110,11 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         const players: Player[] = [];
 
         // Add current user as the first player
+        // Use getDisplayName to handle cases where name might contain an email
         if (player) {
           players.push({
             id: player.id,
-            name: player.name,
+            name: getDisplayName(player.name, user?.email?.split('@')[0] || 'Player 1'),
             email: player.email || '',
             phone: player.phone ?? undefined,
             handicap: player.handicap ?? 0,
@@ -134,7 +136,7 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         for (const partner of partners) {
           players.push({
             id: partner.id,
-            name: partner.name,
+            name: getDisplayName(partner.name, 'Guest'),
             email: '',
             handicap: partner.handicap ?? 0,
             createdAt: new Date(),

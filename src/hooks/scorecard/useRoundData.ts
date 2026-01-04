@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { roundDataLogger } from '@/utils/debugLogger';
+import { getDisplayName } from '@/utils/displayHelpers';
 import type { Player, TeamWithMembers } from '@/types';
 import type { TeamFormat, GameType } from '@/types/database.types';
 import type { BallCount } from '@/types/multiball.types';
@@ -166,7 +167,7 @@ export function useRoundData({
             seenIds.add(member.player_id);
             teamMemberPlayers.push({
               id: member.player.id,
-              name: member.player.name,
+              name: getDisplayName(member.player.name, 'Unknown'),
               email: member.player.email || '',
               phone: member.player.phone ?? undefined,
               handicap: member.player.handicap ?? 0,

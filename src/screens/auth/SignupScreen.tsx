@@ -19,14 +19,16 @@ import { useAuth } from '@/hooks/useAuth';
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 
 /**
- * SignupScreen - Email + password signup with name field
+ * SignupScreen - Email + password signup with name fields
  *
  * @description
- * User registration screen for MVP Phase 1. Supports name, email, and password signup
- * with validation, error handling, and auto-login after successful registration.
+ * User registration screen for MVP Phase 1. Supports first name, last name,
+ * email, and password signup with validation, error handling, and auto-login
+ * after successful registration.
  *
  * Features:
- * - Name, email, and password input fields
+ * - Separate first name and last name input fields
+ * - Email and password input fields
  * - Form validation (email format, password strength, required fields)
  * - Loading states during registration
  * - Error messages for failed signup attempts
@@ -45,7 +47,8 @@ export default function SignupScreen({ navigation }: Props) {
   const { signup, isAuthenticating } = useAuth();
 
   // Form state
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,24 +58,41 @@ export default function SignupScreen({ navigation }: Props) {
   const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
 
   // Validation state
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   /**
-   * Validate name
+   * Validate first name
    */
-  const validateName = (name: string): boolean => {
-    if (!name.trim()) {
-      setNameError('Name is required');
+  const validateFirstName = (value: string): boolean => {
+    if (!value.trim()) {
+      setFirstNameError('First name is required');
       return false;
     }
-    if (name.trim().length < 2) {
-      setNameError('Name must be at least 2 characters');
+    if (value.trim().length < 2) {
+      setFirstNameError('First name must be at least 2 characters');
       return false;
     }
-    setNameError(null);
+    setFirstNameError(null);
+    return true;
+  };
+
+  /**
+   * Validate last name
+   */
+  const validateLastName = (value: string): boolean => {
+    if (!value.trim()) {
+      setLastNameError('Last name is required');
+      return false;
+    }
+    if (value.trim().length < 2) {
+      setLastNameError('Last name must be at least 2 characters');
+      return false;
+    }
+    setLastNameError(null);
     return true;
   };
 
@@ -141,23 +161,27 @@ export default function SignupScreen({ navigation }: Props) {
     setError(null);
 
     // Validate all fields
-    const isNameValid = validateName(name);
+    const isFirstNameValid = validateFirstName(firstName);
+    const isLastNameValid = validateLastName(lastName);
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
     const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (!isNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
+    if (!isFirstNameValid || !isLastNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
       return;
     }
+
+    // Combine first and last name for storage
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
       const result = await signup({
         email,
         password,
-        name: name.trim(),
+        name: fullName,
       });
 
-      console.log('Signup successful:', { name: name.trim(), email });
+      console.log('Signup successful:', { name: fullName, email });
 
       // Check if email confirmation is required
       if (result.emailConfirmationRequired) {
@@ -269,22 +293,48 @@ export default function SignupScreen({ navigation }: Props) {
 
             {/* Form Section */}
             <View style={styles.form}>
-              {/* Name Input */}
-              <FormInput
-                label="Full Name"
-                floatingLabel
-                value={name}
-                onChangeText={(text) => {
-                  setName(text);
-                  if (nameError) validateName(text);
-                }}
-                onBlur={() => validateName(name)}
-                autoCapitalize="words"
-                autoComplete="name"
-                error={nameError || undefined}
-                disabled={isAuthenticating}
-                accessibilityHint="Enter your full name"
-              />
+              {/* Name Row */}
+              <View style={styles.nameRow}>
+                {/* First Name Input */}
+                <View style={styles.nameField}>
+                  <FormInput
+                    label="First Name"
+                    floatingLabel
+                    value={firstName}
+                    onChangeText={(text) => {
+                      setFirstName(text);
+                      if (firstNameError) validateFirstName(text);
+                    }}
+                    onBlur={() => validateFirstName(firstName)}
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    textContentType="givenName"
+                    error={firstNameError || undefined}
+                    disabled={isAuthenticating}
+                    accessibilityHint="Enter your first name"
+                  />
+                </View>
+
+                {/* Last Name Input */}
+                <View style={styles.nameField}>
+                  <FormInput
+                    label="Last Name"
+                    floatingLabel
+                    value={lastName}
+                    onChangeText={(text) => {
+                      setLastName(text);
+                      if (lastNameError) validateLastName(text);
+                    }}
+                    onBlur={() => validateLastName(lastName)}
+                    autoCapitalize="words"
+                    autoComplete="family-name"
+                    textContentType="familyName"
+                    error={lastNameError || undefined}
+                    disabled={isAuthenticating}
+                    accessibilityHint="Enter your last name"
+                  />
+                </View>
+              </View>
 
               {/* Email Input */}
               <FormInput
@@ -299,6 +349,7 @@ export default function SignupScreen({ navigation }: Props) {
                 keyboardType="email"
                 autoCapitalize="none"
                 autoComplete="email"
+                textContentType="emailAddress"
                 error={emailError || undefined}
                 disabled={isAuthenticating}
                 accessibilityHint="Enter your email address"
@@ -318,7 +369,8 @@ export default function SignupScreen({ navigation }: Props) {
                 onBlur={() => validatePassword(password)}
                 secureTextEntry
                 autoCapitalize="none"
-                autoComplete="password-new"
+                autoComplete="new-password"
+                textContentType="newPassword"
                 error={passwordError || undefined}
                 hint={!passwordError && password.length > 0 ? 'Use 8+ characters with uppercase, lowercase, and numbers' : undefined}
                 disabled={isAuthenticating}
@@ -337,7 +389,8 @@ export default function SignupScreen({ navigation }: Props) {
                 onBlur={() => validateConfirmPassword(confirmPassword)}
                 secureTextEntry
                 autoCapitalize="none"
-                autoComplete="password-new"
+                autoComplete="new-password"
+                textContentType="newPassword"
                 error={confirmPasswordError || undefined}
                 disabled={isAuthenticating}
                 accessibilityHint="Re-enter your password to confirm"
@@ -431,6 +484,13 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.sm,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  nameField: {
+    flex: 1,
   },
   signupButton: {
     marginTop: spacing.lg,

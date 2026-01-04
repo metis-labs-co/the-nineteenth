@@ -8,6 +8,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
+import { getDisplayName } from '@/utils/displayHelpers';
 import type { Player } from '@/types';
 import {
   COMPETITION_PLAYERS_SELECT,
@@ -102,11 +103,12 @@ export function useRoundPlayers(
       });
 
       // Transform players to our Player type
+      // Use getDisplayName to handle cases where name field contains an email
       const transformedPlayers: Player[] = competitionPlayers
         .filter((cp) => cp.players)
         .map((cp) => ({
           id: cp.players!.id,
-          name: cp.players!.name || 'Unknown',
+          name: getDisplayName(cp.players!.name, 'Unknown'),
           email: cp.players!.email || '',
           phone: cp.players!.phone,
           handicap: cp.players!.handicap || 0,

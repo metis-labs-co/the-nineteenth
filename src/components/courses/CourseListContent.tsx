@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, FlatList, RefreshControl } from 'react-native';
+import { StyleSheet, View, FlatList, RefreshControl, Keyboard, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -92,13 +92,15 @@ export function CourseListContent({
     const onAction = showAddVenue ? onShowAddModal : undefined;
 
     return (
-      <EmptyState
-        title={title}
-        message={getMessage()}
-        icon={icon}
-        actionLabel={actionLabel}
-        onAction={onAction}
-      />
+      <Pressable style={styles.emptyStateWrapper} onPress={Keyboard.dismiss}>
+        <EmptyState
+          title={title}
+          message={getMessage()}
+          icon={icon}
+          actionLabel={actionLabel}
+          onAction={onAction}
+        />
+      </Pressable>
     );
   }
 
@@ -133,6 +135,8 @@ export function CourseListContent({
       }
       showsVerticalScrollIndicator={false}
       ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     />
   );
 }
@@ -142,6 +146,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyStateWrapper: {
+    flex: 1,
   },
   listContent: {
     paddingTop: spacing.md,
