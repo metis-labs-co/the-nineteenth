@@ -116,7 +116,27 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 
 ---
 
-### Task 4: Database Functions - Skins Calculations
+### Task 4: Database Migration - Competition Skins Config Table
+**Status:** Not Started
+**Command:**
+```bash
+/db "Create migration for competition-level skins configuration. New table competition_skins_config: id UUID PK DEFAULT gen_random_uuid(), competition_id UUID FK to competitions ON DELETE CASCADE UNIQUE NOT NULL, skins_mode TEXT NOT NULL CHECK IN ('none', 'all_rounds', 'select_rounds') DEFAULT 'none', settlement_mode TEXT NOT NULL CHECK IN ('per_round', 'tally_all') DEFAULT 'per_round', pot_type TEXT NOT NULL CHECK IN ('per_hole', 'total_pot') DEFAULT 'per_hole', pot_value DECIMAL(10,2) NOT NULL CHECK > 0 DEFAULT 5.00, currency TEXT DEFAULT 'AUD', scoring_type TEXT NOT NULL CHECK IN ('gross', 'net') DEFAULT 'gross', selected_round_ids UUID[] DEFAULT '{}' (only used when skins_mode = 'select_rounds'), disclaimer_accepted_at TIMESTAMPTZ NULL, disclaimer_accepted_by UUID FK to players NULL, created_by UUID FK to players NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add index on competition_id. Add RLS: organizers can manage (competition_id IN SELECT id FROM competitions WHERE organizer_id = auth.uid()), competition members can view (competition_id IN SELECT competition_id FROM competition_players WHERE player_id = auth.uid()). Add updated_at trigger. Add CHECK constraint: disclaimer_accepted_at IS NOT NULL when skins_mode != 'none'. Add CHECK constraint: array_length(selected_round_ids) > 0 when skins_mode = 'select_rounds'."
+```
+**Deliverables:**
+- [ ] `supabase/migrations/20260106000000_competition_skins_config.sql`
+- [ ] `competition_skins_config` table with all constraints
+- [ ] UNIQUE constraint on competition_id (one config per competition)
+- [ ] RLS policies for organizers and members
+- [ ] Indexes
+- [ ] Updated_at trigger
+- [ ] CHECK constraints for mode-specific validation
+
+**Dependencies:** Task 1
+**Estimated Time:** 2-3 hours
+
+---
+
+### Task 5: Database Functions - Skins Calculations
 **Status:** Not Started
 **Command:**
 ```bash
@@ -138,7 +158,7 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 
 ## Sprint 2: TypeScript Types
 
-### Task 5: Skins Type Definitions
+### Task 6: Skins Type Definitions
 **Status:** ✅ Completed (2026-01-05)
 **Command:**
 ```bash
@@ -156,7 +176,7 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 
 ---
 
-### Task 6: Update Enums and Index Exports
+### Task 7: Update Enums and Index Exports
 **Status:** ✅ Completed (2026-01-05)
 **Command:**
 ```bash
@@ -167,14 +187,32 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] 'skins' added to TierFeature
 - [ ] Types exported from `src/types/index.ts`
 
-**Dependencies:** Task 5
+**Dependencies:** Task 6
 **Estimated Time:** 30 minutes
+
+---
+
+### Task 8: Competition Skins Config Types
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add competition skins config types to src/types/database/skins.types.ts. New types: SkinsMode = 'none' | 'all_rounds' | 'select_rounds', SkinsSettlementMode = 'per_round' | 'tally_all'. New interface CompetitionSkinsConfig (id, competition_id, skins_mode SkinsMode, settlement_mode SkinsSettlementMode, pot_type SkinsPotType, pot_value number, currency string, scoring_type SkinsScoringType, selected_round_ids string[] nullable, disclaimer_accepted_at string nullable, disclaimer_accepted_by string nullable, created_by string, created_at, updated_at). CreateCompetitionSkinsConfigInput (competition_id, skins_mode, settlement_mode optional defaults 'per_round', pot_type, pot_value, scoring_type, selected_round_ids optional). UpdateCompetitionSkinsConfigInput (skins_mode optional, settlement_mode optional, pot_type optional, pot_value optional, scoring_type optional, selected_round_ids optional). Export all new types."
+```
+**Deliverables:**
+- [ ] `SkinsMode` type
+- [ ] `SkinsSettlementMode` type
+- [ ] `CompetitionSkinsConfig` interface
+- [ ] Input types for create/update
+- [ ] Exports updated
+
+**Dependencies:** Task 6
+**Estimated Time:** 1 hour
 
 ---
 
 ## Sprint 3: Calculation Utilities
 
-### Task 7: Skins Calculation Utilities
+### Task 9: Skins Calculation Utilities
 **Status:** Not Started
 **Command:**
 ```bash
@@ -187,14 +225,14 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] JSDoc documentation
 - [ ] Export from `src/utils/index.ts`
 
-**Dependencies:** Task 5 (types)
+**Dependencies:** Task 6 (types)
 **Estimated Time:** 3-4 hours
 
 ---
 
 ## Sprint 4: React Query Hooks
 
-### Task 8: Query Keys for Skins
+### Task 10: Query Keys for Skins
 **Status:** Not Started
 **Command:**
 ```bash
@@ -210,7 +248,7 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 
 ---
 
-### Task 9: Skins Query Hooks
+### Task 11: Skins Query Hooks
 **Status:** Not Started
 **Command:**
 ```bash
@@ -223,8 +261,26 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] 1 permission check hook
 - [ ] Export from `src/hooks/index.ts`
 
-**Dependencies:** Task 5 (types), Task 8 (query keys)
+**Dependencies:** Task 6 (types), Task 10 (query keys)
 **Estimated Time:** 3-4 hours
+
+---
+
+### Task 12: Competition Skins Config Hooks
+**Status:** Not Started
+**Command:**
+```bash
+/hook "Create src/hooks/useCompetitionSkinsConfig.ts with TanStack Query hooks for competition-level skins. Add to queryKeys.ts: competitionSkinsConfig: (competitionId) => [...skinsKeys.all, 'competition', competitionId]. Queries: (1) useCompetitionSkinsConfig(competitionId) - fetches competition_skins_config by competition_id, returns CompetitionSkinsConfig or null, staleTime 1min. (2) useRoundHasSkins(roundId, competitionId) - checks if round should have skins based on competition config (mode='all_rounds' OR mode='select_rounds' AND round_id in selected_round_ids), returns boolean. Mutations: (3) useCreateCompetitionSkinsConfig() - inserts config with disclaimer timestamp, invalidates competitionSkinsConfig. (4) useUpdateCompetitionSkinsConfig() - updates config, invalidates competitionSkinsConfig. (5) useDeleteCompetitionSkinsConfig() - deletes config (sets to 'none'), invalidates competitionSkinsConfig. Export all hooks."
+```
+**Deliverables:**
+- [ ] `src/hooks/useCompetitionSkinsConfig.ts`
+- [ ] Query for competition skins config
+- [ ] Query for round-level skins check
+- [ ] Create/update/delete mutations
+- [ ] Query keys added
+
+**Dependencies:** Task 8 (types), Task 10 (query keys)
+**Estimated Time:** 2-3 hours
 
 ---
 
