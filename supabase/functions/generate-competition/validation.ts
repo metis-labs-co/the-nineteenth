@@ -107,6 +107,15 @@ const placeholderPlayerSchema = z.object({
 });
 
 /**
+ * Schema for organizer (current user) from mobile app
+ */
+const organizerSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  handicap: z.number().nullable(),
+});
+
+/**
  * Schema for request body from mobile app
  */
 export const requestBodySchema = z.object({
@@ -125,6 +134,7 @@ export const requestBodySchema = z.object({
   }),
   favoriteCourses: z.array(favoriteCourseSchema).optional(),
   placeholderPlayers: z.array(placeholderPlayerSchema).optional(),
+  organizer: organizerSchema,
 });
 
 export type GeneratedCompetitionParsed = z.infer<

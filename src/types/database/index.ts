@@ -25,6 +25,37 @@ export type {
   TierFeature,
 } from './enums';
 
+// Skins types
+export type {
+  // Enums
+  SkinsPotType,
+  SkinsScoringType,
+  SkinsGameStatus,
+  // Score data types
+  SkinsHoleScoreData,
+  SkinsHoleScores,
+  // Game types
+  SkinsGame,
+  SkinsParticipant,
+  SkinsGameWithParticipants,
+  // Result types
+  SkinsResult,
+  SkinsWinner,
+  SkinsResultWithWinner,
+  // Payout types
+  SkinsPayout,
+  SkinsPayoutPlayer,
+  SkinsPayoutWithPlayer,
+  // Input types
+  CreateSkinsGameInput,
+  ProcessSkinsHoleInput,
+  // Summary types
+  SkinsGameSummary,
+  SkinsConfig,
+  SkinsDebtTransaction,
+  SkinsNetPosition,
+} from './skins.types';
+
 // Base types
 export type { GeoPoint, Hole, TeeBox, HoleScore, MultiBallHoleScore, BallTotals } from './base';
 export { isMultiBallScore, isSingleBallScore } from './base';

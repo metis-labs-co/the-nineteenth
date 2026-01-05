@@ -45,3 +45,6 @@ export {
   getNextAchievementInCategory,
 } from './achievementCalculations';
 export type { AchievementProgressResult, ProgressMap } from './achievementCalculations';
+
+// App Store utilities
+export { openAppStoreSubscriptionSettings } from './appStore';

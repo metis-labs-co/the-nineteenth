@@ -40,7 +40,9 @@ import {
   UsageSection,
   PlanComparisonCard,
   DebugInfoSection,
+  DowngradeConfirmationModal,
 } from '@/components/subscription';
+import { openAppStoreSubscriptionSettings } from '@/utils/appStore';
 import type { UpgradePromptConfig } from '@/components/subscription';
 import type { PlanFeature } from '@/components/subscription/PlanComparisonCard';
 import type { UsageItem } from '@/components/subscription/UsageSection';
@@ -170,6 +172,8 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier>('social');
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [downgradeTier, setDowngradeTier] = useState<SubscriptionTier>('free');
 
   // Refresh subscription data when screen gains focus
   useFocusEffect(
@@ -320,16 +324,28 @@ export default function SubscriptionScreen({ navigation }: Props) {
       super_admin: 3,
     };
 
-    if (tierOrder[selectedTier] <= tierOrder[tier]) {
+    const selectedOrder = tierOrder[selectedTier];
+    const currentOrder = tierOrder[tier];
+
+    // Same tier - do nothing
+    if (selectedOrder === currentOrder) {
       return;
     }
 
-    setSelectedUpgradeTier(selectedTier);
-    if (purchasesEnabled) {
-      setShowPaywall(true);
-    } else {
-      setShowUpgradePrompt(true);
+    // Upgrade flow
+    if (selectedOrder > currentOrder) {
+      setSelectedUpgradeTier(selectedTier);
+      if (purchasesEnabled) {
+        setShowPaywall(true);
+      } else {
+        setShowUpgradePrompt(true);
+      }
+      return;
     }
+
+    // Downgrade flow
+    setDowngradeTier(selectedTier);
+    setShowDowngradeModal(true);
   }, [tier, purchasesEnabled]);
 
   // Handle upgrade action from prompt
@@ -358,6 +374,17 @@ export default function SubscriptionScreen({ navigation }: Props) {
     refresh();
     console.log(`[SubscriptionScreen] Purchase successful, new tier: ${newTier}`);
   }, [refresh]);
+
+  // Handle downgrade confirmation
+  const handleDowngradeConfirm = useCallback(async () => {
+    setShowDowngradeModal(false);
+    await openAppStoreSubscriptionSettings();
+  }, []);
+
+  // Handle downgrade dismiss
+  const handleDowngradeDismiss = useCallback(() => {
+    setShowDowngradeModal(false);
+  }, []);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -502,6 +529,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
                 super_admin: 3,
               };
               const isUpgradeOption = tierOrder[comparisonTier] > tierOrder[tier];
+              const isDowngradeOption = tierOrder[comparisonTier] < tierOrder[tier];
 
               return (
                 <PlanComparisonCard
@@ -513,6 +541,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
                   features={buildPlanFeatures(tierLimits, comparisonTier)}
                   isCurrentPlan={isCurrentTier}
                   isUpgradeOption={isUpgradeOption}
+                  isDowngradeOption={isDowngradeOption}
                   onPress={() => handlePlanCardPress(comparisonTier)}
                 />
               );
@@ -566,6 +595,15 @@ export default function SubscriptionScreen({ navigation }: Props) {
         onPurchaseSuccess={handlePurchaseSuccess}
         onDismiss={() => setShowPaywall(false)}
         initialTier={tier === 'free' ? 'social' : 'premium'}
+      />
+
+      {/* Downgrade Confirmation Modal */}
+      <DowngradeConfirmationModal
+        visible={showDowngradeModal}
+        currentTier={tier}
+        targetTier={downgradeTier}
+        onConfirm={handleDowngradeConfirm}
+        onDismiss={handleDowngradeDismiss}
       />
     </View>
   );

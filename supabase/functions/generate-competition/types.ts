@@ -39,6 +39,15 @@ export interface PlaceholderInput {
 }
 
 /**
+ * Organizer (current user) data passed from mobile app
+ */
+export interface OrganizerInput {
+  id: string;
+  name: string;
+  handicap: number | null;
+}
+
+/**
  * Tier limits passed from mobile app
  */
 export interface TierLimitsInput {
@@ -56,6 +65,7 @@ export interface GenerateCompetitionRequest {
   tierLimits: TierLimitsInput;
   favoriteCourses?: FavoriteCourseInput[];
   placeholderPlayers?: PlaceholderInput[];
+  organizer: OrganizerInput;
 }
 
 /**

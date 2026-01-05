@@ -165,15 +165,28 @@ describe('PushNotificationSettings', () => {
   // ==========================================================================
 
   describe('Permission States', () => {
-    it('shows granted status with check icon', () => {
+    it('shows granted status with check icon when push enabled', () => {
       mockUsePushNotificationsHook.mockReturnValue({
         ...mockUsePushNotifications,
+        preferences: { ...mockUsePushNotifications.preferences, pushEnabled: true },
         permissionStatus: 'granted',
       } as any);
 
       renderComponent();
       expect(screen.getByText('Notifications enabled')).toBeTruthy();
       expect(screen.getByTestId('icon-check-circle-outline')).toBeTruthy();
+    });
+
+    it('shows disabled status when permission granted but push disabled', () => {
+      mockUsePushNotificationsHook.mockReturnValue({
+        ...mockUsePushNotifications,
+        preferences: { ...mockUsePushNotifications.preferences, pushEnabled: false },
+        permissionStatus: 'granted',
+      } as any);
+
+      renderComponent();
+      expect(screen.getByText('Notifications disabled')).toBeTruthy();
+      expect(screen.getByTestId('icon-bell-off-outline')).toBeTruthy();
     });
 
     it('shows denied status with close icon', () => {

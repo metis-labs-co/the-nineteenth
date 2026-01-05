@@ -54,4 +54,5 @@ export type TierFeature =
   | 'score_distribution'
   | 'advanced_stats'
   | 'compare_stats'
-  | 'admin_tools';
+  | 'admin_tools'
+  | 'skins';

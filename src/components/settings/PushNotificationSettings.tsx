@@ -187,6 +187,14 @@ export const PushNotificationSettings = React.memo(function PushNotificationSett
 
     switch (permissionStatus) {
       case 'granted':
+        // Check if user has disabled notifications via the master toggle
+        if (!pushEnabled) {
+          return {
+            text: 'Notifications disabled',
+            icon: 'bell-off-outline',
+            color: colors.textSecondary,
+          };
+        }
         return {
           text: 'Notifications enabled',
           icon: 'check-circle-outline',

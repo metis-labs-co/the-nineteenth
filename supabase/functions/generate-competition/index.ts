@@ -235,7 +235,7 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    const { prompt, friends, tierLimits, favoriteCourses = [], placeholderPlayers = [] } =
+    const { prompt, friends, tierLimits, favoriteCourses = [], placeholderPlayers = [], organizer } =
       parseResult.data as GenerateCompetitionRequest;
 
     // 2. Verify auth
@@ -289,7 +289,8 @@ serve(async (req: Request): Promise<Response> => {
       tierLimits,
       getTodayDateString(),
       favoriteCourses,
-      placeholderPlayers
+      placeholderPlayers,
+      organizer
     );
 
     console.log('Calling Claude API...');

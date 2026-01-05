@@ -36,6 +36,7 @@ import { useFriends } from './useFriends';
 import { usePlaceholderPlayers } from './usePlaceholderPlayers';
 import { useFavoriteCoursesWithVenues } from './useVenues';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
+import { useAuth } from './useAuth';
 import { aiKeys } from './queryKeys';
 import type { GameType } from '@/types/database.types';
 
@@ -137,6 +138,7 @@ export function useGenerateAICompetition() {
   const { data: placeholderPlayers = [] } = usePlaceholderPlayers();
   const { data: favoriteCourses = [] } = useFavoriteCoursesWithVenues();
   const { limits } = useSubscriptionContext();
+  const { player } = useAuth();
 
   return useMutation({
     mutationKey: aiKeys.generation(),
@@ -147,6 +149,15 @@ export function useGenerateAICompetition() {
           success: false,
           error: 'Prompt must be at least 10 characters',
           code: 'INVALID_REQUEST',
+        };
+      }
+
+      // Validate that we have the current user's info
+      if (!player) {
+        return {
+          success: false,
+          error: 'You must be logged in to generate a competition',
+          code: 'AUTH_ERROR',
         };
       }
 
@@ -186,6 +197,13 @@ export function useGenerateAICompetition() {
         city: c.venue?.city || null,
       }));
 
+      // Prepare organizer (current user) data for Edge Function
+      const organizerPayload = {
+        id: player.id,
+        name: player.name,
+        handicap: player.handicap ?? null,
+      };
+
       // Debug logging
       if (__DEV__) {
         console.log('[useGenerateAICompetition] raw limits:', { rawMaxRounds, rawMaxPlayers });
@@ -193,6 +211,7 @@ export function useGenerateAICompetition() {
         console.log('[useGenerateAICompetition] friends count:', friendsPayload.length);
         console.log('[useGenerateAICompetition] placeholder players count:', placeholderPlayersPayload.length);
         console.log('[useGenerateAICompetition] favorite courses count:', favoriteCoursesPayload.length);
+        console.log('[useGenerateAICompetition] organizer:', organizerPayload);
       }
 
       // Call Edge Function
@@ -205,6 +224,7 @@ export function useGenerateAICompetition() {
             tierLimits: tierLimitsPayload,
             favoriteCourses: favoriteCoursesPayload,
             placeholderPlayers: placeholderPlayersPayload,
+            organizer: organizerPayload,
           },
         }
       );

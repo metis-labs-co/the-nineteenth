@@ -136,10 +136,7 @@ export const MatchTypeStep = memo(function MatchTypeStep({
           How would you like to score?
         </Text>
         <View style={styles.matchTypeList}>
-          {MATCH_TYPES
-            // Filter out team formats - practice rounds don't support teams
-            .filter((matchType) => !['ambrose', 'best-ball', 'scramble'].includes(matchType.value))
-            .map((matchType: MatchTypeOption) => {
+          {MATCH_TYPES.map((matchType: MatchTypeOption) => {
             const isSelected = selectedMatchType === matchType.value;
             const isAllowed = isGameTypeAllowed(matchType.value);
             const isLocked = !isAllowed;

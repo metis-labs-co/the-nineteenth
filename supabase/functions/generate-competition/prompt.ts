@@ -8,6 +8,7 @@ import type {
   CourseSearchResult,
   FavoriteCourseInput,
   PlaceholderInput,
+  OrganizerInput,
 } from './types.ts';
 
 /**
@@ -81,13 +82,20 @@ You MUST return valid JSON matching this exact schema:
 11. Default to "stableford" game type unless user specifies otherwise
 12. Default to competitionType "event" for finite competitions, "league" for ongoing ones
 
+## Organizer (Competition Creator) Rules - CRITICAL
+- The "Organizer" section below contains the current user who is creating this competition
+- The organizer MUST ALWAYS be included as the FIRST player in the "players" array
+- The organizer is NOT a placeholder - use their exact id, name, and handicap from the provided data
+- The organizer counts towards the total player count (e.g., "4 players" means organizer + 3 others)
+- NEVER omit the organizer from the players list - this is a hard requirement
+
 ## Placeholder Player Rules
 - When the user specifies a number of players (e.g., "8 players") and doesn't have enough friends, fill the remaining spots with placeholder players
 - For NEW placeholder players (not from existing list), set isPlaceholder: true and use a simple placeholder id like "new-1", "new-2", etc. (the system will generate proper UUIDs)
-- Name new placeholders as "Player 2", "Player 3", etc. (starting from 2, assuming Player 1 is the organizer)
-- ALWAYS prioritize using existing friends first, then existing placeholders, then create new placeholders
+- Name new placeholders as "Player 2", "Player 3", etc. (starting from 2, since Player 1 is the organizer)
+- ALWAYS prioritize: 1) Organizer first, 2) existing friends, 3) existing placeholders, 4) create new placeholders
 - New placeholder players should have handicap: null (they can set it later)
-- If user says "for 4 players" and has 1 friend, use the friend and create 2 new placeholders (total 4 including organizer)
+- If user says "for 4 players" and has 1 friend, the players list should be: organizer + friend + 2 new placeholders = 4 total
 
 ## Course Selection Priority
 1. If the user mentions a specific course/venue name, use that course if found in "Available Courses"
@@ -131,7 +139,8 @@ export function buildUserMessage(
   tierLimits: TierLimitsInput,
   todayDate: string,
   favoriteCourses: FavoriteCourseInput[] = [],
-  placeholderPlayers: PlaceholderInput[] = []
+  placeholderPlayers: PlaceholderInput[] = [],
+  organizer: OrganizerInput
 ): string {
   const friendsList = friends
     .map(
@@ -169,14 +178,20 @@ export function buildUserMessage(
 
   const allowedGameTypes = tierLimits.allowedGameTypes.join(', ');
 
-  // Calculate total available players (friends + existing placeholders)
-  const totalAvailable = friends.length + placeholderPlayers.length;
+  // Calculate total available players (organizer + friends + existing placeholders)
+  const totalAvailable = 1 + friends.length + placeholderPlayers.length; // +1 for organizer
+
+  // Format organizer info
+  const organizerInfo = `- ${organizer.name} (ID: ${organizer.id}, Handicap: ${organizer.handicap !== null ? organizer.handicap : 'N/A'}) - THIS IS YOU, THE COMPETITION CREATOR`;
 
   return `## User Request
 ${prompt}
 
 ## Today's Date
 ${todayDate}
+
+## Organizer (Competition Creator) - MUST BE FIRST IN PLAYERS LIST
+${organizerInfo}
 
 ## Friends (${friends.length} available)
 ${friendsList || 'No friends available - you may need to create placeholder players'}
@@ -185,7 +200,7 @@ ${friendsList || 'No friends available - you may need to create placeholder play
 ${placeholdersList || 'No existing placeholder players'}
 
 ## Total Available Players
-${totalAvailable} (friends + existing placeholders). If more players are needed based on user request, create NEW placeholder players with isPlaceholder: true.
+${totalAvailable} (organizer + friends + existing placeholders). The organizer is ALWAYS included. If more players are needed based on user request, create NEW placeholder players with isPlaceholder: true.
 
 ## Favorite Courses (User's preferred courses - USE THESE if no specific course mentioned)
 ${favoritesList}
@@ -198,5 +213,5 @@ ${coursesList}
 - Maximum players per competition: ${tierLimits.maxPlayers}
 - Allowed game types: ${allowedGameTypes}
 
-Please generate the competition configuration based on the user's request. If the user requests more players than available friends/placeholders, create new placeholder players to fill the spots.`;
+Please generate the competition configuration based on the user's request. IMPORTANT: The organizer (competition creator) must ALWAYS be the first player in the players array. If the user requests more players than available, create new placeholder players to fill the spots.`;
 }

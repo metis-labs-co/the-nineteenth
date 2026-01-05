@@ -34,3 +34,5 @@ export { PlanComparisonCard } from './PlanComparisonCard';
 export type { PlanComparisonCardProps, PlanFeature } from './PlanComparisonCard';
 export { DebugInfoSection } from './DebugInfoSection';
 export type { DebugInfoSectionProps } from './DebugInfoSection';
+export { DowngradeConfirmationModal } from './DowngradeConfirmationModal';
+export type { default as DowngradeConfirmationModalProps } from './DowngradeConfirmationModal';

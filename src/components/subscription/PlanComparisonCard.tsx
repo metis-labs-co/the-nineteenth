@@ -49,7 +49,9 @@ export interface PlanComparisonCardProps {
   isCurrentPlan?: boolean;
   /** Whether this is an upgrade option */
   isUpgradeOption?: boolean;
-  /** Callback when card is pressed (for upgrade options) */
+  /** Whether this is a downgrade option (lower tier than current) */
+  isDowngradeOption?: boolean;
+  /** Callback when card is pressed (for upgrade/downgrade options) */
   onPress?: () => void;
   /** Optional testID for testing */
   testID?: string;
@@ -97,6 +99,7 @@ export const PlanComparisonCard = React.memo(function PlanComparisonCard({
   features,
   isCurrentPlan = false,
   isUpgradeOption = false,
+  isDowngradeOption = false,
   onPress,
   testID,
 }: PlanComparisonCardProps) {
@@ -152,25 +155,36 @@ export const PlanComparisonCard = React.memo(function PlanComparisonCard({
         ))}
       </View>
 
-      {/* Upgrade hint for upgrade options */}
-      {isUpgradeOption && (
-        <View style={[styles.upgradeHintRow, { borderTopColor: colors.border }]}>
-          <Icon source="arrow-up-circle" size={16} color={colors.primary} />
-          <Text style={[styles.upgradeHintText, { color: colors.primary }]}>
-            Tap to upgrade
+      {/* Action hint for upgrade/downgrade options */}
+      {(isUpgradeOption || isDowngradeOption) && (
+        <View style={[styles.actionHintRow, { borderTopColor: colors.border }]}>
+          <Icon
+            source={isUpgradeOption ? 'arrow-up-circle' : 'arrow-down-circle'}
+            size={16}
+            color={isUpgradeOption ? colors.primary : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.actionHintText,
+              { color: isUpgradeOption ? colors.primary : colors.textSecondary },
+            ]}
+          >
+            {isUpgradeOption ? 'Tap to upgrade' : 'Tap to manage'}
           </Text>
         </View>
       )}
     </View>
   );
 
-  if (onPress && isUpgradeOption) {
+  if (onPress && (isUpgradeOption || isDowngradeOption)) {
     return (
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`Upgrade to ${planName}`}
+        accessibilityLabel={
+          isUpgradeOption ? `Upgrade to ${planName}` : `Manage ${planName} plan`
+        }
       >
         {cardContent}
       </TouchableOpacity>
@@ -228,7 +242,7 @@ const styles = StyleSheet.create({
   featureValue: {
     ...typography.smallBold,
   },
-  upgradeHintRow: {
+  actionHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -236,7 +250,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderTopWidth: 1,
   },
-  upgradeHintText: {
+  actionHintText: {
     ...typography.smallBold,
   },
 });
