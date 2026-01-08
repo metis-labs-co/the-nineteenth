@@ -1,21 +1,31 @@
 # Skins Game - Phase 3 Implementation Plan
 
-**Goal:** Add bank account linking and automatic payment settlement for skins games
-**Status:** Not Started - 0% (0/15 tasks)
+**Goal:** Add bank account linking and automatic payment settlement for skins games and prize pools
+**Status:** Not Started - 0% (0/16 tasks)
 **Prerequisites:** Phase 1 and Phase 2 complete
 
 ---
 
 ## Overview
 
-This plan implements **Phase 3** of the Skins gambling feature - integrating payment processing to enable automatic settlement of skins games. This phase transforms skins from a manual settlement feature into a seamless payment experience.
+This plan implements **Phase 3** of the Skins gambling feature - integrating payment processing to enable automatic settlement of skins games and prize pool payouts. This phase transforms skins from a manual settlement feature into a seamless payment experience.
 
 ### Key Features
 - **Bank account linking** - Securely link payment method via Stripe Connect
 - **Automatic settlement** - Losers pay winners automatically after game
 - **Settlement history** - Track all payments made/received
 - **Payment preferences** - Auto-pay vs manual approval
-- **New "Pro" tier** - Gambling features may require dedicated tier
+- **Prize pool contributions** - Collect per-player contributions for competition prize pools
+- **Prize payouts** - Automatic distribution of competition prizes at competition end
+- **New "Pro" tier** - Payment features may require dedicated tier
+
+### Payment Types Supported
+
+| Payment Type | Trigger | Description |
+|--------------|---------|-------------|
+| **Per-Round Skins Settlement** | Round completed | Settle skins for standalone or competition rounds |
+| **Prize Pool Contribution** | Competition start (future) | Collect per-player contributions to prize pool |
+| **Prize Payouts** | Competition end | Distribute winner, best round, other prizes |
 
 ### Payment Flow
 

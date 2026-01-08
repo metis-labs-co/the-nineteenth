@@ -75,6 +75,7 @@ const defaultCompetitionData: CompetitionDetailsFormData = {
   endDate: '16/01/2025',
   handicapSystem: 'honor',
   inviteCode: 'SUMMER-2025',
+  enableTeams: false,
 };
 
 const leagueCompetitionData: CompetitionDetailsFormData = {
@@ -84,6 +85,7 @@ const leagueCompetitionData: CompetitionDetailsFormData = {
   startDate: '01/02/2025',
   handicapSystem: 'golf-australia',
   inviteCode: 'LEAGUE-25',
+  enableTeams: false,
 };
 
 const grossOnlyCompetitionData: CompetitionDetailsFormData = {
@@ -93,6 +95,7 @@ const grossOnlyCompetitionData: CompetitionDetailsFormData = {
   startDate: '20/03/2025',
   endDate: '21/03/2025',
   handicapSystem: 'gross-only',
+  enableTeams: false,
 };
 
 const minimalCompetitionData: CompetitionDetailsFormData = {
@@ -101,6 +104,7 @@ const minimalCompetitionData: CompetitionDetailsFormData = {
   startDate: '10/04/2025',
   endDate: '10/04/2025',
   handicapSystem: 'honor',
+  enableTeams: false,
 };
 
 const longNameCompetitionData: CompetitionDetailsFormData = {
@@ -111,6 +115,7 @@ const longNameCompetitionData: CompetitionDetailsFormData = {
   endDate: '17/06/2025',
   handicapSystem: 'golf-australia',
   inviteCode: 'CORP-GOLF-2025',
+  enableTeams: false,
 };
 
 // ============================================================================

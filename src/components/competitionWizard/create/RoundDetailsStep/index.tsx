@@ -267,3 +267,7 @@ const styles = StyleSheet.create({
 });
 
 export type { RoundDetailsStepProps };
+
+// Export simplified version for new wizard flow
+export { SimplifiedRoundDetailsStep } from './SimplifiedRoundDetailsStep';
+export type { SimplifiedRoundDetailsStepProps } from './types';

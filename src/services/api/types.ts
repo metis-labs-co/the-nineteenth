@@ -8,7 +8,7 @@ import type { Player } from '@/types';
 
 /** Input for creating a round */
 export interface RoundCreateInput {
-  courseName: string;
+  courseName?: string; // Optional - allows blank/placeholder rounds
   courseId?: string;
   date: Date;
   teeTime?: string;

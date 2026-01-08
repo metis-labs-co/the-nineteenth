@@ -6,10 +6,11 @@ Create a new React Native component: **{{arg1}}**
 
 ## Instructions
 
-1. Read the project's component patterns in `.claude/instructions/components.md`
-2. Read the styling guide in `.claude/instructions/styling.md`
-3. Check if this component needs subscription tier gating (`.claude/instructions/subscriptions.md`)
-4. Check for golf-specific requirements (`.claude/instructions/golf-guidelines.md`)
+1. **Check existing components first**: Review `.claude/instructions/common-components-catalog.md` to avoid duplicating existing components
+2. Read the project's component patterns in `.claude/instructions/components.md`
+3. Read the styling guide in `.claude/instructions/styling.md`
+4. Check if this component needs subscription tier gating (`.claude/instructions/subscriptions.md`)
+5. Check for golf-specific requirements (`.claude/instructions/golf-guidelines.md`)
 
 ## Requirements
 
@@ -44,9 +45,21 @@ After creating the component:
 3. List related components that pair well with it
 4. Note any accessibility or platform-specific considerations
 
+## Catalog & Export Requirements
+
+**If the component is in `src/components/common/`:**
+1. **Add to barrel export**: Export the component from `src/components/common/index.ts`
+2. **Update the catalog**: Add the component to `.claude/instructions/common-components-catalog.md` with:
+   - Component name
+   - Use case description
+   - Key props
+
+**Skip catalog update** for domain-specific components (e.g., `src/components/competition/`, `src/components/scorecard/`).
+
 ## Verification
 
 Before considering the task complete:
 1. Run type check: `pnpm typecheck`
 2. Run lint check: `pnpm lint`
 3. Fix any errors or warnings that were introduced
+4. **Verify catalog update** (if common component): Confirm the component is in `.claude/instructions/common-components-catalog.md`

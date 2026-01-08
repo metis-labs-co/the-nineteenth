@@ -3,7 +3,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { GameType, TeeBox } from '@/types/database.types';
+import type { GameType, TeeBox, Course } from '@/types/database.types';
 import type { RoundFormData, RoundWithCourse } from '../types';
 import {
   parseISODate,
@@ -29,6 +29,7 @@ interface UseEditRoundFormReturn {
   setGameType: (gameType: GameType) => void;
   setSelectedTee: (tee: TeeBox) => void;
   setScoringPairsRequired: (value: boolean) => void;
+  setCourse: (course: Course) => void;
 
   // Date/time picker helpers
   getSelectedDate: () => Date;
@@ -48,6 +49,8 @@ export function useEditRoundForm({
     gameType: 'stableford',
     selectedTee: null,
     scoringPairsRequired: false,
+    courseId: null,
+    courseName: '',
   });
 
   // Original values for dirty check
@@ -63,6 +66,8 @@ export function useEditRoundForm({
         gameType: round.game_type,
         selectedTee: round.selected_tee,
         scoringPairsRequired: round.scoring_pairs_required,
+        courseId: round.course_id,
+        courseName: round.courses?.name || '',
       };
       setFormData(data);
       setOriginalData(data);
@@ -77,7 +82,8 @@ export function useEditRoundForm({
       formData.teeTime !== originalData.teeTime ||
       formData.gameType !== originalData.gameType ||
       formData.selectedTee?.name !== originalData.selectedTee?.name ||
-      formData.scoringPairsRequired !== originalData.scoringPairsRequired
+      formData.scoringPairsRequired !== originalData.scoringPairsRequired ||
+      formData.courseId !== originalData.courseId
     );
   }, [formData, originalData]);
 
@@ -111,6 +117,16 @@ export function useEditRoundForm({
     setFormData((prev) => ({ ...prev, scoringPairsRequired }));
   }, []);
 
+  const setCourse = useCallback((course: Course) => {
+    setFormData((prev) => ({
+      ...prev,
+      courseId: course.id,
+      courseName: course.name,
+      // Reset selected tee when course changes (since tees are course-specific)
+      selectedTee: course.tees?.[0] || null,
+    }));
+  }, []);
+
   // Date/time picker helpers
   const getSelectedDate = useCallback(() => {
     if (formData.date) {
@@ -137,6 +153,7 @@ export function useEditRoundForm({
     setGameType,
     setSelectedTee,
     setScoringPairsRequired,
+    setCourse,
     getSelectedDate,
     getSelectedTime,
   };

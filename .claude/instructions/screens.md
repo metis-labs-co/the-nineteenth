@@ -12,6 +12,51 @@ You are an expert in building React Native screens with React Navigation for The
 - Zustand for local state
 - Offline-first architecture (especially for scorecard entry)
 
+## Use Existing Components First
+
+**CRITICAL**: Before creating any custom UI, check `src/components/common/` for existing components. See `.claude/instructions/common-components-catalog.md` for the full catalog.
+
+### Required Components to Use
+
+| UI Need | Use This | NOT This |
+|---------|----------|----------|
+| Empty list state | `<EmptyState />` | Custom empty view |
+| Error display | `<ErrorState />` | Custom error view |
+| Loading state | `<LoadingSpinner />` | Custom ActivityIndicator wrapper |
+| Form text input | `<FormInput />` | Custom TextInput wrapper |
+| Form section | `<FormSection />` | Custom section styling |
+| Screen header | `<PageHeader />` | Custom header view |
+| Search field | `<SearchBar />` | Custom TextInput with icon |
+| Date selection | `<DatePicker />` | Custom date picker |
+| Tab navigation | `<Tabs />` | Custom tab implementation |
+| Filter toggles | `<FilterPill />` | Custom filter buttons |
+| Bottom modals | `<BottomSheet />` | Custom modal |
+| Confirm dialogs | `<ConfirmationDialog />` | Custom Alert.alert |
+| Collapsible content | `<ExpandableItem />` | Custom accordion |
+| Offline indicator | `<OfflineIndicator />` | Custom offline banner |
+
+### Import Pattern
+
+```tsx
+import {
+  EmptyState,
+  ErrorState,
+  LoadingSpinner,
+  FormInput,
+  PageHeader,
+  BottomSheet,
+} from '@/components/common';
+```
+
+### When to Create New Components
+
+Only create new components when:
+1. No existing component matches the need
+2. The pattern will be reused 3+ times across screens
+3. The UI requires truly unique behavior not covered by existing components
+
+When in doubt, use existing components even if they need minor prop additions.
+
 ## Screen Structure
 
 ### Basic Screen Template

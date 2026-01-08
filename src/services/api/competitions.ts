@@ -31,7 +31,7 @@ import { checkCompetitionCreationPermission } from './permissions';
 export async function createCompetition(
   input: CompetitionCreateInput & {
     rounds?: RoundCreateInput[];
-    round?: { courseName: string; date: Date; teeTime?: string };
+    round?: { courseName?: string; date: Date; teeTime?: string };
     players: PlayerCreateInput[];
   }
 ): Promise<{ competition: Competition; rounds: Round[]; inviteCode: string }> {
@@ -100,10 +100,11 @@ export async function createCompetition(
   for (let i = 0; i < roundsInput.length; i++) {
     const roundInput = roundsInput[i];
 
-    // Ensure course exists - if courseId is provided, use it; otherwise create a placeholder
-    let courseId = (roundInput as { courseId?: string }).courseId;
+    // Handle course_id - can now be null for "blank" placeholder rounds
+    let courseId: string | null = (roundInput as { courseId?: string }).courseId || null;
 
-    if (!courseId || !isValidUUID(courseId)) {
+    // Only create/lookup course if we have a courseName but no valid courseId
+    if (roundInput.courseName && (!courseId || !isValidUUID(courseId))) {
       // Create a new course entry for this round
       const { data: course, error: courseError } = await supabase
         .from('courses')
@@ -120,6 +121,7 @@ export async function createCompetition(
       }
       courseId = (course as DBCourse).id;
     }
+    // If no courseName and no courseId, courseId stays null (blank round)
 
     // Determine game type: use gameType if provided, otherwise matchType, fallback to 'stableford'
     const gameType = (roundInput as RoundCreateInput).gameType
@@ -158,7 +160,7 @@ export async function createCompetition(
       id: dbRound.id,
       competitionId: dbRound.competition_id ?? '',
       roundNumber: dbRound.round_number,
-      courseId: dbRound.course_id,
+      courseId: dbRound.course_id ?? undefined, // Can be null for blank rounds
       date: dbRound.date ? new Date(dbRound.date) : undefined,
       teeTime: dbRound.tee_time ?? undefined,
       gameType: dbRound.game_type,

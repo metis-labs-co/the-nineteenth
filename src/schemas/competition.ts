@@ -88,6 +88,8 @@ const competitionDetailsBaseSchema = z.object({
         ),
     ])
     .optional(),
+  // Simplified team toggle - full team config done in EditCompetitionScreen
+  enableTeams: z.boolean(),
 });
 
 // Step 1: Competition Details - Full schema with cross-field validation
@@ -240,6 +242,51 @@ export const roundDetailsSchema = z.object({
 
 export type RoundDetailsFormData = z.infer<typeof roundDetailsSchema>;
 
+/**
+ * Simplified Round Schema for wizard flow
+ * All fields optional to allow creating "placeholder" rounds that are configured later
+ */
+export const simplifiedRoundSchema = z.object({
+  courseId: z.string().uuid().optional(), // Optional - can create blank rounds
+  courseName: z.string().max(200).optional(), // Optional - can create blank rounds
+  selectedTee: teeBoxSchema.optional(),
+  date: z
+    .string()
+    .optional()
+    .refine(
+      (date) => !date || parseAustralianDate(date) !== null,
+      'Invalid date format'
+    ),
+  teeTime: z
+    .string()
+    .optional()
+    .refine(
+      (time) => !time || /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time),
+      'Tee time must be in HH:MM format (24-hour)'
+    ),
+  matchType: z.enum(gameTypes).default('stableford'),
+  scoringPairsRequired: z.boolean().default(false),
+  isConfigured: z.boolean().default(false), // Track if user has edited this round
+});
+
+export type SimplifiedRoundFormData = z.infer<typeof simplifiedRoundSchema>;
+
+/**
+ * Create a blank round with default values
+ */
+export function createBlankRound(defaultDate?: string): SimplifiedRoundFormData {
+  return {
+    courseId: undefined,
+    courseName: undefined,
+    selectedTee: undefined,
+    date: defaultDate,
+    teeTime: undefined,
+    matchType: 'stableford',
+    scoringPairsRequired: false,
+    isConfigured: false,
+  };
+}
+
 // Multiple rounds schema for Step 2
 export const roundsListSchema = z.object({
   rounds: z
@@ -275,6 +322,29 @@ export function createRoundsListSchema(maxRounds: number) {
   return z.object({
     rounds: z
       .array(roundDetailsSchema)
+      .min(1, 'At least 1 round is required')
+      .max(effectiveMax, maxMessage),
+  });
+}
+
+/**
+ * Factory function to create a tier-aware simplified rounds list schema.
+ * Use this in the simplified wizard flow where rounds can be blank.
+ *
+ * @param maxRounds - Maximum rounds allowed by user's tier (use -1 or -2 for unlimited)
+ * @returns Zod schema with the appropriate max constraint
+ */
+export function createSimplifiedRoundsListSchema(maxRounds: number) {
+  // -1 = unlimited, -2 = no system limit (super admin)
+  const effectiveMax = maxRounds < 0 ? 100 : maxRounds;
+  const maxMessage =
+    maxRounds < 0
+      ? 'Maximum 100 rounds allowed'
+      : `Maximum ${maxRounds} round${maxRounds === 1 ? '' : 's'} allowed on your plan`;
+
+  return z.object({
+    rounds: z
+      .array(simplifiedRoundSchema)
       .min(1, 'At least 1 round is required')
       .max(effectiveMax, maxMessage),
   });

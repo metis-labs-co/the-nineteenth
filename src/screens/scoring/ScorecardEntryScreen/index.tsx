@@ -325,6 +325,125 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Check if holes are available (defensive check for edge cases)
   const hasHoles = holes.length > 0;
 
+  // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
+  const renderHoleContent = useCallback(
+    (holeNumber: number) => {
+      const holeData = getHoleInfo(holeNumber);
+      if (!holeData) return null;
+
+      // Calculate navigation state for this hole
+      const canGoPrev = holeNumber > 1;
+      const canGoNext = holeNumber < 18;
+
+      return (
+        <View style={styles.contentArea}>
+          <HoleHeader
+            hole={holeData}
+            selectedTee={selectedTee ?? undefined}
+            onPrevious={nav.handlePreviousHole}
+            onNext={nav.handleNextHole}
+            canGoPrevious={canGoPrev}
+            canGoNext={canGoNext}
+            onHolePress={handleViewScorecard}
+            isSuperAdmin={isSuperAdmin}
+            onEditHole={handleEditHole}
+          />
+
+          <ScrollView
+            style={styles.playersContainer}
+            contentContainerStyle={styles.playersContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <ScorecardScoreContent
+              currentHoleData={holeData}
+              currentHole={holeNumber}
+              currentPlayers={currentPlayers}
+              playersToScore={playersToScore}
+              scoringPairsEnabled={scoringPairsEnabled}
+              isTeamRound={isTeamRound}
+              teamFormat={teamFormat}
+              teams={teams}
+              onScoreSelect={handleScoreSelect}
+              onStatsUpdate={handleStatsUpdate}
+              onPlayerPress={handlePlayerPress}
+              getPlayerScore={getPlayerScore}
+              getTeamScore={getTeamScore}
+              handleTeamScoreSelect={handleTeamScoreSelect}
+              handleBestBallScoreSelect={handleBestBallScoreSelect}
+              handleTeamMatchPlayScoreSelect={handleTeamMatchPlayScoreSelect}
+              setSelectedContributor={setSelectedContributor}
+              selectedContributor={selectedContributor}
+              teamMatchPlayResults={teamMatchPlayResults}
+              playerScoresMap={playerScoresMap}
+              // Multi-ball props
+              isMultiBall={isMultiBall}
+              ballCount={storeBallCount}
+              onMultiBallScoreChange={handleMultiBallScoreChange}
+              onMultiBallStatsChange={handleMultiBallStatsChange}
+              getMultiBallScores={getMultiBallScores}
+              // Stats visibility (Premium-only)
+              showFIR={showFairwayHit}
+              showGIR={showGreenInRegulation}
+            />
+
+            {/* Quick Scorecard View - only show for individual scoring */}
+            {!isTeamRound && (
+              <View style={styles.quickViewContainer}>
+                <QuickScorecardView
+                  holes={holes}
+                  currentHole={holeNumber}
+                  players={playersToRender}
+                  getPlayerHoleScore={getPlayerScore}
+                  isHoleComplete={isHoleComplete}
+                  onHolePress={nav.handleHolePress}
+                  onScrollingChange={setIsQuickViewScrolling}
+                />
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      );
+    },
+    [
+      getHoleInfo,
+      selectedTee,
+      nav.handlePreviousHole,
+      nav.handleNextHole,
+      handleViewScorecard,
+      isSuperAdmin,
+      handleEditHole,
+      currentPlayers,
+      playersToScore,
+      scoringPairsEnabled,
+      isTeamRound,
+      teamFormat,
+      teams,
+      handleScoreSelect,
+      handleStatsUpdate,
+      handlePlayerPress,
+      getPlayerScore,
+      getTeamScore,
+      handleTeamScoreSelect,
+      handleBestBallScoreSelect,
+      handleTeamMatchPlayScoreSelect,
+      setSelectedContributor,
+      selectedContributor,
+      teamMatchPlayResults,
+      playerScoresMap,
+      isMultiBall,
+      storeBallCount,
+      handleMultiBallScoreChange,
+      handleMultiBallStatsChange,
+      getMultiBallScores,
+      showFairwayHit,
+      showGreenInRegulation,
+      holes,
+      playersToRender,
+      isHoleComplete,
+      nav.handleHolePress,
+    ]
+  );
+
   // Loading state - also wait if initialized but holes are empty (race condition safeguard)
   if (isLoading || (!isInitialized && !fetchError) || (isInitialized && !hasHoles && !fetchError)) {
     return (
@@ -391,75 +510,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         totalHoles={18}
         onHoleChange={setCurrentHole}
         enabled={!isSyncing && !isLoading && !isQuickViewScrolling}
-        playerCount={playersToRender.length}
-      >
-        <View style={styles.contentArea}>
-          <HoleHeader
-            hole={currentHoleData}
-            selectedTee={selectedTee ?? undefined}
-            onPrevious={nav.handlePreviousHole}
-            onNext={nav.handleNextHole}
-            canGoPrevious={nav.canGoPrevious}
-            canGoNext={nav.canGoNext}
-            onHolePress={handleViewScorecard}
-            isSuperAdmin={isSuperAdmin}
-            onEditHole={handleEditHole}
-          />
-
-          <ScrollView
-            style={styles.playersContainer}
-            contentContainerStyle={styles.playersContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <ScorecardScoreContent
-              currentHoleData={currentHoleData}
-              currentHole={currentHole}
-              currentPlayers={currentPlayers}
-              playersToScore={playersToScore}
-              scoringPairsEnabled={scoringPairsEnabled}
-              isTeamRound={isTeamRound}
-              teamFormat={teamFormat}
-              teams={teams}
-              onScoreSelect={handleScoreSelect}
-              onStatsUpdate={handleStatsUpdate}
-              onPlayerPress={handlePlayerPress}
-              getPlayerScore={getPlayerScore}
-              getTeamScore={getTeamScore}
-              handleTeamScoreSelect={handleTeamScoreSelect}
-              handleBestBallScoreSelect={handleBestBallScoreSelect}
-              handleTeamMatchPlayScoreSelect={handleTeamMatchPlayScoreSelect}
-              setSelectedContributor={setSelectedContributor}
-              selectedContributor={selectedContributor}
-              teamMatchPlayResults={teamMatchPlayResults}
-              playerScoresMap={playerScoresMap}
-              // Multi-ball props
-              isMultiBall={isMultiBall}
-              ballCount={storeBallCount}
-              onMultiBallScoreChange={handleMultiBallScoreChange}
-              onMultiBallStatsChange={handleMultiBallStatsChange}
-              getMultiBallScores={getMultiBallScores}
-              // Stats visibility (Premium-only)
-              showFIR={showFairwayHit}
-              showGIR={showGreenInRegulation}
-            />
-
-            {/* Quick Scorecard View - only show for individual scoring */}
-            {!isTeamRound && (
-              <View style={styles.quickViewContainer}>
-                <QuickScorecardView
-                  holes={holes}
-                  currentHole={currentHole}
-                  players={playersToRender}
-                  getPlayerHoleScore={getPlayerScore}
-                  isHoleComplete={isHoleComplete}
-                  onHolePress={nav.handleHolePress}
-                  onScrollingChange={setIsQuickViewScrolling}
-                />
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </SwipeableHoleNavigator>
+        renderHole={renderHoleContent}
+      />
 
       {/* Footer with navigation buttons */}
       <ScorecardFooter

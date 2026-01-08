@@ -925,6 +925,37 @@ const styles = StyleSheet.create({
 });
 ```
 
+## Common Components Catalog
+
+When creating reusable components in `src/components/common/`, you MUST:
+
+### 1. Export from Barrel File
+Add the export to `src/components/common/index.ts`:
+```tsx
+export { MyNewComponent } from './MyNewComponent';
+```
+
+### 2. Update the Catalog
+Add an entry to `.claude/instructions/common-components-catalog.md`:
+
+**In the appropriate table section:**
+```markdown
+| `MyNewComponent` | Brief description | `prop1`, `prop2`, `onAction` |
+```
+
+**Example catalog entry:**
+| Component | Use For | Key Props |
+|-----------|---------|-----------|
+| `ProgressBar` | Progress indicator | `value`, `max`, `label` |
+
+### 3. When to Add to Common
+Add to `src/components/common/` when:
+- The component is generic and reusable across features
+- It handles a common UI pattern (empty state, loading, forms, modals)
+- It will be used in 3+ places
+
+**Do NOT add** domain-specific components (competition cards, scorecard UI) to common.
+
 ## Best Practices
 
 1. **Use React Native Paper for UI primitives** - Text, Icon, ActivityIndicator, Divider, TextInput
@@ -942,3 +973,4 @@ const styles = StyleSheet.create({
 13. **Use proper touch feedback** (TouchableOpacity with activeOpacity)
 14. **Ensure minimum 44dp touch targets** for accessibility
 15. **Use proper TypeScript types** from `src/types/index.ts`
+16. **Update the catalog** when adding common components (see above)

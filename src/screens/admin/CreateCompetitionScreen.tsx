@@ -16,19 +16,16 @@ import { useCompetitionCount } from '@/hooks/useSubscription';
 import { TierBadge } from '@/components/subscription/TierBadge';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 
-// Step components
+// Step components - simplified 3-step wizard
 import CompetitionDetailsStep from '@/components/competitionWizard/create/CompetitionDetailsStep';
-import TeamSettingsStep from '@/components/competitionWizard/create/TeamSettingsStep';
-import RoundDetailsStep from '@/components/competitionWizard/create/RoundDetailsStep';
-import AddPlayersStep from '@/components/competitionWizard/create/AddPlayersStep';
-import ReviewStep from '@/components/competitionWizard/create/ReviewStep';
+import SimplifiedRoundDetailsStep from '@/components/competitionWizard/create/RoundDetailsStep/SimplifiedRoundDetailsStep';
+import { SimplifiedReviewStep } from '@/components/competitionWizard/create/SimplifiedReviewStep';
+import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 
 // Form data types
 import type {
   CompetitionDetailsFormData,
-  TeamSettingsFormData,
-  RoundDetailsFormData,
-  PlayerFormData,
+  SimplifiedRoundFormData,
 } from '@/schemas/competition';
 
 // Parse DD/MM/YYYY string to Date object
@@ -41,20 +38,17 @@ const parseAustralianDate = (dateString: string): Date => {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, 'CreateCompetition'>;
 
-// Wizard state - also exported for AI integration
+// Wizard state - simplified 3-step flow
 export interface WizardState {
-  step1?: CompetitionDetailsFormData;
-  step2?: TeamSettingsFormData; // Team settings (new Step 2)
-  step3?: RoundDetailsFormData[]; // Round details (was Step 2, now Step 3)
-  step4?: PlayerFormData[]; // Players (was Step 3, now Step 4)
+  step1?: CompetitionDetailsFormData; // Competition details + team toggle
+  step2?: SimplifiedRoundFormData[]; // Simplified rounds (can be blank)
 }
 
+// Simplified 3-step wizard
 const STEPS = [
-  { number: 1, title: 'Competition', description: 'Name, dates, handicap system' },
-  { number: 2, title: 'Teams', description: 'Team format and points' },
-  { number: 3, title: 'Rounds', description: 'Course and date' },
-  { number: 4, title: 'Players', description: 'Add players to compete' },
-  { number: 5, title: 'Review', description: 'Review and generate invite code' },
+  { number: 1, title: 'Details', description: 'Name, dates, team toggle' },
+  { number: 2, title: 'Rounds', description: 'Configure rounds' },
+  { number: 3, title: 'Review', description: 'Review and create' },
 ];
 
 export default function CreateCompetitionScreen() {
@@ -122,39 +116,28 @@ export default function CreateCompetitionScreen() {
 
   // Wizard state - initialize from AI-generated data if available
   const [currentStep, setCurrentStep] = useState(() => {
-    // If we have AI-generated initial state, start at review step
-    if (initialState?.step1 && initialState?.step2 && initialState?.step3 && initialState?.step4) {
-      return 5; // Review step
+    // If we have AI-generated initial state with both steps, start at review
+    if (initialState?.step1 && initialState?.step2) {
+      return 3; // Review step
     }
     return 1;
   });
   const [wizardData, setWizardData] = useState<WizardState>(() => initialState || {});
 
-
-  // Handle step completion
+  // Handle step completion - simplified 3-step flow
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
     setWizardData((prev) => ({ ...prev, step1: data }));
     setCurrentStep(2);
   };
 
-  const handleStep2Complete = (data: TeamSettingsFormData) => {
+  const handleStep2Complete = (data: SimplifiedRoundFormData[]) => {
     setWizardData((prev) => ({ ...prev, step2: data }));
     setCurrentStep(3);
   };
 
-  const handleStep3Complete = (data: RoundDetailsFormData[]) => {
-    setWizardData((prev) => ({ ...prev, step3: data }));
-    setCurrentStep(4);
-  };
-
-  const handleStep4Complete = (data: PlayerFormData[]) => {
-    setWizardData((prev) => ({ ...prev, step4: data }));
-    setCurrentStep(5);
-  };
-
-  // Handle final submission
+  // Handle final submission - simplified 3-step flow
   const handleSubmit = async () => {
-    if (!wizardData.step1 || !wizardData.step2 || !wizardData.step3 || !wizardData.step4) {
+    if (!wizardData.step1 || !wizardData.step2) {
       Alert.alert('Error', 'Please complete all steps');
       return;
     }
@@ -173,29 +156,25 @@ export default function CreateCompetitionScreen() {
         inviteCode: wizardData.step1.inviteCode,
         visibility: 'private',
 
-        // Step 2: Team settings
-        teamMode: wizardData.step2.teamMode,
-        teamSize: wizardData.step2.teamSize,
-        pointSystem: wizardData.step2.pointSystem,
+        // Team settings from enableTeams toggle (defaults)
+        teamMode: wizardData.step1.enableTeams ? 'fixed' : 'none',
+        teamSize: wizardData.step1.enableTeams ? 2 : undefined,
+        pointSystem: DEFAULT_POINT_SYSTEM,
 
-        // Step 3: Rounds (supports multiple)
-        rounds: wizardData.step3.map((round) => ({
-          courseName: round.courseName,
-          courseId: round.courseId,
-          date: parseAustralianDate(round.date),
-          teeTime: round.teeTime,
+        // Step 2: Simplified rounds (can be blank/unconfigured)
+        rounds: wizardData.step2.map((round) => ({
+          courseName: round.courseName || undefined,
+          courseId: round.courseId || undefined, // Can be undefined for blank rounds
+          date: round.date
+            ? parseAustralianDate(round.date)
+            : parseAustralianDate(wizardData.step1!.startDate),
+          teeTime: round.teeTime || undefined,
           matchType: round.matchType || 'stableford',
           scoringPairsRequired: round.scoringPairsRequired ?? false,
         })),
 
-        // Step 4: Players
-        players: wizardData.step4.map((player) => ({
-          id: player.id, // Pass through player ID for existing players (friends)
-          name: player.name,
-          email: player.email || '',
-          phone: player.phone || '',
-          handicap: player.handicap ? parseFloat(player.handicap) : undefined,
-        })),
+        // No players in wizard - added via details screen after creation
+        players: [],
       });
 
       // Show success toast
@@ -253,7 +232,7 @@ export default function CreateCompetitionScreen() {
     }
   };
 
-  // Render current step
+  // Render current step - simplified 3-step wizard
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -266,39 +245,20 @@ export default function CreateCompetitionScreen() {
         );
       case 2:
         return (
-          <TeamSettingsStep
+          <SimplifiedRoundDetailsStep
             initialData={wizardData.step2}
             onComplete={handleStep2Complete}
-            onBack={handleBack}
-          />
-        );
-      case 3:
-        return (
-          <RoundDetailsStep
-            initialData={wizardData.step3}
-            onComplete={handleStep3Complete}
             onBack={handleBack}
             allowedGameTypes={limits?.allowedGameTypes}
             maxRoundsPerCompetition={limits?.maxRoundsPerCompetition}
             competitionStartDate={wizardData.step1?.startDate}
           />
         );
-      case 4:
+      case 3:
         return (
-          <AddPlayersStep
-            initialData={wizardData.step4}
-            onComplete={handleStep4Complete}
-            onBack={handleBack}
-            maxPlayersPerCompetition={limits?.maxPlayersPerCompetition}
-          />
-        );
-      case 5:
-        return (
-          <ReviewStep
+          <SimplifiedReviewStep
             competitionData={wizardData.step1!}
-            teamSettingsData={wizardData.step2!}
-            roundsData={wizardData.step3!}
-            playersData={wizardData.step4!}
+            roundsData={wizardData.step2!}
             onSubmit={handleSubmit}
             onBack={handleBack}
             isSubmitting={createCompetition.isPending}

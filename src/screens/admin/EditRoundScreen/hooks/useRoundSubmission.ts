@@ -52,6 +52,7 @@ export function useRoundSubmission({
         game_type: formData.gameType,
         selected_tee: formData.selectedTee,
         scoring_pairs_required: formData.scoringPairsRequired,
+        course_id: formData.courseId,
       });
     },
     onSuccess: () => {

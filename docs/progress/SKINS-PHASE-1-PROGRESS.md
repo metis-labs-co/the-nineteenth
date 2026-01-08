@@ -1,7 +1,7 @@
 # Skins Game - Phase 1 Implementation Plan
 
-**Goal:** Add Skins side-game feature with pot configuration, hole-by-hole tracking, and settlement display
-**Status:** In Progress - 5% (1/21 tasks)
+**Goal:** Add core Skins side-game feature with per-round configuration, hole-by-hole tracking, and settlement display
+**Status:** Not Started - 0% (0/28 tasks)
 
 ---
 
@@ -10,8 +10,8 @@
 This plan implements **Phase 1** of the Skins gambling feature - a side-game that runs alongside any existing game type (Stableford, Stroke Play, etc.) where players compete hole-by-hole for a pot of money. Tied holes result in carryover to the next hole.
 
 ### Key Features
-- **Add-on game type** - Works alongside Stableford, Stroke, Match Play
-- **Competition-level configuration** - Enable skins for all rounds or select specific rounds
+- **Per-round configuration** - Skins enabled/configured at the round level
+- **Works for ANY round** - Standalone rounds AND competition rounds
 - **Pot configuration** - Per-hole value OR total pot amount
 - **Scoring type** - Configurable gross or net scoring
 - **Carryover logic** - Tied holes roll money to next hole
@@ -19,21 +19,20 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - **Premium tier** - Requires Premium subscription
 - **Gambling disclaimer** - Legal acknowledgment required
 
-### Competition-Level Skins Setup
+### Configuration Locations
 
-**Round Selection (3-way toggle):**
-| Setting | Behavior |
-|---------|----------|
-| **No Skins** | Skins disabled for entire competition |
-| **All Rounds** | Every round automatically has skins with same config |
-| **Select Rounds** | User picks specific rounds to have skins |
+| Round Type | Where to Configure Skins |
+|------------|-------------------------|
+| **Standalone Rounds** | CreateRoundBottomSheet (ScoringSetupStep) |
+| **Competition Rounds** | AddRoundScreen / EditRoundScreen |
 
-**Settlement Mode (Phase 1):**
-- **Per Round** - Each round is independent, settle after each round
+### Round-Level Skins Configuration
 
-**Settlement Mode (Phase 2 - Tally All Rounds):**
-- Accumulate carryovers across all rounds
-- One settlement at competition end
+Each round can independently have skins enabled with its own configuration:
+- **Pot Type**: Per-hole ($X per hole) OR Total pot ($Y for 18 holes)
+- **Pot Value**: Dollar amount
+- **Scoring Type**: Gross (raw strokes) OR Net (handicap-adjusted)
+- **Pool Source** (competition rounds only, Phase 2): Direct pot OR from competition prize pool
 
 ### Example Scenario
 
@@ -54,36 +53,25 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 ## Sprint 1: Database Foundation
 
 ### Task 1: Database Migration - Skins Tables
-**Status:** ✅ Completed (2026-01-05)
+**Status:** Not Started
 **Command:**
 ```bash
-/db "Create migration for skins gambling feature. New tables: (1) skins_games - id UUID PK, round_id UUID FK to rounds ON DELETE CASCADE, pairing_id UUID FK to pairings NULL, participant_ids UUID[] NOT NULL with CHECK array_length BETWEEN 2 AND 4, pot_type TEXT NOT NULL CHECK IN ('per_hole', 'total_pot'), pot_value DECIMAL(10,2) NOT NULL CHECK > 0, currency TEXT DEFAULT 'AUD', scoring_type TEXT NOT NULL CHECK IN ('gross', 'net') DEFAULT 'gross', status TEXT DEFAULT 'active' CHECK IN ('active', 'completed', 'cancelled'), disclaimer_accepted_at TIMESTAMPTZ NOT NULL, disclaimer_accepted_by UUID FK to players NOT NULL, created_by UUID FK to players NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), completed_at TIMESTAMPTZ NULL. (2) skins_results - id UUID PK, skins_game_id UUID FK to skins_games ON DELETE CASCADE, hole_number INTEGER NOT NULL CHECK BETWEEN 1 AND 18, winner_id UUID FK to players NULL (null if carryover), is_carryover BOOLEAN DEFAULT FALSE, hole_scores JSONB NOT NULL (format: player_id -> {gross, net, strokes_received}), hole_pot_value DECIMAL(10,2) NOT NULL, carryover_to_next DECIMAL(10,2) DEFAULT 0, payout_amount DECIMAL(10,2) DEFAULT 0, calculated_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE (skins_game_id, hole_number). (3) skins_payouts - id UUID PK, skins_game_id UUID FK ON DELETE CASCADE, player_id UUID FK to players, buy_in DECIMAL(10,2) NOT NULL, total_winnings DECIMAL(10,2) DEFAULT 0, net_result DECIMAL(10,2) DEFAULT 0, holes_won INTEGER DEFAULT 0, holes_tied INTEGER DEFAULT 0, holes_lost INTEGER DEFAULT 0, calculated_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE (skins_game_id, player_id). Add indexes on all foreign keys and status columns. Add updated_at trigger on skins_games."
+/db "Create migration for skins gambling feature. New tables: (1) skins_games - id UUID PK, round_id UUID FK to rounds ON DELETE CASCADE, pairing_id UUID FK to pairings NULL, participant_ids UUID[] NOT NULL with CHECK array_length BETWEEN 2 AND 4, pot_type TEXT NOT NULL CHECK IN ('per_hole', 'total_pot'), pot_value DECIMAL(10,2) NOT NULL CHECK > 0, currency TEXT DEFAULT 'AUD', scoring_type TEXT NOT NULL CHECK IN ('gross', 'net') DEFAULT 'gross', pool_source TEXT CHECK IN ('direct', 'prize_pool') DEFAULT 'direct', status TEXT DEFAULT 'active' CHECK IN ('active', 'completed', 'cancelled'), disclaimer_accepted_at TIMESTAMPTZ NOT NULL, disclaimer_accepted_by UUID FK to players NOT NULL, created_by UUID FK to players NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), completed_at TIMESTAMPTZ NULL. (2) skins_results - id UUID PK, skins_game_id UUID FK to skins_games ON DELETE CASCADE, hole_number INTEGER NOT NULL CHECK BETWEEN 1 AND 18, winner_id UUID FK to players NULL (null if carryover), is_carryover BOOLEAN DEFAULT FALSE, hole_scores JSONB NOT NULL (format: player_id -> {gross, net, strokes_received}), hole_pot_value DECIMAL(10,2) NOT NULL, carryover_to_next DECIMAL(10,2) DEFAULT 0, payout_amount DECIMAL(10,2) DEFAULT 0, calculated_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE (skins_game_id, hole_number). (3) skins_payouts - id UUID PK, skins_game_id UUID FK ON DELETE CASCADE, player_id UUID FK to players, buy_in DECIMAL(10,2) NOT NULL, total_winnings DECIMAL(10,2) DEFAULT 0, net_result DECIMAL(10,2) DEFAULT 0, holes_won INTEGER DEFAULT 0, holes_tied INTEGER DEFAULT 0, holes_lost INTEGER DEFAULT 0, calculated_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE (skins_game_id, player_id). Add indexes on all foreign keys and status columns. Add updated_at trigger on skins_games."
 ```
 **Deliverables:**
-- [x] `supabase/migrations/20260105000000_skins_games.sql`
-- [x] `skins_games` table with all constraints
-- [x] `skins_results` table with unique constraint
-- [x] `skins_payouts` table with unique constraint
-- [x] Indexes for efficient lookups
-- [x] Updated_at trigger
-- [x] RLS policies for all 3 tables (combined Tasks 1 & 2)
-- [x] `can_use_skins` column in tier_limits (combined Task 3)
-- [x] Updated `user_has_feature()` function for 'skins' feature
-- [x] TypeScript types in `src/types/database/skins.types.ts`
-- [x] TierFeature updated with 'skins' in `src/types/database/enums.ts`
-- [x] Exports added to `src/types/database/index.ts`
+- [ ] `supabase/migrations/XXXXXXXX_skins_games.sql`
+- [ ] `skins_games` table with all constraints
+- [ ] `skins_results` table with unique constraint
+- [ ] `skins_payouts` table with unique constraint
+- [ ] Indexes for efficient lookups
+- [ ] Updated_at trigger
 
 **Dependencies:** None
-**Actual Time:** ~1 hour
-
-**Notes:**
-- This migration also includes RLS policies (originally Task 2) and tier limits update (originally Task 3)
-- TypeScript types were also created as part of this implementation
 
 ---
 
 ### Task 2: Database Migration - RLS Policies
-**Status:** ✅ Completed (2026-01-05) - Combined with Task 1
+**Status:** Not Started
 **Command:**
 ```bash
 /db "Add RLS policies for skins tables. skins_games: enable RLS, policy 'participants_view_games' SELECT using auth.uid() = ANY(participant_ids), policy 'creators_manage_games' ALL using created_by = auth.uid(), policy 'round_organizers_manage' ALL using round_id IN (SELECT r.id FROM rounds r WHERE r.competition_id IN (SELECT c.id FROM competitions c WHERE c.organizer_id = auth.uid()) OR r.user_id = auth.uid()). skins_results: enable RLS, policy 'participants_view_results' SELECT using skins_game_id IN (SELECT id FROM skins_games WHERE auth.uid() = ANY(participant_ids)), policy 'creators_manage_results' ALL using skins_game_id IN (SELECT id FROM skins_games WHERE created_by = auth.uid()). skins_payouts: enable RLS, policy 'players_view_own_payouts' SELECT using player_id = auth.uid(), policy 'participants_view_game_payouts' SELECT using skins_game_id IN (SELECT id FROM skins_games WHERE auth.uid() = ANY(participant_ids)), policy 'creators_manage_payouts' ALL using skins_game_id IN (SELECT id FROM skins_games WHERE created_by = auth.uid())."
@@ -92,15 +80,14 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] RLS enabled on all 3 tables
 - [ ] SELECT policies for participants
 - [ ] ALL policies for game creators
-- [ ] Organizer override policies
+- [ ] Organizer override policies (both competition and standalone round owners)
 
 **Dependencies:** Task 1
-**Estimated Time:** 1-2 hours
 
 ---
 
 ### Task 3: Database Migration - Tier Limits Update
-**Status:** ✅ Completed (2026-01-05) - Combined with Task 1
+**Status:** Not Started
 **Command:**
 ```bash
 /db "Update tier_limits table to add skins feature flag. ALTER TABLE tier_limits ADD COLUMN IF NOT EXISTS can_use_skins BOOLEAN NOT NULL DEFAULT FALSE. UPDATE tier_limits SET can_use_skins = FALSE WHERE tier IN ('free', 'social'). UPDATE tier_limits SET can_use_skins = TRUE WHERE tier IN ('premium', 'super_admin'). Add COMMENT ON COLUMN tier_limits.can_use_skins IS 'Whether tier can create/join skins games'. Update user_has_feature() function to handle 'skins' feature check: WHEN 'skins' THEN RETURN v_limits.can_use_skins."
@@ -112,31 +99,10 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] `user_has_feature()` updated
 
 **Dependencies:** Task 1
-**Estimated Time:** 30 minutes
 
 ---
 
-### Task 4: Database Migration - Competition Skins Config Table
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create migration for competition-level skins configuration. New table competition_skins_config: id UUID PK DEFAULT gen_random_uuid(), competition_id UUID FK to competitions ON DELETE CASCADE UNIQUE NOT NULL, skins_mode TEXT NOT NULL CHECK IN ('none', 'all_rounds', 'select_rounds') DEFAULT 'none', settlement_mode TEXT NOT NULL CHECK IN ('per_round', 'tally_all') DEFAULT 'per_round', pot_type TEXT NOT NULL CHECK IN ('per_hole', 'total_pot') DEFAULT 'per_hole', pot_value DECIMAL(10,2) NOT NULL CHECK > 0 DEFAULT 5.00, currency TEXT DEFAULT 'AUD', scoring_type TEXT NOT NULL CHECK IN ('gross', 'net') DEFAULT 'gross', selected_round_ids UUID[] DEFAULT '{}' (only used when skins_mode = 'select_rounds'), disclaimer_accepted_at TIMESTAMPTZ NULL, disclaimer_accepted_by UUID FK to players NULL, created_by UUID FK to players NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add index on competition_id. Add RLS: organizers can manage (competition_id IN SELECT id FROM competitions WHERE organizer_id = auth.uid()), competition members can view (competition_id IN SELECT competition_id FROM competition_players WHERE player_id = auth.uid()). Add updated_at trigger. Add CHECK constraint: disclaimer_accepted_at IS NOT NULL when skins_mode != 'none'. Add CHECK constraint: array_length(selected_round_ids) > 0 when skins_mode = 'select_rounds'."
-```
-**Deliverables:**
-- [ ] `supabase/migrations/20260106000000_competition_skins_config.sql`
-- [ ] `competition_skins_config` table with all constraints
-- [ ] UNIQUE constraint on competition_id (one config per competition)
-- [ ] RLS policies for organizers and members
-- [ ] Indexes
-- [ ] Updated_at trigger
-- [ ] CHECK constraints for mode-specific validation
-
-**Dependencies:** Task 1
-**Estimated Time:** 2-3 hours
-
----
-
-### Task 5: Database Functions - Skins Calculations
+### Task 4: Database Functions - Skins Calculations
 **Status:** Not Started
 **Command:**
 ```bash
@@ -152,87 +118,66 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] Proper error handling
 
 **Dependencies:** Task 1
-**Estimated Time:** 3-4 hours
 
 ---
 
 ## Sprint 2: TypeScript Types
 
-### Task 6: Skins Type Definitions
-**Status:** ✅ Completed (2026-01-05)
-**Command:**
-```bash
-/refactor "Create src/types/database/skins.types.ts with TypeScript types. Types: SkinsPotType = 'per_hole' | 'total_pot', SkinsScoringType = 'gross' | 'net', SkinsGameStatus = 'active' | 'completed' | 'cancelled'. Interfaces: SkinsHoleScoreData (gross number, net number, strokes_received number), SkinsHoleScores = Record<string, SkinsHoleScoreData>. SkinsGame (id, round_id, pairing_id nullable, participant_ids string[], pot_type, pot_value number, currency string, scoring_type, status, disclaimer_accepted_at string, disclaimer_accepted_by string, created_by string, created_at, updated_at, completed_at nullable). SkinsGameWithParticipants extends SkinsGame with participants array of {id, name, handicap}. SkinsResult (id, skins_game_id, hole_number, winner_id nullable, is_carryover boolean, hole_scores SkinsHoleScores, hole_pot_value, carryover_to_next, payout_amount, calculated_at). SkinsResultWithWinner extends with winner object nullable. SkinsPayout (id, skins_game_id, player_id, buy_in, total_winnings, net_result, holes_won, holes_tied, holes_lost, calculated_at). SkinsPayoutWithPlayer extends with player object. CreateSkinsGameInput (round_id, pairing_id optional, participant_ids, pot_type, pot_value, currency optional, scoring_type). ProcessSkinsHoleInput (skins_game_id, hole_number, hole_scores). SkinsGameSummary (game, results array, payouts array, current_carryover, holes_completed, total_pot, per_hole_value). Export all from src/types/database/index.ts."
-```
-**Deliverables:**
-- [ ] `src/types/database/skins.types.ts`
-- [ ] All type definitions
-- [ ] Input types for mutations
-- [ ] Summary type for UI display
-- [ ] Export from `src/types/database/index.ts`
-
-**Dependencies:** Task 1 (schema reference)
-**Estimated Time:** 1-2 hours
-
----
-
-### Task 7: Update Enums and Index Exports
-**Status:** ✅ Completed (2026-01-05)
-**Command:**
-```bash
-/refactor "Update src/types/database/enums.ts to add skins enums: export type SkinsPotType, SkinsScoringType, SkinsGameStatus from skins.types.ts. Add 'skins' to TierFeature union type. Update src/types/index.ts to re-export all skins types. Ensure types match database schema exactly."
-```
-**Deliverables:**
-- [ ] Enums added to `src/types/database/enums.ts`
-- [ ] 'skins' added to TierFeature
-- [ ] Types exported from `src/types/index.ts`
-
-**Dependencies:** Task 6
-**Estimated Time:** 30 minutes
-
----
-
-### Task 8: Competition Skins Config Types
+### Task 5: Skins Type Definitions
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Add competition skins config types to src/types/database/skins.types.ts. New types: SkinsMode = 'none' | 'all_rounds' | 'select_rounds', SkinsSettlementMode = 'per_round' | 'tally_all'. New interface CompetitionSkinsConfig (id, competition_id, skins_mode SkinsMode, settlement_mode SkinsSettlementMode, pot_type SkinsPotType, pot_value number, currency string, scoring_type SkinsScoringType, selected_round_ids string[] nullable, disclaimer_accepted_at string nullable, disclaimer_accepted_by string nullable, created_by string, created_at, updated_at). CreateCompetitionSkinsConfigInput (competition_id, skins_mode, settlement_mode optional defaults 'per_round', pot_type, pot_value, scoring_type, selected_round_ids optional). UpdateCompetitionSkinsConfigInput (skins_mode optional, settlement_mode optional, pot_type optional, pot_value optional, scoring_type optional, selected_round_ids optional). Export all new types."
+/refactor "Create src/types/database/skins.types.ts with TypeScript types. Types: SkinsPotType = 'per_hole' | 'total_pot', SkinsScoringType = 'gross' | 'net', SkinsGameStatus = 'active' | 'completed' | 'cancelled', SkinsPoolSource = 'direct' | 'prize_pool'. Interfaces: SkinsHoleScoreData (gross number, net number, strokes_received number), SkinsHoleScores = Record<string, SkinsHoleScoreData>. SkinsGame (id, round_id, pairing_id nullable, participant_ids string[], pot_type, pot_value number, currency string, scoring_type, pool_source, status, disclaimer_accepted_at string, disclaimer_accepted_by string, created_by string, created_at, updated_at, completed_at nullable). SkinsGameWithParticipants extends SkinsGame with participants array of {id, name, handicap}. SkinsResult (id, skins_game_id, hole_number, winner_id nullable, is_carryover boolean, hole_scores SkinsHoleScores, hole_pot_value, carryover_to_next, payout_amount, calculated_at). SkinsResultWithWinner extends with winner object nullable. SkinsPayout (id, skins_game_id, player_id, buy_in, total_winnings, net_result, holes_won, holes_tied, holes_lost, calculated_at). SkinsPayoutWithPlayer extends with player object. CreateSkinsGameInput (round_id, pairing_id optional, participant_ids, pot_type, pot_value, currency optional, scoring_type, pool_source optional). ProcessSkinsHoleInput (skins_game_id, hole_number, hole_scores). SkinsGameSummary (game, results array, payouts array, current_carryover, holes_completed, total_pot, per_hole_value). SkinsConfig (pot_type, pot_value, currency, scoring_type). Export all from src/types/database/index.ts."
 ```
 **Deliverables:**
-- [ ] `SkinsMode` type
-- [ ] `SkinsSettlementMode` type
-- [ ] `CompetitionSkinsConfig` interface
-- [ ] Input types for create/update
-- [ ] Exports updated
+- [ ] `src/types/database/skins.types.ts`
+- [ ] All type definitions (enums, game, result, payout interfaces)
+- [ ] Input types for mutations (`CreateSkinsGameInput`, `ProcessSkinsHoleInput`)
+- [ ] Summary type for UI display (`SkinsGameSummary`, `SkinsConfig`)
+- [ ] Export from `src/types/database/index.ts`
 
-**Dependencies:** Task 6
-**Estimated Time:** 1 hour
+**Dependencies:** Task 1 (schema reference)
+
+---
+
+### Task 6: Update Enums and Index Exports
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/types/database/enums.ts to add skins enums: export type SkinsPotType, SkinsScoringType, SkinsGameStatus, SkinsPoolSource from skins.types.ts. Add 'skins' to TierFeature union type. Update src/types/index.ts to re-export all skins types. Ensure types match database schema exactly."
+```
+**Deliverables:**
+- [ ] Enums re-exported in `src/types/database/enums.ts`
+- [ ] 'skins' added to TierFeature
+- [ ] All skins types exported from `src/types/index.ts`
+
+**Dependencies:** Task 5
 
 ---
 
 ## Sprint 3: Calculation Utilities
 
-### Task 9: Skins Calculation Utilities
+### Task 7: Skins Calculation Utilities
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Create src/utils/skinsCalculations.ts with pure calculation functions. Import Hole type from types. Functions: (1) calculateHoleValue(potType, potValue) - returns potValue if per_hole, potValue/18 rounded to 2 decimals if total_pot. (2) calculateTotalPot(potType, potValue) - returns potValue*18 if per_hole, potValue if total_pot. (3) calculateBuyIn(potType, potValue, participantCount) - calculates total pot / participants rounded to 2 decimals. (4) prepareHoleScores(participants array with id/handicap, scorecards Record with strokes, hole Hole) - calculates gross, net, strokes_received for each participant, returns SkinsHoleScores. (5) determineHoleWinner(holeScores, scoringType) - finds minimum score, counts players with that score, returns {winnerId nullable, isCarryover boolean, minScore, tiedPlayerIds array}. (6) calculateCurrentCarryover(results SkinsResult[]) - gets carryover from last result. (7) processHoleResult(holeNumber, holeScores, baseHoleValue, currentCarryover, scoringType) - returns result object without id/skins_game_id. (8) calculateHole18Split(carryoverAmount, participantCount) - splits evenly rounded to 2 decimals. (9) calculateFinalPayouts(game, results, participants) - calculates buy_in, winnings, net_result, holes stats for each participant. (10) validateSkinsGame(participantIds, potValue) - returns {isValid, errors array}. (11) validateHoleScores(holeScores, participantIds) - returns {isValid, missingPlayerIds}. All functions with JSDoc documentation and examples. Export from src/utils/index.ts."
+/refactor "Create src/utils/skinsCalculations.ts with pure calculation functions. Import Hole type from types. Functions: (1) calculateHoleValue(potType, potValue) - returns potValue if per_hole, potValue/18 rounded to 2 decimals if total_pot. (2) calculateTotalPot(potType, potValue) - returns potValue*18 if per_hole, potValue if total_pot. (3) calculateBuyIn(potType, potValue, participantCount) - calculates total pot / participants rounded to 2 decimals. (4) prepareHoleScores(participants array with id/handicap, scorecards Record with strokes, hole Hole) - calculates gross, net, strokes_received for each participant, returns SkinsHoleScores. (5) determineHoleWinner(holeScores, scoringType) - finds minimum score, counts players with that score, returns {winnerId nullable, isCarryover boolean, minScore, tiedPlayerIds array}. (6) calculateCurrentCarryover(results SkinsResult[]) - gets carryover from last result. (7) processHoleResult(holeNumber, holeScores, baseHoleValue, currentCarryover, scoringType) - returns result object without id/skins_game_id. (8) calculateHole18Split(carryoverAmount, participantCount) - splits evenly rounded to 2 decimals. (9) calculateFinalPayouts(game, results, participants) - calculates buy_in, winnings, net_result, holes stats for each participant. (10) validateSkinsGame(participantIds, potValue) - returns {isValid, errors array}. (11) validateHoleScores(holeScores, participantIds) - returns {isValid, missingPlayerIds}. (12) calculateNetPositions(payouts) - returns net positions for debt calculation. (13) simplifyDebts(netPositions) - minimizes transactions. (14) formatDebtTransactions(transactions, playerMap) - human-readable strings. All functions with JSDoc documentation and examples. Export from src/utils/index.ts."
 ```
 **Deliverables:**
 - [ ] `src/utils/skinsCalculations.ts`
-- [ ] All calculation functions
+- [ ] All calculation functions (14 total)
 - [ ] Input validation functions
-- [ ] JSDoc documentation
+- [ ] Debt simplification utilities
+- [ ] JSDoc documentation with examples
 - [ ] Export from `src/utils/index.ts`
 
-**Dependencies:** Task 6 (types)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 5 (types)
 
 ---
 
 ## Sprint 4: React Query Hooks
 
-### Task 10: Query Keys for Skins
+### Task 8: Query Keys for Skins
 **Status:** Not Started
 **Command:**
 ```bash
@@ -241,107 +186,51 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 **Deliverables:**
 - [ ] `skinsKeys` object in queryKeys.ts
 - [ ] All key patterns defined
-- [ ] Exported
+- [ ] Exported and added to `allQueryKeys` array
 
 **Dependencies:** None
-**Estimated Time:** 30 minutes
 
 ---
 
-### Task 11: Skins Query Hooks
+### Task 9: Skins Query Hooks
 **Status:** Not Started
 **Command:**
 ```bash
-/hook "Create src/hooks/useSkins.ts with TanStack Query hooks for skins. Queries: (1) useSkinsGame(gameId) - fetches skins_game with participant details via join, returns SkinsGameWithParticipants, staleTime 30s. (2) useSkinsGamesByRound(roundId) - fetches all skins games for round with participants, returns array, staleTime 30s. (3) useSkinsResults(gameId) - fetches skins_results with winner player details ordered by hole_number, staleTime 10s. (4) useSkinsPayouts(gameId) - fetches skins_payouts with player details ordered by net_result DESC, staleTime 30s. (5) useSkinsSummary(gameId) - combines game, results, payouts with calculated current_carryover, holes_completed, total_pot, per_hole_value, staleTime 10s. Mutations: (6) useCreateSkinsGame() - inserts skins_game with disclaimer timestamp, invalidates gamesByRound. (7) useProcessSkinsHole() - calls process_skins_hole RPC, invalidates results and summary. (8) useFinalizeSkinsGame() - calls finalize_skins_game RPC, invalidates all skins queries for game. (9) useCancelSkinsGame() - updates status to cancelled, invalidates game. Utility: (10) useCanUseSkins(userId) - calls user_has_feature RPC with 'skins', staleTime 5min. Export all hooks and add to src/hooks/index.ts."
+/hook "Create src/hooks/useSkins.ts with TanStack Query hooks for skins. Queries: (1) useSkinsGame(gameId) - fetches skins_game with participant details via join, returns SkinsGameWithParticipants, staleTime 30s. (2) useSkinsGamesByRound(roundId) - fetches all skins games for round with participants, returns array, staleTime 30s. (3) useSkinsResults(gameId) - fetches skins_results with winner player details ordered by hole_number, staleTime 10s. (4) useSkinsPayouts(gameId) - fetches skins_payouts with player details ordered by net_result DESC, staleTime 30s. (5) useSkinsSummary(gameId) - combines game, results, payouts with calculated current_carryover, holes_completed, total_pot, per_hole_value, staleTime 10s. Mutations: (6) useCreateSkinsGame() - inserts skins_game with disclaimer timestamp, invalidates gamesByRound. (7) useProcessSkinsHole() - calls process_skins_hole RPC, invalidates results and summary. (8) useFinalizeSkinsGame() - calls finalize_skins_game RPC, invalidates all skins queries for game. (9) useCancelSkinsGame() - updates status to cancelled, invalidates game. Utility: (10) useCanUseSkins(userId) - calls user_has_feature RPC with 'skins', staleTime 5min. (11) useActiveSkinsGameForRound(roundId) - convenience hook to get active skins game for a round. (12) useProcessSkinsIfNeeded(roundId) - encapsulates skins processing logic with offline queue. Export all hooks and add to src/hooks/index.ts."
 ```
 **Deliverables:**
 - [ ] `src/hooks/useSkins.ts`
 - [ ] 5 query hooks
 - [ ] 4 mutation hooks
-- [ ] 1 permission check hook
+- [ ] 3 utility hooks
 - [ ] Export from `src/hooks/index.ts`
 
-**Dependencies:** Task 6 (types), Task 10 (query keys)
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 12: Competition Skins Config Hooks
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Create src/hooks/useCompetitionSkinsConfig.ts with TanStack Query hooks for competition-level skins. Add to queryKeys.ts: competitionSkinsConfig: (competitionId) => [...skinsKeys.all, 'competition', competitionId]. Queries: (1) useCompetitionSkinsConfig(competitionId) - fetches competition_skins_config by competition_id, returns CompetitionSkinsConfig or null, staleTime 1min. (2) useRoundHasSkins(roundId, competitionId) - checks if round should have skins based on competition config (mode='all_rounds' OR mode='select_rounds' AND round_id in selected_round_ids), returns boolean. Mutations: (3) useCreateCompetitionSkinsConfig() - inserts config with disclaimer timestamp, invalidates competitionSkinsConfig. (4) useUpdateCompetitionSkinsConfig() - updates config, invalidates competitionSkinsConfig. (5) useDeleteCompetitionSkinsConfig() - deletes config (sets to 'none'), invalidates competitionSkinsConfig. Export all hooks."
-```
-**Deliverables:**
-- [ ] `src/hooks/useCompetitionSkinsConfig.ts`
-- [ ] Query for competition skins config
-- [ ] Query for round-level skins check
-- [ ] Create/update/delete mutations
-- [ ] Query keys added
-
-**Dependencies:** Task 8 (types), Task 10 (query keys)
-**Estimated Time:** 2-3 hours
+**Dependencies:** Task 5 (types), Task 8 (query keys)
 
 ---
 
 ## Sprint 5: UI Components - Setup
 
-### Task 13: CompetitionSkinsSection Component
+### Task 10: SkinsConfigBottomSheet Component
 **Status:** Not Started
 **Command:**
 ```bash
-/component "CompetitionSkinsSection - Competition-level skins configuration section. Props: competitionId (string), config (CompetitionSkinsConfig nullable), onConfigChange ((config: CompetitionSkinsConfig) => void), rounds (Round[] for select mode), disabled (boolean optional). Layout: Surface card with dice icon, 'Skins Game' header. (1) 3-way toggle chips: 'No Skins' | 'All Rounds' | 'Select Rounds'. (2) When 'Select Rounds' selected, show round checkboxes list. (3) When skins enabled (not 'none'), show config summary '$X per hole, gross/net' with 'Configure' button. (4) When disabled (tier locked), show lock icon and 'Premium Required' badge, tap navigates to upgrade. Use useCanUseSkins() hook to check tier access. Use useThemeColors() for colors. Follow existing Section patterns. Accessibility: proper ARIA labels for all controls."
-```
-**Deliverables:**
-- [ ] `src/components/skins/CompetitionSkinsSection.tsx`
-- [ ] 3-way mode toggle (none/all_rounds/select_rounds)
-- [ ] Round selection list for select mode
-- [ ] Config summary display
-- [ ] Premium lock state
-- [ ] `src/components/skins/index.ts` updated
-
-**Dependencies:** Task 12 (hooks)
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 14: SkinsSection Component (Round-Level)
-**Status:** Not Started
-**Command:**
-```bash
-/component "SkinsSection - Read-only indicator for round setup showing inherited skins config. Props: roundId (string), competitionId (string), config (CompetitionSkinsConfig nullable). Layout: Surface card with dice icon, 'Skins Game' label. If competition has skins enabled and round is included: show 'Enabled via competition settings' with config summary '$X per hole, gross/net scoring'. If not enabled: show 'Not enabled for this round'. Link to competition settings for organizers. This is read-only at round level - skins are configured at competition level. Use useThemeColors() for colors."
-```
-**Deliverables:**
-- [ ] `src/components/skins/SkinsSection.tsx`
-- [ ] Read-only display of inherited config
-- [ ] Link to competition settings
-- [ ] `src/components/skins/index.ts` barrel
-
-**Dependencies:** Task 12 (hooks)
-**Estimated Time:** 1-2 hours
-
----
-
-### Task 15: SkinsConfigBottomSheet Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "SkinsConfigBottomSheet - Configure skins game settings. Props: visible (boolean), onDismiss (() => void), initialConfig (SkinsConfig nullable), onSave ((config: SkinsConfig) => void). Use BottomSheet component with snapPoints ['65%']. Layout: (1) Header 'Skins Configuration' with X close button. (2) POT SETUP section with TextInput for dollar amount, radio buttons for 'Per Hole' vs 'Total Pot', calculated display showing 'x 18 = $Y total' or '/ 18 = $Y per hole'. (3) SCORING TYPE section with radio buttons 'Gross' (raw strokes) and 'Net' (with handicap). (4) PARTICIPANTS info text 'All players in your pairing participate'. (5) Save button at bottom. Validation: amount > 0, max $100 per hole. Use React Hook Form + Zod for form state. Follow existing BottomSheet patterns."
+/component "SkinsConfigBottomSheet - Configure skins game settings. Props: visible (boolean), onDismiss (() => void), initialConfig (SkinsConfig nullable), onSave ((config: SkinsConfig) => void). Use BottomSheet component with snapPoints ['65%']. Layout: (1) Header 'Skins Configuration' with X close button. (2) POT SETUP section with TextInput for dollar amount, radio buttons for 'Per Hole' vs 'Total Pot', calculated display showing 'x 18 = $Y total' or '/ 18 = $Y per hole'. (3) SCORING TYPE section with radio buttons 'Gross' (raw strokes) and 'Net' (with handicap). (4) PARTICIPANTS info text 'All players in your group participate'. (5) Save button at bottom. Validation: amount > 0, max $100 per hole. Use React Hook Form + Zod for form state. Follow existing BottomSheet patterns."
 ```
 **Deliverables:**
 - [ ] `src/components/skins/SkinsConfigBottomSheet.tsx`
 - [ ] Pot type selection (per-hole/total)
 - [ ] Amount input with validation
-- [ ] Scoring type selection
+- [ ] Scoring type selection (gross/net)
 - [ ] Calculated display
-- [ ] Form validation
+- [ ] Form validation using React Hook Form + Zod
+- [ ] Export added to `src/components/skins/index.ts`
 
-**Dependencies:** Task 6 (types)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 5 (types)
 
 ---
 
-### Task 16: SkinsDisclaimerModal Component
+### Task 11: SkinsDisclaimerModal Component
 **Status:** Not Started
 **Command:**
 ```bash
@@ -354,19 +243,19 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] Checkbox acknowledgment
 - [ ] AsyncStorage persistence
 - [ ] Accept/Cancel buttons
+- [ ] Helper functions: `hasAcceptedSkinsDisclaimer()`, `clearSkinsDisclaimerAcceptance()`
 
 **Dependencies:** None
-**Estimated Time:** 2-3 hours
 
 ---
 
 ## Sprint 6: UI Components - Scoring
 
-### Task 17: SkinsIndicator Component
+### Task 12: SkinsIndicator Component
 **Status:** Not Started
 **Command:**
 ```bash
-/component "SkinsIndicator - Small indicator for scorecard header showing skins is active. Props: roundId (string), onPress (() => void optional). Use useSkinsGamesByRound(roundId) to check if active skins game exists. If no active game, return null. Layout: Small dice icon with badge showing current carryover if > 0. On press, show tooltip/popover with quick summary: 'Pot: $X/hole', 'Carryover: $Y (Z holes)', 'Last winner: PlayerName (Hole N)'. Use useSkinsSummary() for data. Icon color from theme primary. Tooltip follows existing tooltip patterns in codebase."
+/component "SkinsIndicator - Small indicator for scorecard header showing skins is active. Props: roundId (string), onPress (() => void optional). Use useActiveSkinsGameForRound(roundId) to check if active skins game exists. If no active game, return null. Layout: Small dice icon with badge showing current carryover holes if > 0. On press, show tooltip/popover with quick summary: 'Pot: $X/hole', 'Carryover: $Y (Z holes)', 'Last winner: PlayerName (Hole N)'. Use useSkinsSummary() for data. Icon color from theme primary. Tooltip follows existing tooltip patterns in codebase."
 ```
 **Deliverables:**
 - [ ] `src/components/skins/SkinsIndicator.tsx`
@@ -375,31 +264,29 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] Press handler for summary
 - [ ] Tooltip/popover display
 
-**Dependencies:** Task 11 (hooks)
-**Estimated Time:** 2-3 hours
+**Dependencies:** Task 9 (hooks)
 
 ---
 
-### Task 18: Update ScorecardEntryScreen Header
+### Task 13: Update ScorecardEntryScreen Header
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Update src/screens/scoring/ScorecardEntryScreen/index.tsx to add SkinsIndicator to header. Import SkinsIndicator from @/components/skins. In header right section (next to sync icon), add SkinsIndicator with roundId from route params. Pass onPress handler that navigates to future SkinsTrackerScreen (for now, just shows alert with 'Skins tracking coming soon'). Only show if round has skins enabled - check via useSkinsGamesByRound hook. Ensure header layout accommodates new icon without breaking existing sync indicator."
+/refactor "Update src/screens/scoring/ScorecardEntryScreen to add SkinsIndicator to header. Import SkinsIndicator from @/components/skins. In header right section (next to sync icon), add SkinsIndicator with roundId from route params. Pass onPress handler that navigates to future SkinsTrackerScreen (for now, just shows alert with 'Skins tracking coming soon'). Only show if round has skins enabled - check via useActiveSkinsGameForRound hook. Ensure header layout accommodates new icon without breaking existing sync indicator."
 ```
 **Deliverables:**
 - [ ] SkinsIndicator added to header
 - [ ] Conditional render based on skins status
-- [ ] Press handler (alert for now)
+- [ ] Press handler
 - [ ] Header layout adjusted
 
-**Dependencies:** Task 17 (SkinsIndicator)
-**Estimated Time:** 1-2 hours
+**Dependencies:** Task 12 (SkinsIndicator)
 
 ---
 
 ## Sprint 7: UI Components - Results
 
-### Task 19: SkinsResultsCard Component
+### Task 14: SkinsResultsCard Component
 **Status:** Not Started
 **Command:**
 ```bash
@@ -412,13 +299,13 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] Front 9/Back 9 subtotals
 - [ ] Total with carryover note
 - [ ] Carryover styling
+- [ ] FlatList for performance
 
-**Dependencies:** Task 6 (types)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 5 (types)
 
 ---
 
-### Task 20: SkinsSettlementCard Component
+### Task 15: SkinsSettlementCard Component
 **Status:** Not Started
 **Command:**
 ```bash
@@ -431,66 +318,165 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] Unsettled pot display
 - [ ] Share button
 
-**Dependencies:** Task 9 (calculations), Task 6 (types)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 7 (calculations), Task 5 (types)
 
 ---
 
-### Task 21: Add Debt Calculation Utility
+## Sprint 8: Round Creation Integration - Standalone Rounds
+
+### Task 16: Extend WizardData Types for Skins
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Add debt simplification to src/utils/skinsCalculations.ts. New functions: (1) calculateNetPositions(payouts: SkinsPayout[]) - returns array of {playerId, netAmount} where netAmount = total_winnings - buy_in. (2) simplifyDebts(netPositions: array) - implements debt simplification algorithm: separate into creditors (positive) and debtors (negative), sort both by amount, match largest debtor to largest creditor, create transaction, reduce amounts, repeat until all settled. Returns array of {fromPlayerId, toPlayerId, amount}. (3) formatDebtTransactions(transactions, playerMap) - returns human-readable strings like 'PlayerA owes PlayerB: $X'. Add tests for edge cases: all tied (no transactions), one winner takes all, complex multi-way splits."
+/refactor "Add standalone skins types to src/screens/rounds/CreateRoundBottomSheet/types.ts. Add new interface StandaloneSkinsConfig { enabled: boolean, config: SkinsConfig } where SkinsConfig is imported from '@/types'. Extend WizardData interface to add: skinsEnabled: boolean (default false), skinsConfig: SkinsConfig | null (default null). Update CreateRoundBottomSheetProps.onStartRound signature to include optional skinsConfig?: StandaloneSkinsConfig as the last parameter. Export StandaloneSkinsConfig from the file."
 ```
 **Deliverables:**
-- [ ] `calculateNetPositions()` function
-- [ ] `simplifyDebts()` function
-- [ ] `formatDebtTransactions()` function
-- [ ] Edge case handling
+- [ ] `StandaloneSkinsConfig` interface
+- [ ] `skinsEnabled` and `skinsConfig` in `WizardData`
+- [ ] Updated `onStartRound` callback signature
+- [ ] Export added
 
-**Dependencies:** Task 9
-**Estimated Time:** 2-3 hours
+**Dependencies:** Task 5 (SkinsConfig type)
 
 ---
 
-## Sprint 8: Screen Integration
-
-### Task 22: Update Competition Setup with Skins
+### Task 17: Add Skins State Handlers to Wizard Hook
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Update competition creation/edit screens to add skins configuration. In CreateCompetitionScreen or CompetitionSettingsScreen: Import CompetitionSkinsSection, SkinsConfigBottomSheet, SkinsDisclaimerModal from @/components/skins. Add CompetitionSkinsSection after game type selection. Wire up 3-way toggle (none/all_rounds/select_rounds). When enabling skins: check AsyncStorage for disclaimer acceptance, show SkinsDisclaimerModal if not accepted, show SkinsConfigBottomSheet after acceptance. On save: create/update competition_skins_config via useCreateCompetitionSkinsConfig or useUpdateCompetitionSkinsConfig mutation. When mode='select_rounds', show round selection UI. Handle errors gracefully with Alert."
+/refactor "Update src/screens/rounds/CreateRoundBottomSheet/hooks/useCreateRoundWizard.ts to add skins state management. (1) Update initialData to include skinsEnabled: false, skinsConfig: null. (2) Add setSkinsEnabled callback: toggles skinsEnabled, resets skinsConfig to null when disabled. (3) Add handleSkinsConfigChange callback: updates skinsConfig with new SkinsConfig value. (4) Update handleStartScoring to build standaloneSkinsConfig object when skins is enabled and config exists, pass to onStartRound callback as last parameter. (5) Add setSkinsEnabled and handleSkinsConfigChange to UseCreateRoundWizardReturn interface and return object."
 ```
 **Deliverables:**
-- [ ] CompetitionSkinsSection added to competition form
-- [ ] 3-way toggle state management
-- [ ] Round selection for 'select_rounds' mode
-- [ ] Disclaimer modal flow
-- [ ] Config bottom sheet flow
-- [ ] Create/update competition skins config on save
+- [ ] `skinsEnabled` and `skinsConfig` in `initialData`
+- [ ] `setSkinsEnabled` callback
+- [ ] `handleSkinsConfigChange` callback
+- [ ] Updated `handleStartScoring` to pass skins config
+- [ ] Updated return type and values
 
-**Dependencies:** Tasks 13, 15, 16 (components), Task 12 (hooks)
-**Estimated Time:** 4-5 hours
+**Dependencies:** Task 16
 
 ---
 
-### Task 23: Update AddRoundScreen with Skins Indicator
+### Task 18: Add Skins Section to ScoringSetupStep
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Update src/screens/admin/AddRoundScreen/index.tsx to show inherited skins config. Import SkinsSection from @/components/skins. Add SkinsSection (read-only) after game type selector showing whether skins is enabled for this round based on competition config. Use useRoundHasSkins(roundId, competitionId) hook to check. Display is informational only - configuration is at competition level. Link to competition settings for organizers who want to change skins config."
+/refactor "Add skins configuration section to src/screens/rounds/CreateRoundBottomSheet/steps/ScoringSetupStep.tsx. Add new props: skinsEnabled (boolean), skinsConfig (SkinsConfig | null), onSkinsEnabledChange ((enabled: boolean) => void), onSkinsConfigChange ((config: SkinsConfig) => void). Import SkinsConfigBottomSheet and SkinsDisclaimerModal and hasAcceptedSkinsDisclaimer from @/components/skins. Add local state: showSkinsConfigSheet (boolean), showSkinsDisclaimer (boolean). Add skins section AFTER scoring pairs section with condition selectedPartners.length >= 1 (requires 2+ players). Layout: (1) Divider. (2) If isPremium: TouchableOpacity toggle with dice icon (amber when enabled), 'Add Skins Game' label, 'Hole-by-hole betting between players' description, checkbox on right. (3) If not isPremium: locked state with lock icon and Premium badge. (4) When skinsEnabled && skinsConfig: show config summary card with pot value, pot type, scoring type, tap to edit. (5) SkinsConfigBottomSheet with visible=showSkinsConfigSheet. (6) SkinsDisclaimerModal with visible=showSkinsDisclaimer. On toggle enable: check hasAcceptedSkinsDisclaimer(), if not accepted show disclaimer modal, on accept show config sheet, on save config call onSkinsConfigChange and onSkinsEnabledChange(true)."
 ```
 **Deliverables:**
-- [ ] SkinsSection (read-only) added to form
-- [ ] Shows inherited config from competition
-- [ ] Link to competition settings
+- [ ] New skins props added to interface
+- [ ] Skins toggle UI (Premium and locked states)
+- [ ] Config summary display when enabled
+- [ ] SkinsConfigBottomSheet integration
+- [ ] SkinsDisclaimerModal integration
+- [ ] Disclaimer flow (first-time check)
+- [ ] Only shown for 2+ players
 
-**Dependencies:** Task 14 (component), Task 12 (hooks)
-**Estimated Time:** 1-2 hours
+**Dependencies:** Task 10, Task 11 (UI components), Task 17
 
 ---
 
-### Task 24: Update ReviewScorecardScreen with Skins Tab
+### Task 19: Pass Skins Props Through Bottom Sheet
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/screens/rounds/CreateRoundBottomSheet/index.tsx to pass skins props to ScoringSetupStep. In the scoringSetup step render, add props: skinsEnabled={wizard.data.skinsEnabled}, skinsConfig={wizard.data.skinsConfig}, onSkinsEnabledChange={wizard.setSkinsEnabled}, onSkinsConfigChange={wizard.handleSkinsConfigChange}. Ensure StandaloneSkinsConfig is exported from index.tsx via 'export type { StandaloneSkinsConfig } from ./types'."
+```
+**Deliverables:**
+- [ ] Skins props passed to ScoringSetupStep
+- [ ] `StandaloneSkinsConfig` type exported
+
+**Dependencies:** Task 18
+
+---
+
+### Task 20: Create skins_games Record on Round Start
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/screens/rounds/RoundListScreen/hooks/useStartNewRound.ts to create skins_games record when skins is enabled. Import StandaloneSkinsConfig from CreateRoundBottomSheet types, useAuth hook. Update handleStartNewRound function signature to accept optional skinsConfig?: StandaloneSkinsConfig as last parameter. After creating round_players records, add skins game creation: if skinsConfig?.enabled && skinsConfig.config && partners.length >= 1 && user?.id, insert into skins_games table with fields: round_id (from newly created round), pairing_id: null, participant_ids: [user.id, ...partners.map(p => p.id)], pot_type: skinsConfig.config.pot_type, pot_value: skinsConfig.config.pot_value, currency: skinsConfig.config.currency ?? 'AUD', scoring_type: skinsConfig.config.scoring_type, pool_source: 'direct', status: 'active', disclaimer_accepted_at: new Date().toISOString(), disclaimer_accepted_by: user.id, created_by: user.id. Wrap in try/catch - log errors but don't fail round creation."
+```
+**Deliverables:**
+- [ ] Updated function signature with `skinsConfig` parameter
+- [ ] `skins_games` record creation logic
+- [ ] Participant IDs array (current user + partners)
+- [ ] Error handling (non-blocking)
+
+**Dependencies:** Task 19
+
+---
+
+### Task 21: Wire Up onStartRound Callback
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/screens/rounds/RoundListScreen/index.tsx to pass skinsConfig to handleStartNewRound. The callback should accept skinsConfig?: StandaloneSkinsConfig as the last parameter and forward it to the handleStartNewRound function from useStartNewRound hook. Verify the full data flow: CreateRoundBottomSheet → onStartRound callback → handleStartNewRound → database insert."
+```
+**Deliverables:**
+- [ ] `onStartRound` callback updated to accept `skinsConfig`
+- [ ] `skinsConfig` forwarded to `handleStartNewRound`
+- [ ] Full data flow verified
+
+**Dependencies:** Task 20
+
+---
+
+## Sprint 9: Competition Round Integration
+
+### Task 22: Add Skins Section to AddRoundScreen
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add skins configuration section to src/screens/admin/AddRoundScreen/index.tsx for competition rounds. Import SkinsConfigBottomSheet, SkinsDisclaimerModal, hasAcceptedSkinsDisclaimer from @/components/skins. Add skins state: skinsEnabled (boolean), skinsConfig (SkinsConfig | null), showSkinsConfigSheet, showSkinsDisclaimer. Add SkinsSection component (similar to ScoringSetupStep pattern) after game type selector. Layout: Toggle 'Enable Skins Game', config summary when enabled, configure button. Premium tier gating. Only show if round will have 2+ players (check if pairings/players configured). On save: include skins config in round creation payload. Create skins_games record after round is created if enabled."
+```
+**Deliverables:**
+- [ ] Skins state management in AddRoundScreen
+- [ ] SkinsSection UI component
+- [ ] Premium tier gating
+- [ ] Integration with round creation flow
+- [ ] skins_games record created for competition rounds
+
+**Dependencies:** Task 10, Task 11 (UI components), Task 9 (hooks)
+
+---
+
+### Task 23: Add Skins Section to EditRoundScreen
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add skins configuration to src/screens/admin/EditRoundScreen (or AddRoundScreen if same screen handles edit). Load existing skins_games for the round via useActiveSkinsGameForRound. If round status is 'scheduled': allow editing skins config. If round has started: show read-only skins info with 'Cannot edit after round starts' message. On save: update existing skins_games record OR create new one if skins newly enabled OR delete if disabled. Handle the case where round already has scores - skins config locked."
+```
+**Deliverables:**
+- [ ] Load existing skins config for round
+- [ ] Edit mode for scheduled rounds
+- [ ] Read-only mode for started rounds
+- [ ] Update/create/delete skins_games on save
+- [ ] Locking when round has started
+
+**Dependencies:** Task 22
+
+---
+
+## Sprint 10: Score Processing Integration
+
+### Task 24: Integrate Skins with Score Submission
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update score submission flow to process skins results. In src/store/scorecardStore.ts or relevant score submission hook: after saving hole scores, check if round has active skins game via useActiveSkinsGameForRound. If skins game exists and all participants have scores for current hole, call processSkinsHole mutation with prepared hole scores (using prepareHoleScores utility). Handle errors gracefully - skins processing failure should not block scorecard save. When all 18 holes complete and scorecard submitted, call finalizeSkinsGame. Update src/hooks/useSkins.ts useProcessSkinsIfNeeded hook to encapsulate this logic. Consider offline support - queue skins processing for when online."
+```
+**Deliverables:**
+- [ ] Score submission triggers skins processing
+- [ ] All participants checked before processing
+- [ ] Graceful error handling
+- [ ] Finalize on completion
+- [ ] Offline queue consideration
+
+**Dependencies:** Task 9 (hooks), Task 7 (calculations)
+
+---
+
+### Task 25: Update ReviewScorecardScreen with Skins Tab
 **Status:** Not Started
 **Command:**
 ```bash
@@ -503,195 +489,140 @@ This plan implements **Phase 1** of the Skins gambling feature - a side-game tha
 - [ ] SkinsSettlementCard integration
 - [ ] Finalize on submit
 
-**Dependencies:** Tasks 19, 20 (components), Task 11 (hooks)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 14, Task 15 (components), Task 9 (hooks)
 
 ---
 
-## Sprint 9: Score Processing Integration
+## Sprint 11: Testing & Documentation
 
-### Task 25: Integrate Skins with Score Submission
+### Task 26: Unit Tests for Skins Calculations
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Update score submission flow to process skins results. In src/store/scorecardStore.ts or relevant score submission hook: after saving hole scores, check if round has active skins game via useSkinsGamesByRound. If skins game exists and all participants have scores for current hole, call processSkinsHole mutation with prepared hole scores (using prepareHoleScores utility). Handle errors gracefully - skins processing failure should not block scorecard save. When all 18 holes complete and scorecard submitted, call finalizeSkinsGame. Update src/hooks/useSkins.ts to export a convenience hook useProcessSkinsIfNeeded(roundId) that encapsulates this logic. Consider offline support - queue skins processing for when online."
+/test "Create comprehensive test suite for src/utils/skinsCalculations.ts. Test: (1) calculateHoleValue - per_hole returns exact value, total_pot divides by 18. (2) calculateTotalPot - inverse of above. (3) calculateBuyIn - correct division with rounding. (4) determineHoleWinner - single winner, tie detection, all tied. (5) processHoleResult - winner result, carryover result, accumulated carryover. (6) calculateHole18Split - even split, odd amounts. (7) calculateFinalPayouts - complete payout calculation. (8) simplifyDebts - 2-player, 4-player, complex scenarios. (9) Validation functions - valid/invalid inputs. Edge cases: all tied game, single winner takes all, zero pot (invalid)."
 ```
 **Deliverables:**
-- [ ] Score submission triggers skins processing
-- [ ] All participants checked before processing
-- [ ] Graceful error handling
-- [ ] Finalize on completion
-- [ ] Offline queue consideration
+- [ ] `src/__tests__/utils/skinsCalculations.test.ts`
+- [ ] Tests for all 14+ functions
+- [ ] Edge case coverage
+- [ ] At least 90% code coverage
 
-**Dependencies:** Task 11 (hooks), Task 9 (calculations)
-**Estimated Time:** 3-4 hours
+**Dependencies:** Task 7
 
 ---
 
-## Sprint 10: Documentation
-
-### Task 26: Documentation Update
+### Task 27: Component Tests
 **Status:** Not Started
 **Command:**
 ```bash
-/docs "Update documentation for skins gambling feature. Files: (1) docs/database/DATABASE_SCHEMA.md - add skins_games, skins_results, skins_payouts tables with columns, constraints, RLS policies, indexes, all database functions. (2) CLAUDE.md - add 'Skins Game' to Data Model section explaining side-game concept, add to Documentation Map. (3) Create docs/guides/SKINS_GAME.md - comprehensive guide explaining skins concept, configuration options, carryover rules, settlement calculation, UI flow, database schema, API reference. Include examples with numbers. (4) Update docs/guides/SUBSCRIPTION_TIERS.md to mention skins as Premium feature."
+/test-component "Test skins UI components. For SkinsConfigBottomSheet: renders with/without initial config, form validation, save callback. For SkinsDisclaimerModal: checkbox enables button, accept/cancel callbacks, AsyncStorage integration. For SkinsResultsCard: renders results, handles empty state, carryover styling. For SkinsSettlementCard: calculates debt correctly, share button works. For SkinsIndicator: shows/hides based on active game, badge displays carryover."
 ```
 **Deliverables:**
-- [ ] `docs/database/DATABASE_SCHEMA.md` updated
-- [ ] `CLAUDE.md` updated
-- [ ] `docs/guides/SKINS_GAME.md` created
-- [ ] `docs/guides/SUBSCRIPTION_TIERS.md` updated
+- [ ] Component test files for all skins components
+- [ ] Snapshot tests
+- [ ] Interaction tests
+- [ ] Mock hook data
+
+**Dependencies:** Task 10-15 (all components)
+
+---
+
+### Task 28: Documentation Update
+**Status:** Not Started
+**Command:**
+```bash
+/docs "Update documentation for skins gambling feature. Files: (1) docs/database/DATABASE_SCHEMA.md - add skins_games, skins_results, skins_payouts tables with columns, constraints, RLS policies, indexes, all database functions. (2) CLAUDE.md - add 'Skins Game' to Data Model section explaining side-game concept, add to Documentation Map. (3) Create docs/guides/SKINS_GAME.md - comprehensive guide explaining skins concept, configuration options (per-round), carryover rules, settlement calculation, UI flow, database schema, API reference. Include examples with numbers. (4) Update docs/guides/SUBSCRIPTION_TIERS.md to mention skins as Premium feature."
+```
+**Deliverables:**
+- [ ] `docs/database/DATABASE_SCHEMA.md` updated with skins tables, functions
+- [ ] `CLAUDE.md` updated with SkinsGame entity
+- [ ] `docs/guides/SKINS_GAME.md` created - comprehensive guide
+- [ ] `docs/guides/SUBSCRIPTION_TIERS.md` updated with skins feature
 
 **Dependencies:** All previous tasks
-**Estimated Time:** 2-3 hours
 
 ---
 
 ## Progress Summary
 
 ### Completion Statistics
-- **Total Tasks:** 26
-- **Completed:** 4 (15%) - Tasks 1, 2, 3 (combined), Tasks 6, 7 (types)
+- **Total Tasks:** 28
+- **Completed:** 0 (0%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 22 (85%)
+- **Not Started:** 28 (100%)
 
 ### Sprint Progress
 
-**Sprint 1: Database Foundation** - Partially Complete (60%)
-- Task 1: Database Migration - Tables ✅
-- Task 2: Database Migration - RLS ✅ (combined with Task 1)
-- Task 3: Database Migration - Tier Limits ✅ (combined with Task 1)
-- Task 4: Database Migration - Competition Skins Config Table - Not Started
-- Task 5: Database Functions - Not Started
-
-**Sprint 2: TypeScript Types** - Partially Complete (67%)
-- Task 6: Skins Type Definitions ✅ (created `src/types/database/skins.types.ts`)
-- Task 7: Update Enums and Exports ✅ (updated `enums.ts` and `index.ts`)
-- Task 8: Competition Skins Config Types - Not Started
-
-**Sprint 3: Calculation Utilities** - Not Started
-- Task 9: Skins Calculation Utilities
-
-**Sprint 4: React Query Hooks** - Not Started
-- Task 10: Query Keys
-- Task 11: Skins Query Hooks
-- Task 12: Competition Skins Config Hooks
-
-**Sprint 5: UI Components - Setup** - Not Started
-- Task 13: CompetitionSkinsSection (competition-level config)
-- Task 14: SkinsSection (round-level read-only indicator)
-- Task 15: SkinsConfigBottomSheet
-- Task 16: SkinsDisclaimerModal
-
-**Sprint 6: UI Components - Scoring** - Not Started
-- Task 17: SkinsIndicator
-- Task 18: Update ScorecardEntryScreen
-
-**Sprint 7: UI Components - Results** - Not Started
-- Task 19: SkinsResultsCard
-- Task 20: SkinsSettlementCard
-- Task 21: Debt Calculation Utility
-
-**Sprint 8: Screen Integration** - Not Started
-- Task 22: Update Competition Setup with Skins
-- Task 23: Update AddRoundScreen with Skins Indicator
-- Task 24: Update ReviewScorecardScreen
-
-**Sprint 9: Score Processing Integration** - Not Started
-- Task 25: Integrate with Score Submission
-
-**Sprint 10: Documentation** - Not Started
-- Task 26: Documentation Update
+| Sprint | Description | Tasks | Status |
+|--------|-------------|-------|--------|
+| Sprint 1 | Database Foundation | 4 | Not Started |
+| Sprint 2 | TypeScript Types | 2 | Not Started |
+| Sprint 3 | Calculation Utilities | 1 | Not Started |
+| Sprint 4 | React Query Hooks | 2 | Not Started |
+| Sprint 5 | UI Components - Setup | 2 | Not Started |
+| Sprint 6 | UI Components - Scoring | 2 | Not Started |
+| Sprint 7 | UI Components - Results | 2 | Not Started |
+| Sprint 8 | Standalone Rounds Integration | 6 | Not Started |
+| Sprint 9 | Competition Rounds Integration | 2 | Not Started |
+| Sprint 10 | Score Processing Integration | 2 | Not Started |
+| Sprint 11 | Testing & Documentation | 3 | Not Started |
 
 ---
 
 ## Critical Files
 
-### New Files (Created)
-| File | Purpose | Status |
-|------|---------|--------|
-| `supabase/migrations/20260105000000_skins_games.sql` | Database migration (tables, RLS, tier limits) | ✅ Created |
-| `supabase/migrations/20260106000000_competition_skins_config.sql` | Competition-level skins config table | Pending |
-| `src/types/database/skins.types.ts` | TypeScript type definitions | ✅ Created |
-| `src/utils/skinsCalculations.ts` | Pure calculation functions | Pending |
-| `src/hooks/useSkins.ts` | TanStack Query hooks | Pending |
-| `src/hooks/useCompetitionSkinsConfig.ts` | Competition skins config hooks | Pending |
-| `src/components/skins/CompetitionSkinsSection.tsx` | Competition-level skins setup | Pending |
-| `src/components/skins/SkinsSection.tsx` | Round-level skins indicator (read-only) | Pending |
-| `src/components/skins/SkinsConfigBottomSheet.tsx` | Configuration UI | Pending |
-| `src/components/skins/SkinsDisclaimerModal.tsx` | Legal disclaimer | Pending |
-| `src/components/skins/SkinsIndicator.tsx` | Scoring header icon | Pending |
-| `src/components/skins/SkinsResultsCard.tsx` | Hole-by-hole results | Pending |
-| `src/components/skins/SkinsSettlementCard.tsx` | Settlement summary | Pending |
-| `src/components/skins/index.ts` | Barrel export | Pending |
-| `docs/guides/SKINS_GAME.md` | Feature documentation | Pending |
+### New Files (To Create)
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/XXXXXXXX_skins_games.sql` | Database migration |
+| `src/types/database/skins.types.ts` | TypeScript type definitions |
+| `src/utils/skinsCalculations.ts` | Pure calculation functions |
+| `src/hooks/useSkins.ts` | TanStack Query hooks |
+| `src/components/skins/SkinsConfigBottomSheet.tsx` | Configuration UI |
+| `src/components/skins/SkinsDisclaimerModal.tsx` | Legal disclaimer |
+| `src/components/skins/SkinsIndicator.tsx` | Scoring header icon |
+| `src/components/skins/SkinsResultsCard.tsx` | Hole-by-hole results |
+| `src/components/skins/SkinsSettlementCard.tsx` | Settlement summary |
+| `src/components/skins/index.ts` | Barrel export |
+| `docs/guides/SKINS_GAME.md` | Feature documentation |
 
-### Modified Files
-| File | Changes | Status |
-|------|---------|--------|
-| `src/types/database/enums.ts` | Added 'skins' to TierFeature union | ✅ Updated |
-| `src/types/database/index.ts` | Export all skins types | ✅ Updated |
-| `src/types/index.ts` | Re-export skins types | Pending |
-| `src/hooks/queryKeys.ts` | Add skinsKeys + competitionSkinsConfig keys | Pending |
-| `src/hooks/index.ts` | Export skins hooks | Pending |
-| `src/utils/index.ts` | Export skins calculations | Pending |
-| `src/screens/admin/CreateCompetitionScreen` | Add CompetitionSkinsSection | Pending |
-| `src/screens/admin/AddRoundScreen/index.tsx` | Add SkinsSection (read-only) | Pending |
-| `src/screens/scoring/ScorecardEntryScreen/index.tsx` | Add SkinsIndicator | Pending |
-| `src/screens/scoring/ReviewScorecardScreen/index.tsx` | Add results tab | Pending |
-| `docs/database/DATABASE_SCHEMA.md` | Document skins tables | Pending |
-| `CLAUDE.md` | Brief mention | Pending |
-
----
-
-## Time Estimates
-
-| Sprint | Tasks | Estimated Hours |
-|--------|-------|-----------------|
-| Sprint 1: Database | 5 | 9-13 hours |
-| Sprint 2: Types | 3 | 2.5-4 hours |
-| Sprint 3: Calculations | 1 | 3-4 hours |
-| Sprint 4: Hooks | 3 | 6-8 hours |
-| Sprint 5: Setup UI | 4 | 9-13 hours |
-| Sprint 6: Scoring UI | 2 | 3-5 hours |
-| Sprint 7: Results UI | 3 | 8-11 hours |
-| Sprint 8: Integration | 3 | 8-11 hours |
-| Sprint 9: Processing | 1 | 3-4 hours |
-| Sprint 10: Docs | 1 | 2-3 hours |
-
-**Total Estimated:** 54-76 hours
+### Files to Modify
+| File | Changes |
+|------|---------|
+| `src/types/database/enums.ts` | Add skins enums |
+| `src/types/database/index.ts` | Export skins types |
+| `src/hooks/queryKeys.ts` | Add skinsKeys |
+| `src/hooks/index.ts` | Export skins hooks |
+| `src/utils/index.ts` | Export skins calculations |
+| `src/screens/rounds/CreateRoundBottomSheet/types.ts` | Add skins to wizard |
+| `src/screens/rounds/CreateRoundBottomSheet/hooks/useCreateRoundWizard.ts` | Skins state |
+| `src/screens/rounds/CreateRoundBottomSheet/steps/ScoringSetupStep.tsx` | Skins UI |
+| `src/screens/rounds/CreateRoundBottomSheet/index.tsx` | Pass skins props |
+| `src/screens/rounds/RoundListScreen/hooks/useStartNewRound.ts` | Create skins record |
+| `src/screens/rounds/RoundListScreen/index.tsx` | Forward skins config |
+| `src/screens/admin/AddRoundScreen/index.tsx` | Competition round skins |
+| `src/screens/scoring/ScorecardEntryScreen/index.tsx` | SkinsIndicator, processing |
+| `src/screens/scoring/ReviewScorecardScreen/index.tsx` | Skins tab |
+| `docs/database/DATABASE_SCHEMA.md` | Document skins tables |
+| `CLAUDE.md` | Add skins to data model |
+| `docs/guides/SUBSCRIPTION_TIERS.md` | Add skins as Premium feature |
 
 ---
 
 ## Key Design Decisions
 
-1. **Add-on not Game Type**: Skins is an overlay feature, not a replacement for Stableford/Stroke
-2. **Competition-Level Configuration**: Skins is configured at competition level, not per-round
-3. **3-Way Mode Toggle**: 'No Skins' | 'All Rounds' | 'Select Rounds' for flexibility
-4. **Per-Round Settlement (Phase 1)**: Each round settles independently
-5. **Tally All Rounds (Phase 2)**: Deferred - carryover across rounds with final settlement
-6. **Separate Config Table**: `competition_skins_config` FK to competitions (normalized design)
-7. **Participants = Pairing**: All players in a pairing participate (no opt-out for MVP)
-8. **Hole 18 Split**: Simplest fair resolution for end-of-round carryover
-9. **Premium Only**: Gambling features gated to paid tier
-10. **Disclaimer Required**: Legal protection via acknowledgment flow
-11. **Client-side Calculations**: Pure functions for testability, DB functions for consistency
+1. **Per-Round Configuration**: Skins configured at round level, not competition level
+2. **Works for Any Round**: Both standalone and competition rounds supported
+3. **Pool Source**: Rounds can use direct pot OR draw from competition prize pool (Phase 2)
+4. **Participants = Group**: All players in the round/pairing participate (no opt-out for MVP)
+5. **Hole 18 Split**: Simplest fair resolution for end-of-round carryover
+6. **Premium Only**: Gambling features gated to paid tier
+7. **Disclaimer Required**: Legal protection via acknowledgment flow
+8. **Non-blocking Skins**: Skins failures don't block scorecard saves
+9. **Locking**: Skins config locked when round starts
 
 ---
 
-## Command Usage Reference
-
-| Command | Use For |
-|---------|---------|
-| `/db` | Database schema design and migrations |
-| `/component` | Reusable UI components |
-| `/screen` | Full screen implementations |
-| `/hook` | TanStack Query hooks |
-| `/refactor` | Modifying existing code, utilities |
-| `/docs` | Documentation updates |
-
----
-
-**Last Updated:** 2026-01-05
-**Next Review:** After completing Sprint 1
-**Current Sprint:** Sprint 1 (Database Foundation) - 75% complete
+**Last Updated:** 2026-01-09
+**Status:** Not Started
+**Current Sprint:** Sprint 1 - Database Foundation

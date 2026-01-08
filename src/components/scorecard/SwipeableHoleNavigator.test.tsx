@@ -2,13 +2,12 @@
  * SwipeableHoleNavigator Component Tests
  *
  * Tests for the swipeable hole navigation component including:
- * - Rendering with children content
+ * - Rendering with renderHole content
  * - Swipe gesture navigation (left/right)
  * - Boundary behavior (first/last hole)
  * - Enabled/disabled state
  * - Transition animations and states
  * - Accessibility actions
- * - Skeleton preview during transitions
  */
 
 import React from 'react';
@@ -38,12 +37,15 @@ const TestChild = ({ hole }: { hole: number }) => (
   </View>
 );
 
+// Render function for testing
+const createRenderHole = () => (holeNumber: number) => <TestChild hole={holeNumber} />;
+
 describe('SwipeableHoleNavigator', () => {
   const defaultProps = {
     currentHole: 1,
     totalHoles: 18,
     onHoleChange: jest.fn(),
-    children: <TestChild hole={1} />,
+    renderHole: createRenderHole(),
   };
 
   beforeEach(() => {
@@ -70,26 +72,13 @@ describe('SwipeableHoleNavigator', () => {
       expect(screen.getByText('Hole 1')).toBeTruthy();
     });
 
-    it('renders with custom playerCount', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} playerCount={4}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
-    });
-
     it('renders with enabled=true by default', () => {
       render(<SwipeableHoleNavigator {...defaultProps} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('renders with enabled=false', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={false}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} enabled={false} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
   });
@@ -100,48 +89,23 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Props', () => {
     it('accepts currentHole prop', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={9}>
-          <TestChild hole={9} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} currentHole={9} />);
       expect(screen.getByText('Hole 9')).toBeTruthy();
     });
 
     it('accepts totalHoles prop', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={9}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={9} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('accepts onHoleChange callback', () => {
       const onHoleChange = jest.fn();
-      render(
-        <SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('accepts enabled=true prop', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={true}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
-    });
-
-    it('accepts playerCount prop for skeleton preview', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} playerCount={3}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} enabled={true} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
   });
@@ -157,29 +121,17 @@ describe('SwipeableHoleNavigator', () => {
     });
 
     it('can start at any valid hole', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={10}>
-          <TestChild hole={10} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} currentHole={10} />);
       expect(screen.getByText('Hole 10')).toBeTruthy();
     });
 
     it('renders at last hole (hole 18)', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={18}>
-          <TestChild hole={18} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} currentHole={18} />);
       expect(screen.getByText('Hole 18')).toBeTruthy();
     });
 
     it('handles 9-hole course', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={9} currentHole={5}>
-          <TestChild hole={5} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={9} currentHole={5} />);
       expect(screen.getByText('Hole 5')).toBeTruthy();
     });
   });
@@ -221,33 +173,21 @@ describe('SwipeableHoleNavigator', () => {
   describe('Current Hole Updates', () => {
     it('updates when currentHole prop changes', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={1}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} currentHole={1} />
       );
       expect(screen.getByText('Hole 1')).toBeTruthy();
 
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={5}>
-          <TestChild hole={5} />
-        </SwipeableHoleNavigator>
-      );
+      rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={5} />);
       expect(screen.getByText('Hole 5')).toBeTruthy();
     });
 
     it('handles rapid hole changes', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={1}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} currentHole={1} />
       );
 
       for (let hole = 2; hole <= 5; hole++) {
-        rerender(
-          <SwipeableHoleNavigator {...defaultProps} currentHole={hole}>
-            <TestChild hole={hole} />
-          </SwipeableHoleNavigator>
-        );
+        rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={hole} />);
       }
 
       expect(screen.getByText('Hole 5')).toBeTruthy();
@@ -255,17 +195,11 @@ describe('SwipeableHoleNavigator', () => {
 
     it('syncs with external hole changes', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={9}>
-          <TestChild hole={9} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} currentHole={9} />
       );
 
       // Simulate external navigation (e.g., from hole selector)
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={15}>
-          <TestChild hole={15} />
-        </SwipeableHoleNavigator>
-      );
+      rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={15} />);
 
       expect(screen.getByText('Hole 15')).toBeTruthy();
     });
@@ -277,94 +211,58 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Enabled/Disabled State', () => {
     it('renders normally when enabled', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={true}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} enabled={true} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('still renders content when disabled', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={false}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} enabled={false} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('can toggle enabled state', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={true}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} enabled={true} />
       );
 
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps} enabled={false}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      rerender(<SwipeableHoleNavigator {...defaultProps} enabled={false} />);
 
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
   });
 
   // ===========================================================================
-  // CHILDREN CONTENT TESTS
+  // RENDER HOLE TESTS
   // ===========================================================================
 
-  describe('Children Content', () => {
-    it('renders single child element', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <View testID="single-child" />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('single-child')).toBeTruthy();
+  describe('Render Hole Function', () => {
+    it('calls renderHole with current hole number', () => {
+      const renderHole = jest.fn((holeNumber: number) => <TestChild hole={holeNumber} />);
+      render(<SwipeableHoleNavigator {...defaultProps} renderHole={renderHole} />);
+      expect(renderHole).toHaveBeenCalledWith(1);
     });
 
-    it('renders multiple children', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <View testID="child-1" />
-          <View testID="child-2" />
-        </SwipeableHoleNavigator>
+    it('renders custom content from renderHole', () => {
+      const customRenderHole = (holeNumber: number) => (
+        <View testID="custom-content">
+          <Text>Custom Hole {holeNumber}</Text>
+        </View>
       );
-      expect(screen.getByTestId('child-1')).toBeTruthy();
-      expect(screen.getByTestId('child-2')).toBeTruthy();
+      render(<SwipeableHoleNavigator {...defaultProps} renderHole={customRenderHole} />);
+      expect(screen.getByTestId('custom-content')).toBeTruthy();
+      expect(screen.getByText('Custom Hole 1')).toBeTruthy();
     });
 
-    it('renders complex nested content', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <View testID="parent">
-            <View testID="nested-1">
-              <Text>Nested Text</Text>
-            </View>
-            <View testID="nested-2" />
-          </View>
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('parent')).toBeTruthy();
-      expect(screen.getByTestId('nested-1')).toBeTruthy();
-      expect(screen.getByText('Nested Text')).toBeTruthy();
-    });
+    it('re-renders when renderHole function changes', () => {
+      const renderHoleV1 = () => <Text>Version 1</Text>;
+      const renderHoleV2 = () => <Text>Version 2</Text>;
 
-    it('updates when children change', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <Text testID="child-v1">Version 1</Text>
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} renderHole={renderHoleV1} />
       );
       expect(screen.getByText('Version 1')).toBeTruthy();
 
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <Text testID="child-v2">Version 2</Text>
-        </SwipeableHoleNavigator>
-      );
+      rerender(<SwipeableHoleNavigator {...defaultProps} renderHole={renderHoleV2} />);
       expect(screen.getByText('Version 2')).toBeTruthy();
     });
   });
@@ -375,63 +273,18 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Total Holes Configuration', () => {
     it('works with 18 holes (default)', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={18}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={18} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('works with 9 holes', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={9}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={9} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('handles unusual total holes (e.g., 27)', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={27} currentHole={20}>
-          <TestChild hole={20} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={27} currentHole={20} />);
       expect(screen.getByText('Hole 20')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // PLAYER COUNT FOR SKELETON TESTS
-  // ===========================================================================
-
-  describe('Player Count for Skeleton', () => {
-    it('defaults to 1 player skeleton', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
-    });
-
-    it('accepts 2 player count', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} playerCount={2}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
-    });
-
-    it('accepts 4 player count', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} playerCount={4}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
     });
   });
 
@@ -441,57 +294,24 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Edge Cases', () => {
     it('handles currentHole at minimum (1)', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={1}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} currentHole={1} />);
       expect(screen.getByText('Hole 1')).toBeTruthy();
     });
 
     it('handles currentHole at maximum (18)', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={18}>
-          <TestChild hole={18} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} currentHole={18} />);
       expect(screen.getByText('Hole 18')).toBeTruthy();
     });
 
     it('handles single hole course', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} totalHoles={1} currentHole={1}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} totalHoles={1} currentHole={1} />);
       expect(screen.getByText('Hole 1')).toBeTruthy();
     });
 
-    it('handles empty children gracefully', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          {null}
-        </SwipeableHoleNavigator>
-      );
-      // Should not crash with null children
-    });
-
-    it('handles undefined children gracefully', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          {undefined}
-        </SwipeableHoleNavigator>
-      );
-      // Should not crash with undefined children
-    });
-
-    it('handles zero playerCount', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps} playerCount={0}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
-      expect(screen.getByTestId('test-child')).toBeTruthy();
+    it('handles renderHole returning null gracefully', () => {
+      const nullRenderHole = () => null;
+      render(<SwipeableHoleNavigator {...defaultProps} renderHole={nullRenderHole} />);
+      // Should not crash with null return
     });
   });
 
@@ -500,7 +320,7 @@ describe('SwipeableHoleNavigator', () => {
   // ===========================================================================
 
   describe('Container Structure', () => {
-    it('wraps children in animated container', () => {
+    it('wraps content in animated container', () => {
       render(<SwipeableHoleNavigator {...defaultProps} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
@@ -518,17 +338,11 @@ describe('SwipeableHoleNavigator', () => {
   describe('Rerender Behavior', () => {
     it('handles multiple rerenders without crashing', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={1}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} currentHole={1} />
       );
 
       for (let i = 2; i <= 18; i++) {
-        rerender(
-          <SwipeableHoleNavigator {...defaultProps} currentHole={i}>
-            <TestChild hole={i} />
-          </SwipeableHoleNavigator>
-        );
+        rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={i} />);
       }
 
       expect(screen.getByText('Hole 18')).toBeTruthy();
@@ -536,23 +350,12 @@ describe('SwipeableHoleNavigator', () => {
 
     it('handles prop changes during potential animation', () => {
       const { rerender } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={5}>
-          <TestChild hole={5} />
-        </SwipeableHoleNavigator>
+        <SwipeableHoleNavigator {...defaultProps} currentHole={5} />
       );
 
       // Rapidly change props
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={6} enabled={false}>
-          <TestChild hole={6} />
-        </SwipeableHoleNavigator>
-      );
-
-      rerender(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={7} enabled={true}>
-          <TestChild hole={7} />
-        </SwipeableHoleNavigator>
-      );
+      rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={6} enabled={false} />);
+      rerender(<SwipeableHoleNavigator {...defaultProps} currentHole={7} enabled={true} />);
 
       expect(screen.getByText('Hole 7')).toBeTruthy();
     });
@@ -565,21 +368,13 @@ describe('SwipeableHoleNavigator', () => {
   describe('Callback Behavior', () => {
     it('receives onHoleChange callback', () => {
       const onHoleChange = jest.fn();
-      render(
-        <SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange} />);
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('onHoleChange is not called on initial render', () => {
       const onHoleChange = jest.fn();
-      render(
-        <SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} onHoleChange={onHoleChange} />);
       expect(onHoleChange).not.toHaveBeenCalled();
     });
   });
@@ -590,22 +385,12 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Theme and Styling', () => {
     it('renders in light mode', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>,
-        { isDarkMode: false }
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} />, { isDarkMode: false });
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
 
     it('renders in dark mode', () => {
-      render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>,
-        { isDarkMode: true }
-      );
+      render(<SwipeableHoleNavigator {...defaultProps} />, { isDarkMode: true });
       expect(screen.getByTestId('test-child')).toBeTruthy();
     });
   });
@@ -616,29 +401,17 @@ describe('SwipeableHoleNavigator', () => {
 
   describe('Snapshots', () => {
     it('matches snapshot for default state', () => {
-      const { toJSON } = render(
-        <SwipeableHoleNavigator {...defaultProps}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      const { toJSON } = render(<SwipeableHoleNavigator {...defaultProps} />);
       expect(toJSON()).toMatchSnapshot();
     });
 
     it('matches snapshot for middle hole', () => {
-      const { toJSON } = render(
-        <SwipeableHoleNavigator {...defaultProps} currentHole={9}>
-          <TestChild hole={9} />
-        </SwipeableHoleNavigator>
-      );
+      const { toJSON } = render(<SwipeableHoleNavigator {...defaultProps} currentHole={9} />);
       expect(toJSON()).toMatchSnapshot();
     });
 
     it('matches snapshot when disabled', () => {
-      const { toJSON } = render(
-        <SwipeableHoleNavigator {...defaultProps} enabled={false}>
-          <TestChild hole={1} />
-        </SwipeableHoleNavigator>
-      );
+      const { toJSON } = render(<SwipeableHoleNavigator {...defaultProps} enabled={false} />);
       expect(toJSON()).toMatchSnapshot();
     });
   });

@@ -8,8 +8,9 @@ Create a new React Native screen: **{{arg1}}**
 
 1. Read the project's screen patterns in `.claude/instructions/screens.md`
 2. Read the styling guide in `.claude/instructions/styling.md`
-3. Check if this screen needs subscription tier gating (`.claude/instructions/subscriptions.md`)
-4. Check for golf-specific requirements (`.claude/instructions/golf-guidelines.md`)
+3. **Review the common components catalog** in `.claude/instructions/common-components-catalog.md`
+4. Check if this screen needs subscription tier gating (`.claude/instructions/subscriptions.md`)
+5. Check for golf-specific requirements (`.claude/instructions/golf-guidelines.md`)
 
 ## Requirements
 
@@ -24,15 +25,19 @@ Organize by user role:
 - Use `useThemeColors()` hook for all colors
 - Use TanStack Query for data fetching
 - Use Zustand for local state if needed
+- **Use existing common components** from `@/components/common` (see catalog)
 - Include proper loading, error, and empty states
 - Add pull-to-refresh on list screens
 - Use KeyboardAvoidingView for form screens
 - Apply safe area insets via useSafeAreaInsets
 
-### Patterns
-- Loading: `<ActivityIndicator color={colors.primary} />`
-- Error: Show message with retry button
-- Empty: Helpful message with action button
+### Common Components (MUST USE)
+- Loading: `<LoadingSpinner />` from `@/components/common`
+- Error: `<ErrorState />` from `@/components/common`
+- Empty: `<EmptyState />` from `@/components/common`
+- Forms: `<FormInput />`, `<FormSection />` from `@/components/common`
+- Search: `<SearchBar />` from `@/components/common`
+- Modals: `<BottomSheet />`, `<ConfirmationDialog />` from `@/components/common`
 - List: Use FlatList or FlashList with pull-to-refresh
 
 ## Additional Context

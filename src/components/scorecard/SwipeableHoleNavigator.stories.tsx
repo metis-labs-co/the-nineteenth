@@ -35,10 +35,6 @@ const meta: Meta<typeof SwipeableHoleNavigator> = {
       control: { type: 'boolean' },
       description: 'Whether swipe gestures are enabled',
     },
-    playerCount: {
-      control: { type: 'number', min: 1, max: 4, step: 1 },
-      description: 'Number of players for skeleton preview',
-    },
   },
 };
 
@@ -197,7 +193,10 @@ function InteractiveWrapper({
     setCurrentHole(newHole);
   };
 
-  const hole = mockHoles[(currentHole - 1) % mockHoles.length];
+  const renderHole = (holeNumber: number) => {
+    const hole = mockHoles[(holeNumber - 1) % mockHoles.length];
+    return <MockHoleContent hole={hole} playerCount={playerCount} />;
+  };
 
   return (
     <View style={styles.container}>
@@ -215,10 +214,8 @@ function InteractiveWrapper({
         totalHoles={totalHoles}
         onHoleChange={handleHoleChange}
         enabled={enabled}
-        playerCount={playerCount}
-      >
-        <MockHoleContent hole={hole} playerCount={playerCount} />
-      </SwipeableHoleNavigator>
+        renderHole={renderHole}
+      />
 
       <View style={styles.buttonBar}>
         <Button

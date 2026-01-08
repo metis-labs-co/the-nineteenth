@@ -37,6 +37,7 @@ export async function updateRound(
     game_type?: GameType;
     selected_tee?: TeeBox | null;
     scoring_pairs_required?: boolean;
+    course_id?: string | null;
   }
 ): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround

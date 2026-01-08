@@ -50,37 +50,23 @@ exports[`SwipeableHoleNavigator Snapshots matches snapshot for default state 1`]
       style={
         {
           "flex": 1,
-          "opacity": 1,
           "transform": [
             {
               "translateX": 0,
-            },
-            {
-              "scale": 1,
             },
           ],
         }
       }
     >
       <View
-        collapsable={false}
-        style={
-          {
-            "flex": 1,
-            "opacity": 1,
-          }
-        }
+        testID="test-child"
       >
-        <View
-          testID="test-child"
+        <Text
+          testID="hole-display"
         >
-          <Text
-            testID="hole-display"
-          >
-            Hole 
-            1
-          </Text>
-        </View>
+          Hole 
+          1
+        </Text>
       </View>
     </View>
   </View>
@@ -137,37 +123,23 @@ exports[`SwipeableHoleNavigator Snapshots matches snapshot for middle hole 1`] =
       style={
         {
           "flex": 1,
-          "opacity": 1,
           "transform": [
             {
               "translateX": 0,
-            },
-            {
-              "scale": 1,
             },
           ],
         }
       }
     >
       <View
-        collapsable={false}
-        style={
-          {
-            "flex": 1,
-            "opacity": 1,
-          }
-        }
+        testID="test-child"
       >
-        <View
-          testID="test-child"
+        <Text
+          testID="hole-display"
         >
-          <Text
-            testID="hole-display"
-          >
-            Hole 
-            9
-          </Text>
-        </View>
+          Hole 
+          9
+        </Text>
       </View>
     </View>
   </View>
@@ -224,37 +196,23 @@ exports[`SwipeableHoleNavigator Snapshots matches snapshot when disabled 1`] = `
       style={
         {
           "flex": 1,
-          "opacity": 1,
           "transform": [
             {
               "translateX": 0,
-            },
-            {
-              "scale": 1,
             },
           ],
         }
       }
     >
       <View
-        collapsable={false}
-        style={
-          {
-            "flex": 1,
-            "opacity": 1,
-          }
-        }
+        testID="test-child"
       >
-        <View
-          testID="test-child"
+        <Text
+          testID="hole-display"
         >
-          <Text
-            testID="hole-display"
-          >
-            Hole 
-            1
-          </Text>
-        </View>
+          Hole 
+          1
+        </Text>
       </View>
     </View>
   </View>

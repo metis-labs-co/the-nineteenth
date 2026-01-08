@@ -2,7 +2,7 @@
  * Types and constants for RoundDetailsStep
  */
 
-import type { RoundDetailsFormData, GameType, TeeBoxFormData } from '@/schemas/competition';
+import type { RoundDetailsFormData, GameType, TeeBoxFormData, SimplifiedRoundFormData } from '@/schemas/competition';
 import type { TeeBox, Venue } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
 
@@ -134,5 +134,17 @@ export function getFilteredGameTypes(allowedGameTypes?: GameType[]): GameTypeOpt
   }));
 }
 
+// Simplified step props for the new wizard flow
+export interface SimplifiedRoundDetailsStepProps {
+  initialData?: SimplifiedRoundFormData[];
+  onComplete: (data: SimplifiedRoundFormData[]) => void;
+  onBack: () => void;
+  allowedGameTypes?: GameType[];
+  maxRoundsPerCompetition?: number;
+  /** Competition start date from step 1 (DD/MM/YYYY format) - used as default for new rounds */
+  competitionStartDate?: string;
+  isPremium?: boolean;
+}
+
 // Re-export types from schemas for convenience
-export type { RoundDetailsFormData, GameType, TeeBoxFormData };
+export type { RoundDetailsFormData, GameType, TeeBoxFormData, SimplifiedRoundFormData };

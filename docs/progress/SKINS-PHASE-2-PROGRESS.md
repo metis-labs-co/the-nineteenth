@@ -1,522 +1,537 @@
 # Skins Game - Phase 2 Implementation Plan
 
-**Goal:** Add "Tally All Rounds" settlement mode + skins statistics tracking, history view, and lifetime earnings display
-**Status:** Not Started - 0% (0/18 tasks)
+**Goal:** Add Competition Prize Pools for funding skins games and other competition prizes
+**Status:** Not Started - 0% (0/22 tasks)
 **Prerequisites:** Phase 1 complete
 
 ---
 
 ## Overview
 
-This plan implements **Phase 2** of the Skins gambling feature with two major additions:
-1. **Tally All Rounds** settlement mode - accumulate carryovers across all competition rounds with one final settlement
-2. **Statistics & History** - track lifetime stats, game history, and leaderboards
+This plan implements **Phase 2** of the Skins gambling feature - a Competition Prize Pool system that provides funding for skins games and other competition prizes.
 
 ### Key Features
-- **Tally All Rounds** - Carryover accumulates across rounds, settle at competition end
-- **Lifetime statistics** - Track wins, earnings, streaks across all games
-- **Game history** - View past skins games with full breakdowns
-- **Win streaks** - Current and longest hole win streaks
-- **Skins leaderboard** - Compare earnings with friends
-- **Performance trends** - Track improvement over time
+- **Prize Pool Setup** - Configurable from competition details screen
+- **Flexible Funding** - Per-player contribution OR fixed total amount
+- **Multi-purpose Allocation** - Fund skins, overall winner prizes, best round prizes, etc.
+- **Pool-to-Skins Integration** - Competition round skins can draw from prize pool
+- **Carryover Returns to Pool** - Leftover skins pot returns to pool (not carried to next round)
+- **Auto-Split** - Automatically enable skins on all rounds with equal pot values
+- **Balance Tracking** - Show remaining pool throughout competition
+- **Locking** - Prize pool locked once any round starts
 
-### Tally All Rounds Mode
+### Configuration Location
 
-When `settlement_mode = 'tally_all'` on `competition_skins_config`:
-- Carryover from Round 1 Hole 18 → Round 2 Hole 1
-- One big pot accumulates across all rounds
-- Settlement happens only when competition is marked complete
-- Requires same participants in all rounds (for fairness)
+| Feature | Where to Configure |
+|---------|-------------------|
+| **Prize Pool** | CreateCompetitionScreen / EditCompetitionScreen |
+| **Pool Allocations** | Competition details / Prize Pool section |
 
-**Example: 3-round competition, $5/hole, 4 players**
+### Locking Rules
+
+| What | When Locked |
+|------|-------------|
+| Prize Pool Config | **Once ANY round has started** (status != 'scheduled') |
+| Pool Allocations | When first round starts |
+| Round Skins Config | When THAT round starts |
+
+This prevents changing the pot mid-game and ensures fairness for all players.
+
+### Prize Pool Flow
+
 ```
-Round 1: Total pot $90, John wins 3 holes ($15), $30 carries to Round 2
-Round 2: $30 + $90 = $120 pot, Sarah wins 5 holes ($25+$30 carryover), $40 carries
-Round 3: $40 + $90 = $130 pot, Final settlement
-
-Competition End Settlement:
-- John: +$45 (3 wins R1, 2 wins R3)
-- Sarah: +$55 (5 wins R2)
-- Mike: -$50
-- You: -$50
+Competition Created
+        ↓
+Prize Pool Configured (optional)
+  ├─ Funding Type: Per-player ($X × players) OR Fixed Total ($Y)
+  └─ Allocations: Skins Budget %, Winner Prizes %, Other %
+        ↓
+Rounds Scheduled
+        ↓
+Skins Enabled on Round (draws from pool OR separate pot)
+        ↓
+Round Starts → Pool Allocation LOCKED
+        ↓
+Round Completes
+  ├─ Skins settled per-round
+  └─ Carryover returns to pool (not carried to next round)
+        ↓
+Competition Ends → Remaining pool distributed to prize winners
 ```
 
-### Example Statistics Display
+### Example Scenario
 
-**Player "John" Skins Profile:**
-```
-LIFETIME SKINS STATS
-Games Played: 24
-Holes Won: 87 / 432 (20.1%)
-Total Winnings: $1,245.00
-Total Buy-ins: $1,080.00
-Net Result: +$165.00
+**Competition: 8 players, 4 rounds, Prize Pool $400**
+- Funding: $50 per player × 8 players = $400 total
+- Allocation: Skins 60% ($240), Overall Winner 30% ($120), Best Round 10% ($40)
 
-STREAKS
-Current Win Streak: 2 holes
-Longest Win Streak: 7 holes (Royal Melbourne, Oct 2025)
+**Skins Budget: $240 for 4 rounds**
+- Auto-split enabled: $60 per round ($3.33/hole)
+- Round 1: $60 pot, John wins $30, Sarah wins $20, $10 carryover → returns to pool
+- Round 2: $60 pot from pool (plus $10 returned) = $70 available, use $60
+- Round 3: $60 pot, competitive play
+- Round 4: $60 pot + remaining $20 = $80 final round
 
-RECENT GAMES
-Royal Melbourne (Dec 15) - Won $45, +$22.50 net
-Kingston Heath (Dec 8) - Won $15, -$7.50 net
-```
+**End of Competition:**
+- Skins settled per-round (individual settlements)
+- Overall Winner gets $120
+- Best Round (lowest score) gets $40
 
 ---
 
-## Sprint 1: Tally All Rounds - Database
+## Sprint 1: Database Foundation
 
-### Task 1: Competition Skins Game Table
+### Task 1: Competition Prize Pools Table
 **Status:** Not Started
 **Command:**
 ```bash
-/db "Create migration for competition-level skins game tracking (tally all rounds mode). New table competition_skins_games: id UUID PK, competition_id UUID FK to competitions ON DELETE CASCADE UNIQUE, config_id UUID FK to competition_skins_config ON DELETE CASCADE, participant_ids UUID[] NOT NULL, total_pot DECIMAL(12,2) DEFAULT 0, current_carryover DECIMAL(10,2) DEFAULT 0, current_round_number INTEGER DEFAULT 1, rounds_completed INTEGER DEFAULT 0, status TEXT NOT NULL CHECK IN ('active', 'completed', 'cancelled') DEFAULT 'active', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), completed_at TIMESTAMPTZ NULL. RLS: participants can view (auth.uid() = ANY(participant_ids)), organizers can manage. Add function get_competition_skins_carryover(competition_id) to get current carryover for cross-round continuity. Add trigger on skins_games completion to update competition_skins_games carryover when settlement_mode='tally_all'."
+/db "Create migration for competition prize pools. New table competition_prize_pools: id UUID PK DEFAULT gen_random_uuid(), competition_id UUID FK to competitions ON DELETE CASCADE UNIQUE NOT NULL, funding_type TEXT NOT NULL CHECK IN ('per_player', 'fixed_total') DEFAULT 'per_player', funding_amount DECIMAL(10,2) NOT NULL CHECK > 0, currency TEXT DEFAULT 'AUD', total_pool_amount DECIMAL(12,2) NOT NULL (calculated: per_player × player_count OR fixed_total), skins_allocation_percent DECIMAL(5,2) DEFAULT 0 CHECK BETWEEN 0 AND 100, winner_allocation_percent DECIMAL(5,2) DEFAULT 0 CHECK BETWEEN 0 AND 100, other_allocation_percent DECIMAL(5,2) DEFAULT 0 CHECK BETWEEN 0 AND 100, skins_budget DECIMAL(12,2) DEFAULT 0 (calculated from percent), winner_budget DECIMAL(12,2) DEFAULT 0, other_budget DECIMAL(12,2) DEFAULT 0, auto_split_skins BOOLEAN DEFAULT FALSE (auto-enable skins on all rounds with equal pots), skins_pot_per_round DECIMAL(10,2) NULL (calculated when auto_split enabled), is_locked BOOLEAN DEFAULT FALSE, locked_at TIMESTAMPTZ NULL, status TEXT NOT NULL CHECK IN ('draft', 'active', 'settled') DEFAULT 'draft', created_by UUID FK to players NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add CHECK constraint: skins_allocation + winner_allocation + other_allocation <= 100. Add indexes on competition_id, status. Add updated_at trigger."
 ```
 **Deliverables:**
-- [ ] `supabase/migrations/2026XXXX_competition_skins_games.sql`
-- [ ] `competition_skins_games` table
-- [ ] RLS policies
-- [ ] `get_competition_skins_carryover()` function
-- [ ] Trigger for carryover updates
-
-**Dependencies:** Phase 1 complete
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 2: Cross-Round Carryover Function
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create PostgreSQL functions for tally-all-rounds carryover logic. (1) initialize_competition_skins_game(p_competition_id UUID) - creates competition_skins_games record when first round starts if settlement_mode='tally_all', validates same participants across rounds, SECURITY DEFINER. (2) get_round_starting_carryover(p_round_id UUID) - returns carryover from previous round in competition if tally_all mode, 0 otherwise, STABLE. (3) update_competition_carryover(p_competition_id UUID, p_carryover DECIMAL) - updates current_carryover on competition_skins_games after each round, SECURITY DEFINER. (4) finalize_competition_skins(p_competition_id UUID) - called when competition ends, calculates final payouts across all rounds, splits any remaining carryover, marks completed, SECURITY DEFINER. (5) validate_tally_all_participants(p_competition_id UUID) - ensures all rounds have same participants, returns {isValid, errors}."
-```
-**Deliverables:**
-- [ ] `initialize_competition_skins_game()` function
-- [ ] `get_round_starting_carryover()` function
-- [ ] `update_competition_carryover()` function
-- [ ] `finalize_competition_skins()` function
-- [ ] `validate_tally_all_participants()` function
-
-**Dependencies:** Task 1
-**Estimated Time:** 4-5 hours
-
----
-
-### Task 3: Competition Skins Types
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Add tally-all-rounds types to src/types/database/skins.types.ts. New interfaces: CompetitionSkinsGame (id, competitionId, configId, participantIds string[], totalPot number, currentCarryover number, currentRoundNumber number, roundsCompleted number, status, createdAt, updatedAt, completedAt nullable). CompetitionSkinsGameWithRounds extends with rounds array of SkinsGame[]. CompetitionSkinsSummary (game: CompetitionSkinsGame, roundSummaries: {roundId, roundNumber, holesWon map, potWon map, carryoverOut}[], totalPayouts: SkinsPayout[]). Update SkinsSettlementMode to include validation that tally_all requires same participants."
-```
-**Deliverables:**
-- [ ] `CompetitionSkinsGame` interface
-- [ ] `CompetitionSkinsGameWithRounds` interface
-- [ ] `CompetitionSkinsSummary` interface
-- [ ] Type exports updated
-
-**Dependencies:** Task 1 (schema)
-**Estimated Time:** 1-2 hours
-
----
-
-### Task 4: Tally All Rounds Hooks
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Add tally-all-rounds hooks to src/hooks/useCompetitionSkinsConfig.ts. New query keys: competitionSkinsGame: (competitionId) => [...skinsKeys.all, 'competitionGame', competitionId]. New hooks: (1) useCompetitionSkinsGame(competitionId) - fetches competition_skins_games with round details, staleTime 30s. (2) useCompetitionSkinsSummary(competitionId) - combines competition game + all round results + calculated payouts across all rounds. (3) useInitializeCompetitionSkins() - mutation to initialize when first round starts. (4) useFinalizeCompetitionSkins() - mutation to finalize when competition ends. (5) useValidateTallyAllParticipants(competitionId) - query to check participant consistency."
-```
-**Deliverables:**
-- [ ] `useCompetitionSkinsGame()` hook
-- [ ] `useCompetitionSkinsSummary()` hook
-- [ ] `useInitializeCompetitionSkins()` mutation
-- [ ] `useFinalizeCompetitionSkins()` mutation
-- [ ] `useValidateTallyAllParticipants()` hook
-
-**Dependencies:** Task 3 (types)
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 5: Update Score Processing for Tally Mode
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Update skins score processing to handle tally-all-rounds mode. In score submission flow: (1) When round starts and settlement_mode='tally_all', call initializeCompetitionSkins if not exists. (2) When processing Hole 1, get starting carryover from previous round via get_round_starting_carryover(). (3) When round finalizes, update competition carryover via update_competition_carryover(). (4) Do NOT settle per-round - skip settlement step when tally_all. (5) When competition is marked complete, call finalizeCompetitionSkins to settle everything. Update UI to show 'Settlement at competition end' instead of per-round settlement for tally_all mode."
-```
-**Deliverables:**
-- [ ] Round start initializes competition skins
-- [ ] Hole 1 gets carryover from previous round
-- [ ] Round end updates competition carryover
-- [ ] Skip per-round settlement for tally_all
-- [ ] Competition end triggers final settlement
-
-**Dependencies:** Task 4 (hooks), Phase 1 Task 25
-**Estimated Time:** 4-5 hours
-
----
-
-### Task 6: Competition Skins Results UI
-**Status:** Not Started
-**Command:**
-```bash
-/component "CompetitionSkinsResultsCard - Show cumulative skins results across all rounds. Props: competitionId (string), summary (CompetitionSkinsSummary). Layout: Card with header 'COMPETITION SKINS - Tally All Rounds'. (1) Overview section: Total Pot, Rounds Played, Current Carryover. (2) Per-round breakdown: Collapsible sections for each round showing holes won and pot won per player. (3) Running totals: Cumulative winnings per player updated after each round. (4) If competition not complete: 'Final settlement when competition ends' note. (5) If complete: Show final settlement using SkinsSettlementCard. Use useCompetitionSkinsSummary hook."
-```
-**Deliverables:**
-- [ ] `src/components/skins/CompetitionSkinsResultsCard.tsx`
-- [ ] Overview section
-- [ ] Per-round breakdown (collapsible)
-- [ ] Running totals display
-- [ ] Final settlement integration
-
-**Dependencies:** Task 4 (hooks)
-**Estimated Time:** 4-5 hours
-
----
-
-## Sprint 2: Statistics Database
-
-### Task 7: Player Statistics Table
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create migration for skins player statistics table. New table skins_player_statistics: id UUID PK, player_id UUID FK to players ON DELETE CASCADE UNIQUE, games_played INTEGER DEFAULT 0, games_won INTEGER DEFAULT 0 (most holes won in game), total_holes_played INTEGER DEFAULT 0, total_holes_won INTEGER DEFAULT 0, total_holes_tied INTEGER DEFAULT 0, total_holes_lost INTEGER DEFAULT 0, total_buy_ins DECIMAL(12,2) DEFAULT 0, total_winnings DECIMAL(12,2) DEFAULT 0, total_net_result DECIMAL(12,2) DEFAULT 0, current_hole_win_streak INTEGER DEFAULT 0, longest_hole_win_streak INTEGER DEFAULT 0, longest_streak_game_id UUID FK to skins_games NULL (reference to game where streak occurred), longest_streak_date DATE NULL, win_rate DECIMAL(5,2) NULL (calculated: holes_won/holes_played * 100), avg_net_per_game DECIMAL(10,2) NULL (calculated: net_result/games_played), last_game_at TIMESTAMPTZ NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add RLS: users can view own stats (player_id = auth.uid()), friends can view each other's stats (via friends table check). Add updated_at trigger. Add indexes on player_id, win_rate DESC, total_net_result DESC for leaderboard queries."
-```
-**Deliverables:**
-- [ ] `supabase/migrations/2025XXXX_skins_player_statistics.sql`
-- [ ] `skins_player_statistics` table
-- [ ] RLS policies for own and friends' stats
-- [ ] Indexes for leaderboard queries
+- [ ] `supabase/migrations/XXXXXXXX_competition_prize_pools.sql`
+- [ ] `competition_prize_pools` table with all constraints
+- [ ] CHECK constraints for allocations
+- [ ] Indexes
 - [ ] Updated_at trigger
 
+**Dependencies:** None
+
+---
+
+### Task 2: Pool Transactions Table
+**Status:** Not Started
+**Command:**
+```bash
+/db "Create pool transactions table for tracking pool usage. New table pool_transactions: id UUID PK DEFAULT gen_random_uuid(), pool_id UUID FK to competition_prize_pools ON DELETE CASCADE NOT NULL, transaction_type TEXT NOT NULL CHECK IN ('allocation', 'skins_draw', 'skins_return', 'prize_payout', 'adjustment'), amount DECIMAL(10,2) NOT NULL, round_id UUID FK to rounds NULL (for skins transactions), description TEXT, balance_after DECIMAL(12,2) NOT NULL, created_by UUID FK to players NULL, created_at TIMESTAMPTZ DEFAULT NOW(). Add index on pool_id, transaction_type, round_id."
+```
+**Deliverables:**
+- [ ] `pool_transactions` table
+- [ ] Transaction type tracking
+- [ ] Balance tracking
+- [ ] Indexes
+
+**Dependencies:** Task 1
+
+---
+
+### Task 3: RLS Policies for Prize Pools
+**Status:** Not Started
+**Command:**
+```bash
+/db "Add RLS policies for prize pool tables. competition_prize_pools: enable RLS, policy 'organizers_manage_pools' ALL using competition_id IN (SELECT id FROM competitions WHERE organizer_id = auth.uid()), policy 'members_view_pools' SELECT using competition_id IN (SELECT competition_id FROM competition_players WHERE player_id = auth.uid()). pool_transactions: enable RLS, policy 'pool_access_transactions' SELECT using pool_id IN (SELECT id FROM competition_prize_pools WHERE competition_id IN (SELECT id FROM competitions WHERE organizer_id = auth.uid() OR id IN (SELECT competition_id FROM competition_players WHERE player_id = auth.uid()))), policy 'organizers_create_transactions' INSERT using pool_id IN (SELECT id FROM competition_prize_pools WHERE competition_id IN (SELECT id FROM competitions WHERE organizer_id = auth.uid()))."
+```
+**Deliverables:**
+- [ ] RLS enabled on both tables
+- [ ] Organizer management policies
+- [ ] Member view policies
+- [ ] Transaction creation policies
+
+**Dependencies:** Task 1, Task 2
+
+---
+
+### Task 4: Prize Pool Functions
+**Status:** Not Started
+**Command:**
+```bash
+/db "Create PostgreSQL functions for prize pool management. (1) calculate_pool_total(p_funding_type TEXT, p_funding_amount DECIMAL, p_player_count INTEGER) RETURNS DECIMAL - returns funding_amount × player_count if per_player, funding_amount if fixed_total, IMMUTABLE. (2) calculate_pool_allocations(p_pool_id UUID) RETURNS VOID - updates skins_budget, winner_budget, other_budget based on percentages and total_pool_amount, SECURITY DEFINER. (3) lock_prize_pool(p_pool_id UUID) RETURNS VOID - sets is_locked=true, locked_at=NOW(), SECURITY DEFINER. (4) draw_from_pool(p_pool_id UUID, p_round_id UUID, p_amount DECIMAL) RETURNS DECIMAL - creates skins_draw transaction, returns amount drawn (may be less if insufficient funds), SECURITY DEFINER. (5) return_to_pool(p_pool_id UUID, p_round_id UUID, p_amount DECIMAL, p_description TEXT) RETURNS VOID - creates skins_return transaction for carryover returns, SECURITY DEFINER. (6) get_pool_balance(p_pool_id UUID, p_category TEXT DEFAULT 'skins') RETURNS DECIMAL - returns remaining balance for category, STABLE. (7) can_draw_from_pool(p_pool_id UUID, p_amount DECIMAL) RETURNS BOOLEAN - checks if skins budget has sufficient funds, STABLE. (8) auto_split_pool_for_skins(p_pool_id UUID, p_round_count INTEGER) RETURNS VOID - calculates skins_pot_per_round = skins_budget / round_count, SECURITY DEFINER."
+```
+**Deliverables:**
+- [ ] `calculate_pool_total()` function
+- [ ] `calculate_pool_allocations()` function
+- [ ] `lock_prize_pool()` function
+- [ ] `draw_from_pool()` function
+- [ ] `return_to_pool()` function
+- [ ] `get_pool_balance()` function
+- [ ] `can_draw_from_pool()` function
+- [ ] `auto_split_pool_for_skins()` function
+
+**Dependencies:** Task 1, Task 2
+
+---
+
+### Task 5: Pool Locking Trigger
+**Status:** Not Started
+**Command:**
+```bash
+/db "Create trigger to auto-lock prize pool when a round starts. Trigger function lock_pool_on_round_start() - AFTER UPDATE ON rounds, when OLD.status = 'scheduled' AND NEW.status != 'scheduled', check if round belongs to competition with prize pool, if pool exists and not locked, call lock_prize_pool(). Also create trigger to prevent pool updates after lock - BEFORE UPDATE ON competition_prize_pools, if OLD.is_locked = true AND (funding or allocation fields changed), RAISE EXCEPTION 'Prize pool is locked after round starts'."
+```
+**Deliverables:**
+- [ ] `lock_pool_on_round_start()` trigger function
+- [ ] Trigger on rounds table
+- [ ] Prevention trigger for updates
+- [ ] Exception handling
+
+**Dependencies:** Task 4
+
+---
+
+### Task 6: Update skins_games for Pool Source
+**Status:** Not Started
+**Command:**
+```bash
+/db "Update skins_games table to track pool source and return carryover to pool. Add column pool_draw_amount DECIMAL(10,2) DEFAULT 0 (amount drawn from prize pool for this game). Add column carryover_returned DECIMAL(10,2) DEFAULT 0 (carryover returned to pool on completion). Create trigger on_skins_game_complete_return_carryover - AFTER UPDATE ON skins_games, when OLD.status != 'completed' AND NEW.status = 'completed', if pool_source = 'prize_pool', calculate remaining carryover and call return_to_pool()."
+```
+**Deliverables:**
+- [ ] `pool_draw_amount` column
+- [ ] `carryover_returned` column
+- [ ] Carryover return trigger
+- [ ] Pool transaction creation
+
+**Dependencies:** Task 4, Phase 1 Task 1
+
+---
+
+## Sprint 2: TypeScript Types
+
+### Task 7: Prize Pool Type Definitions
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Create src/types/database/prizePool.types.ts with TypeScript types. Types: PoolFundingType = 'per_player' | 'fixed_total', PoolStatus = 'draft' | 'active' | 'settled', PoolTransactionType = 'allocation' | 'skins_draw' | 'skins_return' | 'prize_payout' | 'adjustment'. Interfaces: CompetitionPrizePool (id, competition_id, funding_type, funding_amount, currency, total_pool_amount, skins_allocation_percent, winner_allocation_percent, other_allocation_percent, skins_budget, winner_budget, other_budget, auto_split_skins, skins_pot_per_round nullable, is_locked, locked_at nullable, status, created_by, created_at, updated_at). PoolTransaction (id, pool_id, transaction_type, amount, round_id nullable, description nullable, balance_after, created_by nullable, created_at). CreatePrizePoolInput (competition_id, funding_type, funding_amount, currency optional, skins_allocation_percent, winner_allocation_percent optional, other_allocation_percent optional, auto_split_skins optional). UpdatePrizePoolInput (funding_type optional, funding_amount optional, allocations optional, auto_split_skins optional). PoolAllocationSummary (skins: {percent, budget, used, remaining}, winner: {...}, other: {...}). PoolBalanceSummary (total, skins_remaining, winner_remaining, other_remaining, transactions_count). Export all from src/types/database/index.ts."
+```
+**Deliverables:**
+- [ ] `src/types/database/prizePool.types.ts`
+- [ ] Enum types (PoolFundingType, PoolStatus, PoolTransactionType)
+- [ ] CompetitionPrizePool interface
+- [ ] PoolTransaction interface
+- [ ] Input types
+- [ ] Summary types
+- [ ] Export from index
+
+**Dependencies:** Task 1 (schema reference)
+
+---
+
+### Task 8: Update Skins Types for Pool Source
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/types/database/skins.types.ts to include pool-related fields. Add to SkinsGame interface: pool_draw_amount: number, carryover_returned: number. Add SkinsPoolSourceConfig interface: source: SkinsPoolSource, pool_id: string nullable (when source='prize_pool'), draw_amount: number nullable. Update CreateSkinsGameInput to include pool_id optional for tracking which pool funds the game."
+```
+**Deliverables:**
+- [ ] `pool_draw_amount` and `carryover_returned` in SkinsGame
+- [ ] `SkinsPoolSourceConfig` interface
+- [ ] Updated CreateSkinsGameInput
+
+**Dependencies:** Task 7, Phase 1 Task 5
+
+---
+
+## Sprint 3: React Query Hooks
+
+### Task 9: Query Keys for Prize Pools
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/hooks/queryKeys.ts to add prize pool query keys. Add prizePoolKeys object: all: ['prizePool'] as const, pool: (competitionId) => [...all, competitionId], transactions: (poolId) => [...all, 'transactions', poolId], balance: (poolId) => [...all, 'balance', poolId], summary: (competitionId) => [...all, 'summary', competitionId]. Export prizePoolKeys and add to allQueryKeys."
+```
+**Deliverables:**
+- [ ] `prizePoolKeys` object
+- [ ] All key patterns
+- [ ] Exported and in allQueryKeys
+
+**Dependencies:** None
+
+---
+
+### Task 10: Prize Pool Hooks
+**Status:** Not Started
+**Command:**
+```bash
+/hook "Create src/hooks/usePrizePool.ts with TanStack Query hooks. Queries: (1) useCompetitionPrizePool(competitionId) - fetches prize pool for competition, returns CompetitionPrizePool or null, staleTime 1min. (2) usePoolTransactions(poolId, options?: {limit, type}) - fetches transactions with optional filtering, staleTime 30s. (3) usePoolBalance(poolId) - fetches current balances via get_pool_balance RPC, staleTime 10s. (4) usePoolAllocationSummary(competitionId) - calculates allocation summary with used/remaining, staleTime 30s. (5) useCanDrawFromPool(poolId, amount) - checks if amount can be drawn, staleTime 10s. Mutations: (6) useCreatePrizePool() - inserts prize pool, invalidates pool query. (7) useUpdatePrizePool() - updates pool (only if not locked), invalidates pool. (8) useDeletePrizePool() - deletes pool (only if not locked), invalidates pool. (9) useAutoSplitPool() - calls auto_split_pool_for_skins RPC, invalidates pool. Export all hooks."
+```
+**Deliverables:**
+- [ ] `src/hooks/usePrizePool.ts`
+- [ ] 5 query hooks
+- [ ] 4 mutation hooks
+- [ ] Export from `src/hooks/index.ts`
+
+**Dependencies:** Task 7 (types), Task 9 (query keys)
+
+---
+
+## Sprint 4: UI Components - Prize Pool Setup
+
+### Task 11: PrizePoolSection Component
+**Status:** Not Started
+**Command:**
+```bash
+/component "PrizePoolSection - Prize pool configuration section for competition setup. Props: competitionId (string), pool (CompetitionPrizePool nullable), playerCount (number), roundCount (number), onPoolChange ((pool: CompetitionPrizePool) => void), disabled (boolean for locked state). Layout: Surface card with trophy icon, 'Prize Pool' header. (1) If no pool: 'Add Prize Pool' button with description 'Fund skins games and competition prizes'. (2) If pool exists: funding type toggle (Per Player / Fixed Total), amount input with calculated total display, allocation sliders (Skins %, Winner %, Other %), auto-split toggle for skins with calculated per-round amount. (3) If locked: read-only display with 'Locked' badge, edit disabled. Premium tier gating. Use React Hook Form for form state."
+```
+**Deliverables:**
+- [ ] `src/components/prizePool/PrizePoolSection.tsx`
+- [ ] Add/Edit pool UI
+- [ ] Funding type toggle
+- [ ] Allocation sliders
+- [ ] Auto-split toggle
+- [ ] Locked state display
+- [ ] Premium gating
+
+**Dependencies:** Task 7 (types)
+
+---
+
+### Task 12: PrizePoolSummaryCard Component
+**Status:** Not Started
+**Command:**
+```bash
+/component "PrizePoolSummaryCard - Display prize pool summary with balances. Props: pool (CompetitionPrizePool), summary (PoolAllocationSummary), isLocked (boolean), onEditPress (() => void optional). Layout: Card with header showing total pool amount and lock status. Three sections: (1) SKINS BUDGET - allocation %, budget amount, used amount, remaining amount with progress bar. (2) WINNER PRIZES - same layout. (3) OTHER - same layout. If auto_split_skins enabled, show 'Auto-split: $X per round for Y rounds'. Show 'View Transactions' link. Edit button (disabled if locked)."
+```
+**Deliverables:**
+- [ ] `src/components/prizePool/PrizePoolSummaryCard.tsx`
+- [ ] Total pool display
+- [ ] Allocation breakdown with progress bars
+- [ ] Auto-split info
+- [ ] Edit/View actions
+- [ ] Locked state
+
+**Dependencies:** Task 7 (types)
+
+---
+
+### Task 13: PoolTransactionsList Component
+**Status:** Not Started
+**Command:**
+```bash
+/component "PoolTransactionsList - List of pool transactions for audit. Props: transactions (PoolTransaction[]), isLoading (boolean), onEndReached (() => void optional). Layout: FlatList with transaction rows. Each row: Icon based on type (arrow-down for draw, arrow-up for return, trophy for prize), description, amount (+/- formatted), running balance, timestamp. Filter tabs: All, Skins, Prizes. Empty state 'No transactions yet'. Pull-to-refresh."
+```
+**Deliverables:**
+- [ ] `src/components/prizePool/PoolTransactionsList.tsx`
+- [ ] Transaction row component
+- [ ] Type-based icons
+- [ ] Filter tabs
+- [ ] Empty state
+
+**Dependencies:** Task 7 (types)
+
+---
+
+## Sprint 5: Competition Integration
+
+### Task 14: Add Prize Pool to CreateCompetitionScreen
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add prize pool configuration to CreateCompetitionScreen. Import PrizePoolSection from @/components/prizePool. Add pool state: prizePool (CreatePrizePoolInput | null). Add PrizePoolSection after rounds configuration. On competition create: if prizePool configured, create competition first, then create prize pool with competition_id. If auto_split_skins enabled, create skins_games for each round drawing from pool. Handle errors - pool creation failure should show warning but not fail competition creation."
+```
+**Deliverables:**
+- [ ] Prize pool state in wizard
+- [ ] PrizePoolSection integration
+- [ ] Pool creation on submit
+- [ ] Auto-split skins creation
+- [ ] Error handling
+
+**Dependencies:** Task 11 (component)
+
+---
+
+### Task 15: Add Prize Pool to EditCompetitionScreen
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add prize pool management to EditCompetitionScreen. Import PrizePoolSection, PrizePoolSummaryCard from @/components/prizePool. Use useCompetitionPrizePool hook to fetch existing pool. If no pool: show PrizePoolSection to add. If pool exists and not locked: show PrizePoolSection to edit. If pool locked: show PrizePoolSummaryCard (read-only). On save: create/update prize pool. Show warning if changing allocations will affect skins already configured."
+```
+**Deliverables:**
+- [ ] Load existing prize pool
+- [ ] Add/Edit/View modes based on lock status
+- [ ] Save pool changes
+- [ ] Warning for allocation changes
+
+**Dependencies:** Task 11, Task 12 (components), Task 10 (hooks)
+
+---
+
+### Task 16: Update Round Skins to Support Pool Source
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update AddRoundScreen/EditRoundScreen skins section to support pool source selection. When competition has prize pool, add pool source toggle: 'Direct Pot' vs 'From Prize Pool'. If 'From Prize Pool': show available skins budget from pool, validate amount doesn't exceed budget (block if insufficient), when enabled call draw_from_pool to reserve amount. If pool has auto_split_skins enabled, pre-fill pot value with skins_pot_per_round and show 'Using auto-split amount' message. Show pool balance after this round's allocation."
+```
+**Deliverables:**
+- [ ] Pool source toggle UI
+- [ ] Available budget display
+- [ ] Validation against pool balance
+- [ ] Auto-split pre-fill
+- [ ] Balance preview
+
+**Dependencies:** Phase 1 Task 22, Task 10 (hooks)
+
+---
+
+## Sprint 6: Pool-Skins Integration
+
+### Task 17: Carryover Return to Pool
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update skins finalization to return carryover to pool. In finalize_skins_game or useFinalizeSkinsGame: after calculating payouts, if pool_source = 'prize_pool' and there's remaining carryover (after hole 18 split), call return_to_pool with the carryover amount. Update skins_games.carryover_returned field. Create pool_transaction record with type 'skins_return', description 'Round X carryover returned'. Update the Phase 1 hole 18 split logic to only split what's needed, return remainder to pool."
+```
+**Deliverables:**
+- [ ] Carryover return logic
+- [ ] Pool transaction creation
+- [ ] carryover_returned field update
+- [ ] Updated hole 18 split
+
+**Dependencies:** Phase 1 Task 24, Task 4 (functions)
+
+---
+
+### Task 18: Auto-Split Implementation
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Implement auto-split skins for all rounds. When auto_split_skins is enabled on prize pool: (1) Calculate skins_pot_per_round = skins_budget / round_count. (2) On pool creation/update with auto_split: for each scheduled round in competition, create skins_games record with pool_source='prize_pool', pot_value=skins_pot_per_round, pool_draw_amount=skins_pot_per_round. (3) Draw from pool for each round (draw_from_pool). (4) If rounds are added later, recalculate and create skins for new rounds. (5) If rounds are removed, cancel skins and return to pool. Create useAutoSplitSkinsForCompetition hook that handles this logic."
+```
+**Deliverables:**
+- [ ] Auto-split calculation
+- [ ] Skins games creation for all rounds
+- [ ] Pool draw transactions
+- [ ] Handle round additions/removals
+- [ ] `useAutoSplitSkinsForCompetition` hook
+
+**Dependencies:** Task 10 (hooks), Phase 1 Task 9 (skins hooks)
+
+---
+
+## Sprint 7: Statistics & Leaderboards
+
+### Task 19: Player Statistics Table
+**Status:** Not Started
+**Command:**
+```bash
+/db "Create migration for skins player statistics table. New table skins_player_statistics: id UUID PK, player_id UUID FK to players ON DELETE CASCADE UNIQUE, games_played INTEGER DEFAULT 0, games_won INTEGER DEFAULT 0, total_holes_played INTEGER DEFAULT 0, total_holes_won INTEGER DEFAULT 0, total_holes_tied INTEGER DEFAULT 0, total_buy_ins DECIMAL(12,2) DEFAULT 0, total_winnings DECIMAL(12,2) DEFAULT 0, total_net_result DECIMAL(12,2) DEFAULT 0, current_win_streak INTEGER DEFAULT 0, longest_win_streak INTEGER DEFAULT 0, win_rate DECIMAL(5,2) NULL, last_game_at TIMESTAMPTZ NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add trigger to update stats when skins_games completes. Add RLS for own stats + friends stats."
+```
+**Deliverables:**
+- [ ] `skins_player_statistics` table
+- [ ] Update trigger on game completion
+- [ ] RLS policies
+- [ ] Indexes for leaderboard queries
+
 **Dependencies:** Phase 1 complete
-**Estimated Time:** 2-3 hours
 
 ---
 
-### Task 8: Statistics Update Trigger
+### Task 20: Statistics & Leaderboard Hooks
 **Status:** Not Started
 **Command:**
 ```bash
-/db "Create trigger function to automatically update skins_player_statistics when games are finalized. Function update_skins_statistics() - triggered AFTER UPDATE ON skins_games when OLD.status != 'completed' AND NEW.status = 'completed'. For each participant in game: (1) Upsert into skins_player_statistics if not exists. (2) Increment games_played. (3) Get payouts from skins_payouts table. (4) Add holes_won, holes_tied, holes_lost to totals. (5) Add buy_in to total_buy_ins, winnings to total_winnings. (6) Update total_net_result. (7) Check if player had most holes won in game - if so, increment games_won. (8) Calculate and update current streak from recent games. (9) Check if current streak > longest streak, update if so. (10) Recalculate win_rate and avg_net_per_game. (11) Update last_game_at. Create trigger on skins_games table."
-```
-**Deliverables:**
-- [ ] `update_skins_statistics()` function
-- [ ] Trigger on skins_games
-- [ ] All stat calculations
-- [ ] Streak tracking logic
-
-**Dependencies:** Task 7
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 9: Streak Calculation Function
-**Status:** Not Started
-**Command:**
-```bash
-/db "Create function to calculate current win streak for a player. Function calculate_current_win_streak(p_player_id UUID) RETURNS INTEGER. Logic: Query recent skins_results where winner_id = player_id, ordered by calculated_at DESC. Count consecutive wins from most recent game backward until a loss or tie. A 'loss' is any hole where player participated but did not win (check skins_games.participant_ids contains player_id AND winner_id != player_id AND is_carryover = false). Return count. Also create function check_longest_streak_update(p_player_id UUID, p_current_streak INTEGER) - compares with existing longest, returns true if should update. Helper function get_player_recent_hole_results(p_player_id UUID, p_limit INTEGER) - returns recent hole results with win/loss/tie status."
-```
-**Deliverables:**
-- [ ] `calculate_current_win_streak()` function
-- [ ] `check_longest_streak_update()` function
-- [ ] `get_player_recent_hole_results()` helper
-- [ ] Proper streak calculation logic
-
-**Dependencies:** Task 7
-**Estimated Time:** 2-3 hours
-
----
-
-## Sprint 3: Statistics Types
-
-### Task 10: Statistics Type Definitions
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Add statistics types to src/types/database/skins.types.ts. New interfaces: SkinsPlayerStatistics (id, playerId, gamesPlayed, gamesWon, totalHolesPlayed, totalHolesWon, totalHolesTied, totalHolesLost, totalBuyIns number, totalWinnings number, totalNetResult number, currentHoleWinStreak, longestHoleWinStreak, longestStreakGameId nullable, longestStreakDate nullable Date, winRate nullable number, avgNetPerGame nullable number, lastGameAt nullable Date, createdAt, updatedAt). SkinsPlayerStatisticsWithPlayer extends with player object {id, name, handicap, avatarUrl}. SkinsLeaderboardEntry (rank number, playerId, playerName, playerAvatar nullable, gamesPlayed, holesWon, winRate, totalNetResult). SkinsGameHistoryEntry extends SkinsGameWithParticipants with {playerPayout: SkinsPayout, holesWon, netResult, date}. Export all new types."
-```
-**Deliverables:**
-- [ ] `SkinsPlayerStatistics` interface
-- [ ] `SkinsPlayerStatisticsWithPlayer` interface
-- [ ] `SkinsLeaderboardEntry` interface
-- [ ] `SkinsGameHistoryEntry` interface
-- [ ] Exports updated
-
-**Dependencies:** Phase 1 types
-**Estimated Time:** 1-2 hours
-
----
-
-## Sprint 4: Statistics Hooks
-
-### Task 11: Statistics and Leaderboard Hooks
-**Status:** Not Started
-**Command:**
-```bash
-/hook "Add statistics hooks to src/hooks/useSkins.ts. New query keys in queryKeys.ts: statistics: (playerId) => [...all, 'stats', playerId], leaderboard: () => [...all, 'leaderboard'], history: (playerId, page?) => [...all, 'history', playerId, page]. New hooks: (1) useSkinsStatistics(playerId) - fetches skins_player_statistics for player, returns SkinsPlayerStatistics, staleTime 1min. (2) useMySkinsStatistics() - convenience wrapper using current user id. (3) useSkinsLeaderboard(options?: {limit?: number, friendsOnly?: boolean}) - fetches top players by total_net_result, optionally filtered to friends only via join, returns SkinsLeaderboardEntry[], staleTime 5min. (4) useSkinsGameHistory(playerId, options?: {limit?: number, offset?: number}) - fetches past skins_games where participant_ids contains player, with their payout data, ordered by completed_at DESC, returns SkinsGameHistoryEntry[], supports pagination, staleTime 1min."
+/hook "Add statistics hooks to src/hooks/useSkins.ts. Query keys: statistics: (playerId) => [...skinsKeys.all, 'stats', playerId], leaderboard: () => [...skinsKeys.all, 'leaderboard'], history: (playerId) => [...skinsKeys.all, 'history', playerId]. Hooks: (1) useSkinsStatistics(playerId) - fetches player statistics, staleTime 1min. (2) useMySkinsStatistics() - convenience for current user. (3) useSkinsLeaderboard(options?: {limit, friendsOnly}) - fetches top players by net result, staleTime 5min. (4) useSkinsGameHistory(playerId, options?: {limit, offset}) - fetches past games with payouts, staleTime 1min."
 ```
 **Deliverables:**
 - [ ] `useSkinsStatistics()` hook
 - [ ] `useMySkinsStatistics()` hook
 - [ ] `useSkinsLeaderboard()` hook
 - [ ] `useSkinsGameHistory()` hook
-- [ ] Query keys updated
 
-**Dependencies:** Task 10 (types)
-**Estimated Time:** 2-3 hours
+**Dependencies:** Task 19
 
 ---
 
-## Sprint 5: Statistics UI Components
-
-### Task 12: SkinsStatsCard Component
+### Task 21: Statistics UI Components
 **Status:** Not Started
 **Command:**
 ```bash
-/component "SkinsStatsCard - Display player's lifetime skins statistics. Props: statistics (SkinsPlayerStatistics), showHeader (boolean default true). Layout: Card with optional header 'LIFETIME SKINS STATS'. Stats grid showing: (1) Games Played count. (2) Holes Won with percentage 'X / Y (Z%)'. (3) Total Winnings formatted as currency. (4) Net Result with +/- prefix, colored green if positive, red if negative. (5) Win Rate percentage. (6) Avg Per Game currency. Use 3-column grid on larger screens, 2-column on smaller. Each stat with label above and value below. If statistics null or gamesPlayed = 0, show empty state 'No skins games played yet'. Follow StatCard.tsx patterns for styling."
+/component "Create skins statistics components. (1) SkinsStatsCard - Props: statistics (SkinsPlayerStatistics). Shows games played, holes won %, total net, win rate, current/longest streak. (2) SkinsLeaderboard - Props: entries (LeaderboardEntry[]), currentUserId. Shows rank, player, games, win rate, net result. Medal icons for top 3. Current user highlighted. (3) SkinsGameHistoryList - Props: games array. FlatList of past games with course, date, holes won, net result. Tap for details."
 ```
 **Deliverables:**
 - [ ] `src/components/skins/SkinsStatsCard.tsx`
-- [ ] Stats grid layout
-- [ ] Currency and percentage formatting
-- [ ] Color coding for net result
-- [ ] Empty state handling
-
-**Dependencies:** Task 10 (types)
-**Estimated Time:** 2-3 hours
-
----
-
-### Task 13: SkinsStreakCard Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "SkinsStreakCard - Display win streak information. Props: currentStreak (number), longestStreak (number), longestStreakDate (Date nullable), longestStreakGameId (string nullable), onViewGame ((gameId: string) => void optional). Layout: Card with header 'STREAKS'. Two sections side by side: (1) 'Current Streak' with flame icon if streak > 0, showing number and 'holes' label. (2) 'Longest Streak' with trophy icon, showing number, 'holes' label, and date if available. If longestStreakGameId exists and onViewGame provided, show 'View Game' link. Streak of 0 shows '0 holes' without icon. Highlight current streak if it equals or exceeds longest. Use fire animation for active streaks > 3."
-```
-**Deliverables:**
-- [ ] `src/components/skins/SkinsStreakCard.tsx`
-- [ ] Current and longest streak display
-- [ ] Fire icon for active streaks
-- [ ] Date and link to game
-- [ ] Animation for high streaks
-
-**Dependencies:** Task 10 (types)
-**Estimated Time:** 2-3 hours
-
----
-
-### Task 14: SkinsGameHistoryList Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "SkinsGameHistoryList - Scrollable list of past skins games. Props: games (SkinsGameHistoryEntry[]), onGamePress ((gameId: string) => void), isLoading (boolean), onEndReached (() => void optional for pagination), ListEmptyComponent (ReactNode optional). Layout: FlatList with SkinsGameHistoryRow items. Each row shows: course name/date on left, holes won badge, net result (+$X or -$X) on right with color coding. Tap navigates to game details. Support pull-to-refresh. Show loading footer when paginating. Empty state 'No skins history yet. Play your first skins game!' with dice icon."
-```
-**Deliverables:**
-- [ ] `src/components/skins/SkinsGameHistoryList.tsx`
-- [ ] SkinsGameHistoryRow sub-component
-- [ ] FlatList with pagination
-- [ ] Pull-to-refresh
-- [ ] Empty state
-
-**Dependencies:** Task 10 (types)
-**Estimated Time:** 2-3 hours
-
----
-
-### Task 15: SkinsLeaderboard Component
-**Status:** Not Started
-**Command:**
-```bash
-/component "SkinsLeaderboard - Leaderboard of top skins players. Props: entries (SkinsLeaderboardEntry[]), currentUserId (string), onPlayerPress ((playerId: string) => void optional), isLoading (boolean), friendsOnly (boolean default false). Layout: Card with header 'SKINS LEADERBOARD' and optional 'Friends Only' toggle. Table with columns: Rank (#), Player (avatar + name), Games, Win Rate %, Net Result. Top 3 get medal icons (gold/silver/bronze). Current user row highlighted. Net result colored green/red. If friendsOnly, header shows 'FRIENDS LEADERBOARD'. Empty state if no entries. Tap on row triggers onPlayerPress if provided."
-```
-**Deliverables:**
 - [ ] `src/components/skins/SkinsLeaderboard.tsx`
-- [ ] Leaderboard table
-- [ ] Medal icons for top 3
-- [ ] Current user highlighting
-- [ ] Friends only toggle
+- [ ] `src/components/skins/SkinsGameHistoryList.tsx`
 
-**Dependencies:** Task 10 (types)
-**Estimated Time:** 2-3 hours
+**Dependencies:** Task 20
 
 ---
 
-## Sprint 6: Statistics Screens
+## Sprint 8: Documentation
 
-### Task 16: SkinsStatisticsScreen
+### Task 22: Documentation Update
 **Status:** Not Started
 **Command:**
 ```bash
-/screen "SkinsStatisticsScreen - Full screen for viewing skins statistics. Route: 'SkinsStatistics' with optional params {playerId?: string} - if not provided, shows current user. Layout: ScrollView with PageHeader 'Skins Statistics' (show player name if viewing another). (1) SkinsStatsCard at top with full stats. (2) SkinsStreakCard below. (3) SkinsLeaderboard with friendsOnly toggle - collapsed by default, expandable. (4) SkinsGameHistoryList taking remaining space. Add to navigation types.ts and RootNavigator. Accessible from MyStatisticsScreen (add 'View Skins Stats' link) and CompareStatsScreen (add skins comparison). Use useMySkinsStatistics or useSkinsStatistics based on playerId."
-```
-**Deliverables:**
-- [ ] `src/screens/skins/SkinsStatisticsScreen.tsx`
-- [ ] All component integrations
-- [ ] Navigation setup
-- [ ] Player vs self view handling
-- [ ] Links from existing screens
-
-**Dependencies:** Tasks 12, 13, 14, 15 (components), Task 11 (hooks)
-**Estimated Time:** 3-4 hours
-
----
-
-### Task 17: Add Skins Stats to Profile
-**Status:** Not Started
-**Command:**
-```bash
-/refactor "Update ProfileScreen and MyStatisticsScreen to include skins statistics entry point. In ProfileScreen.tsx: If user has played skins games (check useMySkinsStatistics), add 'Skins' row in stats section showing quick summary (net result with color). Tap navigates to SkinsStatisticsScreen. In MyStatisticsScreen.tsx: Add 'SKINS' section after Advanced Analytics. Show SkinsStatsCard component if gamesPlayed > 0. Add 'View Full Stats' button navigating to SkinsStatisticsScreen. If no skins history, show 'Try Skins' promo card explaining feature. Both respect Premium tier gating - show FeatureLock if not Premium."
-```
-**Deliverables:**
-- [ ] ProfileScreen skins row
-- [ ] MyStatisticsScreen skins section
-- [ ] Navigation to SkinsStatisticsScreen
-- [ ] Tier gating with FeatureLock
-- [ ] Promo card for non-users
-
-**Dependencies:** Task 16 (screen), Task 12 (component)
-**Estimated Time:** 2-3 hours
-
----
-
-## Sprint 7: Documentation
-
-### Task 18: Update Documentation
-**Status:** Not Started
-**Command:**
-```bash
-/docs "Update documentation for skins statistics (Phase 2). Files: (1) docs/database/DATABASE_SCHEMA.md - add skins_player_statistics table with all columns, update trigger, streak functions. (2) docs/guides/SKINS_GAME.md - add 'Statistics & History' section explaining what's tracked, how streaks work, leaderboard calculation. (3) Update CLAUDE.md Data Model to mention skins statistics tracking."
+/docs "Update documentation for prize pools and statistics. Files: (1) docs/database/DATABASE_SCHEMA.md - add competition_prize_pools, pool_transactions, skins_player_statistics tables with columns, constraints, functions, triggers. (2) docs/guides/SKINS_GAME.md - add 'Competition Prize Pools' section explaining pool setup, funding types, allocations, auto-split, carryover return. Add 'Statistics & Leaderboards' section. (3) CLAUDE.md - add CompetitionPrizePool and SkinsPlayerStatistics to Data Model. (4) Update docs/guides/SUBSCRIPTION_TIERS.md if prize pools have tier restrictions."
 ```
 **Deliverables:**
 - [ ] DATABASE_SCHEMA.md updated
 - [ ] SKINS_GAME.md extended
 - [ ] CLAUDE.md updated
+- [ ] SUBSCRIPTION_TIERS.md updated if needed
 
-**Dependencies:** All Phase 2 tasks
-**Estimated Time:** 1-2 hours
+**Dependencies:** All previous tasks
 
 ---
 
 ## Progress Summary
 
 ### Completion Statistics
-- **Total Tasks:** 18
+- **Total Tasks:** 22
 - **Completed:** 0 (0%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 18 (100%)
+- **Not Started:** 22 (100%)
 
 ### Sprint Progress
 
-**Sprint 1: Tally All Rounds - Database** - Not Started
-- Task 1: Competition Skins Game Table
-- Task 2: Cross-Round Carryover Functions
-- Task 3: Competition Skins Types
-- Task 4: Tally All Rounds Hooks
-- Task 5: Update Score Processing for Tally Mode
-- Task 6: Competition Skins Results UI
-
-**Sprint 2: Statistics Database** - Not Started
-- Task 7: Player Statistics Table
-- Task 8: Statistics Update Trigger
-- Task 9: Streak Calculation Function
-
-**Sprint 3: Statistics Types** - Not Started
-- Task 10: Statistics Type Definitions
-
-**Sprint 4: Statistics Hooks** - Not Started
-- Task 11: Statistics and Leaderboard Hooks
-
-**Sprint 5: Statistics UI Components** - Not Started
-- Task 12: SkinsStatsCard
-- Task 13: SkinsStreakCard
-- Task 14: SkinsGameHistoryList
-- Task 15: SkinsLeaderboard
-
-**Sprint 6: Statistics Screens** - Not Started
-- Task 16: SkinsStatisticsScreen
-- Task 17: Add Skins Stats to Profile
-
-**Sprint 7: Documentation** - Not Started
-- Task 18: Update Documentation
+| Sprint | Description | Tasks | Status |
+|--------|-------------|-------|--------|
+| Sprint 1 | Database Foundation | 6 | Not Started |
+| Sprint 2 | TypeScript Types | 2 | Not Started |
+| Sprint 3 | React Query Hooks | 2 | Not Started |
+| Sprint 4 | UI Components - Setup | 3 | Not Started |
+| Sprint 5 | Competition Integration | 3 | Not Started |
+| Sprint 6 | Pool-Skins Integration | 2 | Not Started |
+| Sprint 7 | Statistics & Leaderboards | 3 | Not Started |
+| Sprint 8 | Documentation | 1 | Not Started |
 
 ---
 
 ## Critical Files
 
-### New Files
+### New Files (To Create)
 | File | Purpose |
 |------|---------|
-| `supabase/migrations/2026XXXX_competition_skins_games.sql` | Tally-all-rounds table and functions |
-| `supabase/migrations/2026XXXX_skins_player_statistics.sql` | Statistics table and triggers |
-| `src/components/skins/CompetitionSkinsResultsCard.tsx` | Multi-round skins results |
-| `src/components/skins/SkinsStatsCard.tsx` | Statistics display card |
-| `src/components/skins/SkinsStreakCard.tsx` | Streak display card |
-| `src/components/skins/SkinsGameHistoryList.tsx` | History list |
+| `supabase/migrations/XXXXXXXX_competition_prize_pools.sql` | Pool tables migration |
+| `supabase/migrations/XXXXXXXX_skins_player_statistics.sql` | Statistics table migration |
+| `src/types/database/prizePool.types.ts` | Prize pool types |
+| `src/hooks/usePrizePool.ts` | Prize pool hooks |
+| `src/components/prizePool/PrizePoolSection.tsx` | Pool configuration UI |
+| `src/components/prizePool/PrizePoolSummaryCard.tsx` | Pool summary display |
+| `src/components/prizePool/PoolTransactionsList.tsx` | Transaction audit list |
+| `src/components/prizePool/index.ts` | Barrel export |
+| `src/components/skins/SkinsStatsCard.tsx` | Statistics display |
 | `src/components/skins/SkinsLeaderboard.tsx` | Leaderboard component |
-| `src/screens/skins/SkinsStatisticsScreen.tsx` | Full statistics screen |
+| `src/components/skins/SkinsGameHistoryList.tsx` | History list |
 
-### Modified Files
+### Files to Modify
 | File | Changes |
 |------|---------|
-| `src/types/database/skins.types.ts` | Add CompetitionSkinsGame + statistics types |
-| `src/hooks/useCompetitionSkinsConfig.ts` | Add tally-all hooks |
+| `src/types/database/skins.types.ts` | Add pool fields |
+| `src/types/database/index.ts` | Export prize pool types |
+| `src/hooks/queryKeys.ts` | Add prizePoolKeys |
+| `src/hooks/index.ts` | Export prize pool hooks |
 | `src/hooks/useSkins.ts` | Add statistics hooks |
-| `src/hooks/queryKeys.ts` | Add competition skins + statistics keys |
-| `src/screens/profile/ProfileScreen.tsx` | Add skins row |
-| `src/screens/profile/MyStatisticsScreen.tsx` | Add skins section |
-| `src/navigation/types.ts` | Add SkinsStatistics route |
-| `src/navigation/RootNavigator.tsx` | Register screen |
-| `docs/database/DATABASE_SCHEMA.md` | Document competition_skins_games + statistics |
-| `docs/guides/SKINS_GAME.md` | Add Tally All Rounds + Statistics sections |
-
----
-
-## Time Estimates
-
-| Sprint | Tasks | Estimated Hours |
-|--------|-------|-----------------|
-| Sprint 1: Tally All Rounds | 6 | 20-27 hours |
-| Sprint 2: Statistics Database | 3 | 7-10 hours |
-| Sprint 3: Statistics Types | 1 | 1-2 hours |
-| Sprint 4: Statistics Hooks | 1 | 2-3 hours |
-| Sprint 5: Statistics Components | 4 | 8-12 hours |
-| Sprint 6: Statistics Screens | 2 | 5-7 hours |
-| Sprint 7: Docs | 1 | 1-2 hours |
-
-**Total Estimated:** 44-63 hours
+| `src/screens/admin/CreateCompetitionScreen.tsx` | Prize pool setup |
+| `src/screens/admin/EditCompetitionScreen/` | Prize pool management |
+| `src/screens/admin/AddRoundScreen/index.tsx` | Pool source selection |
+| `docs/database/DATABASE_SCHEMA.md` | Document pool tables |
+| `docs/guides/SKINS_GAME.md` | Add pool sections |
+| `CLAUDE.md` | Add pool to data model |
 
 ---
 
 ## Key Design Decisions
 
-### Tally All Rounds
-1. **Separate Table**: `competition_skins_games` tracks cross-round state independently
-2. **Same Participants Required**: All rounds must have same participants for fairness
-3. **Carryover Continuity**: Round 1 Hole 18 carryover → Round 2 Hole 1
-4. **Deferred Settlement**: No per-round settlement, only at competition end
-5. **Validation Function**: `validate_tally_all_participants()` ensures consistency
-
-### Statistics
-6. **Automatic Stats Update**: Trigger-based updates ensure consistency without client logic
-7. **Streak Calculation**: Server-side function handles complex sequential analysis
-8. **Friends Leaderboard**: Social competition without exposing all users
-9. **Separate Screen**: Dedicated SkinsStatisticsScreen for detailed view
-10. **Profile Integration**: Quick stats visible in profile, full stats one tap away
+1. **Separate Table**: `competition_prize_pools` is separate from competitions for clean separation
+2. **Flexible Funding**: Per-player OR fixed total accommodates different competition styles
+3. **Multi-purpose Pool**: Can fund skins AND other prizes (not just skins)
+4. **Carryover Returns to Pool**: Unlike "Tally All", leftover pot goes back to pool for reallocation
+5. **Auto-Split Option**: Convenience feature to automatically configure equal skins for all rounds
+6. **Locking on Start**: Pool locked when first round starts - prevents mid-game changes
+7. **Transaction Audit**: Full audit trail of pool usage via pool_transactions
+8. **Balance Validation**: Can't enable skins for more than available budget
 
 ---
 
-## Command Usage Reference
-
-| Command | Use For |
-|---------|---------|
-| `/db` | Database schema design and migrations |
-| `/component` | Reusable UI components |
-| `/screen` | Full screen implementations |
-| `/hook` | TanStack Query hooks |
-| `/refactor` | Modifying existing code |
-| `/docs` | Documentation updates |
-
----
-
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-09
 **Prerequisites:** Phase 1 must be complete
-**Current Sprint:** Not started
+**Status:** Not Started
+**Current Sprint:** Sprint 1 - Database Foundation

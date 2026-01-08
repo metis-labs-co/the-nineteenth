@@ -2,6 +2,7 @@
  * EditRoundScreen - Edit round details
  *
  * Allows organizers to edit:
+ * - Course (can add course to blank rounds)
  * - Date
  * - Tee time
  * - Game type (format)
@@ -10,7 +11,7 @@
  * - Shuffle scoring pairs (if enabled and premium)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,6 +32,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
 import { roundKeys } from '@/hooks/queryKeys';
+import type { CourseWithFavorite } from '@/hooks/useCourses';
 
 // Local imports
 import {
@@ -45,6 +47,7 @@ import {
   TeesSection,
   ScoringPairsSection,
 } from './components';
+import { CourseSelectionModal } from '../AddRoundScreen/components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditRound'>;
 
@@ -54,6 +57,10 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
+
+  // Course selection modal state
+  const [showCourseModal, setShowCourseModal] = useState(false);
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
 
   // Fetch round data
   const {
@@ -77,6 +84,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     setGameType,
     setSelectedTee,
     setScoringPairsRequired,
+    setCourse,
     getSelectedDate,
     getSelectedTime,
   } = useEditRoundForm({ round });
@@ -113,6 +121,16 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const handleUpgradePress = useCallback(() => {
     navigation.navigate('Subscription');
   }, [navigation]);
+
+  // Course selection handler
+  const handleCourseSelect = useCallback(
+    (course: CourseWithFavorite) => {
+      setCourse(course);
+      setShowCourseModal(false);
+      setCourseSearchQuery('');
+    },
+    [setCourse]
+  );
 
   // Loading state
   if (isLoading) {
@@ -185,8 +203,12 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           Update round details below. Changes will apply to all players.
         </Text>
 
-        {/* Course Info (Read-only) */}
-        <CourseSection courseName={round.courses?.name || 'Unknown Course'} />
+        {/* Course Selection */}
+        <CourseSection
+          courseName={formData.courseName}
+          onPress={() => setShowCourseModal(true)}
+          disabled={isSubmitting}
+        />
 
         {/* Form Section */}
         <View
@@ -288,6 +310,18 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Course Selection Modal */}
+      <CourseSelectionModal
+        visible={showCourseModal}
+        onClose={() => {
+          setShowCourseModal(false);
+          setCourseSearchQuery('');
+        }}
+        onSelect={handleCourseSelect}
+        searchQuery={courseSearchQuery}
+        onSearchQueryChange={setCourseSearchQuery}
+      />
     </KeyboardAvoidingView>
   );
 }

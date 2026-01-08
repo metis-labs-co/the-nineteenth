@@ -167,6 +167,7 @@ describe('CompetitionDetailsStep', () => {
     endDate: '16/06/2026',
     handicapSystem: 'honor',
     inviteCode: 'SUMMER2026',
+    enableTeams: false,
   };
 
   beforeEach(() => {

@@ -10,6 +10,8 @@ export interface RoundFormData {
   gameType: GameType;
   selectedTee: TeeBox | null;
   scoringPairsRequired: boolean;
+  courseId: string | null;
+  courseName: string;
 }
 
 export interface RoundWithCourse extends Round {

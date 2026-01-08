@@ -16,13 +16,23 @@ import type {
   RoundDetailsFormData,
   PlayerFormData,
   PointSystemEntry,
+  SimplifiedRoundFormData,
 } from '@/schemas/competition';
-import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
+import { DEFAULT_POINT_SYSTEM, createBlankRound } from '@/schemas/competition';
 
 /**
- * Wizard state structure matching CreateCompetitionScreen
+ * Wizard state structure for the simplified 3-step wizard
  */
 export interface WizardState {
+  step1?: CompetitionDetailsFormData;
+  step2?: SimplifiedRoundFormData[];
+}
+
+/**
+ * Legacy wizard state structure for the old 5-step wizard
+ * @deprecated Use WizardState instead
+ */
+export interface LegacyWizardState {
   step1?: CompetitionDetailsFormData;
   step2?: TeamSettingsFormData;
   step3?: RoundDetailsFormData[];
@@ -47,6 +57,17 @@ export interface WizardState {
 export function aiOutputToWizardState(ai: GeneratedCompetition): WizardState {
   return {
     step1: aiToCompetitionDetails(ai),
+    step2: aiToSimplifiedRounds(ai.rounds),
+  };
+}
+
+/**
+ * Convert AI-generated competition to legacy wizard state
+ * @deprecated Use aiOutputToWizardState instead
+ */
+export function aiOutputToLegacyWizardState(ai: GeneratedCompetition): LegacyWizardState {
+  return {
+    step1: aiToCompetitionDetailsLegacy(ai),
     step2: aiToTeamSettings(ai),
     step3: aiToRoundDetails(ai.rounds),
     step4: aiToPlayerFormData(ai.players),
@@ -54,7 +75,7 @@ export function aiOutputToWizardState(ai: GeneratedCompetition): WizardState {
 }
 
 /**
- * Convert AI competition to Step 1 form data
+ * Convert AI competition to Step 1 form data (simplified wizard)
  */
 function aiToCompetitionDetails(
   ai: GeneratedCompetition
@@ -67,7 +88,43 @@ function aiToCompetitionDetails(
     endDate: ai.endDate || '', // Already in DD/MM/YYYY format or null
     handicapSystem: ai.handicapSystem,
     inviteCode: '', // Let the system generate this
+    enableTeams: ai.teamMode !== 'none',
   };
+}
+
+/**
+ * Convert AI competition to Step 1 form data (legacy wizard)
+ * @deprecated Use aiToCompetitionDetails instead
+ */
+function aiToCompetitionDetailsLegacy(
+  ai: GeneratedCompetition
+): CompetitionDetailsFormData {
+  return {
+    name: ai.name,
+    description: ai.description || '',
+    competitionType: ai.competitionType,
+    startDate: ai.startDate,
+    endDate: ai.endDate || '',
+    handicapSystem: ai.handicapSystem,
+    inviteCode: '',
+    enableTeams: ai.teamMode !== 'none',
+  };
+}
+
+/**
+ * Convert AI rounds to simplified round form data
+ */
+function aiToSimplifiedRounds(rounds: GeneratedRound[]): SimplifiedRoundFormData[] {
+  return rounds.map((round) => ({
+    courseId: round.courseId || undefined,
+    courseName: round.courseName || undefined,
+    date: round.date, // Already in DD/MM/YYYY format
+    teeTime: round.teeTime || undefined,
+    matchType: round.gameType,
+    scoringPairsRequired: false,
+    isConfigured: !!(round.courseId || round.courseName),
+    selectedTee: undefined, // AI doesn't select tees
+  }));
 }
 
 /**
@@ -133,26 +190,11 @@ export function validateWizardState(state: WizardState): {
     }
   }
 
-  if (!state.step2) {
-    errors.push('Team settings are missing');
-  }
-
-  if (!state.step3 || state.step3.length === 0) {
+  // step2 in simplified wizard is rounds (optional configuration)
+  if (!state.step2 || state.step2.length === 0) {
     errors.push('At least one round is required');
-  } else {
-    state.step3.forEach((round, index) => {
-      if (!round.courseName) {
-        errors.push(`Round ${index + 1}: Course name is required`);
-      }
-      if (!round.date) {
-        errors.push(`Round ${index + 1}: Date is required`);
-      }
-    });
   }
-
-  if (!state.step4 || state.step4.length < 2) {
-    errors.push('At least 2 players are required');
-  }
+  // Note: individual round validation is relaxed - blank rounds are allowed
 
   return {
     isValid: errors.length === 0,

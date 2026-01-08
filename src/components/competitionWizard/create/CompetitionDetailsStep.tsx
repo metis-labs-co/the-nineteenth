@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Platform, ScrollView, LayoutAnimation, UIManager } from 'react-native';
-import { Button, Text, SegmentedButtons } from 'react-native-paper';
+import { View, StyleSheet, Platform, ScrollView, LayoutAnimation, UIManager, TouchableOpacity } from 'react-native';
+import { Button, Text, SegmentedButtons, Icon } from 'react-native-paper';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,6 +56,7 @@ export default function CompetitionDetailsStep({
       endDate: '',
       handicapSystem: 'honor',
       inviteCode: '',
+      enableTeams: false,
     },
   });
 
@@ -214,6 +215,58 @@ export default function CompetitionDetailsStep({
               )}
             />
           )}
+
+          {/* Team Toggle */}
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Teams</Text>
+            <Controller
+              control={control}
+              name="enableTeams"
+              render={({ field: { value, onChange } }) => (
+                <TouchableOpacity
+                  onPress={() => onChange(!value)}
+                  style={[
+                    styles.teamToggle,
+                    {
+                      backgroundColor: value ? colors.primaryLighter : colors.surface,
+                      borderColor: value ? colors.primary : colors.gray300,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.teamToggleContent}>
+                    <Icon
+                      source={value ? 'account-group' : 'account'}
+                      size={24}
+                      color={value ? colors.primary : colors.gray500}
+                    />
+                    <View style={styles.teamToggleText}>
+                      <Text style={[styles.teamToggleLabel, { color: colors.textPrimary }]}>
+                        {value ? 'Team Competition' : 'Individual Competition'}
+                      </Text>
+                      <Text style={[styles.teamToggleDescription, { color: colors.textSecondary }]}>
+                        {value ? 'Players compete in teams of 2' : 'Players compete individually'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        backgroundColor: value ? colors.primary : colors.surface,
+                        borderColor: value ? colors.primary : colors.gray300,
+                      },
+                    ]}
+                  >
+                    {value && <Icon source="check" size={14} color={colors.white} />}
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
+              Team format can be configured in competition settings after creation
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -236,7 +289,7 @@ export default function CompetitionDetailsStep({
           buttonColor={colors.primary}
           textColor={colors.white}
         >
-          Next: Team Settings
+          Next: Rounds
         </Button>
       </View>
     </View>
@@ -305,5 +358,37 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     height: 48,
+  },
+  teamToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+  },
+  teamToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  teamToggleText: {
+    flex: 1,
+  },
+  teamToggleLabel: {
+    ...typography.bodyBold,
+  },
+  teamToggleDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

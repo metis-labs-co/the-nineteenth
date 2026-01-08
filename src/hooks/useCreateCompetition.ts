@@ -4,11 +4,12 @@ import { competitionKeys } from '@/hooks/queryKeys';
 import type { CompetitionCreateInput, PlayerCreateInput } from '@/types';
 
 interface RoundInput {
-  courseName: string;
+  courseName?: string; // Optional - allows blank/placeholder rounds
   courseId?: string;
   date: Date;
   teeTime?: string;
   matchType?: string;
+  scoringPairsRequired?: boolean;
 }
 
 interface CreateCompetitionInput extends CompetitionCreateInput {

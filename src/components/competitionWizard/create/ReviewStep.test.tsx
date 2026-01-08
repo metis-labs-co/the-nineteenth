@@ -70,6 +70,7 @@ const defaultCompetitionData: CompetitionDetailsFormData = {
   endDate: '16/01/2025',
   handicapSystem: 'honor',
   inviteCode: 'SUMMER-2025',
+  enableTeams: false,
 };
 
 const leagueCompetitionData: CompetitionDetailsFormData = {
@@ -78,6 +79,7 @@ const leagueCompetitionData: CompetitionDetailsFormData = {
   competitionType: 'league',
   startDate: '01/02/2025',
   handicapSystem: 'golf-australia',
+  enableTeams: false,
 };
 
 const grossOnlyCompetitionData: CompetitionDetailsFormData = {
@@ -87,6 +89,7 @@ const grossOnlyCompetitionData: CompetitionDetailsFormData = {
   startDate: '20/03/2025',
   endDate: '21/03/2025',
   handicapSystem: 'gross-only',
+  enableTeams: false,
 };
 
 const defaultTeamSettingsData: TeamSettingsFormData = {
