@@ -322,6 +322,24 @@ Each round can independently have skins enabled with its own configuration:
 
 ---
 
+### Task 15a: Add Skins Indicator to CompetitionRoundCard
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/components/competitions/detail/CompetitionRoundCard.tsx to show skins game indicator. Add optional hasSkins (boolean) and skinsConfig (SkinsConfig nullable) props to CompetitionRoundCardProps. Update RoundWithCourse type to include has_skins and skins_config fields. When hasSkins is true, display a skins indicator in the badgeRow: use dice icon (IconDice or similar from tabler-icons) with amber/gold background. Show pot value tooltip on press (e.g., '$5/hole'). Add indicator text below the date showing 'Skins: $X/hole' or 'Skins: $Y total'. Ensure indicator is visually distinct but not overpowering. Update accessibility labels."
+```
+**Deliverables:**
+- [ ] `hasSkins` and `skinsConfig` props added to `CompetitionRoundCardProps`
+- [ ] Update `RoundWithCourse` type in `types.ts`
+- [ ] Dice icon badge in badgeRow when skins enabled
+- [ ] Pot value display (e.g., 'Skins: $5/hole')
+- [ ] Amber/gold styling for skins indicator
+- [ ] Updated accessibility labels
+
+**Dependencies:** Task 5 (SkinsConfig type)
+
+---
+
 ## Sprint 8: Round Creation Integration - Standalone Rounds
 
 ### Task 16: Extend WizardData Types for Skins
@@ -546,10 +564,10 @@ Each round can independently have skins enabled with its own configuration:
 ## Progress Summary
 
 ### Completion Statistics
-- **Total Tasks:** 28
+- **Total Tasks:** 29
 - **Completed:** 0 (0%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 28 (100%)
+- **Not Started:** 29 (100%)
 
 ### Sprint Progress
 
@@ -561,7 +579,7 @@ Each round can independently have skins enabled with its own configuration:
 | Sprint 4 | React Query Hooks | 2 | Not Started |
 | Sprint 5 | UI Components - Setup | 2 | Not Started |
 | Sprint 6 | UI Components - Scoring | 2 | Not Started |
-| Sprint 7 | UI Components - Results | 2 | Not Started |
+| Sprint 7 | UI Components - Results | 3 | Not Started |
 | Sprint 8 | Standalone Rounds Integration | 6 | Not Started |
 | Sprint 9 | Competition Rounds Integration | 2 | Not Started |
 | Sprint 10 | Score Processing Integration | 2 | Not Started |
@@ -603,6 +621,8 @@ Each round can independently have skins enabled with its own configuration:
 | `src/screens/admin/AddRoundScreen/index.tsx` | Competition round skins |
 | `src/screens/scoring/ScorecardEntryScreen/index.tsx` | SkinsIndicator, processing |
 | `src/screens/scoring/ReviewScorecardScreen/index.tsx` | Skins tab |
+| `src/components/competitions/detail/CompetitionRoundCard.tsx` | Add skins indicator |
+| `src/components/competitions/detail/types.ts` | Add skins fields to RoundWithCourse |
 | `docs/database/DATABASE_SCHEMA.md` | Document skins tables |
 | `CLAUDE.md` | Add skins to data model |
 | `docs/guides/SUBSCRIPTION_TIERS.md` | Add skins as Premium feature |

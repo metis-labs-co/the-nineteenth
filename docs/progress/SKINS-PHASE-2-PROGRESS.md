@@ -313,11 +313,15 @@ Competition Ends → Remaining pool distributed to prize winners
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Add prize pool configuration to CreateCompetitionScreen. Import PrizePoolSection from @/components/prizePool. Add pool state: prizePool (CreatePrizePoolInput | null). Add PrizePoolSection after rounds configuration. On competition create: if prizePool configured, create competition first, then create prize pool with competition_id. If auto_split_skins enabled, create skins_games for each round drawing from pool. Handle errors - pool creation failure should show warning but not fail competition creation."
+/refactor "Add prize pool configuration to CreateCompetitionScreen wizard. The current wizard has 3 steps: (1) Competition Details, (2) Rounds Configuration, (3) Review & Create. Implementation: (A) In CompetitionDetailsStep (Step 1), add a 'Prize Pool' toggle switch at the bottom of the form with label 'Add Prize Pool' and description 'Fund skins games and competition prizes'. Premium tier gating - show lock icon for non-premium users. Store prizePoolEnabled boolean in wizard state. (B) When prizePoolEnabled is true, dynamically insert a new 'Prize Pool Setup' step between current Step 2 (Rounds) and Step 3 (Review). This makes the wizard 4 steps when prize pool is enabled. (C) Create PrizePoolSetupStep component that uses PrizePoolSection for configuration (funding type, amount, allocations, auto-split toggle). (D) Update SimplifiedReviewStep to show prize pool summary when configured. (E) On competition create: if prizePool configured, create competition first, then create prize pool with competition_id. If auto_split_skins enabled, create skins_games for each round drawing from pool. Handle errors - pool creation failure should show warning but not fail competition creation."
 ```
 **Deliverables:**
-- [ ] Prize pool state in wizard
-- [ ] PrizePoolSection integration
+- [ ] Prize pool toggle in CompetitionDetailsStep (Step 1)
+- [ ] Premium tier gating for toggle
+- [ ] `prizePoolEnabled` state in wizard
+- [ ] Dynamic step insertion when prize pool enabled (wizard becomes 4 steps)
+- [ ] `PrizePoolSetupStep` component for Step 3 (when enabled)
+- [ ] Review step shows prize pool summary
 - [ ] Pool creation on submit
 - [ ] Auto-split skins creation
 - [ ] Error handling
@@ -356,6 +360,43 @@ Competition Ends → Remaining pool distributed to prize winners
 - [ ] Balance preview
 
 **Dependencies:** Phase 1 Task 22, Task 10 (hooks)
+
+---
+
+### Task 16a: Add Prize Pool Indicator to CompetitionListCard
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Update src/components/competitions/CompetitionListCard.tsx to show prize pool indicator. Add optional hasPrizePool (boolean) and prizePoolAmount (number) props to CompetitionListCardData interface. When hasPrizePool is true, display a money icon (IconCurrencyDollar or IconCash from tabler-icons) in the metaRow next to rounds and players counts. Show the icon in amber/gold color to indicate prize money. Format as '$X pool' where X is the formatted amount. Update accessibility label to mention prize pool when present. Export updated types."
+```
+**Deliverables:**
+- [ ] `hasPrizePool` and `prizePoolAmount` added to `CompetitionListCardData`
+- [ ] Money icon displayed in metaRow when prize pool exists
+- [ ] Formatted amount display (e.g., '$400 pool')
+- [ ] Amber/gold color styling for money indicator
+- [ ] Updated accessibility label
+- [ ] Update stories/tests
+
+**Dependencies:** Task 7 (types)
+
+---
+
+### Task 16b: Add PrizePoolSection to Competition Details Screen
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Create src/components/competitions/detail/sections/PrizePoolSection.tsx for displaying prize pool in competition details. Props: pool (CompetitionPrizePool | null), isOrganizer (boolean), isLocked (boolean), onEdit (() => void optional). Layout: (1) Section header 'Prize Pool' with trophy-money icon. (2) If no pool: show 'No prize pool configured' message, organizer sees 'Add Prize Pool' button. (3) If pool exists: show PrizePoolSummaryCard with total amount, allocation breakdown (Skins %, Winner %, Other %), and remaining balances. (4) If locked, show lock badge. (5) Organizers see 'Edit' button (disabled if locked). Add to sections/index.ts exports. Update DetailsTab.tsx to render PrizePoolSection between SettingsSection and CoursesSection, passing competition's prize pool data."
+```
+**Deliverables:**
+- [ ] `src/components/competitions/detail/sections/PrizePoolSection.tsx`
+- [ ] No pool state with add button for organizers
+- [ ] Pool summary display with allocations
+- [ ] Locked state indicator
+- [ ] Edit button for organizers (respects lock)
+- [ ] Export from `sections/index.ts`
+- [ ] Integration in `DetailsTab.tsx`
+
+**Dependencies:** Task 12 (PrizePoolSummaryCard), Task 10 (hooks)
 
 ---
 
@@ -464,10 +505,10 @@ Competition Ends → Remaining pool distributed to prize winners
 ## Progress Summary
 
 ### Completion Statistics
-- **Total Tasks:** 22
+- **Total Tasks:** 24
 - **Completed:** 0 (0%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 22 (100%)
+- **Not Started:** 24 (100%)
 
 ### Sprint Progress
 
@@ -477,7 +518,7 @@ Competition Ends → Remaining pool distributed to prize winners
 | Sprint 2 | TypeScript Types | 2 | Not Started |
 | Sprint 3 | React Query Hooks | 2 | Not Started |
 | Sprint 4 | UI Components - Setup | 3 | Not Started |
-| Sprint 5 | Competition Integration | 3 | Not Started |
+| Sprint 5 | Competition Integration | 5 | Not Started |
 | Sprint 6 | Pool-Skins Integration | 2 | Not Started |
 | Sprint 7 | Statistics & Leaderboards | 3 | Not Started |
 | Sprint 8 | Documentation | 1 | Not Started |
@@ -497,6 +538,8 @@ Competition Ends → Remaining pool distributed to prize winners
 | `src/components/prizePool/PrizePoolSummaryCard.tsx` | Pool summary display |
 | `src/components/prizePool/PoolTransactionsList.tsx` | Transaction audit list |
 | `src/components/prizePool/index.ts` | Barrel export |
+| `src/components/competitionWizard/create/PrizePoolSetupStep.tsx` | Wizard step for prize pool config |
+| `src/components/competitions/detail/sections/PrizePoolSection.tsx` | Details screen prize pool display |
 | `src/components/skins/SkinsStatsCard.tsx` | Statistics display |
 | `src/components/skins/SkinsLeaderboard.tsx` | Leaderboard component |
 | `src/components/skins/SkinsGameHistoryList.tsx` | History list |
@@ -509,9 +552,14 @@ Competition Ends → Remaining pool distributed to prize winners
 | `src/hooks/queryKeys.ts` | Add prizePoolKeys |
 | `src/hooks/index.ts` | Export prize pool hooks |
 | `src/hooks/useSkins.ts` | Add statistics hooks |
-| `src/screens/admin/CreateCompetitionScreen.tsx` | Prize pool setup |
+| `src/screens/admin/CreateCompetitionScreen.tsx` | Prize pool toggle + dynamic step |
 | `src/screens/admin/EditCompetitionScreen/` | Prize pool management |
 | `src/screens/admin/AddRoundScreen/index.tsx` | Pool source selection |
+| `src/components/competitions/CompetitionListCard.tsx` | Add prize pool indicator |
+| `src/components/competitions/detail/DetailsTab.tsx` | Add PrizePoolSection |
+| `src/components/competitions/detail/sections/index.ts` | Export PrizePoolSection |
+| `src/components/competitionWizard/create/CompetitionDetailsStep.tsx` | Add prize pool toggle |
+| `src/components/competitionWizard/create/SimplifiedReviewStep.tsx` | Show prize pool summary |
 | `docs/database/DATABASE_SCHEMA.md` | Document pool tables |
 | `docs/guides/SKINS_GAME.md` | Add pool sections |
 | `CLAUDE.md` | Add pool to data model |
