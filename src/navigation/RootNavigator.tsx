@@ -48,6 +48,8 @@ import ScorecardEntryScreen from '@/screens/scoring/ScorecardEntryScreen';
 import ReviewScorecardScreen from '@/screens/scoring/ReviewScorecardScreen';
 import PlayerScorecardScreen from '@/screens/scoring/PlayerScorecardScreen';
 import MatchPlayScoringScreen from '@/screens/scoring/MatchPlayScoringScreen';
+import TeamMatchPlayScoringScreen from '@/screens/scoring/TeamMatchPlayScoringScreen';
+import { MatchPlayScorecardScreen } from '@/screens/scoring';
 
 // Profile Screens
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
@@ -315,6 +317,26 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 title: 'Match Play',
                 headerShown: false,
                 gestureEnabled: false,
+              }}
+            />
+
+            <Stack.Screen
+              // @ts-expect-error TeamMatchPlayScoring is defined in RootStackParamList but TS inference fails
+              name="TeamMatchPlayScoring"
+              component={TeamMatchPlayScoringScreen}
+              options={{
+                title: 'Team Match Play',
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="MatchPlayScorecard"
+              component={MatchPlayScorecardScreen}
+              options={{
+                title: 'Match Scorecard',
+                headerShown: false,
               }}
             />
 

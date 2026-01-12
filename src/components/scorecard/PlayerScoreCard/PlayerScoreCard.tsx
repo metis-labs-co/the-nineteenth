@@ -8,11 +8,12 @@
  * - Pick Up quick action for when player gives up the hole
  * - Plus/Minus stepper for score entry
  * - Par quick action button
+ * - Points preview showing what the current score will earn
  * - Optional stats row (FIR, GIR, Putts) based on settings
  * - Large touch targets for on-course use
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
@@ -21,15 +22,55 @@ import {
   borderRadius,
   shadows,
 } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { useStatsVisibility } from '@/store/settingsStore';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
+import { STABLEFORD_POINTS } from '@/constants/scoring';
 
 import { QuickActionButton } from './QuickActionButton';
 import { ScoreInputStepper } from './ScoreInputStepper';
 import { StatsRow } from './StatsRow';
 import { usePlayerScoreCardLogic } from './usePlayerScoreCardLogic';
+
+/**
+ * Get the description label for Stableford points
+ */
+function getPointsDescription(points: number): string {
+  switch (points) {
+    case STABLEFORD_POINTS.ALBATROSS_OR_BETTER:
+      return 'Albatross+';
+    case STABLEFORD_POINTS.EAGLE:
+      return 'Eagle';
+    case STABLEFORD_POINTS.BIRDIE:
+      return 'Birdie';
+    case STABLEFORD_POINTS.PAR:
+      return 'Par';
+    case STABLEFORD_POINTS.BOGEY:
+      return 'Bogey';
+    default:
+      return 'Double+';
+  }
+}
+
+/**
+ * Get the color for Stableford points based on performance
+ */
+function getPointsColor(points: number, colors: ColorPalette): string {
+  switch (points) {
+    case STABLEFORD_POINTS.ALBATROSS_OR_BETTER:
+    case STABLEFORD_POINTS.EAGLE:
+      return colors.eagle;
+    case STABLEFORD_POINTS.BIRDIE:
+      return colors.birdie;
+    case STABLEFORD_POINTS.PAR:
+      return colors.par;
+    case STABLEFORD_POINTS.BOGEY:
+      return colors.bogey;
+    default:
+      return colors.doubleBogey;
+  }
+}
 
 interface PlayerScoreCardProps {
   player: Player;
@@ -39,6 +80,10 @@ interface PlayerScoreCardProps {
   onStatsUpdate?: (updates: Partial<HoleScore>) => void;
   onPlayerPress?: (playerId: string) => void;
   disabled?: boolean;
+  /** Running total Stableford points for the player (through previous holes) */
+  runningTotalPoints?: number;
+  /** Whether to show points preview below score controls (default true for Stableford) */
+  showPointsPreview?: boolean;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -49,6 +94,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   onStatsUpdate,
   onPlayerPress,
   disabled = false,
+  runningTotalPoints,
+  showPointsPreview = true,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -116,12 +163,16 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
+          {/* Shots received on this hole */}
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{strokesOnHole}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{strokesOnHole > 0 ? `+${strokesOnHole}` : '-'}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</Text>
           </View>
+          {/* Running total or current hole points */}
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stablefordPoints}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {runningTotalPoints !== undefined ? runningTotalPoints + stablefordPoints : stablefordPoints}
+            </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>PTS</Text>
           </View>
         </View>
@@ -163,6 +214,23 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           accessibilityHint={`Sets your score to par which is ${currentHole.par}`}
         />
       </View>
+
+      {/* Points Preview - Show what points the current score would earn */}
+      {showPointsPreview && selectedScore && !isPickedUp && (
+        <View style={styles.pointsPreviewContainer}>
+          <Text style={[styles.pointsPreviewLabel, { color: colors.textSecondary }]}>
+            Points for this score:{' '}
+          </Text>
+          <Text
+            style={[
+              styles.pointsPreviewValue,
+              { color: getPointsColor(stablefordPoints, colors) },
+            ]}
+          >
+            {stablefordPoints} ({getPointsDescription(stablefordPoints)})
+          </Text>
+        </View>
+      )}
 
       {/* Stats Row - Conditional based on settings */}
       {showStatsRow && (
@@ -242,6 +310,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+  },
+  pointsPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  pointsPreviewLabel: {
+    ...typography.body,
+  },
+  pointsPreviewValue: {
+    ...typography.bodyBold,
   },
 });
 

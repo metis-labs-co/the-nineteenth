@@ -2,9 +2,9 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconChevronRight, IconUsers, IconTrophy } from '@tabler/icons-react-native';
+import { IconChevronRight, IconUsers, IconTrophy, IconCurrencyDollar } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, skinsColor } from '@/constants/theme';
 import {
   StatusBadge,
   DateTimeDisplay,
@@ -41,6 +41,10 @@ export interface CompetitionListCardData {
   startDate: string | null;
   /** Winner information (only for completed competitions) */
   winner?: CompetitionWinnerInfo;
+  /** Whether the competition has a prize pool configured */
+  hasPrizePool?: boolean;
+  /** Total prize pool amount (in competition currency) */
+  prizePoolAmount?: number;
 }
 
 export interface CompetitionListCardProps<T extends CompetitionListCardData = CompetitionListCardData> {
@@ -65,6 +69,20 @@ export interface CompetitionListCardProps<T extends CompetitionListCardData = Co
    */
   testID?: string;
 }
+
+/**
+ * Formats a prize pool amount for display
+ * @param amount - The amount in dollars
+ * @returns Formatted string like "$400"
+ */
+const formatPrizePoolAmount = (amount: number): string => {
+  // For whole numbers, don't show decimals
+  if (Number.isInteger(amount)) {
+    return `$${amount.toLocaleString()}`;
+  }
+  // For decimal amounts, show up to 2 decimal places
+  return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
 
 /**
  * Maps competition status to StatusBadge variant
@@ -128,7 +146,10 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
   const getAccessibilityLabel = () => {
     const role = competition.isOrganizer ? 'Organiser' : 'Player';
     const deleteHint = swipeEnabled ? ', swipe left to delete' : '';
-    return `View ${competition.name}, ${role}, ${competition.rounds} rounds, ${competition.players} players${deleteHint}`;
+    const prizePoolHint = competition.hasPrizePool && competition.prizePoolAmount && competition.prizePoolAmount > 0
+      ? `, ${formatPrizePoolAmount(competition.prizePoolAmount)} prize pool`
+      : '';
+    return `View ${competition.name}, ${role}, ${competition.rounds} rounds, ${competition.players} players${prizePoolHint}${deleteHint}`;
   };
 
   return (
@@ -161,7 +182,7 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
             {competition.name}
           </Text>
 
-          {/* Meta Info: Rounds + Players */}
+          {/* Meta Info: Rounds + Players + Prize Pool */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <IconTrophy size={14} color={colors.textSecondary} />
@@ -175,6 +196,14 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
                 {competition.players} player{competition.players !== 1 ? 's' : ''}
               </Text>
             </View>
+            {competition.hasPrizePool && competition.prizePoolAmount != null && competition.prizePoolAmount > 0 && (
+              <View style={styles.metaItem}>
+                <IconCurrencyDollar size={14} color={skinsColor} />
+                <Text style={[styles.metaText, { color: skinsColor }]}>
+                  {formatPrizePoolAmount(competition.prizePoolAmount)} pool
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Winner Row - Only for completed competitions */}

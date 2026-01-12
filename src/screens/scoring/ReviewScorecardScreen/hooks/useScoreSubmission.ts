@@ -5,6 +5,7 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '@/services/supabase/client';
+import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
 import { submitLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -53,6 +54,9 @@ export function useScoreSubmission({
   const [pendingSyncs, setPendingSyncs] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  // Skins finalization hook
+  const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
+
   // Update round status to completed in database
   const updateRoundStatus = useCallback(async (roundId: string): Promise<void> => {
     try {
@@ -78,10 +82,20 @@ export function useScoreSubmission({
   const navigateAfterSubmit = useCallback((roundId: string | null | undefined) => {
     resetRound();
     if (roundId) {
-      submitLogger.info('Navigating to ViewRound', { roundId: roundId.substring(0, 8) + '...' });
-      navigation.navigate('ViewRound', {
-        roundId,
-        competitionId: competitionId !== 'standalone' ? competitionId : undefined,
+      submitLogger.info('Navigating to ViewRound (resetting stack)', { roundId: roundId.substring(0, 8) + '...' });
+      // Reset navigation stack so back button goes to rounds list, not score entry
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: 'MainTabs' },
+          {
+            name: 'ViewRound',
+            params: {
+              roundId,
+              competitionId: competitionId !== 'standalone' ? competitionId : undefined,
+            },
+          },
+        ],
       });
     } else {
       submitLogger.info('Navigating to dashboard (no round ID)');
@@ -132,6 +146,18 @@ export function useScoreSubmission({
 
               if (roundId && isOnline) {
                 await updateRoundStatus(roundId);
+
+                // Finalize skins game if applicable (non-blocking)
+                finalizeSkinsForRound(roundId).then((result) => {
+                  if (result.finalized) {
+                    submitLogger.info('Skins game finalized', { roundId: roundId?.substring(0, 8) + '...' });
+                  } else if (result.error) {
+                    submitLogger.warn('Skins finalization error (non-blocking)', { error: result.error });
+                  }
+                }).catch((error) => {
+                  // Non-blocking - log error but don't fail submission
+                  submitLogger.warn('Skins finalization failed (non-blocking)', { error });
+                });
               }
 
               if (!isOnline) {
@@ -182,6 +208,7 @@ export function useScoreSubmission({
     submitScorecards,
     updateRoundStatus,
     navigateAfterSubmit,
+    finalizeSkinsForRound,
   ]);
 
   const handleSyncPress = useCallback(async () => {

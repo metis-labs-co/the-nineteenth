@@ -12,26 +12,35 @@
  * the current user is allowed to score.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   PlayerScoreCard,
   TeamScoreCard,
   BestBallScoreView,
   TeamMatchPlayScoreView,
   MultiBallScoreInput,
+  StrokePlayScoreCard,
+  StrokePlayLeaderboard,
 } from '@/components/scorecard';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
-import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
+import type { TeamFormat, TeamWithMembers, GameType } from '@/types/database.types';
 import type { BallCount } from '@/types/multiball.types';
+import { isSingleBallScore } from '@/types/database';
+import { calculateStablefordPoints } from '@/utils/scoring';
 
 export interface ScorecardScoreContentProps {
   // Current hole info
   currentHoleData: Hole;
   currentHole: number;
+  // All holes (for leaderboard calculations)
+  holes: Hole[];
+  // Game type
+  gameType: GameType;
   // Players
   currentPlayers: Player[];
   playersToScore: Player[];
   scoringPairsEnabled: boolean;
+  currentUserId?: string;
   // Team round info
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
@@ -66,9 +75,12 @@ export interface ScorecardScoreContentProps {
 export function ScorecardScoreContent({
   currentHoleData,
   currentHole,
+  holes,
+  gameType,
   currentPlayers,
   playersToScore,
   scoringPairsEnabled,
+  currentUserId,
   isTeamRound,
   teamFormat,
   teams,
@@ -97,6 +109,35 @@ export function ScorecardScoreContent({
   // Determine which players to render based on scoring pairs setting
   const playersToRender =
     scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
+
+  /**
+   * Calculate running total Stableford points for a player up to (but not including) the current hole.
+   * This is used to show cumulative points in the header.
+   */
+  const getRunningTotalPoints = useCallback(
+    (playerId: string, playerHandicap: number): number => {
+      let totalPoints = 0;
+
+      // Loop through all holes BEFORE the current hole
+      for (let holeNum = 1; holeNum < currentHole; holeNum++) {
+        const holeData = holes.find((h) => h.number === holeNum);
+        if (!holeData) continue;
+
+        const score = getPlayerScore(playerId, holeNum);
+        if (!score) continue;
+
+        // Get strokes from score (handle both single-ball and multi-ball)
+        const strokes = isSingleBallScore(score) ? score.strokes : undefined;
+        if (!strokes || strokes <= 0) continue;
+
+        // Calculate Stableford points for this hole
+        totalPoints += calculateStablefordPoints(strokes, playerHandicap, holeData);
+      }
+
+      return totalPoints;
+    },
+    [currentHole, holes, getPlayerScore]
+  );
 
   // Filter teams to only include members the user can score (for team rounds with scoring pairs)
   const getFilteredTeamMembers = (team: TeamWithMembers) => {
@@ -195,7 +236,37 @@ export function ScorecardScoreContent({
     );
   }
 
-  // Default: Individual player scoring
+  // Stroke Play: Individual scoring with relative-to-par UI and mini leaderboard
+  if (gameType === 'stroke' && !isTeamRound) {
+    return (
+      <>
+        {playersToRender.map((player) => (
+          <StrokePlayScoreCard
+            key={player.id}
+            player={player}
+            currentHole={currentHoleData}
+            currentScore={getPlayerScore(player.id, currentHole)}
+            onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
+            onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
+            onPlayerPress={() => onPlayerPress(player.id)}
+          />
+        ))}
+        <StrokePlayLeaderboard
+          players={playersToRender}
+          getPlayerScore={getPlayerScore}
+          currentHole={currentHole}
+          holes={holes}
+          currentUserId={currentUserId}
+          sortBy="net"
+        />
+      </>
+    );
+  }
+
+  // Default: Individual player scoring (Stableford and other formats)
+  // For Stableford, we show running total points
+  const isStableford = gameType === 'stableford';
+
   return (
     <>
       {playersToRender.map((player) => (
@@ -207,6 +278,8 @@ export function ScorecardScoreContent({
           onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
           onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
           onPlayerPress={onPlayerPress}
+          runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, player.handicap ?? 0) : undefined}
+          showPointsPreview={isStableford}
         />
       ))}
     </>

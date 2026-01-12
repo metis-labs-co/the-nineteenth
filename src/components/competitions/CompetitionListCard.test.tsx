@@ -44,6 +44,11 @@ jest.mock('@tabler/icons-react-native', () => {
         <Text>Trash</Text>
       </View>
     ),
+    IconCurrencyDollar: (props: any) => (
+      <View testID="icon-currency-dollar" {...props}>
+        <Text>CurrencyDollar</Text>
+      </View>
+    ),
   };
 });
 
@@ -410,6 +415,109 @@ describe('CompetitionListCard', () => {
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
       expect(screen.getByText('100 players')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // PRIZE POOL DISPLAY TESTS
+  // ===========================================================================
+
+  describe('Prize Pool Display', () => {
+    it('displays prize pool indicator when hasPrizePool is true and amount is positive', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: true,
+        prizePoolAmount: 400,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByTestId('icon-currency-dollar')).toBeTruthy();
+      expect(screen.getByText('$400 pool')).toBeTruthy();
+    });
+
+    it('does not display prize pool indicator when hasPrizePool is false', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: false,
+        prizePoolAmount: 400,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('icon-currency-dollar')).toBeNull();
+      expect(screen.queryByText('$400 pool')).toBeNull();
+    });
+
+    it('does not display prize pool indicator when prizePoolAmount is 0', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: true,
+        prizePoolAmount: 0,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('icon-currency-dollar')).toBeNull();
+    });
+
+    it('does not display prize pool indicator when prizePoolAmount is undefined', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: true,
+        prizePoolAmount: undefined,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.queryByTestId('icon-currency-dollar')).toBeNull();
+    });
+
+    it('formats large prize pool amounts with commas', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: true,
+        prizePoolAmount: 1500,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('$1,500 pool')).toBeTruthy();
+    });
+
+    it('formats decimal prize pool amounts correctly', () => {
+      const competition = createCompetitionData({
+        hasPrizePool: true,
+        prizePoolAmount: 250.5,
+      });
+      render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
+
+      expect(screen.getByText('$250.5 pool')).toBeTruthy();
+    });
+
+    it('includes prize pool in accessibility label when present', () => {
+      const competition = createCompetitionData({
+        name: 'Summer Series',
+        hasPrizePool: true,
+        prizePoolAmount: 400,
+      });
+      render(
+        <CompetitionListCard
+          competition={competition}
+          onPress={defaultOnPress}
+          testID="competition-card"
+        />
+      );
+
+      const card = screen.getByTestId('competition-card');
+      expect(card.props.accessibilityLabel).toContain('$400 prize pool');
+    });
+
+    it('does not include prize pool in accessibility label when not present', () => {
+      const competition = createCompetitionData({
+        name: 'Summer Series',
+        hasPrizePool: false,
+      });
+      render(
+        <CompetitionListCard
+          competition={competition}
+          onPress={defaultOnPress}
+          testID="competition-card"
+        />
+      );
+
+      const card = screen.getByTestId('competition-card');
+      expect(card.props.accessibilityLabel).not.toContain('prize pool');
     });
   });
 

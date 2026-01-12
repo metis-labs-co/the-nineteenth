@@ -2,7 +2,7 @@
  * Match play calculation utilities
  */
 
-import type { MatchStatus, HoleResult } from '../types';
+import type { MatchStatus, HoleResult, PlayerMatchStatus } from '../types';
 
 /**
  * Determine hole winner based on scores
@@ -95,4 +95,65 @@ export function getMatchStatusText(
 
   const leaderName = matchStatus.leader === 'player1' ? player1Name : player2Name;
   return `${leaderName} is ${matchStatus.holesUp} up with ${matchStatus.holesRemaining} to play`;
+}
+
+/**
+ * Get individual player's match status from their perspective
+ * @param matchStatus - The overall match status
+ * @param player - Which player's perspective ('player1' or 'player2')
+ * @returns PlayerMatchStatus with text like "1 UP", "2 DN", "AS"
+ */
+export function getPlayerMatchStatus(
+  matchStatus: MatchStatus,
+  player: 'player1' | 'player2'
+): PlayerMatchStatus {
+  // Match complete
+  if (matchStatus.status === 'complete') {
+    if (matchStatus.winner === 'halved') {
+      return {
+        text: 'AS',
+        fullText: 'All Square',
+        type: 'halved',
+        holesUpDown: 0,
+      };
+    }
+
+    const isWinner = matchStatus.winner === player;
+    return {
+      text: isWinner ? 'WIN' : 'LOSS',
+      fullText: isWinner ? `Won ${matchStatus.margin}` : `Lost ${matchStatus.margin}`,
+      type: isWinner ? 'win' : 'loss',
+      holesUpDown: 0,
+    };
+  }
+
+  // Match in progress - all square
+  if (matchStatus.leader === null) {
+    return {
+      text: 'AS',
+      fullText: 'All Square',
+      type: 'square',
+      holesUpDown: 0,
+    };
+  }
+
+  // Match in progress - one player leading
+  const isLeading = matchStatus.leader === player;
+  const holesUp = matchStatus.holesUp;
+
+  if (isLeading) {
+    return {
+      text: `${holesUp} UP`,
+      fullText: `${holesUp} Up`,
+      type: 'up',
+      holesUpDown: holesUp,
+    };
+  } else {
+    return {
+      text: `${holesUp} DN`,
+      fullText: `${holesUp} Down`,
+      type: 'down',
+      holesUpDown: -holesUp,
+    };
+  }
 }

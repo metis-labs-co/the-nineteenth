@@ -13,6 +13,8 @@ import {
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { DatePicker, FormInput } from '@/components/common';
+import { useIsPremium } from '@/context/SubscriptionContext';
+import { IconTrophy, IconLock } from '@tabler/icons-react-native';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -23,6 +25,7 @@ interface CompetitionDetailsStepProps {
   initialData?: CompetitionDetailsFormData;
   onComplete: (data: CompetitionDetailsFormData) => void;
   onBack: () => void;
+  onUpgradePress?: () => void;
 }
 
 // Parse DD/MM/YYYY string to Date object
@@ -32,13 +35,18 @@ const parseAustralianDate = (dateString: string): Date | null => {
   return isValid(parsed) ? parsed : null;
 };
 
+// Prize pool color for styling
+const PRIZE_POOL_COLOR = '#059669';
+
 export default function CompetitionDetailsStep({
   initialData,
   onComplete,
   onBack,
+  onUpgradePress,
 }: CompetitionDetailsStepProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const isPremium = useIsPremium();
 
   const {
     control,
@@ -57,6 +65,7 @@ export default function CompetitionDetailsStep({
       handicapSystem: 'honor',
       inviteCode: '',
       enableTeams: false,
+      enablePrizePool: false,
     },
   });
 
@@ -267,6 +276,109 @@ export default function CompetitionDetailsStep({
               Team format can be configured in competition settings after creation
             </Text>
           </View>
+
+          {/* Prize Pool Toggle */}
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Prize Pool</Text>
+            {isPremium ? (
+              <Controller
+                control={control}
+                name="enablePrizePool"
+                render={({ field: { value, onChange } }) => (
+                  <TouchableOpacity
+                    onPress={() => onChange(!value)}
+                    style={[
+                      styles.teamToggle,
+                      {
+                        backgroundColor: value ? `${PRIZE_POOL_COLOR}15` : colors.surface,
+                        borderColor: value ? PRIZE_POOL_COLOR : colors.gray300,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.teamToggleContent}>
+                      <View
+                        style={[
+                          styles.prizePoolIconContainer,
+                          {
+                            backgroundColor: value ? `${PRIZE_POOL_COLOR}20` : colors.gray200,
+                          },
+                        ]}
+                      >
+                        <IconTrophy
+                          size={20}
+                          color={value ? PRIZE_POOL_COLOR : colors.gray500}
+                        />
+                      </View>
+                      <View style={styles.teamToggleText}>
+                        <Text style={[styles.teamToggleLabel, { color: colors.textPrimary }]}>
+                          {value ? 'Prize Pool Enabled' : 'Add Prize Pool'}
+                        </Text>
+                        <Text style={[styles.teamToggleDescription, { color: colors.textSecondary }]}>
+                          {value ? 'Configure in next step' : 'Fund skins games and competition prizes'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          backgroundColor: value ? PRIZE_POOL_COLOR : colors.surface,
+                          borderColor: value ? PRIZE_POOL_COLOR : colors.gray300,
+                        },
+                      ]}
+                    >
+                      {value && <Icon source="check" size={14} color={colors.white} />}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            ) : (
+              <TouchableOpacity
+                onPress={onUpgradePress}
+                style={[
+                  styles.teamToggle,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.gray300,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <View style={styles.teamToggleContent}>
+                  <View
+                    style={[
+                      styles.prizePoolIconContainer,
+                      { backgroundColor: colors.gray200 },
+                    ]}
+                  >
+                    <IconLock size={20} color={colors.gray500} />
+                  </View>
+                  <View style={styles.teamToggleText}>
+                    <View style={styles.prizePoolLabelRow}>
+                      <Text style={[styles.teamToggleLabel, { color: colors.textSecondary }]}>
+                        Add Prize Pool
+                      </Text>
+                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
+                          Premium
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.teamToggleDescription, { color: colors.textTertiary }]}>
+                      Upgrade to Premium for prize pools
+                    </Text>
+                  </View>
+                </View>
+                <Icon source="chevron-right" size={24} color={colors.gray400} />
+              </TouchableOpacity>
+            )}
+            {isPremium && (
+              <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
+                Prize pool configuration in a dedicated step after rounds
+              </Text>
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -390,5 +502,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  prizePoolIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  prizePoolLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  premiumBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  premiumBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });

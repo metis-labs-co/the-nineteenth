@@ -14,6 +14,8 @@ interface ReviewActionsProps {
   isSubmitting: boolean;
   onEditScores: () => void;
   onSubmit: () => void;
+  /** Whether all holes have been scored - shows submit button when true */
+  isAllComplete?: boolean;
 }
 
 export function ReviewActions({
@@ -21,6 +23,7 @@ export function ReviewActions({
   isSubmitting,
   onEditScores,
   onSubmit,
+  isAllComplete = false,
 }: ReviewActionsProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -47,23 +50,25 @@ export function ReviewActions({
       >
         Edit Scores
       </Button>
-      <Button
-        mode="contained"
-        onPress={onSubmit}
-        loading={isSubmitting}
-        disabled={isSubmitting}
-        style={[styles.submitButton, { backgroundColor: colors.success }]}
-        contentStyle={styles.buttonContent}
-        labelStyle={[styles.submitButtonLabel, { color: colors.textInverse }]}
-        accessibilityLabel="Submit all scores"
-        accessibilityHint={
-          isOnline
-            ? 'Submit all scores to the server'
-            : 'Save scores offline for later submission'
-        }
-      >
-        {isOnline ? 'Submit All Scores' : 'Save Offline'}
-      </Button>
+      {isAllComplete && (
+        <Button
+          mode="contained"
+          onPress={onSubmit}
+          loading={isSubmitting}
+          disabled={isSubmitting}
+          style={[styles.submitButton, { backgroundColor: colors.success }]}
+          contentStyle={styles.buttonContent}
+          labelStyle={[styles.submitButtonLabel, { color: colors.textInverse }]}
+          accessibilityLabel="Submit all scores"
+          accessibilityHint={
+            isOnline
+              ? 'Submit all scores to the server'
+              : 'Save scores offline for later submission'
+          }
+        >
+          {isOnline ? 'Submit All Scores' : 'Save Offline'}
+        </Button>
+      )}
     </View>
   );
 }

@@ -69,6 +69,8 @@ export interface RoundListCardData {
   teeTime?: string | null;
   /** Type of game (stableford, stroke, etc.) */
   gameType: string;
+  /** Whether this is a team round */
+  isTeamRound?: boolean;
   /** Whether this is a standalone practice round */
   isStandalone?: boolean;
   /** Round number within competition */
@@ -85,6 +87,8 @@ export interface RoundListCardData {
   userScore?: UserScoreData;
   /** Winner information (only for completed rounds) */
   winner?: WinnerInfo;
+  /** Whether this round has an active skins game */
+  hasSkins?: boolean;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {

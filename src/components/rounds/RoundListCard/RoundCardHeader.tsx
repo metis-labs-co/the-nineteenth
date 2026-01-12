@@ -2,9 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, skinsColor } from '@/constants/theme';
 import { StatusBadge, Pill } from '@/components/common';
 import { RoundListCardData, getStatusVariant, formatUserScore } from './types';
 
@@ -45,12 +45,21 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
         )}
       </View>
 
-      {/* Competition Name or Practice Round */}
-      <Text style={[styles.competitionName, { color: colors.textPrimary }]}>
-        {round.isStandalone
-          ? 'Practice Round'
-          : round.competition?.name || 'Competition'}
-      </Text>
+      {/* Title: Skins Match, Competition Name, or Practice Round */}
+      <View style={styles.titleRow}>
+        {round.hasSkins && (
+          <View style={[styles.skinsIndicator, { backgroundColor: `${skinsColor}15` }]}>
+            <Icon source="dice-multiple" size={14} color={skinsColor} />
+          </View>
+        )}
+        <Text style={[styles.competitionName, { color: colors.textPrimary }]}>
+          {round.hasSkins
+            ? 'Skins Match'
+            : round.isStandalone
+              ? 'Practice Round'
+              : round.competition?.name || 'Competition'}
+        </Text>
+      </View>
     </>
   );
 });
@@ -68,8 +77,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  skinsIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   competitionName: {
     ...typography.bodyBold,
-    marginBottom: spacing.xs,
   },
 });

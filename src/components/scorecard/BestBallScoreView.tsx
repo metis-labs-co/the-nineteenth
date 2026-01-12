@@ -343,7 +343,7 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
               { color: isBest ? colors.white : colors.textSecondary },
             ]}
           >
-            pts
+            {isBest ? 'BEST' : 'pts'}
           </Text>
         </View>
       </View>

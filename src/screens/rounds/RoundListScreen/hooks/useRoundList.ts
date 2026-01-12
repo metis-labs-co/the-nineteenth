@@ -64,6 +64,7 @@ export function useRoundList(): UseRoundListReturn {
         id: string;
         round_number: number;
         game_type: string;
+        is_team_round: boolean;
         status: string;
         date: string | null;
         tee_time: string | null;
@@ -86,6 +87,7 @@ export function useRoundList(): UseRoundListReturn {
           id,
           round_number,
           game_type,
+          is_team_round,
           status,
           date,
           tee_time,
@@ -116,6 +118,7 @@ export function useRoundList(): UseRoundListReturn {
             roundNumber: round.round_number,
             totalRounds: 1, // Standalone rounds don't have multiple rounds
             gameType: round.game_type,
+            isTeamRound: round.is_team_round ?? false,
             status: round.status,
             date: round.date,
             teeTime: round.tee_time,
@@ -152,6 +155,7 @@ export function useRoundList(): UseRoundListReturn {
               user_id,
               round_number,
               game_type,
+              is_team_round,
               status,
               date,
               tee_time,
@@ -188,6 +192,7 @@ export function useRoundList(): UseRoundListReturn {
               roundNumber: round.round_number,
               totalRounds: 1,
               gameType: round.game_type,
+              isTeamRound: round.is_team_round ?? false,
               status: round.status,
               date: round.date,
               teeTime: round.tee_time,
@@ -329,7 +334,42 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 5. Fetch winner for completed rounds
+      // 5. Fetch skins games for all rounds to set hasSkins flag
+      const allRoundIds = allRounds.map(r => r.id);
+      if (allRoundIds.length > 0) {
+        try {
+          interface SkinsGameRow {
+            round_id: string;
+          }
+
+          const { data: skinsGamesData, error: skinsGamesError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('skins_games') as any)
+            .select('round_id')
+            .in('round_id', allRoundIds)
+            .in('status', ['active', 'completed']);
+
+          if (skinsGamesError) {
+            if (skinsGamesError.code !== 'PGRST205') {
+              console.error('Error fetching skins games:', skinsGamesError);
+            }
+          } else if (skinsGamesData) {
+            // Create a set of round IDs that have skins games
+            const roundsWithSkins = new Set(
+              (skinsGamesData as SkinsGameRow[]).map(sg => sg.round_id)
+            );
+
+            // Update hasSkins flag on rounds
+            for (const round of allRounds) {
+              round.hasSkins = roundsWithSkins.has(round.id);
+            }
+          }
+        } catch (err) {
+          console.log('skins_games fetch skipped (table may not exist yet)');
+        }
+      }
+
+      // 6. Fetch winner for completed rounds
       // Get all scorecards for completed rounds to determine winner
       if (completedRoundIds.length > 0) {
         try {

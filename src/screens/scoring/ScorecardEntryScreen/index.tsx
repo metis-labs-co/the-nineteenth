@@ -14,7 +14,7 @@
  * - Super admin hole editing (par, SI, yardage)
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -30,7 +30,7 @@ import {
   SwipeableHoleNavigator,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet } from '@/components/courses';
-import { useUpdateCourseHoles } from '@/hooks';
+import { useUpdateCourseHoles, useProcessSkinsIfNeeded } from '@/hooks';
 import { scoringLogger } from '@/utils/debugLogger';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -76,6 +76,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     currentHole,
     currentPlayers,
     holes,
+    groupScorecards,
     isLoading: storeLoading,
     isInitialized,
     isSyncing,
@@ -98,6 +99,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     getMultiBallTotals: _getMultiBallTotals,
   } = useScorecardStore();
 
+  // Skins processing hook
+  const { processSkinsHole } = useProcessSkinsIfNeeded();
+
   // Stats visibility (respects Premium tier)
   const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
 
@@ -109,6 +113,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTee,
     isTeamRound,
     teamFormat,
+    gameType,
     teams,
     fetchError,
     isLoading: dataLoading,
@@ -196,8 +201,44 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         holeInfo: holeData ? { par: holeData.par, si: holeData.strokeIndex } : null,
       });
       await setPlayerScore(playerId, currentHole, strokes);
+
+      // Process skins if applicable (non-blocking, runs in background)
+      if (holeData) {
+        // Convert Map to Record for skins processing
+        const scorecardsRecord: Record<string, { [holeNumber: string]: { strokes: number } | number }> = {};
+        // Get fresh state from store after score was saved
+        const latestScorecards = useScorecardStore.getState().groupScorecards;
+        latestScorecards.forEach((scorecard, pId) => {
+          scorecardsRecord[pId] = scorecard.scores;
+        });
+
+        processSkinsHole({
+          roundId,
+          holeNumber: currentHole,
+          scorecards: scorecardsRecord,
+          hole: { par: holeData.par, strokeIndex: holeData.strokeIndex },
+        }).then((result) => {
+          if (result.processed) {
+            if (result.hasWinner) {
+              scoringLogger.info('SKINS: Hole winner', {
+                hole: currentHole,
+                winner: result.winnerName,
+                amount: result.winningsAmount,
+              });
+            } else if (result.carryoverAmount) {
+              scoringLogger.info('SKINS: Hole tied, carryover', {
+                hole: currentHole,
+                carryover: result.carryoverAmount,
+              });
+            }
+          }
+        }).catch((error) => {
+          // Non-blocking - log error but don't fail score entry
+          scoringLogger.warn('SKINS: Processing error (non-blocking)', { error });
+        });
+      }
     },
-    [currentHole, setPlayerScore, currentPlayers, getHoleInfo]
+    [currentHole, setPlayerScore, currentPlayers, getHoleInfo, roundId, processSkinsHole]
   );
 
   const handleStatsUpdate = useCallback(
@@ -357,9 +398,12 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
             <ScorecardScoreContent
               currentHoleData={holeData}
               currentHole={holeNumber}
+              holes={holes}
+              gameType={gameType}
               currentPlayers={currentPlayers}
               playersToScore={playersToScore}
               scoringPairsEnabled={scoringPairsEnabled}
+              currentUserId={user?.id}
               isTeamRound={isTeamRound}
               teamFormat={teamFormat}
               teams={teams}
@@ -415,8 +459,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       currentPlayers,
       playersToScore,
       scoringPairsEnabled,
+      user?.id,
       isTeamRound,
       teamFormat,
+      gameType,
       teams,
       handleScoreSelect,
       handleStatsUpdate,
@@ -489,13 +535,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
-      {/* Header with offline indicator and sync line */}
+      {/* Header with offline indicator, skins indicator, and sync line */}
       <ScorecardHeader
         courseName={courseName ?? undefined}
-        selectedTee={courseTees.find((t) => t.name === selectedTee) ?? null}
+        selectedTee={courseTees.find((t) => t.color?.toLowerCase() === selectedTee) ?? null}
         onBack={nav.handleBackPress}
         onDeletePress={submission.handleDeleteRound}
         isStandaloneRound={isStandaloneRound}
+        roundId={roundId}
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
@@ -522,6 +569,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onViewScorecard={handleViewScorecard}
         canGoPrevious={nav.canGoPrevious}
         canGoNext={nav.canGoNext}
+        isAllComplete={getCompletedHolesCount() === holes.length && holes.length > 0}
       />
 
       {/* All dialogs */}

@@ -254,3 +254,9 @@ export function formatTeeTime(timeString: string | null): string {
   const displayHour = hour % 12 || 12;
   return `${displayHour}:${minutes} ${ampm}`;
 }
+
+// ============================================================================
+// CURRENCY FORMATTING (re-exported from skinsCalculations for convenience)
+// ============================================================================
+
+export { formatCurrency, formatNetResult } from './skinsCalculations';

@@ -46,6 +46,7 @@ export type {
   CreateRoundBottomSheetProps,
   ScoringPairsConfig,
   PlayingPartner,
+  StandaloneSkinsConfig,
 } from './types';
 
 export default function CreateRoundBottomSheet({
@@ -278,6 +279,10 @@ export default function CreateRoundBottomSheet({
             scoringPairs={wizard.data.scoringPairs}
             onScoringPairsEnabledChange={wizard.setScoringPairsEnabled}
             onScoringPairsChange={wizard.handleScoringPairsChange}
+            skinsEnabled={wizard.data.skinsEnabled}
+            skinsConfig={wizard.data.skinsConfig}
+            onSkinsEnabledChange={wizard.setSkinsEnabled}
+            onSkinsConfigChange={wizard.handleSkinsConfigChange}
             onStartScoring={wizard.handleStartScoring}
           />
         )}

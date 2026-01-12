@@ -1,5 +1,11 @@
 /**
  * Hook for handling competition submission and mutations
+ *
+ * Handles:
+ * - Competition details update (name, description, type, team mode, dates)
+ *
+ * Note: Prize pool create/update/delete is handled separately via
+ * EditPrizePoolBottomSheet from the CompetitionDetailScreen.
  */
 
 import { useCallback } from 'react';
@@ -55,18 +61,21 @@ export function useCompetitionSubmission({
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: EditCompetitionFormData) => {
-      const startDateParsed = parseAustralianDate(data.startDate);
-      const endDateParsed = data.endDate ? parseAustralianDate(data.endDate) : null;
+    mutationFn: async (formData: EditCompetitionFormData) => {
+      // Update competition details
+      const startDateParsed = parseAustralianDate(formData.startDate);
+      const endDateParsed = formData.endDate ? parseAustralianDate(formData.endDate) : null;
 
-      return updateCompetition(competitionId, {
-        name: data.name,
-        description: data.description || null,
-        competition_type: data.competitionType,
-        team_mode: data.teamMode,
+      const competition = await updateCompetition(competitionId, {
+        name: formData.name,
+        description: formData.description || null,
+        competition_type: formData.competitionType,
+        team_mode: formData.teamMode,
         start_date: startDateParsed ? startDateParsed.toISOString().split('T')[0] : undefined,
         end_date: endDateParsed ? endDateParsed.toISOString().split('T')[0] : null,
       });
+
+      return competition;
     },
     onSuccess: () => {
       // Invalidate queries to refresh data

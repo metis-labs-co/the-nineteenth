@@ -56,3 +56,11 @@ export type TierFeature =
   | 'compare_stats'
   | 'admin_tools'
   | 'skins';
+
+// Skins enums (re-exported from skins.types.ts for consistency)
+export type {
+  SkinsPotType,
+  SkinsScoringType,
+  SkinsGameStatus,
+  SkinsPoolSource,
+} from './skins.types';

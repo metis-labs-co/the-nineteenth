@@ -3,15 +3,17 @@
  *
  * Renders the header section of the scorecard entry screen:
  * - PageHeader with title, subtitle, back button, and action buttons
+ * - Skins game indicator (when skins is active)
  * - Offline status indicator
  * - Sync line animation when syncing
  * - Scoring pairs info header (when enabled)
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, TouchableOpacity, Alert } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import { PageHeader, OfflineIndicator } from '@/components/common';
+import { SkinsIndicator } from '@/components/skins';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
@@ -22,6 +24,8 @@ export interface ScorecardHeaderProps {
   onBack: () => void;
   onDeletePress?: () => void;
   isStandaloneRound: boolean;
+  // Round ID for skins indicator
+  roundId: string;
   // Offline/sync state
   isOnline: boolean;
   isSyncing: boolean;
@@ -38,6 +42,7 @@ export function ScorecardHeader({
   onBack,
   onDeletePress,
   isStandaloneRound,
+  roundId,
   isOnline,
   isSyncing,
   pendingSyncCount,
@@ -46,6 +51,15 @@ export function ScorecardHeader({
   playersToScore,
 }: ScorecardHeaderProps) {
   const colors = useThemeColors();
+
+  // Handle skins indicator press - show coming soon alert for now
+  const handleSkinsPress = useCallback(() => {
+    Alert.alert(
+      'Skins Tracking',
+      'Detailed skins tracking view coming soon! Use the popover for quick summary.',
+      [{ text: 'OK' }]
+    );
+  }, []);
 
   // Build subtitle with course name and tee info
   const getSubtitle = (): string | undefined => {
@@ -93,20 +107,26 @@ export function ScorecardHeader({
     return 'online';
   };
 
-  // Build right action buttons
-  const rightActions = [
-    // Delete button for standalone rounds
-    ...(isStandaloneRound && onDeletePress
-      ? [
-          {
-            icon: 'delete-outline' as const,
-            onPress: onDeletePress,
-            accessibilityLabel: 'Delete round',
-            color: colors.error,
-          },
-        ]
-      : []),
-  ];
+  // Custom right content with skins indicator and delete button
+  const renderRightContent = () => (
+    <View style={styles.rightContent}>
+      {/* Skins Indicator - shows when skins game is active */}
+      <SkinsIndicator roundId={roundId} size="sm" />
+
+      {/* Delete button for standalone rounds */}
+      {isStandaloneRound && onDeletePress && (
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onDeletePress}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Delete round"
+        >
+          <Icon source="delete-outline" size={24} color={colors.error} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <>
@@ -115,7 +135,7 @@ export function ScorecardHeader({
         subtitle={getSubtitle()}
         showBack
         onBack={onBack}
-        rightActions={rightActions}
+        rightContent={renderRightContent()}
       />
 
       {/* Offline Status Indicator - only show when offline, not during sync */}
@@ -163,6 +183,18 @@ export function ScorecardHeader({
 }
 
 const styles = StyleSheet.create({
+  rightContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+  },
   syncLineContainer: {
     height: 2,
     overflow: 'hidden',

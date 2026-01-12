@@ -25,6 +25,8 @@ export {
   placeholderPlayersKeys,
   achievementKeys,
   cosmeticKeys,
+  prizePoolKeys,
+  skinsKeys,
   allQueryKeys,
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
@@ -274,4 +276,73 @@ export {
   getIsOnlineCached,
   initOnlineStatus,
 } from './useOnlineStatus';
+
+// Skins game hooks
+export {
+  useSkinsGame,
+  useSkinsGamesByRound,
+  useSkinsResults,
+  useSkinsPayouts,
+  useSkinsSummary,
+  useCreateSkinsGame,
+  useProcessSkinsHole,
+  useFinalizeSkinsGame,
+  useCancelSkinsGame,
+  useCanUseSkins,
+  useActiveSkinsGameForRound,
+  useProcessSkinsIfNeeded,
+  useFinalizeSkinsForRound,
+  useAutoSplitSkinsForCompetition,
+  // Statistics & Leaderboard
+  useSkinsStatistics,
+  useMySkinsStatistics,
+  useSkinsLeaderboard,
+  useSkinsGameHistory,
+  useSkinsRank,
+} from './useSkins';
+export type {
+  SkinsServiceError,
+  ProcessSkinsHoleInput,
+  ProcessSkinsInput,
+  ProcessSkinsResult,
+  AutoSplitSkinsInput,
+  AutoSplitSkinsResult,
+  SyncSkinsResult,
+  CreateSkinsGameWithPoolInput,
+  // Statistics types
+  SkinsPlayerStatistics,
+  SkinsLeaderboardEntry,
+  SkinsGameHistoryEntry,
+  SkinsLeaderboardOptions,
+  SkinsGameHistoryOptions,
+} from './useSkins';
+
+// Prize pool hooks
+export {
+  useCompetitionPrizePool,
+  usePoolTransactions,
+  usePoolBalance,
+  usePoolAllocationSummary,
+  useCanDrawFromPool,
+  useCreatePrizePool,
+  useUpdatePrizePool,
+  useDeletePrizePool,
+  useAutoSplitPool,
+  useDrawFromPool,
+  useReturnToPool,
+  useSkinsAllocationStatus,
+} from './usePrizePool';
+export type {
+  PrizePoolServiceError,
+  PoolTransactionsOptions,
+  RoundSkinsAllocation,
+  SkinsAllocationStatus,
+} from './usePrizePool';
+
+// Auto-split skins sync hook
+export { useAutoSplitSkinsSync } from './useAutoSplitSkinsSync';
+export type {
+  AutoSplitTriggerResult,
+  UseAutoSplitSkinsSyncReturn,
+} from './useAutoSplitSkinsSync';
 

@@ -4,10 +4,11 @@
  * Features:
  * - Display summary of selections
  * - Configure scoring pairs (Premium feature)
+ * - Configure skins game (Premium feature)
  * - Start the round
  */
 
-import React, { memo } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,14 +20,23 @@ import {
   IconCheck,
   IconLock,
   IconArrowsExchange,
+  IconDice,
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScoringPairFormationInline } from '@/components/scoring';
+import {
+  SkinsConfigBottomSheet,
+  SkinsDisclaimerModal,
+  hasAcceptedSkinsDisclaimer,
+} from '@/components/skins';
 import type { TeeBox, GameType } from '@/types/database.types';
-import type { ScoringPairCreateInput } from '@/types';
+import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MATCH_TYPES } from '../types';
+
+/** Amber/gold color for skins feature */
+const SKINS_AMBER = '#f59e0b';
 
 interface ScoringSetupStepProps {
   selectedCourse: SelectedCourse | null;
@@ -34,10 +44,17 @@ interface ScoringSetupStepProps {
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
   isPremium: boolean;
+  // Scoring pairs
   scoringPairsEnabled: boolean;
   scoringPairs: ScoringPairCreateInput[];
   onScoringPairsEnabledChange: (enabled: boolean) => void;
   onScoringPairsChange: (pairs: ScoringPairCreateInput[], type: 'reciprocal' | 'circular') => void;
+  // Skins game
+  skinsEnabled: boolean;
+  skinsConfig: SkinsConfig | null;
+  onSkinsEnabledChange: (enabled: boolean) => void;
+  onSkinsConfigChange: (config: SkinsConfig) => void;
+  // Actions
   onStartScoring: () => void;
 }
 
@@ -51,9 +68,90 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   scoringPairs,
   onScoringPairsEnabledChange,
   onScoringPairsChange,
+  skinsEnabled,
+  skinsConfig,
+  onSkinsEnabledChange,
+  onSkinsConfigChange,
   onStartScoring,
 }: ScoringSetupStepProps) {
   const colors = useThemeColors();
+
+  // Local state for skins modals
+  const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
+  const [showSkinsDisclaimer, setShowSkinsDisclaimer] = useState(false);
+
+  // Skins is only available for 2+ players (current user + at least 1 partner)
+  const canUseSkins = selectedPartners.length >= 1;
+
+  /**
+   * Handle skins toggle press
+   * Shows disclaimer on first use, then opens config sheet
+   */
+  const handleSkinsToggle = useCallback(async () => {
+    if (skinsEnabled) {
+      // Disable skins
+      onSkinsEnabledChange(false);
+    } else {
+      // Check if disclaimer has been accepted
+      const accepted = await hasAcceptedSkinsDisclaimer();
+      if (accepted) {
+        // Show config sheet directly
+        setShowSkinsConfigSheet(true);
+      } else {
+        // Show disclaimer first
+        setShowSkinsDisclaimer(true);
+      }
+    }
+  }, [skinsEnabled, onSkinsEnabledChange]);
+
+  /**
+   * Handle disclaimer acceptance
+   * Opens config sheet after acceptance
+   */
+  const handleDisclaimerAccept = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+    // Show config sheet after disclaimer accepted
+    setShowSkinsConfigSheet(true);
+  }, []);
+
+  /**
+   * Handle disclaimer cancel
+   */
+  const handleDisclaimerCancel = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+  }, []);
+
+  /**
+   * Handle skins config save
+   * Enables skins and stores the config
+   */
+  const handleSkinsConfigSave = useCallback(
+    (config: SkinsConfig) => {
+      // DEBUG: Log skins config being saved
+      console.log('[ScoringSetupStep] handleSkinsConfigSave:', {
+        config,
+        partnersCount: selectedPartners.length,
+      });
+      onSkinsConfigChange(config);
+      onSkinsEnabledChange(true);
+      setShowSkinsConfigSheet(false);
+    },
+    [onSkinsConfigChange, onSkinsEnabledChange, selectedPartners.length]
+  );
+
+  /**
+   * Handle skins config sheet dismiss (without save)
+   */
+  const handleSkinsConfigDismiss = useCallback(() => {
+    setShowSkinsConfigSheet(false);
+  }, []);
+
+  /**
+   * Open config sheet for editing existing config
+   */
+  const handleEditSkinsConfig = useCallback(() => {
+    setShowSkinsConfigSheet(true);
+  }, []);
 
   return (
     <>
@@ -183,19 +281,166 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             </Text>
           </View>
         )}
+
+        {/* Skins Game Section - Only show for 2+ players */}
+        {canUseSkins && (
+          <>
+            {/* Divider */}
+            <View style={[styles.skinsDivider, { backgroundColor: colors.border }]} />
+
+            {/* Skins Toggle */}
+            {isPremium ? (
+              <TouchableOpacity
+                style={[
+                  styles.skinsToggle,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: skinsEnabled ? SKINS_AMBER : colors.border,
+                  },
+                ]}
+                onPress={handleSkinsToggle}
+                activeOpacity={0.7}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: skinsEnabled }}
+                accessibilityLabel={skinsEnabled ? 'Skins game enabled' : 'Enable skins game'}
+                accessibilityHint="Hole-by-hole betting between players"
+              >
+                <View style={styles.skinsToggleContent}>
+                  <View
+                    style={[
+                      styles.skinsIconContainer,
+                      { backgroundColor: skinsEnabled ? `${SKINS_AMBER}20` : colors.gray100 },
+                    ]}
+                  >
+                    <IconDice
+                      size={20}
+                      color={skinsEnabled ? SKINS_AMBER : colors.gray400}
+                    />
+                  </View>
+                  <View style={styles.skinsToggleText}>
+                    <Text style={[styles.skinsToggleLabel, { color: colors.textPrimary }]}>
+                      Add Skins Game
+                    </Text>
+                    <Text style={[styles.skinsToggleDescription, { color: colors.textSecondary }]}>
+                      Hole-by-hole betting between players
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      backgroundColor: skinsEnabled ? SKINS_AMBER : colors.surface,
+                      borderColor: skinsEnabled ? SKINS_AMBER : colors.gray300,
+                    },
+                  ]}
+                >
+                  {skinsEnabled && <IconCheck size={14} color={colors.white} />}
+                </View>
+              </TouchableOpacity>
+            ) : (
+              /* Locked state for non-premium users */
+              <View
+                style={[
+                  styles.skinsToggle,
+                  styles.skinsToggleLocked,
+                  { backgroundColor: colors.gray100, borderColor: colors.gray200 },
+                ]}
+              >
+                <View style={styles.skinsToggleContent}>
+                  <View style={[styles.skinsIconContainer, { backgroundColor: colors.gray200 }]}>
+                    <IconLock size={20} color={colors.gray500} />
+                  </View>
+                  <View style={styles.skinsToggleText}>
+                    <View style={styles.skinsLabelRow}>
+                      <Text style={[styles.skinsToggleLabel, { color: colors.textSecondary }]}>
+                        Add Skins Game
+                      </Text>
+                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
+                          Premium
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.skinsToggleDescription, { color: colors.textTertiary }]}>
+                      Upgrade to Premium for skins betting
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Skins Config Summary (when enabled) */}
+            {skinsEnabled && skinsConfig && (
+              <TouchableOpacity
+                style={[styles.skinsConfigSummary, { backgroundColor: `${SKINS_AMBER}10`, borderColor: `${SKINS_AMBER}40` }]}
+                onPress={handleEditSkinsConfig}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Edit skins configuration"
+                accessibilityHint={`Current config: $${skinsConfig.pot_value} ${skinsConfig.pot_type === 'per_hole' ? 'per hole' : 'total pot'}, ${skinsConfig.scoring_type} scoring`}
+              >
+                <View style={styles.skinsConfigSummaryContent}>
+                  <View style={styles.skinsConfigRow}>
+                    <Text style={[styles.skinsConfigLabel, { color: colors.textSecondary }]}>
+                      Pot:
+                    </Text>
+                    <Text style={[styles.skinsConfigValue, { color: colors.textPrimary }]}>
+                      ${skinsConfig.pot_value}{skinsConfig.pot_type === 'per_hole' ? '/hole' : ' total'}
+                    </Text>
+                  </View>
+                  <View style={styles.skinsConfigRow}>
+                    <Text style={[styles.skinsConfigLabel, { color: colors.textSecondary }]}>
+                      Scoring:
+                    </Text>
+                    <Text style={[styles.skinsConfigValue, { color: colors.textPrimary }]}>
+                      {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net (with handicap)'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.skinsConfigTapHint, { color: SKINS_AMBER }]}>
+                  Tap to edit
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
 
+      {/* Skins Config Bottom Sheet */}
+      <SkinsConfigBottomSheet
+        visible={showSkinsConfigSheet}
+        onDismiss={handleSkinsConfigDismiss}
+        initialConfig={skinsConfig}
+        onSave={handleSkinsConfigSave}
+      />
+
+      {/* Skins Disclaimer Modal */}
+      <SkinsDisclaimerModal
+        visible={showSkinsDisclaimer}
+        onAccept={handleDisclaimerAccept}
+        onCancel={handleDisclaimerCancel}
+      />
+
       {/* Start Scoring Button */}
+      {/* Disabled while skins config sheet is open to require confirmation first */}
       <View
         style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
         <TouchableOpacity
-          style={[styles.startButton, { backgroundColor: colors.primary }]}
+          style={[
+            styles.startButton,
+            {
+              backgroundColor: showSkinsConfigSheet ? colors.surfaceVariant : colors.primary,
+              opacity: showSkinsConfigSheet ? 0.6 : 1,
+            },
+          ]}
           onPress={onStartScoring}
+          disabled={showSkinsConfigSheet}
           activeOpacity={0.8}
         >
-          <IconGolf size={20} color={colors.white} />
-          <Text style={[styles.startButtonText, { color: colors.white }]}>
+          <IconGolf size={20} color={showSkinsConfigSheet ? colors.textDisabled : colors.white} />
+          <Text style={[styles.startButtonText, { color: showSkinsConfigSheet ? colors.textDisabled : colors.white }]}>
             {selectedPartners.length > 0
               ? `Start Scoring (${selectedPartners.length + 1} players)`
               : 'Start Solo Round'}
@@ -320,5 +565,77 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     ...typography.bodyBold,
+  },
+  // Skins styles
+  skinsDivider: {
+    height: 1,
+    marginVertical: spacing.lg,
+  },
+  skinsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  skinsToggleLocked: {
+    opacity: 0.8,
+  },
+  skinsToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  skinsIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skinsToggleText: {
+    flex: 1,
+  },
+  skinsToggleLabel: {
+    ...typography.bodyBold,
+  },
+  skinsLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  skinsToggleDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  skinsConfigSummary: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  skinsConfigSummaryContent: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  skinsConfigRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  skinsConfigLabel: {
+    ...typography.small,
+  },
+  skinsConfigValue: {
+    ...typography.smallBold,
+  },
+  skinsConfigTapHint: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });

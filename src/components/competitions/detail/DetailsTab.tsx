@@ -19,11 +19,13 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import type { Competition, Course } from '@/types/database.types';
+import type { CompetitionPrizePool, PoolAllocationSummary } from '@/types';
 import { type RoundWithCourse } from './types';
 import {
   CompetitionInfoSection,
   CurrentStandingSection,
   SettingsSection,
+  PrizePoolSection,
   CoursesSection,
 } from './sections';
 
@@ -37,9 +39,21 @@ export interface DetailsTabProps {
   playerCount: number;
   currentStanding: { position: number; points: number } | null;
   isOrganizer: boolean;
+  /** Prize pool data (null if none configured) */
+  prizePool?: CompetitionPrizePool | null;
+  /** Prize pool allocation summary */
+  prizePoolSummary?: PoolAllocationSummary | null;
+  /** Whether the prize pool is locked */
+  isPrizePoolLocked?: boolean;
   onViewCourse?: (course: Course) => void;
   onEdit: () => void;
   onUpdateCompetition?: (updates: Partial<Competition>) => Promise<void>;
+  /** Handler for adding a prize pool */
+  onAddPrizePool?: () => void;
+  /** Handler for editing the prize pool */
+  onEditPrizePool?: () => void;
+  /** Handler for viewing prize pool transactions */
+  onViewPrizePoolTransactions?: () => void;
 }
 
 // =====================================================
@@ -52,9 +66,15 @@ export const DetailsTab = React.memo(function DetailsTab({
   playerCount,
   currentStanding,
   isOrganizer,
+  prizePool,
+  prizePoolSummary,
+  isPrizePoolLocked = false,
   onViewCourse,
   onEdit,
   onUpdateCompetition: _onUpdateCompetition,
+  onAddPrizePool,
+  onEditPrizePool,
+  onViewPrizePoolTransactions,
 }: DetailsTabProps) {
   // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {
@@ -90,6 +110,20 @@ export const DetailsTab = React.memo(function DetailsTab({
         competition={competition}
         isOrganizer={isOrganizer}
         onEdit={onEdit}
+      />
+
+      {/* Prize Pool Section */}
+      <PrizePoolSection
+        pool={prizePool ?? null}
+        summary={prizePoolSummary ?? null}
+        isOrganizer={isOrganizer}
+        isLocked={isPrizePoolLocked}
+        roundCount={rounds.length}
+        competitionId={competition.id}
+        playerCount={playerCount}
+        onAddPress={onAddPrizePool}
+        onEditPress={onEditPrizePool}
+        onViewTransactionsPress={onViewPrizePoolTransactions}
       />
 
       {/* Courses Section */}

@@ -1,5 +1,14 @@
 /**
  * Hook for managing EditCompetitionScreen form state
+ *
+ * Handles core competition details:
+ * - Name and description
+ * - Competition type (event/league)
+ * - Team mode (individual/teams)
+ * - Start and end dates
+ *
+ * Note: Prize pool configuration is handled separately via
+ * EditPrizePoolBottomSheet from the CompetitionDetailScreen.
  */
 
 import { useEffect, useCallback, useMemo } from 'react';

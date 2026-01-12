@@ -15,6 +15,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, ScrollView } from 'react-native';
 
+// Import after mocks
+import MainTabNavigator from '@/navigation/MainTabNavigator';
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -221,9 +224,6 @@ jest.mock('@/screens/profile/ProfileScreen', () => {
     );
   };
 });
-
-// Import after mocks
-import MainTabNavigator from '@/navigation/MainTabNavigator';
 
 // ============================================================================
 // TEST UTILITIES

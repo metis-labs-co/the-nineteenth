@@ -277,11 +277,19 @@ export default function CourseScreen({ route, navigation }: Props) {
         // Initialize the scorecard store
         await initializeRound(roundId, players, holes, gameType, false);
 
-        // Navigate to scorecard
-        navigation.navigate('Scorecard', {
-          roundId,
-          competitionId: 'standalone',
-        });
+        // Navigate to appropriate scoring screen based on game type
+        if (gameType === 'match-play') {
+          navigation.navigate('MatchPlayScoring', {
+            roundId,
+            player1Id: players[0]?.id,
+            player2Id: players[1]?.id,
+          });
+        } else {
+          navigation.navigate('Scorecard', {
+            roundId,
+            competitionId: 'standalone',
+          });
+        }
       } catch (err) {
         console.error('[CourseScreen] Error starting round:', err);
         Alert.alert('Error', 'Failed to start the round. Please try again.');

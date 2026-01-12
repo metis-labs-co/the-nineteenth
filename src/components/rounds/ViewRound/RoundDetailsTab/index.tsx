@@ -15,7 +15,8 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
+import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
@@ -23,8 +24,9 @@ import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
 import { GAME_TYPE_LABELS, COMPETITION_TYPE_LABELS } from './constants';
-import { HoleTable, ScoringPairsSection } from './components';
+import { HoleTable, PlayersSection, ScoringPairsSection, SkinsGameSection } from './components';
 import type { RoundDetailsTabProps } from './types';
+import type { RoundStatus } from '@/types/database/enums';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -33,12 +35,19 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   isOrganizer = false,
   isPremium = false,
   onEditPress,
+  onCourseSelectPress,
+  onScoringPairsEditPress,
+  onSkinsEditPress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const useMetres = distanceUnit === 'metres';
   const holes = round.course?.holes || [];
+
+  // Check if round has an active skins game
+  const { data: skinsGames } = useSkinsGamesByRound(round.id);
+  const hasSkins = skinsGames && skinsGames.length > 0;
 
   // Get selected tee from round, or fall back to course default/first available
   const { totalPar, selectedTeeName } = useMemo(() => {
@@ -114,11 +123,24 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
             )}
           </View>
 
-          {/* Chevron to indicate tappable */}
+          {/* Chevron to indicate tappable (when course exists) */}
           {round.course && (
             <View style={styles.courseChevron}>
               <Icon source="chevron-right" size={24} color={colors.gray400} />
             </View>
+          )}
+
+          {/* Edit button to add course (when no course and organizer) */}
+          {!round.course && isOrganizer && onCourseSelectPress && (
+            <TouchableOpacity
+              style={[styles.courseEditButton, { backgroundColor: colors.primaryLighter }]}
+              onPress={onCourseSelectPress}
+              activeOpacity={0.7}
+              accessibilityLabel="Add course"
+              accessibilityRole="button"
+            >
+              <Icon source="plus" size={20} color={colors.primary} />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -233,11 +255,16 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
             </View>
             <View style={styles.detailContent}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Format</Text>
-              <Pill
-                label={GAME_TYPE_LABELS[round.game_type]}
-                variant="primary"
-                size="md"
-              />
+              <View style={styles.formatPillContainer}>
+                {hasSkins && (
+                  <Icon source="dice-multiple" size={18} color={skinsColor} />
+                )}
+                <Pill
+                  label={GAME_TYPE_LABELS[round.game_type]}
+                  variant="primary"
+                  size="md"
+                />
+              </View>
             </View>
           </View>
 
@@ -269,13 +296,28 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         </View>
       </View>
 
+      {/* Players Section */}
+      <PlayersSection
+        roundId={round.id}
+        cardBackground={colors.surface}
+      />
+
       {/* Scoring Pairs Section - Premium Feature */}
       <ScoringPairsSection
         roundId={round.id}
         scoringPairsRequired={round.scoring_pairs_required}
         isPremium={isPremium}
         cardBackground={colors.surface}
-        onManagePress={isOrganizer ? onEditPress : undefined}
+        roundStatus={round.status as RoundStatus}
+        onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
+      />
+
+      {/* Skins Game Section - Shows if round has skins enabled */}
+      <SkinsGameSection
+        roundId={round.id}
+        roundStatus={round.status as RoundStatus}
+        cardBackground={colors.surface}
+        onEditPress={isOrganizer ? onSkinsEditPress : undefined}
       />
 
       {/* Hole Breakdown Section */}
@@ -340,6 +382,14 @@ const styles = StyleSheet.create({
     ...typography.small,
   },
   courseChevron: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+  },
+  courseEditButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: spacing.sm,
@@ -453,6 +503,11 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     ...typography.bodyBold,
+  },
+  formatPillContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   detailDivider: {
     height: 1,

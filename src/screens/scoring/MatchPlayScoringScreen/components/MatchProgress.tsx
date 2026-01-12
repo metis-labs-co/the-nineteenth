@@ -15,6 +15,10 @@ interface MatchProgressProps {
   player1: MatchPlayer;
   player2: MatchPlayer;
   onHolePress: (hole: number) => void;
+  /** Called when the user touches this component (to disable parent swipe gestures) */
+  onTouchStart?: () => void;
+  /** Called when the user stops touching this component */
+  onTouchEnd?: () => void;
 }
 
 export function MatchProgress({
@@ -23,13 +27,24 @@ export function MatchProgress({
   player1,
   player2,
   onHolePress,
+  onTouchStart,
+  onTouchEnd,
 }: MatchProgressProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
+    <View
+      style={[styles.progressContainer, { backgroundColor: colors.surface }]}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
       <Text style={[styles.progressTitle, { color: colors.textPrimary }]}>Match Progress</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.holesScroll}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.holesScroll}
+      >
         <View style={styles.holesRow}>
           {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => {
             const result = holeResults[hole];

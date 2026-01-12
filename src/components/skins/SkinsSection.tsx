@@ -1,0 +1,626 @@
+/**
+ * SkinsSection - Unified skins game configuration section
+ *
+ * Allows organizers to enable and configure skins games for competition rounds.
+ * Supports both Add Round (no editState) and Edit Round (with editState) scenarios.
+ *
+ * When editState is provided:
+ * - Shows lock icon instead of switch when canEditSkins is false
+ * - Shows warning message when disabling existing skins
+ * - Changes label text based on existing skins state
+ * - Displays locked reason message
+ *
+ * Phase 2: Pool Source Selection
+ * When prizePool is provided:
+ * - Shows toggle between 'Direct Pot' and 'From Prize Pool'
+ * - Displays available skins budget from pool
+ * - Validates amount doesn't exceed budget
+ * - When auto_split_skins enabled, pre-fills pot value with skins_pot_per_round
+ */
+
+import React, { memo, useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+} from 'react-native';
+import { Text, Icon, Divider, SegmentedButtons } from 'react-native-paper';
+import { IconDice, IconLock, IconAlertCircle, IconTrophy, IconCurrencyDollar } from '@tabler/icons-react-native';
+import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
+import {
+  SkinsConfigBottomSheet,
+  SkinsDisclaimerModal,
+  hasAcceptedSkinsDisclaimer,
+} from '@/components/skins';
+import type { SkinsConfig, SkinsPoolSource, CompetitionPrizePool } from '@/types';
+import type { PoolBalanceSummary } from '@/types/database/prizePool.types';
+
+/**
+ * State for tracking existing skins game in edit mode
+ */
+export interface SkinsEditState {
+  /** Whether the round has an existing skins game */
+  hasExistingSkins: boolean;
+  /** The ID of the existing skins game (if any) */
+  existingSkinsGameId: string | null;
+  /** Whether the skins config can be edited (only if round hasn't started) */
+  canEditSkins: boolean;
+  /** Reason why skins can't be edited (if applicable) */
+  lockedReason: string | null;
+}
+
+/**
+ * Prize pool data for pool source selection
+ */
+export interface PoolSourceData {
+  /** The prize pool for this competition (null if no pool configured) */
+  pool: CompetitionPrizePool | null;
+  /** Balance summary showing remaining skins budget */
+  balance: PoolBalanceSummary | null;
+  /** Whether the pool is locked (round has started) */
+  isLocked: boolean;
+}
+
+export interface SkinsSectionProps {
+  isPremium: boolean;
+  skinsEnabled: boolean;
+  skinsConfig: SkinsConfig | null;
+  onSkinsEnabledChange: (enabled: boolean) => void;
+  onSkinsConfigChange: (config: SkinsConfig) => void;
+  onUpgradePress: () => void;
+  disabled?: boolean;
+  /** Optional edit mode state - when provided, component behaves in "Edit" mode */
+  editState?: SkinsEditState;
+  /** Optional pool source data - when provided, shows pool source selection */
+  poolData?: PoolSourceData;
+  /** Current pool source selection */
+  poolSource?: SkinsPoolSource;
+  /** Handler for pool source change */
+  onPoolSourceChange?: (source: SkinsPoolSource) => void;
+}
+
+export const SkinsSection = memo(function SkinsSection({
+  isPremium,
+  skinsEnabled,
+  skinsConfig,
+  onSkinsEnabledChange,
+  onSkinsConfigChange,
+  onUpgradePress,
+  disabled,
+  editState,
+  poolData,
+  poolSource = 'direct',
+  onPoolSourceChange,
+}: SkinsSectionProps) {
+  const colors = useThemeColors();
+
+  // Local state for modals
+  const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
+  const [showSkinsDisclaimer, setShowSkinsDisclaimer] = useState(false);
+
+  // Determine if we're in edit mode and if skins can be modified
+  const isEditMode = editState !== undefined;
+  const isLocked = isEditMode && !editState.canEditSkins;
+  const isDisabled = disabled || isLocked;
+  const hasExistingSkins = isEditMode && editState.hasExistingSkins;
+
+  // Pool source state
+  const hasPool = poolData?.pool !== null;
+  const hasSkinsBudget = (poolData?.pool?.skins_budget ?? 0) > 0;
+  const canUsePool = hasPool && hasSkinsBudget && !poolData?.isLocked;
+  const skinsRemaining = poolData?.balance?.skins_remaining ?? poolData?.pool?.skins_budget ?? 0;
+  const autoSplitEnabled = poolData?.pool?.auto_split_skins ?? false;
+  const autoSplitAmount = poolData?.pool?.skins_pot_per_round ?? 0;
+
+  // When auto-split is enabled and we're using pool source, apply the auto-split value
+  useEffect(() => {
+    if (
+      skinsEnabled &&
+      poolSource === 'prize_pool' &&
+      autoSplitEnabled &&
+      autoSplitAmount > 0 &&
+      skinsConfig &&
+      onSkinsConfigChange
+    ) {
+      // Only apply if pot_value is different from auto-split amount
+      if (skinsConfig.pot_value !== autoSplitAmount) {
+        onSkinsConfigChange({
+          ...skinsConfig,
+          pot_value: autoSplitAmount,
+        });
+      }
+    }
+  }, [poolSource, autoSplitEnabled, autoSplitAmount, skinsEnabled, skinsConfig, onSkinsConfigChange]);
+
+  // Validate pot amount against pool budget when using prize_pool source
+  const potExceedsBudget =
+    poolSource === 'prize_pool' &&
+    skinsConfig &&
+    skinsConfig.pot_type === 'total_pot' &&
+    skinsConfig.pot_value > skinsRemaining;
+
+  const perHoleExceedsBudget =
+    poolSource === 'prize_pool' &&
+    skinsConfig &&
+    skinsConfig.pot_type === 'per_hole' &&
+    skinsConfig.pot_value * 18 > skinsRemaining;
+
+  /**
+   * Handle skins toggle press
+   * Shows disclaimer on first use, then opens config sheet
+   */
+  const handleSkinsToggle = useCallback(async () => {
+    if (isDisabled) return;
+
+    if (skinsEnabled) {
+      // Disable skins
+      onSkinsEnabledChange(false);
+    } else {
+      // Check if disclaimer has been accepted
+      const accepted = await hasAcceptedSkinsDisclaimer();
+      if (accepted) {
+        // Show config sheet directly
+        setShowSkinsConfigSheet(true);
+      } else {
+        // Show disclaimer first
+        setShowSkinsDisclaimer(true);
+      }
+    }
+  }, [skinsEnabled, onSkinsEnabledChange, isDisabled]);
+
+  /**
+   * Handle disclaimer acceptance
+   * Opens config sheet after acceptance
+   */
+  const handleDisclaimerAccept = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+    setShowSkinsConfigSheet(true);
+  }, []);
+
+  /**
+   * Handle disclaimer cancel
+   */
+  const handleDisclaimerCancel = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+  }, []);
+
+  /**
+   * Handle skins config save
+   * Enables skins and stores the config
+   */
+  const handleSkinsConfigSave = useCallback(
+    (config: SkinsConfig) => {
+      onSkinsConfigChange(config);
+      onSkinsEnabledChange(true);
+      setShowSkinsConfigSheet(false);
+    },
+    [onSkinsConfigChange, onSkinsEnabledChange]
+  );
+
+  /**
+   * Handle skins config sheet dismiss (without save)
+   */
+  const handleSkinsConfigDismiss = useCallback(() => {
+    setShowSkinsConfigSheet(false);
+  }, []);
+
+  /**
+   * Open config sheet for editing existing config
+   */
+  const handleEditSkinsConfig = useCallback(() => {
+    if (isLocked) return;
+    setShowSkinsConfigSheet(true);
+  }, [isLocked]);
+
+  // Get label and description based on mode
+  const labelText = hasExistingSkins ? 'Skins Game Enabled' : 'Enable Skins Game';
+  const descriptionText = isLocked && editState?.lockedReason
+    ? editState.lockedReason
+    : 'Hole-by-hole betting between players';
+
+  return (
+    <>
+      <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+
+      {isPremium ? (
+        <>
+          {/* Toggle */}
+          <View style={styles.toggleContainer}>
+            <View style={styles.toggleContent}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: skinsEnabled ? `${skinsColor}20` : colors.gray200 },
+                ]}
+              >
+                <IconDice size={24} color={skinsEnabled ? skinsColor : colors.gray500} />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>
+                  {labelText}
+                </Text>
+                <Text style={[styles.description, { color: colors.textSecondary }]}>
+                  {descriptionText}
+                </Text>
+              </View>
+            </View>
+            {isLocked ? (
+              <IconLock size={24} color={colors.gray400} />
+            ) : (
+              <Switch
+                value={skinsEnabled}
+                onValueChange={handleSkinsToggle}
+                trackColor={{ false: colors.gray300, true: `${skinsColor}80` }}
+                thumbColor={skinsEnabled ? skinsColor : colors.gray100}
+                disabled={isDisabled}
+              />
+            )}
+          </View>
+
+          {/* Pool Source Selection (when pool available and skins enabled) */}
+          {skinsEnabled && hasPool && hasSkinsBudget && onPoolSourceChange && (
+            <View style={styles.poolSourceContainer}>
+              <Text style={[styles.poolSourceLabel, { color: colors.textPrimary }]}>
+                Pot Source
+              </Text>
+              <SegmentedButtons
+                value={poolSource}
+                onValueChange={(value) => onPoolSourceChange(value as SkinsPoolSource)}
+                buttons={[
+                  {
+                    value: 'direct',
+                    label: 'Direct Pot',
+                    icon: () => <IconCurrencyDollar size={16} color={poolSource === 'direct' ? colors.primary : colors.textSecondary} />,
+                    disabled: isDisabled,
+                  },
+                  {
+                    value: 'prize_pool',
+                    label: 'From Pool',
+                    icon: () => <IconTrophy size={16} color={poolSource === 'prize_pool' ? colors.primary : colors.textSecondary} />,
+                    disabled: isDisabled || skinsRemaining <= 0,
+                  },
+                ]}
+                style={styles.poolSourceButtons}
+              />
+
+              {/* Pool budget exhausted warning */}
+              {skinsRemaining <= 0 && (
+                <View style={[styles.warningBox, { backgroundColor: colors.warningLight, marginTop: spacing.sm }]}>
+                  <IconAlertCircle size={20} color={colors.warning} />
+                  <Text style={[styles.warningText, { color: colors.warningDark }]}>
+                    Pool skins budget fully allocated to other rounds. This round will use direct pot (players pay in).
+                  </Text>
+                </View>
+              )}
+
+              {/* Pool budget info when using prize pool */}
+              {poolSource === 'prize_pool' && skinsRemaining > 0 && (
+                <View style={[styles.poolBudgetInfo, { backgroundColor: colors.surfaceVariant }]}>
+                  <View style={styles.poolBudgetRow}>
+                    <Text style={[styles.poolBudgetLabel, { color: colors.textSecondary }]}>
+                      Available Skins Budget:
+                    </Text>
+                    <Text style={[styles.poolBudgetValue, { color: skinsRemaining > 0 ? colors.success : colors.error }]}>
+                      ${skinsRemaining.toFixed(2)}
+                    </Text>
+                  </View>
+                  {autoSplitEnabled && autoSplitAmount > 0 && (
+                    <View style={[styles.autoSplitBadge, { backgroundColor: colors.infoLight }]}>
+                      <Icon source="information-outline" size={14} color={colors.info} />
+                      <Text style={[styles.autoSplitText, { color: colors.infoDark }]}>
+                        Auto-split: ${autoSplitAmount.toFixed(2)} per round
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Low budget warning */}
+              {poolSource === 'prize_pool' && skinsRemaining > 0 && skinsRemaining < (skinsConfig?.pot_value ?? 0) && (
+                <View style={[styles.warningBox, { backgroundColor: colors.warningLight, marginTop: spacing.sm }]}>
+                  <IconAlertCircle size={20} color={colors.warning} />
+                  <Text style={[styles.warningText, { color: colors.warningDark }]}>
+                    Pot value exceeds remaining budget. Reduce the pot or use direct pot instead.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Config Summary (when enabled) */}
+          {skinsEnabled && skinsConfig && (
+            <TouchableOpacity
+              style={[
+                styles.configSummary,
+                {
+                  backgroundColor: isLocked ? colors.surfaceVariant : `${skinsColor}10`,
+                  borderColor: isLocked ? colors.border : `${skinsColor}40`,
+                },
+                (potExceedsBudget || perHoleExceedsBudget) && { borderColor: colors.error },
+              ]}
+              onPress={handleEditSkinsConfig}
+              activeOpacity={isLocked ? 1 : 0.7}
+              accessibilityRole="button"
+              accessibilityLabel={isLocked ? 'Skins configuration (locked)' : 'Edit skins configuration'}
+              accessibilityHint={`Current config: $${skinsConfig.pot_value} ${skinsConfig.pot_type === 'per_hole' ? 'per hole' : 'total pot'}, ${skinsConfig.scoring_type} scoring`}
+              accessibilityState={{ disabled: isLocked }}
+            >
+              <View style={styles.configSummaryContent}>
+                <View style={styles.configRow}>
+                  <Text style={[styles.configLabel, { color: colors.textSecondary }]}>Pot:</Text>
+                  <Text style={[styles.configValue, { color: (potExceedsBudget || perHoleExceedsBudget) ? colors.error : colors.textPrimary }]}>
+                    ${skinsConfig.pot_value}
+                    {skinsConfig.pot_type === 'per_hole' ? '/hole' : ' total'}
+                    {skinsConfig.pot_type === 'per_hole' && ` ($${(skinsConfig.pot_value * 18).toFixed(2)} total)`}
+                  </Text>
+                </View>
+                <View style={styles.configRow}>
+                  <Text style={[styles.configLabel, { color: colors.textSecondary }]}>
+                    Scoring:
+                  </Text>
+                  <Text style={[styles.configValue, { color: colors.textPrimary }]}>
+                    {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net (with handicap)'}
+                  </Text>
+                </View>
+                {poolSource === 'prize_pool' && (
+                  <View style={styles.configRow}>
+                    <Text style={[styles.configLabel, { color: colors.textSecondary }]}>
+                      Source:
+                    </Text>
+                    <Text style={[styles.configValue, { color: colors.primary }]}>
+                      Prize Pool
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {isLocked ? (
+                <View style={styles.lockedHint}>
+                  <IconLock size={16} color={colors.gray400} />
+                  <Text style={[styles.lockedHintText, { color: colors.gray400 }]}>Locked</Text>
+                </View>
+              ) : (
+                <Text style={[styles.configTapHint, { color: skinsColor }]}>Tap to edit</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Error when pot exceeds pool budget */}
+          {skinsEnabled && (potExceedsBudget || perHoleExceedsBudget) && (
+            <View style={[styles.warningBox, { backgroundColor: colors.errorLight }]}>
+              <IconAlertCircle size={20} color={colors.error} />
+              <Text style={[styles.warningText, { color: colors.errorDark }]}>
+                Pot amount exceeds available skins budget (${skinsRemaining.toFixed(2)}). Reduce the pot value or switch to Direct Pot.
+              </Text>
+            </View>
+          )}
+
+          {/* Warning when disabling existing skins (edit mode only) */}
+          {hasExistingSkins && !skinsEnabled && !isLocked && (
+            <View style={[styles.warningBox, { backgroundColor: colors.warningLight }]}>
+              <IconAlertCircle size={20} color={colors.warning} />
+              <Text style={[styles.warningText, { color: colors.warningDark }]}>
+                Disabling skins will delete the existing skins game for this round
+              </Text>
+            </View>
+          )}
+
+          {/* Info message when skins is enabled */}
+          {skinsEnabled && !isLocked && (
+            <View style={[styles.infoBox, { backgroundColor: colors.infoLight, marginTop: spacing.md }]}>
+              <Icon source="information-outline" size={20} color={colors.info} />
+              <Text style={[styles.infoText, { color: colors.infoDark }]}>
+                {isEditMode && !hasExistingSkins
+                  ? 'Skins will be created when you save changes'
+                  : 'Skins will be available for all players when the round starts'}
+              </Text>
+            </View>
+          )}
+
+          {/* Info message for locked skins (edit mode only) */}
+          {isLocked && skinsEnabled && editState?.lockedReason && (
+            <View style={[styles.infoBox, { backgroundColor: colors.surfaceVariant, marginTop: spacing.md }]}>
+              <IconLock size={20} color={colors.textSecondary} />
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                {editState.lockedReason}
+              </Text>
+            </View>
+          )}
+        </>
+      ) : (
+        /* Locked state for non-premium users */
+        <TouchableOpacity
+          style={styles.toggleContainer}
+          onPress={onUpgradePress}
+          accessibilityRole="button"
+          accessibilityLabel="Upgrade to Premium to use skins games"
+          activeOpacity={0.7}
+        >
+          <View style={styles.toggleContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.gray200 }]}>
+              <IconLock size={24} color={colors.gray500} />
+            </View>
+            <View style={styles.textContainer}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Enable Skins Game
+                </Text>
+                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
+                    Premium
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.description, { color: colors.textTertiary }]}>
+                Upgrade to Premium for skins betting
+              </Text>
+            </View>
+          </View>
+          <Icon source="chevron-right" size={24} color={colors.gray400} />
+        </TouchableOpacity>
+      )}
+
+      {/* Skins Config Bottom Sheet */}
+      <SkinsConfigBottomSheet
+        visible={showSkinsConfigSheet}
+        onDismiss={handleSkinsConfigDismiss}
+        initialConfig={skinsConfig}
+        onSave={handleSkinsConfigSave}
+      />
+
+      {/* Skins Disclaimer Modal */}
+      <SkinsDisclaimerModal
+        visible={showSkinsDisclaimer}
+        onAccept={handleDisclaimerAccept}
+        onCancel={handleDisclaimerCancel}
+      />
+    </>
+  );
+});
+
+const styles = StyleSheet.create({
+  divider: {
+    marginVertical: spacing.lg,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+  },
+  label: {
+    ...typography.bodyBold,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  description: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  premiumBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  premiumBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  configSummary: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  configSummaryContent: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  configRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  configLabel: {
+    ...typography.small,
+  },
+  configValue: {
+    ...typography.smallBold,
+  },
+  configTapHint: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  lockedHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  lockedHintText: {
+    ...typography.caption,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  infoText: {
+    ...typography.small,
+    flex: 1,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  warningText: {
+    ...typography.small,
+    flex: 1,
+  },
+  // Pool source styles
+  poolSourceContainer: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  poolSourceLabel: {
+    ...typography.smallBold,
+  },
+  poolSourceButtons: {
+    marginTop: spacing.xs,
+  },
+  poolBudgetInfo: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  poolBudgetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  poolBudgetLabel: {
+    ...typography.small,
+  },
+  poolBudgetValue: {
+    ...typography.bodyBold,
+  },
+  autoSplitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  autoSplitText: {
+    ...typography.caption,
+  },
+});

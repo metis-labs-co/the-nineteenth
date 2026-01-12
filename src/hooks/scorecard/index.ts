@@ -12,3 +12,5 @@ export * from './useRoundCourse';
 export * from './useRoundTeams';
 export * from './useRoundScoringPairs';
 export * from './useTeamScoring';
+export * from './useMatchPlayData';
+export * from './useMatchPlayScoring';

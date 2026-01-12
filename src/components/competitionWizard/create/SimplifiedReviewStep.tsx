@@ -1,25 +1,31 @@
 /**
- * SimplifiedReviewStep - Simplified review step for new 3-step wizard
+ * SimplifiedReviewStep - Simplified review step for new 3-4 step wizard
  *
  * Changes from original ReviewStep:
  * - Removed playersData prop (players added after creation)
  * - Removed teamSettingsData prop (shows simple enableTeams toggle)
  * - Accepts SimplifiedRoundFormData which allows blank rounds
  * - Shows "Not configured" for rounds without course
+ * - Added optional prizePoolData prop for prize pool summary display
  */
 
 import React from 'react';
 import { View, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Button, Text, Divider, Chip, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IconTrophy, IconDice, IconMedal, IconDots } from '@tabler/icons-react-native';
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
   GameType,
   CompetitionType,
+  PrizePoolConfigFormData,
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+
+// Prize pool color for styling
+const PRIZE_POOL_COLOR = '#059669';
 
 // Game type labels for display
 const gameTypeLabels: Record<GameType, string> = {
@@ -40,6 +46,7 @@ const competitionTypeLabels: Record<CompetitionType, string> = {
 export interface SimplifiedReviewStepProps {
   competitionData: CompetitionDetailsFormData;
   roundsData: SimplifiedRoundFormData[];
+  prizePoolData?: PrizePoolConfigFormData;
   onSubmit: () => void;
   onBack: () => void;
   isSubmitting: boolean;
@@ -48,12 +55,23 @@ export interface SimplifiedReviewStepProps {
 export default function SimplifiedReviewStep({
   competitionData,
   roundsData,
+  prizePoolData,
   onSubmit,
   onBack,
   isSubmitting,
 }: SimplifiedReviewStepProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+
+  // Calculate prize pool values for display
+  const hasPrizePool = !!prizePoolData;
+  const fundingLabel =
+    prizePoolData?.fundingType === 'per_player' ? 'Per Player' : 'Fixed Total';
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
 
   // Format date for display (DD/MM/YYYY - Australian)
   const formatDate = (dateString?: string) => {
@@ -231,6 +249,98 @@ export default function SimplifiedReviewStep({
           </View>
         </View>
 
+        {/* Prize Pool Details (if configured) */}
+        {hasPrizePool && prizePoolData && (
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.prizePoolIcon, { backgroundColor: `${PRIZE_POOL_COLOR}20` }]}>
+                  <IconTrophy size={18} color={PRIZE_POOL_COLOR} />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Prize Pool</Text>
+              </View>
+              <Chip
+                mode="flat"
+                style={[styles.badge, { backgroundColor: PRIZE_POOL_COLOR }]}
+                textStyle={[styles.badgeText, { color: colors.white }]}
+              >
+                {fundingLabel}
+              </Chip>
+            </View>
+            <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+
+            <View style={styles.itemsContainer}>
+              <ReviewItem
+                label="Amount"
+                value={formatCurrency(prizePoolData.fundingAmount)}
+                colors={colors}
+              />
+              {prizePoolData.fundingType === 'per_player' && (
+                <View style={[styles.perPlayerNote, { backgroundColor: colors.gray50 }]}>
+                  <Text style={[styles.perPlayerNoteText, { color: colors.textSecondary }]}>
+                    Total calculated when players are added
+                  </Text>
+                </View>
+              )}
+
+              {/* Allocation breakdown */}
+              <View style={styles.allocationContainer}>
+                {prizePoolData.skinsAllocationPercent > 0 && (
+                  <View style={styles.allocationRow}>
+                    <View style={styles.allocationLabel}>
+                      <View style={[styles.colorDot, { backgroundColor: '#8B5CF6' }]} />
+                      <IconDice size={14} color="#8B5CF6" />
+                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
+                        Skins Games
+                      </Text>
+                    </View>
+                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
+                      {prizePoolData.skinsAllocationPercent}%
+                    </Text>
+                  </View>
+                )}
+                {prizePoolData.winnerAllocationPercent > 0 && (
+                  <View style={styles.allocationRow}>
+                    <View style={styles.allocationLabel}>
+                      <View style={[styles.colorDot, { backgroundColor: '#F59E0B' }]} />
+                      <IconMedal size={14} color="#F59E0B" />
+                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
+                        Winner Prizes
+                      </Text>
+                    </View>
+                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
+                      {prizePoolData.winnerAllocationPercent}%
+                    </Text>
+                  </View>
+                )}
+                {prizePoolData.otherAllocationPercent > 0 && (
+                  <View style={styles.allocationRow}>
+                    <View style={styles.allocationLabel}>
+                      <View style={[styles.colorDot, { backgroundColor: '#6B7280' }]} />
+                      <IconDots size={14} color="#6B7280" />
+                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
+                        Other
+                      </Text>
+                    </View>
+                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
+                      {prizePoolData.otherAllocationPercent}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {prizePoolData.autoSplitSkins && prizePoolData.skinsAllocationPercent > 0 && (
+                <View style={[styles.autoSplitNote, { backgroundColor: colors.infoLight }]}>
+                  <Icon source="dice-6" size={14} color={colors.info} />
+                  <Text style={[styles.autoSplitNoteText, { color: colors.infoDark }]}>
+                    Skins auto-split across {roundsData.length} round{roundsData.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Important Notes */}
         <View style={[styles.infoBox, { backgroundColor: colors.infoLight }]}>
           <Icon source="information" size={20} color={colors.info} />
@@ -249,6 +359,11 @@ export default function SimplifiedReviewStep({
               {competitionData.enableTeams && (
                 <Text style={[styles.infoText, { color: colors.info }]}>
                   • Set up team assignments and format
+                </Text>
+              )}
+              {hasPrizePool && (
+                <Text style={[styles.infoText, { color: colors.info }]}>
+                  • Prize pool will be locked once first round starts
                 </Text>
               )}
             </View>
@@ -477,6 +592,64 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     height: 48,
+  },
+  // Prize pool styles
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  prizePoolIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  perPlayerNote: {
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
+  perPlayerNoteText: {
+    ...typography.caption,
+    textAlign: 'center',
+  },
+  allocationContainer: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  allocationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  allocationLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  colorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  allocationText: {
+    ...typography.small,
+  },
+  allocationValue: {
+    ...typography.small,
+  },
+  autoSplitNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.sm,
+  },
+  autoSplitNoteText: {
+    ...typography.caption,
+    flex: 1,
   },
 });
 

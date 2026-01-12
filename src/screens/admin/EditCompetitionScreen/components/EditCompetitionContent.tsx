@@ -1,5 +1,14 @@
 /**
  * EditCompetitionContent - Main form content
+ *
+ * Handles editing of core competition details:
+ * - Name and description
+ * - Competition type (event/league)
+ * - Team mode (individual/teams)
+ * - Start and end dates
+ *
+ * Note: Prize pool configuration is handled separately via
+ * EditPrizePoolBottomSheet from the CompetitionDetailScreen.
  */
 
 import React from 'react';

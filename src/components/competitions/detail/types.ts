@@ -10,6 +10,7 @@ import type {
   RoundStatus,
   HandicapSystem,
   GameType,
+  SkinsConfig,
 } from '@/types/database.types';
 
 /**
@@ -23,6 +24,10 @@ export interface RoundWithCourse extends Round {
       state: string | null;
     } | null;
   }) | null;
+  /** Whether this round has an active skins game */
+  has_skins?: boolean;
+  /** Skins configuration if enabled */
+  skins_config?: SkinsConfig | null;
 }
 
 /**

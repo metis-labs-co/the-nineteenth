@@ -8,22 +8,32 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
-import { IconMapPin, IconCheck, IconAlertTriangle } from '@tabler/icons-react-native';
+import { IconMapPin, IconCheck, IconAlertTriangle, IconDice } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { StatusBadge, Pill, DateTimeDisplay } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
 import { type RoundWithCourse, GAME_TYPE_LABELS } from './types';
+import type { SkinsConfig, GameType } from '@/types';
+
+/** Amber/gold color for skins indicator */
+const SKINS_COLOR = '#f59e0b';
 
 export interface CompetitionRoundCardProps {
   round: RoundWithCourse;
   roundNumber: number;
   isOrganizer: boolean;
-  onScoreRound: (roundId: string) => void;
+  /** Number of players in the competition (used to validate scoring requirements) */
+  playerCount: number;
+  onScoreRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   onViewRound: (roundId: string) => void;
   onManageScoringPairs?: (roundId: string) => void;
   /** Whether scoring pairs are configured for this round */
   hasScoringPairs?: boolean;
+  /** Whether this round has skins enabled (overrides round.has_skins) */
+  hasSkins?: boolean;
+  /** Skins configuration (overrides round.skins_config) */
+  skinsConfig?: SkinsConfig | null;
   colors: ColorPalette;
 }
 
@@ -42,20 +52,50 @@ const getStatusVariant = (status: string): StatusVariant => {
   }
 };
 
+/**
+ * Format skins pot value for display
+ */
+const formatSkinsPot = (config: SkinsConfig): string => {
+  if (config.pot_type === 'per_hole') {
+    return `$${config.pot_value}/hole`;
+  }
+  return `$${config.pot_value} total`;
+};
+
 export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   round,
   roundNumber,
   isOrganizer,
+  playerCount,
   onScoreRound,
   onViewRound,
   onManageScoringPairs,
   hasScoringPairs,
+  hasSkins: hasSkinsOverride,
+  skinsConfig: skinsConfigOverride,
   colors,
 }: CompetitionRoundCardProps) {
+  // Determine skins status (props override round data)
+  const hasSkins = hasSkinsOverride ?? round.has_skins ?? false;
+  const skinsConfig = skinsConfigOverride ?? round.skins_config ?? null;
+
+  // Determine if scoring is disabled
+  const hasCourse = !!round.course;
+  const hasEnoughPlayers = playerCount >= 2;
+  const isCompleted = round.status === 'completed';
+  const isScoringDisabled = isCompleted || !hasCourse || !hasEnoughPlayers;
+
+  // Build disabled reason for accessibility
+  const getDisabledReason = (): string | undefined => {
+    if (isCompleted) return 'Round is completed';
+    if (!hasCourse) return 'Course not assigned';
+    if (!hasEnoughPlayers) return 'Need at least 2 players';
+    return undefined;
+  };
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.content}>
-        {/* Top Row: Status Badge + Game Type Badge + Round Pill */}
+        {/* Top Row: Status Badge + Game Type Badge + Skins Badge + Round Pill */}
         <View style={styles.topRow}>
           <View style={styles.badgeRow}>
             <StatusBadge status={getStatusVariant(round.status)} />
@@ -65,6 +105,17 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
               size="md"
               backgroundColor={colors.gray100}
             />
+            {hasSkins && (
+              <View
+                style={[styles.skinsBadge, { backgroundColor: `${SKINS_COLOR}20` }]}
+                accessibilityLabel={`Skins game enabled${skinsConfig ? `: ${formatSkinsPot(skinsConfig)}` : ''}`}
+              >
+                <IconDice size={14} color={SKINS_COLOR} />
+                <Text style={[styles.skinsBadgeText, { color: SKINS_COLOR }]}>
+                  Skins
+                </Text>
+              </View>
+            )}
           </View>
           <Pill label={`Round ${roundNumber}`} size="md" />
         </View>
@@ -88,6 +139,16 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         <View style={styles.detailsRow}>
           <DateTimeDisplay date={round.date} time={round.tee_time} size="md" />
         </View>
+
+        {/* Skins Info */}
+        {hasSkins && skinsConfig && (
+          <View style={styles.skinsInfoRow}>
+            <IconDice size={14} color={SKINS_COLOR} />
+            <Text style={[styles.skinsInfoText, { color: SKINS_COLOR }]}>
+              Skins: {formatSkinsPot(skinsConfig)} • {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net'}
+            </Text>
+          </View>
+        )}
 
         {/* Scoring Pairs Row - Organizer Only */}
         {isOrganizer && round.scoring_pairs_required && onManageScoringPairs && (
@@ -143,14 +204,14 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         <TouchableOpacity
           style={[
             styles.actionButton,
-            { backgroundColor: round.status === 'completed' ? colors.gray300 : colors.primary },
+            { backgroundColor: isScoringDisabled ? colors.gray300 : colors.primary },
           ]}
-          onPress={() => onScoreRound(round.id)}
-          accessibilityLabel={`Score round ${roundNumber}`}
+          onPress={() => onScoreRound(round.id, round.game_type, round.is_team_round)}
+          accessibilityLabel={`Score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
           accessibilityRole="button"
-          accessibilityState={{ disabled: round.status === 'completed' }}
+          accessibilityState={{ disabled: isScoringDisabled }}
           activeOpacity={0.7}
-          disabled={round.status === 'completed'}
+          disabled={isScoringDisabled}
         >
           <Text style={[styles.actionButtonLabelPrimary, { color: colors.white }]}>Score</Text>
         </TouchableOpacity>
@@ -180,6 +241,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  skinsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+  },
+  skinsBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   title: {
     ...typography.bodyBold,
@@ -198,6 +272,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  skinsInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  skinsInfoText: {
+    ...typography.small,
+    fontWeight: '500',
   },
   scoringPairsRow: {
     flexDirection: 'row',

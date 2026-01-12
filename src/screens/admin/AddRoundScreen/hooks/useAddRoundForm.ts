@@ -7,15 +7,21 @@
  * - Course, date, time selection
  * - Team round configuration
  * - Scoring pairs toggle
+ * - Pool source for skins (Phase 2: Prize Pool integration)
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
-import type { GameType, TeamFormat, Competition } from '@/types/database.types';
+import { useAuth } from '@/hooks/useAuth';
+import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
+import { useAutoSplitSkinsForCompetition } from '@/hooks/useSkins';
+import type { GameType, TeamFormat, Competition, SkinsPoolSource } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
+import type { SkinsConfig } from '@/types';
+import type { PoolSourceData } from '@/components/skins';
 import type { RoundFormData, FormErrors } from '../types';
 import { INITIAL_FORM_DATA } from '../types';
 import {
@@ -100,6 +106,74 @@ async function getNextRoundNumber(competitionId: string): Promise<number> {
   return rounds && rounds.length > 0 ? rounds[0].round_number + 1 : 1;
 }
 
+/**
+ * Create a skins game for a round
+ * Note: For competition rounds, participants are determined when pairings are created
+ * This creates a placeholder that will be activated when round starts
+ *
+ * @param roundId - Round UUID
+ * @param skinsConfig - Skins game configuration
+ * @param userId - User creating the game
+ * @param poolSource - Source of the pot funds ('direct' or 'prize_pool')
+ * @param poolId - Prize pool ID when using pool source (optional)
+ */
+async function createSkinsGame(
+  roundId: string,
+  skinsConfig: SkinsConfig,
+  userId: string,
+  poolSource: SkinsPoolSource = 'direct',
+  poolId?: string
+): Promise<string> {
+  // Calculate pool draw amount if using prize pool
+  const poolDrawAmount = poolSource === 'prize_pool'
+    ? (skinsConfig.pot_type === 'per_hole' ? skinsConfig.pot_value * 18 : skinsConfig.pot_value)
+    : 0;
+
+  // For competition rounds, we create the skins game with organizer as participant
+  // Actual participants will be set when pairings/round starts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+  const { data: insertedGame, error } = await (supabase as any)
+    .from('skins_games')
+    .insert({
+      round_id: roundId,
+      pairing_id: null,
+      participant_ids: [userId], // Placeholder - updated when round starts
+      pot_type: skinsConfig.pot_type,
+      pot_value: skinsConfig.pot_value,
+      currency: skinsConfig.currency ?? 'AUD',
+      scoring_type: skinsConfig.scoring_type,
+      pool_source: poolSource,
+      pool_draw_amount: poolDrawAmount,
+      status: 'active',
+      disclaimer_accepted_at: new Date().toISOString(),
+      disclaimer_accepted_by: userId,
+      created_by: userId,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create skins game: ${error.message}`);
+  }
+
+  // If using prize pool, draw from pool
+  if (poolSource === 'prize_pool' && poolId && poolDrawAmount > 0) {
+    try {
+      await supabase.rpc('draw_from_pool' as never, {
+        p_pool_id: poolId,
+        p_round_id: roundId,
+        p_amount: poolDrawAmount,
+      } as never);
+    } catch (drawError) {
+      console.error('[createSkinsGame] Failed to draw from pool:', drawError);
+      // Don't fail the skins creation, just log the error
+    }
+  }
+
+  const game = insertedGame as { id: string };
+  return game.id;
+}
+
 interface UseAddRoundFormOptions {
   competitionId: string;
   onSuccess: (roundId: string, scoringPairsRequired: boolean) => void;
@@ -126,6 +200,15 @@ interface UseAddRoundFormReturn {
   handleTeamRoundToggle: (value: boolean) => void;
   handleTeamFormatChange: (format: TeamFormat) => void;
   handleScoringPairsToggle: (value: boolean) => void;
+  // Skins handlers
+  handleSkinsEnabledChange: (enabled: boolean) => void;
+  handleSkinsConfigChange: (config: SkinsConfig) => void;
+  // Pool source handlers (Phase 2)
+  handlePoolSourceChange: (source: SkinsPoolSource) => void;
+
+  // Pool data (Phase 2)
+  poolData: PoolSourceData | undefined;
+  isLoadingPool: boolean;
 
   // Actions
   handleSubmit: () => void;
@@ -141,6 +224,7 @@ export function useAddRoundForm({
   onSuccess,
 }: UseAddRoundFormOptions): UseAddRoundFormReturn {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState<RoundFormData>(INITIAL_FORM_DATA);
@@ -154,6 +238,26 @@ export function useAddRoundForm({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch prize pool for this competition (Phase 2)
+  const { data: prizePool, isLoading: isLoadingPrizePool } = useCompetitionPrizePool(competitionId);
+  const { data: poolBalance, isLoading: isLoadingBalance } = usePoolBalance(prizePool?.id);
+
+  // Get auto-split skins sync function
+  const { syncAutoSplitSkins } = useAutoSplitSkinsForCompetition();
+
+  // Compute pool data for SkinsSection
+  const poolData = useMemo((): PoolSourceData | undefined => {
+    if (!prizePool) return undefined;
+
+    return {
+      pool: prizePool,
+      balance: poolBalance ?? null,
+      isLocked: prizePool.is_locked,
+    };
+  }, [prizePool, poolBalance]);
+
+  const isLoadingPool = isLoadingPrizePool || isLoadingBalance;
+
   // Computed values
   const supportsTeams = competition?.team_mode !== 'none';
   const isTeamMatchPlay = formData.isTeamRound && formData.teamFormat === 'match-play-team';
@@ -163,11 +267,55 @@ export function useAddRoundForm({
     mutationFn: async () => {
       const nextRoundNumber = await getNextRoundNumber(competitionId);
       const roundId = await createRound(competitionId, formData, nextRoundNumber);
+
+      // Create skins game if enabled
+      if (formData.skinsEnabled && formData.skinsConfig && user?.id) {
+        try {
+          const skinsGameId = await createSkinsGame(
+            roundId,
+            formData.skinsConfig,
+            user.id,
+            formData.skinsPoolSource,
+            formData.skinsPoolSource === 'prize_pool' ? prizePool?.id : undefined
+          );
+          console.log('[AddRound] Skins game created:', skinsGameId, 'pool source:', formData.skinsPoolSource);
+        } catch (skinsError) {
+          // Log error but don't fail the round creation
+          console.error('[AddRound] Failed to create skins game:', skinsError);
+        }
+      }
+
       return { roundId, scoringPairsRequired: formData.scoringPairsRequired };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['competition', competitionId, 'details'] });
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['skins'] });
+
+      // Sync auto-split skins for the new round (non-blocking)
+      // Only if prize pool has auto_split_skins enabled and user didn't manually configure skins
+      if (
+        prizePool?.auto_split_skins &&
+        prizePool.skins_pot_per_round &&
+        prizePool.skins_pot_per_round > 0 &&
+        !formData.skinsEnabled && // Only if user didn't manually add skins
+        user?.id
+      ) {
+        try {
+          await syncAutoSplitSkins({
+            competitionId,
+            poolId: prizePool.id,
+            potPerRound: prizePool.skins_pot_per_round,
+            scoringType: 'gross',
+            createdBy: user.id,
+          });
+          console.log('[AddRound] Auto-split skins synced for new round');
+        } catch (syncError) {
+          // Non-blocking - round was created successfully
+          console.warn('[AddRound] Failed to sync auto-split skins:', syncError);
+        }
+      }
+
       onSuccess(result.roundId, result.scoringPairsRequired);
     },
     onError: (error: Error) => {
@@ -263,6 +411,26 @@ export function useAddRoundForm({
     setFormData((prev) => ({ ...prev, scoringPairsRequired: value }));
   }, []);
 
+  // Handle skins enabled toggle
+  const handleSkinsEnabledChange = useCallback((enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      skinsEnabled: enabled,
+      // Reset config when disabled
+      skinsConfig: enabled ? prev.skinsConfig : null,
+    }));
+  }, []);
+
+  // Handle skins config change
+  const handleSkinsConfigChange = useCallback((config: SkinsConfig) => {
+    setFormData((prev) => ({ ...prev, skinsConfig: config }));
+  }, []);
+
+  // Handle pool source change (Phase 2)
+  const handlePoolSourceChange = useCallback((source: SkinsPoolSource) => {
+    setFormData((prev) => ({ ...prev, skinsPoolSource: source }));
+  }, []);
+
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -328,6 +496,11 @@ export function useAddRoundForm({
     handleTeamRoundToggle,
     handleTeamFormatChange,
     handleScoringPairsToggle,
+    handleSkinsEnabledChange,
+    handleSkinsConfigChange,
+    handlePoolSourceChange,
+    poolData,
+    isLoadingPool,
     handleSubmit,
     isPending: createMutation.isPending,
     getSelectedDate,

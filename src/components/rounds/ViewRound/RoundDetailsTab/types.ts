@@ -4,12 +4,17 @@
 
 import type { RoundWithCourse } from '@/hooks/useRoundDetails';
 import type { Hole } from '@/types/database.types';
+import type { RoundStatus } from '@/types/database/enums';
 
 export interface RoundDetailsTabProps {
   round: RoundWithCourse;
   isOrganizer?: boolean;
   isPremium?: boolean;
   onEditPress?: () => void;
+  onCourseSelectPress?: () => void;
+  onScoringPairsEditPress?: () => void;
+  onSkinsEditPress?: () => void;
+  competitionId?: string;
 }
 
 export interface HoleTableProps {
@@ -23,5 +28,18 @@ export interface ScoringPairsSectionProps {
   scoringPairsRequired: boolean;
   isPremium: boolean;
   cardBackground: string;
-  onManagePress?: () => void;
+  roundStatus: RoundStatus;
+  onEditPress?: () => void;
+}
+
+export interface SkinsGameSectionProps {
+  roundId: string;
+  roundStatus: RoundStatus;
+  cardBackground: string;
+  onEditPress?: () => void;
+}
+
+export interface PlayersSectionProps {
+  roundId: string;
+  cardBackground: string;
 }

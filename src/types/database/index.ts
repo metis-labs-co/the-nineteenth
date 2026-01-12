@@ -31,6 +31,7 @@ export type {
   SkinsPotType,
   SkinsScoringType,
   SkinsGameStatus,
+  SkinsPoolSource,
   // Score data types
   SkinsHoleScoreData,
   SkinsHoleScores,
@@ -52,9 +53,29 @@ export type {
   // Summary types
   SkinsGameSummary,
   SkinsConfig,
+  SkinsPoolSourceConfig,
   SkinsDebtTransaction,
   SkinsNetPosition,
 } from './skins.types';
+
+// Prize Pool types
+export type {
+  // Enums
+  PoolFundingType,
+  PoolStatus,
+  PoolTransactionType,
+  // Main types
+  CompetitionPrizePool,
+  PoolTransaction,
+  // Input types
+  CreatePrizePoolInput,
+  UpdatePrizePoolInput,
+  // Summary types
+  PoolAllocationDetail,
+  PoolAllocationSummary,
+  PoolBalanceSummary,
+  PrizePoolWithSummary,
+} from './prizePool.types';
 
 // Base types
 export type { GeoPoint, Hole, TeeBox, HoleScore, MultiBallHoleScore, BallTotals } from './base';

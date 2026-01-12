@@ -5,9 +5,12 @@
  * - Competition name
  * - Description
  * - Competition type (event/league)
- * - Team mode
+ * - Team mode (individual/teams)
  * - Start date
  * - End date
+ *
+ * Note: Prize pool configuration is handled separately via
+ * EditPrizePoolBottomSheet from the CompetitionDetailScreen.
  *
  * Uses BottomSheet component for full-screen modal presentation.
  */
@@ -47,7 +50,11 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
   const { id } = route.params;
 
   // Fetch competition data
-  const { competition, isLoading, error: fetchError } = useCompetitionData({
+  const {
+    competition,
+    isLoading,
+    error: fetchError,
+  } = useCompetitionData({
     competitionId: id,
   });
 
@@ -64,7 +71,9 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
     handleTeamModeChange,
     handleStartDateChange,
     handleEndDateChange,
-  } = useEditCompetitionForm({ competition });
+  } = useEditCompetitionForm({
+    competition,
+  });
 
   // Submission handling
   const { handleSubmit: submitForm, isSubmitting } = useCompetitionSubmission({

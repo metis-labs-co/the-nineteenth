@@ -10,7 +10,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
-import type { ScoringPairCreateInput } from '@/types';
+import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useVenues';
 import { useHomeVenue } from '@/hooks/useHomeVenue';
 import { useIsSocial } from '@/store/subscriptionStore';
@@ -21,6 +21,7 @@ import type {
   SelectedCourse,
   PlayingPartner,
   ScoringPairsConfig,
+  StandaloneSkinsConfig,
   InitialCourse,
 } from '../types';
 import { MAX_PARTNERS } from '../types';
@@ -35,7 +36,8 @@ interface UseCreateRoundWizardOptions {
     selectedTee?: TeeBox,
     gameType?: GameType,
     scoringPairs?: ScoringPairsConfig,
-    ballCount?: BallCount
+    ballCount?: BallCount,
+    skinsConfig?: StandaloneSkinsConfig
   ) => void;
   onClose: () => void;
 }
@@ -67,6 +69,10 @@ interface UseCreateRoundWizardReturn {
   setScoringPairsEnabled: (enabled: boolean) => void;
   handleScoringPairsChange: (pairs: ScoringPairCreateInput[], type: 'reciprocal' | 'circular') => void;
 
+  // Skins game
+  setSkinsEnabled: (enabled: boolean) => void;
+  handleSkinsConfigChange: (config: SkinsConfig) => void;
+
   // Ball count (solo rounds only)
   handleSelectBallCount: (ballCount: BallCount) => void;
   handleStartSoloRound: () => void;
@@ -94,6 +100,8 @@ const initialData: WizardData = {
   scoringPairs: [],
   scoringPairingType: 'reciprocal',
   ballCount: 1,
+  skinsEnabled: false,
+  skinsConfig: null,
 };
 
 export function useCreateRoundWizard({
@@ -314,6 +322,23 @@ export function useCreateRoundWizard({
     []
   );
 
+  // Skins game handlers
+  const setSkinsEnabled = useCallback((enabled: boolean) => {
+    setData((prev) => ({
+      ...prev,
+      skinsEnabled: enabled,
+      // Reset skins config when disabling
+      skinsConfig: enabled ? prev.skinsConfig : null,
+    }));
+  }, []);
+
+  const handleSkinsConfigChange = useCallback((config: SkinsConfig) => {
+    setData((prev) => ({
+      ...prev,
+      skinsConfig: config,
+    }));
+  }, []);
+
   // Navigation handlers
   const handleBackToCourse = useCallback(() => {
     setCurrentStep('course');
@@ -398,13 +423,33 @@ export function useCreateRoundWizard({
             }
           : undefined;
 
+      // Build skins config if enabled and config exists
+      const standaloneSkinsConfig: StandaloneSkinsConfig | undefined =
+        data.skinsEnabled && data.skinsConfig
+          ? {
+              enabled: true,
+              config: data.skinsConfig,
+            }
+          : undefined;
+
+      // DEBUG: Log skins configuration being passed to round creation
+      console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
+        skinsEnabled: data.skinsEnabled,
+        hasSkinsConfig: !!data.skinsConfig,
+        skinsConfig: data.skinsConfig,
+        standaloneSkinsConfig,
+        partnersCount: data.selectedPartners.length,
+      });
+
       onStartRound(
         data.selectedCourse.courseId,
         data.selectedCourse.courseName,
         data.selectedPartners,
         data.selectedTee ?? undefined,
         data.selectedMatchType ?? undefined,
-        scoringPairsConfig
+        scoringPairsConfig,
+        undefined, // ballCount is only for solo rounds
+        standaloneSkinsConfig
       );
 
       resetState();
@@ -431,6 +476,8 @@ export function useCreateRoundWizard({
     isPartnerSelected,
     setScoringPairsEnabled,
     handleScoringPairsChange,
+    setSkinsEnabled,
+    handleSkinsConfigChange,
     handleSelectBallCount,
     handleStartSoloRound,
     handleBackToCourse,

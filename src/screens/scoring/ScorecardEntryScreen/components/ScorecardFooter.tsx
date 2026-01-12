@@ -4,7 +4,7 @@
  * Renders the footer navigation section:
  * - View Full Scorecard link
  * - Previous/Next hole navigation buttons
- * - Review & Submit button on hole 18
+ * - Review & Submit button on hole 18 OR when all holes are complete
  */
 
 import React from 'react';
@@ -21,6 +21,8 @@ export interface ScorecardFooterProps {
   onViewScorecard: () => void;
   canGoPrevious: boolean;
   canGoNext: boolean;
+  /** Whether all holes have been scored */
+  isAllComplete?: boolean;
 }
 
 export function ScorecardFooter({
@@ -31,8 +33,12 @@ export function ScorecardFooter({
   onViewScorecard,
   canGoPrevious,
   canGoNext,
+  isAllComplete = false,
 }: ScorecardFooterProps) {
   const colors = useThemeColors();
+
+  // Show submit button when on last hole OR when all holes are complete
+  const showSubmitButton = !canGoNext || isAllComplete;
 
   return (
     <View
@@ -64,7 +70,31 @@ export function ScorecardFooter({
           Previous
         </Button>
 
-        {canGoNext ? (
+        {showSubmitButton ? (
+          <>
+            {/* Show Next Hole button if not on last hole */}
+            {canGoNext && (
+              <Button
+                mode="outlined"
+                onPress={onNextHole}
+                style={styles.navButton}
+                labelStyle={[styles.navButtonLabel, { color: colors.textPrimary }]}
+                contentStyle={styles.navButtonContent}
+              >
+                Next Hole
+              </Button>
+            )}
+            <Button
+              mode="contained"
+              onPress={onSubmit}
+              style={[styles.navButton, { backgroundColor: colors.success }]}
+              labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
+              contentStyle={styles.navButtonContent}
+            >
+              Review & Submit
+            </Button>
+          </>
+        ) : (
           <Button
             mode="contained"
             onPress={onNextHole}
@@ -73,16 +103,6 @@ export function ScorecardFooter({
             contentStyle={styles.navButtonContent}
           >
             Next Hole
-          </Button>
-        ) : (
-          <Button
-            mode="contained"
-            onPress={onSubmit}
-            style={[styles.navButton, { backgroundColor: colors.success }]}
-            labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
-            contentStyle={styles.navButtonContent}
-          >
-            Review & Submit
           </Button>
         )}
       </View>

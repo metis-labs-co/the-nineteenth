@@ -89,6 +89,23 @@ export type RootStackParamList = {
     player2Id?: string;
     team1Id?: string;
     team2Id?: string;
+    initialHole?: number; // Starting hole number (1-18)
+    competitionId?: string;
+  };
+
+  // Team Match Play Scoring
+  TeamMatchPlayScoring: {
+    roundId: string;
+    team1Id?: string;
+    team2Id?: string;
+  };
+
+  // Match Play Scorecard (full 18-hole view)
+  MatchPlayScorecard: {
+    roundId: string;
+    player1Id: string;
+    player2Id: string;
+    competitionId?: string;
   };
 
   // Venues & Courses

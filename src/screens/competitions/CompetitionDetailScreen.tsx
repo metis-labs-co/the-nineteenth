@@ -9,15 +9,16 @@
  * - Leaderboard: Competition standings
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { Text, Button, Icon } from 'react-native-paper';
+import { Text, Button, Icon, Snackbar } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
+import { EditPrizePoolBottomSheet } from '@/components/prizePool';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionContext';
@@ -27,6 +28,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams, useUpdateTeamName } from '@/hooks/useTeams';
 import { useRemoveCompetitionPlayer } from '@/hooks/useRemoveCompetitionPlayer';
+import { useCompetitionPrizePool, usePoolAllocationSummary } from '@/hooks/usePrizePool';
+import { useAutoSplitSkinsSync } from '@/hooks/useAutoSplitSkinsSync';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
@@ -204,6 +207,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Add players bottom sheet state
   const [showAddPlayersSheet, setShowAddPlayersSheet] = useState(false);
 
+  // Prize pool bottom sheet state
+  const [showPrizePoolSheet, setShowPrizePoolSheet] = useState(false);
+
   // Upgrade prompt state for round limits
   const [showRoundUpgradePrompt, setShowRoundUpgradePrompt] = useState(false);
 
@@ -213,6 +219,21 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Subscription context for tier limit checks
   const { checkCanAddRound, checkCanAddPlayer } = useSubscriptionContext();
   const tierLimits = useTierLimits();
+
+  // Snackbar state for auto-split feedback
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  // Auto-split skins sync
+  const {
+    shouldTrigger: shouldTriggerAutoSplit,
+    triggerAutoSplit,
+    isCreating: isCreatingAutoSplit,
+    potPerRound: autoSplitPotPerRound,
+  } = useAutoSplitSkinsSync(id);
+
+  // Track if we've already triggered auto-split this session
+  const hasTriggeredAutoSplitRef = useRef(false);
 
   // Fetch competition details
   const {
@@ -235,6 +256,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     isLoading: isLoadingTeams,
     refetch: refetchTeams,
   } = useTeams(id);
+
+  // Fetch prize pool data
+  const {
+    data: prizePool,
+    refetch: refetchPrizePool,
+  } = useCompetitionPrizePool(id);
+
+  // Fetch prize pool allocation summary
+  const { data: prizePoolSummary } = usePoolAllocationSummary(id);
 
   // Team name update hook
   const { mutate: updateTeamNameMutation } = useUpdateTeamName();
@@ -298,11 +328,45 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     return competitionData.competition.organizer_id === user.id;
   }, [competitionData?.competition, user]);
 
+  // Check if any round has started (for prize pool lock status)
+  const hasStartedRound = useMemo(() => {
+    if (!competitionData?.rounds) return false;
+    return competitionData.rounds.some(
+      (r) => r.status === 'in-progress' || r.status === 'completed'
+    );
+  }, [competitionData?.rounds]);
+
+  // Check if prize pool is locked
+  const isPrizePoolLocked = useMemo(() => {
+    return !!prizePool?.is_locked || hasStartedRound;
+  }, [prizePool?.is_locked, hasStartedRound]);
+
   // Get current player's standing (for non-organizers)
   const currentStanding = useMemo(
     () => getCurrentPlayerStanding(leaderboard, user?.id),
     [leaderboard, user?.id]
   );
+
+  // Auto-trigger skins creation when conditions are met
+  useEffect(() => {
+    if (
+      shouldTriggerAutoSplit &&
+      !hasTriggeredAutoSplitRef.current &&
+      !isCreatingAutoSplit
+    ) {
+      hasTriggeredAutoSplitRef.current = true;
+      triggerAutoSplit().then((result) => {
+        if (result?.success && result.gamesCreated > 0) {
+          setSnackbarMessage(
+            `${result.gamesCreated} skins game${result.gamesCreated !== 1 ? 's' : ''} created ($${autoSplitPotPerRound} each)`
+          );
+          setSnackbarVisible(true);
+        } else if (result?.error) {
+          console.warn('[AutoSplitSkins] Failed:', result.error);
+        }
+      });
+    }
+  }, [shouldTriggerAutoSplit, isCreatingAutoSplit, triggerAutoSplit, autoSplitPotPerRound]);
 
   // Handle navigation
   const handleBack = useCallback(() => {
@@ -355,8 +419,29 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   );
 
   const handleScoreRound = useCallback(
-    (roundId: string) => {
-      navigation.navigate('Scorecard', { roundId, competitionId: id });
+    (roundId: string, gameType: string, isTeamRound: boolean) => {
+      // Route to appropriate scoring screen based on game type
+      if (gameType === 'match-play') {
+        if (isTeamRound) {
+          // Team match play goes to TeamMatchPlayScoring
+          navigation.navigate('TeamMatchPlayScoring', {
+            roundId,
+            // TODO: Pass actual team IDs from round pairings
+            team1Id: undefined,
+            team2Id: undefined,
+          });
+        } else {
+          // Individual match play goes to MatchPlayScoring
+          navigation.navigate('MatchPlayScoring', {
+            roundId,
+            // TODO: Pass actual player IDs from round pairings
+            player1Id: undefined,
+            player2Id: undefined,
+          });
+        }
+      } else {
+        navigation.navigate('Scorecard', { roundId, competitionId: id });
+      }
     },
     [navigation, id]
   );
@@ -393,11 +478,31 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     [navigation, id]
   );
 
+  // Prize pool handlers
+  const handleAddPrizePool = useCallback(() => {
+    setShowPrizePoolSheet(true);
+  }, []);
+
+  const handleEditPrizePool = useCallback(() => {
+    setShowPrizePoolSheet(true);
+  }, []);
+
+  const handlePrizePoolSuccess = useCallback(() => {
+    refetchPrizePool();
+  }, [refetchPrizePool]);
+
+  const handleViewPrizePoolTransactions = useCallback(() => {
+    // TODO: Navigate to prize pool transactions screen
+    // For now, this is a placeholder - could open a modal or navigate to a new screen
+    console.log('View prize pool transactions - not implemented');
+  }, []);
+
   const handleRefresh = useCallback(() => {
     refetch();
     refetchLeaderboard();
     refetchTeams();
-  }, [refetch, refetchLeaderboard, refetchTeams]);
+    refetchPrizePool();
+  }, [refetch, refetchLeaderboard, refetchTeams, refetchPrizePool]);
 
   const handleDeleteCompetition = useCallback(async () => {
     setIsDeleting(true);
@@ -523,7 +628,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             playerCount={players.length}
             currentStanding={currentStanding}
             isOrganizer={isOrganizer}
+            prizePool={prizePool}
+            prizePoolSummary={prizePoolSummary}
+            isPrizePoolLocked={isPrizePoolLocked}
             onEdit={handleEdit}
+            onAddPrizePool={handleAddPrizePool}
+            onEditPrizePool={handleEditPrizePool}
+            onViewPrizePoolTransactions={handleViewPrizePoolTransactions}
           />
         )}
 
@@ -531,6 +642,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           <RoundsTab
             rounds={rounds}
             isOrganizer={isOrganizer}
+            playerCount={players.length}
             onAddRound={handleAddRound}
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
@@ -589,6 +701,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         currentPlayerCount={players.length}
       />
 
+      {/* Edit Prize Pool Bottom Sheet */}
+      <EditPrizePoolBottomSheet
+        visible={showPrizePoolSheet}
+        onClose={() => setShowPrizePoolSheet(false)}
+        competitionId={id}
+        playerCount={players.length}
+        roundCount={rounds.length}
+        hasStartedRound={hasStartedRound}
+        onSuccess={handlePrizePoolSuccess}
+      />
+
       {/* Round Limit Upgrade Prompt */}
       <UpgradePrompt
         visible={showRoundUpgradePrompt}
@@ -644,6 +767,21 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         onCancel={() => setShowDeleteDialog(false)}
         loading={isDeleting}
       />
+
+      {/* Auto-split skins feedback Snackbar */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={4000}
+        style={{ backgroundColor: colors.success }}
+        action={{
+          label: 'Dismiss',
+          onPress: () => setSnackbarVisible(false),
+          textColor: colors.white,
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }

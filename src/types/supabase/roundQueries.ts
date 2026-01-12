@@ -39,6 +39,7 @@ export interface SupabaseCourseData {
  */
 export interface SupabaseRoundData {
   id: string;
+  status: string | null;
   game_type: string | null;
   is_team_round: boolean | null;
   team_format: TeamFormat | null;
@@ -87,6 +88,7 @@ export interface SupabaseCompetitionPlayerData {
  */
 export const ROUND_METADATA_SELECT = `
   id,
+  status,
   game_type,
   is_team_round,
   team_format,

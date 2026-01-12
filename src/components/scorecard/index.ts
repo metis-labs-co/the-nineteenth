@@ -7,11 +7,18 @@ export { PlayerScoreCard } from './PlayerScoreCard';
 export { MultiBallScoreInput } from './MultiBallScoreInput';
 export { QuickScorecardView } from './QuickScorecardView';
 export { HoleHeader } from './HoleHeader';
+export { GameTypeHeader } from './GameTypeHeader';
+export type { GameTypeHeaderProps, TeamScoreData, TeamMatchStatus } from './GameTypeHeader';
 
 // Team scoring
 export { TeamScoreCard } from './TeamScoreCard';
 export { BestBallScoreView } from './BestBallScoreView';
 export { TeamMatchPlayScoreView } from './TeamMatchPlayScoreView';
+
+// Format-specific scoring
+export { StrokePlayScoreCard } from './StrokePlayScoreCard';
+export { StrokePlayLeaderboard } from './StrokePlayLeaderboard';
+export type { StrokePlayLeaderboardProps } from './StrokePlayLeaderboard';
 
 // Navigation
 export { SwipeableHoleNavigator } from './SwipeableHoleNavigator';
@@ -27,4 +34,8 @@ export type {
 // Shared scorecard table
 export { ScorecardTable } from './ScorecardTable';
 export type { ScorecardTableProps, ScorecardTablePlayer } from './ScorecardTable';
+
+// Match play scorecard table
+export { MatchPlayScorecardTable } from './MatchPlayScorecardTable';
+export type { MatchPlayScorecardTableProps } from './MatchPlayScorecardTable';
 

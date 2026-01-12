@@ -245,6 +245,49 @@ export const NoPlayers: Story = {
 };
 
 // =====================================================
+// PRIZE POOL STORIES
+// =====================================================
+
+export const WithPrizePool: Story = {
+  args: {
+    competition: createCompetitionData({
+      name: 'Championship with Prize Pool',
+      hasPrizePool: true,
+      prizePoolAmount: 400,
+    }),
+  },
+};
+
+export const WithLargePrizePool: Story = {
+  args: {
+    competition: createCompetitionData({
+      name: 'Big Money Tournament',
+      hasPrizePool: true,
+      prizePoolAmount: 1500,
+    }),
+  },
+};
+
+export const WithSmallPrizePool: Story = {
+  args: {
+    competition: createCompetitionData({
+      name: 'Casual Skins Game',
+      hasPrizePool: true,
+      prizePoolAmount: 50,
+    }),
+  },
+};
+
+export const WithoutPrizePool: Story = {
+  args: {
+    competition: createCompetitionData({
+      name: 'Friendly Competition',
+      hasPrizePool: false,
+    }),
+  },
+};
+
+// =====================================================
 // DATE STORIES
 // =====================================================
 
@@ -384,6 +427,8 @@ export const ListOfCompetitions: Story = {
           isOrganizer: true,
           rounds: 4,
           players: 12,
+          hasPrizePool: true,
+          prizePoolAmount: 400,
         })}
         onPress={() => Alert.alert('Competition 1')}
       />

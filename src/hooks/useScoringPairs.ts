@@ -11,6 +11,7 @@
  * - useAutoGenerateScoringPairs() - Auto-generate pairs
  * - useGenerateTeamMatchPlayPairs() - Generate cross-team pairs
  * - useDeleteScoringPairs() - Delete all pairs for a round
+ * - useShuffleScoringPairs() - Delete and regenerate pairs with new random assignments
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ import {
   generateTeamMatchPlayPairs,
   deleteScoringPairs,
 } from '@/services/scoringPairs';
+import { supabase } from '@/services/supabase/client';
 import type { ScoringPairWithPlayers, ScoringPair } from '@/types/database.types';
 import type { Player, ScoringPairCreateInput } from '@/types';
 
@@ -419,6 +421,119 @@ export function useDeleteScoringPairs() {
 
     onError: (error) => {
       console.error('[useDeleteScoringPairs] Failed to delete scoring pairs:', error);
+    },
+  });
+}
+
+/**
+ * Mutation hook to shuffle scoring pairs (delete and regenerate)
+ *
+ * Deletes existing pairs and generates new random assignments.
+ * Fetches players from the round's pairings to regenerate pairs.
+ *
+ * @returns Mutation result with shufflePairs function
+ *
+ * @example
+ * ```tsx
+ * function ShufflePairsButton({ roundId, competitionId }: Props) {
+ *   const { mutate: shufflePairs, isPending } = useShuffleScoringPairs();
+ *
+ *   const handleShuffle = () => {
+ *     shufflePairs(
+ *       { roundId, competitionId },
+ *       {
+ *         onSuccess: (pairs) => {
+ *           Alert.alert('Success', `Shuffled ${pairs.length} scoring pairs`);
+ *         },
+ *         onError: (error) => {
+ *           Alert.alert('Error', error.message);
+ *         },
+ *       }
+ *     );
+ *   };
+ *
+ *   return (
+ *     <Button onPress={handleShuffle} loading={isPending}>
+ *       Shuffle Pairs
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
+export function useShuffleScoringPairs() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      roundId,
+      competitionId,
+    }: {
+      roundId: string;
+      competitionId: string;
+    }): Promise<ScoringPair[]> => {
+      // 1. Delete existing scoring pairs
+      await deleteScoringPairs(roundId);
+
+      // 2. Fetch players from round pairings
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { data: pairings, error: pairingsError } = await (supabase as any)
+        .from('pairings')
+        .select('player_id')
+        .eq('round_id', roundId)
+        .not('player_id', 'is', null);
+
+      if (pairingsError) {
+        throw new Error(`Failed to fetch pairings: ${pairingsError.message}`);
+      }
+
+      // If no pairings found, try to get players from competition_players
+      let players: { id: string }[] = [];
+
+      if (pairings && pairings.length > 0) {
+        players = (pairings as Array<{ player_id: string | null }>)
+          .filter((p) => p.player_id)
+          .map((p) => ({ id: p.player_id as string }));
+      } else {
+        // Fallback: get players from competition
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+        const { data: compPlayers, error: compError } = await (supabase as any)
+          .from('competition_players')
+          .select('player_id')
+          .eq('competition_id', competitionId);
+
+        if (compError) {
+          throw new Error(`Failed to fetch competition players: ${compError.message}`);
+        }
+
+        if (compPlayers) {
+          players = (compPlayers as Array<{ player_id: string }>).map((p) => ({ id: p.player_id }));
+        }
+      }
+
+      if (players.length < 2) {
+        throw new Error('Not enough players to create scoring pairs');
+      }
+
+      // 3. Shuffle the players array for random assignments
+      const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+
+      // 4. Auto-generate new pairs with shuffled order
+      return autoGenerateAndSaveScoringPairs(roundId, shuffledPlayers);
+    },
+
+    onSuccess: (data, variables) => {
+      // Invalidate the scoring pairs list for this round
+      queryClient.invalidateQueries({
+        queryKey: scoringPairsKeys.list(variables.roundId),
+      });
+      // Also invalidate any playersToScore queries for this round
+      queryClient.invalidateQueries({
+        queryKey: [...scoringPairsKeys.all, 'playersToScore', variables.roundId],
+      });
+    },
+
+    onError: (error) => {
+      console.error('[useShuffleScoringPairs] Failed to shuffle scoring pairs:', error);
     },
   });
 }

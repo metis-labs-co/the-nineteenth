@@ -2,8 +2,9 @@
  * Types for AddRoundScreen
  */
 
-import type { GameType, TeamFormat, TeamWithMembers } from '@/types/database.types';
+import type { GameType, TeamFormat, TeamWithMembers, SkinsPoolSource } from '@/types/database.types';
 import type { RootStackScreenProps } from '@/navigation/types';
+import type { SkinsConfig } from '@/types';
 
 /**
  * Form data for adding a new round
@@ -17,6 +18,11 @@ export interface RoundFormData {
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
   scoringPairsRequired: boolean;
+  // Skins game configuration
+  skinsEnabled: boolean;
+  skinsConfig: SkinsConfig | null;
+  // Pool source for skins (Phase 2: Prize Pool integration)
+  skinsPoolSource: SkinsPoolSource;
 }
 
 /**
@@ -31,6 +37,9 @@ export const INITIAL_FORM_DATA: RoundFormData = {
   isTeamRound: false,
   teamFormat: null,
   scoringPairsRequired: false,
+  skinsEnabled: false,
+  skinsConfig: null,
+  skinsPoolSource: 'direct',
 };
 
 /**

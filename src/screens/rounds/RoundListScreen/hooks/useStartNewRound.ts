@@ -15,7 +15,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-import type { ScoringPairsConfig } from '../../CreateRoundBottomSheet';
+import type { ScoringPairsConfig, StandaloneSkinsConfig } from '../../CreateRoundBottomSheet';
 import type { PlayingPartner } from '../types';
 
 // Default holes (used when course has no hole data)
@@ -36,7 +36,8 @@ export interface UseStartNewRoundReturn {
     selectedTee?: TeeBox,
     gameType?: GameType,
     scoringPairsConfig?: ScoringPairsConfig,
-    ballCount?: BallCount
+    ballCount?: BallCount,
+    skinsConfig?: StandaloneSkinsConfig
   ) => Promise<void>;
   isStartingRound: boolean;
 }
@@ -56,7 +57,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
       selectedTee?: TeeBox,
       gameType: GameType = 'stableford',
       scoringPairsConfig?: ScoringPairsConfig,
-      ballCount: BallCount = 1
+      ballCount: BallCount = 1,
+      skinsConfig?: StandaloneSkinsConfig
     ) => {
       if (isStartingRound) return;
 
@@ -182,6 +184,58 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
           }
         }
 
+        // Create skins game if enabled (non-blocking - don't fail round creation)
+        // DEBUG: Log skins creation conditions
+        console.log('[useStartNewRound] Skins creation check:', {
+          skinsConfigReceived: !!skinsConfig,
+          skinsEnabled: skinsConfig?.enabled,
+          hasConfig: !!skinsConfig?.config,
+          partnersCount: partners.length,
+          hasUserId: !!user?.id,
+          willCreateSkins: !!(skinsConfig?.enabled && skinsConfig.config && partners.length >= 1 && user?.id),
+          skinsConfig: skinsConfig,
+        });
+
+        if (skinsConfig?.enabled && skinsConfig.config && partners.length >= 1 && user?.id) {
+          try {
+            // Build participant IDs array (current user + partners)
+            const participantIds = [user.id, ...partners.map(p => p.id)];
+
+            const { error: skinsError } = await (supabase
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+              .from('skins_games') as any)
+              .insert({
+                round_id: roundId,
+                pairing_id: null, // Standalone rounds don't have pairings
+                participant_ids: participantIds,
+                pot_type: skinsConfig.config.pot_type,
+                pot_value: skinsConfig.config.pot_value,
+                currency: skinsConfig.config.currency ?? 'AUD',
+                scoring_type: skinsConfig.config.scoring_type,
+                pool_source: 'direct',
+                status: 'active',
+                disclaimer_accepted_at: new Date().toISOString(),
+                disclaimer_accepted_by: user.id,
+                created_by: user.id,
+              });
+
+            if (skinsError) {
+              console.error('[RoundsScreen] Error creating skins game:', skinsError);
+            } else {
+              console.log('[RoundsScreen] Created skins game for round:', {
+                roundId,
+                participantCount: participantIds.length,
+                potType: skinsConfig.config.pot_type,
+                potValue: skinsConfig.config.pot_value,
+                scoringType: skinsConfig.config.scoring_type,
+              });
+            }
+          } catch (skinsGameError) {
+            // Log but don't fail - skins is a side feature
+            console.error('[RoundsScreen] Error creating skins game:', skinsGameError);
+          }
+        }
+
         console.log('[RoundsScreen] Starting round:', {
           roundId,
           course: courseName,
@@ -195,11 +249,19 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         // Initialize the scorecard store
         await initializeRound(roundId, players, holes, gameType, false);
 
-        // Navigate to scorecard entry screen
-        navigation.navigate('Scorecard', {
-          roundId,
-          competitionId: 'standalone',
-        });
+        // Navigate to appropriate scoring screen based on game type
+        if (gameType === 'match-play') {
+          navigation.navigate('MatchPlayScoring', {
+            roundId,
+            player1Id: players[0]?.id,
+            player2Id: players[1]?.id,
+          });
+        } else {
+          navigation.navigate('Scorecard', {
+            roundId,
+            competitionId: 'standalone',
+          });
+        }
       } catch (error) {
         console.error('[RoundsScreen] Error starting round:', error);
         Alert.alert(

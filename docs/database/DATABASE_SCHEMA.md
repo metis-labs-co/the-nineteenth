@@ -408,6 +408,100 @@ interface TierLimits {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// =====================================================
+// SKINS GAME TYPES (Side-game gambling feature)
+// =====================================================
+
+/** How the pot is calculated */
+type SkinsPotType = 'per_hole' | 'total_pot';
+
+/** Scoring method for determining hole winners */
+type SkinsScoringType = 'gross' | 'net';
+
+/** Status of a skins game */
+type SkinsGameStatus = 'active' | 'completed' | 'cancelled';
+
+/** Where the pot money comes from */
+type SkinsPoolSource = 'direct' | 'prize_pool';
+
+/**
+ * Score data for a single player on a hole
+ * Used in the hole_scores JSONB field
+ */
+interface SkinsHoleScoreData {
+  gross: number;           // Raw strokes taken
+  net: number;             // Net score after handicap adjustment
+  strokes_received: number; // Handicap strokes received on this hole
+}
+
+/** Map of player IDs to their hole score data */
+type SkinsHoleScores = Record<string, SkinsHoleScoreData>;
+
+/**
+ * A skins game associated with a round
+ * Represents the gambling side-game configuration
+ */
+interface SkinsGame {
+  id: string;
+  roundId: string;
+  pairingId?: string;
+  participantIds: string[];
+  potType: SkinsPotType;
+  potValue: number;
+  currency: string;
+  scoringType: SkinsScoringType;
+  poolSource: SkinsPoolSource;
+  status: SkinsGameStatus;
+  disclaimerAcceptedAt: Date;
+  disclaimerAcceptedBy: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+}
+
+/**
+ * Result of a single hole in a skins game
+ */
+interface SkinsResult {
+  id: string;
+  skinsGameId: string;
+  holeNumber: number;
+  winnerId?: string;       // NULL if carryover due to tie
+  isCarryover: boolean;
+  holeScores: SkinsHoleScores;
+  holePotValue: number;
+  carryoverToNext: number;
+  payoutAmount: number;
+  calculatedAt: Date;
+}
+
+/**
+ * Final payout summary for a player in a skins game
+ */
+interface SkinsPayout {
+  id: string;
+  skinsGameId: string;
+  playerId: string;
+  buyIn: number;
+  totalWinnings: number;
+  netResult: number;       // profit/loss: totalWinnings - buyIn
+  holesWon: number;
+  holesTied: number;
+  holesLost: number;
+  calculatedAt: Date;
+}
+
+/**
+ * Configuration for setting up a skins game (UI input)
+ */
+interface SkinsConfig {
+  potType: SkinsPotType;
+  potValue: number;
+  scoringType: SkinsScoringType;
+  currency?: string;
+}
 ```
 
 ---
@@ -1793,6 +1887,7 @@ Configuration table defining limits and feature access for each subscription tie
 | `can_view_advanced_stats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can view advanced stats (GIR, fairways) |
 | `can_compare_stats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can compare stats with others |
 | `can_access_admin_tools` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to admin tools |
+| `can_use_skins` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to skins gambling feature |
 | `requires_payment` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether tier requires payment |
 | `can_expire` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether subscriptions can expire |
 | `display_name` | TEXT | NOT NULL | Human-readable tier name |
@@ -1817,6 +1912,7 @@ Configuration table defining limits and feature access for each subscription tie
 | can_view_advanced_stats | ❌ | ❌ | ✅ | ✅ |
 | can_compare_stats | ❌ | ✅ | ✅ | ✅ |
 | can_access_admin_tools | ❌ | ❌ | ❌ | ✅ |
+| can_use_skins | ❌ | ❌ | ✅ | ✅ |
 | requires_payment | ❌ | ✅ | ✅ | ❌ |
 | can_expire | ✅ | ✅ | ✅ | ❌ |
 | badge_color | #6b7280 (gray) | #3b82f6 (blue) | #f59e0b (amber) | #dc2626 (red) |
@@ -1857,6 +1953,402 @@ const { data: hasFeature } = await supabase
     p_user_id: userId,
     p_feature: 'scoring_pairs',
   });
+
+// Check if user can use skins feature
+const { data: canUseSkins } = await supabase
+  .rpc('user_has_feature', {
+    p_user_id: userId,
+    p_feature: 'skins',
+  });
+```
+
+---
+
+### `skins_games`
+
+Stores skins gambling side-games that run alongside regular rounds. Players compete hole-by-hole for a pot of money, with tied holes carrying over to the next hole.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Skins game unique identifier |
+| `round_id` | UUID | NOT NULL, FK (rounds) ON DELETE CASCADE | The round this skins game is associated with |
+| `pairing_id` | UUID | FK (pairings) ON DELETE SET NULL | Optional pairing - if null, uses participant_ids directly |
+| `participant_ids` | UUID[] | NOT NULL, CHECK 2-4 players | Array of player UUIDs participating |
+| `pot_type` | TEXT | NOT NULL, CHECK IN ('per_hole', 'total_pot') | How the pot is calculated |
+| `pot_value` | DECIMAL(10,2) | NOT NULL, CHECK > 0 | Dollar amount (per hole or total pot) |
+| `currency` | TEXT | NOT NULL, DEFAULT 'AUD' | Currency code |
+| `scoring_type` | TEXT | NOT NULL, DEFAULT 'gross', CHECK IN ('gross', 'net') | Whether to use gross or net scores |
+| `pool_source` | TEXT | NOT NULL, DEFAULT 'direct', CHECK IN ('direct', 'prize_pool') | Where pot comes from (Phase 2: prize_pool) |
+| `status` | TEXT | NOT NULL, DEFAULT 'active', CHECK IN ('active', 'completed', 'cancelled') | Game status |
+| `disclaimer_accepted_at` | TIMESTAMPTZ | NOT NULL | When gambling disclaimer was accepted |
+| `disclaimer_accepted_by` | UUID | NOT NULL, FK (players) | Player who accepted disclaimer |
+| `created_by` | UUID | NOT NULL, FK (players) | Player who created the skins game |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
+| `completed_at` | TIMESTAMPTZ | NULL | When game was finalized |
+
+**Indexes:**
+- `idx_skins_games_round` - round_id
+- `idx_skins_games_pairing` - pairing_id (WHERE pairing_id IS NOT NULL)
+- `idx_skins_games_status` - status
+- `idx_skins_games_created_by` - created_by
+
+**RLS Policies:**
+- `Participants can view their skins games` - SELECT for users in participant_ids
+- `Creators can manage their skins games` - ALL for created_by = auth.uid()
+- `Round organizers can manage skins games` - ALL for competition organizers or standalone round owners
+
+**Example:**
+```typescript
+// Create a skins game for a round
+const { data, error } = await supabase
+  .from('skins_games')
+  .insert({
+    round_id: roundId,
+    participant_ids: [userId, partner1Id, partner2Id, partner3Id],
+    pot_type: 'per_hole',
+    pot_value: 5.00,
+    scoring_type: 'gross',
+    disclaimer_accepted_at: new Date().toISOString(),
+    disclaimer_accepted_by: userId,
+    created_by: userId,
+  })
+  .select()
+  .single();
+
+// Get active skins game for a round
+const { data: skinsGame } = await supabase
+  .from('skins_games')
+  .select('*')
+  .eq('round_id', roundId)
+  .eq('status', 'active')
+  .single();
+```
+
+---
+
+### `skins_results`
+
+Stores hole-by-hole results for skins games. Each row represents one hole's outcome - either a winner or a carryover.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Result unique identifier |
+| `skins_game_id` | UUID | NOT NULL, FK (skins_games) ON DELETE CASCADE | The skins game this result belongs to |
+| `hole_number` | INTEGER | NOT NULL, CHECK 1-18 | Hole number (1-18) |
+| `winner_id` | UUID | FK (players), NULL if carryover | Player who won this hole, NULL if tie |
+| `is_carryover` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if this hole was tied |
+| `hole_scores` | JSONB | NOT NULL | All participant scores: {player_id: {gross, net, strokes_received}} |
+| `hole_pot_value` | DECIMAL(10,2) | NOT NULL | Base pot value for this hole |
+| `carryover_to_next` | DECIMAL(10,2) | NOT NULL, DEFAULT 0 | Amount carried over to next hole |
+| `payout_amount` | DECIMAL(10,2) | NOT NULL, DEFAULT 0 | Total amount won (includes carryover) |
+| `calculated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When result was calculated |
+
+**Constraints:**
+- UNIQUE (skins_game_id, hole_number) - One result per hole per game
+
+**Indexes:**
+- `idx_skins_results_game` - skins_game_id
+- `idx_skins_results_winner` - winner_id (WHERE winner_id IS NOT NULL)
+- `idx_skins_results_hole` - (skins_game_id, hole_number)
+
+**RLS Policies:**
+- `Participants can view skins results` - SELECT for game participants
+- `Creators can manage skins results` - ALL for game creators
+
+**Example:**
+```typescript
+// Get results for a skins game
+const { data: results } = await supabase
+  .from('skins_results')
+  .select(`
+    *,
+    winner:players!winner_id(id, name)
+  `)
+  .eq('skins_game_id', skinsGameId)
+  .order('hole_number');
+
+// Process a hole result
+const { data, error } = await supabase
+  .from('skins_results')
+  .upsert({
+    skins_game_id: skinsGameId,
+    hole_number: 5,
+    winner_id: winnerId,
+    is_carryover: false,
+    hole_scores: {
+      [player1Id]: { gross: 4, net: 3, strokes_received: 1 },
+      [player2Id]: { gross: 5, net: 5, strokes_received: 0 },
+    },
+    hole_pot_value: 5.00,
+    carryover_to_next: 0,
+    payout_amount: 15.00, // $5 base + $10 carryover
+  })
+  .select();
+```
+
+---
+
+### `skins_payouts`
+
+Stores final payout summary for each player in a skins game. Created when the game is finalized.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Payout unique identifier |
+| `skins_game_id` | UUID | NOT NULL, FK (skins_games) ON DELETE CASCADE | The skins game this payout belongs to |
+| `player_id` | UUID | NOT NULL, FK (players) | Player this payout is for |
+| `buy_in` | DECIMAL(10,2) | NOT NULL | Amount player paid to participate |
+| `total_winnings` | DECIMAL(10,2) | NOT NULL, DEFAULT 0 | Total amount won across all holes |
+| `net_result` | DECIMAL(10,2) | NOT NULL, DEFAULT 0 | Net profit/loss (total_winnings - buy_in) |
+| `holes_won` | INTEGER | NOT NULL, DEFAULT 0 | Number of holes won outright |
+| `holes_tied` | INTEGER | NOT NULL, DEFAULT 0 | Number of holes tied |
+| `holes_lost` | INTEGER | NOT NULL, DEFAULT 0 | Number of holes lost |
+| `calculated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When payout was calculated |
+
+**Constraints:**
+- UNIQUE (skins_game_id, player_id) - One payout record per player per game
+
+**Indexes:**
+- `idx_skins_payouts_game` - skins_game_id
+- `idx_skins_payouts_player` - player_id
+
+**RLS Policies:**
+- `Players can view their own skins payouts` - SELECT for player_id = auth.uid()
+- `Participants can view game payouts` - SELECT for game participants
+- `Creators can manage skins payouts` - ALL for game creators
+
+**Example:**
+```typescript
+// Get payouts for a skins game (sorted by winnings)
+const { data: payouts } = await supabase
+  .from('skins_payouts')
+  .select(`
+    *,
+    player:players!player_id(id, name)
+  `)
+  .eq('skins_game_id', skinsGameId)
+  .order('net_result', { ascending: false });
+
+// Get my skins history
+const { data: myPayouts } = await supabase
+  .from('skins_payouts')
+  .select(`
+    *,
+    skins_game:skins_games(
+      round_id,
+      pot_type,
+      pot_value,
+      status,
+      completed_at
+    )
+  `)
+  .eq('player_id', userId)
+  .order('calculated_at', { ascending: false });
+```
+
+---
+
+### `competition_prize_pools`
+
+Stores prize pool configuration for competitions. A prize pool can fund skins games, winner prizes, and other competition prizes. Only one pool per competition.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Prize pool unique identifier |
+| `competition_id` | UUID | NOT NULL, FK (competitions) ON DELETE CASCADE, UNIQUE | Competition this pool belongs to |
+| `funding_type` | TEXT | NOT NULL, DEFAULT 'per_player', CHECK IN ('per_player', 'fixed_total') | How pool is funded |
+| `funding_amount` | DECIMAL(10,2) | NOT NULL, CHECK > 0 | Dollar amount per player or fixed total |
+| `currency` | TEXT | NOT NULL, DEFAULT 'AUD' | Currency code |
+| `total_pool_amount` | DECIMAL(12,2) | NOT NULL, CHECK >= 0 | Calculated total (per_player × count OR fixed) |
+| `skins_allocation_percent` | DECIMAL(5,2) | NOT NULL, DEFAULT 0, CHECK 0-100 | Percentage allocated to skins games |
+| `winner_allocation_percent` | DECIMAL(5,2) | NOT NULL, DEFAULT 0, CHECK 0-100 | Percentage allocated to winner prizes |
+| `other_allocation_percent` | DECIMAL(5,2) | NOT NULL, DEFAULT 0, CHECK 0-100 | Percentage allocated to other prizes |
+| `skins_budget` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Calculated skins budget from percentage |
+| `winner_budget` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Calculated winner budget from percentage |
+| `other_budget` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Calculated other budget from percentage |
+| `auto_split_skins` | BOOLEAN | NOT NULL, DEFAULT FALSE | Auto-enable skins on all rounds with equal pots |
+| `skins_pot_per_round` | DECIMAL(10,2) | NULL | Calculated pot per round when auto_split enabled |
+| `is_locked` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE after first round starts |
+| `locked_at` | TIMESTAMPTZ | NULL | When pool was locked |
+| `status` | TEXT | NOT NULL, DEFAULT 'draft', CHECK IN ('draft', 'active', 'settled') | Pool status |
+| `created_by` | UUID | NOT NULL, FK (players) | Player who created the pool |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Constraints:**
+- `prize_pool_allocations_sum` - skins + winner + other allocation <= 100%
+
+**Indexes:**
+- `idx_prize_pools_competition` - competition_id
+- `idx_prize_pools_status` - status
+- `idx_prize_pools_created_by` - created_by
+
+**RLS Policies:**
+- `Organizers can manage prize pools` - ALL for competition organizers
+- `Competition members can view prize pools` - SELECT for competition members
+
+**Example:**
+```typescript
+// Create a prize pool for a competition
+const { data, error } = await supabase
+  .from('competition_prize_pools')
+  .insert({
+    competition_id: competitionId,
+    funding_type: 'per_player',
+    funding_amount: 50.00,
+    total_pool_amount: 400.00, // 50 × 8 players
+    skins_allocation_percent: 60,
+    winner_allocation_percent: 30,
+    other_allocation_percent: 10,
+    skins_budget: 240.00,
+    winner_budget: 120.00,
+    other_budget: 40.00,
+    auto_split_skins: true,
+    skins_pot_per_round: 60.00, // 240 / 4 rounds
+    created_by: userId,
+  })
+  .select()
+  .single();
+
+// Get prize pool for a competition
+const { data: pool } = await supabase
+  .from('competition_prize_pools')
+  .select('*')
+  .eq('competition_id', competitionId)
+  .single();
+```
+
+---
+
+### `pool_transactions`
+
+Audit trail of all transactions against a competition prize pool. Transactions are immutable - no updates or deletes allowed.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Transaction unique identifier |
+| `pool_id` | UUID | NOT NULL, FK (competition_prize_pools) ON DELETE CASCADE | Prize pool this transaction belongs to |
+| `transaction_type` | TEXT | NOT NULL, CHECK IN ('allocation', 'skins_draw', 'skins_return', 'prize_payout', 'adjustment') | Type of transaction |
+| `amount` | DECIMAL(10,2) | NOT NULL | Amount (positive = credit, negative = debit) |
+| `round_id` | UUID | FK (rounds) ON DELETE SET NULL | Associated round for skins transactions |
+| `description` | TEXT | NULL | Human-readable description |
+| `balance_after` | DECIMAL(12,2) | NOT NULL | Pool balance after this transaction |
+| `created_by` | UUID | FK (players) | Player who initiated (NULL for system) |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Transaction timestamp |
+
+**Transaction Types:**
+| Type | Description | Amount Sign |
+|------|-------------|-------------|
+| `allocation` | Initial budget allocation | +/- |
+| `skins_draw` | Amount drawn for skins game | - (negative) |
+| `skins_return` | Carryover returned to pool | + (positive) |
+| `prize_payout` | Prize distributed to winner | - (negative) |
+| `adjustment` | Manual adjustment by organizer | +/- |
+
+**Indexes:**
+- `idx_pool_transactions_pool_id` - pool_id
+- `idx_pool_transactions_type` - transaction_type
+- `idx_pool_transactions_round_id` - round_id (WHERE NOT NULL)
+- `idx_pool_transactions_created_at` - created_at DESC
+- `idx_pool_transactions_pool_type` - (pool_id, transaction_type)
+
+**RLS Policies:**
+- `Pool members can view transactions` - SELECT for pool members
+- `Organizers can create transactions` - INSERT for competition organizers
+- No UPDATE or DELETE policies (transactions are immutable)
+
+**Example:**
+```typescript
+// Get transactions for a prize pool
+const { data: transactions } = await supabase
+  .from('pool_transactions')
+  .select(`
+    *,
+    round:rounds(round_number, date)
+  `)
+  .eq('pool_id', poolId)
+  .order('created_at', { ascending: false });
+
+// Filter by transaction type
+const { data: skinsDraws } = await supabase
+  .from('pool_transactions')
+  .select('*')
+  .eq('pool_id', poolId)
+  .in('transaction_type', ['skins_draw', 'skins_return'])
+  .order('created_at', { ascending: false });
+```
+
+---
+
+### `skins_player_statistics`
+
+Aggregate skins game statistics for each player. Automatically updated via trigger when skins games are completed. Used for leaderboards and player stats display.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Statistics record unique identifier |
+| `player_id` | UUID | NOT NULL, FK (players) ON DELETE CASCADE, UNIQUE | Player this record belongs to |
+| `games_played` | INTEGER | NOT NULL, DEFAULT 0 | Total completed skins games |
+| `games_won` | INTEGER | NOT NULL, DEFAULT 0 | Games with positive net result |
+| `total_holes_played` | INTEGER | NOT NULL, DEFAULT 0 | Total holes across all games |
+| `total_holes_won` | INTEGER | NOT NULL, DEFAULT 0 | Holes won outright |
+| `total_holes_tied` | INTEGER | NOT NULL, DEFAULT 0 | Holes tied (carryover) |
+| `total_buy_ins` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Sum of all buy-ins paid |
+| `total_winnings` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Sum of all winnings |
+| `total_net_result` | DECIMAL(12,2) | NOT NULL, DEFAULT 0 | Total profit/loss (winnings - buy_ins) |
+| `current_win_streak` | INTEGER | NOT NULL, DEFAULT 0 | Consecutive positive-net games |
+| `longest_win_streak` | INTEGER | NOT NULL, DEFAULT 0 | Best streak ever |
+| `win_rate` | DECIMAL(5,2) | NULL | Percentage of games with positive net (0-100) |
+| `hole_win_rate` | DECIMAL(5,2) | NULL | Percentage of holes won outright (0-100) |
+| `last_game_at` | TIMESTAMPTZ | NULL | Most recent completed game |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_skins_stats_player` - player_id
+- `idx_skins_stats_net_result` - total_net_result DESC (leaderboard)
+- `idx_skins_stats_win_rate` - win_rate DESC NULLS LAST
+- `idx_skins_stats_games_played` - games_played DESC
+- `idx_skins_stats_holes_won` - total_holes_won DESC
+- `idx_skins_stats_winnings` - total_winnings DESC
+- `idx_skins_stats_leaderboard` - (total_net_result DESC, games_played DESC) WHERE games_played >= 1
+- `idx_skins_stats_last_game` - last_game_at DESC NULLS LAST
+
+**RLS Policies:**
+- `Players can view their own skins statistics` - SELECT for player_id = auth.uid()
+- `Players can view friends skins statistics` - SELECT for accepted friendships
+
+**Triggers:**
+- `update_skins_statistics_on_completion` - AFTER UPDATE on skins_games, fires when status changes to 'completed', calls `update_skins_player_statistics()`
+
+**Example:**
+```typescript
+// Get my skins statistics
+const { data: myStats } = await supabase
+  .from('skins_player_statistics')
+  .select('*')
+  .eq('player_id', userId)
+  .single();
+
+// Get leaderboard (top players by net result)
+const { data: leaderboard } = await supabase.rpc('get_skins_leaderboard', {
+  p_limit: 10,
+  p_min_games: 1,
+  p_friends_only: false,
+});
+
+// Get player's rank
+const { data: rank } = await supabase.rpc('get_player_skins_rank', {
+  p_player_id: userId,
+  p_min_games: 1,
+});
 ```
 
 ---
@@ -2438,7 +2930,7 @@ user_has_feature(
 ) RETURNS BOOLEAN
 ```
 
-**Features:** 'team_formats', 'scoring_pairs', 'export_data', 'api_course_search', 'basic_stats', 'score_distribution', 'advanced_stats', 'compare_stats', 'admin_tools'
+**Features:** 'team_formats', 'scoring_pairs', 'skins', 'export_data', 'api_course_search', 'basic_stats', 'score_distribution', 'advanced_stats', 'compare_stats', 'admin_tools'
 
 **Example:**
 ```typescript
@@ -2958,6 +3450,398 @@ RETURNS TABLE (
 const { data: standings } = await supabase.rpc('get_competition_individual_standings', {
   comp_id: competitionId,
 });
+```
+
+---
+
+### `calculate_pool_total()`
+
+Calculates the total pool amount based on funding type.
+
+**Signature:**
+```sql
+calculate_pool_total(
+  p_funding_type TEXT,
+  p_funding_amount DECIMAL,
+  p_player_count INTEGER
+) RETURNS DECIMAL
+```
+
+**Parameters:**
+- `p_funding_type` - 'per_player' or 'fixed_total'
+- `p_funding_amount` - Dollar amount
+- `p_player_count` - Number of players (for per_player calculation)
+
+**Returns:**
+- Total pool amount (per_player: amount × count, fixed_total: amount)
+
+**Example:**
+```typescript
+const { data: total } = await supabase.rpc('calculate_pool_total', {
+  p_funding_type: 'per_player',
+  p_funding_amount: 50.00,
+  p_player_count: 8,
+});
+// Returns: 400.00
+```
+
+---
+
+### `calculate_pool_allocations()`
+
+Updates budget amounts based on allocation percentages and total pool amount.
+
+**Signature:**
+```sql
+calculate_pool_allocations(p_pool_id UUID)
+RETURNS VOID
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+
+**Logic:**
+1. Gets pool's total amount and allocation percentages
+2. Calculates skins_budget, winner_budget, other_budget
+3. Updates pool record with calculated values
+
+**Example:**
+```typescript
+await supabase.rpc('calculate_pool_allocations', {
+  p_pool_id: poolId,
+});
+```
+
+---
+
+### `lock_prize_pool()`
+
+Locks a prize pool to prevent modifications. Called automatically when first round starts.
+
+**Signature:**
+```sql
+lock_prize_pool(p_pool_id UUID)
+RETURNS VOID
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID to lock
+
+**Logic:**
+1. Sets `is_locked = TRUE`, `locked_at = NOW()`
+2. Changes status to 'active' if currently 'draft'
+3. No-op if pool already locked
+
+**Example:**
+```typescript
+await supabase.rpc('lock_prize_pool', {
+  p_pool_id: poolId,
+});
+```
+
+---
+
+### `draw_from_pool()`
+
+Draws an amount from the pool's skins budget for a round. Returns actual amount drawn (may be less if insufficient funds).
+
+**Signature:**
+```sql
+draw_from_pool(
+  p_pool_id UUID,
+  p_round_id UUID,
+  p_amount DECIMAL
+) RETURNS DECIMAL
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+- `p_round_id` - Round UUID for the skins game
+- `p_amount` - Requested draw amount
+
+**Returns:**
+- Actual amount drawn (may be less than requested if insufficient)
+
+**Logic:**
+1. Gets available skins balance
+2. Draws min(requested, available)
+3. Creates pool_transaction record with type 'skins_draw'
+4. Returns actual amount drawn
+
+**Example:**
+```typescript
+const { data: drawn } = await supabase.rpc('draw_from_pool', {
+  p_pool_id: poolId,
+  p_round_id: roundId,
+  p_amount: 60.00,
+});
+// Returns: 60.00 (or less if insufficient funds)
+```
+
+---
+
+### `return_to_pool()`
+
+Returns an amount to the pool (e.g., carryover after round completion).
+
+**Signature:**
+```sql
+return_to_pool(
+  p_pool_id UUID,
+  p_round_id UUID,
+  p_amount DECIMAL,
+  p_description TEXT DEFAULT 'Carryover returned to pool'
+) RETURNS VOID
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+- `p_round_id` - Round UUID
+- `p_amount` - Amount to return
+- `p_description` - Description for audit trail
+
+**Logic:**
+1. Creates pool_transaction record with type 'skins_return'
+2. Positive amount (credit to pool)
+
+**Example:**
+```typescript
+await supabase.rpc('return_to_pool', {
+  p_pool_id: poolId,
+  p_round_id: roundId,
+  p_amount: 15.00,
+  p_description: 'Round 3 carryover returned',
+});
+```
+
+---
+
+### `get_pool_balance()`
+
+Gets the remaining balance for a specific pool category.
+
+**Signature:**
+```sql
+get_pool_balance(
+  p_pool_id UUID,
+  p_category TEXT DEFAULT 'skins'
+) RETURNS DECIMAL
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+- `p_category` - 'skins', 'winner', 'other', or 'total'
+
+**Returns:**
+- Remaining balance for the category (budget - used)
+
+**Example:**
+```typescript
+const { data: balance } = await supabase.rpc('get_pool_balance', {
+  p_pool_id: poolId,
+  p_category: 'skins',
+});
+// Returns: 180.00 (e.g., $240 budget - $60 drawn)
+```
+
+---
+
+### `can_draw_from_pool()`
+
+Checks if the skins budget has sufficient funds for the requested amount.
+
+**Signature:**
+```sql
+can_draw_from_pool(
+  p_pool_id UUID,
+  p_amount DECIMAL
+) RETURNS BOOLEAN
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+- `p_amount` - Requested draw amount
+
+**Returns:**
+- TRUE if available balance >= requested amount
+
+**Example:**
+```typescript
+const { data: canDraw } = await supabase.rpc('can_draw_from_pool', {
+  p_pool_id: poolId,
+  p_amount: 60.00,
+});
+if (!canDraw) {
+  // Show insufficient funds warning
+}
+```
+
+---
+
+### `auto_split_pool_for_skins()`
+
+Calculates and sets skins_pot_per_round for auto-split configuration.
+
+**Signature:**
+```sql
+auto_split_pool_for_skins(
+  p_pool_id UUID,
+  p_round_count INTEGER
+) RETURNS VOID
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+- `p_round_count` - Number of rounds in competition
+
+**Logic:**
+1. Gets skins_budget from pool
+2. Calculates pot_per_round = budget / round_count
+3. Updates pool's skins_pot_per_round
+
+**Example:**
+```typescript
+await supabase.rpc('auto_split_pool_for_skins', {
+  p_pool_id: poolId,
+  p_round_count: 4,
+});
+// Sets skins_pot_per_round = skins_budget / 4
+```
+
+---
+
+### `recalculate_pool_total()`
+
+Recalculates total pool amount based on current player count. For per_player funding type only.
+
+**Signature:**
+```sql
+recalculate_pool_total(p_pool_id UUID)
+RETURNS DECIMAL
+```
+
+**Parameters:**
+- `p_pool_id` - Prize pool UUID
+
+**Returns:**
+- New total pool amount
+
+**Logic:**
+1. If fixed_total, returns current total (no change)
+2. Counts current competition players
+3. Recalculates total = funding_amount × player_count
+4. Recalculates all budget allocations
+5. If auto_split enabled, recalculates pot_per_round
+
+**Example:**
+```typescript
+const { data: newTotal } = await supabase.rpc('recalculate_pool_total', {
+  p_pool_id: poolId,
+});
+// Returns: 500.00 (if player count increased from 8 to 10)
+```
+
+---
+
+### `get_player_skins_stats()`
+
+Get skins statistics for a specific player.
+
+**Signature:**
+```sql
+get_player_skins_stats(p_player_id UUID)
+RETURNS skins_player_statistics
+```
+
+**Parameters:**
+- `p_player_id` - Player UUID
+
+**Returns:**
+- Full skins_player_statistics record
+
+**Example:**
+```typescript
+const { data: stats } = await supabase.rpc('get_player_skins_stats', {
+  p_player_id: playerId,
+});
+// Returns: { games_played: 15, total_net_result: 125.50, ... }
+```
+
+---
+
+### `get_skins_leaderboard()`
+
+Get skins leaderboard with optional friends-only filter.
+
+**Signature:**
+```sql
+get_skins_leaderboard(
+  p_limit INTEGER DEFAULT 10,
+  p_min_games INTEGER DEFAULT 1,
+  p_friends_only BOOLEAN DEFAULT FALSE,
+  p_user_id UUID DEFAULT NULL
+) RETURNS TABLE (
+  rank BIGINT,
+  player_id UUID,
+  games_played INTEGER,
+  games_won INTEGER,
+  total_holes_won INTEGER,
+  total_winnings DECIMAL(12,2),
+  total_net_result DECIMAL(12,2),
+  win_rate DECIMAL(5,2),
+  hole_win_rate DECIMAL(5,2),
+  current_win_streak INTEGER,
+  longest_win_streak INTEGER
+)
+```
+
+**Parameters:**
+- `p_limit` - Max rows to return (default 10)
+- `p_min_games` - Minimum games played filter (default 1)
+- `p_friends_only` - If TRUE, only include friends (requires p_user_id)
+- `p_user_id` - Current user ID (required if friends_only)
+
+**Returns:**
+- Leaderboard sorted by net result descending
+
+**Example:**
+```typescript
+const { data: leaderboard } = await supabase.rpc('get_skins_leaderboard', {
+  p_limit: 10,
+  p_min_games: 3,
+  p_friends_only: true,
+  p_user_id: currentUserId,
+});
+```
+
+---
+
+### `get_player_skins_rank()`
+
+Get a player's rank in the skins leaderboard.
+
+**Signature:**
+```sql
+get_player_skins_rank(
+  p_player_id UUID,
+  p_min_games INTEGER DEFAULT 1
+) RETURNS BIGINT
+```
+
+**Parameters:**
+- `p_player_id` - Player UUID
+- `p_min_games` - Minimum games filter for ranking
+
+**Returns:**
+- Player's rank (NULL if player has fewer than min_games)
+
+**Example:**
+```typescript
+const { data: rank } = await supabase.rpc('get_player_skins_rank', {
+  p_player_id: playerId,
+  p_min_games: 1,
+});
+// Returns: 5 (player is ranked 5th)
 ```
 
 ---

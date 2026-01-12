@@ -9,8 +9,9 @@
  * to specialized hooks for each concern.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { getDisplayName } from '@/utils/displayHelpers';
 import type { Player, TeamWithMembers } from '@/types';
@@ -30,6 +31,7 @@ interface RoundDataState {
   selectedTee: string | null;
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
+  gameType: GameType;
   teams: TeamWithMembers[];
   fetchError: string | null;
   isLoading: boolean;
@@ -65,6 +67,7 @@ export function useRoundData({
     selectedTee: null,
     isTeamRound: false,
     teamFormat: null,
+    gameType: 'stableford',
     teams: [],
     fetchError: null,
     isLoading: true,
@@ -82,6 +85,9 @@ export function useRoundData({
     initializeRound,
     resetRound,
   } = useScorecardStore();
+
+  // Track if we've already updated the round status to avoid duplicate calls
+  const statusUpdatedRef = useRef<string | null>(null);
 
   // Use focused hooks
   const metadata = useRoundMetadata(roundId);
@@ -239,6 +245,51 @@ export function useRoundData({
     initializeRoundData();
   }, [initializeRoundData]);
 
+  // Update round status to 'in-progress' when scoring begins
+  // This runs separately from initialization to ensure it happens even if
+  // the round was already initialized or loaded from offline
+  useEffect(() => {
+    const updateRoundStatus = async () => {
+      // Only update if:
+      // 1. Round ID exists
+      // 2. Metadata is loaded
+      // 3. Current status is 'upcoming'
+      // 4. We haven't already updated this round's status
+      if (
+        !roundId ||
+        metadata.isLoading ||
+        metadata.data?.roundStatus !== 'upcoming' ||
+        statusUpdatedRef.current === roundId
+      ) {
+        return;
+      }
+
+      statusUpdatedRef.current = roundId;
+      roundDataLogger.info('Updating round status to in-progress', {
+        roundId: roundId?.substring(0, 8),
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { error: statusError } = await (supabase.from('rounds') as any)
+        .update({ status: 'in-progress' })
+        .eq('id', roundId);
+
+      if (statusError) {
+        roundDataLogger.error('Failed to update round status', statusError, {
+          roundId: roundId?.substring(0, 8),
+        });
+        // Reset ref so we can retry
+        statusUpdatedRef.current = null;
+      } else {
+        roundDataLogger.info('Round status updated successfully');
+        // Refetch metadata to get updated status
+        metadata.refetch();
+      }
+    };
+
+    updateRoundStatus();
+  }, [roundId, metadata.isLoading, metadata.data?.roundStatus, metadata.refetch]);
+
   // Update state from focused hooks
   useEffect(() => {
     const isLoading =
@@ -267,6 +318,7 @@ export function useRoundData({
       selectedTee: metadata.data?.selectedTee || null,
       isTeamRound,
       teamFormat: metadata.data?.teamFormat || null,
+      gameType: (metadata.data?.gameType as GameType) || 'stableford',
       teams: teamsHook.teams,
       fetchError,
       isLoading,

@@ -9,6 +9,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
 import type { TeeBox, TeamFormat, GameType } from '@/types/database.types';
+import type { RoundStatus } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import {
   ROUND_METADATA_SELECT,
@@ -26,6 +27,7 @@ export interface RoundMetadata {
   courseId: string | null;
   courseName: string | null;
   courseTees: TeeBox[];
+  roundStatus: RoundStatus;
 }
 
 interface UseRoundMetadataResult {
@@ -89,6 +91,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         courseId: roundData.courses?.id || null,
         courseName: roundData.courses?.name || null,
         courseTees: (roundData.courses?.tees as TeeBox[]) || [],
+        roundStatus: (roundData.status || 'upcoming') as RoundStatus,
       };
 
       roundDataLogger.debug('Round metadata loaded', {

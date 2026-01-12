@@ -43,6 +43,21 @@ jest.mock('@tabler/icons-react-native', () => {
   return {
     IconCalendar: (props: any) => <_RNView testID="icon-calendar" {...props} />,
     IconSettings: (props: any) => <_RNView testID="icon-settings" {...props} />,
+    IconTrophy: (props: any) => <_RNView testID="icon-trophy" {...props} />,
+    IconPlus: (props: any) => <_RNView testID="icon-plus" {...props} />,
+  };
+});
+
+// Mock PrizePoolSummaryCard
+jest.mock('@/components/prizePool', () => {
+  const { View, Text } = require('react-native');
+  return {
+    PrizePoolSummaryCard: ({ pool, isLocked }: { pool: { total_pool_amount: number }; isLocked: boolean }) => (
+      <View testID="prize-pool-summary-card">
+        <Text testID="prize-pool-amount">${pool.total_pool_amount}</Text>
+        {isLocked && <Text testID="prize-pool-locked">Locked</Text>}
+      </View>
+    ),
   };
 });
 
@@ -688,6 +703,90 @@ describe('DetailsTab', () => {
       const comp = createTestCompetition({ status: 'completed' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
       expect(screen.getByText('completed')).toBeTruthy();
+    });
+  });
+
+  // ===========================================================================
+  // PRIZE POOL SECTION TESTS
+  // ===========================================================================
+
+  describe('Prize Pool Section', () => {
+    it('displays prize pool section header', () => {
+      render(<DetailsTab {...defaultProps} />);
+      expect(screen.getByText('Prize Pool')).toBeTruthy();
+    });
+
+    it('shows empty state when no prize pool', () => {
+      render(<DetailsTab {...defaultProps} prizePool={null} />);
+      expect(screen.getByText('No Prize Pool Configured')).toBeTruthy();
+    });
+
+    it('shows add button for organizers when no prize pool', () => {
+      const mockOnAddPrizePool = jest.fn();
+      render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={true} onAddPrizePool={mockOnAddPrizePool} />);
+      const addButton = screen.getByLabelText('Add prize pool');
+      expect(addButton).toBeTruthy();
+      fireEvent.press(addButton);
+      expect(mockOnAddPrizePool).toHaveBeenCalled();
+    });
+
+    it('does not show add button for non-organizers', () => {
+      render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={false} />);
+      expect(screen.queryByLabelText('Add prize pool')).toBeNull();
+    });
+
+    it('shows prize pool summary when pool exists', () => {
+      const prizePool = {
+        id: 'pool-1',
+        competition_id: 'comp-1',
+        funding_type: 'per_player' as const,
+        funding_amount: 50,
+        currency: 'AUD',
+        total_pool_amount: 400,
+        skins_allocation_percent: 60,
+        winner_allocation_percent: 30,
+        other_allocation_percent: 10,
+        skins_budget: 240,
+        winner_budget: 120,
+        other_budget: 40,
+        auto_split_skins: false,
+        skins_pot_per_round: null,
+        is_locked: false,
+        locked_at: null,
+        status: 'draft' as const,
+        created_by: 'user-1',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      render(<DetailsTab {...defaultProps} prizePool={prizePool} />);
+      expect(screen.getByTestId('prize-pool-summary-card')).toBeTruthy();
+    });
+
+    it('shows locked indicator when pool is locked', () => {
+      const prizePool = {
+        id: 'pool-1',
+        competition_id: 'comp-1',
+        funding_type: 'per_player' as const,
+        funding_amount: 50,
+        currency: 'AUD',
+        total_pool_amount: 400,
+        skins_allocation_percent: 60,
+        winner_allocation_percent: 30,
+        other_allocation_percent: 10,
+        skins_budget: 240,
+        winner_budget: 120,
+        other_budget: 40,
+        auto_split_skins: false,
+        skins_pot_per_round: null,
+        is_locked: true,
+        locked_at: new Date().toISOString(),
+        status: 'active' as const,
+        created_by: 'user-1',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      render(<DetailsTab {...defaultProps} prizePool={prizePool} isPrizePoolLocked={true} />);
+      expect(screen.getByTestId('prize-pool-locked')).toBeTruthy();
     });
   });
 

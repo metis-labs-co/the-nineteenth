@@ -60,11 +60,31 @@ export function useRoundActions(): UseRoundActionsReturn {
           competitionId: round.competition?.id,
         });
       } else {
-        // Active rounds (scheduled, in-progress) → Scorecard screen for score entry
-        navigation.navigate('Scorecard', {
-          roundId: round.id,
-          competitionId: round.competition?.id || 'standalone',
-        });
+        // Active rounds (scheduled, in-progress) → appropriate scoring screen
+        if (round.gameType === 'match-play') {
+          if (round.isTeamRound) {
+            // Team match play goes to TeamMatchPlayScoring
+            navigation.navigate('TeamMatchPlayScoring', {
+              roundId: round.id,
+              // TODO: Pass actual team IDs from round pairings
+              team1Id: undefined,
+              team2Id: undefined,
+            });
+          } else {
+            // Individual match play goes to MatchPlayScoring
+            navigation.navigate('MatchPlayScoring', {
+              roundId: round.id,
+              // TODO: Pass actual player IDs from round pairings
+              player1Id: undefined,
+              player2Id: undefined,
+            });
+          }
+        } else {
+          navigation.navigate('Scorecard', {
+            roundId: round.id,
+            competitionId: round.competition?.id || 'standalone',
+          });
+        }
       }
     },
     [navigation]

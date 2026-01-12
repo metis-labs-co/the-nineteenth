@@ -10,13 +10,16 @@ import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
+import type { GameType } from '@/types';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
 
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
   isOrganizer: boolean;
+  /** Number of players in the competition (used to validate scoring requirements) */
+  playerCount: number;
   onAddRound: () => void;
-  onScoreRound: (roundId: string) => void;
+  onScoreRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   onViewRound: (roundId: string) => void;
   onManageScoringPairs?: (roundId: string) => void;
   /** Map of roundId to whether scoring pairs exist */
@@ -27,6 +30,7 @@ export interface RoundsTabProps {
 export const RoundsTab = React.memo(function RoundsTab({
   rounds,
   isOrganizer,
+  playerCount,
   onAddRound,
   onScoreRound,
   onViewRound,
@@ -56,6 +60,7 @@ export const RoundsTab = React.memo(function RoundsTab({
               round={round}
               roundNumber={round.round_number}
               isOrganizer={isOrganizer}
+              playerCount={playerCount}
               onScoreRound={onScoreRound}
               onViewRound={onViewRound}
               onManageScoringPairs={onManageScoringPairs}

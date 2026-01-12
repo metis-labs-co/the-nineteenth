@@ -36,10 +36,14 @@ export function ScoringPairsSection({
   scoringPairsRequired,
   isPremium,
   cardBackground,
-  onManagePress,
+  roundStatus,
+  onEditPress,
 }: ScoringPairsSectionProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+
+  // Card is only editable when round is upcoming (scheduled)
+  const isEditable = roundStatus === 'upcoming' && !!onEditPress;
 
   // Fetch scoring pairs for this round
   const { data: scoringPairs, isLoading } = useScoringPairs(roundId);
@@ -119,27 +123,32 @@ export function ScoringPairsSection({
   }
 
   // Premium user - show scoring pairs section
+  // Wrap in TouchableOpacity if editable
+  const CardWrapper = isEditable ? TouchableOpacity : View;
+  const cardWrapperProps = isEditable
+    ? {
+        onPress: onEditPress,
+        activeOpacity: 0.7,
+        accessibilityLabel: 'Edit scoring pairs',
+        accessibilityRole: 'button' as const,
+      }
+    : {};
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           Scoring Pairs
         </Text>
-        {onManagePress && (
-          <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: colors.primaryLighter }]}
-            onPress={onManagePress}
-            accessibilityLabel="Manage scoring pairs"
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <Icon source="cog" size={16} color={colors.primary} />
-            <Text style={[styles.editButtonText, { color: colors.primary }]}>Manage</Text>
-          </TouchableOpacity>
+        {isEditable && (
+          <Icon source="pencil" size={18} color={colors.textSecondary} />
         )}
       </View>
 
-      <View style={[styles.scoringPairsCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+      <CardWrapper
+        style={[styles.scoringPairsCard, { backgroundColor: cardBackground, borderColor: colors.border }]}
+        {...cardWrapperProps}
+      >
         {/* Status Row */}
         <View style={styles.scoringPairsStatusRow}>
           <View style={styles.scoringPairsStatusLeft}>
@@ -253,7 +262,7 @@ export function ScoringPairsSection({
             )}
           </>
         )}
-      </View>
+      </CardWrapper>
     </View>
   );
 }
@@ -271,17 +280,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h4,
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  editButtonText: {
-    ...typography.smallBold,
   },
 
   // Locked State

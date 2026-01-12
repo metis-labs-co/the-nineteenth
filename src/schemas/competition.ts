@@ -43,6 +43,22 @@ const parseAustralianDate = (dateString: string): Date | null => {
   return isValid(parsed) ? parsed : null;
 };
 
+// Prize pool funding types
+export const poolFundingTypes = ['per_player', 'fixed_total'] as const;
+export type PoolFundingType = (typeof poolFundingTypes)[number];
+
+// Prize pool configuration for wizard
+export const prizePoolConfigSchema = z.object({
+  fundingType: z.enum(poolFundingTypes).default('per_player'),
+  fundingAmount: z.number().min(1, 'Amount must be at least $1').default(50),
+  skinsAllocationPercent: z.number().min(0).max(100).default(60),
+  winnerAllocationPercent: z.number().min(0).max(100).default(30),
+  otherAllocationPercent: z.number().min(0).max(100).default(10),
+  autoSplitSkins: z.boolean().default(true),
+});
+
+export type PrizePoolConfigFormData = z.infer<typeof prizePoolConfigSchema>;
+
 // Step 1: Competition Details - Base schema (for shape extraction)
 const competitionDetailsBaseSchema = z.object({
   name: z
@@ -90,6 +106,8 @@ const competitionDetailsBaseSchema = z.object({
     .optional(),
   // Simplified team toggle - full team config done in EditCompetitionScreen
   enableTeams: z.boolean(),
+  // Prize pool toggle - full config in dedicated step (Premium feature)
+  enablePrizePool: z.boolean().optional(),
 });
 
 // Step 1: Competition Details - Full schema with cross-field validation

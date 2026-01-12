@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
-import { Text, Snackbar } from 'react-native-paper';
+import { Text, Snackbar, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
+import { useCreatePrizePool } from '@/hooks/usePrizePool';
+import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { parse, isValid } from 'date-fns';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useCompetitionCount } from '@/hooks/useSubscription';
-import { TierBadge } from '@/components/subscription/TierBadge';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
+import { useCompetitionWizardStore, clearWizardDraft } from '@/store/competitionWizardStore';
 
-// Step components - simplified 3-step wizard
+// Step components - simplified 3-step wizard (4-step with prize pool)
 import CompetitionDetailsStep from '@/components/competitionWizard/create/CompetitionDetailsStep';
 import SimplifiedRoundDetailsStep from '@/components/competitionWizard/create/RoundDetailsStep/SimplifiedRoundDetailsStep';
+import { PrizePoolSetupStep } from '@/components/competitionWizard/create/PrizePoolSetupStep';
 import { SimplifiedReviewStep } from '@/components/competitionWizard/create/SimplifiedReviewStep';
 import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 
@@ -26,6 +29,7 @@ import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
+  PrizePoolConfigFormData,
 } from '@/schemas/competition';
 
 // Parse DD/MM/YYYY string to Date object
@@ -38,18 +42,22 @@ const parseAustralianDate = (dateString: string): Date => {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, 'CreateCompetition'>;
 
-// Wizard state - simplified 3-step flow
+// Wizard state - simplified 3-step flow (4-step with prize pool)
 export interface WizardState {
-  step1?: CompetitionDetailsFormData; // Competition details + team toggle
+  step1?: CompetitionDetailsFormData; // Competition details + team toggle + prize pool toggle
   step2?: SimplifiedRoundFormData[]; // Simplified rounds (can be blank)
+  prizePoolConfig?: PrizePoolConfigFormData; // Prize pool config (when enabled)
 }
 
-// Simplified 3-step wizard
-const STEPS = [
+// Base steps - prize pool step dynamically inserted when enabled
+const BASE_STEPS = [
   { number: 1, title: 'Details', description: 'Name, dates, team toggle' },
   { number: 2, title: 'Rounds', description: 'Configure rounds' },
   { number: 3, title: 'Review', description: 'Review and create' },
 ];
+
+// Prize pool step (inserted between Rounds and Review when enabled)
+const PRIZE_POOL_STEP = { number: 3, title: 'Prize Pool', description: 'Configure prize pool' };
 
 export default function CreateCompetitionScreen() {
   const colors = useThemeColors();
@@ -57,6 +65,8 @@ export default function CreateCompetitionScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ScreenRouteProp>();
   const createCompetition = useCreateCompetition();
+  const createPrizePool = useCreatePrizePool();
+  const { user } = useAuth();
 
   // Get initial state from route params (from AI competition flow)
   const initialState = route.params?.initialState;
@@ -114,31 +124,80 @@ export default function CreateCompetitionScreen() {
     }
   }, [isSubscriptionLoading, isCountLoading, limits, competitionCount, checkCanCreateCompetition, tier]);
 
-  // Wizard state - initialize from AI-generated data if available
-  const [currentStep, setCurrentStep] = useState(() => {
-    // If we have AI-generated initial state with both steps, start at review
-    if (initialState?.step1 && initialState?.step2) {
-      return 3; // Review step
-    }
-    return 1;
-  });
-  const [wizardData, setWizardData] = useState<WizardState>(() => initialState || {});
+  // Wizard state - from Zustand store for session persistence
+  const {
+    currentStep,
+    wizardData,
+    setCurrentStep,
+    setStep1,
+    setStep2,
+    setPrizePoolConfig,
+    initializeFromRouteParams,
+    hasDraft,
+  } = useCompetitionWizardStore();
 
-  // Handle step completion - simplified 3-step flow
+  // Initialize store from route params (from AI competition flow)
+  useEffect(() => {
+    if (initialState && !hasDraft) {
+      initializeFromRouteParams(initialState);
+    }
+  }, [initialState, hasDraft, initializeFromRouteParams]);
+
+  // Check if prize pool is enabled to determine step count
+  const hasPrizePool = wizardData.step1?.enablePrizePool ?? false;
+
+  // Build dynamic steps array based on prize pool toggle
+  const STEPS = useMemo(() => {
+    if (hasPrizePool) {
+      return [
+        BASE_STEPS[0], // Details
+        BASE_STEPS[1], // Rounds
+        PRIZE_POOL_STEP, // Prize Pool (inserted)
+        { ...BASE_STEPS[2], number: 4 }, // Review (renumbered)
+      ];
+    }
+    return BASE_STEPS;
+  }, [hasPrizePool]);
+
+  // Total step count
+  const totalSteps = STEPS.length;
+
+  // Get the review step number (last step)
+  const reviewStepNumber = hasPrizePool ? 4 : 3;
+
+  // Handle step completion - dynamic step flow
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
-    setWizardData((prev) => ({ ...prev, step1: data }));
+    setStep1(data);
     setCurrentStep(2);
   };
 
   const handleStep2Complete = (data: SimplifiedRoundFormData[]) => {
-    setWizardData((prev) => ({ ...prev, step2: data }));
-    setCurrentStep(3);
+    setStep2(data);
+    // If prize pool enabled, go to prize pool step, otherwise go to review
+    // Note: We need to check the incoming data since hasPrizePool uses wizardData.step1
+    // which may have just been updated in step 1
+    const prizePoolEnabled = wizardData.step1?.enablePrizePool ?? false;
+    setCurrentStep(prizePoolEnabled ? 3 : 3);
+    // Note: Step numbers are now:
+    // - With prize pool: 1=Details, 2=Rounds, 3=PrizePool, 4=Review
+    // - Without prize pool: 1=Details, 2=Rounds, 3=Review
   };
 
-  // Handle final submission - simplified 3-step flow
+  const handlePrizePoolComplete = (data: PrizePoolConfigFormData) => {
+    setPrizePoolConfig(data);
+    setCurrentStep(4); // Go to review (step 4 when prize pool is enabled)
+  };
+
+  // Handle final submission - dynamic step flow with prize pool
   const handleSubmit = async () => {
     if (!wizardData.step1 || !wizardData.step2) {
       Alert.alert('Error', 'Please complete all steps');
+      return;
+    }
+
+    // If prize pool enabled but not configured, show error
+    if (wizardData.step1.enablePrizePool && !wizardData.prizePoolConfig) {
+      Alert.alert('Error', 'Please configure the prize pool');
       return;
     }
 
@@ -177,10 +236,38 @@ export default function CreateCompetitionScreen() {
         players: [],
       });
 
+      // If prize pool is enabled, create it after competition creation
+      if (wizardData.step1.enablePrizePool && wizardData.prizePoolConfig && user) {
+        try {
+          await createPrizePool.mutateAsync({
+            competition_id: result.competition.id,
+            funding_type: wizardData.prizePoolConfig.fundingType,
+            funding_amount: wizardData.prizePoolConfig.fundingAmount,
+            skins_allocation_percent: wizardData.prizePoolConfig.skinsAllocationPercent,
+            winner_allocation_percent: wizardData.prizePoolConfig.winnerAllocationPercent,
+            other_allocation_percent: wizardData.prizePoolConfig.otherAllocationPercent,
+            auto_split_skins: wizardData.prizePoolConfig.autoSplitSkins,
+            created_by: user.id,
+            player_count: 0, // No players added yet during creation
+          });
+        } catch (poolError) {
+          // Log pool creation error but don't fail the whole process
+          console.warn('Failed to create prize pool:', poolError);
+          // Competition was created successfully, just show a warning
+          Alert.alert(
+            'Warning',
+            'Competition created, but prize pool setup failed. You can configure it later from competition settings.'
+          );
+        }
+      }
+
       // Show success toast
       setToastMessage('Competition Created!');
       setToastInviteCode(result.inviteCode);
       setToastVisible(true);
+
+      // Clear the wizard draft after successful creation
+      clearWizardDraft();
 
       // Navigate to competition detail after short delay
       setTimeout(() => {
@@ -227,53 +314,112 @@ export default function CreateCompetitionScreen() {
   const handleBack = () => {
     if (currentStep === 1) {
       navigation.goBack();
+    } else if (hasPrizePool && currentStep === 4) {
+      // From review step with prize pool, go back to prize pool step
+      setCurrentStep(3);
+    } else if (!hasPrizePool && currentStep === 3) {
+      // From review step without prize pool, go back to rounds step
+      setCurrentStep(2);
     } else {
-      setCurrentStep((prev) => prev - 1);
+      setCurrentStep(currentStep - 1);
     }
   };
 
-  // Render current step - simplified 3-step wizard
+  // Handle upgrade navigation (for non-premium users trying to use prize pool)
+  const handleUpgrade = () => {
+    setShowUpgradePrompt(false);
+    navigation.navigate('Subscription' as never);
+  };
+
+  // Handle form reset
+  const handleReset = () => {
+    Alert.alert(
+      'Reset Form',
+      'Are you sure you want to reset the form? All entered data will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            clearWizardDraft();
+            setCurrentStep(1);
+          },
+        },
+      ]
+    );
+  };
+
+  // Render current step - dynamic wizard with optional prize pool step
   const renderStep = () => {
-    switch (currentStep) {
-      case 1:
+    // Step 1: Competition Details
+    if (currentStep === 1) {
+      return (
+        <CompetitionDetailsStep
+          initialData={wizardData.step1}
+          onComplete={handleStep1Complete}
+          onBack={handleBack}
+          onUpgradePress={handleUpgrade}
+        />
+      );
+    }
+
+    // Step 2: Rounds Configuration
+    if (currentStep === 2) {
+      return (
+        <SimplifiedRoundDetailsStep
+          initialData={wizardData.step2}
+          onComplete={handleStep2Complete}
+          onBack={handleBack}
+          allowedGameTypes={limits?.allowedGameTypes}
+          maxRoundsPerCompetition={limits?.maxRoundsPerCompetition}
+          competitionStartDate={wizardData.step1?.startDate}
+        />
+      );
+    }
+
+    // Step 3: Either Prize Pool (if enabled) or Review (if not enabled)
+    if (currentStep === 3) {
+      if (hasPrizePool) {
+        // Prize Pool Setup Step
         return (
-          <CompetitionDetailsStep
-            initialData={wizardData.step1}
-            onComplete={handleStep1Complete}
+          <PrizePoolSetupStep
+            initialData={wizardData.prizePoolConfig}
+            playerCount={0} // No players added in wizard
+            roundCount={wizardData.step2?.length ?? 1}
+            onComplete={handlePrizePoolComplete}
             onBack={handleBack}
           />
         );
-      case 2:
-        return (
-          <SimplifiedRoundDetailsStep
-            initialData={wizardData.step2}
-            onComplete={handleStep2Complete}
-            onBack={handleBack}
-            allowedGameTypes={limits?.allowedGameTypes}
-            maxRoundsPerCompetition={limits?.maxRoundsPerCompetition}
-            competitionStartDate={wizardData.step1?.startDate}
-          />
-        );
-      case 3:
+      } else {
+        // Review Step (no prize pool)
         return (
           <SimplifiedReviewStep
             competitionData={wizardData.step1!}
             roundsData={wizardData.step2!}
             onSubmit={handleSubmit}
             onBack={handleBack}
-            isSubmitting={createCompetition.isPending}
+            isSubmitting={createCompetition.isPending || createPrizePool.isPending}
           />
         );
-      default:
-        return null;
+      }
     }
-  };
 
-  // Handle upgrade navigation
-  const handleUpgrade = () => {
-    setShowUpgradePrompt(false);
-    // Navigate to subscription screen (or show in-app purchase flow in future)
-    navigation.navigate('Subscription' as never);
+    // Step 4: Review (only when prize pool is enabled)
+    if (currentStep === 4 && hasPrizePool) {
+      return (
+        <SimplifiedReviewStep
+          competitionData={wizardData.step1!}
+          roundsData={wizardData.step2!}
+          prizePoolData={wizardData.prizePoolConfig}
+          onSubmit={handleSubmit}
+          onBack={handleBack}
+          isSubmitting={createCompetition.isPending || createPrizePool.isPending}
+        />
+      );
+    }
+
+    return null;
   };
 
   // Show loading state while fetching subscription data
@@ -294,7 +440,14 @@ export default function CreateCompetitionScreen() {
           <View style={styles.headerContent}>
             <View style={styles.headerRow}>
               <Text style={[styles.title, { color: colors.gray900 }]}>Create Competition</Text>
-              <TierBadge size="small" />
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: colors.gray100 }]}
+                onPress={handleReset}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon source="refresh" size={16} color={colors.textSecondary} />
+                <Text style={[styles.resetButtonText, { color: colors.textSecondary }]}>Reset</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -330,10 +483,17 @@ export default function CreateCompetitionScreen() {
       {/* Header with Stepper */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
-          {/* Title Row with TierBadge */}
+          {/* Title Row with Reset Button */}
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: colors.gray900 }]}>Create Competition</Text>
-            <TierBadge size="small" />
+            <TouchableOpacity
+              style={[styles.resetButton, { backgroundColor: colors.gray100 }]}
+              onPress={handleReset}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon source="refresh" size={16} color={colors.textSecondary} />
+              <Text style={[styles.resetButtonText, { color: colors.textSecondary }]}>Reset</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Current Step Title */}
@@ -481,5 +641,16 @@ const styles = StyleSheet.create({
   stepLine: {
     width: 32,
     height: 2,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  resetButtonText: {
+    ...typography.smallBold,
   },
 });

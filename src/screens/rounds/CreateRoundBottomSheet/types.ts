@@ -2,10 +2,19 @@
  * Types for CreateRoundBottomSheet wizard
  */
 
-import type { ScoringPairCreateInput } from '@/types';
+import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { Venue, TeeBox, GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
+
+/**
+ * Skins configuration for standalone rounds
+ * Wrapper to indicate if skins is enabled along with configuration
+ */
+export interface StandaloneSkinsConfig {
+  enabled: boolean;
+  config: SkinsConfig;
+}
 
 /**
  * Wizard step identifiers
@@ -76,6 +85,10 @@ export interface WizardData {
   scoringPairingType: 'reciprocal' | 'circular';
   /** Number of balls to score per hole (1-4). Solo rounds only. Default: 1 */
   ballCount: BallCount;
+  /** Whether skins game is enabled for this round */
+  skinsEnabled: boolean;
+  /** Skins game configuration (pot type, value, scoring type) */
+  skinsConfig: SkinsConfig | null;
 }
 
 /**
@@ -91,7 +104,8 @@ export interface CreateRoundBottomSheetProps {
     selectedTee?: TeeBox,
     gameType?: GameType,
     scoringPairs?: ScoringPairsConfig,
-    ballCount?: BallCount
+    ballCount?: BallCount,
+    skinsConfig?: StandaloneSkinsConfig
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;

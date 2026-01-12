@@ -14,6 +14,9 @@ import { Theme } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Import RootNavigator after all mocks are set up
+import RootNavigator from '@/navigation/RootNavigator';
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -333,9 +336,6 @@ jest.mock('@/components/common', () => ({
     return <View testID="loading-spinner" />;
   },
 }));
-
-// Import RootNavigator after all mocks are set up
-import RootNavigator from '@/navigation/RootNavigator';
 
 // ============================================================================
 // TEST UTILITIES

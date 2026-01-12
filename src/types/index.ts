@@ -113,6 +113,22 @@ export type {
   TeamWithMembers,
   // Scoring pair types
   ScoringPairWithPlayers,
+  // Skins types
+  SkinsConfig,
+  SkinsPoolSource,
+  SkinsPoolSourceConfig,
+  // Prize Pool types
+  PoolFundingType,
+  PoolStatus,
+  PoolTransactionType,
+  CompetitionPrizePool,
+  PoolTransaction,
+  CreatePrizePoolInput,
+  UpdatePrizePoolInput,
+  PoolAllocationDetail,
+  PoolAllocationSummary,
+  PoolBalanceSummary,
+  PrizePoolWithSummary,
 } from './database.types';
 
 // App-specific type (not in database schema)

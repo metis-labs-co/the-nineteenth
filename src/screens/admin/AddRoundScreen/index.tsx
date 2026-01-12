@@ -40,6 +40,7 @@ import {
   ScoringPairsSection,
   ScoringPairsPromptModal,
 } from './components';
+import { SkinsSection } from '@/components/skins';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddRound'>;
 
@@ -221,6 +222,21 @@ export default function AddRoundScreen({ navigation, route }: Props) {
             onToggle={form.handleScoringPairsToggle}
             onUpgradePress={() => navigation.navigate('Subscription')}
             disabled={form.isPending}
+          />
+
+          {/* Skins Game Section */}
+          <SkinsSection
+            isPremium={isPremium}
+            skinsEnabled={form.formData.skinsEnabled}
+            skinsConfig={form.formData.skinsConfig}
+            onSkinsEnabledChange={form.handleSkinsEnabledChange}
+            onSkinsConfigChange={form.handleSkinsConfigChange}
+            onUpgradePress={() => navigation.navigate('Subscription')}
+            disabled={form.isPending}
+            // Pool source props (Phase 2: Prize Pool integration)
+            poolData={form.poolData}
+            poolSource={form.formData.skinsPoolSource}
+            onPoolSourceChange={form.handlePoolSourceChange}
           />
 
           {/* Info box for non-team competitions */}

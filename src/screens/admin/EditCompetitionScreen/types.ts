@@ -1,8 +1,12 @@
 /**
  * Types for EditCompetitionScreen
+ *
+ * Note: Prize pool types are kept here for reuse by EditPrizePoolBottomSheet
+ * which handles prize pool configuration separately from competition editing.
  */
 
 import type { CompetitionType, TeamMode } from '@/types/database.types';
+import type { PoolFundingType } from '@/types';
 
 export interface CompetitionFormData {
   name: string;
@@ -21,3 +25,54 @@ export interface CompetitionUpdateInput {
   start_date?: string;
   end_date?: string | null;
 }
+
+// ============================================================================
+// Prize Pool Types (used by EditPrizePoolBottomSheet)
+// ============================================================================
+
+/**
+ * Prize pool configuration for edit form
+ */
+export interface PrizePoolFormConfig {
+  /** Whether pool is enabled */
+  enabled: boolean;
+  /** Per player or fixed total */
+  fundingType: PoolFundingType;
+  /** Amount per player or total amount */
+  fundingAmount: number;
+  /** Skins games allocation (0-100) */
+  skinsAllocationPercent: number;
+  /** Winner prizes allocation (0-100) */
+  winnerAllocationPercent: number;
+  /** Other allocation (0-100) */
+  otherAllocationPercent: number;
+  /** Auto-split skins across all rounds */
+  autoSplitSkins: boolean;
+}
+
+/**
+ * State for tracking prize pool edit mode
+ */
+export interface PrizePoolEditState {
+  /** Whether the competition has an existing prize pool */
+  hasExistingPool: boolean;
+  /** Whether the pool is locked (any round has started) */
+  isLocked: boolean;
+  /** Reason why pool can't be edited (if applicable) */
+  lockedReason: string | null;
+  /** Original pool ID (for updates) */
+  poolId: string | null;
+}
+
+/**
+ * Default prize pool configuration values
+ */
+export const DEFAULT_PRIZE_POOL_CONFIG: PrizePoolFormConfig = {
+  enabled: false,
+  fundingType: 'per_player',
+  fundingAmount: 50,
+  skinsAllocationPercent: 60,
+  winnerAllocationPercent: 30,
+  otherAllocationPercent: 10,
+  autoSplitSkins: true,
+};

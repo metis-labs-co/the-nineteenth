@@ -9,9 +9,10 @@
  * - Selected tee
  * - Scoring pairs required (premium only)
  * - Shuffle scoring pairs (if enabled and premium)
+ * - Skins game configuration (premium only)
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,8 +32,11 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
+import { useAuth } from '@/hooks/useAuth';
 import { roundKeys } from '@/hooks/queryKeys';
+import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
+import { supabase } from '@/services/supabase/client';
 
 // Local imports
 import {
@@ -48,6 +52,7 @@ import {
   ScoringPairsSection,
 } from './components';
 import { CourseSelectionModal } from '../AddRoundScreen/components';
+import { SkinsSection } from '@/components/skins';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditRound'>;
 
@@ -57,6 +62,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
+  const { user } = useAuth();
 
   // Course selection modal state
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -73,11 +79,47 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     enabled: !!roundId,
   });
 
+  // Fetch existing skins game for this round
+  const { data: activeSkinsGame, isLoading: isLoadingSkins } = useActiveSkinsGameForRound(roundId);
+
+  // Prepare existing skins game data for the form
+  const existingSkinsGame = useMemo(() => {
+    if (!activeSkinsGame) return null;
+    return {
+      id: activeSkinsGame.id,
+      pot_type: activeSkinsGame.pot_type,
+      pot_value: activeSkinsGame.pot_value,
+      currency: activeSkinsGame.currency,
+      scoring_type: activeSkinsGame.scoring_type,
+      pool_source: activeSkinsGame.pool_source,
+    };
+  }, [activeSkinsGame]);
+
+  // Fetch competition players for skins participant IDs
+  const { data: competitionPlayers } = useQuery({
+    queryKey: ['competition', competitionId, 'players'],
+    queryFn: async (): Promise<string[]> => {
+      if (!competitionId) return [];
+      const { data, error } = await supabase
+        .from('competition_players')
+        .select('player_id')
+        .eq('competition_id', competitionId);
+      if (error) {
+        console.error('[EditRoundScreen] Failed to fetch competition players:', error);
+        return [];
+      }
+      return (data as { player_id: string }[]).map((p) => p.player_id);
+    },
+    enabled: !!competitionId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Form state management
   const {
     formData,
     isDirty,
     availableTees,
+    skinsEditState,
     setDate,
     setTeeTime,
     clearTeeTime,
@@ -85,9 +127,13 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     setSelectedTee,
     setScoringPairsRequired,
     setCourse,
+    setSkinsEnabled,
+    setSkinsConfig,
+    setPoolSource,
+    poolData,
     getSelectedDate,
     getSelectedTime,
-  } = useEditRoundForm({ round });
+  } = useEditRoundForm({ round, competitionId, existingSkinsGame });
 
   // Submission handling
   const {
@@ -99,6 +145,10 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     roundId,
     competitionId,
     formData,
+    skinsEditState,
+    userId: user?.id,
+    participantIds: competitionPlayers ?? [],
+    poolId: poolData?.pool?.id,
     onSuccess: () => navigation.goBack(),
   });
 
@@ -133,7 +183,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   );
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || isLoadingSkins) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
         <LoadingSpinner size="lg" message="Loading round..." />
@@ -254,6 +304,31 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           isSubmitting={isSubmitting}
           isShuffling={isShuffling}
         />
+
+        {/* Skins Game Section - Only for competition rounds */}
+        {competitionId && (
+          <View
+            style={[
+              styles.formSection,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <SkinsSection
+              isPremium={isPremium}
+              skinsEnabled={formData.skinsEnabled}
+              skinsConfig={formData.skinsConfig}
+              editState={skinsEditState}
+              onSkinsEnabledChange={setSkinsEnabled}
+              onSkinsConfigChange={setSkinsConfig}
+              onUpgradePress={handleUpgradePress}
+              disabled={isSubmitting}
+              // Pool source props (Phase 2: Prize Pool integration)
+              poolData={poolData}
+              poolSource={formData.skinsPoolSource}
+              onPoolSourceChange={setPoolSource}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* Footer */}

@@ -292,6 +292,42 @@ export const cosmeticKeys = {
 } as const;
 
 // =====================================================
+// PRIZE POOLS (Competition Prize Pools)
+// =====================================================
+
+export const prizePoolKeys = {
+  all: ['prizePool'] as const,
+  pool: (competitionId: string) => [...prizePoolKeys.all, competitionId] as const,
+  transactions: (poolId: string) =>
+    [...prizePoolKeys.all, 'transactions', poolId] as const,
+  balance: (poolId: string) => [...prizePoolKeys.all, 'balance', poolId] as const,
+  summary: (competitionId: string) =>
+    [...prizePoolKeys.all, 'summary', competitionId] as const,
+} as const;
+
+// =====================================================
+// SKINS (Gambling Side-Game)
+// =====================================================
+
+export const skinsKeys = {
+  all: ['skins'] as const,
+  games: () => [...skinsKeys.all, 'games'] as const,
+  game: (id: string) => [...skinsKeys.games(), id] as const,
+  gamesByRound: (roundId: string) => [...skinsKeys.games(), 'round', roundId] as const,
+  gamesByPlayer: (playerId: string) => [...skinsKeys.games(), 'player', playerId] as const,
+  results: (gameId: string) => [...skinsKeys.all, 'results', gameId] as const,
+  payouts: (gameId: string) => [...skinsKeys.all, 'payouts', gameId] as const,
+  summary: (gameId: string) => [...skinsKeys.all, 'summary', gameId] as const,
+  canUseSkins: (userId: string) => [...skinsKeys.all, 'can-use', userId] as const,
+  // Statistics & Leaderboard keys
+  statistics: (playerId: string) => [...skinsKeys.all, 'stats', playerId] as const,
+  leaderboard: (options?: { friendsOnly?: boolean; minGames?: number }) =>
+    [...skinsKeys.all, 'leaderboard', options] as const,
+  history: (playerId: string) => [...skinsKeys.all, 'history', playerId] as const,
+  rank: (playerId: string) => [...skinsKeys.all, 'rank', playerId] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -329,4 +365,6 @@ export const allQueryKeys = [
   placeholderPlayersKeys.all,
   achievementKeys.all,
   cosmeticKeys.all,
+  prizePoolKeys.all,
+  skinsKeys.all,
 ] as const;

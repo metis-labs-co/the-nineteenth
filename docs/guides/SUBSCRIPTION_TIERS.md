@@ -43,6 +43,8 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | **Scoring Features** | | | | |
 | Basic scoring | ✅ | ✅ | ✅ | ✅ |
 | Scoring pairs (designated markers) | ❌ | ❌ | ✅ | ✅ |
+| Skins (gambling side-game) | ❌ | ❌ | ✅ | ✅ |
+| Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
 | **Social Features** | | | | |
 | Friends limit | 10 | 25 | Unlimited | Unlimited |
 | View player profiles | ✅ | ✅ | ✅ | ✅ |
@@ -458,6 +460,8 @@ type FeatureId =
   | 'game_type'
   | 'team_formats'
   | 'scoring_pairs'
+  | 'skins'
+  | 'prize_pool'
   | 'add_friend'
   | 'compare_stats'
   | 'basic_stats'
@@ -677,8 +681,9 @@ ON CONFLICT (user_id) DO NOTHING;
 
 - [DATABASE_SCHEMA.md](../database/DATABASE_SCHEMA.md) - Full table schemas
 - [CLAUDE.md](../../CLAUDE.md) - Project overview with tier summary
+- [SKINS_GAME.md](./SKINS_GAME.md) - Skins gambling feature (Premium)
 - [SUBSCRIPTION-TIERS-PROGRESS.md](../SUBSCRIPTION-TIERS-PROGRESS.md) - Implementation progress
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: January 2026*

@@ -34,6 +34,12 @@ interface TeamScoreCardProps {
   onContributorSelect?: (playerId: string) => void;
   selectedContributor?: string;
   disabled?: boolean;
+  /** Running total points for the team (thru previous holes) */
+  runningTotalPoints?: number;
+  /** Running total gross strokes for the team (thru previous holes) */
+  runningTotalGross?: number;
+  /** Current hole number for display */
+  currentHoleNumber?: number;
 }
 
 const MIN_SCORE = 1;
@@ -69,6 +75,9 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
   onContributorSelect,
   selectedContributor,
   disabled = false,
+  runningTotalPoints,
+  runningTotalGross,
+  currentHoleNumber,
 }: TeamScoreCardProps) {
   const colors = useThemeColors();
   const [contributorMenuVisible, setContributorMenuVisible] = useState(false);
@@ -159,23 +168,35 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
               {team.name}
             </Text>
           </View>
-          <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
-            Team HC: {teamHandicap.toFixed(1)} • {team.members?.length ?? 0} players
-          </Text>
+          <View style={styles.formatRow}>
+            <View style={[styles.formatBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.formatBadgeText, { color: colors.white }]}>SCRAMBLE</Text>
+            </View>
+            <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
+              HC: {teamHandicap.toFixed(1)} • +{strokesOnHole} shot{strokesOnHole !== 1 ? 's' : ''}
+            </Text>
+          </View>
         </View>
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{strokesOnHole}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stablefordPoints}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>PTS</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>
+              {runningTotalPoints !== undefined ? runningTotalPoints + stablefordPoints : stablefordPoints}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>TEAM PTS</Text>
           </View>
         </View>
       </View>
+
+      {/* Running Total Row */}
+      {currentHoleNumber && currentHoleNumber > 1 && runningTotalGross !== undefined && (
+        <View style={[styles.runningTotalRow, { borderTopColor: colors.border }]}>
+          <Text style={[styles.runningTotalText, { color: colors.textSecondary }]}>
+            Thru {currentHoleNumber - 1}: {runningTotalGross} strokes • {runningTotalPoints ?? 0} pts
+          </Text>
+        </View>
+      )}
 
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -355,7 +376,31 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   handicapLabel: {
-    ...typography.body,
+    ...typography.small,
+  },
+  formatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  formatBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  formatBadgeText: {
+    ...typography.captionBold,
+    letterSpacing: 0.5,
+  },
+  runningTotalRow: {
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+  },
+  runningTotalText: {
+    ...typography.small,
+    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',

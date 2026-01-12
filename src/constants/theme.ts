@@ -243,6 +243,9 @@ export const zIndex = {
   toast: 1600,
 };
 
+// Skins feature color (amber/gold)
+export const skinsColor = '#f59e0b';
+
 // Export a theme object with everything
 export const theme = {
   colors,
@@ -258,6 +261,7 @@ export const theme = {
   animations,
   breakpoints,
   zIndex,
+  skinsColor,
 } as const;
 
 // Type for the theme
