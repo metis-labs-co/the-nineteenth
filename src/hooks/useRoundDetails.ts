@@ -125,6 +125,13 @@ export interface RoundPlayer extends Player {
 async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
   const playerIds = new Set<string>();
 
+  // First, get the round to check if it belongs to a competition
+  const { data: roundData } = await supabase
+    .from('rounds')
+    .select('competition_id')
+    .eq('id', roundId)
+    .single();
+
   // 1. Try to get players from pairings (competition rounds)
   const { data: pairingsData, error: pairingsError } = await supabase
     .from('pairings')
@@ -143,7 +150,24 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
     (pairing.player_ids || []).forEach((id) => playerIds.add(id));
   });
 
-  // 2. Also try to get players from round_players (standalone/social rounds)
+  // 2. For competition rounds, get players from competition_players
+  if (roundData?.competition_id) {
+    const { data: compPlayersData, error: compPlayersError } = await supabase
+      .from('competition_players')
+      .select('player_id')
+      .eq('competition_id', roundData.competition_id)
+      .eq('status', 'accepted');
+
+    if (compPlayersError) {
+      console.error('Error fetching competition_players:', compPlayersError);
+    } else if (compPlayersData) {
+      compPlayersData.forEach((cp) => {
+        playerIds.add(cp.player_id);
+      });
+    }
+  }
+
+  // 3. Also try to get players from round_players (standalone/social rounds)
   try {
     const { data: roundPlayersData, error: roundPlayersError } = await supabase
       .from('round_players')

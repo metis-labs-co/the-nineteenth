@@ -6,7 +6,7 @@
  * and visual indicator utilities.
  */
 
-import type { ColorPalette } from '@/constants/theme';
+import { colors, type ColorPalette } from '@/constants/theme';
 import { PICKUP_SCORE } from '@/constants/scoring';
 
 // =====================================================
@@ -39,11 +39,11 @@ export type ScoreIndicatorType =
 export function getScoreDisplayColor(strokes: number, par: number): string {
   const diff = strokes - par;
 
-  if (diff <= -2) return '#10b981'; // Emerald for eagle or better
-  if (diff === -1) return '#22c55e'; // Green for birdie
-  if (diff === 0) return '#3b82f6';  // Blue for par
-  if (diff === 1) return '#f59e0b';  // Orange for bogey
-  return '#ef4444';                   // Red for double bogey or worse
+  if (diff <= -2) return colors.eagle;
+  if (diff === -1) return colors.birdie;
+  if (diff === 0) return colors.par;
+  if (diff === 1) return colors.bogey;
+  return colors.doubleBogey;
 }
 
 /**

@@ -487,7 +487,7 @@ export function useCreatePrizePool() {
       return data as unknown as CompetitionPrizePool;
     },
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Invalidate pool query for this competition
       queryClient.invalidateQueries({
         queryKey: prizePoolKeys.pool(data.competition_id),
@@ -499,6 +499,40 @@ export function useCreatePrizePool() {
       queryClient.invalidateQueries({
         queryKey: competitionKeys.detail(data.competition_id),
       });
+
+      // Trigger auto-split if enabled
+      if (data.auto_split_skins) {
+        try {
+          // Fetch upcoming round count
+          const { count } = await supabase
+            .from('rounds')
+            .select('*', { count: 'exact', head: true })
+            .eq('competition_id', data.competition_id)
+            .eq('status', 'upcoming');
+
+          if (count && count > 0) {
+            // Trigger redistribution (handles both calculation and game creation)
+            const { error: redistError } = await supabase.rpc(
+              'redistribute_skins_pots' as never,
+              {
+                p_competition_id: data.competition_id,
+              } as never
+            );
+
+            if (redistError) {
+              console.warn('[useCreatePrizePool] Auto-split redistribution failed:', redistError);
+            } else {
+              console.log('[useCreatePrizePool] Auto-split triggered for', count, 'rounds');
+              // Invalidate skins queries
+              queryClient.invalidateQueries({ queryKey: skinsKeys.all });
+              queryClient.invalidateQueries({ queryKey: roundKeys.all });
+            }
+          }
+        } catch (error) {
+          console.warn('[useCreatePrizePool] Auto-split trigger failed:', error);
+          // Non-blocking - pool was saved successfully
+        }
+      }
     },
 
     onError: (error) => {
@@ -626,7 +660,7 @@ export function useUpdatePrizePool() {
       return data as unknown as CompetitionPrizePool;
     },
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({
         queryKey: prizePoolKeys.pool(data.competition_id),
       });
@@ -640,6 +674,40 @@ export function useUpdatePrizePool() {
       queryClient.invalidateQueries({
         queryKey: competitionKeys.detail(data.competition_id),
       });
+
+      // Trigger auto-split if enabled
+      if (data.auto_split_skins) {
+        try {
+          // Fetch upcoming round count
+          const { count } = await supabase
+            .from('rounds')
+            .select('*', { count: 'exact', head: true })
+            .eq('competition_id', data.competition_id)
+            .eq('status', 'upcoming');
+
+          if (count && count > 0) {
+            // Trigger redistribution (handles both calculation and game creation)
+            const { error: redistError } = await supabase.rpc(
+              'redistribute_skins_pots' as never,
+              {
+                p_competition_id: data.competition_id,
+              } as never
+            );
+
+            if (redistError) {
+              console.warn('[useUpdatePrizePool] Auto-split redistribution failed:', redistError);
+            } else {
+              console.log('[useUpdatePrizePool] Auto-split triggered for', count, 'rounds');
+              // Invalidate skins queries
+              queryClient.invalidateQueries({ queryKey: skinsKeys.all });
+              queryClient.invalidateQueries({ queryKey: roundKeys.all });
+            }
+          }
+        } catch (error) {
+          console.warn('[useUpdatePrizePool] Auto-split trigger failed:', error);
+          // Non-blocking - pool was saved successfully
+        }
+      }
     },
 
     onError: (error) => {

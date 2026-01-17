@@ -9,11 +9,11 @@
  * - Leaderboard: Competition standings
  */
 
-import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { Text, Button, Icon, Snackbar } from 'react-native-paper';
+import { Text, Button, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -29,7 +29,6 @@ import { useCompetitionLeaderboard, type CompetitionLeaderboardEntry } from '@/h
 import { useTeams, useUpdateTeamName } from '@/hooks/useTeams';
 import { useRemoveCompetitionPlayer } from '@/hooks/useRemoveCompetitionPlayer';
 import { useCompetitionPrizePool, usePoolAllocationSummary } from '@/hooks/usePrizePool';
-import { useAutoSplitSkinsSync } from '@/hooks/useAutoSplitSkinsSync';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
@@ -220,21 +219,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const { checkCanAddRound, checkCanAddPlayer } = useSubscriptionContext();
   const tierLimits = useTierLimits();
 
-  // Snackbar state for auto-split feedback
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-
-  // Auto-split skins sync
-  const {
-    shouldTrigger: shouldTriggerAutoSplit,
-    triggerAutoSplit,
-    isCreating: isCreatingAutoSplit,
-    potPerRound: autoSplitPotPerRound,
-  } = useAutoSplitSkinsSync(id);
-
-  // Track if we've already triggered auto-split this session
-  const hasTriggeredAutoSplitRef = useRef(false);
-
   // Fetch competition details
   const {
     data: competitionData,
@@ -347,26 +331,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     [leaderboard, user?.id]
   );
 
-  // Auto-trigger skins creation when conditions are met
-  useEffect(() => {
-    if (
-      shouldTriggerAutoSplit &&
-      !hasTriggeredAutoSplitRef.current &&
-      !isCreatingAutoSplit
-    ) {
-      hasTriggeredAutoSplitRef.current = true;
-      triggerAutoSplit().then((result) => {
-        if (result?.success && result.gamesCreated > 0) {
-          setSnackbarMessage(
-            `${result.gamesCreated} skins game${result.gamesCreated !== 1 ? 's' : ''} created ($${autoSplitPotPerRound} each)`
-          );
-          setSnackbarVisible(true);
-        } else if (result?.error) {
-          console.warn('[AutoSplitSkins] Failed:', result.error);
-        }
-      });
-    }
-  }, [shouldTriggerAutoSplit, isCreatingAutoSplit, triggerAutoSplit, autoSplitPotPerRound]);
+  // Note: Auto-split skins creation is now handled automatically by:
+  // - usePrizePool mutations (on pool save)
+  // - useAddRoundForm (on round add)
+  // - useDeleteRound/useRoundActions (on round delete)
+  // These call the `redistribute_skins_pots` RPC which handles all skins game creation.
 
   // Handle navigation
   const handleBack = useCallback(() => {
@@ -767,21 +736,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         onCancel={() => setShowDeleteDialog(false)}
         loading={isDeleting}
       />
-
-      {/* Auto-split skins feedback Snackbar */}
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={4000}
-        style={{ backgroundColor: colors.success }}
-        action={{
-          label: 'Dismiss',
-          onPress: () => setSnackbarVisible(false),
-          textColor: colors.white,
-        }}
-      >
-        {snackbarMessage}
-      </Snackbar>
     </View>
   );
 }

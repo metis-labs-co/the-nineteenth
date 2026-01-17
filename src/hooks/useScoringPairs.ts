@@ -490,7 +490,7 @@ export function useShuffleScoringPairs() {
       let players: { id: string }[] = [];
 
       if (pairings && pairings.length > 0) {
-        players = (pairings as Array<{ player_id: string | null }>)
+        players = (pairings as { player_id: string | null }[])
           .filter((p) => p.player_id)
           .map((p) => ({ id: p.player_id as string }));
       } else {
@@ -506,7 +506,7 @@ export function useShuffleScoringPairs() {
         }
 
         if (compPlayers) {
-          players = (compPlayers as Array<{ player_id: string }>).map((p) => ({ id: p.player_id }));
+          players = (compPlayers as { player_id: string }[]).map((p) => ({ id: p.player_id }));
         }
       }
 

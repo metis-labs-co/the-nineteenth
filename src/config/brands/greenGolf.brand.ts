@@ -50,9 +50,9 @@ export const greenGolfBrand: BrandConfig = {
   // Golf score colors
   golf: {
     eagle: '#10b981',
-    birdie: '#22c55e',
-    par: '#459668', // Matches brand primary
-    bogey: '#f59e0b',
+    birdie: '#3b82f6', // Blue 500
+    par: '#374151', // Gray 700 (dark grey)
+    bogey: '#dc4a1a', // Red-orange (between orange and red)
     doubleBogey: '#ef4444',
   },
 

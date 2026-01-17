@@ -27,6 +27,20 @@ This plan implements **Phase 3** of the Skins gambling feature - integrating pay
 | **Prize Pool Contribution** | Competition start (future) | Collect per-player contributions to prize pool |
 | **Prize Payouts** | Competition end | Distribute winner, best round, other prizes |
 
+### Pool-Sourced vs Direct Pot Settlements
+
+Skins games can be funded in two ways, and settlement differs accordingly:
+
+| Aspect | Direct Pot Games | Pool-Sourced Games |
+|--------|------------------|-------------------|
+| **Buy-in Source** | Players pay each other directly | Drawn from competition prize pool |
+| **Settlement Type** | Debtors pay creditors (losers → winners) | Only winners receive payouts (no player debits) |
+| **Carryover (Hole 18 tie)** | Split evenly among all players | Returns to prize pool |
+| **Settlement Records** | Create settlements for all net debts | Create settlements only for positive payouts |
+| **UI Messaging** | "Settle with players" | "Funded by Prize Pool" |
+
+**Important:** Pool-sourced games (created via auto-split or manual pool selection) use `calculateFinalPayoutsWithCarryover()` with `poolSourced: true` option. The settlement service must check `skins_game.pool_source` before creating settlement records.
+
 ### Payment Flow
 
 ```
@@ -100,12 +114,12 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/db "Create migration for payment accounts table. New table player_payment_accounts: id UUID PK, player_id UUID FK to players ON DELETE CASCADE, provider TEXT NOT NULL CHECK IN ('stripe') DEFAULT 'stripe', provider_account_id TEXT NOT NULL (Stripe Connect account ID), provider_customer_id TEXT NULL (Stripe customer ID for receiving), account_status TEXT NOT NULL CHECK IN ('pending', 'active', 'restricted', 'disabled') DEFAULT 'pending', account_type TEXT NOT NULL CHECK IN ('express', 'standard') DEFAULT 'express' (Stripe account type), capabilities JSONB DEFAULT '{}' (card_payments, transfers enabled status), payout_enabled BOOLEAN DEFAULT FALSE, charges_enabled BOOLEAN DEFAULT FALSE, details_submitted BOOLEAN DEFAULT FALSE, default_currency TEXT DEFAULT 'AUD', auto_settlement_enabled BOOLEAN DEFAULT TRUE, settlement_threshold DECIMAL(10,2) DEFAULT 0 (min amount before auto-settle), created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), verified_at TIMESTAMPTZ NULL. Add UNIQUE constraint on (player_id, provider). RLS: users view/manage own accounts only. Indexes on player_id, provider_account_id."
+/db "Create migration for payment accounts table. New table player_payment_accounts: id UUID PK, player_id UUID FK to players ON DELETE CASCADE, provider TEXT NOT NULL CHECK IN ('stripe') DEFAULT 'stripe', provider_account_id TEXT NOT NULL (Stripe Connect account ID), provider_customer_id TEXT NULL (Stripe customer ID for receiving), account_status TEXT NOT NULL CHECK IN ('pending', 'active', 'restricted', 'disabled') DEFAULT 'pending', account_type TEXT NOT NULL CHECK IN ('express', 'standard') DEFAULT 'express' (Stripe account type), capabilities JSONB DEFAULT '{}' (card_payments, transfers enabled status), payout_enabled BOOLEAN DEFAULT FALSE, charges_enabled BOOLEAN DEFAULT FALSE, details_submitted BOOLEAN DEFAULT FALSE, default_currency TEXT DEFAULT 'AUD', auto_settlement_enabled BOOLEAN DEFAULT TRUE, settlement_threshold DECIMAL(10,2) DEFAULT 0 (min amount before auto-settle), created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), verified_at TIMESTAMPTZ NULL. Add UNIQUE constraint on (player_id, provider). RLS policies: (1) users view/manage own accounts, (2) competition organizers can view accounts of players in their competitions (for checking settlement eligibility). Indexes on player_id, provider_account_id."
 ```
 **Deliverables:**
 - [ ] `supabase/migrations/2025XXXX_player_payment_accounts.sql`
 - [ ] `player_payment_accounts` table
-- [ ] RLS policies
+- [ ] RLS policies (including organizer view)
 - [ ] Indexes
 
 **Dependencies:** Task 2 (architecture)
@@ -117,13 +131,20 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/db "Create migration for skins settlements table. New table skins_settlements: id UUID PK, skins_game_id UUID FK to skins_games ON DELETE CASCADE, from_player_id UUID FK to players (payer), to_player_id UUID FK to players (payee), amount DECIMAL(10,2) NOT NULL CHECK > 0, currency TEXT DEFAULT 'AUD', status TEXT NOT NULL CHECK IN ('pending', 'approved', 'processing', 'completed', 'failed', 'cancelled', 'refunded') DEFAULT 'pending', provider TEXT DEFAULT 'stripe', provider_transfer_id TEXT NULL (Stripe transfer ID), provider_charge_id TEXT NULL (Stripe charge ID), requires_approval BOOLEAN DEFAULT FALSE (true if auto_settlement disabled), approved_at TIMESTAMPTZ NULL, approved_by UUID FK to players NULL (should be from_player_id), processed_at TIMESTAMPTZ NULL, completed_at TIMESTAMPTZ NULL, failed_at TIMESTAMPTZ NULL, failure_reason TEXT NULL, refunded_at TIMESTAMPTZ NULL, refund_reason TEXT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add UNIQUE constraint on (skins_game_id, from_player_id, to_player_id). RLS: users see settlements they're party to. Index on status, from_player_id, to_player_id."
+/db "Create migration for skins settlements table. New table skins_settlements: id UUID PK, skins_game_id UUID FK to skins_games ON DELETE CASCADE, skins_payout_id UUID FK to skins_payouts NULL (links to calculated payout this settlement derives from), from_player_id UUID FK to players NULL (payer - NULL for pool-sourced games), to_player_id UUID FK to players NOT NULL (payee/winner), amount DECIMAL(10,2) NOT NULL CHECK > 0, currency TEXT DEFAULT 'AUD', is_pool_sourced BOOLEAN DEFAULT FALSE (true if funds come from prize pool not player), status TEXT NOT NULL CHECK IN ('pending', 'approved', 'processing', 'completed', 'failed', 'cancelled', 'refunded') DEFAULT 'pending', provider TEXT DEFAULT 'stripe', provider_transfer_id TEXT NULL (Stripe transfer ID), provider_charge_id TEXT NULL (Stripe charge ID), requires_approval BOOLEAN DEFAULT FALSE (true if auto_settlement disabled), approved_at TIMESTAMPTZ NULL, approved_by UUID FK to players NULL (should be from_player_id), processed_at TIMESTAMPTZ NULL, completed_at TIMESTAMPTZ NULL, failed_at TIMESTAMPTZ NULL, failure_reason TEXT NULL, refunded_at TIMESTAMPTZ NULL, refund_reason TEXT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(). Add UNIQUE constraint on (skins_game_id, from_player_id, to_player_id) with NULL handling. RLS policies: (1) users see settlements they're party to (from or to), (2) competition organizers can view all settlements for games in their competitions. Index on status, from_player_id, to_player_id, skins_payout_id."
 ```
+
+**Relationship to skins_payouts:**
+- `skins_payouts` = Mathematical result (who owes/is owed how much)
+- `skins_settlements` = Payment processing (actual money transfer records derived from payouts)
+- One payout may generate multiple settlements (simplified debt transactions)
+
 **Deliverables:**
 - [ ] `supabase/migrations/2025XXXX_skins_settlements.sql`
-- [ ] `skins_settlements` table
-- [ ] RLS policies
+- [ ] `skins_settlements` table with `skins_payout_id` FK
+- [ ] RLS policies (including organizer view)
 - [ ] Status flow constraints
+- [ ] `is_pool_sourced` flag for pool-funded games
 
 **Dependencies:** Task 3
 **Estimated Time:** 2-3 hours
@@ -134,13 +155,14 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/db "Create migration for settlement transaction logs. New table skins_settlement_transactions: id UUID PK, settlement_id UUID FK to skins_settlements ON DELETE CASCADE, transaction_type TEXT NOT NULL CHECK IN ('charge', 'transfer', 'refund', 'payout'), provider TEXT DEFAULT 'stripe', provider_transaction_id TEXT NOT NULL, amount DECIMAL(10,2) NOT NULL, fee_amount DECIMAL(10,2) DEFAULT 0, net_amount DECIMAL(10,2) NOT NULL, currency TEXT DEFAULT 'AUD', status TEXT NOT NULL CHECK IN ('pending', 'succeeded', 'failed'), failure_code TEXT NULL, failure_message TEXT NULL, metadata JSONB DEFAULT '{}' (store full Stripe response), created_at TIMESTAMPTZ DEFAULT NOW(). Index on settlement_id, provider_transaction_id. RLS: inherits from settlement visibility."
+/db "Create migration for settlement transaction logs. New table skins_settlement_transactions: id UUID PK, settlement_id UUID FK to skins_settlements ON DELETE CASCADE, transaction_type TEXT NOT NULL CHECK IN ('charge', 'transfer', 'refund', 'payout'), provider TEXT DEFAULT 'stripe', provider_transaction_id TEXT NOT NULL, amount DECIMAL(10,2) NOT NULL, fee_amount DECIMAL(10,2) DEFAULT 0, net_amount DECIMAL(10,2) NOT NULL, currency TEXT DEFAULT 'AUD', status TEXT NOT NULL CHECK IN ('pending', 'succeeded', 'failed'), failure_code TEXT NULL, failure_message TEXT NULL, metadata JSONB DEFAULT '{}' (store full Stripe response), created_at TIMESTAMPTZ DEFAULT NOW(). Index on settlement_id, provider_transaction_id. RLS policies: (1) inherits from settlement visibility (users party to settlement), (2) competition organizers can view transactions for settlements in their competitions."
 ```
 **Deliverables:**
 - [ ] `skins_settlement_transactions` table
 - [ ] Transaction types
 - [ ] Fee tracking
 - [ ] Audit trail
+- [ ] Organizer RLS policies
 
 **Dependencies:** Task 4
 **Estimated Time:** 1-2 hours
@@ -153,13 +175,18 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Add payment types to src/types/database/skins.types.ts or new file src/types/database/payments.types.ts. Types: PaymentProvider = 'stripe', PaymentAccountStatus = 'pending' | 'active' | 'restricted' | 'disabled', SettlementStatus = 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'refunded'. Interfaces: PlayerPaymentAccount (all columns as camelCase), PaymentAccountCapabilities ({cardPayments: boolean, transfers: boolean}), SkinsSettlement (all columns), SkinsSettlementWithPlayers extends with fromPlayer and toPlayer objects, SettlementTransaction (all columns), CreateSettlementInput, ApproveSettlementInput, PaymentAccountOnboardingResult ({accountId, onboardingUrl}), SettlementSummary ({totalOwed, totalOwing, pendingSettlements, completedSettlements}). Export all."
+/refactor "Create new file src/types/database/payments.types.ts for payment types (following existing pattern of separate type files like prizePool.types.ts). Types: PaymentProvider = 'stripe', PaymentAccountStatus = 'pending' | 'active' | 'restricted' | 'disabled', SettlementStatus = 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'refunded'. Interfaces: PlayerPaymentAccount (all columns as camelCase), PaymentAccountCapabilities ({cardPayments: boolean, transfers: boolean}), SkinsSettlement (all columns including skins_payout_id and is_pool_sourced), SkinsSettlementWithPlayers extends with fromPlayer (nullable for pool-sourced) and toPlayer objects, SettlementTransaction (all columns), CreateSettlementInput (with poolSourced flag), ApproveSettlementInput, PaymentAccountOnboardingResult ({accountId, onboardingUrl}), SettlementSummary ({totalOwed, totalOwing, pendingSettlements, completedSettlements, poolSourcedPayouts}). Add export to src/types/database/index.ts barrel file."
 ```
+
+**Note:** Create separate file `payments.types.ts` to match existing pattern (`skins.types.ts`, `prizePool.types.ts`).
+
 **Deliverables:**
+- [ ] `src/types/database/payments.types.ts` (new file)
 - [ ] Payment type definitions
-- [ ] Settlement types
+- [ ] Settlement types (with pool-sourced support)
 - [ ] Transaction types
 - [ ] Input types
+- [ ] Export in `src/types/database/index.ts`
 
 **Dependencies:** Tasks 3, 4, 5 (schema)
 **Estimated Time:** 1-2 hours
@@ -210,17 +237,48 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Create src/services/payments/settlementService.ts for settlement logic. Functions: (1) createSettlementsForGame(skinsGameId) - reads skins_payouts, calculates who owes whom (using simplifyDebts from skinsCalculations), creates skins_settlements records. (2) processSettlement(settlementId) - checks if both parties have payment accounts, validates amounts, calls stripeService to process, updates status. (3) approveSettlement(settlementId, approverId) - marks approved if manual approval required. (4) cancelSettlement(settlementId, reason) - cancels pending settlement. (5) refundSettlement(settlementId, reason) - initiates refund for completed settlement. (6) getSettlementSummary(playerId) - returns SettlementSummary with totals. (7) processAutoSettlements() - batch process all pending settlements where both parties have auto-settlement enabled. Export as settlementService."
+/refactor "Create src/services/payments/settlementService.ts for settlement logic. Functions: (1) createSettlementsForGame(skinsGameId) - reads skins_payouts and skins_game.pool_source, handles BOTH direct pot and pool-sourced games differently: for direct pot games uses simplifyDebts to create debtor→creditor settlements; for pool-sourced games (pool_source='prize_pool') only creates creditor settlements with from_player_id=NULL and is_pool_sourced=true (no player debits, only winner payouts). Uses calculateFinalPayoutsWithCarryover with poolSourced option. (2) processSettlement(settlementId) - for pool-sourced settlements, only needs recipient payment account; for direct pot needs both parties. Validates amounts, calls stripeService to process, updates status. (3) approveSettlement(settlementId, approverId) - marks approved if manual approval required. (4) cancelSettlement(settlementId, reason) - cancels pending settlement. (5) refundSettlement(settlementId, reason) - initiates refund for completed settlement. (6) getSettlementSummary(playerId) - returns SettlementSummary with totals including poolSourcedPayouts. (7) processAutoSettlements() - batch process all pending settlements where parties have auto-settlement enabled. Export as settlementService."
 ```
+
+**Pool-Sourced Game Handling:**
+- Check `skins_game.pool_source` before creating settlements
+- If `pool_source = 'prize_pool'`:
+  - Skip debtor settlements (no player pays)
+  - Create settlements only for winners (`from_player_id = NULL`, `is_pool_sourced = TRUE`)
+  - Use `calculateFinalPayoutsWithCarryover()` with `{ poolSourced: true }`
+- If `pool_source = 'direct'`:
+  - Use `simplifyDebts()` to minimize transactions
+  - Create settlements for all debt transfers
+
 **Deliverables:**
 - [ ] `src/services/payments/settlementService.ts`
-- [ ] Settlement creation
-- [ ] Processing logic
+- [ ] Settlement creation (direct pot and pool-sourced)
+- [ ] Processing logic (different validation per type)
 - [ ] Auto-settlement batch
-- [ ] Summary calculations
+- [ ] Summary calculations (including pool payouts)
 
-**Dependencies:** Task 7 (stripe), Phase 1 calculations
-**Estimated Time:** 4-5 hours
+**Dependencies:** Task 7 (stripe), Phase 1 calculations, Phase 2 pool integration
+**Estimated Time:** 5-6 hours
+
+---
+
+### Task 9.5: Competition Settlement Batch Processing
+**Status:** Not Started
+**Command:**
+```bash
+/refactor "Add competition-level settlement batch processing to settlementService.ts. Functions: (1) processCompetitionSettlements(competitionId) - process all completed pool-sourced skins games for a competition in one batch. Queries all skins_games where round.competition_id matches AND pool_source='prize_pool' AND status='completed', creates settlements for any that don't have them, processes pending settlements. (2) getCompetitionSettlementSummary(competitionId) - aggregate payout summary across all competition rounds, returns total distributed, total pending, per-player summaries. (3) getCompetitionSkinsSettlementStatus(competitionId) - returns status object for UI: {totalRounds, roundsWithSkins, settledRounds, pendingRounds, totalPaid, totalPending}. These functions support auto-split competitions where skins games are created for all rounds automatically."
+```
+
+**Purpose:** Auto-split creates skins games for all competition rounds via `redistribute_skins_pots()`. This task provides batch processing and aggregation for competition-level settlement views.
+
+**Deliverables:**
+- [ ] `processCompetitionSettlements(competitionId)` function
+- [ ] `getCompetitionSettlementSummary(competitionId)` function
+- [ ] `getCompetitionSkinsSettlementStatus(competitionId)` function
+- [ ] Competition-level aggregation logic
+
+**Dependencies:** Task 9, Phase 2 auto-split
+**Estimated Time:** 2-3 hours
 
 ---
 
@@ -322,16 +380,28 @@ This phase involves real money transfers and requires:
 **Status:** Not Started
 **Command:**
 ```bash
-/refactor "Update skins game flow to create settlements automatically. In finalize_skins_game() database function or finalizeSkinsGame service: after calculating payouts, call settlementService.createSettlementsForGame(). Update ReviewScorecardScreen skins tab: after showing SkinsSettlementCard (manual), if payment accounts exist for all players, show 'Settlements are being processed' message instead. If any player missing payment account, show 'Some players need to link payment accounts for automatic settlement'. Add settlement status indicators to SkinsSettlementCard (from Phase 1) - show payment status next to each 'who owes who' line. Update push notifications to notify on settlement completion."
+/refactor "Update skins game flow to create settlements automatically. In finalize_skins_game() database function or finalizeSkinsGame service: after calculating payouts, call settlementService.createSettlementsForGame() which handles both direct pot and pool-sourced games. Update ReviewScorecardScreen skins tab with pool-source-aware UI: (1) For DIRECT POT games: show 'Settle with players' section with 'who owes who' list; if payment accounts exist for all players, show 'Settlements are being processed' message; if any player missing payment account, show 'Some players need to link payment accounts for automatic settlement'. (2) For POOL-SOURCED games: show 'Funded by Prize Pool' badge instead of 'Settle with players'; show 'Winnings will be distributed automatically' message; display only payout amounts (not debts); show payment status for winner payouts only. Add settlement status indicators to SkinsSettlementCard (from Phase 1) - show payment status next to each line, differentiating between 'Receiving from pool' and 'Owes PlayerName'. Update push notifications to notify on settlement completion."
 ```
+
+**Pool-Sourced UI Differentiation:**
+
+| Element | Direct Pot Games | Pool-Sourced Games |
+|---------|------------------|-------------------|
+| Header badge | None or "Direct Settlement" | "Funded by Prize Pool" |
+| Settlement section | "Settle with players" | "Winnings Distribution" |
+| Debt display | "Mike owes John $10" | "John receives $45 from prize pool" |
+| Missing accounts msg | "Some players need to link..." | Only check winner accounts |
+| Action buttons | "Approve Payment" for debtors | N/A (auto-distributed) |
+
 **Deliverables:**
-- [ ] Auto-create settlements on game finalize
-- [ ] ReviewScorecardScreen updates
-- [ ] Settlement status in results
+- [ ] Auto-create settlements on game finalize (both game types)
+- [ ] ReviewScorecardScreen pool-source-aware updates
+- [ ] Different UI for direct pot vs pool-sourced
+- [ ] Settlement status indicators
 - [ ] Push notification integration
 
 **Dependencies:** Phase 1 complete, Task 9 (service)
-**Estimated Time:** 3-4 hours
+**Estimated Time:** 4-5 hours
 
 ---
 
@@ -356,10 +426,10 @@ This phase involves real money transfers and requires:
 ## Progress Summary
 
 ### Completion Statistics
-- **Total Tasks:** 16
+- **Total Tasks:** 17
 - **Completed:** 0 (0%)
 - **In Progress:** 0 (0%)
-- **Not Started:** 16 (100%)
+- **Not Started:** 17 (100%)
 
 ### Sprint Progress
 
@@ -369,18 +439,19 @@ This phase involves real money transfers and requires:
 
 **Sprint 2: Database Schema** - Not Started
 - Task 3: Payment Accounts Table
-- Task 4: Settlements Table
+- Task 4: Settlements Table (with skins_payout_id FK)
 - Task 5: Settlement Transactions Log
 
 **Sprint 3: TypeScript Types** - Not Started
-- Task 6: Payment Type Definitions
+- Task 6: Payment Type Definitions (payments.types.ts)
 
 **Sprint 4: Stripe Integration** - Not Started
 - Task 7: Stripe Service Setup
 - Task 8: Webhook Handlers
 
 **Sprint 5: Settlement Logic** - Not Started
-- Task 9: Settlement Service
+- Task 9: Settlement Service (with pool-sourced handling)
+- Task 9.5: Competition Settlement Batch Processing
 - Task 10: Settlement React Query Hooks
 
 **Sprint 6: Payment Account UI** - Not Started
@@ -392,7 +463,7 @@ This phase involves real money transfers and requires:
 - Task 14: SettlementsScreen
 
 **Sprint 8: Integration & Documentation** - Not Started
-- Task 15: Integrate Settlements with Game Flow
+- Task 15: Integrate Settlements with Game Flow (pool-source-aware UI)
 - Task 16: Documentation Update
 
 ---
@@ -403,10 +474,11 @@ This phase involves real money transfers and requires:
 | File | Purpose |
 |------|---------|
 | `supabase/migrations/2025XXXX_player_payment_accounts.sql` | Payment accounts table |
-| `supabase/migrations/2025XXXX_skins_settlements.sql` | Settlements table |
+| `supabase/migrations/2025XXXX_skins_settlements.sql` | Settlements table (with skins_payout_id FK) |
 | `supabase/functions/stripe-webhook/index.ts` | Webhook handler |
+| `src/types/database/payments.types.ts` | Payment type definitions |
 | `src/services/payments/stripeService.ts` | Stripe SDK integration |
-| `src/services/payments/settlementService.ts` | Settlement logic |
+| `src/services/payments/settlementService.ts` | Settlement logic (pool-source aware) |
 | `src/services/payments/index.ts` | Barrel export |
 | `src/hooks/usePaymentAccount.ts` | Payment account hooks |
 | `src/hooks/useSettlements.ts` | Settlement hooks |
@@ -420,13 +492,13 @@ This phase involves real money transfers and requires:
 ### Modified Files
 | File | Changes |
 |------|---------|
-| `src/types/database/skins.types.ts` | Add payment types (or new file) |
+| `src/types/database/index.ts` | Export new payments.types.ts |
 | `src/hooks/queryKeys.ts` | Add settlement keys |
-| `src/screens/scoring/ReviewScorecardScreen.tsx` | Show settlement status |
-| `src/components/skins/SkinsSettlementCard.tsx` | Add payment status |
+| `src/screens/scoring/ReviewScorecardScreen.tsx` | Show settlement status (pool-source aware) |
+| `src/components/skins/SkinsSettlementCard.tsx` | Add payment status, pool-source differentiation |
 | `src/screens/profile/SettingsScreen.tsx` | Link to PaymentAccount |
-| `src/navigation/types.ts` | Add payment routes |
-| `src/navigation/RootNavigator.tsx` | Register screens |
+| `src/navigation/types.ts` | Add payment routes (PaymentAccount, Settlements) |
+| `src/navigation/RootNavigator.tsx` | Register payment screens |
 | `docs/database/DATABASE_SCHEMA.md` | Document tables |
 | `docs/guides/SKINS_GAME.md` | Add payments section |
 | `.env.example` | Add Stripe keys |
@@ -441,12 +513,12 @@ This phase involves real money transfers and requires:
 | Sprint 2: Database | 3 | 5-8 hours |
 | Sprint 3: Types | 1 | 1-2 hours |
 | Sprint 4: Stripe | 2 | 8-10 hours |
-| Sprint 5: Settlement | 2 | 6-8 hours |
+| Sprint 5: Settlement | 3 | 9-12 hours |
 | Sprint 6: Account UI | 2 | 6-8 hours |
 | Sprint 7: Settlement UI | 2 | 5-7 hours |
-| Sprint 8: Integration | 2 | 6-8 hours |
+| Sprint 8: Integration | 2 | 7-9 hours |
 
-**Total Estimated:** 44-61 hours
+**Total Estimated:** 48-66 hours
 
 ---
 
@@ -505,9 +577,20 @@ This phase involves real money transfers and requires:
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-16
 **Prerequisites:** Phase 1 and Phase 2 must be complete
 **Current Sprint:** Not started
+
+**Recent Updates (2026-01-16):**
+- Added pool-sourced vs direct pot comparison section
+- Added `skins_payout_id` FK to settlements table (Task 4)
+- Added `is_pool_sourced` flag for pool-funded games (Task 4)
+- Added organizer RLS policies to all schema tasks (Tasks 3-5)
+- Specified `payments.types.ts` as separate file (Task 6)
+- Added pool-sourced handling to settlement service (Task 9)
+- Added new Task 9.5 for competition batch processing
+- Added pool-source-aware UI differentiation (Task 15)
+- Updated task count from 16 to 17
 
 ---
 

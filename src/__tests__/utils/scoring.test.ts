@@ -37,6 +37,7 @@ import {
 } from './testFixtures';
 import type { Hole, Player as DBPlayer } from '@/types/database.types';
 import type { Scorecard as AppScorecard, Player as AppPlayer } from '@/types';
+import { colors } from '@/constants/theme';
 
 /**
  * Helper to create an app-level Scorecard with player attached
@@ -764,27 +765,27 @@ describe('Statistics Calculation', () => {
   });
 
   describe('getScoreColor', () => {
-    it('returns green for under par scores', () => {
-      expect(getScoreColor(3, 4)).toBe('#22c55e'); // Birdie
-      expect(getScoreColor(2, 4)).toBe('#22c55e'); // Eagle
-      expect(getScoreColor(1, 4)).toBe('#22c55e'); // Albatross
+    it('returns correct colors for under par scores', () => {
+      expect(getScoreColor(3, 4)).toBe(colors.birdie); // Birdie
+      expect(getScoreColor(2, 4)).toBe(colors.eagle); // Eagle
+      expect(getScoreColor(1, 4)).toBe(colors.eagle); // Albatross
     });
 
-    it('returns blue for par', () => {
-      expect(getScoreColor(4, 4)).toBe('#3b82f6');
-      expect(getScoreColor(3, 3)).toBe('#3b82f6');
-      expect(getScoreColor(5, 5)).toBe('#3b82f6');
+    it('returns par color for par', () => {
+      expect(getScoreColor(4, 4)).toBe(colors.par);
+      expect(getScoreColor(3, 3)).toBe(colors.par);
+      expect(getScoreColor(5, 5)).toBe(colors.par);
     });
 
-    it('returns orange for bogey', () => {
-      expect(getScoreColor(5, 4)).toBe('#f59e0b');
-      expect(getScoreColor(4, 3)).toBe('#f59e0b');
+    it('returns bogey color for bogey', () => {
+      expect(getScoreColor(5, 4)).toBe(colors.bogey);
+      expect(getScoreColor(4, 3)).toBe(colors.bogey);
     });
 
-    it('returns red for double bogey or worse', () => {
-      expect(getScoreColor(6, 4)).toBe('#ef4444'); // Double bogey
-      expect(getScoreColor(7, 4)).toBe('#ef4444'); // Triple bogey
-      expect(getScoreColor(10, 4)).toBe('#ef4444'); // Pickup
+    it('returns double bogey color for double bogey or worse', () => {
+      expect(getScoreColor(6, 4)).toBe(colors.doubleBogey); // Double bogey
+      expect(getScoreColor(7, 4)).toBe(colors.doubleBogey); // Triple bogey
+      expect(getScoreColor(10, 4)).toBe(colors.doubleBogey); // Pickup
     });
   });
 });

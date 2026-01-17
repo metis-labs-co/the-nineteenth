@@ -257,25 +257,69 @@ export function useCompetitionsList() {
     fetchLegacyCompetitions();
   }, [user?.id, limits, maxCompetitions, hasUnlimitedCompetitions, isSuperAdmin]);
 
+  // Sort competitions by status priority, then by date
+  const sortCompetitions = useCallback(
+    (competitions: CompetitionItem[]): CompetitionItem[] => {
+      // Status priority: active/in_progress first, then upcoming, then draft
+      const statusPriority: Record<string, number> = {
+        active: 0,
+        in_progress: 0,
+        'in-progress': 0,
+        upcoming: 1,
+        draft: 2,
+        completed: 3,
+        cancelled: 4,
+      };
+
+      return [...competitions].sort((a, b) => {
+        const statusA = a.status?.toLowerCase() || 'draft';
+        const statusB = b.status?.toLowerCase() || 'draft';
+
+        // First sort by status priority
+        const priorityA = statusPriority[statusA] ?? 5;
+        const priorityB = statusPriority[statusB] ?? 5;
+
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+
+        // Then sort by start date (earliest first for active/upcoming, most recent first for completed)
+        const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+
+        // For completed competitions, show most recent first
+        if (statusA === 'completed') {
+          return dateB - dateA;
+        }
+
+        // For active/upcoming, show earliest first
+        return dateA - dateB;
+      });
+    },
+    []
+  );
+
   // Current list based on active tab and status filter (with legacy flag)
   const currentCompetitions = useMemo(() => {
     const baseList = activeTab === 'my' ? myCompetitions : joinedCompetitions;
     const filtered = filterByStatus(baseList);
+    const sorted = sortCompetitions(filtered);
 
     // Add isLegacy flag for grandfathered competitions (only for "My Comps")
     if (activeTab === 'my' && legacyCompetitionIds.size > 0) {
-      return filtered.map((comp) => ({
+      return sorted.map((comp) => ({
         ...comp,
         isLegacy: legacyCompetitionIds.has(comp.id),
       }));
     }
 
-    return filtered;
+    return sorted;
   }, [
     activeTab,
     myCompetitions,
     joinedCompetitions,
     filterByStatus,
+    sortCompetitions,
     legacyCompetitionIds,
   ]);
 

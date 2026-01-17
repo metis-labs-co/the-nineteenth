@@ -158,7 +158,7 @@ export function ScorecardTable({
           </Text>
         </View>
         <View style={[styles.tableCell, styles.scoreCell]}>
-          <ScoreIndicator strokes={strokes} par={hole.par} display="bordered" size="sm" />
+          <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
         </View>
         <View style={[styles.tableCell, styles.wideCell]}>
           <Text

@@ -2,305 +2,251 @@
 
 **The Nineteenth** - Mobile Golf Competition App
 
-> Complete guide to integrating with golf course data APIs for Australian courses
+> Complete guide to integrating with GolfAPI.io for golf course data
 
 ---
 
 ## Overview
 
-The app integrates with external golf course APIs to provide course information, hole details, and location data. This guide covers the API integration strategy, endpoints, and implementation.
+The app integrates with GolfAPI.io to provide comprehensive course information, including hole-by-hole data, tee ratings, and location details. This guide covers the API integration strategy, data flow, and implementation.
 
 ---
 
 ## API Strategy
 
-### Hybrid Approach
+### GolfAPI.io + Cache Architecture
 
 ```typescript
 interface CourseDataStrategy {
-  primary: 'australia-golf-course-finder-api';  // Basic course info
-  fallback: 'manual-entry';                     // Admin can add courses
-  enhancement: 'golfapi.io';                    // Future: detailed scorecards
-  cache: 'postgresql';                          // Store all data locally
+  primary: 'golfapi.io';           // Full course data with holes and tees
+  fallback: 'manual-entry';        // Admin can add courses manually
+  cache: 'postgresql';             // Store all data locally (30-day TTL)
 }
 ```
 
 **Implementation Flow:**
-1. Admin searches course via API
-2. Import basic data + allow manual entry of holes/pars
-3. Store in PostgreSQL (we own the data)
-4. Update from API periodically or on-demand
+1. Admin searches course via GolfAPI.io
+2. Import full course data including holes and tee ratings
+3. Store in PostgreSQL with 30-day cache TTL
+4. Auto-refresh stale course data on access
 
 ---
 
-## Primary API: Australia Golf Course Finder (Zyla Labs)
+## Primary API: GolfAPI.io
 
 ### Details
 
-- **Provider**: Zyla Labs
-- **Coverage**: Australian golf courses
-- **Cost**: Tiered pricing (~$10-50/month)
-- **Documentation**: https://zylalabs.com/api/3176
+- **Provider**: GolfAPI.io
+- **Coverage**: 42,000+ courses globally (includes Australia)
+- **Documentation**: https://www.golfapi.io/
 
 ### Features
 
 ✅ Search by course name or GPS coordinates
-✅ Filter by state/province
-✅ Course location and contact info
-✅ Basic course details
+✅ Filter by state/country
+✅ Complete scorecard data (hole-by-hole)
+✅ Pars and stroke indexes for each hole
+✅ Multiple tees with distances (yardages)
+✅ Slope and course ratings per tee
+✅ GPS coordinates (tee box and green locations)
+✅ Course designer and facilities
 
-❌ No hole-by-hole data (add manually)
-❌ No pars or stroke indexes (add manually)
+### Data Available
 
----
-
-## API Endpoints
-
-### 1. Search Courses by Coordinates
-
-**Endpoint:**
-```
-GET /golf-courses-by-coordinates
-```
-
-**Parameters:**
-| Parameter  | Type   | Required | Description |
-|------------|--------|----------|-------------|
-| `latitude` | number | Yes      | Latitude coordinate |
-| `longitude`| number | Yes      | Longitude coordinate |
-| `radius`   | number | No       | Search radius in km (default: 20) |
-
-**Example Request:**
-```typescript
-const response = await fetch(
-  'https://zylalabs.com/api/3176/golf-courses-by-coordinates?' +
-  'radius=20&latitude=-37.8136&longitude=144.9631',
-  {
-    headers: {
-      'Authorization': `Bearer ${process.env.AUSTRALIA_GOLF_API_KEY}`,
-    },
-  }
-);
-
-const courses = await response.json();
-```
-
-**Response:**
-```json
-{
-  "courses": [
-    {
-      "id": "12345",
-      "name": "Royal Melbourne Golf Club",
-      "address": "Cheltenham Rd, Black Rock VIC 3193",
-      "city": "Black Rock",
-      "state": "VIC",
-      "phone": "+61 3 9598 6755",
-      "email": "info@royalmelbourne.com.au",
-      "website": "https://www.royalmelbourne.com.au",
-      "latitude": -37.9847,
-      "longitude": 145.0175,
-      "distance": 15.2
-    }
-  ]
-}
-```
-
----
-
-### 2. Search Courses by State
-
-**Endpoint:**
-```
-GET /golf-clubs-by-state-or-province
-```
-
-**Parameters:**
-| Parameter | Type   | Required | Description |
-|-----------|--------|----------|-------------|
-| `state`   | string | Yes      | Australian state code (NSW, VIC, QLD, SA, WA, TAS, NT, ACT) |
-
-**Example Request:**
-```typescript
-const response = await fetch(
-  'https://zylalabs.com/api/3176/golf-clubs-by-state-or-province?state=Victoria',
-  {
-    headers: {
-      'Authorization': `Bearer ${process.env.AUSTRALIA_GOLF_API_KEY}`,
-    },
-  }
-);
-
-const courses = await response.json();
-```
-
----
-
-### 3. Get Course by Name
-
-**Endpoint:**
-```
-GET /course-data-by-course-name
-```
-
-**Parameters:**
-| Parameter | Type   | Required | Description |
-|-----------|--------|----------|-------------|
-| `name`    | string | Yes      | Course name (partial match supported) |
-
-**Example Request:**
-```typescript
-const response = await fetch(
-  'https://zylalabs.com/api/3176/course-data-by-course-name?' +
-  'name=Royal Melbourne',
-  {
-    headers: {
-      'Authorization': `Bearer ${process.env.AUSTRALIA_GOLF_API_KEY}`,
-    },
-  }
-);
-
-const course = await response.json();
-```
+| Data Type | Available | Notes |
+|-----------|-----------|-------|
+| Course name & location | ✅ | Address, city, state, coordinates |
+| Contact info | ✅ | Phone, email, website |
+| Hole-by-hole data | ✅ | All 18 holes with par, stroke index |
+| Tee boxes | ✅ | Multiple tees (color, name, gender) |
+| Yardages | ✅ | Per hole, per tee |
+| Slope rating | ✅ | Per tee |
+| Course rating | ✅ | Per tee |
+| Course style | ✅ | Links, parkland, etc. |
 
 ---
 
 ## Implementation
 
-### API Client Setup
+### File Structure
 
-```typescript
-// src/services/api/golfCoursesClient.ts
-import axios from 'axios';
-
-const golfCoursesClient = axios.create({
-  baseURL: process.env.AUSTRALIA_GOLF_API_URL || 'https://zylalabs.com/api/3176',
-  timeout: 10000,
-  headers: {
-    'Authorization': `Bearer ${process.env.AUSTRALIA_GOLF_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-});
-
-// Error handling
-golfCoursesClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('Golf Course API Error:', error);
-    throw new Error('Failed to fetch course data');
-  }
-);
-
-export default golfCoursesClient;
+```
+src/services/
+├── api/
+│   ├── golfApiClient.ts      # HTTP client for GolfAPI.io
+│   ├── golfApiTypes.ts       # TypeScript type definitions
+│   └── golfApiTransformers.ts # Transform API responses to app types
+├── courses/
+│   ├── courseService.ts      # Unified course service (cache + API)
+│   └── cacheService.ts       # PostgreSQL caching layer
 ```
 
-### Search Courses
+### API Client
+
+Located at `src/services/api/golfApiClient.ts`:
 
 ```typescript
-// src/services/api/courses.ts
-import golfCoursesClient from './golfCoursesClient';
-import { Course } from '@types/index';
+const golfApiClient = {
+  // Search courses by name/location/state
+  searchClubs(params: GolfApiSearchParams): Promise<GolfApiClubResponse[]>;
 
-export async function searchCoursesByLocation(
-  latitude: number,
-  longitude: number,
-  radius: number = 20
-): Promise<Course[]> {
-  const response = await golfCoursesClient.get('/golf-courses-by-coordinates', {
-    params: { latitude, longitude, radius },
-  });
+  // Get club details with list of courses
+  getClub(clubId: string): Promise<GolfApiClubResponse>;
 
-  // Transform API response to our Course type
-  return response.data.courses.map((apiCourse: any) => ({
-    id: apiCourse.id,
-    source: 'api' as const,
-    apiId: apiCourse.id,
-    name: apiCourse.name,
-    state: parseState(apiCourse.state),
-    city: apiCourse.city,
-    address: apiCourse.address,
-    phone: apiCourse.phone,
-    email: apiCourse.email,
-    website: apiCourse.website,
-    latitude: apiCourse.latitude,
-    longitude: apiCourse.longitude,
-    holes: [], // Not provided by API - must be added manually
-    lastSynced: new Date(),
-  }));
+  // Get full course with hole-by-hole data
+  getCourseDetails(courseId: string): Promise<GolfApiCourseDetail>;
+
+  // Location-based search
+  searchNearby(lat: number, lng: number, radiusKm?: number): Promise<GolfApiClubResponse[]>;
+
+  // Search by Australian state
+  searchByState(state: string, query?: string): Promise<GolfApiClubResponse[]>;
+};
+```
+
+### Type Definitions
+
+Located at `src/services/api/golfApiTypes.ts`:
+
+```typescript
+// Search parameters
+interface GolfApiSearchParams {
+  query?: string;
+  country?: string;  // Default: 'AU'
+  state?: string;
+  city?: string;
+  location?: { lat: number; lng: number };
+  radius?: number;
 }
 
-export async function searchCoursesByState(
-  state: string
-): Promise<Course[]> {
-  const response = await golfCoursesClient.get('/golf-clubs-by-state-or-province', {
-    params: { state },
-  });
-
-  return response.data.courses.map((apiCourse: any) => ({
-    // ... same transformation
-  }));
+// Club/venue response
+interface GolfApiClubResponse {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  location: { lat: number; lng: number };
+  courses: GolfApiCourseBasic[];  // List of courses at this club
 }
 
-export async function searchCoursesByName(
-  name: string
-): Promise<Course[]> {
-  const response = await golfCoursesClient.get('/course-data-by-course-name', {
-    params: { name },
-  });
-
-  return Array.isArray(response.data)
-    ? response.data.map((apiCourse: any) => ({ /* ... */ }))
-    : [response.data].map((apiCourse: any) => ({ /* ... */ }));
+// Full course details
+interface GolfApiCourseDetail {
+  id: string;
+  name: string;
+  holes: GolfApiHole[];
+  tees: GolfApiTee[];
+  courseRating?: number;
+  slopeRating?: number;
+  par: number;
+  designer?: string;
+  yearOpened?: number;
+  style?: string;
+  facilities?: string[];
 }
 
-// Helper to parse state abbreviations
-function parseState(state: string): AustralianState {
-  const stateMap: Record<string, AustralianState> = {
-    'Victoria': 'VIC',
-    'New South Wales': 'NSW',
-    'Queensland': 'QLD',
-    'South Australia': 'SA',
-    'Western Australia': 'WA',
-    'Tasmania': 'TAS',
-    'Northern Territory': 'NT',
-    'Australian Capital Territory': 'ACT',
+// Individual hole data
+interface GolfApiHole {
+  number: number;
+  par: number;
+  strokeIndex: number;
+  yardages: GolfApiHoleYardage[];
+  coordinates?: {
+    tee: { lat: number; lng: number };
+    green: { lat: number; lng: number };
   };
-
-  return stateMap[state] || state as AustralianState;
 }
+
+// Tee box information
+interface GolfApiTee {
+  id: string;
+  name: string;
+  color: string;
+  courseRating?: number;
+  slopeRating?: number;
+  totalYardage: number;
+  par: number;
+  gender?: 'men' | 'women' | 'unisex';
+}
+```
+
+### Data Transformers
+
+Located at `src/services/api/golfApiTransformers.ts`:
+
+```typescript
+// Transform API club to app Course type (for search results)
+transformClubToCourse(club: GolfApiClubResponse): Course;
+
+// Transform API course detail to app Course type (full import)
+transformCourseDetail(club: GolfApiClubResponse, course: GolfApiCourseDetail): Course;
+
+// Transform API hole to app Hole type
+transformHole(apiHole: GolfApiHole): Hole;
+
+// Transform API tee to app TeeBox type
+transformTee(apiTee: GolfApiTee): TeeBox;
 ```
 
 ---
 
-## React Query Integration
+## Course Service Layer
 
-### Custom Hooks
+Located at `src/services/courses/courseService.ts`:
+
+### Search Flow
 
 ```typescript
-// src/hooks/useCourses.ts
-import { useQuery } from '@tanstack/react-query';
-import { searchCoursesByLocation, searchCoursesByName } from '@services/api/courses';
+async function searchCourses(params: CourseSearchParams): Promise<CourseSearchResult> {
+  // 1. Always search local cache first (PostgreSQL)
+  const cachedResults = await courseCacheService.searchCachedCourses(params);
 
-export function useNearbyC ourses(
-  latitude: number,
-  longitude: number,
-  radius?: number
-) {
-  return useQuery({
-    queryKey: ['courses', 'nearby', latitude, longitude, radius],
-    queryFn: () => searchCoursesByLocation(latitude, longitude, radius),
-    enabled: !!latitude && !!longitude,
-    staleTime: 1000 * 60 * 60, // 1 hour
-  });
+  // 2. Fetch from GolfAPI.io (with graceful fallback)
+  let apiResults: Course[] = [];
+  let apiError: Error | null = null;
+
+  try {
+    const apiClubs = await golfApiClient.searchClubs(params);
+    apiResults = transformClubSearchResults(apiClubs);
+  } catch (error) {
+    apiError = error;
+    // Continue with cache results only
+  }
+
+  // 3. Return combined results
+  return {
+    cached: cachedResults,
+    api: apiResults,
+    error: apiError,
+  };
 }
+```
 
-export function useCourseSearch(searchTerm: string) {
-  return useQuery({
-    queryKey: ['courses', 'search', searchTerm],
-    queryFn: () => searchCoursesByName(searchTerm),
-    enabled: searchTerm.length >= 3,
-    staleTime: 1000 * 60 * 60, // 1 hour
-  });
+### Import Flow
+
+```typescript
+async function importCourse(apiCourseId: string, clubId: string): Promise<ImportCourseResult> {
+  // 1. Fetch club info
+  const club = await golfApiClient.getClub(clubId);
+
+  // 2. Fetch full course details (holes, tees, ratings)
+  const courseDetails = await golfApiClient.getCourseDetails(apiCourseId);
+
+  // 3. Transform to app types
+  const course = transformCourseDetail(club, courseDetails);
+
+  // 4. Cache in PostgreSQL
+  await courseCacheService.cacheCourse(course);
+
+  return {
+    course,
+    hasHoleData: course.holes.length > 0,
+    hasTeeData: course.tees.length > 0,
+  };
 }
 ```
 
@@ -308,71 +254,107 @@ export function useCourseSearch(searchTerm: string) {
 
 ## Caching Strategy
 
-### Store in Supabase
+Located at `src/services/courses/cacheService.ts`:
 
-After fetching from API, cache in PostgreSQL:
+### Cache Configuration
+
+- **TTL**: 30 days (configurable via `CACHE_TTL_DAYS`)
+- **Storage**: PostgreSQL with `last_synced` timestamp
+- **Source tracking**: `source` field ('api' or 'manual')
+
+### Cache Operations
 
 ```typescript
-// src/services/courses/cacheService.ts
-import { supabase } from '@services/supabase';
-import { Course } from '@types/index';
+// Upsert course data
+cacheCourse(courseData: Course): Promise<void>;
 
-export async function cacheCourse(course: Course): Promise<void> {
-  await supabase.from('courses').upsert({
-    id: course.id,
-    source: course.source,
-    api_id: course.apiId,
-    name: course.name,
-    state: course.state,
-    city: course.city,
-    address: course.address,
-    phone: course.phone,
-    email: course.email,
-    website: course.website,
-    location: `POINT(${course.longitude} ${course.latitude})`,
-    holes: course.holes,
-    last_synced: new Date().toISOString(),
-  });
-}
+// Batch cache
+cacheCourses(courses: Course[]): Promise<void>;
 
-export async function getCachedCourse(courseId: string): Promise<Course | null> {
-  const { data, error } = await supabase
-    .from('courses')
-    .select('*')
-    .eq('id', courseId)
-    .single();
+// Get by internal ID
+getCachedCourse(id: string): Promise<Course | null>;
 
-  if (error || !data) return null;
+// Get by external API ID
+getCachedCourseByApiId(apiId: string): Promise<Course | null>;
 
-  return transformDbCourseToType(data);
-}
+// Search cached courses
+searchCachedCourses(params: SearchParams): Promise<Course[]>;
+
+// Get stale courses for refresh
+getStaleCourses(limit: number): Promise<Course[]>;
 ```
 
-### Check Cache First
+### Auto-Refresh
 
 ```typescript
-// src/services/courses/index.ts
-export async function getCourseById(courseId: string): Promise<Course | null> {
-  // 1. Check cache first
+async function getCourseWithDetails(
+  courseId: string,
+  forceRefresh: boolean = false
+): Promise<Course | null> {
   const cached = await getCachedCourse(courseId);
 
-  if (cached) {
-    // If cached within 30 days, use it
-    const cacheAge = Date.now() - new Date(cached.lastSynced).getTime();
-    if (cacheAge < 1000 * 60 * 60 * 24 * 30) {
+  // Check if refresh needed (stale or forced)
+  const needsRefresh = forceRefresh || isStale(cached);
+
+  if (needsRefresh && cached?.apiId) {
+    try {
+      return await refreshCourseData(courseId);
+    } catch (error) {
+      // Return stale cache on API failure
       return cached;
     }
   }
 
-  // 2. Otherwise fetch from API
-  try {
-    const course = await fetchCourseFromAPI(courseId);
-    await cacheCourse(course);
-    return course;
-  } catch (error) {
-    // 3. Fallback to stale cache if API fails
-    return cached;
-  }
+  return cached;
+}
+```
+
+---
+
+## React Query Integration
+
+Located at `src/hooks/useApiCourses.ts`:
+
+### Available Hooks
+
+```typescript
+// Search with cache + optional API
+useApiCourseSearch(query: string, state?: string, options?: Options);
+
+// Import full course with details
+useImportCourse(): UseMutationResult;
+
+// Get course with auto-refresh
+useCourseWithDetails(courseId: string);
+
+// Force refresh course data
+useRefreshCourseData(): UseMutationResult;
+
+// Check API availability
+useIsApiAvailable(): boolean;
+
+// Combined search (cache + API results)
+useCombinedCourseSearch(query: string, state?: string, enableApiSearch?: boolean);
+```
+
+### Example Usage
+
+```typescript
+function CourseSearchScreen() {
+  const [query, setQuery] = useState('');
+  const { data, isLoading, error } = useCombinedCourseSearch(query, 'VIC', true);
+  const importCourse = useImportCourse();
+
+  const handleImport = async (club: GolfApiClubResponse, courseId: string) => {
+    await importCourse.mutateAsync({
+      apiCourseId: courseId,
+      clubId: club.id,
+    });
+  };
+
+  return (
+    // ... UI
+  );
 }
 ```
 
@@ -380,13 +362,11 @@ export async function getCourseById(courseId: string): Promise<Course | null> {
 
 ## Manual Entry Fallback
 
-If course not found in API, admin can add manually:
+If a course is not found via GolfAPI.io, admins can add courses manually:
 
 ```typescript
 // src/services/courses/manualEntry.ts
-export async function createManualCourse(
-  courseData: Partial<Course>
-): Promise<Course> {
+async function createManualCourse(courseData: Partial<Course>): Promise<Course> {
   const course: Course = {
     id: generateUuid(),
     source: 'manual',
@@ -394,67 +374,21 @@ export async function createManualCourse(
     name: courseData.name!,
     state: courseData.state,
     city: courseData.city,
-    address: courseData.address,
-    phone: courseData.phone,
-    email: courseData.email,
-    website: courseData.website,
-    latitude: courseData.latitude || 0,
-    longitude: courseData.longitude || 0,
-    holes: courseData.holes || [],
+    // ... other fields
+    holes: courseData.holes || [],  // Admin enters manually
+    tees: courseData.tees || [],    // Admin enters manually
     lastSynced: new Date(),
   };
 
-  // Save to database
   await cacheCourse(course);
-
   return course;
 }
 ```
 
----
-
-## Secondary API: GolfAPI.io (Future Enhancement)
-
-### Details
-
-- **Provider**: GolfAPI.io
-- **Coverage**: 42,000+ courses globally (includes Australia)
-- **Cost**: Contact for pricing
-- **Documentation**: https://www.golfapi.io/
-
-### Features
-
-✅ Complete scorecard data (hole-by-hole)
-✅ Pars and stroke indexes
-✅ Multiple tees with distances
-✅ Slope and course ratings
-✅ GPS coordinates
-
-### When to Use
-
-Use GolfAPI.io when you need:
-- Detailed hole-by-hole data for handicap calculations
-- Multiple tee box options
-- Official slope and course ratings
-- More comprehensive course coverage
-
-### Implementation (Phase 2+)
-
-```typescript
-// Future: Hybrid API approach
-export async function getCompleteCourseData(
-  courseName: string
-): Promise<Course> {
-  // 1. Get basic info from Australia Golf API
-  const basicInfo = await searchCoursesByName(courseName);
-
-  // 2. Enhance with hole data from GolfAPI.io
-  const detailedData = await fetchFromGolfAPI(courseName);
-
-  // 3. Merge and return
-  return mergeCourseData(basicInfo[0], detailedData);
-}
-```
+Manual entry includes fields for:
+- Course name and location
+- Hole-by-hole data (par, stroke index, yardage)
+- Tee boxes with slope/course ratings
 
 ---
 
@@ -462,87 +396,57 @@ export async function getCompleteCourseData(
 
 ```bash
 # .env
-AUSTRALIA_GOLF_API_KEY=your_zyla_labs_key_here
-AUSTRALIA_GOLF_API_URL=https://zylalabs.com/api/3176
-
-# Future
-GOLFAPI_IO_KEY=your_golfapi_key_here
-GOLFAPI_IO_URL=https://api.golfapi.io/v1
+EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
+EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
 ```
 
 ---
 
 ## Error Handling
 
-### Handle API Failures Gracefully
+### Graceful Fallback
 
 ```typescript
-export async function searchCoursesWithFallback(
-  searchTerm: string
-): Promise<Course[]> {
+async function searchCoursesWithFallback(searchTerm: string): Promise<Course[]> {
   try {
     // Try API first
-    return await searchCoursesByName(searchTerm);
+    const apiResults = await golfApiClient.searchClubs({ query: searchTerm });
+    return transformClubSearchResults(apiResults);
   } catch (error) {
     console.error('API search failed, falling back to cache:', error);
 
     // Fallback to cached courses
-    const { data } = await supabase
-      .from('courses')
-      .select('*')
-      .ilike('name', `%${searchTerm}%`);
-
-    return data || [];
+    return await courseCacheService.searchCachedCourses({
+      name: searchTerm,
+    });
   }
 }
 ```
 
-### Rate Limiting
+### Rate Limit Detection
+
+The API client detects 429 responses and throws `RateLimitError`:
 
 ```typescript
-import { RateLimiter } from 'limiter';
-
-const limiter = new RateLimiter({
-  tokensPerInterval: 100,
-  interval: 'hour',
-});
-
-export async function searchWithRateLimit(
-  searchTerm: string
-): Promise<Course[]> {
-  await limiter.removeTokens(1);
-  return searchCoursesByName(searchTerm);
+if (response.status === 429) {
+  throw new RateLimitError('GolfAPI.io rate limit exceeded');
 }
 ```
 
 ---
 
-## Testing
+## Daily Handicap Integration
 
-### Mock API Responses
+GolfAPI.io provides the data needed for GA Daily Handicap calculation:
 
-```typescript
-// src/services/api/__mocks__/golfCoursesClient.ts
-export default {
-  get: jest.fn((url: string, config: any) => {
-    if (url.includes('golf-courses-by-coordinates')) {
-      return Promise.resolve({
-        data: {
-          courses: [
-            {
-              id: 'mock-1',
-              name: 'Mock Golf Club',
-              state: 'VIC',
-              latitude: -37.8136,
-              longitude: 144.9631,
-            },
-          ],
-        },
-      });
-    }
-  }),
-};
-```
+| Required Data | Source |
+|---------------|--------|
+| Slope Rating | `tee.slopeRating` |
+| Course Rating | `tee.courseRating` |
+| Par | Sum of `hole.par` values |
+| Stroke Index | `hole.strokeIndex` |
+
+When importing a course, ensure tee data is captured for daily handicap calculation.
 
 ---
 
@@ -550,7 +454,7 @@ export default {
 
 - **[DATABASE_SCHEMA.md](../database/DATABASE_SCHEMA.md)** - Course table schema
 - **[CLAUDE.md](../../CLAUDE.md)** - Project overview
-- **[PROJECT_SETUP.md](../../PROJECT_SETUP.md)** - Environment setup
+- **[ALGORITHMS.md](./ALGORITHMS.md)** - Scoring and handicap calculations
 
 ---
 

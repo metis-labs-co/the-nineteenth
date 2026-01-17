@@ -217,7 +217,7 @@ describe('MatchPlayScorecardTable', () => {
       expect(screen.getAllByText('6').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('displays X for pickup scores', () => {
+    it('displays P for pickup scores', () => {
       const scores = {
         'player-1': { 1: PICKUP_SCORE },
         'player-2': { 1: 4 },
@@ -232,7 +232,8 @@ describe('MatchPlayScorecardTable', () => {
         />
       );
 
-      expect(screen.getByText('X')).toBeTruthy();
+      // ScoreIndicator displays 'P' for pickup scores
+      expect(screen.getByText('P')).toBeTruthy();
     });
   });
 
@@ -551,9 +552,9 @@ describe('MatchPlayScorecardTable', () => {
         />
       );
 
-      // Both picked up should show X for both
-      const xMarks = screen.getAllByText('X');
-      expect(xMarks.length).toBeGreaterThanOrEqual(2);
+      // Both picked up should show P for both (ScoreIndicator displays 'P' for pickups)
+      const pMarks = screen.getAllByText('P');
+      expect(pMarks.length).toBeGreaterThanOrEqual(2);
     });
   });
 

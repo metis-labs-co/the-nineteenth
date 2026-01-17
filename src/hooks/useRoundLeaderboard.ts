@@ -253,7 +253,13 @@ function formatScoreData(
   resultData: RoundResultData,
   allResults: RoundResultRow[]
 ): FormatSpecificScoreData {
-  // For team rounds, return team-specific data
+  // Match play always returns match play data, even for team rounds
+  // Team match play uses the same match structure with team vs team
+  if (gameType === 'match-play') {
+    return formatMatchPlayData(resultData, allResults);
+  }
+
+  // For other team rounds, return team-specific data
   if (isTeamRound && teamFormat) {
     return formatTeamData(resultData, teamFormat);
   }
@@ -263,8 +269,6 @@ function formatScoreData(
       return formatStablefordData(resultData);
     case 'stroke':
       return formatStrokeData(resultData);
-    case 'match-play':
-      return formatMatchPlayData(resultData, allResults);
     case 'ambrose':
     case 'best-ball':
       // Team formats fall through to team data

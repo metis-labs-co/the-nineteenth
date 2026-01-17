@@ -339,10 +339,7 @@ export type {
   SkinsAllocationStatus,
 } from './usePrizePool';
 
-// Auto-split skins sync hook
+// Auto-split skins sync hook (deprecated - now read-only status hook)
 export { useAutoSplitSkinsSync } from './useAutoSplitSkinsSync';
-export type {
-  AutoSplitTriggerResult,
-  UseAutoSplitSkinsSyncReturn,
-} from './useAutoSplitSkinsSync';
+export type { UseAutoSplitSkinsSyncReturn } from './useAutoSplitSkinsSync';
 

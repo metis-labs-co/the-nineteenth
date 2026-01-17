@@ -44,8 +44,9 @@ import { ScoringPairsConfigBottomSheet } from '@/components/rounds/ViewRound/Rou
 import { SkinsConfigBottomSheet } from '@/components/skins';
 import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
-import { useSkinsGamesByRound, useCreateSkinsGame } from '@/hooks/useSkins';
+import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults } from '@/hooks/useSkins';
 import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
+import { SkinsResultsCard } from '@/components/skins';
 import type { SkinsConfig } from '@/types/database/skins.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
@@ -54,7 +55,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 // TYPES & CONSTANTS
 // =====================================================
 
-type TabKey = 'details' | 'scorecard' | 'match';
+type TabKey = 'details' | 'scorecard' | 'match' | 'skins';
 // Commented out for trial - keeping for potential future use
 // type TabKey = 'details' | 'players' | 'leaderboard';
 
@@ -185,13 +186,13 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   // Check if this is a team match play round
   const isTeamMatchPlayRound = round?.game_type === 'match-play' && round?.is_team_round;
 
-  // Fetch match play leaderboard data (only for match play rounds)
+  // Fetch match play leaderboard data (for both individual and team match play rounds)
   const {
     data: matchPlayData,
     isLoading: isLoadingMatchPlay,
     refetch: refetchMatchPlay,
     isRefetching: isRefetchingMatchPlay,
-  } = useRoundLeaderboard(roundId, { enabled: isMatchPlayRound });
+  } = useRoundLeaderboard(roundId, { enabled: isMatchPlayRound || isTeamMatchPlayRound });
 
   // Fetch skins games for this round (to determine if it's a skins match)
   const { data: skinsGames } = useSkinsGamesByRound(roundId);
@@ -202,19 +203,32 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     return skinsGames.some((g) => g.status === 'active' || g.status === 'completed');
   }, [skinsGames]);
 
-  // Build tabs dynamically based on game type
-  const tabs = useMemo<TabItem<TabKey>[]>(() => {
-    if (isMatchPlayRound) {
-      return [
-        ...BASE_TABS,
-        { key: 'match' as const, label: 'Match' },
-      ];
-    }
-    return BASE_TABS;
-  }, [isMatchPlayRound]);
+  // Get the active or completed skins game for displaying results
+  const activeSkinsGame = useMemo(() => {
+    if (!skinsGames || skinsGames.length === 0) return null;
+    return skinsGames.find((g) => g.status === 'active' || g.status === 'completed') || null;
+  }, [skinsGames]);
 
-  const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers || (isMatchPlayRound && isLoadingMatchPlay);
-  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay;
+  // Fetch skins results for the tab (only when there's an active game)
+  const { data: skinsResults, refetch: refetchSkinsResults, isRefetching: isRefetchingSkinsResults } = useSkinsResults(activeSkinsGame?.id);
+
+  // Build tabs dynamically based on game type and features
+  const tabs = useMemo<TabItem<TabKey>[]>(() => {
+    const result: TabItem<TabKey>[] = [...BASE_TABS];
+
+    if (isMatchPlayRound || isTeamMatchPlayRound) {
+      result.push({ key: 'match' as const, label: 'Match' });
+    }
+
+    if (hasSkinsGame) {
+      result.push({ key: 'skins' as const, label: 'Skins' });
+    }
+
+    return result;
+  }, [isMatchPlayRound, isTeamMatchPlayRound, hasSkinsGame]);
+
+  const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers || ((isMatchPlayRound || isTeamMatchPlayRound) && isLoadingMatchPlay);
+  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults;
 
   // Check if current user is playing in this round
   // For standalone rounds, the user who created it is always playing
@@ -371,7 +385,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         const playerIdsFromScorecards = scorecards?.map((sc) => sc.player_id) ?? [];
 
         // Combine and deduplicate
-        let allPlayerIds = new Set([
+        const allPlayerIds = new Set([
           ...playerIdsFromRoundPlayers,
           ...playerIdsFromScorecards,
         ]);
@@ -487,7 +501,10 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     if (isMatchPlayRound) {
       refetchMatchPlay();
     }
-  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay]);
+    if (hasSkinsGame) {
+      refetchSkinsResults();
+    }
+  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults]);
 
   // Get header title
   const getHeaderTitle = (): string | React.ReactNode => {
@@ -633,7 +650,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             onPlayerPress={handlePlayerPress}
           />
         )}
-        {activeTab === 'match' && isMatchPlayRound && matchPlayData && (
+        {activeTab === 'match' && (isMatchPlayRound || isTeamMatchPlayRound) && matchPlayData && (
           <View style={styles.matchTabContent}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
               Match Results
@@ -641,6 +658,25 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             <MatchPlayLeaderboard
               entries={matchPlayData.entries}
               currentUserId={user?.id}
+              roundStatus={round.status}
+              isTeamRound={round.is_team_round || false}
+            />
+          </View>
+        )}
+        {activeTab === 'skins' && hasSkinsGame && activeSkinsGame && (
+          <View style={styles.skinsTabContent}>
+            <SkinsResultsCard
+              results={skinsResults || []}
+              potType={activeSkinsGame.pot_type}
+              potValue={activeSkinsGame.pot_value}
+              scoringType={activeSkinsGame.scoring_type}
+              participants={activeSkinsGame.participants}
+              parValues={
+                round.course?.holes?.reduce(
+                  (acc, hole) => ({ ...acc, [hole.number]: hole.par }),
+                  {} as Record<number, number>
+                )
+              }
             />
           </View>
         )}
@@ -749,6 +785,9 @@ const styles = StyleSheet.create({
 
   // Match Tab
   matchTabContent: {
+    gap: spacing.md,
+  },
+  skinsTabContent: {
     gap: spacing.md,
   },
   sectionTitle: {

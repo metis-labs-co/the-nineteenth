@@ -14,7 +14,7 @@
 
 import React, { useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getScoreColor } from '@/utils/scoring';
 import {
@@ -151,7 +151,7 @@ const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
         return (
           <View key={playerData.id} style={[styles.tableCell, { width: playerCellWidth }]}>
-            <ScoreIndicator strokes={strokes} par={hole.par} />
+            <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
           </View>
         );
       })}
@@ -321,13 +321,13 @@ const FixedStablefordCells = React.memo(function FixedStablefordCells() {
   return (
     <>
       <View style={[styles.tableCell, styles.holeCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordLabelText, { color: colors.textInverse }]}>Pts</Text>
+        <Text style={[styles.stablefordLabelText, { color: colors.textOnColored }]}>Pts</Text>
       </View>
       <View style={[styles.tableCell, styles.indexCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordText, { color: colors.textInverse }]}>-</Text>
+        <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
       </View>
       <View style={[styles.tableCell, styles.parCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.stablefordText, { color: colors.textInverse }]}>-</Text>
+        <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
       </View>
     </>
   );
@@ -351,11 +351,314 @@ const ScrollableStablefordCells = React.memo(function ScrollableStablefordCells(
           key={stats.playerId}
           style={[styles.tableCell, styles.stablefordCell, { width: playerCellWidth, backgroundColor: colors.primary }]}
         >
-          <Text style={[styles.stablefordText, { color: colors.textInverse }]}>
+          <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>
             {stats.totalStableford}
           </Text>
         </View>
       ))}
+    </>
+  );
+});
+
+// =====================================================
+// SOLO STATS CELLS (Putts, FIR, GIR)
+// =====================================================
+
+interface SoloStatsHeaderCellsProps {
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsHeaderCells = React.memo(function SoloStatsHeaderCells({
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsHeaderCellsProps) {
+  const colors = useThemeColors();
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>Putts</Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>FIR</Text>
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>GIR</Text>
+        </View>
+      )}
+    </>
+  );
+});
+
+interface SoloStatsHoleCellsProps {
+  hole: Hole;
+  player: ScorecardTablePlayer;
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsHoleCells = React.memo(function SoloStatsHoleCells({
+  hole,
+  player,
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsHoleCellsProps) {
+  const colors = useThemeColors();
+  const score = player.scores?.[String(hole.number)];
+  const putts = score && isSingleBallScore(score) ? score.putts : undefined;
+  const fairwayHit = score && isSingleBallScore(score) ? score.fairwayHit : undefined;
+  const greenInRegulation = score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
+  const isFIRApplicable = hole.par >= 4;
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.indexCellText, { color: colors.textSecondary }]}>
+            {putts ?? '-'}
+          </Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surface }]}>
+          {!isFIRApplicable ? (
+            <Text style={[styles.indexCellText, { color: colors.textDisabled }]}>-</Text>
+          ) : fairwayHit === true ? (
+            <Icon source="check" size={14} color={colors.success} />
+          ) : fairwayHit === false ? (
+            <Icon source="close" size={14} color={colors.error} />
+          ) : (
+            <Text style={[styles.indexCellText, { color: colors.textSecondary }]}>-</Text>
+          )}
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.surface }]}>
+          {greenInRegulation === true ? (
+            <Icon source="check" size={14} color={colors.success} />
+          ) : greenInRegulation === false ? (
+            <Icon source="close" size={14} color={colors.error} />
+          ) : (
+            <Text style={[styles.indexCellText, { color: colors.textSecondary }]}>-</Text>
+          )}
+        </View>
+      )}
+    </>
+  );
+});
+
+interface SoloStatsSubtotalCellsProps {
+  player: ScorecardTablePlayer;
+  holes: Hole[];
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsSubtotalCells = React.memo(function SoloStatsSubtotalCells({
+  player,
+  holes,
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsSubtotalCellsProps) {
+  const colors = useThemeColors();
+
+  // Calculate putts total for this nine
+  const ninePutts = holes.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const putts = score && isSingleBallScore(score) ? score.putts : undefined;
+    return sum + (putts ?? 0);
+  }, 0);
+
+  // Calculate FIR for this nine (par 4+ holes only)
+  const firHoles = holes.filter((h) => h.par >= 4);
+  const firHit = firHoles.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const fairwayHit = score && isSingleBallScore(score) ? score.fairwayHit : undefined;
+    return sum + (fairwayHit === true ? 1 : 0);
+  }, 0);
+  const nineFIR = firHoles.length > 0 ? `${firHit}/${firHoles.length}` : '-';
+
+  // Calculate GIR for this nine
+  const girHit = holes.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const greenInRegulation = score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
+    return sum + (greenInRegulation === true ? 1 : 0);
+  }, 0);
+  const nineGIR = `${girHit}/${holes.length}`;
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+            {ninePutts || '-'}
+          </Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+            {nineFIR}
+          </Text>
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+            {nineGIR}
+          </Text>
+        </View>
+      )}
+    </>
+  );
+});
+
+interface SoloStatsTotalCellsProps {
+  player: ScorecardTablePlayer;
+  holes: Hole[];
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsTotalCells = React.memo(function SoloStatsTotalCells({
+  player,
+  holes,
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsTotalCellsProps) {
+  const colors = useThemeColors();
+
+  // Calculate total putts
+  const totalPutts = holes.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const putts = score && isSingleBallScore(score) ? score.putts : undefined;
+    return sum + (putts ?? 0);
+  }, 0);
+
+  // Calculate total FIR (par 4+ holes only)
+  const firHoles = holes.filter((h) => h.par >= 4);
+  const totalFirHit = firHoles.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const fairwayHit = score && isSingleBallScore(score) ? score.fairwayHit : undefined;
+    return sum + (fairwayHit === true ? 1 : 0);
+  }, 0);
+  const totalFIR = firHoles.length > 0 ? `${totalFirHit}/${firHoles.length}` : '-';
+
+  // Calculate total GIR
+  const totalGirHit = holes.reduce((sum, hole) => {
+    const score = player.scores?.[String(hole.number)];
+    const greenInRegulation = score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
+    return sum + (greenInRegulation === true ? 1 : 0);
+  }, 0);
+  const totalGIR = `${totalGirHit}/${holes.length}`;
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>
+            {totalPutts || '-'}
+          </Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+            {totalFIR}
+          </Text>
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+            {totalGIR}
+          </Text>
+        </View>
+      )}
+    </>
+  );
+});
+
+// Empty cells for Net row (stats don't apply)
+interface SoloStatsNetEmptyCellsProps {
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsNetEmptyCells = React.memo(function SoloStatsNetEmptyCells({
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsNetEmptyCellsProps) {
+  const colors = useThemeColors();
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+          <Text style={[styles.totalText, { color: colors.textPrimary }]}>-</Text>
+        </View>
+      )}
+    </>
+  );
+});
+
+// Empty cells for Stableford row (stats don't apply)
+interface SoloStatsStablefordEmptyCellsProps {
+  showPutts: boolean;
+  showFIR: boolean;
+  showGIR: boolean;
+}
+
+const SoloStatsStablefordEmptyCells = React.memo(function SoloStatsStablefordEmptyCells({
+  showPutts,
+  showFIR,
+  showGIR,
+}: SoloStatsStablefordEmptyCellsProps) {
+  const colors = useThemeColors();
+
+  return (
+    <>
+      {showPutts && (
+        <View style={[styles.tableCell, styles.statCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+        </View>
+      )}
+      {showFIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+        </View>
+      )}
+      {showGIR && (
+        <View style={[styles.tableCell, styles.statCell, styles.stablefordCell, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+        </View>
+      )}
     </>
   );
 });
@@ -369,8 +672,16 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   holes,
   screenWidth,
   onPlayerPress,
+  showPutts = false,
+  showFIR = false,
+  showGIR = false,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
+
+  // Only show stats columns for solo rounds (1 player)
+  const isSoloRound = players.length === 1;
+  const showSoloStats = isSoloRound && (showPutts || showFIR || showGIR);
+  const soloPlayer = isSoloRound ? players[0] : null;
 
   // Calculate layout
   const layout = useMemo(
@@ -447,38 +758,62 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* Header */}
               <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                 <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
+                {showSoloStats && (
+                  <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
               {/* Front 9 */}
               {front9.map((hole) => (
                 <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                   <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} />
+                  {showSoloStats && soloPlayer && (
+                    <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                  )}
                 </View>
               ))}
               {/* OUT */}
               <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} />
+                {showSoloStats && soloPlayer && (
+                  <SoloStatsSubtotalCells player={soloPlayer} holes={front9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
               {/* Back 9 */}
               {back9.map((hole) => (
                 <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                   <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} />
+                  {showSoloStats && soloPlayer && (
+                    <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                  )}
                 </View>
               ))}
               {/* IN */}
               <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} />
+                {showSoloStats && soloPlayer && (
+                  <SoloStatsSubtotalCells player={soloPlayer} holes={back9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
               {/* Gross */}
               <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+                {showSoloStats && soloPlayer && (
+                  <SoloStatsTotalCells player={soloPlayer} holes={holes} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
               {/* Net */}
               <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+                {showSoloStats && (
+                  <SoloStatsNetEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
               {/* Pts */}
               <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
                 <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} />
+                {showSoloStats && (
+                  <SoloStatsStablefordEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+                )}
               </View>
             </View>
           </ScrollView>
@@ -494,6 +829,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         <FixedHeaderCells />
         <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
+        {showSoloStats && (
+          <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
 
       {/* Front 9 */}
@@ -501,6 +839,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
           <FixedHoleCells hole={hole} />
           <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} />
+          {showSoloStats && soloPlayer && (
+            <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+          )}
         </View>
       ))}
 
@@ -508,6 +849,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="OUT" par={parTotals.front9} />
         <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} />
+        {showSoloStats && soloPlayer && (
+          <SoloStatsSubtotalCells player={soloPlayer} holes={front9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
 
       {/* Back 9 */}
@@ -515,6 +859,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
           <FixedHoleCells hole={hole} />
           <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} />
+          {showSoloStats && soloPlayer && (
+            <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+          )}
         </View>
       ))}
 
@@ -522,24 +869,36 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="IN" par={parTotals.back9} />
         <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} />
+        {showSoloStats && soloPlayer && (
+          <SoloStatsSubtotalCells player={soloPlayer} holes={back9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
 
       {/* Gross row */}
       <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedGrossCells parTotal={parTotals.total} />
         <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+        {showSoloStats && soloPlayer && (
+          <SoloStatsTotalCells player={soloPlayer} holes={holes} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
 
       {/* Net row */}
       <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedNetCells />
         <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+        {showSoloStats && (
+          <SoloStatsNetEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
 
       {/* Stableford row */}
       <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
         <FixedStablefordCells />
         <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} />
+        {showSoloStats && (
+          <SoloStatsStablefordEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
+        )}
       </View>
     </View>
   );

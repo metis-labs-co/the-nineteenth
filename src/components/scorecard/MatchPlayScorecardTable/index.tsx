@@ -204,6 +204,70 @@ function getRunningStatusText(
 // SUB-COMPONENTS
 // =====================================================
 
+/**
+ * Match Play Score Cell
+ *
+ * Displays a player's score with visual indication of hole result:
+ * - Green background: hole won
+ * - Red background: hole lost
+ * - Grey background: hole halved
+ */
+interface MatchPlayScoreCellProps {
+  score: number | null | undefined;
+  isPickup: boolean;
+  result: 'won' | 'lost' | 'halved' | 'none';
+}
+
+const MatchPlayScoreCell = React.memo(function MatchPlayScoreCell({
+  score,
+  isPickup,
+  result,
+}: MatchPlayScoreCellProps) {
+  const colors = useThemeColors();
+
+  // Determine background and text colors based on hole result
+  let backgroundColor: string;
+  let textColor: string;
+
+  switch (result) {
+    case 'won':
+      backgroundColor = colors.successBackground;
+      textColor = colors.success;
+      break;
+    case 'lost':
+      backgroundColor = colors.errorBackground;
+      textColor = colors.error;
+      break;
+    case 'halved':
+      backgroundColor = colors.surfaceVariant;
+      textColor = colors.textSecondary;
+      break;
+    case 'none':
+    default:
+      backgroundColor = 'transparent';
+      textColor = colors.textSecondary;
+      break;
+  }
+
+  // Display text
+  let displayText: string;
+  if (score === null || score === undefined) {
+    displayText = '-';
+  } else if (isPickup) {
+    displayText = 'P';
+  } else {
+    displayText = String(score);
+  }
+
+  return (
+    <View style={[styles.matchPlayScoreCell, { backgroundColor }]}>
+      <Text style={[styles.matchPlayScoreText, { color: textColor }]}>
+        {displayText}
+      </Text>
+    </View>
+  );
+});
+
 interface HeaderRowProps {
   player1Name: string;
   player2Name: string;
@@ -262,9 +326,25 @@ const HoleRow = React.memo(function HoleRow({
   const p2PickedUp = result?.player2PickedUp ?? false;
   const winner = result?.winner;
 
-  // Determine if each player won this hole (for highlighting)
-  const p1WonHole = winner === 'player1';
-  const p2WonHole = winner === 'player2';
+  // Determine each player's hole result for styling
+  const getPlayerResult = (isPlayer1: boolean): 'won' | 'lost' | 'halved' | 'none' => {
+    // No scores yet
+    if (p1Score === null && p2Score === null) return 'none';
+    if (p1Score === undefined && p2Score === undefined) return 'none';
+
+    // Determine result based on winner
+    if (winner === 'halved') return 'halved';
+    if (winner === null) return 'none'; // Still in progress or no result
+
+    if (isPlayer1) {
+      return winner === 'player1' ? 'won' : 'lost';
+    } else {
+      return winner === 'player2' ? 'won' : 'lost';
+    }
+  };
+
+  const p1Result = getPlayerResult(true);
+  const p2Result = getPlayerResult(false);
 
   const statusText = getRunningStatusText(runningStatus, player1Name, player2Name);
 
@@ -277,26 +357,10 @@ const HoleRow = React.memo(function HoleRow({
         <Text style={[styles.parCellText, { color: colors.textSecondary }]}>{hole.par}</Text>
       </View>
       <View style={[styles.cell, styles.playerCell, { backgroundColor: colors.surface }]}>
-        <Text
-          style={[
-            styles.scoreText,
-            { color: p1WonHole ? colors.success : colors.textPrimary },
-            p1WonHole && styles.winnerText,
-          ]}
-        >
-          {p1PickedUp ? 'X' : p1Score ?? '-'}
-        </Text>
+        <MatchPlayScoreCell score={p1Score} isPickup={p1PickedUp} result={p1Result} />
       </View>
       <View style={[styles.cell, styles.playerCell, { backgroundColor: colors.surface }]}>
-        <Text
-          style={[
-            styles.scoreText,
-            { color: p2WonHole ? colors.success : colors.textPrimary },
-            p2WonHole && styles.winnerText,
-          ]}
-        >
-          {p2PickedUp ? 'X' : p2Score ?? '-'}
-        </Text>
+        <MatchPlayScoreCell score={p2Score} isPickup={p2PickedUp} result={p2Result} />
       </View>
       <View style={[styles.cell, styles.statusCell, { backgroundColor: colors.surface }]}>
         <Text style={[styles.statusText, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -564,12 +628,17 @@ const styles = StyleSheet.create({
   parCellText: {
     ...typography.body,
   },
-  scoreText: {
-    ...typography.body,
-    textAlign: 'center',
+  // Match play score cell styles
+  matchPlayScoreCell: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  winnerText: {
-    fontWeight: '700',
+  matchPlayScoreText: {
+    ...typography.small,
+    fontWeight: '600',
   },
   statusText: {
     ...typography.caption,

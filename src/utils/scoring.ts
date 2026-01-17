@@ -1,6 +1,7 @@
 import { Hole, GameType, Scorecard } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { STABLEFORD_POINTS, PICKUP_SCORE, STANDARD_SLOPE_RATING } from '@/constants/scoring';
+import { colors } from '@/constants/theme';
 
 /**
  * Calculate the number of strokes a player receives on a specific hole
@@ -203,11 +204,12 @@ export function getScoreDescription(score: number, par: number): string {
  */
 export function getScoreColor(score: number, par: number): string {
   const diff = score - par;
-  
-  if (diff < 0) return '#22c55e'; // Green for under par
-  if (diff === 0) return '#3b82f6'; // Blue for par
-  if (diff === 1) return '#f59e0b'; // Orange for bogey
-  return '#ef4444'; // Red for double bogey or worse
+
+  if (diff <= -2) return colors.eagle; // Eagle or better
+  if (diff === -1) return colors.birdie; // Birdie
+  if (diff === 0) return colors.par; // Par
+  if (diff === 1) return colors.bogey; // Bogey
+  return colors.doubleBogey; // Double bogey or worse
 }
 
 /**

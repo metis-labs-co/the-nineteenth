@@ -97,6 +97,27 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     return completedCount === holes.length;
   }, [holes.length, getCompletedHolesCount]);
 
+  // Update round status to completed in database
+  const updateRoundStatus = useCallback(async (rId: string): Promise<void> => {
+    try {
+      scoringLogger.info('SUBMIT: Updating round status to completed', { roundId: rId.substring(0, 8) });
+      const { supabase } = await import('@/services/supabase/client');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { error } = await (supabase as any)
+        .from('rounds')
+        .update({ status: 'completed' })
+        .eq('id', rId);
+
+      if (error) {
+        scoringLogger.error('SUBMIT: Failed to update round status', error);
+        throw error;
+      }
+      scoringLogger.info('SUBMIT: Round status updated successfully');
+    } catch (error) {
+      scoringLogger.error('SUBMIT: Error updating round status', error);
+    }
+  }, []);
+
   // Perform the actual submission
   const performSubmit = useCallback(async () => {
     setShowIncompleteDialog(false);
@@ -109,8 +130,11 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
       await submitScorecards();
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
-      // Finalize skins game if applicable (non-blocking)
+      // Update round status to completed
       if (roundId) {
+        await updateRoundStatus(roundId);
+
+        // Finalize skins game if applicable (non-blocking)
         finalizeSkinsForRound(roundId).then((result) => {
           if (result.finalized) {
             scoringLogger.info('SUBMIT: Skins game finalized', { roundId: roundId?.substring(0, 8) });
@@ -120,11 +144,24 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         });
       }
 
-      // Navigate to review screen
-      navigation.navigate('ReviewScorecard', {
-        roundId: roundId || '',
-        competitionId: 'standalone',
-        holes,
+      // Reset scorecard store
+      const resetFn = useScorecardStore.getState().resetRound;
+      resetFn();
+
+      // Navigate directly to ViewRound, resetting the stack so back goes to rounds list
+      scoringLogger.info('SUBMIT: Navigating to ViewRound', { roundId: roundId?.substring(0, 8) });
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: 'MainTabs' },
+          {
+            name: 'ViewRound',
+            params: {
+              roundId: roundId || '',
+              competitionId: undefined, // standalone round
+            },
+          },
+        ],
       });
     } catch (error) {
       scoringLogger.error('SUBMIT: Scorecard submission failed', error);
@@ -132,7 +169,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [submitScorecards, navigation, roundId, playerId, holes, finalizeSkinsForRound]);
+  }, [submitScorecards, navigation, roundId, playerId, finalizeSkinsForRound, updateRoundStatus]);
 
   // Handle submit button press
   const handleSubmit = useCallback(async () => {
@@ -241,7 +278,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
             disabled={isSubmitting}
           >
             <Text style={[styles.submitButtonText, { color: colors.white }]}>
-              {isSubmitting ? 'Submitting...' : 'Review & Submit'}
+              {isSubmitting ? 'Submitting...' : 'Submit Scorecard'}
             </Text>
           </TouchableOpacity>
         </View>

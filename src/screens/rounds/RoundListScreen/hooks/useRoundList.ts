@@ -436,9 +436,9 @@ export function useRoundList(): UseRoundListReturn {
           // In-progress first
           if (a.status === 'in-progress' && b.status !== 'in-progress') return -1;
           if (b.status === 'in-progress' && a.status !== 'in-progress') return 1;
-          // Then by date
+          // Then by date (most recent first)
           if (a.date && b.date) {
-            return new Date(a.date).getTime() - new Date(b.date).getTime();
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
           }
           return 0;
         });

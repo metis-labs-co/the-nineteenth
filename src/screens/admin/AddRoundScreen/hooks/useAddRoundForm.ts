@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
-import { useAutoSplitSkinsForCompetition } from '@/hooks/useSkins';
+import { skinsKeys, roundKeys } from '@/hooks/queryKeys';
 import type { GameType, TeamFormat, Competition, SkinsPoolSource } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
@@ -242,9 +242,6 @@ export function useAddRoundForm({
   const { data: prizePool, isLoading: isLoadingPrizePool } = useCompetitionPrizePool(competitionId);
   const { data: poolBalance, isLoading: isLoadingBalance } = usePoolBalance(prizePool?.id);
 
-  // Get auto-split skins sync function
-  const { syncAutoSplitSkins } = useAutoSplitSkinsForCompetition();
-
   // Compute pool data for SkinsSection
   const poolData = useMemo((): PoolSourceData | undefined => {
     if (!prizePool) return undefined;
@@ -292,27 +289,28 @@ export function useAddRoundForm({
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['skins'] });
 
-      // Sync auto-split skins for the new round (non-blocking)
+      // Trigger redistribution for auto-split skins (non-blocking)
       // Only if prize pool has auto_split_skins enabled and user didn't manually configure skins
-      if (
-        prizePool?.auto_split_skins &&
-        prizePool.skins_pot_per_round &&
-        prizePool.skins_pot_per_round > 0 &&
-        !formData.skinsEnabled && // Only if user didn't manually add skins
-        user?.id
-      ) {
+      if (prizePool?.auto_split_skins && !formData.skinsEnabled) {
         try {
-          await syncAutoSplitSkins({
-            competitionId,
-            poolId: prizePool.id,
-            potPerRound: prizePool.skins_pot_per_round,
-            scoringType: 'gross',
-            createdBy: user.id,
-          });
-          console.log('[AddRound] Auto-split skins synced for new round');
-        } catch (syncError) {
+          const { data, error } = await supabase.rpc(
+            'redistribute_skins_pots' as never,
+            {
+              p_competition_id: competitionId,
+            } as never
+          );
+
+          if (error) {
+            console.warn('[AddRound] Redistribution failed:', error);
+          } else {
+            console.log('[AddRound] Redistribution result:', data);
+            // Invalidate skins queries
+            queryClient.invalidateQueries({ queryKey: skinsKeys.all });
+            queryClient.invalidateQueries({ queryKey: roundKeys.all });
+          }
+        } catch (redistError) {
           // Non-blocking - round was created successfully
-          console.warn('[AddRound] Failed to sync auto-split skins:', syncError);
+          console.warn('[AddRound] Redistribution error:', redistError);
         }
       }
 

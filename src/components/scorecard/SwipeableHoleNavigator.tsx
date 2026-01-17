@@ -92,6 +92,18 @@ export function SwipeableHoleNavigator({
     setTransitionTargetRef.current = setTransitionTarget;
   }, []);
 
+  // Detect when currentHole prop updates to match our transition target
+  // This allows us to smoothly clear the transition state after parent re-renders
+  useEffect(() => {
+    if (transitionTarget && currentHole === transitionTarget.hole) {
+      // Parent has updated to the new hole - now safe to clear transition
+      slideAnim.setValue(0);
+      currentProgressRef.current = 0;
+      setTransitionTarget(null);
+      setIsAnimating(false);
+    }
+  }, [currentHole, transitionTarget, slideAnim]);
+
   // Reset animation when hole changes externally (not from our transition)
   useEffect(() => {
     if (!transitionTarget) {
@@ -120,12 +132,9 @@ export function SwipeableHoleNavigator({
       useNativeDriver: true,
       easing: Easing.out(Easing.cubic),
     }).start(() => {
-      // Update hole, reset position, clear transition
+      // Notify parent of hole change - the effect watching currentHole will
+      // clear transition state after parent re-renders with new hole
       onHoleChange(targetHole);
-      slideAnim.setValue(0);
-      currentProgressRef.current = 0;
-      setTransitionTarget(null);
-      setIsAnimating(false);
     });
   }, [isAnimating, slideAnim, onHoleChange]);
 

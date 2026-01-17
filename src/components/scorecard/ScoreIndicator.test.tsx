@@ -21,17 +21,22 @@
 import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { ScoreIndicator, ScoreIndicatorProps } from './ScoreIndicator';
+import { colors } from '@/constants/theme';
 
-// Mock the scoring utility to have predictable colors
-jest.mock('@/utils/scoring', () => ({
-  getScoreColor: (score: number, par: number) => {
-    const diff = score - par;
-    if (diff < 0) return '#22c55e'; // Green for under par
-    if (diff === 0) return '#3b82f6'; // Blue for par
-    if (diff === 1) return '#f59e0b'; // Orange for bogey
-    return '#ef4444'; // Red for double bogey or worse
-  },
-}));
+// Mock the scoring utility to have predictable colors using theme colors
+jest.mock('@/utils/scoring', () => {
+  const themeColors = jest.requireActual('@/constants/theme').colors;
+  return {
+    getScoreColor: (score: number, par: number) => {
+      const diff = score - par;
+      if (diff <= -2) return themeColors.eagle;
+      if (diff === -1) return themeColors.birdie;
+      if (diff === 0) return themeColors.par;
+      if (diff === 1) return themeColors.bogey;
+      return themeColors.doubleBogey;
+    },
+  };
+});
 
 // Mock the display helpers utility
 jest.mock('@/utils/displayHelpers', () => ({

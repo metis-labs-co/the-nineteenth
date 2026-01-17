@@ -125,7 +125,7 @@ See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete impl
 - PostGIS extension for geo queries
 
 **External APIs**
-- Australia Golf Course Finder API (Zyla Labs) for course data
+- GolfAPI.io for course data (search, hole-by-hole data, tee ratings)
 - See [API_INTEGRATION.md](docs/guides/API_INTEGRATION.md)
 
 ### Key Design Patterns
@@ -404,20 +404,18 @@ const styles = StyleSheet.create({
 
 ### Golf Course Data
 
-**Primary**: Australia Golf Course Finder API (Zyla Labs)
-- Coverage: Australian golf courses
-- Cost: ~$10-50/month
-- Features: Search by location/name, basic course info
+**Primary**: GolfAPI.io
+- Coverage: 42,000+ courses globally (including Australia)
+- Features: Search by location/name, hole-by-hole data, tee ratings (slope/course rating)
+- Data includes: Hole pars, stroke indexes, yardages, tee box details
 
 **Fallback**: Manual entry by admin
 
-**Future**: GolfAPI.io for detailed hole-by-hole data
-
 **Implementation Flow**:
 1. Admin searches course via API
-2. Import basic data + allow manual hole entry
-3. Store in PostgreSQL (we own the data)
-4. Update from API periodically
+2. Import full course data including holes and tee ratings
+3. Store in PostgreSQL with 30-day cache TTL
+4. Auto-refresh stale course data
 
 **Complete integration guide**: See [API_INTEGRATION.md](docs/guides/API_INTEGRATION.md)
 
@@ -509,9 +507,9 @@ npx expo start --android
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 
-# Golf Course API
-EXPO_PUBLIC_AUSTRALIA_GOLF_API_KEY=your_key_here
-EXPO_PUBLIC_AUSTRALIA_GOLF_API_URL=https://zylalabs.com/api/3176
+# Golf Course API (GolfAPI.io)
+EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
+EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
 
 # Environment
 NODE_ENV=development
@@ -631,8 +629,7 @@ eas update --branch production --message "Fix scorecard sync bug"
 - **18Birdies** - GPS + scoring
 
 ### API Documentation
-- Australia Golf Course Finder API: https://zylalabs.com/api/3176
-- Golf API (GolfAPI.io): https://www.golfapi.io/
+- GolfAPI.io: https://www.golfapi.io/
 
 ### Technical Resources
 - React Query: https://tanstack.com/query

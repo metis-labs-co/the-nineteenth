@@ -75,6 +75,10 @@ export const styles = StyleSheet.create({
   parCell: {
     width: PAR_CELL_WIDTH,
   },
+  // Stats cells (Putts, FIR, GIR) - used in solo mode
+  statCell: {
+    width: 40,
+  },
 
   // =====================================================
   // TEXT STYLES

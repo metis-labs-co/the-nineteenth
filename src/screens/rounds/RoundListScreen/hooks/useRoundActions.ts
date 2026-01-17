@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { skinsKeys, prizePoolKeys, roundKeys } from '@/hooks/queryKeys';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem, UseRoundActionsReturn } from '../types';
 
@@ -24,8 +25,54 @@ export function useRoundActions(): UseRoundActionsReturn {
 
   // Delete round mutation
   const deleteRoundMutation = useMutation({
-    mutationFn: async (roundId: string) => {
-      // First delete related records (round_players, scoring_pairs, scorecards)
+    mutationFn: async (round: RoundItem) => {
+      const roundId = round.id;
+      const competitionId = round.competition?.id;
+
+      // Step 1: Clean up skins game if present (pool-sourced)
+      if (competitionId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: skinsGameData } = await (supabase as any)
+          .from('skins_games')
+          .select('id, pot_value, pool_source')
+          .eq('round_id', roundId)
+          .eq('pool_source', 'prize_pool')
+          .neq('status', 'cancelled')
+          .maybeSingle();
+
+        const skinsGame = skinsGameData as { id: string; pot_value: number; pool_source: string } | null;
+
+        if (skinsGame) {
+          // Get the prize pool ID
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: poolData } = await (supabase as any)
+            .from('competition_prize_pools')
+            .select('id')
+            .eq('competition_id', competitionId)
+            .maybeSingle();
+
+          const pool = poolData as { id: string } | null;
+
+          if (pool) {
+            // Return funds to pool
+            await supabase.rpc('return_to_pool' as never, {
+              p_pool_id: pool.id,
+              p_round_id: roundId,
+              p_amount: skinsGame.pot_value,
+              p_description: 'Round deleted - skins pot returned',
+            } as never);
+
+            // Cancel the skins game
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+              .from('skins_games')
+              .update({ status: 'cancelled' })
+              .eq('id', skinsGame.id);
+          }
+        }
+      }
+
+      // Step 2: Delete related records (round_players, scoring_pairs, scorecards)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('round_players') as any).delete().eq('round_id', roundId);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +80,7 @@ export function useRoundActions(): UseRoundActionsReturn {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('scorecards') as any).delete().eq('round_id', roundId);
 
-      // Then delete the round itself
+      // Step 3: Delete the round itself
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('rounds') as any)
         .delete()
@@ -41,9 +88,43 @@ export function useRoundActions(): UseRoundActionsReturn {
         .eq('user_id', user?.id); // Only allow deleting own rounds
 
       if (error) throw error;
+
+      // Step 4: Trigger skins redistribution (non-blocking)
+      if (competitionId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: prizePoolData } = await (supabase as any)
+          .from('competition_prize_pools')
+          .select('auto_split_skins')
+          .eq('competition_id', competitionId)
+          .maybeSingle();
+
+        const prizePool = prizePoolData as { auto_split_skins: boolean } | null;
+
+        if (prizePool?.auto_split_skins) {
+          // Fire and forget - redistribution is non-blocking
+          Promise.resolve(
+            supabase.rpc('redistribute_skins_pots' as never, {
+              p_competition_id: competitionId,
+            } as never)
+          ).then(() => {
+            console.log('[useRoundActions] Skins redistribution completed');
+          }).catch((err: unknown) => {
+            console.warn('[useRoundActions] Redistribution error:', err);
+          });
+        }
+      }
+
+      return { roundId, competitionId };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['rounds', user?.id] });
+
+      // Invalidate skins and prize pool queries
+      if (result?.competitionId) {
+        queryClient.invalidateQueries({ queryKey: skinsKeys.all });
+        queryClient.invalidateQueries({ queryKey: prizePoolKeys.pool(result.competitionId) });
+        queryClient.invalidateQueries({ queryKey: roundKeys.list(result.competitionId) });
+      }
     },
     onError: (error) => {
       console.error('Error deleting round:', error);
@@ -100,7 +181,7 @@ export function useRoundActions(): UseRoundActionsReturn {
 
   const handleConfirmDelete = useCallback(() => {
     if (roundToDelete) {
-      deleteRoundMutation.mutate(roundToDelete.id);
+      deleteRoundMutation.mutate(roundToDelete);
       setDeleteDialogVisible(false);
       setRoundToDelete(null);
     }

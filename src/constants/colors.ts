@@ -257,9 +257,9 @@ export function generateLightColors(brand: BrandConfig) {
     // Golf score backgrounds (light tints for scorecard cells)
     // Using specific Tailwind-like color values for consistency
     eagleBackground: '#d1fae5', // Emerald 100
-    birdieBackground: '#dcfce7', // Green 100
-    parBackground: adjustLightness(golf.par, 0.92), // Light tint of par color
-    bogeyBackground: '#fef3c7', // Amber 100
+    birdieBackground: '#eff6ff', // Blue 50 (lighter)
+    parBackground: '#f3f4f6', // Gray 100
+    bogeyBackground: '#fee4d6', // Red-orange tint
     doubleBogeyBackground: '#fee2e2', // Red 100
 
     // Status badge backgrounds (very light tints)
@@ -354,16 +354,16 @@ export function generateDarkColors(brand: BrandConfig) {
 
     // Golf-specific colors (brightened for dark mode)
     birdie: brightenColor(golf.birdie, 0.1),
-    par: darkMode.primary, // Use dark mode primary for consistency
+    par: '#9ca3af', // Gray 400 - visible on dark backgrounds
     bogey: brightenColor(golf.bogey, 0.05),
     doubleBogey: brightenColor(golf.doubleBogey, 0.1),
     eagle: brightenColor(golf.eagle, 0.1),
 
     // Golf score backgrounds (dark tints for scorecard cells)
     eagleBackground: '#064e3b', // Emerald 900
-    birdieBackground: '#14532d', // Green 900
-    parBackground: darkenColor(golf.par, 0.75),
-    bogeyBackground: '#78350f', // Amber 900
+    birdieBackground: '#1e3a5f', // Blue 900
+    parBackground: '#374151', // Gray 700
+    bogeyBackground: '#7f2315', // Red-orange dark
     doubleBogeyBackground: '#7f1d1d', // Red 900
 
     // Status badge backgrounds (dark tints)

@@ -44,6 +44,12 @@ export interface ScorecardTableProps {
   screenWidth: number;
   /** Callback when a player name is pressed in the header */
   onPlayerPress?: (playerId: string) => void;
+  /** Whether to show putts column (only shown for solo rounds) */
+  showPutts?: boolean;
+  /** Whether to show FIR column (only shown for solo rounds) */
+  showFIR?: boolean;
+  /** Whether to show GIR column (only shown for solo rounds) */
+  showGIR?: boolean;
 }
 
 /**
