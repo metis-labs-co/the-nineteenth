@@ -26,8 +26,8 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureButton } from '@/components/common/FeatureButton';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
-import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
-import { useHomeVenue } from '@/hooks/useHomeVenue';
+import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
+import { useHomeClub } from '@/hooks/useHomeClub';
 import { useUpdateCourseHoles } from '@/hooks';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,7 +38,7 @@ import { EditHoleBottomSheet } from '@/components/courses';
 import { supabase } from '@/services/supabase/client';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import type { TeeBox, GameType, Venue, Hole } from '@/types/database.types';
+import type { TeeBox, GameType, Club, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
 
 import { HoleTable } from './components';
@@ -83,9 +83,9 @@ export default function CourseScreen({ route, navigation }: Props) {
   const removeFavorite = useRemoveCourseFavorite();
   const [togglingFavorite, setTogglingFavorite] = useState(false);
 
-  // Home venue check (for indicator display)
-  const { data: currentHomeVenue } = useHomeVenue();
-  const isHomeVenue = course?.venue?.id === currentHomeVenue?.id;
+  // Home club check (for indicator display)
+  const { data: currentHomeClub } = useHomeClub();
+  const isHomeClub = course?.club?.id === currentHomeClub?.id;
 
   // Round creation state
   const { user, player } = useAuth();
@@ -126,12 +126,12 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course, addFavorite, removeFavorite, refetch]);
 
-  // Navigate to venue
-  const handleVenuePress = useCallback(() => {
-    if (course?.venue) {
-      navigation.navigate('Venue', { venueId: course.venue.id });
+  // Navigate to club
+  const handleClubPress = useCallback(() => {
+    if (course?.club) {
+      navigation.navigate('Club', { clubId: course.club.id });
     }
-  }, [course?.venue, navigation]);
+  }, [course?.club, navigation]);
 
   // Get selected tee box info (alias for compatibility)
   const selectedTeeBox = selectedTee;
@@ -302,11 +302,11 @@ export default function CourseScreen({ route, navigation }: Props) {
 
   // Prepare initial course data for bottom sheet
   const initialCourseData = useMemo(() => {
-    if (!course?.venue) return undefined;
+    if (!course?.club) return undefined;
     return {
       courseId: course.id,
       courseName: course.name,
-      venue: course.venue as Venue,
+      venue: course.club as Club, // Bottom sheet expects 'venue' property (deprecated alias)
       tees: course.tees,
     };
   }, [course]);
@@ -382,20 +382,20 @@ export default function CourseScreen({ route, navigation }: Props) {
             <View style={styles.headerInfo}>
               <Text style={[styles.courseName, { color: colors.textPrimary }]}>{course.name}</Text>
 
-              {/* Venue Link */}
-              {course.venue && (
-                <TouchableOpacity style={styles.venueLink} activeOpacity={0.7} onPress={handleVenuePress}>
+              {/* Club Link */}
+              {course.club && (
+                <TouchableOpacity style={styles.clubLink} activeOpacity={0.7} onPress={handleClubPress}>
                   <Icon source="home-city" size={16} color={colors.primary} />
-                  <Text style={[styles.venueLinkText, { color: colors.primary }]}>{course.venue.name}</Text>
+                  <Text style={[styles.clubLinkText, { color: colors.primary }]}>{course.club.name}</Text>
                   <Icon source="chevron-right" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )}
 
-              {/* Home Venue Badge */}
-              {isHomeVenue && (
+              {/* Home Club Badge */}
+              {isHomeClub && (
                 <View style={[styles.homeVenueBadge, { backgroundColor: colors.primaryLighter }]}>
                   <Icon source="home" size={14} color={colors.primary} />
-                  <Text style={[styles.homeVenueBadgeText, { color: colors.primary }]}>Home Venue</Text>
+                  <Text style={[styles.homeVenueBadgeText, { color: colors.primary }]}>Home Club</Text>
                 </View>
               )}
             </View>
@@ -602,13 +602,13 @@ const styles = StyleSheet.create({
   courseName: {
     ...typography.h3,
   },
-  venueLink: {
+  clubLink: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.sm,
     gap: spacing.xs,
   },
-  venueLinkText: {
+  clubLinkText: {
     ...typography.small,
   },
   homeVenueBadge: {

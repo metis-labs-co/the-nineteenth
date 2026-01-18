@@ -302,11 +302,11 @@ jest.mock('@/screens/social/CompareStatsScreen', () => {
 });
 
 // Course Screens
-jest.mock('@/screens/courses/VenueScreen', () => {
+jest.mock('@/screens/courses/ClubScreen', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
   return function MockScreen() {
-    return React.createElement(View, { testID: 'venue-screen' }, React.createElement(Text, null, 'Venue'));
+    return React.createElement(View, { testID: 'club-screen' }, React.createElement(Text, null, 'Club'));
   };
 });
 jest.mock('@/screens/courses/CourseDetailScreen', () => {

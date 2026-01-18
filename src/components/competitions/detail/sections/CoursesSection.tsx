@@ -45,7 +45,7 @@ export function CoursesSection({ courses, onViewCourse }: CoursesSectionProps) {
             onPress={onViewCourse ? () => onViewCourse(course) : undefined}
             showFavoriteButton={false}
             showChevron={!!onViewCourse}
-            venueName={course.venues?.name}
+            venueName={course.clubs?.name}
           />
         ))}
       </View>

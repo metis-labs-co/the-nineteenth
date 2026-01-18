@@ -11,8 +11,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
-import type { CourseWithFavoriteStatus } from '@/hooks/useVenues';
-import { useHomeVenue } from '@/hooks/useHomeVenue';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import { useHomeClub } from '@/hooks/useHomeClub';
 import { useIsSocial } from '@/store/subscriptionStore';
 import type { BallCount } from '@/types/multiball.types';
 import type {
@@ -49,8 +49,8 @@ interface UseCreateRoundWizardReturn {
 
   // Course selection
   setSearchQuery: (query: string) => void;
-  handleSelectCourse: (course: CourseWithFavoriteStatus, venue: SelectedCourse['venue']) => void;
-  handleSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { venue: SelectedCourse['venue'] }) => void;
+  handleSelectCourse: (course: CourseWithFavoriteStatus, club: SelectedCourse['club']) => void;
+  handleSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: SelectedCourse['club'] }) => void;
 
   // Tee selection
   handleSelectTee: (tee: TeeBox) => void;
@@ -116,20 +116,20 @@ export function useCreateRoundWizard({
   // Subscription tier for multi-ball feature gating
   const isSocialOrHigher = useIsSocial();
 
-  // Fetch home venue for pre-fill
-  const { data: homeVenue } = useHomeVenue();
+  // Fetch home club for pre-fill
+  const { data: homeClub } = useHomeClub();
 
-  // Handle initial course when sheet opens (priority: initialCourse > homeVenue single course)
+  // Handle initial course when sheet opens (priority: initialCourse > homeClub single course)
   useEffect(() => {
     if (visible) {
       // Determine which course to use:
       // 1. Explicit initialCourse (passed from CourseDetailScreen)
-      // 2. Home venue with single course (auto-select the only course)
-      // 3. Home venue with multiple courses: don't pre-fill, user must select
+      // 2. Home club with single course (auto-select the only course)
+      // 3. Home club with multiple courses: don't pre-fill, user must select
       let courseToUse: {
         courseId: string;
         courseName: string;
-        venue: SelectedCourse['venue'];
+        club: SelectedCourse['club'];
         tees: TeeBox[] | null | undefined;
       } | null = null;
 
@@ -137,26 +137,27 @@ export function useCreateRoundWizard({
         courseToUse = {
           courseId: initialCourse.courseId,
           courseName: initialCourse.courseName,
-          venue: initialCourse.venue,
+          club: initialCourse.club ?? initialCourse.venue, // Support both old and new property names
           tees: initialCourse.tees,
         };
-      } else if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1) {
-        // Single-course venue: auto-select the only course
-        const singleCourse = homeVenue.courses[0];
+      } else if (homeClub && homeClub.courses && homeClub.courses.length === 1) {
+        // Single-course club: auto-select the only course
+        const singleCourse = homeClub.courses[0];
         courseToUse = {
           courseId: singleCourse.id,
           courseName: singleCourse.name,
-          venue: homeVenue,
+          club: homeClub,
           tees: singleCourse.tees,
         };
       }
-      // For multi-course venues, don't pre-fill - user must select a course
+      // For multi-course clubs, don't pre-fill - user must select a course
 
       if (courseToUse) {
         const courseData: SelectedCourse = {
           courseId: courseToUse.courseId,
           courseName: courseToUse.courseName,
-          venue: courseToUse.venue,
+          club: courseToUse.club,
+          venue: courseToUse.club, // Deprecated alias for backward compatibility
           tees: courseToUse.tees,
         };
 
@@ -173,7 +174,7 @@ export function useCreateRoundWizard({
         }
       }
     }
-  }, [visible, initialCourse, homeVenue]);
+  }, [visible, initialCourse, homeClub]);
 
   // Reset state helper
   const resetState = useCallback(() => {
@@ -187,11 +188,12 @@ export function useCreateRoundWizard({
   }, []);
 
   const handleSelectCourse = useCallback(
-    (course: CourseWithFavoriteStatus, venue: SelectedCourse['venue']) => {
+    (course: CourseWithFavoriteStatus, club: SelectedCourse['club']) => {
       const courseData: SelectedCourse = {
         courseId: course.id,
         courseName: course.name,
-        venue,
+        club,
+        venue: club, // Deprecated alias for backward compatibility
         tees: course.tees,
       };
 
@@ -212,11 +214,12 @@ export function useCreateRoundWizard({
   );
 
   const handleSelectFavoriteCourse = useCallback(
-    (course: CourseWithFavoriteStatus & { venue: SelectedCourse['venue'] }) => {
+    (course: CourseWithFavoriteStatus & { club: SelectedCourse['club'] }) => {
       const courseData: SelectedCourse = {
         courseId: course.id,
         courseName: course.name,
-        venue: course.venue,
+        club: course.club,
+        venue: course.club, // Deprecated alias for backward compatibility
         tees: course.tees,
       };
 

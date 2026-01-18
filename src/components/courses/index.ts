@@ -1,5 +1,5 @@
 export { AddCourseModal } from './AddCourseModal';
-export { VenueCard } from './VenueCard';
+export { ClubCard, VenueCard } from './ClubCard';
 export { CourseCard } from './CourseCard';
 export { StateFilterList } from './StateFilterList';
 export { CourseListContent } from './CourseListContent';

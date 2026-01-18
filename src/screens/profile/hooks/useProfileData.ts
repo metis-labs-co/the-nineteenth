@@ -7,7 +7,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useHomeVenue, useSetHomeVenue, useClearHomeVenue } from '@/hooks/useHomeVenue';
+import { useHomeVenue, useSetHomeVenue, useClearHomeVenue } from '@/hooks/useHomeClub';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAchievementPoints, useAchievementSummary } from '@/hooks/achievements';
 import {

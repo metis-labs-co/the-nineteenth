@@ -12,18 +12,18 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parse, isValid } from 'date-fns';
-import type { TeeBox, Venue } from '@/types/database.types';
-import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
+import type { TeeBox, Club } from '@/types/database.types';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
 import {
-  useVenuesWithCourses,
-  useSearchVenues,
-  useFavoriteCoursesWithVenues,
-} from '@/hooks/useVenues';
-import { useHomeVenue } from '@/hooks/useHomeVenue';
+  useClubsWithCourses,
+  useSearchClubs,
+  useFavoriteCoursesWithClubs,
+} from '@/hooks/useClubs';
+import { useHomeClub } from '@/hooks/useHomeClub';
 import {
   type RoundDetailsFormData,
   type GameType,
-  type FavoriteCourseWithVenue,
+  type FavoriteCourseWithClub,
   createEmptyRound,
   getFilteredGameTypes,
   type GameTypeOption,
@@ -46,8 +46,8 @@ interface UseRoundDetailsFormReturn {
   canAddRound: boolean;
 
   // Course data
-  displayItems: VenueCourseDisplayItem[];
-  favoriteCourses: FavoriteCourseWithVenue[];
+  displayItems: ClubCourseDisplayItem[];
+  favoriteCourses: FavoriteCourseWithClub[];
   isLoadingCourses: boolean;
   isSearching: boolean;
   courseSearchQuery: string;
@@ -72,7 +72,7 @@ interface UseRoundDetailsFormReturn {
 
   // Course modal handlers
   openCourseModal: (index: number) => void;
-  handleCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
+  handleCourseSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
   handleCloseCourseModal: () => void;
   setCourseSearchQuery: (query: string) => void;
 
@@ -110,15 +110,15 @@ export function useRoundDetailsForm({
   // Filter game types based on allowed types
   const availableGameTypes = getFilteredGameTypes(allowedGameTypes);
 
-  // Fetch home venue for pre-fill
-  const { data: homeVenue } = useHomeVenue();
+  // Fetch home club for pre-fill
+  const { data: homeClub } = useHomeClub();
 
-  // Create initial round with home venue's course if single-course venue
+  // Create initial round with home club's course if single-course club
   const createInitialRound = useCallback((): RoundDetailsFormData => {
     const emptyRound = createEmptyRound(competitionStartDate);
-    // Only pre-fill if home venue has exactly 1 course
-    if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1) {
-      const singleCourse = homeVenue.courses[0];
+    // Only pre-fill if home club has exactly 1 course
+    if (homeClub && homeClub.courses && homeClub.courses.length === 1) {
+      const singleCourse = homeClub.courses[0];
       return {
         ...emptyRound,
         courseId: singleCourse.id,
@@ -126,18 +126,18 @@ export function useRoundDetailsForm({
       };
     }
     return emptyRound;
-  }, [competitionStartDate, homeVenue]);
+  }, [competitionStartDate, homeClub]);
 
   // Rounds state - use competition start date as default for initial empty round
   const [rounds, setRounds] = useState<RoundDetailsFormData[]>(
     initialData && initialData.length > 0 ? initialData : [createEmptyRound(competitionStartDate)]
   );
 
-  // Pre-fill first empty round with home venue's course (if single-course venue) when it becomes available
+  // Pre-fill first empty round with home club's course (if single-course club) when it becomes available
   useEffect(() => {
-    // Only pre-fill if home venue has exactly 1 course
-    if (homeVenue && homeVenue.courses && homeVenue.courses.length === 1 && rounds.length === 1 && !rounds[0].courseId) {
-      const singleCourse = homeVenue.courses[0];
+    // Only pre-fill if home club has exactly 1 course
+    if (homeClub && homeClub.courses && homeClub.courses.length === 1 && rounds.length === 1 && !rounds[0].courseId) {
+      const singleCourse = homeClub.courses[0];
       setRounds([{
         ...rounds[0],
         courseId: singleCourse.id,
@@ -151,7 +151,7 @@ export function useRoundDetailsForm({
         }));
       }
     }
-  }, [homeVenue, rounds]);
+  }, [homeClub, rounds]);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({});
@@ -172,40 +172,45 @@ export function useRoundDetailsForm({
   // Store available tees for each round (keyed by course ID)
   const [courseTees, setCourseTees] = useState<Record<string, TeeBox[]>>({});
 
-  // Venue/Course data hooks
-  const { data: allVenues = [], isLoading: isLoadingCourses } = useVenuesWithCourses();
-  const { data: favoriteCourses = [] } = useFavoriteCoursesWithVenues();
-  const { data: searchResults = [], isLoading: isSearching } = useSearchVenues(
+  // Club/Course data hooks
+  const { data: allClubs = [], isLoading: isLoadingCourses } = useClubsWithCourses();
+  const { data: favoriteCourses = [] } = useFavoriteCoursesWithClubs();
+  const { data: searchResults = [], isLoading: isSearching } = useSearchClubs(
     courseSearchQuery,
     undefined
   );
 
-  // Transform venues to display items
-  const displayItems: VenueCourseDisplayItem[] = useMemo(() => {
-    const venues = courseSearchQuery.length >= 2 ? searchResults : allVenues;
-    return (venues ?? []).map((venue) => ({
-      type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-      venue: {
-        id: venue.id,
-        source: venue.source,
-        api_id: venue.api_id,
-        name: venue.name,
-        state: venue.state,
-        city: venue.city,
-        address: venue.address,
-        phone: venue.phone,
-        email: venue.email,
-        website: venue.website,
-        location: venue.location,
-        total_holes: venue.total_holes,
-        last_synced: venue.last_synced,
-        created_at: venue.created_at,
-        updated_at: venue.updated_at,
+  // Transform clubs to display items
+  const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
+    const clubs = courseSearchQuery.length >= 2 ? searchResults : allClubs;
+    return (clubs ?? []).map((club) => ({
+      type: club.is_multi_course ? 'multi-course-club' : 'single-course',
+      club: {
+        id: club.id,
+        source: club.source,
+        golfapi_club_id: club.golfapi_club_id ?? null,
+        name: club.name,
+        state: club.state,
+        city: club.city,
+        address: club.address,
+        postal_code: club.postal_code ?? null,
+        country: club.country ?? 'Australia',
+        continent: club.continent ?? null,
+        phone: club.phone,
+        email: club.email,
+        website: club.website,
+        latitude: club.latitude ?? null,
+        longitude: club.longitude ?? null,
+        location: club.location,
+        total_holes: club.total_holes,
+        last_synced: club.last_synced,
+        created_at: club.created_at,
+        updated_at: club.updated_at,
       },
-      courses: venue.courses,
-      is_home: venue.is_home,
+      courses: club.courses,
+      is_home: club.is_home,
     }));
-  }, [courseSearchQuery, searchResults, allVenues]);
+  }, [courseSearchQuery, searchResults, allClubs]);
 
   const canAddRound = rounds.length < effectiveMaxRounds;
 
@@ -259,10 +264,10 @@ export function useRoundDetailsForm({
   }, []);
 
   const handleCourseSelect = useCallback(
-    (course: CourseWithFavoriteStatus, venue: Venue) => {
+    (course: CourseWithFavoriteStatus, club: Club) => {
       if (editingCourseRoundIndex !== null) {
         const displayName =
-          course.name === venue.name ? venue.name : `${course.name} @ ${venue.name}`;
+          course.name === club.name ? club.name : `${course.name} @ ${club.name}`;
 
         if (course.tees && course.tees.length > 0) {
           setCourseTees((prev) => ({

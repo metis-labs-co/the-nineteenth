@@ -2,7 +2,7 @@
  * Types and constants for AddCourseModal wizard
  */
 
-import type { AustralianState, Course, Venue } from '@/types/database.types';
+import type { AustralianState, Course, Club } from '@/types/database.types';
 
 // =====================================================
 // CONSTANTS
@@ -33,7 +33,7 @@ export const TEE_COLORS = [
 export type TeeColor = (typeof TEE_COLORS)[number]['value'];
 
 export const STEPS = [
-  { number: 1, title: 'Venue' },
+  { number: 1, title: 'Club' },
   { number: 2, title: 'Course & Tees' },
   { number: 3, title: 'Hole Data' },
 ] as const;
@@ -58,7 +58,9 @@ export interface HoleFormData {
 }
 
 export interface Step1Data {
-  venueName: string;
+  clubName: string;
+  /** @deprecated Use clubName instead */
+  venueName?: string;
   city: string;
   state: AustralianState | null;
 }
@@ -82,7 +84,9 @@ export interface WizardState {
 export interface AddCourseModalProps {
   visible: boolean;
   onClose: () => void;
-  onVenueCreated: (venue: Venue, course: Course) => void;
+  onClubCreated: (club: Club, course: Course) => void;
+  /** @deprecated Use onClubCreated instead */
+  onVenueCreated?: (club: Club, course: Course) => void;
 }
 
 // =====================================================
@@ -105,7 +109,7 @@ export function createDefaultHoles(): HoleFormData[] {
 export function getDefaultWizardState(): WizardState {
   return {
     step1: {
-      venueName: '',
+      clubName: '',
       city: '',
       state: null,
     },

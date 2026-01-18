@@ -61,7 +61,7 @@ export async function ensurePlayerProfile(
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
-    home_venue_id: null,
+    home_club_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,

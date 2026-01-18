@@ -126,11 +126,11 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         </Text>
 
         {/* Location */}
-        {(round.course?.venues?.city || round.course?.venues?.state) && (
+        {(round.course?.clubs?.city || round.course?.clubs?.state) && (
           <View style={styles.locationRow}>
             <IconMapPin size={14} color={colors.textSecondary} />
             <Text style={[styles.locationText, { color: colors.textSecondary }]}>
-              {[round.course?.venues?.city, round.course?.venues?.state].filter(Boolean).join(', ')}
+              {[round.course?.clubs?.city, round.course?.clubs?.state].filter(Boolean).join(', ')}
             </Text>
           </View>
         )}

@@ -114,9 +114,9 @@ async function searchCourses(
   const results: CourseSearchResult[] = [];
 
   for (const keyword of keywords) {
-    // Search venues by name (case-insensitive)
-    const { data: venues, error: venueError } = await supabase
-      .from('venues')
+    // Search clubs by name (case-insensitive)
+    const { data: clubs, error: clubError } = await supabase
+      .from('clubs')
       .select(
         `
         id,
@@ -132,23 +132,23 @@ async function searchCourses(
       .ilike('name', `%${keyword}%`)
       .limit(5);
 
-    if (venueError) {
-      console.error('Error searching venues:', venueError);
+    if (clubError) {
+      console.error('Error searching clubs:', clubError);
       continue;
     }
 
-    // Flatten venues with their courses
-    for (const venue of venues || []) {
-      for (const course of venue.courses || []) {
+    // Flatten clubs with their courses
+    for (const club of clubs || []) {
+      for (const course of club.courses || []) {
         // Avoid duplicates
         if (!results.find((r) => r.id === course.id)) {
           results.push({
             id: course.id,
             name: course.name,
-            venue_id: venue.id,
-            venue_name: venue.name,
-            state: venue.state,
-            city: venue.city,
+            venue_id: club.id,
+            venue_name: club.name,
+            state: club.state,
+            city: club.city,
           });
         }
       }
@@ -161,8 +161,8 @@ async function searchCourses(
         `
         id,
         name,
-        venue_id,
-        venues!inner (
+        club_id,
+        clubs!inner (
           id,
           name,
           state,
@@ -183,10 +183,10 @@ async function searchCourses(
         results.push({
           id: course.id,
           name: course.name,
-          venue_id: course.venue_id,
-          venue_name: course.venues.name,
-          state: course.venues.state,
-          city: course.venues.city,
+          venue_id: course.club_id,
+          venue_name: course.clubs.name,
+          state: course.clubs.state,
+          city: course.clubs.city,
         });
       }
     }

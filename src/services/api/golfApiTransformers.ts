@@ -1,254 +1,445 @@
 /**
- * GolfAPI.io Data Transformers
+ * GolfAPI.io Data Transformers (v2.3)
  *
- * Transform GolfAPI.io API responses to app domain types.
+ * Transform GolfAPI.io v2.3 API responses to app domain types.
  * These transformers handle the mapping between external API
- * data structures and our internal Course, Hole, TeeBox types.
+ * data structures and our internal Club, Course, Tee, HoleCoordinate types.
+ *
+ * Key differences in v2.3 API:
+ * - Uses camelCase field names (clubID, courseName, etc.)
+ * - Nested data (courses in clubs, tees in courses)
+ * - Par/index as arrays (parsMen[], indexesMen[])
+ * - Numeric POI codes for coordinates (1=Tee, 11=GreenFront, 12=GreenCenter)
+ * - String lat/long for clubs (need parseFloat)
+ * - Some fields return empty string "" instead of null
+ *
+ * Updated January 2026 for GolfAPI.io v2.3 integration
  */
 
 import type {
   GolfApiClubResponse,
-  GolfApiCourseDetail,
-  GolfApiHole,
+  GolfApiClubSearchResult,
+  GolfApiCourseResponse,
   GolfApiTee,
+  GolfApiCoordinate,
+  GolfApiCoordinatesResponse,
+  // Legacy types for backward compatibility
+  GolfApiLegacyClubResponse,
+  GolfApiCourseDetail,
+  GolfApiOldTee,
+} from './golfApiTypes';
+import {
+  parseRating,
+  parseClubLatLong,
+  STATE_NAME_TO_CODE,
+  ESSENTIAL_POI_TYPES,
 } from './golfApiTypes';
 import type {
-  LegacyCourse,
-  Hole,
-  TeeBox,
-  GeoPoint,
+  Club,
+  Course,
+  Tee,
+  HoleCoordinate,
   AustralianState,
-} from '@/types/database.types';
+  PoiType,
+  MeasureUnit,
+  Hole,
+  GeoPoint,
+  // Legacy types for backward compatibility
+  LegacyCourse,
+  TeeBox,
+} from '@/types/database';
 
 // =====================================================
-// CONSTANTS
-// =====================================================
-
-/**
- * Valid Australian state codes
- */
-const VALID_STATES: AustralianState[] = [
-  'NSW',
-  'VIC',
-  'QLD',
-  'SA',
-  'WA',
-  'TAS',
-  'NT',
-  'ACT',
-];
-
-/**
- * Valid par values
- */
-const VALID_PARS: (3 | 4 | 5)[] = [3, 4, 5];
-
-/**
- * Valid hole numbers
- */
-type HoleNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
-
-// =====================================================
-// HELPER FUNCTIONS
+// STATE NORMALIZATION
 // =====================================================
 
 /**
- * Validate and normalize Australian state code
+ * Normalize Australian state names to standard codes
+ * Handles full names ('Victoria' → 'VIC') and passes through codes
+ *
+ * @param state - State name or code
+ * @returns Normalized state code, or original value if not Australian
  */
-function normalizeState(state?: string | null): AustralianState | null {
+export function normalizeAustralianState(state: string | undefined | null): string | null {
   if (!state) return null;
 
-  const upperState = state.toUpperCase().trim();
+  const trimmed = state.trim();
+  if (!trimmed) return null;
 
-  // Handle full state names
-  const stateMap: Record<string, AustralianState> = {
-    'NEW SOUTH WALES': 'NSW',
-    'VICTORIA': 'VIC',
-    'QUEENSLAND': 'QLD',
-    'SOUTH AUSTRALIA': 'SA',
-    'WESTERN AUSTRALIA': 'WA',
-    'TASMANIA': 'TAS',
-    'NORTHERN TERRITORY': 'NT',
-    'AUSTRALIAN CAPITAL TERRITORY': 'ACT',
-  };
+  // Check case-insensitive match for full state names
+  const normalizedKey = Object.keys(STATE_NAME_TO_CODE).find(
+    key => key.toLowerCase() === trimmed.toLowerCase()
+  );
 
-  if (stateMap[upperState]) {
-    return stateMap[upperState];
+  if (normalizedKey) {
+    return STATE_NAME_TO_CODE[normalizedKey];
   }
 
-  // Check if already a valid state code
-  if (VALID_STATES.includes(upperState as AustralianState)) {
-    return upperState as AustralianState;
-  }
-
-  return null;
+  // Return as-is if not a recognized Australian state (e.g., US states like 'CA', 'NY')
+  return trimmed;
 }
 
 /**
- * Validate and normalize par value
+ * Check if a state code is a valid Australian state
  */
-function normalizePar(par?: number | null): 3 | 4 | 5 {
-  if (par && VALID_PARS.includes(par as 3 | 4 | 5)) {
-    return par as 3 | 4 | 5;
-  }
-  return 4; // Default to par 4 if invalid
-}
-
-/**
- * Validate hole number
- */
-function isValidHoleNumber(num: number): num is HoleNumber {
-  return Number.isInteger(num) && num >= 1 && num <= 18;
-}
-
-/**
- * Validate stroke index
- */
-function normalizeStrokeIndex(strokeIndex?: number | null, holeNumber?: number): number {
-  if (strokeIndex && Number.isInteger(strokeIndex) && strokeIndex >= 1 && strokeIndex <= 18) {
-    return strokeIndex;
-  }
-  // Default to hole number if not provided
-  return holeNumber || 1;
-}
-
-/**
- * Transform coordinates to GeoPoint
- */
-function transformCoordinates(
-  coords?: { latitude: number; longitude: number } | null
-): GeoPoint | null {
-  if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
-    return null;
-  }
-
-  return {
-    type: 'Point',
-    coordinates: [coords.longitude, coords.latitude], // GeoJSON uses [lng, lat]
-  };
+export function isAustralianState(state: string | null): state is AustralianState {
+  if (!state) return false;
+  return ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'].includes(state);
 }
 
 // =====================================================
-// MAIN TRANSFORMERS
+// CLUB TRANSFORMERS
 // =====================================================
 
 /**
- * Transform GolfAPI.io club response to partial Course
- * Used for search results (basic info only, no holes/tees)
+ * Transform GolfAPI.io club response to partial Club type
+ * Used for search results and club details
+ *
+ * @param apiClub - Raw club response from GolfAPI.io v2.3
+ * @returns Partial Club object for database insertion
  */
-export function transformClubToCourse(club: GolfApiClubResponse): Partial<LegacyCourse> {
-  return {
-    source: 'api',
-    api_id: club.id,
-    name: club.name,
-    state: normalizeState(club.state),
-    city: club.city || null,
-    address: club.address || null,
-    phone: club.phone || null,
-    email: club.email || null,
-    website: club.website || null,
-    location: transformCoordinates(club.coordinates),
-    // holes and tees not included in basic search
-    holes: null,
-    tees: null,
-    slope_rating: null,
-    course_rating: null,
-  };
-}
+export function transformApiClubResponse(apiClub: GolfApiClubResponse): Partial<Club> {
+  // Parse string lat/long to numbers
+  const coords = parseClubLatLong(apiClub.latitude, apiClub.longitude);
 
-/**
- * Transform GolfAPI.io hole data to app Hole type
- */
-export function transformHole(apiHole: GolfApiHole): Hole {
-  // Validate hole number
-  const holeNumber = isValidHoleNumber(apiHole.number)
-    ? apiHole.number
-    : (Math.min(Math.max(apiHole.number, 1), 18) as HoleNumber);
+  // Create GeoPoint for PostGIS
+  const location: GeoPoint | null = coords
+    ? { type: 'Point', coordinates: [coords.longitude, coords.latitude] }
+    : null;
 
-  // Build yardages object from API yardages
-  const yardages: Record<string, number> = {};
-  if (apiHole.yardages && Array.isArray(apiHole.yardages)) {
-    apiHole.yardages.forEach((y) => {
-      // Use tee name/color as key
-      const key = y.teeName?.toLowerCase() || y.teeId;
-      if (key && typeof y.yards === 'number') {
-        yardages[key] = y.yards;
-      }
-    });
-  }
+  // Normalize state code
+  const normalizedState = normalizeAustralianState(apiClub.state);
 
   return {
-    number: holeNumber,
-    par: normalizePar(apiHole.par),
-    strokeIndex: normalizeStrokeIndex(apiHole.strokeIndex, apiHole.number),
-    yardages: Object.keys(yardages).length > 0 ? yardages : undefined,
-  };
-}
-
-/**
- * Transform GolfAPI.io tee data to app TeeBox type
- */
-export function transformTee(apiTee: GolfApiTee): TeeBox {
-  return {
-    name: apiTee.name || apiTee.color || 'Unknown',
-    color: apiTee.color || 'white',
-    totalYardage: apiTee.totalYardage || 0,
-    courseRating: apiTee.courseRating,
-    slopeRating: apiTee.slopeRating,
-  };
-}
-
-/**
- * Transform GolfAPI.io course detail to full Course
- * Used after fetching detailed course data
- */
-export function transformCourseDetail(
-  club: GolfApiClubResponse,
-  course: GolfApiCourseDetail
-): Partial<LegacyCourse> {
-  // Transform holes
-  const holes: Hole[] | null =
-    course.holes && course.holes.length > 0
-      ? course.holes
-          .map(transformHole)
-          .sort((a, b) => a.number - b.number)
-      : null;
-
-  // Transform tees
-  const tees: TeeBox[] | null =
-    course.tees && course.tees.length > 0
-      ? course.tees.map(transformTee)
-      : null;
-
-  // Get primary tee ratings (first tee, or default)
-  const primaryTee = course.tees?.[0];
-
-  return {
-    source: 'api',
-    api_id: course.id, // Use course ID, not club ID
-    name: course.name || club.name,
-    state: normalizeState(club.state),
-    city: club.city || null,
-    address: club.address || null,
-    phone: club.phone || null,
-    email: club.email || null,
-    website: club.website || null,
-    location: transformCoordinates(club.coordinates),
-    holes,
-    tees,
-    slope_rating: course.slopeRating ?? primaryTee?.slopeRating ?? null,
-    course_rating: course.courseRating ?? primaryTee?.courseRating ?? null,
+    golfapi_club_id: apiClub.clubID,
+    name: apiClub.clubName,
+    address: apiClub.address || null,
+    city: apiClub.city || null,
+    postal_code: apiClub.postalCode || null,
+    state: isAustralianState(normalizedState) ? normalizedState : null,
+    country: apiClub.country || 'AUS',
+    continent: null, // Not provided in API response
+    phone: apiClub.telephone || null,
+    email: null, // Not provided in API response
+    website: apiClub.website || null,
+    location,
+    total_holes: apiClub.courses?.reduce((sum, c) => sum + c.numHoles, 0) || null,
+    source: 'api' as const,
     last_synced: new Date().toISOString(),
   };
 }
 
 /**
- * Transform multiple club search results
+ * Transform GolfAPI.io club search result to partial Club type
+ * Search results have fewer fields than full club response
  */
-export function transformClubSearchResults(
-  clubs: GolfApiClubResponse[]
-): Partial<LegacyCourse>[] {
-  return clubs.map(transformClubToCourse);
+export function transformApiClubSearchResult(result: GolfApiClubSearchResult): Partial<Club> {
+  const coords = parseClubLatLong(result.latitude, result.longitude);
+  const location: GeoPoint | null = coords
+    ? { type: 'Point', coordinates: [coords.longitude, coords.latitude] }
+    : null;
+
+  const normalizedState = normalizeAustralianState(result.state);
+
+  return {
+    golfapi_club_id: result.clubID,
+    name: result.clubName,
+    city: result.city || null,
+    state: isAustralianState(normalizedState) ? normalizedState : null,
+    country: result.country || 'AUS',
+    location,
+    total_holes: result.courses?.reduce((sum, c) => sum + c.numHoles, 0) || null,
+    source: 'api' as const,
+    last_synced: new Date().toISOString(),
+  };
+}
+
+// =====================================================
+// HOLE TRANSFORMERS
+// =====================================================
+
+/**
+ * Transform par and stroke index arrays to Hole objects
+ * GolfAPI.io returns parsMen[] and indexesMen[] arrays
+ *
+ * @param pars - Array of par values (e.g., [4, 5, 4, 4, 3, 5, 3, 4, 4, ...])
+ * @param indexes - Array of stroke index values (e.g., [6, 10, 12, 16, 14, 2, 18, 4, 8, ...])
+ * @param numHoles - Number of holes (9 or 18)
+ * @returns Array of Hole objects
+ */
+export function transformHolesFromArrays(
+  pars: number[],
+  indexes: number[],
+  numHoles: number
+): Hole[] {
+  const holes: Hole[] = [];
+
+  for (let i = 0; i < numHoles; i++) {
+    const par = pars[i];
+    // Validate par is 3, 4, or 5 - default to 4 if invalid
+    const validPar = par === 3 || par === 4 || par === 5 ? par : 4;
+
+    const strokeIndex = indexes[i];
+    // Validate stroke index is 1-18 - default to hole number if invalid
+    const validStrokeIndex =
+      strokeIndex && Number.isInteger(strokeIndex) && strokeIndex >= 1 && strokeIndex <= 18
+        ? strokeIndex
+        : i + 1;
+
+    holes.push({
+      number: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
+      par: validPar as 3 | 4 | 5,
+      strokeIndex: validStrokeIndex,
+    });
+  }
+
+  return holes;
+}
+
+// =====================================================
+// TEE TRANSFORMERS
+// =====================================================
+
+/**
+ * Transform GolfAPI.io tee data to partial Tee type
+ * Handles empty string "" ratings (converts to undefined/null)
+ *
+ * @param apiTee - Raw tee data from GolfAPI.io v2.3
+ * @param measureUnit - Distance unit ('m' or 'y') from course
+ * @returns Partial Tee object for database insertion
+ */
+export function transformApiTee(
+  apiTee: GolfApiTee,
+  measureUnit: MeasureUnit = 'y'
+): Partial<Tee> {
+  return {
+    golfapi_tee_id: apiTee.teeID,
+    name: apiTee.teeName || 'Unknown',
+    color: apiTee.teeColor || null,
+
+    // Men's ratings (handle empty string "")
+    slope: parseRating(apiTee.slopeMen) ?? null,
+    slope_front9: parseRating(apiTee.slopeMenFront9) ?? null,
+    slope_back9: parseRating(apiTee.slopeMenBack9) ?? null,
+    course_rating: parseRating(apiTee.courseRatingMen) ?? null,
+    course_rating_front9: parseRating(apiTee.courseRatingMenFront9) ?? null,
+    course_rating_back9: parseRating(apiTee.courseRatingMenBack9) ?? null,
+
+    // Women's ratings
+    slope_women: parseRating(apiTee.slopeWomen) ?? null,
+    slope_women_front9: parseRating(apiTee.slopeWomenFront9) ?? null,
+    slope_women_back9: parseRating(apiTee.slopeWomenBack9) ?? null,
+    course_rating_women: parseRating(apiTee.courseRatingWomen) ?? null,
+    course_rating_women_front9: parseRating(apiTee.courseRatingWomenFront9) ?? null,
+    course_rating_women_back9: parseRating(apiTee.courseRatingWomenBack9) ?? null,
+
+    // Distance unit
+    measure_unit: measureUnit,
+
+    // Per-hole lengths (length1-length18 → length_hole_1-length_hole_18)
+    length_hole_1: apiTee.length1 || null,
+    length_hole_2: apiTee.length2 || null,
+    length_hole_3: apiTee.length3 || null,
+    length_hole_4: apiTee.length4 || null,
+    length_hole_5: apiTee.length5 || null,
+    length_hole_6: apiTee.length6 || null,
+    length_hole_7: apiTee.length7 || null,
+    length_hole_8: apiTee.length8 || null,
+    length_hole_9: apiTee.length9 || null,
+    length_hole_10: apiTee.length10 || null,
+    length_hole_11: apiTee.length11 || null,
+    length_hole_12: apiTee.length12 || null,
+    length_hole_13: apiTee.length13 || null,
+    length_hole_14: apiTee.length14 || null,
+    length_hole_15: apiTee.length15 || null,
+    length_hole_16: apiTee.length16 || null,
+    length_hole_17: apiTee.length17 || null,
+    length_hole_18: apiTee.length18 || null,
+  };
+}
+
+/**
+ * Transform multiple tees from course response
+ */
+export function transformApiTees(
+  apiTees: GolfApiTee[],
+  measureUnit: MeasureUnit = 'y'
+): Partial<Tee>[] {
+  return apiTees.map((tee) => transformApiTee(tee, measureUnit));
+}
+
+// =====================================================
+// COURSE TRANSFORMERS
+// =====================================================
+
+/**
+ * Transform result from transformApiCourseResponse
+ */
+export interface TransformedCourseData {
+  course: Partial<Course>;
+  tees: Partial<Tee>[];
+  club: Partial<Club>;
+}
+
+/**
+ * Transform GolfAPI.io course response to Course, Tee[], and Club
+ * The course response includes club info and nested tees
+ *
+ * @param apiCourse - Raw course response from GolfAPI.io v2.3
+ * @returns Object containing partial Course, Tee[], and Club
+ */
+export function transformApiCourseResponse(
+  apiCourse: GolfApiCourseResponse
+): TransformedCourseData {
+  const numHoles = parseInt(apiCourse.numHoles, 10) || 18;
+  const measureUnit: MeasureUnit = apiCourse.measure === 'm' ? 'm' : 'y';
+
+  // Transform holes from par/index arrays
+  const holes = transformHolesFromArrays(apiCourse.parsMen, apiCourse.indexesMen, numHoles);
+
+  // Transform women's holes if different
+  const holesWomen =
+    apiCourse.parsWomen?.length > 0
+      ? transformHolesFromArrays(apiCourse.parsWomen, apiCourse.indexesWomen, numHoles)
+      : null;
+
+  // Transform nested tees
+  const tees = transformApiTees(apiCourse.tees || [], measureUnit);
+
+  // Extract club info from course response
+  const coords = parseClubLatLong(apiCourse.latitude, apiCourse.longitude);
+  const location: GeoPoint | null = coords
+    ? { type: 'Point', coordinates: [coords.longitude, coords.latitude] }
+    : null;
+  const normalizedState = normalizeAustralianState(apiCourse.state);
+
+  const club: Partial<Club> = {
+    golfapi_club_id: apiCourse.clubID,
+    name: apiCourse.clubName,
+    address: apiCourse.address || null,
+    city: apiCourse.city || null,
+    postal_code: apiCourse.postalCode || null,
+    state: isAustralianState(normalizedState) ? normalizedState : null,
+    country: apiCourse.country || 'AUS',
+    phone: apiCourse.telephone || null,
+    website: apiCourse.website || null,
+    location,
+    source: 'api' as const,
+  };
+
+  // Get default ratings from first tee if available
+  const primaryTee = tees[0];
+  const slopeRating = primaryTee?.slope ?? null;
+  const courseRating = primaryTee?.course_rating ?? null;
+
+  const course: Partial<Course> = {
+    golfapi_course_id: apiCourse.courseID,
+    golfapi_long_course_id: null, // Not provided in standard response
+    name: apiCourse.courseName || 'Main Course',
+    description: null,
+    num_holes: numHoles,
+    measure_unit: measureUnit,
+    holes,
+    holes_women: holesWomen,
+    match_play_indexes: null, // Would need separate API call or CSV data
+    slope_rating: slopeRating,
+    course_rating: courseRating,
+    golfapi_updated_at: apiCourse.timestampUpdated
+      ? new Date(parseInt(apiCourse.timestampUpdated, 10) * 1000).toISOString()
+      : null,
+  };
+
+  return { course, tees, club };
+}
+
+// =====================================================
+// COORDINATE TRANSFORMERS
+// =====================================================
+
+/**
+ * Map GolfAPI.io numeric POI code to our PoiType string
+ * Returns null for non-essential POI types (fairway markers, hazards)
+ *
+ * POI codes:
+ * - 1 = Tee (use location 1=front, 3=back)
+ * - 11 = Green front
+ * - 12 = Green center
+ */
+export function mapPoiToPoiType(
+  poi: number,
+  location: number
+): PoiType | null {
+  // Tee positions
+  if (poi === 1) { // GolfApiPoiType.Tee
+    if (location === 1) return 'tee_front'; // GolfApiLocation.Front
+    if (location === 3) return 'tee_back';  // GolfApiLocation.Back
+    // Center tee (location 2) - map to tee_front as fallback
+    if (location === 2) return 'tee_front';
+    return null;
+  }
+
+  // Green positions
+  if (poi === 11) return 'green_front';  // GolfApiPoiType.GreenFront
+  if (poi === 12) return 'green_center'; // GolfApiPoiType.GreenCenter
+
+  // Non-essential POIs (fairway markers, hazards, etc.) - skip
+  return null;
+}
+
+/**
+ * Transform GolfAPI.io coordinate to partial HoleCoordinate
+ * Returns null for non-essential POI types
+ *
+ * @param apiCoord - Raw coordinate from GolfAPI.io
+ * @returns Partial HoleCoordinate or null if not essential
+ */
+export function transformApiCoordinate(
+  apiCoord: GolfApiCoordinate
+): Partial<HoleCoordinate> | null {
+  const poiType = mapPoiToPoiType(apiCoord.poi, apiCoord.location);
+
+  // Skip non-essential coordinates (fairway markers, hazards, etc.)
+  if (!poiType) return null;
+
+  return {
+    hole_number: apiCoord.hole,
+    poi_type: poiType,
+    latitude: apiCoord.latitude,
+    longitude: apiCoord.longitude,
+    side_of_fairway: apiCoord.sideFW ? String(apiCoord.sideFW) : null,
+  };
+}
+
+/**
+ * Transform all coordinates from a course, filtering to essential POIs
+ *
+ * @param apiResponse - Full coordinates response from GolfAPI.io
+ * @returns Array of partial HoleCoordinate objects
+ */
+export function transformApiCoordinates(
+  apiResponse: GolfApiCoordinatesResponse
+): Partial<HoleCoordinate>[] {
+  const coordinates: Partial<HoleCoordinate>[] = [];
+
+  for (const coord of apiResponse.coordinates) {
+    const transformed = transformApiCoordinate(coord);
+    if (transformed) {
+      coordinates.push(transformed);
+    }
+  }
+
+  return coordinates;
+}
+
+/**
+ * Filter coordinates to only essential POI types
+ */
+export function filterEssentialCoordinates(
+  coords: GolfApiCoordinate[]
+): GolfApiCoordinate[] {
+  return coords.filter((c) =>
+    ESSENTIAL_POI_TYPES.includes(c.poi as (typeof ESSENTIAL_POI_TYPES)[number])
+  );
 }
 
 // =====================================================
@@ -258,22 +449,46 @@ export function transformClubSearchResults(
 /**
  * Check if transformed course has valid required fields
  */
-export function isValidTransformedCourse(course: Partial<LegacyCourse>): boolean {
-  return Boolean(course.name && course.api_id);
+export function isValidTransformedCourse(course: Partial<Course>): boolean {
+  return Boolean(course.name && (course.golfapi_course_id || course.club_id));
 }
 
 /**
  * Check if course has detailed hole data
+ * Accepts both Course and LegacyCourse types
  */
-export function hasHoleData(course: Partial<LegacyCourse>): boolean {
+export function hasHoleData(course: { holes?: Hole[] | null }): boolean {
   return Boolean(course.holes && course.holes.length > 0);
+}
+
+/**
+ * Check if hole data is complete (has all required holes)
+ */
+export function hasCompleteHoleData(holes: Hole[] | null | undefined): boolean {
+  if (!holes || holes.length === 0) return false;
+
+  // Check that we have 9 or 18 holes with valid pars
+  const validHoles = holes.filter(
+    (h) => h.number >= 1 && h.number <= 18 && [3, 4, 5].includes(h.par)
+  );
+
+  return validHoles.length === 9 || validHoles.length === 18;
 }
 
 /**
  * Check if course has tee data
  */
-export function hasTeeData(course: Partial<LegacyCourse>): boolean {
-  return Boolean(course.tees && course.tees.length > 0);
+export function hasTeeData(tees: Partial<Tee>[] | null | undefined): boolean {
+  return Boolean(tees && tees.length > 0);
+}
+
+/**
+ * Check if course has coordinate data
+ */
+export function hasCoordinateData(
+  coordinates: Partial<HoleCoordinate>[] | null | undefined
+): boolean {
+  return Boolean(coordinates && coordinates.length > 0);
 }
 
 /**
@@ -284,34 +499,223 @@ export function calculateTotalPar(holes: Hole[]): number {
 }
 
 /**
- * Get course status summary
+ * Check if a club response is valid
  */
-export function getCourseDataStatus(course: Partial<LegacyCourse>): {
+export function isValidClubResponse(club: Partial<Club>): boolean {
+  return Boolean(club.name && club.golfapi_club_id);
+}
+
+// =====================================================
+// TIMESTAMP HELPERS
+// =====================================================
+
+/**
+ * Parse Unix timestamp (seconds or milliseconds) to ISO string
+ */
+export function parseApiTimestamp(timestamp: string | number): string | null {
+  if (!timestamp) return null;
+
+  const ts = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
+  if (isNaN(ts)) return null;
+
+  // If timestamp is in seconds (10 digits), convert to milliseconds
+  const msTimestamp = ts < 10000000000 ? ts * 1000 : ts;
+
+  try {
+    return new Date(msTimestamp).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+// =====================================================
+// COURSE DATA STATUS
+// =====================================================
+
+/**
+ * Get comprehensive course data status
+ */
+export function getCourseDataStatus(
+  course: Partial<Course>,
+  tees?: Partial<Tee>[],
+  coordinates?: Partial<HoleCoordinate>[]
+): {
   hasBasicInfo: boolean;
   hasHoles: boolean;
+  hasCompleteHoles: boolean;
   hasTees: boolean;
+  hasCoordinates: boolean;
   hasRatings: boolean;
   hasLocation: boolean;
   completeness: number;
 } {
   const hasBasicInfo = Boolean(course.name);
   const hasHoles = hasHoleData(course);
-  const hasTees = hasTeeData(course);
+  const hasCompleteHoles = hasCompleteHoleData(course.holes);
+  const hasTees_ = hasTeeData(tees);
+  const hasCoordinates_ = hasCoordinateData(coordinates);
   const hasRatings = Boolean(course.course_rating && course.slope_rating);
-  const hasLocation = Boolean(course.location);
+  const hasLocation = Boolean(course.club_id); // Course has location via club
 
-  // Calculate completeness percentage
-  const fields = [hasBasicInfo, hasHoles, hasTees, hasRatings, hasLocation];
-  const completeness = Math.round(
-    (fields.filter(Boolean).length / fields.length) * 100
-  );
+  // Calculate completeness percentage (weighted)
+  const weights = {
+    basicInfo: 20,
+    holes: 25,
+    tees: 25,
+    coordinates: 15,
+    ratings: 15,
+  };
+
+  let score = 0;
+  if (hasBasicInfo) score += weights.basicInfo;
+  if (hasCompleteHoles) score += weights.holes;
+  if (hasTees_) score += weights.tees;
+  if (hasCoordinates_) score += weights.coordinates;
+  if (hasRatings) score += weights.ratings;
 
   return {
     hasBasicInfo,
     hasHoles,
-    hasTees,
+    hasCompleteHoles,
+    hasTees: hasTees_,
+    hasCoordinates: hasCoordinates_,
     hasRatings,
     hasLocation,
-    completeness,
+    completeness: score,
+  };
+}
+
+// =====================================================
+// SEARCH RESULT HELPERS
+// =====================================================
+
+/**
+ * Transform multiple club search results
+ */
+export function transformClubSearchResults(
+  results: GolfApiClubSearchResult[]
+): Partial<Club>[] {
+  return results.map(transformApiClubSearchResult);
+}
+
+/**
+ * Sort search results by distance (if available)
+ */
+export function sortByDistance(results: Partial<Club>[]): Partial<Club>[] {
+  // Results from geo search have distance in original API response
+  // This is a passthrough since distance isn't stored in Club type
+  return results;
+}
+
+// =====================================================
+// LEGACY COMPATIBILITY LAYER
+// These functions maintain backward compatibility with courseService.ts
+// They will be removed when courseService.ts is updated to use new API
+// =====================================================
+
+/**
+ * @deprecated Use transformApiClubResponse instead
+ * Transform legacy GolfAPI.io club response to partial LegacyCourse
+ * Kept for backward compatibility with courseService.ts
+ */
+export function transformClubToCourse(club: GolfApiLegacyClubResponse): Partial<LegacyCourse> {
+  // Create GeoPoint for PostGIS
+  const location: GeoPoint | null = club.coordinates
+    ? { type: 'Point', coordinates: [club.coordinates.longitude, club.coordinates.latitude] }
+    : null;
+
+  // Normalize state code
+  const normalizedState = normalizeAustralianState(club.state);
+
+  return {
+    source: 'api' as const,
+    api_id: club.id,
+    name: club.name,
+    state: isAustralianState(normalizedState) ? normalizedState : null,
+    city: club.city || null,
+    address: club.address || null,
+    phone: club.phone || null,
+    email: club.email || null,
+    website: club.website || null,
+    location,
+    holes: null,
+    tees: null,
+    slope_rating: null,
+    course_rating: null,
+  };
+}
+
+/**
+ * @deprecated Use transformApiTee instead
+ * Transform legacy tee data to TeeBox
+ */
+function transformLegacyTee(apiTee: GolfApiOldTee): TeeBox {
+  return {
+    name: apiTee.name || apiTee.color || 'Unknown',
+    color: apiTee.color || 'white',
+    totalYardage: apiTee.totalYardage || 0,
+    courseRating: apiTee.courseRating,
+    slopeRating: apiTee.slopeRating,
+  };
+}
+
+/**
+ * @deprecated Use transformApiCourseResponse instead
+ * Transform legacy course detail with club to partial LegacyCourse
+ * Kept for backward compatibility with courseService.ts
+ */
+export function transformCourseDetail(
+  club: GolfApiLegacyClubResponse,
+  course: GolfApiCourseDetail
+): Partial<LegacyCourse> {
+  // Create GeoPoint for PostGIS
+  const location: GeoPoint | null = club.coordinates
+    ? { type: 'Point', coordinates: [club.coordinates.longitude, club.coordinates.latitude] }
+    : null;
+
+  // Normalize state code
+  const normalizedState = normalizeAustralianState(club.state);
+
+  // Transform holes
+  const holes: Hole[] | null =
+    course.holes && course.holes.length > 0
+      ? course.holes
+          .map((h) => ({
+            number: h.number as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
+            par: h.par,
+            strokeIndex: h.strokeIndex,
+            yardages: h.yardages?.reduce((acc, y) => {
+              acc[y.teeName?.toLowerCase() || y.teeId] = y.yards;
+              return acc;
+            }, {} as Record<string, number>),
+          }))
+          .sort((a, b) => a.number - b.number)
+      : null;
+
+  // Transform tees
+  const tees: TeeBox[] | null =
+    course.tees && course.tees.length > 0
+      ? course.tees.map(transformLegacyTee)
+      : null;
+
+  // Get primary tee ratings
+  const primaryTee = course.tees?.[0];
+
+  return {
+    source: 'api' as const,
+    api_id: course.id,
+    name: course.name || club.name,
+    state: isAustralianState(normalizedState) ? normalizedState : null,
+    city: club.city || null,
+    address: club.address || null,
+    phone: club.phone || null,
+    email: club.email || null,
+    website: club.website || null,
+    location,
+    holes,
+    tees,
+    slope_rating: course.slopeRating ?? primaryTee?.slopeRating ?? null,
+    course_rating: course.courseRating ?? primaryTee?.courseRating ?? null,
+    last_synced: new Date().toISOString(),
   };
 }

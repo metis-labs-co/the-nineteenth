@@ -34,7 +34,7 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useFriends } from './useFriends';
 import { usePlaceholderPlayers } from './usePlaceholderPlayers';
-import { useFavoriteCoursesWithVenues } from './useVenues';
+import { useFavoriteCoursesWithClubs } from './useClubs';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useAuth } from './useAuth';
 import { aiKeys } from './queryKeys';
@@ -136,7 +136,7 @@ export type AICompetitionResponse =
 export function useGenerateAICompetition() {
   const { data: friends = [] } = useFriends();
   const { data: placeholderPlayers = [] } = usePlaceholderPlayers();
-  const { data: favoriteCourses = [] } = useFavoriteCoursesWithVenues();
+  const { data: favoriteCourses = [] } = useFavoriteCoursesWithClubs();
   const { limits } = useSubscriptionContext();
   const { player } = useAuth();
 
@@ -191,10 +191,10 @@ export function useGenerateAICompetition() {
       const favoriteCoursesPayload = favoriteCourses.map((c) => ({
         id: c.id,
         name: c.name,
-        venue_id: c.venue_id,
-        venue_name: c.venue?.name || 'Unknown Venue',
-        state: c.venue?.state || 'Unknown',
-        city: c.venue?.city || null,
+        club_id: c.club_id,
+        club_name: c.club?.name || 'Unknown Club',
+        state: c.club?.state || 'Unknown',
+        city: c.club?.city || null,
       }));
 
       // Prepare organizer (current user) data for Edge Function

@@ -119,7 +119,7 @@ interface GolfApiSearchParams {
   radius?: number;
 }
 
-// Club/venue response
+// Club response (stored in 'clubs' table)
 interface GolfApiClubResponse {
   id: string;
   name: string;

@@ -1,8 +1,8 @@
 /**
- * HomeVenueSection - Home venue display card
+ * HomeClubSection - Home club display card
  *
- * Shows the user's home golf venue with an option to change it.
- * Displays venue name and course count when set.
+ * Shows the user's home golf club with an option to change it.
+ * Displays club name and course count when set.
  */
 
 import React from 'react';
@@ -11,21 +11,26 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 
-interface HomeVenueSectionProps {
-  /** The user's home venue (null if not set) */
-  homeVenue: {
+interface HomeClubSectionProps {
+  /** The user's home club (null if not set) */
+  homeClub: {
     id: string;
     name: string;
     courses?: { id: string }[];
   } | null;
-  /** Callback when venue card is pressed */
+  /** Callback when club card is pressed */
   onPress: () => void;
 }
 
-export const HomeVenueSection = React.memo(function HomeVenueSection({
-  homeVenue,
+/**
+ * @deprecated Use HomeClubSectionProps instead
+ */
+export type HomeVenueSectionProps = HomeClubSectionProps;
+
+export const HomeClubSection = React.memo(function HomeClubSection({
+  homeClub,
   onPress,
-}: HomeVenueSectionProps) {
+}: HomeClubSectionProps) {
   const colors = useThemeColors();
 
   return (
@@ -34,39 +39,39 @@ export const HomeVenueSection = React.memo(function HomeVenueSection({
       activeOpacity={0.7}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={homeVenue ? `Change home venue: ${homeVenue.name}` : 'Set home venue'}
-      accessibilityHint="Tap to change your home venue"
+      accessibilityLabel={homeClub ? `Change home club: ${homeClub.name}` : 'Set home club'}
+      accessibilityHint="Tap to change your home club"
     >
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: homeVenue ? colors.primaryLighter : colors.gray100 },
+          { backgroundColor: homeClub ? colors.primaryLighter : colors.gray100 },
         ]}
       >
         <Icon
-          source={homeVenue ? 'home' : 'home-outline'}
+          source={homeClub ? 'home' : 'home-outline'}
           size={20}
-          color={homeVenue ? colors.primary : colors.gray400}
+          color={homeClub ? colors.primary : colors.gray400}
         />
       </View>
 
-      <View style={styles.venueInfo}>
+      <View style={styles.clubInfo}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>
-          Home Venue
+          Home Club
         </Text>
-        {homeVenue ? (
+        {homeClub ? (
           <>
-            <Text style={[styles.venueName, { color: colors.textPrimary }]}>
-              {homeVenue.name}
+            <Text style={[styles.clubName, { color: colors.textPrimary }]}>
+              {homeClub.name}
             </Text>
-            {homeVenue.courses && homeVenue.courses.length > 0 && (
+            {homeClub.courses && homeClub.courses.length > 0 && (
               <Text style={[styles.coursesCount, { color: colors.textSecondary }]}>
-                {homeVenue.courses.length} course{homeVenue.courses.length !== 1 ? 's' : ''}
+                {homeClub.courses.length} course{homeClub.courses.length !== 1 ? 's' : ''}
               </Text>
             )}
           </>
         ) : (
-          <Text style={[styles.venueName, { color: colors.textTertiary }]}>
+          <Text style={[styles.clubName, { color: colors.textTertiary }]}>
             Tap to set
           </Text>
         )}
@@ -76,6 +81,11 @@ export const HomeVenueSection = React.memo(function HomeVenueSection({
     </TouchableOpacity>
   );
 });
+
+/**
+ * @deprecated Use HomeClubSection instead
+ */
+export const HomeVenueSection = HomeClubSection;
 
 const styles = StyleSheet.create({
   container: {
@@ -93,14 +103,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  venueInfo: {
+  clubInfo: {
     flex: 1,
     marginLeft: spacing.md,
   },
   label: {
     ...typography.caption,
   },
-  venueName: {
+  clubName: {
     ...typography.bodyBold,
     marginTop: 2,
   },
@@ -110,4 +120,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeVenueSection;
+export default HomeClubSection;

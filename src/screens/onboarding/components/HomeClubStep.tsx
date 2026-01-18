@@ -1,7 +1,7 @@
 /**
- * HomeVenueStep - Home venue selection during onboarding
+ * HomeClubStep - Home club selection during onboarding
  *
- * Allows users to optionally set their home venue (golf club).
+ * Allows users to optionally set their home club (golf club).
  * This is the final step - fully skippable with "Maybe later".
  */
 
@@ -16,20 +16,20 @@ import {
 import { Text, Icon, IconButton } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
 import { GolfBallLoader, SearchBar } from '@/components/common';
-import { VenueCard } from '@/components/courses/VenueCard';
+import { ClubCard } from '@/components/courses/ClubCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useSetHomeVenue } from '@/hooks/useHomeVenue';
+import { useSetHomeClub } from '@/hooks/useHomeClub';
 import {
-  useVenuesWithCourses,
-  useSearchVenues,
-} from '@/hooks/useVenues';
-import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
-import type { Venue } from '@/types/database.types';
+  useClubsWithCourses,
+  useSearchClubs,
+} from '@/hooks/useClubs';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
+import type { Club } from '@/types/database.types';
 import type { StepProps } from '../OnboardingScreen';
 
-export function HomeVenueStep({
+export function HomeClubStep({
   onComplete,
   isSubmitting,
 }: StepProps) {
@@ -37,113 +37,140 @@ export function HomeVenueStep({
   const insets = useSafeAreaInsets();
 
   // Modal state
-  const [showVenueModal, setShowVenueModal] = useState(false);
+  const [showClubModal, setShowClubModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Selected venue state
-  const [selectedVenue, setSelectedVenue] = useState<{
+  // Selected club state
+  const [selectedClub, setSelectedClub] = useState<{
     id: string;
     name: string;
     courseCount: number;
   } | null>(null);
 
   // Hooks
-  const setHomeVenue = useSetHomeVenue();
-  const { data: allVenues = [], isLoading: isLoadingVenues } = useVenuesWithCourses();
-  const { data: searchResults = [], isLoading: isSearching } = useSearchVenues(searchQuery);
+  const setHomeClub = useSetHomeClub();
+  const { data: allClubs = [], isLoading: isLoadingClubs } = useClubsWithCourses();
+  const { data: searchResults = [], isLoading: isSearching } = useSearchClubs(searchQuery);
 
   // Get display items based on search
-  const displayItems: VenueCourseDisplayItem[] = (
-    searchQuery.length >= 2 ? searchResults : allVenues
-  ).map((venue) => ({
-    type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-    venue: {
-      id: venue.id,
-      source: venue.source,
-      api_id: venue.api_id,
-      name: venue.name,
-      state: venue.state,
-      city: venue.city,
-      address: venue.address,
-      phone: venue.phone,
-      email: venue.email,
-      website: venue.website,
-      location: venue.location,
-      total_holes: venue.total_holes,
-      last_synced: venue.last_synced,
-      created_at: venue.created_at,
-      updated_at: venue.updated_at,
+  const displayItems: ClubCourseDisplayItem[] = (
+    searchQuery.length >= 2 ? searchResults : allClubs
+  ).map((club) => ({
+    type: club.is_multi_course ? 'multi-course-club' : 'single-course',
+    club: {
+      id: club.id,
+      source: club.source,
+      golfapi_club_id: club.golfapi_club_id ?? null,
+      name: club.name,
+      state: club.state,
+      city: club.city,
+      address: club.address,
+      postal_code: club.postal_code ?? null,
+      country: club.country ?? 'Australia',
+      continent: club.continent ?? null,
+      phone: club.phone,
+      email: club.email,
+      website: club.website,
+      latitude: club.latitude ?? null,
+      longitude: club.longitude ?? null,
+      location: club.location,
+      total_holes: club.total_holes,
+      last_synced: club.last_synced,
+      created_at: club.created_at,
+      updated_at: club.updated_at,
     },
-    courses: venue.courses,
-    is_home: venue.is_home,
+    venue: {
+      id: club.id,
+      source: club.source,
+      golfapi_club_id: club.golfapi_club_id ?? null,
+      name: club.name,
+      state: club.state,
+      city: club.city,
+      address: club.address,
+      postal_code: club.postal_code ?? null,
+      country: club.country ?? 'Australia',
+      continent: club.continent ?? null,
+      phone: club.phone,
+      email: club.email,
+      website: club.website,
+      latitude: club.latitude ?? null,
+      longitude: club.longitude ?? null,
+      location: club.location,
+      total_holes: club.total_holes,
+      last_synced: club.last_synced,
+      created_at: club.created_at,
+      updated_at: club.updated_at,
+    },
+    courses: club.courses,
+    is_home: club.is_home,
   }));
 
   const handleOpenModal = () => {
-    setShowVenueModal(true);
+    setShowClubModal(true);
   };
 
   const handleCloseModal = () => {
-    setShowVenueModal(false);
+    setShowClubModal(false);
     setSearchQuery('');
   };
 
-  // When user selects a course, we save the venue as home
-  const handleCourseSelect = useCallback((course: CourseWithFavoriteStatus, venue: Venue) => {
-    setSelectedVenue({
-      id: venue.id,
-      name: venue.name,
+  // When user selects a course, we save the club as home
+  const handleCourseSelect = useCallback((course: CourseWithFavoriteStatus, club: Club) => {
+    setSelectedClub({
+      id: club.id,
+      name: club.name,
       courseCount: 1, // We'll update this from the display items
     });
     handleCloseModal();
   }, []);
 
-  // Handle venue press for multi-course venues (select venue directly)
-  const handleVenuePress = useCallback((venue: Venue) => {
-    // Find the venue in display items to get course count
-    const venueData = displayItems.find(item => item.venue.id === venue.id);
-    setSelectedVenue({
-      id: venue.id,
-      name: venue.name,
-      courseCount: venueData?.courses.length ?? 0,
+  // Handle club press for multi-course clubs (select club directly)
+  const handleClubPress = useCallback((club: Club) => {
+    // Find the club in display items to get course count
+    const clubData = displayItems.find(item => item.club.id === club.id);
+    setSelectedClub({
+      id: club.id,
+      name: club.name,
+      courseCount: clubData?.courses.length ?? 0,
     });
     handleCloseModal();
   }, [displayItems]);
 
   const handleGetStarted = async () => {
-    if (isSubmitting || setHomeVenue.isPending) return;
+    if (isSubmitting || setHomeClub.isPending) return;
 
     try {
-      // Set home venue if one was selected
-      if (selectedVenue) {
-        await setHomeVenue.mutateAsync(selectedVenue.id);
+      // Set home club if one was selected
+      if (selectedClub) {
+        await setHomeClub.mutateAsync(selectedClub.id);
       }
 
       // Complete onboarding
       await onComplete(false);
     } catch (error) {
-      console.error('[HomeVenueStep] Error completing:', error);
+      console.error('[HomeClubStep] Error completing:', error);
     }
   };
 
   const handleSkip = async () => {
-    // Skip without setting home venue
+    // Skip without setting home club
     await onComplete(false);
   };
 
-  const renderVenueItem = useCallback(
-    ({ item }: { item: VenueCourseDisplayItem }) => (
-      <VenueCard
+  const renderClubItem = useCallback(
+    ({ item }: { item: ClubCourseDisplayItem }) => (
+      <ClubCard
         item={item}
         onCourseSelect={handleCourseSelect}
-        onVenuePress={handleVenuePress}
+        onClubPress={handleClubPress}
         showFavoriteButton={false}
         selectionMode
       />
     ),
-    [handleCourseSelect, handleVenuePress]
+    [handleCourseSelect, handleClubPress]
   );
 
-  const isProcessing = isSubmitting || setHomeVenue.isPending;
+  const isProcessing = isSubmitting || setHomeClub.isPending;
 
   return (
     <>
@@ -162,35 +189,35 @@ export function HomeVenueStep({
         description="Choose your home golf club to pre-fill it when creating rounds and competitions. You can change this anytime in your profile."
         actions={
           <View style={styles.actionsContainer}>
-            {/* Selected Venue Display */}
-            {selectedVenue && (
+            {/* Selected Club Display */}
+            {selectedClub && (
               <View
                 style={[
-                  styles.selectedVenueCard,
+                  styles.selectedClubCard,
                   { backgroundColor: colors.surface, borderColor: colors.success },
                 ]}
               >
-                <View style={styles.selectedVenueContent}>
+                <View style={styles.selectedClubContent}>
                   <Icon source="home" size={20} color={colors.success} />
-                  <View style={styles.selectedVenueText}>
+                  <View style={styles.selectedClubText}>
                     <Text
-                      style={[styles.selectedVenueName, { color: colors.textPrimary }]}
+                      style={[styles.selectedClubName, { color: colors.textPrimary }]}
                       numberOfLines={1}
                     >
-                      {selectedVenue.name}
+                      {selectedClub.name}
                     </Text>
-                    {selectedVenue.courseCount > 1 && (
+                    {selectedClub.courseCount > 1 && (
                       <Text
-                        style={[styles.selectedVenueCourses, { color: colors.textSecondary }]}
+                        style={[styles.selectedClubCourses, { color: colors.textSecondary }]}
                         numberOfLines={1}
                       >
-                        {selectedVenue.courseCount} courses
+                        {selectedClub.courseCount} courses
                       </Text>
                     )}
                   </View>
                 </View>
                 <TouchableOpacity
-                  onPress={() => setSelectedVenue(null)}
+                  onPress={() => setSelectedClub(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Icon source="close-circle" size={20} color={colors.gray400} />
@@ -198,8 +225,8 @@ export function HomeVenueStep({
               </View>
             )}
 
-            {/* Select Venue Button */}
-            {!selectedVenue && (
+            {/* Select Club Button */}
+            {!selectedClub && (
               <TouchableOpacity
                 style={[
                   styles.selectButton,
@@ -225,7 +252,7 @@ export function HomeVenueStep({
                 isProcessing && styles.buttonDisabled,
               ]}
               onPress={handleGetStarted}
-              accessibilityLabel={selectedVenue ? 'Set home club and get started' : 'Get started'}
+              accessibilityLabel={selectedClub ? 'Set home club and get started' : 'Get started'}
               accessibilityRole="button"
               disabled={isProcessing}
             >
@@ -262,8 +289,8 @@ export function HomeVenueStep({
         }
       />
 
-      {/* Venue Selection Modal */}
-      <Modal visible={showVenueModal} animationType="slide" onRequestClose={handleCloseModal}>
+      {/* Club Selection Modal */}
+      <Modal visible={showClubModal} animationType="slide" onRequestClose={handleCloseModal}>
         <View
           style={[
             styles.modalContainer,
@@ -293,34 +320,34 @@ export function HomeVenueStep({
           />
 
           {/* Loading State */}
-          {(isLoadingVenues || isSearching) && (
+          {(isLoadingClubs || isSearching) && (
             <View style={styles.loadingContainer}>
               <GolfBallLoader size="sm" />
               <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                Loading venues...
+                Loading clubs...
               </Text>
             </View>
           )}
 
-          {/* Venue List */}
+          {/* Club List */}
           <FlatList
             data={displayItems}
-            keyExtractor={(item) => item.venue.id}
-            renderItem={renderVenueItem}
-            contentContainerStyle={styles.venueList}
+            keyExtractor={(item) => item.club.id}
+            renderItem={renderClubItem}
+            contentContainerStyle={styles.clubList}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
             ListEmptyComponent={
-              !isLoadingVenues && !isSearching ? (
+              !isLoadingClubs && !isSearching ? (
                 <View style={styles.emptyState}>
                   <Icon source="home-city" size={48} color={colors.gray400} />
                   <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    {searchQuery.length >= 2 ? 'No venues found' : 'No venues available'}
+                    {searchQuery.length >= 2 ? 'No clubs found' : 'No clubs available'}
                   </Text>
                   <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
                     {searchQuery.length >= 2
                       ? 'Try a different search term'
-                      : 'Add venues from the Courses tab'}
+                      : 'Add clubs from the Courses tab'}
                   </Text>
                 </View>
               ) : null
@@ -331,6 +358,11 @@ export function HomeVenueStep({
     </>
   );
 }
+
+/**
+ * @deprecated Use HomeClubStep instead
+ */
+export const HomeVenueStep = HomeClubStep;
 
 const styles = StyleSheet.create({
   iconContainer: {
@@ -345,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  selectedVenueCard: {
+  selectedClubCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -355,19 +387,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     ...shadows.sm,
   },
-  selectedVenueContent: {
+  selectedClubContent: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: spacing.sm,
   },
-  selectedVenueText: {
+  selectedClubText: {
     flex: 1,
   },
-  selectedVenueName: {
+  selectedClubName: {
     ...typography.bodyBold,
   },
-  selectedVenueCourses: {
+  selectedClubCourses: {
     ...typography.small,
     marginTop: 2,
   },
@@ -430,7 +462,7 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.small,
   },
-  venueList: {
+  clubList: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
   },
@@ -455,4 +487,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeVenueStep;
+export default HomeClubStep;

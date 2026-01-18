@@ -80,17 +80,18 @@ interface Round {
   updatedAt: Date;
 }
 
-// Venue (physical golf club location)
-interface Venue {
+// Club (physical golf club location) - renamed from Venue in GolfAPI.io migration
+interface Club {
   id: string;
-  source: 'api' | 'manual';
-  apiId?: string;
+  source: 'api' | 'manual' | 'legacy';
+  golfapiClubId?: string;          // GolfAPI.io club identifier
 
   // Basic Info
   name: string;                    // "The Eastern Golf Club"
   state: 'NSW' | 'VIC' | 'QLD' | 'SA' | 'WA' | 'TAS' | 'NT' | 'ACT';
   city: string;
   address?: string;
+  postalCode?: string;             // New field from GolfAPI.io
   phone?: string;
   email?: string;
   website?: string;
@@ -104,10 +105,13 @@ interface Venue {
   updatedAt: Date;
 }
 
-// Course (playable 18-hole configuration at a venue)
+/** @deprecated Use Club instead */
+type Venue = Club;
+
+// Course (playable 18-hole configuration at a club)
 interface Course {
   id: string;
-  venueId: string;                 // FK to venue
+  clubId: string;                  // FK to clubs (was venueId)
 
   // Course Info
   name: string;                    // "East/West Course" or just "Championship"
@@ -823,9 +827,14 @@ const { data } = await supabase
 
 ---
 
-### `venues`
+### `clubs` (renamed from `venues`)
 
-Physical golf club locations. A venue can have one or more playable courses.
+Physical golf club locations. A club can have one or more playable courses.
+
+> **Migration Note (January 2026):** Table renamed from `venues` to `clubs` as part of GolfAPI.io integration.
+> - Column `api_id` renamed to `golfapi_club_id`
+> - Column `postal_code` added
+> - Source enum now includes 'legacy' for pre-migration data
 
 **Columns:**
 | Column | Type | Constraints | Description |
@@ -981,11 +990,104 @@ const { data: courseWithVenue } = await supabase
   .eq('id', courseId)
   .single();
 
-// Search courses by venue name (for course selection UI)
-const { data: coursesAtVenue } = await supabase
+// Search courses by club name (for course selection UI)
+const { data: coursesAtClub } = await supabase
   .from('courses')
-  .select('*, venue:venues!inner(*)')
-  .ilike('venue.name', '%eastern%');
+  .select('*, club:clubs!inner(*)')
+  .ilike('club.name', '%eastern%');
+```
+
+---
+
+### `tees` (new - January 2026)
+
+Tee box information for courses, sourced from GolfAPI.io. Stores slope/course ratings and per-hole distances.
+
+> **Note:** Previously tee information was stored as JSONB in the `courses.tees` column.
+> This normalized table provides better querying and supports GolfAPI.io's detailed tee data.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Tee unique identifier |
+| `course_id` | UUID | FK → courses(id), NOT NULL | Parent course |
+| `name` | TEXT | NOT NULL | Tee name (e.g., "Championship", "Members") |
+| `color` | TEXT | NULL | Tee color (e.g., "blue", "white", "red") |
+| `slope_rating` | NUMERIC(5,1) | NULL | Slope rating for this tee |
+| `course_rating` | NUMERIC(4,1) | NULL | Course rating for this tee |
+| `total_distance` | INTEGER | NULL | Total course distance in yards |
+| `gender` | TEXT | NULL | 'men' or 'women' |
+| `golfapi_tee_id` | TEXT | NULL | GolfAPI.io tee identifier |
+| `hole_distances` | JSONB | NULL | Per-hole distances { "1": 425, "2": 380, ... } |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_tees_course_id` on `course_id`
+- `idx_tees_golfapi_id` on `golfapi_tee_id`
+
+**Example Queries:**
+```typescript
+// Get all tees for a course
+const { data: tees } = await supabase
+  .from('tees')
+  .select('*')
+  .eq('course_id', courseId)
+  .order('slope_rating', { ascending: false });
+
+// Get tees with specific color
+const { data: blueTees } = await supabase
+  .from('tees')
+  .select('*')
+  .eq('course_id', courseId)
+  .eq('color', 'blue');
+```
+
+---
+
+### `hole_coordinates` (new - January 2026)
+
+GPS coordinates for course features (tees, greens), sourced from GolfAPI.io.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Coordinate unique identifier |
+| `course_id` | UUID | FK → courses(id), NOT NULL | Parent course |
+| `hole_number` | INTEGER | NOT NULL, CHECK(1-18) | Hole number |
+| `poi_type` | TEXT | NOT NULL | Point of interest: 'tee', 'green_center', 'green_front', 'green_back' |
+| `latitude` | NUMERIC(9,6) | NOT NULL | GPS latitude |
+| `longitude` | NUMERIC(9,6) | NOT NULL | GPS longitude |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+
+**Indexes:**
+- `idx_hole_coords_course_hole` on `(course_id, hole_number)`
+- `idx_hole_coords_course_type` on `(course_id, poi_type)`
+
+**Unique Constraints:**
+- `unique_course_hole_poi` - UNIQUE(course_id, hole_number, poi_type)
+
+**Example Queries:**
+```typescript
+// Get all coordinates for a course
+const { data: coords } = await supabase
+  .from('hole_coordinates')
+  .select('*')
+  .eq('course_id', courseId)
+  .order('hole_number');
+
+// Get green coordinates for distance calculation
+const { data: greenCoords } = await supabase
+  .from('hole_coordinates')
+  .select('*')
+  .eq('course_id', courseId)
+  .eq('poi_type', 'green_center');
+
+// Calculate distance to green (using Haversine formula in app)
+const distanceToGreen = calculateHaversineDistance(
+  currentLat, currentLng,
+  greenCoord.latitude, greenCoord.longitude
+);
 ```
 
 ---

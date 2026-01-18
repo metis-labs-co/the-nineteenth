@@ -2,16 +2,16 @@
  * CourseListScreen - Browse and manage golf courses
  *
  * Features:
- * - Hybrid display: Single-course venues show directly, multi-course venues are expandable
- * - Search venues/courses by name
+ * - Hybrid display: Single-course clubs show directly, multi-course clubs are expandable
+ * - Search clubs/courses by name
  * - Filter by Australian state
  * - Add/remove favorite courses
- * - Add new venue/course manually if not found
+ * - Add new club/course manually if not found
  * - Pull-to-refresh
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -23,17 +23,27 @@ import {
   StateFilterList,
   CourseListContent,
 } from '@/components/courses';
+import type { ClubCardItem } from '@/components/courses/ClubCard';
 import {
-  useVenuesWithCourses,
-  useSearchVenues,
-  useFavoriteCoursesWithVenues,
+  useClubsWithCourses,
+  useSearchClubs,
+  useFavoriteCoursesWithClubs,
   useAddCourseFavorite,
   useRemoveCourseFavorite,
   type CourseWithFavoriteStatus,
-  type VenueCourseDisplayItem,
-} from '@/hooks/useVenues';
+  type ClubCourseDisplayItem,
+} from '@/hooks/useClubs';
+import { useImportClub } from '@/hooks/useImportClub';
+import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 import { useSubscription } from '@/hooks/useSubscription';
-import type { AustralianState, Course, Venue } from '@/types/database.types';
+import type { AustralianState, Course, Club } from '@/types/database.types';
+
+/**
+ * Type guard to check if item is from GolfAPI.io (not yet imported)
+ */
+function isApiResult(item: ClubCardItem | Club): item is GolfApiSearchResultItem {
+  return 'source' in item && item.source === 'golfapi';
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -48,28 +58,33 @@ export default function CourseListScreen() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
+  const [importingClubId, setImportingClubId] = useState<string | null>(null);
 
-  // Data fetching - venues with courses for hybrid display
+  // Data fetching - clubs with courses for hybrid display
   const {
-    data: allVenues,
+    data: allClubs,
     isLoading: isLoadingAll,
     error: allError,
     refetch: refetchAll,
     isRefetching: isRefetchingAll,
-  } = useVenuesWithCourses(selectedState);
+  } = useClubsWithCourses(selectedState);
 
   const {
     data: searchResults,
     isLoading: isSearching,
+    isSearchingApi,
     error: searchError,
-  } = useSearchVenues(searchQuery, selectedState);
+  } = useSearchClubs(searchQuery, selectedState);
+
+  // Import hook for API results
+  const importClub = useImportClub();
 
   const {
     data: favoriteCourses,
     isLoading: isLoadingFavorites,
     refetch: refetchFavorites,
     isRefetching: isRefetchingFavorites,
-  } = useFavoriteCoursesWithVenues();
+  } = useFavoriteCoursesWithClubs();
 
   // Mutations
   const addFavorite = useAddCourseFavorite();
@@ -81,67 +96,111 @@ export default function CourseListScreen() {
   const isRefreshing = isRefetchingAll || isRefetchingFavorites;
   const error = allError || searchError;
 
-  // Transform venues to display items and sort (home venue first)
-  const displayItems: VenueCourseDisplayItem[] = useMemo(() => {
-    let items: VenueCourseDisplayItem[];
+  // Transform clubs to display items and sort (home club first)
+  // Note: searchResults can include GolfApiSearchResultItem which are passed through as-is
+  const displayItems: ClubCardItem[] = useMemo(() => {
+    let items: ClubCardItem[];
 
-    // For favorites view, create items from favorite courses grouped by venue
+    // For favorites view, create items from favorite courses grouped by club
     if (showFavoritesOnly && favoriteCourses) {
-      // Group favorites by venue
-      const venueMap = new Map<string, { venue: Venue; courses: CourseWithFavoriteStatus[]; is_home: boolean }>();
+      // Group favorites by club
+      const clubMap = new Map<string, { club: Club; courses: CourseWithFavoriteStatus[]; is_home: boolean }>();
       for (const course of favoriteCourses) {
-        const venue = course.venue;
-        if (!venueMap.has(venue.id)) {
-          // Check if this venue is home (need to get from allVenues data)
-          const venueData = allVenues?.find(v => v.id === venue.id);
-          venueMap.set(venue.id, { venue, courses: [], is_home: venueData?.is_home ?? false });
+        const club = course.club;
+        if (!clubMap.has(club.id)) {
+          // Check if this club is home (need to get from allClubs data)
+          const clubData = allClubs?.find(c => c.id === club.id);
+          clubMap.set(club.id, { club, courses: [], is_home: clubData?.is_home ?? false });
         }
-        venueMap.get(venue.id)!.courses.push({
+        clubMap.get(club.id)!.courses.push({
           ...course,
           is_favorite: true,
         });
       }
 
-      items = Array.from(venueMap.values()).map(({ venue, courses, is_home }) => ({
-        type: courses.length > 1 ? 'multi-course-venue' : 'single-course',
-        venue,
+      items = Array.from(clubMap.values()).map(({ club, courses, is_home }) => ({
+        type: courses.length > 1 ? 'multi-course-club' : 'single-course',
+        club,
+        venue: club, // deprecated, kept for backwards compatibility
         courses,
         is_home,
       }));
     } else {
-      // For search or all venues view
-      const venues = isSearchActive ? searchResults : allVenues;
-      items = (venues ?? []).map((venue) => ({
-        type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-        venue: {
-          id: venue.id,
-          source: venue.source,
-          api_id: venue.api_id,
-          name: venue.name,
-          state: venue.state,
-          city: venue.city,
-          address: venue.address,
-          phone: venue.phone,
-          email: venue.email,
-          website: venue.website,
-          location: venue.location,
-          total_holes: venue.total_holes,
-          last_synced: venue.last_synced,
-          created_at: venue.created_at,
-          updated_at: venue.updated_at,
-        },
-        courses: venue.courses,
-        is_home: venue.is_home,
-      }));
+      // For search or all clubs view
+      // searchResults may include GolfApiSearchResultItem (API results not yet imported)
+      const results = isSearchActive ? searchResults : allClubs;
+      items = (results ?? []).map((item) => {
+        // API results are passed through as-is (already in ClubCardItem shape)
+        if (isApiResult(item)) {
+          return item;
+        }
+
+        // Local DB results need transformation to ClubCourseDisplayItem
+        return {
+          type: item.is_multi_course ? 'multi-course-club' : 'single-course',
+          club: {
+            id: item.id,
+            source: item.source,
+            golfapi_club_id: item.golfapi_club_id ?? null,
+            name: item.name,
+            state: item.state,
+            city: item.city,
+            address: item.address,
+            postal_code: item.postal_code ?? null,
+            country: item.country ?? 'Australia',
+            continent: item.continent ?? null,
+            phone: item.phone,
+            email: item.email,
+            website: item.website,
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null,
+            location: item.location,
+            total_holes: item.total_holes,
+            last_synced: item.last_synced,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          },
+          venue: {
+            id: item.id,
+            source: item.source,
+            golfapi_club_id: item.golfapi_club_id ?? null,
+            name: item.name,
+            state: item.state,
+            city: item.city,
+            address: item.address,
+            postal_code: item.postal_code ?? null,
+            country: item.country ?? 'Australia',
+            continent: item.continent ?? null,
+            phone: item.phone,
+            email: item.email,
+            website: item.website,
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null,
+            location: item.location,
+            total_holes: item.total_holes,
+            last_synced: item.last_synced,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          }, // deprecated, kept for backwards compatibility
+          courses: item.courses,
+          is_home: item.is_home,
+        } as ClubCourseDisplayItem;
+      });
     }
 
-    // Sort: home venue first, then alphabetically by name
+    // Sort: home club first, then alphabetically by name
+    // API results (GolfApiSearchResultItem) have is_home: false so they sort after local home club
     return items.sort((a, b) => {
-      if (a.is_home && !b.is_home) return -1;
-      if (!a.is_home && b.is_home) return 1;
-      return a.venue.name.localeCompare(b.venue.name);
+      const aIsHome = 'is_home' in a ? a.is_home : false;
+      const bIsHome = 'is_home' in b ? b.is_home : false;
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+
+      const aName = isApiResult(a) ? a.name : a.club.name;
+      const bName = isApiResult(b) ? b.name : b.club.name;
+      return aName.localeCompare(bName);
     });
-  }, [showFavoritesOnly, favoriteCourses, isSearchActive, searchResults, allVenues]);
+  }, [showFavoritesOnly, favoriteCourses, isSearchActive, searchResults, allClubs]);
 
   // Handlers
   const handleRefresh = useCallback(() => {
@@ -173,22 +232,43 @@ export default function CourseListScreen() {
     setShowFavoritesOnly(false);
   }, []);
 
-  const handleVenueCreated = useCallback((_venue: Venue, _course: Course) => {
+  const handleClubCreated = useCallback((_club: Club, _course: Course) => {
     // The query will be invalidated by the mutation
   }, []);
 
-  // Navigate to venue details
-  const handleVenuePress = useCallback(
-    (venue: Venue) => {
-      navigation.navigate('Venue', { venueId: venue.id });
+  // Navigate to club details (or import first if API result)
+  // Note: ClubCard passes GolfApiSearchResultItem cast to Club for API results
+  const handleClubPress = useCallback(
+    async (item: Club | GolfApiSearchResultItem) => {
+      // Check if this is an API result (not yet imported)
+      if (isApiResult(item)) {
+        setImportingClubId(item.golfapi_club_id);
+        try {
+          const result = await importClub.mutateAsync(item.golfapi_club_id);
+          // Navigate to the newly imported club
+          navigation.navigate('Club', { clubId: result.club.id });
+        } catch (error) {
+          console.error('Failed to import club:', error);
+          Alert.alert(
+            'Import Failed',
+            'Failed to import course. Please try again.',
+            [{ text: 'OK' }]
+          );
+        } finally {
+          setImportingClubId(null);
+        }
+      } else {
+        // Already in DB - navigate directly
+        navigation.navigate('Club', { clubId: item.id });
+      }
     },
-    [navigation]
+    [importClub, navigation]
   );
 
   // Navigate to course details
   const handleCourseSelect = useCallback(
-    (course: CourseWithFavoriteStatus, venue: Venue) => {
-      navigation.navigate('Course', { courseId: course.id, venueId: venue.id });
+    (course: CourseWithFavoriteStatus, club: Club) => {
+      navigation.navigate('Course', { courseId: course.id, clubId: club.id });
     },
     [navigation]
   );
@@ -268,18 +348,20 @@ export default function CourseListScreen() {
         isSuperAdmin={isSuperAdmin}
         onRefresh={handleRefresh}
         onCourseSelect={handleCourseSelect}
-        onVenuePress={handleVenuePress}
+        onClubPress={handleClubPress}
         onToggleFavorite={handleToggleFavorite}
         togglingFavoriteId={togglingFavoriteId}
         onShowAddModal={() => setShowAddModal(true)}
+        isSearchingApi={isSearchingApi}
+        importingClubId={importingClubId}
       />
 
-      {/* Add Venue Modal - Super Admin only */}
+      {/* Add Club Modal - Super Admin only */}
       {isSuperAdmin && (
         <AddCourseModal
           visible={showAddModal}
           onClose={() => setShowAddModal(false)}
-          onVenueCreated={handleVenueCreated}
+          onClubCreated={handleClubCreated}
         />
       )}
     </View>

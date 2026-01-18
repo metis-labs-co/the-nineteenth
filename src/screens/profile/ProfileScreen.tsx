@@ -15,22 +15,22 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
-  useVenuesWithCourses,
-  useSearchVenues,
+  useClubsWithCourses,
+  useSearchClubs,
   type CourseWithFavoriteStatus,
-  type VenueCourseDisplayItem,
-} from '@/hooks/useVenues';
+  type ClubCourseDisplayItem,
+} from '@/hooks/useClubs';
 import { PageHeader } from '@/components/common/PageHeader';
 import { NotificationBell } from './components';
 import { APP_NAME, APP_VERSION } from '@/constants/app';
-import type { Venue } from '@/types/database.types';
+import type { Club } from '@/types/database.types';
 
 // Local components and hooks
 import { useProfileData } from './hooks';
 import {
   ProfileHeader,
-  HomeVenueSection,
-  HomeVenueModal,
+  HomeClubSection,
+  HomeClubModal,
   ProfileMenuSection,
   ProfileCustomizeSheet,
 } from './components';
@@ -45,9 +45,9 @@ export default function ProfileScreen() {
   const {
     isLoading,
     profile,
-    homeVenue,
-    setHomeVenue,
-    clearHomeVenue,
+    homeVenue: homeClub,
+    setHomeVenue: setHomeClub,
+    clearHomeVenue: clearHomeClub,
     placeholderPlayers,
     achievementPoints,
     equipped,
@@ -59,72 +59,99 @@ export default function ProfileScreen() {
   } = useProfileData();
 
   // Modal states
-  const [showVenueModal, setShowVenueModal] = useState(false);
+  const [showClubModal, setShowClubModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
 
-  // Venue data for modal
-  const { data: allVenues = [], isLoading: isLoadingVenues } = useVenuesWithCourses();
-  const { data: searchResults = [], isLoading: isSearching } = useSearchVenues(searchQuery);
+  // Club data for modal
+  const { data: allClubs = [], isLoading: isLoadingClubs } = useClubsWithCourses();
+  const { data: searchResults = [], isLoading: isSearching } = useSearchClubs(searchQuery);
 
-  // Get display items for venue list
-  const displayItems: VenueCourseDisplayItem[] = useMemo(() => {
-    return (searchQuery.length >= 2 ? searchResults : allVenues).map((venue) => ({
-      type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-      venue: {
-        id: venue.id,
-        source: venue.source,
-        api_id: venue.api_id,
-        name: venue.name,
-        state: venue.state,
-        city: venue.city,
-        address: venue.address,
-        phone: venue.phone,
-        email: venue.email,
-        website: venue.website,
-        location: venue.location,
-        total_holes: venue.total_holes,
-        last_synced: venue.last_synced,
-        created_at: venue.created_at,
-        updated_at: venue.updated_at,
+  // Get display items for club list
+  const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
+    return (searchQuery.length >= 2 ? searchResults : allClubs).map((club) => ({
+      type: club.is_multi_course ? 'multi-course-club' : 'single-course',
+      club: {
+        id: club.id,
+        source: club.source,
+        golfapi_club_id: club.golfapi_club_id ?? null,
+        name: club.name,
+        state: club.state,
+        city: club.city,
+        address: club.address,
+        postal_code: club.postal_code ?? null,
+        country: club.country ?? 'Australia',
+        continent: club.continent ?? null,
+        phone: club.phone,
+        email: club.email,
+        website: club.website,
+        latitude: club.latitude ?? null,
+        longitude: club.longitude ?? null,
+        location: club.location,
+        total_holes: club.total_holes,
+        last_synced: club.last_synced,
+        created_at: club.created_at,
+        updated_at: club.updated_at,
       },
-      courses: venue.courses,
-      is_home: venue.is_home,
+      venue: {
+        id: club.id,
+        source: club.source,
+        golfapi_club_id: club.golfapi_club_id ?? null,
+        name: club.name,
+        state: club.state,
+        city: club.city,
+        address: club.address,
+        postal_code: club.postal_code ?? null,
+        country: club.country ?? 'Australia',
+        continent: club.continent ?? null,
+        phone: club.phone,
+        email: club.email,
+        website: club.website,
+        latitude: club.latitude ?? null,
+        longitude: club.longitude ?? null,
+        location: club.location,
+        total_holes: club.total_holes,
+        last_synced: club.last_synced,
+        created_at: club.created_at,
+        updated_at: club.updated_at,
+      },
+      courses: club.courses,
+      is_home: club.is_home,
     }));
-  }, [searchQuery, searchResults, allVenues]);
+  }, [searchQuery, searchResults, allClubs]);
 
-  // Venue modal handlers
-  const handleCloseVenueModal = useCallback(() => {
-    setShowVenueModal(false);
+  // Club modal handlers
+  const handleCloseClubModal = useCallback(() => {
+    setShowClubModal(false);
     setSearchQuery('');
   }, []);
 
-  const handleCourseSelect = useCallback(async (_course: CourseWithFavoriteStatus, venue: Venue) => {
+  const handleCourseSelect = useCallback(async (_course: CourseWithFavoriteStatus, club: Club) => {
     try {
-      await setHomeVenue.mutateAsync(venue.id);
-      handleCloseVenueModal();
+      await setHomeClub.mutateAsync(club.id);
+      handleCloseClubModal();
     } catch (error) {
-      console.error('[ProfileScreen] Error setting home venue:', error);
+      console.error('[ProfileScreen] Error setting home club:', error);
     }
-  }, [setHomeVenue, handleCloseVenueModal]);
+  }, [setHomeClub, handleCloseClubModal]);
 
-  const handleVenuePress = useCallback(async (venue: Venue) => {
+  const handleClubPress = useCallback(async (club: Club) => {
     try {
-      await setHomeVenue.mutateAsync(venue.id);
-      handleCloseVenueModal();
+      await setHomeClub.mutateAsync(club.id);
+      handleCloseClubModal();
     } catch (error) {
-      console.error('[ProfileScreen] Error setting home venue:', error);
+      console.error('[ProfileScreen] Error setting home club:', error);
     }
-  }, [setHomeVenue, handleCloseVenueModal]);
+  }, [setHomeClub, handleCloseClubModal]);
 
-  const handleClearHomeVenue = useCallback(async () => {
+  const handleClearHomeClub = useCallback(async () => {
     try {
-      await clearHomeVenue.mutateAsync();
-      handleCloseVenueModal();
+      await clearHomeClub.mutateAsync();
+      handleCloseClubModal();
     } catch (error) {
-      console.error('[ProfileScreen] Error clearing home venue:', error);
+      console.error('[ProfileScreen] Error clearing home club:', error);
     }
-  }, [clearHomeVenue, handleCloseVenueModal]);
+  }, [clearHomeClub, handleCloseClubModal]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {
@@ -177,10 +204,10 @@ export default function ProfileScreen() {
           onEditPress={() => navigation.navigate('EditProfile')}
         />
 
-        {/* Home Venue Section */}
-        <HomeVenueSection
-          homeVenue={homeVenue ?? null}
-          onPress={() => setShowVenueModal(true)}
+        {/* Home Club Section */}
+        <HomeClubSection
+          homeClub={homeClub ?? null}
+          onPress={() => setShowClubModal(true)}
         />
 
         {/* Menu Sections */}
@@ -205,20 +232,20 @@ export default function ProfileScreen() {
         </Text>
       </ScrollView>
 
-      {/* Home Venue Selection Modal */}
-      <HomeVenueModal
-        visible={showVenueModal}
-        onClose={handleCloseVenueModal}
-        homeVenue={homeVenue ?? null}
+      {/* Home Club Selection Modal */}
+      <HomeClubModal
+        visible={showClubModal}
+        onClose={handleCloseClubModal}
+        homeClub={homeClub ?? null}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         displayItems={displayItems}
-        isLoading={isLoadingVenues || isSearching}
-        isProcessing={setHomeVenue.isPending || clearHomeVenue.isPending}
-        isClearingVenue={clearHomeVenue.isPending}
+        isLoading={isLoadingClubs || isSearching}
+        isProcessing={setHomeClub.isPending || clearHomeClub.isPending}
+        isClearingClub={clearHomeClub.isPending}
         onCourseSelect={handleCourseSelect}
-        onVenuePress={handleVenuePress}
-        onClearHomeVenue={handleClearHomeVenue}
+        onClubPress={handleClubPress}
+        onClearHomeClub={handleClearHomeClub}
       />
 
       {/* Customize Profile Bottom Sheet */}

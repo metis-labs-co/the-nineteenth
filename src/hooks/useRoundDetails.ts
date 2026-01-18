@@ -9,20 +9,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
-import type { Round, Course, Scorecard, Player, Venue, Pairing, Competition } from '@/types/database.types';
+import type { Round, Course, Scorecard, Player, Club, Pairing, Competition } from '@/types/database.types';
 
 // =====================================================
 // TYPES
 // =====================================================
 
-export interface CourseWithVenue extends Course {
-  venue: Pick<Venue, 'id' | 'name' | 'city' | 'state' | 'address'> | null;
+export interface CourseWithClub extends Course {
+  club: Pick<Club, 'id' | 'name' | 'city' | 'state' | 'address'> | null;
 }
+
+/**
+ * @deprecated Use CourseWithClub instead - Venue was renamed to Club
+ */
+export type CourseWithVenue = CourseWithClub;
 
 export type CompetitionSummary = Pick<Competition, 'id' | 'name' | 'competition_type' | 'status' | 'start_date' | 'end_date'>;
 
 export interface RoundWithCourse extends Round {
-  course: CourseWithVenue | null;
+  course: CourseWithClub | null;
   competition: CompetitionSummary | null;
 }
 
@@ -41,7 +46,7 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
       *,
       courses (
         *,
-        venues (id, name, city, state, address)
+        clubs (id, name, city, state, address)
       ),
       competitions (id, name, competition_type, status, start_date, end_date)
     `)
@@ -62,7 +67,7 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
     course: courseData
       ? {
           ...courseData,
-          venue: (courseData.venues as CourseWithVenue['venue']) || null,
+          club: (courseData.clubs as CourseWithClub['club']) || null,
         }
       : null,
     competition: competitionData,

@@ -33,7 +33,7 @@ import WelcomeStep from './components/WelcomeStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
-import HomeVenueStep from './components/HomeVenueStep';
+import HomeClubStep from './components/HomeClubStep';
 import OnboardingDots from './components/OnboardingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -58,7 +58,7 @@ const STEPS: StepItem[] = [
   { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
-  { key: 'homeVenue', component: HomeVenueStep },
+  { key: 'homeClub', component: HomeClubStep },
 ];
 
 export default function OnboardingScreen() {

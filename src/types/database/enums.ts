@@ -26,7 +26,9 @@ export type ScorecardStatus = 'not-started' | 'in-progress' | 'completed' | 'con
 
 // Location enums
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'SA' | 'WA' | 'TAS' | 'NT' | 'ACT';
-export type CourseSource = 'api' | 'manual';
+export type CourseSource = 'api' | 'manual' | 'legacy';
+export type PoiType = 'tee_front' | 'tee_back' | 'green_front' | 'green_center' | 'green_back';
+export type MeasureUnit = 'm' | 'y'; // meters or yards
 
 // Subscription enums
 export type SubscriptionTier = 'free' | 'social' | 'premium' | 'super_admin';

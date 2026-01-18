@@ -71,7 +71,7 @@ export function useRoundList(): UseRoundListReturn {
         courses: {
           id: string;
           name: string;
-          venue: {
+          club: {
             name: string;
             city: string | null;
             state: string | null;
@@ -94,7 +94,7 @@ export function useRoundList(): UseRoundListReturn {
           courses!course_id(
             id,
             name,
-            venue:venues(
+            club:clubs(
               name,
               city,
               state
@@ -127,9 +127,9 @@ export function useRoundList(): UseRoundListReturn {
             course: {
               id: round.courses?.id || '',
               name: round.courses?.name || 'Unknown Course',
-              venueName: round.courses?.venue?.name,
-              city: round.courses?.venue?.city ?? undefined,
-              state: round.courses?.venue?.state ?? undefined,
+              venueName: round.courses?.club?.name,
+              city: round.courses?.club?.city ?? undefined,
+              state: round.courses?.club?.state ?? undefined,
             },
             holesCompleted: 0,
             totalHoles: 18,
@@ -162,7 +162,7 @@ export function useRoundList(): UseRoundListReturn {
               courses!course_id(
                 id,
                 name,
-                venue:venues(
+                club:clubs(
                   name,
                   city,
                   state
@@ -201,9 +201,9 @@ export function useRoundList(): UseRoundListReturn {
               course: {
                 id: round.courses?.id || '',
                 name: round.courses?.name || 'Unknown Course',
-                venueName: round.courses?.venue?.name,
-                city: round.courses?.venue?.city ?? undefined,
-                state: round.courses?.venue?.state ?? undefined,
+                venueName: round.courses?.club?.name,
+                city: round.courses?.club?.city ?? undefined,
+                state: round.courses?.club?.state ?? undefined,
               },
               holesCompleted: 0,
               totalHoles: 18,

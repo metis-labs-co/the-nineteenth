@@ -18,6 +18,8 @@ export type {
   ScorecardStatus,
   AustralianState,
   CourseSource,
+  PoiType,
+  MeasureUnit,
   SubscriptionTier,
   SubscriptionStatus,
   SubscriptionSource,
@@ -107,14 +109,27 @@ export type {
 } from './competition.types';
 export { DEFAULT_POINT_SYSTEM } from './competition.types';
 
-// Course types
+// Course types (updated for GolfAPI.io integration - January 2026)
 export type {
-  Venue,
+  // Primary types
+  Club,
   Course,
-  CourseWithVenue,
-  LegacyCourse,
+  Tee,
+  HoleCoordinate,
   FavoriteCourse,
+  // Composite types
+  ClubWithCourses,
+  CourseWithClub,
+  CourseWithTees,
+  CourseWithCoordinates,
+  CourseWithFullData,
+  // Deprecated aliases (for backwards compatibility)
+  Venue,
+  CourseWithVenue,
+  VenueWithCourses,
+  LegacyCourse,
 } from './course.types';
+export { getTeeHoleLength, getTeeHoleLengths } from './course.types';
 
 // Round types
 export type {

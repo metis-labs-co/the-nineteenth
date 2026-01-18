@@ -9,8 +9,8 @@ import { GolfBallLoader, SearchBar } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { VenueCard } from '@/components/courses/VenueCard';
-import type { VenueCourseDisplayItem } from '@/hooks/useVenues';
+import { ClubCard } from '@/components/courses/ClubCard';
+import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
 import type { CourseSelectionModalProps } from '../types';
 
 export const CourseSelectionModal = React.memo(function CourseSelectionModal({
@@ -27,9 +27,9 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const renderVenueItem = useCallback(
-    ({ item }: { item: VenueCourseDisplayItem }) => (
-      <VenueCard item={item} onCourseSelect={onCourseSelect} showFavoriteButton={false} selectionMode />
+  const renderClubItem = useCallback(
+    ({ item }: { item: ClubCourseDisplayItem }) => (
+      <ClubCard item={item} onCourseSelect={onCourseSelect} showFavoriteButton={false} selectionMode />
     ),
     [onCourseSelect]
   );
@@ -81,7 +81,7 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.favoritesContainer}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => onCourseSelect(item, item.venue)} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => onCourseSelect(item, item.club)} activeOpacity={0.7}>
                   <View
                     style={[
                       styles.favoriteChip,
@@ -93,9 +93,9 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
                       style={[styles.favoriteChipText, { color: colors.textPrimary }]}
                       numberOfLines={1}
                     >
-                      {item.name === item.venue.name
+                      {item.name === item.club.name
                         ? item.name
-                        : `${item.name} @ ${item.venue.name}`}
+                        : `${item.name} @ ${item.club.name}`}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -114,11 +114,11 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
           </View>
         )}
 
-        {/* Venue/Course List */}
+        {/* Club/Course List */}
         <FlatList
           data={displayItems}
-          keyExtractor={(item) => item.venue.id}
-          renderItem={renderVenueItem}
+          keyExtractor={(item) => item.club.id}
+          renderItem={renderClubItem}
           contentContainerStyle={styles.courseList}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
@@ -127,12 +127,12 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
               <View style={styles.emptyState}>
                 <Icon source="golf" size={48} color={colors.gray400} />
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {courseSearchQuery.length >= 2 ? 'No venues found' : 'No venues available'}
+                  {courseSearchQuery.length >= 2 ? 'No clubs found' : 'No clubs available'}
                 </Text>
                 <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
                   {courseSearchQuery.length >= 2
                     ? 'Try a different search term'
-                    : 'Add venues from the Courses tab'}
+                    : 'Add clubs from the Courses tab'}
                 </Text>
               </View>
             ) : null

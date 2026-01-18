@@ -1,9 +1,11 @@
 /**
- * VenueCard - Hybrid display component for venues and courses
+ * ClubCard - Hybrid display component for clubs and courses
  *
- * Displays venues in two modes:
- * - Single-course venues: Shows course directly with venue as subtitle
- * - Multi-course venues: Shows expandable venue card with nested courses
+ * Displays clubs in two modes:
+ * - Single-course clubs: Shows course directly with club as subtitle
+ * - Multi-course clubs: Shows expandable club card with nested courses
+ *
+ * @deprecated Use Club terminology instead of Venue (renamed in GolfAPI integration)
  */
 
 import React, { useState, useCallback } from 'react';
@@ -16,11 +18,12 @@ import {
   UIManager,
 } from 'react-native';
 import { GolfBallLoader } from '@/components/common';
-import { Text, Icon } from 'react-native-paper';
+import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
-import type { Venue } from '@/types/database.types';
+import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
+import type { Club } from '@/types/database.types';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -31,26 +34,46 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // PROPS INTERFACES
 // =====================================================
 
-interface VenueCardProps {
-  item: VenueCourseDisplayItem;
-  onCourseSelect?: (course: CourseWithFavoriteStatus, venue: Venue) => void;
-  onVenuePress?: (venue: Venue) => void; // Navigate to venue details
+/**
+ * ClubCard accepts either:
+ * - ClubCourseDisplayItem: Local DB club with courses (from useClubsWithCourses/useSearchClubs)
+ * - GolfApiSearchResultItem: API search result (from useGolfApiSearch, not yet imported)
+ */
+export type ClubCardItem = ClubCourseDisplayItem | GolfApiSearchResultItem;
+
+interface ClubCardProps {
+  item: ClubCardItem;
+  onCourseSelect?: (course: CourseWithFavoriteStatus, club: Club) => void;
+  onClubPress?: (club: Club) => void; // Navigate to club details (also used for API result selection)
   onToggleFavorite?: (course: CourseWithFavoriteStatus) => void;
   isTogglingFavorite?: string | null; // course ID being toggled
   showFavoriteButton?: boolean;
   selectionMode?: boolean; // When true, shows selection UI instead of favorite toggle
+  showSource?: boolean; // Show API/Manual/Legacy source badge
+  isImporting?: boolean; // Show loading indicator during API import
+}
+
+/** @deprecated Use ClubCardProps instead */
+export type VenueCardProps = ClubCardProps;
+
+/**
+ * Type guard to check if item is from GolfAPI.io (not yet imported)
+ */
+function isApiResult(item: ClubCardItem): item is GolfApiSearchResultItem {
+  return 'source' in item && item.source === 'golfapi';
 }
 
 interface CourseRowProps {
   course: CourseWithFavoriteStatus;
-  venue: Venue;
-  onSelect?: (course: CourseWithFavoriteStatus, venue: Venue) => void;
+  club: Club;
+  onSelect?: (course: CourseWithFavoriteStatus, club: Club) => void;
   onToggleFavorite?: (course: CourseWithFavoriteStatus) => void;
   isTogglingFavorite?: boolean;
   showFavoriteButton?: boolean;
-  isNested?: boolean; // true when shown inside expanded venue
+  isNested?: boolean; // true when shown inside expanded club
   selectionMode?: boolean;
-  isHomeVenue?: boolean; // true if this venue is the user's home venue
+  isHomeClub?: boolean; // true if this club is the user's home club
+  showSource?: boolean; // Show API/Manual/Legacy source badge
 }
 
 // =====================================================
@@ -59,25 +82,39 @@ interface CourseRowProps {
 
 const CourseRow = React.memo(function CourseRow({
   course,
-  venue,
+  club,
   onSelect,
   onToggleFavorite,
   isTogglingFavorite,
   showFavoriteButton = true,
   isNested = false,
   selectionMode = false,
-  isHomeVenue = false,
+  isHomeClub = false,
+  showSource = false,
 }: CourseRowProps) {
   const colors = useThemeColors();
   const handlePress = useCallback(() => {
-    onSelect?.(course, venue);
-  }, [course, venue, onSelect]);
+    onSelect?.(course, club);
+  }, [course, club, onSelect]);
 
   const handleFavoritePress = useCallback(() => {
     onToggleFavorite?.(course);
   }, [course, onToggleFavorite]);
 
-  const locationText = [venue.city, venue.state].filter(Boolean).join(', ');
+  const locationText = [club.city, club.state].filter(Boolean).join(', ');
+
+  // Get source badge config for single-course display
+  const getSourceBadge = () => {
+    if (!showSource || isNested) return null; // Only show on single-course cards, not nested
+    const source = club.source;
+    if (source === 'api') {
+      return { label: 'API', color: colors.success, bgColor: colors.successLight + '30' };
+    } else if (source === 'legacy') {
+      return { label: 'Legacy', color: colors.warning, bgColor: colors.warningLight + '30' };
+    }
+    return { label: 'Manual', color: colors.textSecondary, bgColor: colors.gray200 };
+  };
+  const sourceBadge = getSourceBadge();
 
   return (
     <TouchableOpacity
@@ -97,18 +134,26 @@ const CourseRow = React.memo(function CourseRow({
             <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
               {course.name}
             </Text>
-            {/* Home badge for single-course venues */}
-            {!isNested && isHomeVenue && (
+            {/* Home badge for single-course clubs */}
+            {!isNested && isHomeClub && (
               <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
                 <Icon source="home" size={14} color={colors.primary} />
               </View>
             )}
+            {/* Source badge for single-course clubs */}
+            {sourceBadge && (
+              <View style={[styles.sourceBadge, { backgroundColor: sourceBadge.bgColor }]}>
+                <Text style={[styles.sourceBadgeText, { color: sourceBadge.color }]}>
+                  {sourceBadge.label}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Show venue name for non-nested (single course venues) */}
+          {/* Show club name for non-nested (single course clubs) */}
           {!isNested && locationText && (
-            <Text style={[styles.venueSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-              {venue.name} · {locationText}
+            <Text style={[styles.clubSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              {club.name} · {locationText}
             </Text>
           )}
 
@@ -171,109 +216,206 @@ const CourseRow = React.memo(function CourseRow({
 });
 
 // =====================================================
-// VENUE CARD COMPONENT
+// CLUB CARD COMPONENT
 // =====================================================
 
-export const VenueCard = React.memo(function VenueCard({
+export const ClubCard = React.memo(function ClubCard({
   item,
   onCourseSelect,
-  onVenuePress,
+  onClubPress,
   onToggleFavorite,
   isTogglingFavorite,
   showFavoriteButton = true,
   selectionMode = false,
-}: VenueCardProps) {
+  showSource = false,
+  isImporting = false,
+}: ClubCardProps) {
   const colors = useThemeColors();
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Check if this is an API result (not yet imported to local DB)
+  const isApiItem = isApiResult(item);
+
+  // All hooks must be called before any conditional returns
   const handleToggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded((prev) => !prev);
   }, []);
 
-  const handleVenuePress = useCallback(() => {
-    onVenuePress?.(item.venue);
-  }, [item.venue, onVenuePress]);
+  // For local items, get the club; for API items, this will be unused but we need consistent hook calls
+  const localItem = isApiItem ? null : (item as ClubCourseDisplayItem);
 
-  // Single-course venue: render course directly
-  if (item.type === 'single-course') {
-    const course = item.courses[0];
+  const handleClubPress = useCallback(() => {
+    if (isApiItem) {
+      // For API results, pass the item as-is (will be imported on selection)
+      onClubPress?.(item as unknown as Club);
+    } else if (localItem) {
+      onClubPress?.(localItem.club);
+    }
+  }, [isApiItem, item, localItem, onClubPress]);
+
+  // Handle API results (from GolfAPI.io search, not yet imported)
+  // These have empty courses array, so we render a simplified card
+  if (isApiItem) {
+    const apiItem = item as GolfApiSearchResultItem;
+    const locationText = [apiItem.city, apiItem.state].filter(Boolean).join(', ');
+    const isSingleCourse = !apiItem.is_multi_course;
+
+    return (
+      <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={styles.courseRow}
+          onPress={handleClubPress}
+          disabled={isImporting}
+          activeOpacity={0.7}
+        >
+          <View style={styles.courseRowContent}>
+            {/* Icon - golf for single course, home-city for multi-course */}
+            <View style={[styles.iconContainer, { backgroundColor: colors.primaryLighter }]}>
+              <Icon source={isSingleCourse ? 'golf' : 'home-city'} size={24} color={colors.primary} />
+            </View>
+
+            {/* Info */}
+            <View style={styles.courseInfo}>
+              <View style={styles.courseNameRow}>
+                <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {apiItem.name}
+                </Text>
+                {/* Multi-course badge */}
+                {!isSingleCourse && (
+                  <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.courseCountText, { color: colors.textOnColored }]}>
+                      {apiItem.course_count || '?'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {locationText && (
+                <Text style={[styles.clubSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {locationText}
+                </Text>
+              )}
+            </View>
+
+            {/* Actions */}
+            <View style={styles.courseActions}>
+              {isImporting ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : selectionMode ? (
+                <Icon source="chevron-right" size={24} color={colors.gray400} />
+              ) : null}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // From here on, item is a ClubCourseDisplayItem (local DB result)
+  // localItem is guaranteed to be non-null here since isApiItem is false
+  const displayItem = localItem!;
+
+  // Get source badge config
+  const getSourceBadge = () => {
+    if (!showSource) return null;
+    const source = displayItem.club.source;
+    if (source === 'api') {
+      return { label: 'API', color: colors.success, bgColor: colors.successLight + '30' };
+    } else if (source === 'legacy') {
+      return { label: 'Legacy', color: colors.warning, bgColor: colors.warningLight + '30' };
+    }
+    return { label: 'Manual', color: colors.textSecondary, bgColor: colors.gray200 };
+  };
+  const sourceBadge = getSourceBadge();
+
+  // Single-course club: render course directly
+  if (displayItem.type === 'single-course') {
+    const course = displayItem.courses[0];
     if (!course) return null;
 
     return (
       <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <CourseRow
           course={course}
-          venue={item.venue}
+          club={displayItem.club}
           onSelect={onCourseSelect}
           onToggleFavorite={onToggleFavorite}
           isTogglingFavorite={isTogglingFavorite === course.id}
           showFavoriteButton={showFavoriteButton}
           selectionMode={selectionMode}
-          isHomeVenue={item.is_home}
+          isHomeClub={displayItem.is_home}
+          showSource={showSource}
         />
       </View>
     );
   }
 
-  // Multi-course venue: render expandable card
-  const locationText = [item.venue.city, item.venue.state].filter(Boolean).join(', ');
+  // Multi-course club: render expandable card
+  const locationText = [displayItem.club.city, displayItem.club.state].filter(Boolean).join(', ');
 
   return (
     <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      {/* Venue Header (expandable) */}
+      {/* Club Header (expandable) */}
       <TouchableOpacity
-        style={[styles.venueHeader, { backgroundColor: colors.surface }]}
+        style={[styles.clubHeader, { backgroundColor: colors.surface }]}
         onPress={handleToggleExpand}
         activeOpacity={0.7}
       >
-        <View style={styles.venueHeaderContent}>
-          {/* Venue Icon */}
-          <View style={[styles.venueIconContainer, { backgroundColor: colors.primaryLighter }]}>
+        <View style={styles.clubHeaderContent}>
+          {/* Club Icon */}
+          <View style={[styles.clubIconContainer, { backgroundColor: colors.primaryLighter }]}>
             <Icon source="home-city" size={24} color={colors.primary} />
           </View>
 
-          {/* Venue Info */}
-          <View style={styles.venueInfo}>
-            <View style={styles.venueNameRow}>
-              <Text style={[styles.venueName, { color: colors.textPrimary }]} numberOfLines={1}>
-                {item.venue.name}
+          {/* Club Info */}
+          <View style={styles.clubInfo}>
+            <View style={styles.clubNameRow}>
+              <Text style={[styles.clubName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {displayItem.club.name}
               </Text>
-              {/* Home badge for multi-course venues */}
-              {item.is_home && (
+              {/* Home badge for multi-course clubs */}
+              {displayItem.is_home && (
                 <View style={[styles.homeBadge, { backgroundColor: colors.primaryLighter }]}>
                   <Icon source="home" size={14} color={colors.primary} />
                 </View>
               )}
+              {/* Source badge */}
+              {sourceBadge && (
+                <View style={[styles.sourceBadge, { backgroundColor: sourceBadge.bgColor }]}>
+                  <Text style={[styles.sourceBadgeText, { color: sourceBadge.color }]}>
+                    {sourceBadge.label}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.courseCountText, { color: colors.textOnColored }]}>
-                  {item.courses.length}
+                  {displayItem.courses.length}
                 </Text>
               </View>
             </View>
             {locationText && (
-              <Text style={[styles.venueLocation, { color: colors.textSecondary }]} numberOfLines={1}>
+              <Text style={[styles.clubLocation, { color: colors.textSecondary }]} numberOfLines={1}>
                 {locationText}
               </Text>
             )}
-            {item.venue.total_holes && (
-              <Text style={[styles.venueHoles, { color: colors.primary }]}>
-                {item.venue.total_holes} holes total
+            {displayItem.club.total_holes && (
+              <Text style={[styles.clubHoles, { color: colors.primary }]}>
+                {displayItem.club.total_holes} holes total
               </Text>
             )}
           </View>
 
           {/* Actions */}
-          <View style={styles.venueActions}>
-            {/* Navigate to Venue Details */}
-            {onVenuePress && (
+          <View style={styles.clubActions}>
+            {/* Navigate to Club Details */}
+            {onClubPress && (
               <TouchableOpacity
-                style={styles.venueActionButton}
-                onPress={handleVenuePress}
+                style={styles.clubActionButton}
+                onPress={handleClubPress}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel={`View ${item.venue.name} details`}
+                accessibilityLabel={`View ${displayItem.club.name} details`}
               >
                 <Icon source="information-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
@@ -293,11 +435,11 @@ export const VenueCard = React.memo(function VenueCard({
       {/* Expanded Courses List */}
       {isExpanded && (
         <View style={[styles.coursesContainer, { borderTopColor: colors.gray200, backgroundColor: colors.gray50 }]}>
-          {item.courses.map((course) => (
+          {displayItem.courses.map((course) => (
             <CourseRow
               key={course.id}
               course={course}
-              venue={item.venue}
+              club={displayItem.club}
               onSelect={onCourseSelect}
               onToggleFavorite={onToggleFavorite}
               isTogglingFavorite={isTogglingFavorite === course.id}
@@ -312,6 +454,9 @@ export const VenueCard = React.memo(function VenueCard({
   );
 });
 
+/** @deprecated Use ClubCard instead */
+export const VenueCard = ClubCard;
+
 // =====================================================
 // STYLES
 // =====================================================
@@ -325,31 +470,31 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
 
-  // Venue Header (for multi-course venues)
-  venueHeader: {
+  // Club Header (for multi-course clubs)
+  clubHeader: {
   },
-  venueHeaderContent: {
+  clubHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.lg,
   },
-  venueIconContainer: {
+  clubIconContainer: {
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  venueInfo: {
+  clubInfo: {
     flex: 1,
     marginLeft: spacing.md,
   },
-  venueNameRow: {
+  clubNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  venueName: {
+  clubName: {
     ...typography.bodyBold,
     flex: 1,
   },
@@ -367,23 +512,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  sourceBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  sourceBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
   courseCountText: {
     ...typography.caption,
     fontWeight: '600',
   },
-  venueLocation: {
+  clubLocation: {
     ...typography.small,
     marginTop: spacing.xs,
   },
-  venueHoles: {
+  clubHoles: {
     ...typography.caption,
     marginTop: spacing.xs,
   },
-  venueActions: {
+  clubActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  venueActionButton: {
+  clubActionButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
@@ -396,7 +552,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Courses Container (for expanded venues)
+  // Courses Container (for expanded clubs)
   coursesContainer: {
     borderTopWidth: 1,
   },
@@ -433,7 +589,7 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     flex: 1,
   },
-  venueSubtitle: {
+  clubSubtitle: {
     ...typography.small,
     marginTop: spacing.xs,
   },
@@ -463,4 +619,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VenueCard;
+export default ClubCard;

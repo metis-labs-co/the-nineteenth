@@ -9,7 +9,10 @@ export {
   authKeys,
   competitionKeys,
   roundKeys,
-  venueKeys,
+  clubKeys,
+  venueKeys, // @deprecated - use clubKeys
+  coordinateKeys,
+  teeKeys,
   courseKeys,
   playerKeys,
   scorecardKeys,
@@ -51,24 +54,74 @@ export {
 } from './useCourses';
 export type { CourseWithFavorite, CreateCourseInput } from './useCourses';
 
-// Venue hooks
+// Course details hooks
+export { useCourseDetails, useCoursesByClub, useCoursesByVenue } from './useCourseDetails';
+export type {
+  UseCourseDetailsOptions,
+  CourseWithDetails,
+  CourseWithClubDetail,
+  CourseWithVenueDetail, // @deprecated
+} from './useCourseDetails';
+
+// Tee hooks
 export {
-  useVenuesWithCourses,
-  useSearchVenues,
-  useVenueCourseDisplayItems,
-  useFavoriteCoursesWithVenues,
-  useCreateVenue,
-  useCreateVenueWithCourse,
+  useTeesByCourse,
+  useTeeById,
+  useTeesWithCourse,
+  useDefaultTee,
+  useTeesByGender,
+  useCreateTee,
+  useUpdateTee,
+  useDeleteTee,
+  useBulkCreateTees,
+} from './useTees';
+export type {
+  TeeWithCourse,
+  CreateTeeInput,
+  UpdateTeeInput,
+} from './useTees';
+
+// Club hooks (renamed from Venue hooks)
+export {
+  // New names
+  useClubsWithCourses,
+  useSearchClubs,
+  useClubCourseDisplayItems,
+  useFavoriteCoursesWithClubs,
+  useCreateClub,
+  useCreateClubWithCourse,
+  useCreateCourse as useCreateClubCourse,
+  // Search result helpers
+  isLocalClub,
+  isGolfApiResult, // Re-exported from useGolfApiSearch for convenience
+  // Deprecated aliases
+  useVenuesWithCourses, // @deprecated - use useClubsWithCourses
+  useSearchVenues, // @deprecated - use useSearchClubs
+  useVenueCourseDisplayItems, // @deprecated - use useClubCourseDisplayItems
+  useFavoriteCoursesWithVenues, // @deprecated - use useFavoriteCoursesWithClubs
+  useCreateVenue, // @deprecated - use useCreateClub
+  useCreateVenueWithCourse, // @deprecated - use useCreateClubWithCourse
+  // Favorites
   useAddCourseFavorite,
   useRemoveCourseFavorite,
-} from './useVenues';
+} from './useClubs';
 export type {
   CourseWithFavoriteStatus,
-  VenueWithCourses,
-  VenueCourseDisplayItem,
-  CreateVenueInput,
-} from './useVenues';
-export { useCreateCourse as useCreateVenueCourse } from './useVenues';
+  // New types
+  ClubWithCourses,
+  ClubCourseDisplayItem,
+  CreateClubInput,
+  CreateClubCourseInput,
+  FavoriteCourseWithClub,
+  SearchResultItem, // Union of local and API results
+  GolfApiSearchResultItem, // Re-exported from useGolfApiSearch for convenience
+  // Deprecated type aliases
+  VenueWithCourses, // @deprecated - use ClubWithCourses
+  VenueCourseDisplayItem, // @deprecated - use ClubCourseDisplayItem
+  CreateVenueInput, // @deprecated - use CreateClubInput
+  FavoriteCourseWithVenue, // @deprecated - use FavoriteCourseWithClub
+} from './useClubs';
+export { useCreateCourse as useCreateVenueCourse } from './useClubs'; // @deprecated
 
 // API Course hooks (GolfAPI.io)
 export {
@@ -86,6 +139,14 @@ export type {
   UseApiCourseSearchOptions,
   UseImportCourseOptions,
 } from './useApiCourses';
+
+// GolfAPI.io Club Search hooks (on-demand search fallback)
+export { useGolfApiSearch } from './useGolfApiSearch';
+// Note: isGolfApiResult and GolfApiSearchResultItem are re-exported from useClubs above
+
+// Club Import hooks
+export { useImportClub } from './useImportClub';
+export type { ImportClubResult } from './useImportClub';
 
 // Leaderboard hooks
 export { useLeaderboard } from './useLeaderboard';
@@ -217,13 +278,21 @@ export type {
   UsePushNotificationsReturn,
 } from './usePushNotifications';
 
-// Home venue hooks
+// Home club hooks (renamed from Home venue hooks)
 export {
-  useHomeVenue,
-  useSetHomeVenue,
-  useClearHomeVenue,
-} from './useHomeVenue';
-export type { HomeVenueWithCourses } from './useHomeVenue';
+  // New names
+  useHomeClub,
+  useSetHomeClub,
+  useClearHomeClub,
+  // Deprecated aliases
+  useHomeVenue, // @deprecated - use useHomeClub
+  useSetHomeVenue, // @deprecated - use useSetHomeClub
+  useClearHomeVenue, // @deprecated - use useClearHomeClub
+} from './useHomeClub';
+export type {
+  HomeClubWithCourses,
+  HomeVenueWithCourses, // @deprecated - use HomeClubWithCourses
+} from './useHomeClub';
 
 // Course update hooks
 export { useUpdateCourseHoles } from './useUpdateCourseHoles';
@@ -276,6 +345,27 @@ export {
   getIsOnlineCached,
   initOnlineStatus,
 } from './useOnlineStatus';
+
+// Hole Coordinates hooks (GPS features)
+export {
+  useHoleCoordinates,
+  useHoleCoordinatesByHole,
+  useGreenCoordinate,
+  useTeeCoordinate,
+  useCoordinateSummary,
+  useDistanceToGreen,
+  useHoleDistance,
+  useHasCoordinates,
+  useHasCompleteCoordinates,
+  useAllHoleDistances,
+} from './useHoleCoordinates';
+export type {
+  HoleCoordinateSet,
+  CoordinatesByHole,
+  UserLocation,
+  DistanceResult,
+  HoleCoordinateSummary,
+} from './useHoleCoordinates';
 
 // Skins game hooks
 export {

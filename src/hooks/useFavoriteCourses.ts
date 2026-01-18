@@ -9,13 +9,13 @@
  * - useEnrichWithFavorites() - Helper to add is_favorite to course arrays
  *
  * This hook consolidates favorite course logic that was previously
- * duplicated across useCourses, useVenues, useCourseDetails, and useVenueDetails.
+ * duplicated across useCourses, useClubs, and useCourseDetails.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { favoriteKeys, courseKeys, venueKeys } from '@/hooks/queryKeys';
+import { favoriteKeys, courseKeys, clubKeys } from '@/hooks/queryKeys';
 import type { Course } from '@/types/database.types';
 
 // =====================================================
@@ -114,9 +114,9 @@ export function useAddFavorite() {
     onSuccess: () => {
       // Invalidate all favorite-related queries
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all });
-      // Also invalidate course and venue queries that include favorite status
+      // Also invalidate course and club queries that include favorite status
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
+      queryClient.invalidateQueries({ queryKey: clubKeys.all });
     },
   });
 }
@@ -148,9 +148,9 @@ export function useRemoveFavorite() {
     onSuccess: () => {
       // Invalidate all favorite-related queries
       queryClient.invalidateQueries({ queryKey: favoriteKeys.all });
-      // Also invalidate course and venue queries that include favorite status
+      // Also invalidate course and club queries that include favorite status
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
+      queryClient.invalidateQueries({ queryKey: clubKeys.all });
     },
   });
 }

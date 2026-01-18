@@ -1,10 +1,10 @@
 /**
- * VenueScreen - Display venue details and list of courses
+ * ClubScreen - Display club details and list of courses
  *
  * Shows:
- * - Venue information (name, location, contact details)
- * - List of courses at the venue
- * - Links to contact venue (phone, email, website)
+ * - Club information (name, location, contact details)
+ * - List of courses at the club
+ * - Links to contact club (phone, email, website)
  */
 
 import React, { useCallback, useState } from 'react';
@@ -22,9 +22,9 @@ import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useVenueDetails } from '@/hooks/useVenueDetails';
-import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useVenues';
-import { useHomeVenue, useSetHomeVenue } from '@/hooks/useHomeVenue';
+import { useClubDetails } from '@/hooks/useClubDetails';
+import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
+import { useHomeClub, useSetHomeClub } from '@/hooks/useHomeClub';
 import { CourseCard } from '@/components/courses/CourseCard';
 import { PageHeader } from '@/components/common/PageHeader';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -35,10 +35,45 @@ import type { Course } from '@/types/database.types';
 // TYPES
 // =====================================================
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Venue'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Club'>;
 
 interface CourseWithFavorite extends Course {
   is_favorite: boolean;
+}
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+/**
+ * Format a date string for display
+ */
+function formatLastSynced(dateString: string | null | undefined): string {
+  if (!dateString) return 'Never';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return 'Unknown';
+  }
+}
+
+/**
+ * Get source display info
+ */
+function getSourceInfo(source: string | undefined) {
+  switch (source) {
+    case 'api':
+      return { label: 'GolfAPI.io', color: 'success' as const };
+    case 'legacy':
+      return { label: 'Legacy', color: 'warning' as const };
+    default:
+      return { label: 'Manual', color: 'default' as const };
+  }
 }
 
 // =====================================================
@@ -79,45 +114,45 @@ function ContactItem({ icon, label, value, onPress }: ContactItemProps) {
 }
 
 // =====================================================
-// VENUE SCREEN COMPONENT
+// CLUB SCREEN COMPONENT
 // =====================================================
 
-export default function VenueScreen({ route, navigation }: Props) {
-  const { venueId } = route.params;
+export default function ClubScreen({ route, navigation }: Props) {
+  const { clubId } = route.params;
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
   const cardBackground = colors.surface;
 
-  // Fetch venue details
+  // Fetch club details
   const {
-    data: venue,
+    data: club,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useVenueDetails(venueId);
+  } = useClubDetails(clubId);
 
   // Favorite mutations
   const addFavorite = useAddCourseFavorite();
   const removeFavorite = useRemoveCourseFavorite();
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
-  // Home venue state
-  const { data: currentHomeVenue } = useHomeVenue();
-  const setHomeVenue = useSetHomeVenue();
+  // Home club state
+  const { data: currentHomeClub } = useHomeClub();
+  const setHomeClub = useSetHomeClub();
   const [showHomeConfirmDialog, setShowHomeConfirmDialog] = useState(false);
   const [isSettingHome, setIsSettingHome] = useState(false);
 
-  // Check if this venue is the home venue
-  const isHomeVenue = venue?.id === currentHomeVenue?.id;
+  // Check if this club is the home club
+  const isHomeClub = club?.id === currentHomeClub?.id;
 
-  // Handle set as home venue
+  // Handle set as home club
   const handleSetAsHome = useCallback(() => {
-    if (!venue || isHomeVenue) return;
+    if (!club || isHomeClub) return;
 
-    // If there's a different home venue, show confirmation
-    if (currentHomeVenue && currentHomeVenue.id !== venue.id) {
+    // If there's a different home club, show confirmation
+    if (currentHomeClub && currentHomeClub.id !== club.id) {
       setShowHomeConfirmDialog(true);
       return;
     }
@@ -125,28 +160,28 @@ export default function VenueScreen({ route, navigation }: Props) {
     // Otherwise, set directly
     performSetAsHome();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- performSetAsHome is defined below but stable
-  }, [venue, currentHomeVenue, isHomeVenue]);
+  }, [club, currentHomeClub, isHomeClub]);
 
   const performSetAsHome = useCallback(async () => {
-    if (!venue) return;
+    if (!club) return;
     setIsSettingHome(true);
     try {
-      await setHomeVenue.mutateAsync(venue.id);
+      await setHomeClub.mutateAsync(club.id);
       refetch();
     } catch {
-      Alert.alert('Error', 'Failed to set home venue');
+      Alert.alert('Error', 'Failed to set home club');
     } finally {
       setIsSettingHome(false);
       setShowHomeConfirmDialog(false);
     }
-  }, [venue, setHomeVenue, refetch]);
+  }, [club, setHomeClub, refetch]);
 
   // Handle course press - navigate to CourseScreen
   const handleCoursePress = useCallback(
     (course: CourseWithFavorite) => {
-      navigation.navigate('Course', { courseId: course.id, venueId });
+      navigation.navigate('Course', { courseId: course.id, clubId });
     },
-    [navigation, venueId]
+    [navigation, clubId]
   );
 
   // Handle favorite toggle
@@ -170,8 +205,8 @@ export default function VenueScreen({ route, navigation }: Props) {
 
   // Contact handlers
   const handlePhonePress = useCallback(() => {
-    if (venue?.phone) {
-      const phoneUrl = `tel:${venue.phone.replace(/\s/g, '')}`;
+    if (club?.phone) {
+      const phoneUrl = `tel:${club.phone.replace(/\s/g, '')}`;
       Linking.canOpenURL(phoneUrl).then((supported) => {
         if (supported) {
           Linking.openURL(phoneUrl);
@@ -180,40 +215,40 @@ export default function VenueScreen({ route, navigation }: Props) {
         }
       });
     }
-  }, [venue?.phone]);
+  }, [club?.phone]);
 
   const handleEmailPress = useCallback(() => {
-    if (venue?.email) {
-      Linking.openURL(`mailto:${venue.email}`);
+    if (club?.email) {
+      Linking.openURL(`mailto:${club.email}`);
     }
-  }, [venue?.email]);
+  }, [club?.email]);
 
   const handleWebsitePress = useCallback(() => {
-    if (venue?.website) {
-      let url = venue.website;
+    if (club?.website) {
+      let url = club.website;
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = `https://${url}`;
       }
       Linking.openURL(url);
     }
-  }, [venue?.website]);
+  }, [club?.website]);
 
   const handleDirectionsPress = useCallback(() => {
-    if (venue?.address) {
-      const query = encodeURIComponent(`${venue.name}, ${venue.address}`);
+    if (club?.address) {
+      const query = encodeURIComponent(`${club.name}, ${club.address}`);
       // Open in Maps app (works on both iOS and Android)
       Linking.openURL(`https://maps.google.com/?q=${query}`);
-    } else if (venue?.location) {
-      const [lng, lat] = venue.location.coordinates;
+    } else if (club?.location) {
+      const [lng, lat] = club.location.coordinates;
       Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`);
     }
-  }, [venue?.name, venue?.address, venue?.location]);
+  }, [club?.name, club?.address, club?.location]);
 
   // Loading state
   if (isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <LoadingSpinner size="lg" message="Loading venue..." />
+        <LoadingSpinner size="lg" message="Loading club..." />
       </View>
     );
   }
@@ -224,7 +259,7 @@ export default function VenueScreen({ route, navigation }: Props) {
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Icon source="alert-circle-outline" size={48} color={colors.error} />
         <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
-          Unable to load venue
+          Unable to load club
         </Text>
         <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
           {error instanceof Error ? error.message : 'An error occurred'}
@@ -241,15 +276,15 @@ export default function VenueScreen({ route, navigation }: Props) {
   }
 
   // Not found state
-  if (!venue) {
+  if (!club) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Icon source="golf" size={48} color={colors.gray400} />
         <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>
-          Venue not found
+          Club not found
         </Text>
         <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-          This venue may have been removed
+          This club may have been removed
         </Text>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
@@ -263,14 +298,14 @@ export default function VenueScreen({ route, navigation }: Props) {
   }
 
   // Build location string
-  const locationParts = [venue.city, venue.state].filter(Boolean);
+  const locationParts = [club.city, club.state].filter(Boolean);
   const locationString = locationParts.join(', ');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
         variant="centered"
-        title={venue.name}
+        title={club.name}
         showBack
         onBack={() => navigation.goBack()}
       />
@@ -285,16 +320,16 @@ export default function VenueScreen({ route, navigation }: Props) {
           />
         }
       >
-      {/* Venue Header Card */}
+      {/* Club Header Card */}
       <View style={[styles.headerCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
-        {/* Venue Icon and Name */}
+        {/* Club Icon and Name */}
         <View style={styles.headerTop}>
-          <View style={[styles.venueIconLarge, { backgroundColor: colors.primaryLighter }]}>
+          <View style={[styles.clubIconLarge, { backgroundColor: colors.primaryLighter }]}>
             <Icon source="home-city" size={32} color={colors.primary} />
           </View>
           <View style={styles.headerInfo}>
-            <Text style={[styles.venueName, { color: colors.textPrimary }]}>
-              {venue.name}
+            <Text style={[styles.clubName, { color: colors.textPrimary }]}>
+              {club.name}
             </Text>
             {locationString && (
               <View style={styles.locationRow}>
@@ -304,49 +339,49 @@ export default function VenueScreen({ route, navigation }: Props) {
                 </Text>
               </View>
             )}
-            {venue.total_holes && (
+            {club.total_holes && (
               <View style={styles.holesRow}>
                 <Icon source="flag" size={16} color={colors.primary} />
                 <Text style={[styles.holesText, { color: colors.primary }]}>
-                  {venue.total_holes} holes total
+                  {club.total_holes} holes total
                 </Text>
               </View>
             )}
           </View>
         </View>
 
-        {/* Set as Home Venue Button */}
+        {/* Set as Home Club Button */}
         <TouchableOpacity
           style={[
-            styles.homeVenueButton,
+            styles.homeClubButton,
             { borderTopColor: colors.border },
-            isHomeVenue && { backgroundColor: colors.primaryLighter },
+            isHomeClub && { backgroundColor: colors.primaryLighter },
           ]}
-          activeOpacity={isHomeVenue ? 1 : 0.7}
+          activeOpacity={isHomeClub ? 1 : 0.7}
           onPress={handleSetAsHome}
-          disabled={isSettingHome || isHomeVenue}
+          disabled={isSettingHome || isHomeClub}
           accessibilityRole="button"
-          accessibilityLabel={isHomeVenue ? 'This is your home venue' : 'Set as home venue'}
+          accessibilityLabel={isHomeClub ? 'This is your home club' : 'Set as home club'}
         >
           {isSettingHome ? (
             <GolfBallLoader size="sm" />
           ) : (
             <>
               <Icon
-                source={isHomeVenue ? 'home' : 'home-outline'}
+                source={isHomeClub ? 'home' : 'home-outline'}
                 size={20}
-                color={isHomeVenue ? colors.primary : colors.textSecondary}
+                color={isHomeClub ? colors.primary : colors.textSecondary}
               />
               <Text
                 style={[
-                  styles.homeVenueButtonText,
-                  { color: isHomeVenue ? colors.primary : colors.textSecondary },
-                  isHomeVenue && styles.homeVenueButtonTextActive,
+                  styles.homeClubButtonText,
+                  { color: isHomeClub ? colors.primary : colors.textSecondary },
+                  isHomeClub && styles.homeClubButtonTextActive,
                 ]}
               >
-                {isHomeVenue ? 'Your Home Venue' : 'Set as Home Venue'}
+                {isHomeClub ? 'Your Home Club' : 'Set as Home Club'}
               </Text>
-              {isHomeVenue && (
+              {isHomeClub && (
                 <Icon source="check" size={18} color={colors.primary} />
               )}
             </>
@@ -354,7 +389,7 @@ export default function VenueScreen({ route, navigation }: Props) {
         </TouchableOpacity>
 
         {/* Full Address (if different from location) */}
-        {venue.address && (
+        {club.address && (
           <TouchableOpacity
             style={[styles.addressContainer, { borderTopColor: colors.border }]}
             activeOpacity={0.7}
@@ -362,41 +397,99 @@ export default function VenueScreen({ route, navigation }: Props) {
           >
             <Icon source="map-marker-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.addressText, { color: colors.textSecondary }]} numberOfLines={2}>
-              {venue.address}
+              {club.address}
             </Text>
             <Icon source="directions" size={20} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Data Source Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+          Data Source
+        </Text>
+        <View style={[styles.sourceCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+          <View style={styles.sourceRow}>
+            <View style={styles.sourceInfo}>
+              <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>Source</Text>
+              <View style={styles.sourceValueRow}>
+                <View
+                  style={[
+                    styles.sourceBadge,
+                    {
+                      backgroundColor:
+                        club.source === 'api'
+                          ? colors.successLight + '30'
+                          : club.source === 'legacy'
+                          ? colors.warningLight + '30'
+                          : colors.gray200,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.sourceBadgeText,
+                      {
+                        color:
+                          club.source === 'api'
+                            ? colors.success
+                            : club.source === 'legacy'
+                            ? colors.warning
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {getSourceInfo(club.source).label}
+                  </Text>
+                </View>
+                {club.golfapi_club_id && (
+                  <Text style={[styles.sourceId, { color: colors.textTertiary }]}>
+                    #{club.golfapi_club_id}
+                  </Text>
+                )}
+              </View>
+            </View>
+            {club.golfapi_updated_at && (
+              <View style={styles.sourceInfo}>
+                <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>Last Updated</Text>
+                <Text style={[styles.sourceValue, { color: colors.textPrimary }]}>
+                  {formatLastSynced(club.golfapi_updated_at)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
       {/* Contact Information */}
-      {(venue.phone || venue.email || venue.website) && (
+      {(club.phone || club.email || club.website) && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Contact Information
           </Text>
           <View style={[styles.contactCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
-            {venue.phone && (
+            {club.phone && (
               <ContactItem
                 icon="phone"
                 label="Phone"
-                value={venue.phone}
+                value={club.phone}
                 onPress={handlePhonePress}
               />
             )}
-            {venue.email && (
+            {club.email && (
               <ContactItem
                 icon="email"
                 label="Email"
-                value={venue.email}
+                value={club.email}
                 onPress={handleEmailPress}
               />
             )}
-            {venue.website && (
+            {club.website && (
               <ContactItem
                 icon="web"
                 label="Website"
-                value={venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                value={club.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                 onPress={handleWebsitePress}
               />
             )}
@@ -412,21 +505,21 @@ export default function VenueScreen({ route, navigation }: Props) {
           </Text>
           <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.courseCountText, { color: colors.white }]}>
-              {venue.courses.length}
+              {club.courses.length}
             </Text>
           </View>
         </View>
 
-        {venue.courses.length === 0 ? (
+        {club.courses.length === 0 ? (
           <View style={[styles.emptyCoursesCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
             <Icon source="golf" size={32} color={colors.gray400} />
             <Text style={[styles.emptyCoursesText, { color: colors.textSecondary }]}>
-              No courses have been added to this venue yet
+              No courses have been added to this club yet
             </Text>
           </View>
         ) : (
           <View style={styles.coursesList}>
-            {venue.courses.map((course) => (
+            {club.courses.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}
@@ -442,11 +535,11 @@ export default function VenueScreen({ route, navigation }: Props) {
       </View>
     </ScrollView>
 
-      {/* Home Venue Confirmation Dialog */}
+      {/* Home Club Confirmation Dialog */}
       <ConfirmationDialog
         visible={showHomeConfirmDialog}
-        title="Change Home Venue?"
-        message={`You already have "${currentHomeVenue?.name}" set as your home venue. Would you like to replace it with "${venue?.name}"?`}
+        title="Change Home Club?"
+        message={`You already have "${currentHomeClub?.name}" set as your home club. Would you like to replace it with "${club?.name}"?`}
         confirmLabel="Replace"
         cancelLabel="Cancel"
         confirmVariant="primary"
@@ -458,6 +551,9 @@ export default function VenueScreen({ route, navigation }: Props) {
     </View>
   );
 }
+
+// Backwards compatibility alias
+export { ClubScreen as VenueScreen };
 
 // =====================================================
 // STYLES
@@ -513,7 +609,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: spacing.lg,
   },
-  venueIconLarge: {
+  clubIconLarge: {
     width: 64,
     height: 64,
     borderRadius: borderRadius.lg,
@@ -524,7 +620,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  venueName: {
+  clubName: {
     ...typography.h3,
   },
   locationRow: {
@@ -545,7 +641,7 @@ const styles = StyleSheet.create({
   holesText: {
     ...typography.small,
   },
-  homeVenueButton: {
+  homeClubButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -554,10 +650,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     gap: spacing.sm,
   },
-  homeVenueButtonText: {
+  homeClubButtonText: {
     ...typography.body,
   },
-  homeVenueButtonTextActive: {
+  homeClubButtonTextActive: {
     fontWeight: '600',
   },
   addressContainer: {
@@ -586,6 +682,49 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.h4,
   },
+
+  // Source Card
+  sourceCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    gap: spacing.xl,
+  },
+  sourceInfo: {
+    flex: 1,
+  },
+  sourceLabel: {
+    ...typography.caption,
+    marginBottom: spacing.xs,
+  },
+  sourceValue: {
+    ...typography.body,
+  },
+  sourceValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sourceBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  sourceBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    fontSize: 11,
+  },
+  sourceId: {
+    ...typography.caption,
+    fontSize: 11,
+  },
+
   courseCountBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

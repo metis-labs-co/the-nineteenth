@@ -19,7 +19,7 @@ export interface Player {
   golf_id: string | null; // 10-digit Golf Australia ID (formerly GOLF Link number)
   handicap_updated_at: string | null; // ISO timestamp when handicap was last updated
   photo_url: string | null;
-  home_venue_id: string | null; // UUID, reference to player's designated home golf club (venue)
+  home_club_id: string | null; // UUID, reference to player's designated home golf club (renamed from home_venue_id)
   // Placeholder player fields
   is_placeholder: boolean; // TRUE for guest/placeholder players without auth accounts
   created_by: string | null; // UUID of user who created this placeholder (NULL for real players)

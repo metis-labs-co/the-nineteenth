@@ -3,7 +3,7 @@
  *
  * Features:
  * - Slides up from bottom of screen
- * - Step 1: Search/select venue and course
+ * - Step 1: Search/select club and course
  * - Step 2: Select tee box (optional)
  * - Step 3: Select match type (Stableford, Stroke, Match Play)
  * - Step 4: Select playing partners (up to 3 from friends)
@@ -20,11 +20,11 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { useFriends } from '@/hooks/useFriends';
 import {
-  useSearchVenues,
-  useVenuesWithCourses,
-  useFavoriteCoursesWithVenues,
-} from '@/hooks/useVenues';
-import type { VenueCourseDisplayItem, VenueWithCourses } from '@/hooks/useVenues';
+  useSearchClubs,
+  useClubsWithCourses,
+  useFavoriteCoursesWithClubs,
+} from '@/hooks/useClubs';
+import type { ClubCourseDisplayItem, ClubWithCourses } from '@/hooks/useClubs';
 import { BottomSheet } from '@/components/common';
 
 // Types
@@ -68,47 +68,47 @@ export default function CreateRoundBottomSheet({
 
   // Data fetching
   const { data: friends, isLoading: friendsLoading } = useFriends();
-  const { data: favoriteCourses } = useFavoriteCoursesWithVenues();
+  const { data: favoriteCourses } = useFavoriteCoursesWithClubs();
 
-  // Venue/course search
-  const { data: searchResults, isLoading: searchLoading } = useSearchVenues(
+  // Club/course search
+  const { data: searchResults, isLoading: searchLoading } = useSearchClubs(
     wizard.data.searchQuery.trim(),
     undefined
   );
-  const { data: allVenues, isLoading: venuesLoading } = useVenuesWithCourses();
+  const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Helper to transform venues to display items
-  const toDisplayItem = (venue: VenueWithCourses): VenueCourseDisplayItem => ({
-    type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-    venue: {
-      id: venue.id,
-      source: venue.source,
-      api_id: venue.api_id,
-      name: venue.name,
-      state: venue.state,
-      city: venue.city,
-      address: venue.address,
-      phone: venue.phone,
-      email: venue.email,
-      website: venue.website,
-      location: venue.location,
-      total_holes: venue.total_holes,
-      last_synced: venue.last_synced,
-      created_at: venue.created_at,
-      updated_at: venue.updated_at,
+  // Helper to transform clubs to display items
+  const toDisplayItem = (club: ClubWithCourses): ClubCourseDisplayItem => ({
+    type: club.is_multi_course ? 'multi-course-club' : 'single-course',
+    club: {
+      id: club.id,
+      source: club.source,
+      golfapi_club_id: club.golfapi_club_id,
+      name: club.name,
+      state: club.state,
+      city: club.city,
+      address: club.address,
+      phone: club.phone,
+      email: club.email,
+      website: club.website,
+      location: club.location,
+      total_holes: club.total_holes,
+      last_synced: club.last_synced,
+      created_at: club.created_at,
+      updated_at: club.updated_at,
     },
-    courses: venue.courses,
-    is_home: venue.is_home,
+    courses: club.courses,
+    is_home: club.is_home,
   });
 
-  // Transform venues to display items (for both search and full list)
-  const displayItems: VenueCourseDisplayItem[] =
+  // Transform clubs to display items (for both search and full list)
+  const displayItems: ClubCourseDisplayItem[] =
     wizard.data.searchQuery.trim().length >= 2
       ? (searchResults ?? []).map(toDisplayItem)
-      : (allVenues ?? []).map(toDisplayItem);
+      : (allClubs ?? []).map(toDisplayItem);
 
   const coursesLoading =
-    wizard.data.searchQuery.trim().length >= 2 ? searchLoading : venuesLoading;
+    wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
 
   // Get back button handler based on current step
   const getBackHandler = () => {

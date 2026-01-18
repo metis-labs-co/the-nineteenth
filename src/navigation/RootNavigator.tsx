@@ -66,8 +66,8 @@ import FriendsScreen from '@/screens/social/FriendsScreen';
 import PlayerDetailScreen from '@/screens/social/PlayerDetailScreen';
 import CompareStatsScreen from '@/screens/social/CompareStatsScreen';
 
-// Course & Venue Screens
-import VenueScreen from '@/screens/courses/VenueScreen';
+// Course & Club Screens
+import ClubScreen from '@/screens/courses/ClubScreen';
 import CourseDetailScreen from '@/screens/courses/CourseDetailScreen';
 
 // Notifications
@@ -416,12 +416,12 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
-            {/* Venue & Course Screens */}
+            {/* Club & Course Screens */}
             <Stack.Screen
-              name="Venue"
-              component={VenueScreen}
+              name="Club"
+              component={ClubScreen}
               options={{
-                title: 'Venue',
+                title: 'Club',
                 headerShown: false,
               }}
             />

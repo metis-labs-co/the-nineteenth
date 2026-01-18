@@ -1,9 +1,9 @@
 /**
- * VenueCard Component Tests
+ * ClubCard Component Tests
  *
- * Tests for the hybrid venue/course display component including:
- * - Single-course venue rendering (direct course display)
- * - Multi-course venue rendering (expandable with nested courses)
+ * Tests for the hybrid club/course display component including:
+ * - Single-course club rendering (direct course display)
+ * - Multi-course club rendering (expandable with nested courses)
  * - Favorite toggle functionality
  * - Selection mode for course picking
  * - Expand/collapse behavior
@@ -13,9 +13,9 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
-import { VenueCard } from './VenueCard';
-import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
-import type { Venue, Hole } from '@/types/database.types';
+import { ClubCard, VenueCard } from './ClubCard';
+import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { Club, Hole } from '@/types/database.types';
 
 // =====================================================
 // MOCKS
@@ -33,7 +33,7 @@ jest.mock('@/components/common', () => {
   };
 });
 
-// Mock VenueCard's LayoutAnimation import by patching it
+// Mock ClubCard's LayoutAnimation import by patching it
 // We do this by importing the module and patching before tests
 beforeAll(() => {
   const RN = require('react-native');
@@ -55,17 +55,22 @@ const createTestHole = (number: number, par: 3 | 4 | 5 = 4): Hole => ({
   yardages: { blue: 400, white: 380, red: 350 },
 });
 
-const createTestVenue = (overrides: Partial<Venue> = {}): Venue => ({
-  id: 'venue-1',
+const createTestClub = (overrides: Partial<Club> = {}): Club => ({
+  id: 'club-1',
   source: 'manual',
-  api_id: null,
+  golfapi_club_id: null,
   name: 'Test Golf Club',
   state: 'VIC',
   city: 'Melbourne',
   address: '123 Golf Street',
+  postal_code: null,
+  country: 'Australia',
+  continent: null,
   phone: null,
   email: null,
   website: null,
+  latitude: null,
+  longitude: null,
   location: null,
   total_holes: 18,
   last_synced: null,
@@ -78,15 +83,23 @@ const createTestCourse = (
   overrides: Partial<CourseWithFavoriteStatus> = {}
 ): CourseWithFavoriteStatus => ({
   id: 'course-1',
-  venue_id: 'venue-1',
+  club_id: 'club-1',
+  golfapi_course_id: null,
+  golfapi_long_course_id: null,
   name: 'Championship Course',
   description: 'A challenging championship course',
+  num_holes: 18,
+  measure_unit: null,
   holes: Array.from({ length: 18 }, (_, i) => createTestHole(i + 1)),
+  holes_women: null,
+  match_play_indexes: null,
   tees: [
     { name: 'Men', color: 'white', totalYardage: 6400, courseRating: 70.0, slopeRating: 125 },
   ],
+  tees_migrated: null,
   slope_rating: 125,
   course_rating: 70.0,
+  golfapi_updated_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   is_favorite: false,
@@ -94,19 +107,23 @@ const createTestCourse = (
 });
 
 const createSingleCourseItem = (
-  venueOverrides: Partial<Venue> = {},
+  clubOverrides: Partial<Club> = {},
   courseOverrides: Partial<CourseWithFavoriteStatus> = {}
-): VenueCourseDisplayItem => ({
-  type: 'single-course',
-  venue: createTestVenue(venueOverrides),
-  courses: [createTestCourse(courseOverrides)],
-});
+): ClubCourseDisplayItem => {
+  const club = createTestClub(clubOverrides);
+  return {
+    type: 'single-course',
+    club,
+    venue: club, // backwards compatibility
+    courses: [createTestCourse(courseOverrides)],
+  };
+};
 
 const createMultiCourseItem = (
-  venueOverrides: Partial<Venue> = {},
+  clubOverrides: Partial<Club> = {},
   courseCount = 3
-): VenueCourseDisplayItem => {
-  const venue = createTestVenue(venueOverrides);
+): ClubCourseDisplayItem => {
+  const club = createTestClub(clubOverrides);
   const courses = Array.from({ length: courseCount }, (_, i) =>
     createTestCourse({
       id: `course-${i + 1}`,
@@ -116,8 +133,9 @@ const createMultiCourseItem = (
     })
   );
   return {
-    type: 'multi-course-venue',
-    venue,
+    type: 'multi-course-club',
+    club,
+    venue: club, // backwards compatibility
     courses,
   };
 };
@@ -126,11 +144,11 @@ const createMultiCourseItem = (
 // TEST SUITE
 // =====================================================
 
-describe('VenueCard', () => {
+describe('ClubCard', () => {
   const defaultProps = {
     item: createSingleCourseItem(),
     onCourseSelect: jest.fn(),
-    onVenuePress: jest.fn(),
+    onClubPress: jest.fn(),
     onToggleFavorite: jest.fn(),
     showFavoriteButton: true,
     selectionMode: false,
@@ -141,36 +159,36 @@ describe('VenueCard', () => {
   });
 
   // ===========================================================================
-  // SINGLE-COURSE VENUE TESTS
+  // SINGLE-COURSE CLUB TESTS
   // ===========================================================================
 
-  describe('Single-Course Venue', () => {
+  describe('Single-Course Club', () => {
     it('renders course name', () => {
-      render(<VenueCard {...defaultProps} />);
+      render(<ClubCard {...defaultProps} />);
       expect(screen.getByText('Championship Course')).toBeTruthy();
     });
 
-    it('renders venue name and location as subtitle', () => {
-      render(<VenueCard {...defaultProps} />);
+    it('renders club name and location as subtitle', () => {
+      render(<ClubCard {...defaultProps} />);
       expect(screen.getByText('Test Golf Club · Melbourne, VIC')).toBeTruthy();
     });
 
     it('renders hole count when holes exist', () => {
-      render(<VenueCard {...defaultProps} />);
+      render(<ClubCard {...defaultProps} />);
       expect(screen.getByText('18 holes')).toBeTruthy();
     });
 
     it('renders slope rating when available', () => {
-      render(<VenueCard {...defaultProps} />);
+      render(<ClubCard {...defaultProps} />);
       expect(screen.getByText(/Slope: 125/)).toBeTruthy();
     });
 
     it('calls onCourseSelect when card is pressed', () => {
       const onCourseSelect = jest.fn();
-      render(<VenueCard {...defaultProps} onCourseSelect={onCourseSelect} />);
+      render(<ClubCard {...defaultProps} onCourseSelect={onCourseSelect} />);
 
       const course = defaultProps.item.courses[0];
-      const venue = defaultProps.item.venue;
+      const venue = defaultProps.item.club;
 
       // Find and press the touchable (course row)
       const courseCard = screen.getByText('Championship Course');
@@ -180,7 +198,7 @@ describe('VenueCard', () => {
     });
 
     it('shows star outline icon when not favorite', () => {
-      render(<VenueCard {...defaultProps} />);
+      render(<ClubCard {...defaultProps} />);
       // The icon mock doesn't render text, but the button should be there
       // We verify the structure renders without favorite styling
       expect(screen.queryByTestId('golf-ball-loader')).toBeNull();
@@ -188,7 +206,7 @@ describe('VenueCard', () => {
 
     it('calls onToggleFavorite when favorite button is pressed', () => {
       const onToggleFavorite = jest.fn();
-      render(<VenueCard {...defaultProps} onToggleFavorite={onToggleFavorite} />);
+      render(<ClubCard {...defaultProps} onToggleFavorite={onToggleFavorite} />);
 
       // The favorite button is within the course row
       // We need to find it and press it
@@ -209,7 +227,7 @@ describe('VenueCard', () => {
       const item = createSingleCourseItem({}, course);
 
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={item}
           isTogglingFavorite={course.id}
@@ -220,13 +238,15 @@ describe('VenueCard', () => {
     });
 
     it('returns null if course is missing', () => {
-      const item: VenueCourseDisplayItem = {
+      const club = createTestClub();
+      const item: ClubCourseDisplayItem = {
         type: 'single-course',
-        venue: createTestVenue(),
+        club,
+        venue: club,
         courses: [],
       };
 
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
       // When no course, the card container should not be present
       expect(screen.queryByText('Championship Course')).toBeNull();
       expect(screen.queryByText('Test Golf Club')).toBeNull();
@@ -234,7 +254,7 @@ describe('VenueCard', () => {
 
     it('renders location without city if not provided', () => {
       const item = createSingleCourseItem({ city: undefined });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       // Should show "Test Golf Club · VIC" instead of "Test Golf Club · Melbourne, VIC"
       expect(screen.queryByText('Test Golf Club · Melbourne, VIC')).toBeNull();
@@ -242,14 +262,14 @@ describe('VenueCard', () => {
 
     it('does not render meta row if no holes or rating', () => {
       const item = createSingleCourseItem({}, { holes: [], slope_rating: null });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.queryByText(/holes/)).toBeNull();
       expect(screen.queryByText(/Slope/)).toBeNull();
     });
 
     it('shows chevron-right icon in selection mode', () => {
-      render(<VenueCard {...defaultProps} selectionMode={true} />);
+      render(<ClubCard {...defaultProps} selectionMode={true} />);
       // The chevron icon should be visible instead of favorite button
       // Since we're testing structure, just verify no loader appears
       expect(screen.queryByTestId('golf-ball-loader')).toBeNull();
@@ -258,7 +278,7 @@ describe('VenueCard', () => {
     it('hides favorite button in selection mode', () => {
       const onToggleFavorite = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           onToggleFavorite={onToggleFavorite}
           selectionMode={true}
@@ -279,31 +299,31 @@ describe('VenueCard', () => {
   // MULTI-COURSE VENUE TESTS
   // ===========================================================================
 
-  describe('Multi-Course Venue', () => {
+  describe('Multi-Course Club', () => {
     const multiCourseItem = createMultiCourseItem({ name: 'Grand Golf Resort', total_holes: 54 });
 
-    it('renders venue name', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+    it('renders club name', () => {
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
       expect(screen.getByText('Grand Golf Resort')).toBeTruthy();
     });
 
     it('renders course count badge', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
       expect(screen.getByText('3')).toBeTruthy();
     });
 
     it('renders location', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
       expect(screen.getByText('Melbourne, VIC')).toBeTruthy();
     });
 
     it('renders total holes when available', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
       expect(screen.getByText('54 holes total')).toBeTruthy();
     });
 
     it('does not show courses when collapsed', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
       // Courses should not be visible initially
       expect(screen.queryByText('North Course')).toBeNull();
@@ -311,10 +331,10 @@ describe('VenueCard', () => {
     });
 
     it('expands to show courses when header is pressed', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Courses should now be visible
       expect(screen.getByText('North Course')).toBeTruthy();
@@ -322,10 +342,10 @@ describe('VenueCard', () => {
     });
 
     it('collapses when header is pressed again', () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      const parentElement = venueHeader.parent?.parent?.parent || venueHeader;
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      const parentElement = clubHeader.parent?.parent?.parent || clubHeader;
 
       // Expand
       fireEvent.press(parentElement);
@@ -336,13 +356,13 @@ describe('VenueCard', () => {
       expect(screen.queryByText('North Course')).toBeNull();
     });
 
-    it('calls onVenuePress when info button is pressed', () => {
-      const onVenuePress = jest.fn();
+    it('calls onClubPress when info button is pressed', () => {
+      const onClubPress = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
-          onVenuePress={onVenuePress}
+          onClubPress={onClubPress}
         />
       );
 
@@ -350,23 +370,23 @@ describe('VenueCard', () => {
       const infoButton = screen.getByLabelText('View Grand Golf Resort details');
       fireEvent.press(infoButton);
 
-      expect(onVenuePress).toHaveBeenCalledWith(multiCourseItem.venue);
+      expect(onClubPress).toHaveBeenCalledWith(multiCourseItem.club);
     });
 
-    it('does not render info button when onVenuePress is not provided', () => {
+    it('does not render info button when onClubPress is not provided', () => {
       render(
-        <VenueCard {...defaultProps} item={multiCourseItem} onVenuePress={undefined} />
+        <ClubCard {...defaultProps} item={multiCourseItem} onClubPress={undefined} />
       );
 
       expect(screen.queryByLabelText(/View.*details/)).toBeNull();
     });
 
     it('renders course description for nested courses', async () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
       // Expand
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // First course has description
       expect(screen.getByText('18 holes par 72')).toBeTruthy();
@@ -375,7 +395,7 @@ describe('VenueCard', () => {
     it('calls onCourseSelect for nested course', async () => {
       const onCourseSelect = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
           onCourseSelect={onCourseSelect}
@@ -383,8 +403,8 @@ describe('VenueCard', () => {
       );
 
       // Expand
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Press a nested course
       const nestedCourse = screen.getByText('North Course');
@@ -392,16 +412,16 @@ describe('VenueCard', () => {
 
       expect(onCourseSelect).toHaveBeenCalledWith(
         multiCourseItem.courses[0],
-        multiCourseItem.venue
+        multiCourseItem.club
       );
     });
 
     it('shows favorite status for nested courses', async () => {
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
       // Expand
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // First course is marked as favorite in our fixture
       // The structure should exist for displaying favorites
@@ -411,7 +431,7 @@ describe('VenueCard', () => {
     it('handles toggling favorite for nested course', async () => {
       const onToggleFavorite = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
           onToggleFavorite={onToggleFavorite}
@@ -419,8 +439,8 @@ describe('VenueCard', () => {
       );
 
       // Expand
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Find favorite button for first course
       const buttons = screen.root.findAllByType('TouchableOpacity' as any);
@@ -436,7 +456,7 @@ describe('VenueCard', () => {
 
     it('shows loading for specific course when toggling', async () => {
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
           isTogglingFavorite="course-1"
@@ -444,8 +464,8 @@ describe('VenueCard', () => {
       );
 
       // Expand
-      const venueHeader = screen.getByText('Grand Golf Resort');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Grand Golf Resort');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Should show loader for the course being toggled
       expect(screen.getByTestId('golf-ball-loader')).toBeTruthy();
@@ -453,14 +473,14 @@ describe('VenueCard', () => {
 
     it('renders without total_holes if not available', () => {
       const itemWithoutTotalHoles = createMultiCourseItem({ total_holes: undefined });
-      render(<VenueCard {...defaultProps} item={itemWithoutTotalHoles} />);
+      render(<ClubCard {...defaultProps} item={itemWithoutTotalHoles} />);
 
       expect(screen.queryByText(/holes total/)).toBeNull();
     });
 
     it('renders without location if city and state are missing', () => {
       const itemNoLocation = createMultiCourseItem({ city: undefined, state: undefined });
-      render(<VenueCard {...defaultProps} item={itemNoLocation} />);
+      render(<ClubCard {...defaultProps} item={itemNoLocation} />);
 
       expect(screen.queryByText('Melbourne, VIC')).toBeNull();
     });
@@ -471,15 +491,15 @@ describe('VenueCard', () => {
   // ===========================================================================
 
   describe('Selection Mode', () => {
-    it('shows chevron-right for single-course venue in selection mode', () => {
-      render(<VenueCard {...defaultProps} selectionMode={true} />);
+    it('shows chevron-right for single-course club in selection mode', () => {
+      render(<ClubCard {...defaultProps} selectionMode={true} />);
       // Icon should be rendered, verify component doesn't crash
       expect(screen.getByText('Championship Course')).toBeTruthy();
     });
 
     it('hides favorite button for single-course in selection mode', () => {
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           selectionMode={true}
           showFavoriteButton={true}
@@ -493,12 +513,12 @@ describe('VenueCard', () => {
     it('shows chevron-right for nested courses in selection mode', async () => {
       const multiCourseItem = createMultiCourseItem();
       render(
-        <VenueCard {...defaultProps} item={multiCourseItem} selectionMode={true} />
+        <ClubCard {...defaultProps} item={multiCourseItem} selectionMode={true} />
       );
 
-      // Expand venue
-      const venueHeader = screen.getByText('Test Golf Club');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      // Expand club
+      const clubHeader = screen.getByText('Test Golf Club');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Verify nested courses render
       expect(screen.getByText('North Course')).toBeTruthy();
@@ -511,12 +531,12 @@ describe('VenueCard', () => {
 
   describe('Show Favorite Button', () => {
     it('hides favorite button when showFavoriteButton is false', () => {
-      render(<VenueCard {...defaultProps} showFavoriteButton={false} />);
+      render(<ClubCard {...defaultProps} showFavoriteButton={false} />);
 
       // The favorite button area should not contain the toggle functionality
       const onToggleFavorite = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           showFavoriteButton={false}
           onToggleFavorite={onToggleFavorite}
@@ -543,21 +563,21 @@ describe('VenueCard', () => {
         {},
         { holes: Array.from({ length: 9 }, (_, i) => createTestHole(i + 1)) }
       );
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.getByText('9 holes')).toBeTruthy();
     });
 
     it('renders slope rating without holes', () => {
       const item = createSingleCourseItem({}, { holes: [], slope_rating: 130 });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.getByText('Slope: 130')).toBeTruthy();
       expect(screen.queryByText(/holes/)).toBeNull();
     });
 
     it('renders both holes and slope with separator', () => {
-      render(<VenueCard {...defaultProps} />);
+      render(<ClubCard {...defaultProps} />);
 
       expect(screen.getByText('18 holes')).toBeTruthy();
       // The separator and slope are in a separate Text element
@@ -567,7 +587,7 @@ describe('VenueCard', () => {
 
     it('does not render meta row if empty', () => {
       const item = createSingleCourseItem({}, { holes: [], slope_rating: null });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.queryByText(/holes/)).toBeNull();
       expect(screen.queryByText(/Slope/)).toBeNull();
@@ -581,7 +601,7 @@ describe('VenueCard', () => {
   describe('Favorite State Display', () => {
     it('renders with favorite state', () => {
       const item = createSingleCourseItem({}, { is_favorite: true });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       // Component should render without errors
       expect(screen.getByText('Championship Course')).toBeTruthy();
@@ -589,7 +609,7 @@ describe('VenueCard', () => {
 
     it('renders with non-favorite state', () => {
       const item = createSingleCourseItem({}, { is_favorite: false });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.getByText('Championship Course')).toBeTruthy();
     });
@@ -598,7 +618,7 @@ describe('VenueCard', () => {
       const multiCourseItem = createMultiCourseItem();
 
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
           isTogglingFavorite="course-2"
@@ -606,8 +626,8 @@ describe('VenueCard', () => {
       );
 
       // Expand
-      const venueHeader = screen.getByText('Test Golf Club');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Test Golf Club');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Only one loader should be visible (for course-2)
       const loaders = screen.getAllByTestId('golf-ball-loader');
@@ -623,10 +643,10 @@ describe('VenueCard', () => {
     it('has accessible info button with label', () => {
       const multiCourseItem = createMultiCourseItem({ name: 'Royal Melbourne' });
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
-          onVenuePress={jest.fn()}
+          onClubPress={jest.fn()}
         />
       );
 
@@ -636,10 +656,10 @@ describe('VenueCard', () => {
     it('info button has accessible role', () => {
       const multiCourseItem = createMultiCourseItem();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           item={multiCourseItem}
-          onVenuePress={jest.fn()}
+          onClubPress={jest.fn()}
         />
       );
 
@@ -654,41 +674,43 @@ describe('VenueCard', () => {
 
   describe('Edge Cases', () => {
     it('handles empty courses array for single-course type', () => {
-      const item: VenueCourseDisplayItem = {
+      const club = createTestClub();
+      const item: ClubCourseDisplayItem = {
         type: 'single-course',
-        venue: createTestVenue(),
+        club,
+        venue: club,
         courses: [],
       };
 
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
       // When courses array is empty for single-course type, nothing should render
       expect(screen.queryByText('Test Golf Club')).toBeNull();
     });
 
-    it('handles venue with only city (no state)', () => {
+    it('handles club with only city (no state)', () => {
       const item = createSingleCourseItem({ city: 'Sydney', state: undefined });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
-      // Should show venue name with just city
-      // Pattern: "Venue Name · City"
+      // Should show club name with just city
+      // Pattern: "Club Name · City"
       expect(screen.getByText('Test Golf Club · Sydney')).toBeTruthy();
     });
 
-    it('handles venue with only state (no city)', () => {
+    it('handles club with only state (no city)', () => {
       const item = createSingleCourseItem({ city: undefined, state: 'NSW' });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
-      // Should show venue name with just state
+      // Should show club name with just state
       expect(screen.getByText('Test Golf Club · NSW')).toBeTruthy();
     });
 
-    it('handles venue with neither city nor state', () => {
+    it('handles club with neither city nor state', () => {
       const item = createSingleCourseItem({ city: undefined, state: undefined });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       // Course name should be visible
       expect(screen.getByText('Championship Course')).toBeTruthy();
-      // But the location part should be empty (just venue name)
+      // But the location part should be empty (just club name)
       // The component will still show "Test Golf Club · " but with empty location
       // Verify it doesn't show city or state explicitly
       expect(screen.queryByText('Melbourne')).toBeNull();
@@ -699,21 +721,21 @@ describe('VenueCard', () => {
       const multiCourseItem = createMultiCourseItem();
       multiCourseItem.courses[0].description = null;
 
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
       // Expand
-      const venueHeader = screen.getByText('Test Golf Club');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Test Golf Club');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       expect(screen.getByText('North Course')).toBeTruthy();
     });
 
     it('handles rapid expand/collapse', () => {
       const multiCourseItem = createMultiCourseItem();
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
-      const venueHeader = screen.getByText('Test Golf Club');
-      const parentElement = venueHeader.parent?.parent?.parent || venueHeader;
+      const clubHeader = screen.getByText('Test Golf Club');
+      const parentElement = clubHeader.parent?.parent?.parent || clubHeader;
 
       // Rapidly expand/collapse
       fireEvent.press(parentElement);
@@ -727,7 +749,7 @@ describe('VenueCard', () => {
     });
 
     it('handles undefined onCourseSelect', () => {
-      render(<VenueCard {...defaultProps} onCourseSelect={undefined} />);
+      render(<ClubCard {...defaultProps} onCourseSelect={undefined} />);
 
       const courseText = screen.getByText('Championship Course');
       // Should not throw when pressed
@@ -735,7 +757,7 @@ describe('VenueCard', () => {
     });
 
     it('handles undefined onToggleFavorite', () => {
-      render(<VenueCard {...defaultProps} onToggleFavorite={undefined} />);
+      render(<ClubCard {...defaultProps} onToggleFavorite={undefined} />);
 
       // Component should render without the callback
       expect(screen.getByText('Championship Course')).toBeTruthy();
@@ -743,7 +765,7 @@ describe('VenueCard', () => {
 
     it('handles course with null slope_rating', () => {
       const item = createSingleCourseItem({}, { slope_rating: null });
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(screen.queryByText(/Slope/)).toBeNull();
       expect(screen.getByText('18 holes')).toBeTruthy();
@@ -754,7 +776,7 @@ describe('VenueCard', () => {
         {},
         { name: 'The Very Long Name Championship Golf Course at the Grand Resort and Country Club' }
       );
-      render(<VenueCard {...defaultProps} item={item} />);
+      render(<ClubCard {...defaultProps} item={item} />);
 
       expect(
         screen.getByText(
@@ -763,11 +785,11 @@ describe('VenueCard', () => {
       ).toBeTruthy();
     });
 
-    it('handles very long venue name', () => {
+    it('handles very long club name', () => {
       const multiItem = createMultiCourseItem({
         name: 'The Grand Royal Imperial Golf Resort and Country Club of Victoria',
       });
-      render(<VenueCard {...defaultProps} item={multiItem} />);
+      render(<ClubCard {...defaultProps} item={multiItem} />);
 
       expect(
         screen.getByText(
@@ -785,7 +807,7 @@ describe('VenueCard', () => {
     it('disables favorite button while toggling', () => {
       const onToggleFavorite = jest.fn();
       render(
-        <VenueCard
+        <ClubCard
           {...defaultProps}
           onToggleFavorite={onToggleFavorite}
           isTogglingFavorite={defaultProps.item.courses[0].id}
@@ -806,14 +828,14 @@ describe('VenueCard', () => {
     it('toggles expand state on press', () => {
       // LayoutAnimation is used internally but we test the state change behavior
       const multiCourseItem = createMultiCourseItem();
-      render(<VenueCard {...defaultProps} item={multiCourseItem} />);
+      render(<ClubCard {...defaultProps} item={multiCourseItem} />);
 
       // Initially collapsed
       expect(screen.queryByText('North Course')).toBeNull();
 
       // Expand
-      const venueHeader = screen.getByText('Test Golf Club');
-      fireEvent.press(venueHeader.parent?.parent?.parent || venueHeader);
+      const clubHeader = screen.getByText('Test Golf Club');
+      fireEvent.press(clubHeader.parent?.parent?.parent || clubHeader);
 
       // Now expanded
       expect(screen.getByText('North Course')).toBeTruthy();
@@ -827,10 +849,10 @@ describe('VenueCard', () => {
   describe('Stability', () => {
     it('renders consistently with same props', () => {
       // Just verify we can render twice without errors
-      const { getByText: firstGet } = render(<VenueCard {...defaultProps} />);
+      const { getByText: firstGet } = render(<ClubCard {...defaultProps} />);
       expect(firstGet('Championship Course')).toBeTruthy();
 
-      const { getByText: secondGet } = render(<VenueCard {...defaultProps} />);
+      const { getByText: secondGet } = render(<ClubCard {...defaultProps} />);
       expect(secondGet('Championship Course')).toBeTruthy();
     });
   });
@@ -844,26 +866,26 @@ describe('VenueCard', () => {
       const onCourseSelect = jest.fn();
       const item = createSingleCourseItem();
 
-      render(<VenueCard {...defaultProps} item={item} onCourseSelect={onCourseSelect} />);
+      render(<ClubCard {...defaultProps} item={item} onCourseSelect={onCourseSelect} />);
 
       const courseText = screen.getByText('Championship Course');
       fireEvent.press(courseText.parent?.parent || courseText);
 
-      expect(onCourseSelect).toHaveBeenCalledWith(item.courses[0], item.venue);
+      expect(onCourseSelect).toHaveBeenCalledWith(item.courses[0], item.club);
     });
 
-    it('passes correct venue to onVenuePress', () => {
-      const onVenuePress = jest.fn();
+    it('passes correct club to onClubPress', () => {
+      const onClubPress = jest.fn();
       const multiItem = createMultiCourseItem();
 
       render(
-        <VenueCard {...defaultProps} item={multiItem} onVenuePress={onVenuePress} />
+        <ClubCard {...defaultProps} item={multiItem} onClubPress={onClubPress} />
       );
 
       const infoButton = screen.getByLabelText(/View.*details/);
       fireEvent.press(infoButton);
 
-      expect(onVenuePress).toHaveBeenCalledWith(multiItem.venue);
+      expect(onClubPress).toHaveBeenCalledWith(multiItem.club);
     });
 
     it('passes correct course to onToggleFavorite', () => {
@@ -871,7 +893,7 @@ describe('VenueCard', () => {
       const item = createSingleCourseItem();
 
       render(
-        <VenueCard {...defaultProps} item={item} onToggleFavorite={onToggleFavorite} />
+        <ClubCard {...defaultProps} item={item} onToggleFavorite={onToggleFavorite} />
       );
 
       const buttons = screen.root.findAllByType('TouchableOpacity' as any);

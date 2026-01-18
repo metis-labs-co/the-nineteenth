@@ -1,63 +1,68 @@
 /**
- * useHomeVenue - Hook for managing user's home venue (golf club)
+ * useHomeClub - Hook for managing user's home club (golf club)
  *
  * Provides:
- * - Fetch home venue with courses
- * - Set home venue
- * - Clear home venue
+ * - Fetch home club with courses
+ * - Set home club
+ * - Clear home club
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { venueKeys, authKeys } from '@/hooks/queryKeys';
-import type { Venue, Course } from '@/types/database.types';
+import { clubKeys, authKeys } from '@/hooks/queryKeys';
+import type { Club, Course } from '@/types/database.types';
 
 // =====================================================
 // TYPES
 // =====================================================
 
 /**
- * Home venue with its courses
+ * Home club with its courses
  */
-export interface HomeVenueWithCourses extends Venue {
+export interface HomeClubWithCourses extends Club {
   courses: Course[];
 }
+
+/**
+ * @deprecated Use HomeClubWithCourses instead
+ */
+export type HomeVenueWithCourses = HomeClubWithCourses;
 
 // =====================================================
 // QUERY HOOK
 // =====================================================
 
 /**
- * Fetch the user's home venue with courses
- * Returns null if no home venue is set
+ * Fetch the user's home club with courses
+ * Returns null if no home club is set
  */
-export function useHomeVenue() {
+export function useHomeClub() {
   const { user, player } = useAuth();
 
   return useQuery({
-    queryKey: venueKeys.homeVenue(user?.id ?? ''),
-    queryFn: async (): Promise<HomeVenueWithCourses | null> => {
-      if (!player?.home_venue_id) return null;
+    queryKey: clubKeys.homeClub(user?.id ?? ''),
+    queryFn: async (): Promise<HomeClubWithCourses | null> => {
+      if (!player?.home_club_id) return null;
 
       const { data, error } = await supabase
-        .from('venues')
+        .from('clubs')
         .select(`
           *,
           courses (*)
         `)
-        .eq('id', player.home_venue_id)
+        .eq('id', player.home_club_id)
         .single();
 
       if (error) {
-        // If venue not found (deleted), return null gracefully
+        // If club not found (deleted), return null gracefully
         if (error.code === 'PGRST116') return null;
         throw error;
       }
 
-      return data as HomeVenueWithCourses;
+      return data as HomeClubWithCourses;
     },
-    enabled: !!user?.id && !!player?.home_venue_id,
+    enabled: !!user?.id && !!player?.home_club_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -67,64 +72,83 @@ export function useHomeVenue() {
 // =====================================================
 
 /**
- * Set a venue as home
+ * Set a club as home
  * Note: Does NOT auto-add to favorites (favorites are course-based)
  */
-export function useSetHomeVenue() {
+export function useSetHomeClub() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (venueId: string) => {
-      if (!user) throw new Error('Must be logged in to set home venue');
+    mutationFn: async (clubId: string) => {
+      if (!user) throw new Error('Must be logged in to set home club');
 
-      // Update player's home_venue_id
+      // Update player's home_club_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { error } = await (supabase as any)
         .from('players')
-        .update({ home_venue_id: venueId })
+        .update({ home_club_id: clubId })
         .eq('id', user.id);
 
       if (error) throw error;
-      return venueId;
+      return clubId;
     },
     onSuccess: () => {
       if (user?.id) {
         // Invalidate all relevant caches
-        queryClient.invalidateQueries({ queryKey: venueKeys.homeVenue(user.id) });
+        queryClient.invalidateQueries({ queryKey: clubKeys.homeClub(user.id) });
         queryClient.invalidateQueries({ queryKey: authKeys.player(user.id) });
-        queryClient.invalidateQueries({ queryKey: venueKeys.all });
+        queryClient.invalidateQueries({ queryKey: clubKeys.all });
       }
     },
   });
 }
 
 /**
- * Clear the home venue (set to null)
+ * Clear the home club (set to null)
  */
-export function useClearHomeVenue() {
+export function useClearHomeClub() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error('Must be logged in to clear home venue');
+      if (!user) throw new Error('Must be logged in to clear home club');
 
       // Type assertion needed because Supabase generated types may not include all Player fields
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
       const { error } = await (supabase as any)
         .from('players')
-        .update({ home_venue_id: null })
+        .update({ home_club_id: null })
         .eq('id', user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: venueKeys.homeVenue(user.id) });
+        queryClient.invalidateQueries({ queryKey: clubKeys.homeClub(user.id) });
         queryClient.invalidateQueries({ queryKey: authKeys.player(user.id) });
-        queryClient.invalidateQueries({ queryKey: venueKeys.all });
+        queryClient.invalidateQueries({ queryKey: clubKeys.all });
       }
     },
   });
 }
+
+// =====================================================
+// DEPRECATED HOOKS (for backward compatibility)
+// =====================================================
+
+/**
+ * @deprecated Use useHomeClub instead
+ */
+export const useHomeVenue = useHomeClub;
+
+/**
+ * @deprecated Use useSetHomeClub instead
+ */
+export const useSetHomeVenue = useSetHomeClub;
+
+/**
+ * @deprecated Use useClearHomeClub instead
+ */
+export const useClearHomeVenue = useClearHomeClub;

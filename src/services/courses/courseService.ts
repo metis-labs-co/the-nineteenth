@@ -1,43 +1,69 @@
 /**
  * Unified Course Service
  *
- * Orchestrates GolfAPI.io calls and PostgreSQL caching.
+ * Orchestrates GolfAPI.io calls and PostgreSQL caching for clubs, courses, tees, and coordinates.
+ *
  * Features:
  * - Always search local cache first
  * - Fetch from API when enabled
  * - Graceful fallback to cache on API failure
- * - Import courses with full details
+ * - Import clubs with courses and tees
  * - Refresh stale course data
+ *
+ * Updated January 2026 for GolfAPI.io integration:
+ * - Renamed venue → club throughout
+ * - Courses now use club_id (not venue_id)
+ * - Tees stored in separate table (not JSONB)
+ * - Coordinates stored in separate table
  */
 
 import { golfApiClient, RateLimitError, NetworkError } from '@/services/api/golfApiClient';
 import { courseCacheService, CACHE_TTL_MS } from './cacheService';
+import { teesService } from './teesService';
+import { coordinatesService } from './coordinatesService';
 import {
-  transformClubToCourse,
-  transformCourseDetail,
+  transformApiClubResponse,
+  transformApiCourseResponse,
+  transformApiCoordinates,
   hasHoleData,
+  hasTeeData,
 } from '@/services/api/golfApiTransformers';
-import type { LegacyCourse, AustralianState } from '@/types/database.types';
+import type {
+  Club,
+  Course,
+  Tee,
+  HoleCoordinate,
+  CourseWithClub,
+  ClubWithCourses,
+} from '@/types/database.types';
+import type { AustralianState } from '@/types/database/enums';
 import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
 
 // =====================================================
 // TYPES
 // =====================================================
 
+/**
+ * Search parameters for clubs/courses
+ */
 export interface CourseSearchParams {
   query?: string;
   state?: AustralianState;
+  city?: string;
   limit?: number;
   offset?: number;
   /** Whether to search external API in addition to cache */
   searchApi?: boolean;
 }
 
+/**
+ * Search result for clubs
+ */
 export interface CourseSearchResult {
-  /** Courses from local cache */
-  cached: LegacyCourse[];
-  /** Courses from API (transformed, not yet cached) */
-  apiResults: Partial<LegacyCourse>[];
+  /** Clubs from local cache */
+  cached: Club[];
+  /** Clubs from API (transformed, not yet cached) */
+  apiResults: Partial<Club>[];
   /** Whether results came primarily from cache */
   fromCache: boolean;
   /** Whether API was searched */
@@ -50,12 +76,40 @@ export interface CourseSearchResult {
   hasMoreCached: boolean;
 }
 
+/**
+ * Result of importing a course from API
+ */
 export interface ImportCourseResult {
-  course: LegacyCourse;
+  club: Club;
+  course: Course;
+  tees: Tee[];
+  /** Whether club was newly created or updated */
+  clubCreated: boolean;
   /** Whether course was newly created or updated */
-  created: boolean;
+  courseCreated: boolean;
   /** Whether full hole data was imported */
   hasHoleData: boolean;
+  /** Whether tee data was imported */
+  hasTeeData: boolean;
+}
+
+/**
+ * Result of importing a club with all its courses
+ */
+export interface ImportClubResult {
+  club: Club;
+  courses: Course[];
+  tees: Tee[];
+  created: boolean;
+}
+
+/**
+ * Course with full details including club, tees, and coordinates
+ */
+export interface CourseWithDetails extends Course {
+  club: Club;
+  tees_list: Tee[];
+  coordinates?: HoleCoordinate[];
 }
 
 // =====================================================
@@ -64,10 +118,11 @@ export interface ImportCourseResult {
 
 /**
  * Unified Course Service
+ * Orchestrates club, course, tee, and coordinate management
  */
 class CourseService {
   /**
-   * Search courses from cache and optionally API
+   * Search clubs from cache and optionally API
    *
    * @param params - Search parameters
    * @returns Combined search results
@@ -76,21 +131,23 @@ class CourseService {
     const {
       query,
       state,
+      city,
       limit = 20,
       offset = 0,
       searchApi = false,
     } = params;
 
-    // Always search cache first
-    const cacheResult = await courseCacheService.searchCachedCourses({
+    // Always search cache first (now searches clubs table)
+    const cacheResult = await courseCacheService.searchCachedClubs({
       query,
       state,
+      city,
       limit,
       offset,
     });
 
     const result: CourseSearchResult = {
-      cached: cacheResult.courses,
+      cached: cacheResult.clubs,
       apiResults: [],
       fromCache: true,
       apiSearched: false,
@@ -108,25 +165,23 @@ class CourseService {
       const apiParams: GolfApiSearchParams = {
         query,
         state,
-        country: 'AU',
-        limit,
-        offset,
+        // country defaults to 'Australia' in golfApiClient
       };
 
-      const apiResponse = await golfApiClient.searchClubs(apiParams);
+      const apiResults = await golfApiClient.searchClubs(apiParams);
 
       result.apiSearched = true;
 
-      // Transform API results
-      const apiCourses = apiResponse.data.map(transformClubToCourse);
+      // Transform API results to Club format
+      const apiClubs = apiResults.map((clubResponse) => transformApiClubResponse(clubResponse));
 
-      // Filter out courses already in cache (by api_id)
-      const cachedApiIds = new Set(
-        cacheResult.courses.filter((c) => c.api_id).map((c) => c.api_id)
+      // Filter out clubs already in cache (by golfapi_club_id)
+      const cachedGolfApiIds = new Set(
+        cacheResult.clubs.filter((c) => c.golfapi_club_id).map((c) => c.golfapi_club_id)
       );
 
-      result.apiResults = apiCourses.filter(
-        (c) => c.api_id && !cachedApiIds.has(c.api_id)
+      result.apiResults = apiClubs.filter(
+        (c) => c.golfapi_club_id && !cachedGolfApiIds.has(c.golfapi_club_id)
       );
 
       result.fromCache = false;
@@ -149,42 +204,81 @@ class CourseService {
 
   /**
    * Import a course from API to local cache
+   * Creates/updates club, course, and tees separately
    *
-   * @param apiCourseId - The API course identifier
-   * @param clubId - The API club identifier
-   * @returns Imported course with full details
+   * @param golfapiCourseId - The GolfAPI.io course identifier
+   * @returns Imported course with club and tees
    */
-  async importCourse(apiCourseId: string, clubId: string): Promise<ImportCourseResult> {
-    // Check if already cached
-    const existingCourse = await courseCacheService.getCachedCourseByApiId(apiCourseId);
-    const created = !existingCourse;
+  async importCourse(golfapiCourseId: string): Promise<ImportCourseResult> {
+    // Check if course already cached
+    const existingCourse = await courseCacheService.getCachedCourseByGolfApiId(golfapiCourseId);
+    const courseCreated = !existingCourse;
 
     try {
-      // Fetch club info
-      const club = await golfApiClient.getClub(clubId);
+      // Fetch course details from API (includes club info and tees)
+      const courseResponse = await golfApiClient.getCourse(golfapiCourseId);
 
-      // Fetch course details with holes/tees
-      const courseDetails = await golfApiClient.getCourseDetails(apiCourseId);
+      // Transform API response
+      const { course: courseData, tees: teesData, club: clubData } =
+        transformApiCourseResponse(courseResponse);
 
-      // Transform to app format
-      const transformedCourse = transformCourseDetail(club, courseDetails);
+      // Check if club already exists
+      const existingClub = clubData.golfapi_club_id
+        ? await courseCacheService.getCachedClubByGolfApiId(clubData.golfapi_club_id)
+        : null;
+      const clubCreated = !existingClub;
 
-      // Cache the course
-      const cachedCourse = await courseCacheService.cacheCourse(transformedCourse);
+      // Cache club
+      const club = await courseCacheService.cacheClub({
+        name: clubData.name || 'Unknown Club',
+        ...clubData,
+      });
+
+      // Cache course with club_id
+      const course = await courseCacheService.cacheCourse({
+        name: courseData.name || 'Main Course',
+        club_id: club.id,
+        ...courseData,
+      });
+
+      // Cache tees
+      const tees = await teesService.cacheTees(
+        course.id,
+        teesData.map((t) => ({
+          name: t.name || 'Default',
+          ...t,
+        }))
+      );
 
       return {
-        course: cachedCourse,
-        created,
-        hasHoleData: hasHoleData(transformedCourse),
+        club,
+        course,
+        tees,
+        clubCreated,
+        courseCreated,
+        hasHoleData: hasHoleData(courseData),
+        hasTeeData: hasTeeData(teesData),
       };
     } catch (error) {
       // If API fails but we have cached data, return stale cache
       if (existingCourse) {
         console.warn('[CourseService] API fetch failed, returning cached data:', error);
+
+        const club = await courseCacheService.getCachedClubById(existingCourse.club_id);
+        const tees = await teesService.getTeesByCourse(existingCourse.id);
+
+        if (!club) {
+          throw new Error('Club not found for cached course');
+        }
+
         return {
+          club,
           course: existingCourse,
-          created: false,
+          tees,
+          clubCreated: false,
+          courseCreated: false,
           hasHoleData: hasHoleData(existingCourse),
+          hasTeeData: tees.length > 0,
         };
       }
 
@@ -193,88 +287,223 @@ class CourseService {
   }
 
   /**
-   * Import a course from search result (basic info only)
-   * Use when full course details aren't available yet
+   * Import a club with all its courses from API
    *
-   * @param partialCourse - Partial course data from search
-   * @returns Cached course
+   * @param golfapiClubId - The GolfAPI.io club identifier
+   * @returns Imported club with all courses and tees
    */
-  async importBasicCourse(partialCourse: Partial<LegacyCourse>): Promise<LegacyCourse> {
-    return courseCacheService.cacheCourse(partialCourse);
+  async importClubWithCourses(golfapiClubId: string): Promise<ImportClubResult> {
+    // Check if club already exists
+    const existingClub = await courseCacheService.getCachedClubByGolfApiId(golfapiClubId);
+    const created = !existingClub;
+
+    try {
+      // Fetch club from API (includes nested courses summary)
+      const clubResponse = await golfApiClient.getClub(golfapiClubId);
+
+      // Transform and cache club
+      const clubData = transformApiClubResponse(clubResponse);
+      const club = await courseCacheService.cacheClub({
+        name: clubData.name || 'Unknown Club',
+        ...clubData,
+      });
+
+      const courses: Course[] = [];
+      const allTees: Tee[] = [];
+
+      // Import each course from the club
+      if (clubResponse.courses && clubResponse.courses.length > 0) {
+        for (const courseSummary of clubResponse.courses) {
+          try {
+            // Fetch full course details
+            const courseResponse = await golfApiClient.getCourse(courseSummary.courseID);
+
+            // Transform course and tees
+            const { course: courseData, tees: teesData } =
+              transformApiCourseResponse(courseResponse);
+
+            // Cache course
+            const course = await courseCacheService.cacheCourse({
+              name: courseData.name || courseSummary.courseName || 'Main Course',
+              club_id: club.id,
+              ...courseData,
+            });
+
+            courses.push(course);
+
+            // Cache tees for this course
+            const tees = await teesService.cacheTees(
+              course.id,
+              teesData.map((t) => ({
+                name: t.name || 'Default',
+                ...t,
+              }))
+            );
+
+            allTees.push(...tees);
+          } catch (courseError) {
+            console.warn(
+              '[CourseService] Failed to import course:',
+              courseSummary.courseName,
+              courseError
+            );
+            // Continue with other courses
+          }
+        }
+      }
+
+      return {
+        club,
+        courses,
+        tees: allTees,
+        created,
+      };
+    } catch (error) {
+      // If API fails but we have cached data, return stale cache
+      if (existingClub) {
+        console.warn('[CourseService] API fetch failed, returning cached data:', error);
+
+        const courses = await courseCacheService.getCoursesByClub(existingClub.id);
+        const allTees: Tee[] = [];
+
+        for (const course of courses) {
+          const tees = await teesService.getTeesByCourse(course.id);
+          allTees.push(...tees);
+        }
+
+        return {
+          club: existingClub,
+          courses,
+          tees: allTees,
+          created: false,
+        };
+      }
+
+      throw error;
+    }
   }
 
   /**
-   * Get course with optional refresh from API
+   * Import a club from search result (basic info only)
+   * Use when full course details aren't available yet
+   *
+   * @param partialClub - Partial club data from search
+   * @returns Cached club
+   */
+  async importBasicClub(partialClub: Partial<Club>): Promise<Club> {
+    return courseCacheService.cacheClub({
+      name: partialClub.name || 'Unknown Club',
+      ...partialClub,
+    });
+  }
+
+  /**
+   * Get course with full details including club, tees, and optionally coordinates
    *
    * @param courseId - Internal course ID
-   * @param forceRefresh - Force refresh from API even if cache is fresh
-   * @returns Course data
+   * @param options - Fetch options
+   * @returns Course with full details
    */
   async getCourseWithDetails(
     courseId: string,
-    forceRefresh: boolean = false
-  ): Promise<LegacyCourse | null> {
-    // Get cached course
-    const cachedCourse = await courseCacheService.getCachedCourse(courseId);
+    options: {
+      forceRefresh?: boolean;
+      includeCoordinates?: boolean;
+    } = {}
+  ): Promise<CourseWithDetails | null> {
+    const { forceRefresh = false, includeCoordinates = false } = options;
 
-    if (!cachedCourse) {
+    // Get cached course with club
+    const courseWithClub = await courseCacheService.getCachedCourseWithClub(courseId);
+
+    if (!courseWithClub) {
       return null;
     }
 
-    // If manual course, return as-is
-    if (cachedCourse.source === 'manual') {
-      return cachedCourse;
+    // Get tees from separate table
+    const tees = await teesService.getTeesByCourse(courseId);
+
+    // Get coordinates if requested
+    let coordinates: HoleCoordinate[] | undefined;
+    if (includeCoordinates) {
+      coordinates = await coordinatesService.getCoordinatesByCourse(courseId);
     }
+
+    const result: CourseWithDetails = {
+      ...courseWithClub,
+      tees_list: tees,
+      coordinates,
+    };
 
     // Check if refresh needed
     const needsRefresh =
       forceRefresh ||
-      !cachedCourse.last_synced ||
-      Date.now() - new Date(cachedCourse.last_synced).getTime() > CACHE_TTL_MS;
+      (courseWithClub.club.source === 'api' &&
+        (!courseWithClub.club.last_synced ||
+          Date.now() - new Date(courseWithClub.club.last_synced).getTime() > CACHE_TTL_MS));
 
-    if (!needsRefresh || !cachedCourse.api_id) {
-      return cachedCourse;
+    if (!needsRefresh || !courseWithClub.golfapi_course_id) {
+      return result;
     }
 
     // Try to refresh from API
     if (!golfApiClient.isAvailable()) {
-      return cachedCourse;
+      return result;
     }
 
     try {
-      const courseDetails = await golfApiClient.getCourseDetails(cachedCourse.api_id);
+      const importResult = await this.importCourse(courseWithClub.golfapi_course_id);
 
-      // Get club info for full transformation
-      // Note: We'd need the club ID, which we may not have stored
-      // For now, just update hole/tee data
-      const updatedCourse = await courseCacheService.cacheCourse({
-        ...cachedCourse,
-        holes: courseDetails.holes?.map((h) => ({
-          number: h.number as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
-          par: h.par,
-          strokeIndex: h.strokeIndex,
-          yardages: h.yardages?.reduce((acc, y) => {
-            acc[y.teeName?.toLowerCase() || y.teeId] = y.yards;
-            return acc;
-          }, {} as Record<string, number>),
-        })) ?? cachedCourse.holes,
-        tees: courseDetails.tees?.map((t) => ({
-          name: t.name,
-          color: t.color,
-          totalYardage: t.totalYardage,
-          courseRating: t.courseRating,
-          slopeRating: t.slopeRating,
-        })) ?? cachedCourse.tees,
-        slope_rating: courseDetails.slopeRating ?? cachedCourse.slope_rating,
-        course_rating: courseDetails.courseRating ?? cachedCourse.course_rating,
-        last_synced: new Date().toISOString(),
-      });
+      // Optionally refresh coordinates
+      if (includeCoordinates && courseWithClub.golfapi_course_id) {
+        try {
+          await this.importCoordinates(courseWithClub.golfapi_course_id, importResult.course.id);
+          coordinates = await coordinatesService.getCoordinatesByCourse(courseId);
+        } catch (coordError) {
+          console.warn('[CourseService] Failed to refresh coordinates:', coordError);
+        }
+      }
 
-      return updatedCourse;
+      return {
+        ...importResult.course,
+        club: importResult.club,
+        tees_list: importResult.tees,
+        coordinates,
+      };
     } catch (error) {
       console.warn('[CourseService] Failed to refresh course:', error);
       // Return stale cache on error
-      return cachedCourse;
+      return result;
+    }
+  }
+
+  /**
+   * Import coordinates for a course from API
+   *
+   * @param golfapiCourseId - The GolfAPI.io course identifier
+   * @param courseId - Internal course ID
+   * @returns Number of coordinates imported
+   */
+  async importCoordinates(golfapiCourseId: string, courseId: string): Promise<number> {
+    try {
+      const coordsResponse = await golfApiClient.getCoordinates(golfapiCourseId);
+
+      if (!coordsResponse.coordinates || coordsResponse.coordinates.length === 0) {
+        return 0;
+      }
+
+      // Transform and filter to essential coordinates
+      const transformedCoords = transformApiCoordinates(coordsResponse.coordinates, courseId);
+
+      if (transformedCoords.length === 0) {
+        return 0;
+      }
+
+      // Cache coordinates
+      return coordinatesService.cacheCoordinates(courseId, transformedCoords);
+    } catch (error) {
+      console.warn('[CourseService] Failed to import coordinates:', error);
+      return 0;
     }
   }
 
@@ -282,10 +511,20 @@ class CourseService {
    * Refresh course data from API
    *
    * @param courseId - Internal course ID
-   * @returns Updated course
+   * @returns Updated course with details
    */
-  async refreshCourseData(courseId: string): Promise<LegacyCourse | null> {
-    return this.getCourseWithDetails(courseId, true);
+  async refreshCourseData(courseId: string): Promise<CourseWithDetails | null> {
+    return this.getCourseWithDetails(courseId, { forceRefresh: true });
+  }
+
+  /**
+   * Get club with all its courses
+   *
+   * @param clubId - Internal club ID
+   * @returns Club with courses or null
+   */
+  async getClubWithCourses(clubId: string): Promise<ClubWithCourses | null> {
+    return courseCacheService.getCachedClubWithCourses(clubId);
   }
 
   /**
@@ -303,26 +542,30 @@ class CourseService {
   }
 
   /**
-   * Refresh all stale courses (background task)
+   * Refresh all stale clubs (background task)
    *
-   * @param batchSize - Number of courses to refresh per batch
-   * @returns Number of courses refreshed
+   * @param batchSize - Number of clubs to refresh per batch
+   * @returns Number of clubs refreshed
    */
-  async refreshStaleCourses(batchSize: number = 10): Promise<number> {
+  async refreshStaleClubs(batchSize: number = 10): Promise<number> {
     if (!golfApiClient.isAvailable()) {
       return 0;
     }
 
-    const staleCourses = await courseCacheService.getStaleCourses(batchSize);
+    const staleClubs = await courseCacheService.getStaleClubs(batchSize);
     let refreshedCount = 0;
 
-    for (const course of staleCourses) {
+    for (const club of staleClubs) {
+      if (!club.golfapi_club_id) {
+        continue;
+      }
+
       try {
-        await this.refreshCourseData(course.id);
+        await this.importClubWithCourses(club.golfapi_club_id);
         refreshedCount++;
       } catch (error) {
-        console.warn('[CourseService] Failed to refresh stale course:', course.name, error);
-        // Continue with other courses
+        console.warn('[CourseService] Failed to refresh stale club:', club.name, error);
+        // Continue with other clubs
       }
     }
 

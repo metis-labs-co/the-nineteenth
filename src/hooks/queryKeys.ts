@@ -45,21 +45,26 @@ export const roundKeys = {
 } as const;
 
 // =====================================================
-// VENUES
+// CLUBS (renamed from VENUES)
 // =====================================================
 
-export const venueKeys = {
-  all: ['venues'] as const,
-  lists: () => [...venueKeys.all, 'list'] as const,
+export const clubKeys = {
+  all: ['clubs'] as const,
+  lists: () => [...clubKeys.all, 'list'] as const,
   list: (filters?: { state?: string; search?: string }) =>
-    [...venueKeys.lists(), filters] as const,
-  withCourses: () => [...venueKeys.all, 'with-courses'] as const,
+    [...clubKeys.lists(), filters] as const,
+  withCourses: () => [...clubKeys.all, 'with-courses'] as const,
   withCoursesFiltered: (filters?: { state?: string; search?: string }) =>
-    [...venueKeys.withCourses(), filters] as const,
-  details: () => [...venueKeys.all, 'detail'] as const,
-  detail: (id: string) => [...venueKeys.details(), id] as const,
-  homeVenue: (playerId: string) => [...venueKeys.all, 'home', playerId] as const,
+    [...clubKeys.withCourses(), filters] as const,
+  details: () => [...clubKeys.all, 'detail'] as const,
+  detail: (id: string) => [...clubKeys.details(), id] as const,
+  homeClub: (playerId: string) => [...clubKeys.all, 'home', playerId] as const,
 } as const;
+
+/**
+ * @deprecated Use clubKeys instead
+ */
+export const venueKeys = clubKeys;
 
 // =====================================================
 // FAVORITE COURSES
@@ -69,6 +74,36 @@ export const favoriteKeys = {
   all: ['favorites'] as const,
   lists: () => [...favoriteKeys.all, 'list'] as const,
   list: (userId?: string) => [...favoriteKeys.lists(), userId] as const,
+} as const;
+
+// =====================================================
+// HOLE COORDINATES
+// =====================================================
+
+export const coordinateKeys = {
+  all: ['coordinates'] as const,
+  lists: () => [...coordinateKeys.all, 'list'] as const,
+  byCourse: (courseId: string) => [...coordinateKeys.all, 'course', courseId] as const,
+  byHole: (courseId: string, holeNumber: number) =>
+    [...coordinateKeys.byCourse(courseId), 'hole', holeNumber] as const,
+  greenCenter: (courseId: string, holeNumber: number) =>
+    [...coordinateKeys.byHole(courseId, holeNumber), 'green-center'] as const,
+  teeBack: (courseId: string, holeNumber: number) =>
+    [...coordinateKeys.byHole(courseId, holeNumber), 'tee-back'] as const,
+  summary: (courseId: string) => [...coordinateKeys.byCourse(courseId), 'summary'] as const,
+} as const;
+
+// =====================================================
+// TEES
+// =====================================================
+
+export const teeKeys = {
+  all: ['tees'] as const,
+  lists: () => [...teeKeys.all, 'list'] as const,
+  byCourse: (courseId: string) => [...teeKeys.all, 'course', courseId] as const,
+  details: () => [...teeKeys.all, 'detail'] as const,
+  detail: (id: string) => [...teeKeys.details(), id] as const,
+  withCourse: (courseId: string) => [...teeKeys.all, 'with-course', courseId] as const,
 } as const;
 
 // =====================================================
@@ -82,13 +117,13 @@ export const courseKeys = {
     state?: string;
     city?: string;
     search?: string;
-    venueId?: string;
+    clubId?: string;
   }) => [...courseKeys.lists(), filters] as const,
   details: () => [...courseKeys.all, 'detail'] as const,
   detail: (id: string) => [...courseKeys.details(), id] as const,
   search: (query: string) => [...courseKeys.all, 'search', query] as const,
   favorites: () => [...courseKeys.all, 'favorites'] as const,
-  byVenue: (venueId: string) => [...courseKeys.all, 'venue', venueId] as const,
+  byClub: (clubId: string) => [...courseKeys.all, 'club', clubId] as const,
   // API-specific keys (GolfAPI.io)
   apiSearch: (query: string, state?: string) =>
     [...courseKeys.all, 'api-search', query, state] as const,
@@ -347,8 +382,10 @@ export const allQueryKeys = [
   authKeys.all,
   competitionKeys.all,
   roundKeys.all,
-  venueKeys.all,
+  clubKeys.all,
   favoriteKeys.all,
+  coordinateKeys.all,
+  teeKeys.all,
   courseKeys.all,
   playerKeys.all,
   scorecardKeys.all,

@@ -68,14 +68,14 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     return { totalPar: par, selectedTeeName: teeName };
   }, [round.course?.holes, round.course?.tees, round.selected_tee]);
 
-  // Location comes from the venue
-  const venue = round.course?.venue;
-  const location = [venue?.city, venue?.state].filter(Boolean).join(', ');
+  // Location comes from the club
+  const club = round.course?.club || round.course?.venue;
+  const location = [club?.city, club?.state].filter(Boolean).join(', ');
 
-  // Navigate to venue
-  const handleVenuePress = () => {
-    if (venue?.id) {
-      navigation.navigate('Venue', { venueId: venue.id });
+  // Navigate to club
+  const handleClubPress = () => {
+    if (club?.id) {
+      navigation.navigate('Club', { clubId: club.id });
     }
   };
 
@@ -111,12 +111,12 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
               {round.course?.name || 'Course TBD'}
             </Text>
 
-            {/* Venue Link */}
-            {venue && (
-              <TouchableOpacity style={styles.venueLink} onPress={handleVenuePress} activeOpacity={0.7}>
+            {/* Club Link */}
+            {club && (
+              <TouchableOpacity style={styles.clubLink} onPress={handleClubPress} activeOpacity={0.7}>
                 <Icon source="map-marker" size={16} color={colors.primary} />
-                <Text style={[styles.venueLinkText, { color: colors.primary }]}>
-                  {location || venue.name}
+                <Text style={[styles.clubLinkText, { color: colors.primary }]}>
+                  {location || club.name}
                 </Text>
                 <Icon source="chevron-right" size={16} color={colors.primary} />
               </TouchableOpacity>
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
   courseName: {
     ...typography.h3,
   },
-  venueLink: {
+  clubLink: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.sm,
     gap: spacing.xs,
   },
-  venueLinkText: {
+  clubLinkText: {
     ...typography.small,
   },
   courseChevron: {

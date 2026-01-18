@@ -9,8 +9,8 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useCreateVenueWithCourse } from '@/hooks/useVenues';
-import type { Course, Venue, Hole, TeeBox } from '@/types/database.types';
+import { useCreateClubWithCourse } from '@/hooks/useClubs';
+import type { Course, Club, Hole, TeeBox } from '@/types/database.types';
 import type { AustralianState } from '@/types/database.types';
 import {
   type WizardState,
@@ -23,7 +23,7 @@ import {
 
 interface UseAddCourseWizardProps {
   onClose: () => void;
-  onVenueCreated: (venue: Venue, course: Course) => void;
+  onClubCreated: (club: Club, course: Course) => void;
 }
 
 interface UseAddCourseWizardReturn {
@@ -46,7 +46,7 @@ interface UseAddCourseWizardReturn {
   handleClose: () => void;
 
   // Step 1 handlers
-  handleVenueNameChange: (text: string) => void;
+  handleClubNameChange: (text: string) => void;
   handleCityChange: (text: string) => void;
   handleStateChange: (state: AustralianState | null) => void;
 
@@ -69,9 +69,9 @@ interface UseAddCourseWizardReturn {
 
 export function useAddCourseWizard({
   onClose,
-  onVenueCreated,
+  onClubCreated,
 }: UseAddCourseWizardProps): UseAddCourseWizardReturn {
-  const createVenueWithCourse = useCreateVenueWithCourse();
+  const createClubWithCourse = useCreateClubWithCourse();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardState>(getDefaultWizardState);
@@ -81,8 +81,8 @@ export function useAddCourseWizard({
   // =====================================================
 
   const isStep1Valid = useMemo(() => {
-    return wizardData.step1.venueName.trim().length >= 2;
-  }, [wizardData.step1.venueName]);
+    return wizardData.step1.clubName.trim().length >= 2;
+  }, [wizardData.step1.clubName]);
 
   const isStep2Valid = useMemo(() => {
     const hasCourseName = wizardData.step2.courseName.trim().length >= 2;
@@ -140,7 +140,7 @@ export function useAddCourseWizard({
           ...prev,
           step2: {
             ...prev.step2,
-            courseName: prev.step1.venueName,
+            courseName: prev.step1.clubName,
           },
         }));
       }
@@ -158,10 +158,10 @@ export function useAddCourseWizard({
   // STEP 1 HANDLERS
   // =====================================================
 
-  const handleVenueNameChange = useCallback((text: string) => {
+  const handleClubNameChange = useCallback((text: string) => {
     setWizardData((prev) => ({
       ...prev,
-      step1: { ...prev.step1, venueName: text },
+      step1: { ...prev.step1, clubName: text },
     }));
   }, []);
 
@@ -324,9 +324,9 @@ export function useAddCourseWizard({
         };
       });
 
-      const { venue, course } = await createVenueWithCourse.mutateAsync({
-        venue: {
-          name: wizardData.step1.venueName.trim(),
+      const { club, course } = await createClubWithCourse.mutateAsync({
+        club: {
+          name: wizardData.step1.clubName.trim(),
           city: wizardData.step1.city.trim() || null,
           state: wizardData.step1.state,
           total_holes: 18,
@@ -338,18 +338,18 @@ export function useAddCourseWizard({
         },
       });
 
-      onVenueCreated(venue, course);
+      onClubCreated(club, course);
       handleClose();
     } catch (error) {
-      console.error('Failed to create venue/course:', error);
+      console.error('Failed to create club/course:', error);
     }
   }, [
     wizardData,
     isStep1Valid,
     isStep2Valid,
     isStep3Valid,
-    createVenueWithCourse,
-    onVenueCreated,
+    createClubWithCourse,
+    onClubCreated,
     handleClose,
   ]);
 
@@ -357,7 +357,7 @@ export function useAddCourseWizard({
     // State
     currentStep,
     wizardData,
-    isPending: createVenueWithCourse.isPending,
+    isPending: createClubWithCourse.isPending,
 
     // Validation
     isStep1Valid,
@@ -373,7 +373,7 @@ export function useAddCourseWizard({
     handleClose,
 
     // Step 1 handlers
-    handleVenueNameChange,
+    handleClubNameChange,
     handleCityChange,
     handleStateChange,
 

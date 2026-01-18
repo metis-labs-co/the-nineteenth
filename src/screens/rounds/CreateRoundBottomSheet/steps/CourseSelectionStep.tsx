@@ -4,7 +4,7 @@
  * Features:
  * - Search for courses
  * - Display favorite courses as pills
- * - List all venues
+ * - List all clubs
  */
 
 import React, { memo } from 'react';
@@ -14,18 +14,18 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SearchBar } from '@/components/common';
-import { VenueCard } from '@/components/courses/VenueCard';
-import type { Venue } from '@/types/database.types';
-import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
+import { ClubCard } from '@/components/courses/ClubCard';
+import type { Club } from '@/types/database.types';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
 
 interface CourseSelectionStepProps {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  displayItems: VenueCourseDisplayItem[];
+  displayItems: ClubCourseDisplayItem[];
   isLoading: boolean;
-  favoriteCourses?: (CourseWithFavoriteStatus & { venue: Venue })[];
-  onSelectCourse: (course: CourseWithFavoriteStatus, venue: Venue) => void;
-  onSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { venue: Venue }) => void;
+  favoriteCourses?: (CourseWithFavoriteStatus & { club: Club })[];
+  onSelectCourse: (course: CourseWithFavoriteStatus, club: Club) => void;
+  onSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: Club }) => void;
 }
 
 export const CourseSelectionStep = memo(function CourseSelectionStep({
@@ -90,21 +90,21 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
       {/* Course List */}
       <View style={styles.listContainer}>
         <Text style={[styles.listTitle, { color: colors.textSecondary }]}>
-          {searchQuery ? 'Search Results' : 'All Venues'}
+          {searchQuery ? 'Search Results' : 'All Clubs'}
         </Text>
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading venues...
+              Loading clubs...
             </Text>
           </View>
         ) : displayItems && displayItems.length > 0 ? (
           <FlatList
             data={displayItems}
-            keyExtractor={(item) => item.venue.id}
+            keyExtractor={(item) => item.club.id}
             renderItem={({ item }) => (
-              <View style={styles.venueCardWrapper}>
-                <VenueCard
+              <View style={styles.clubCardWrapper}>
+                <ClubCard
                   item={item}
                   onCourseSelect={onSelectCourse}
                   showFavoriteButton={false}
@@ -114,12 +114,12 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
             )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.venueCardSeparator} />}
+            ItemSeparatorComponent={() => <View style={styles.clubCardSeparator} />}
           />
         ) : (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery ? 'No venues found' : 'No venues available yet'}
+              {searchQuery ? 'No clubs found' : 'No clubs available yet'}
             </Text>
           </View>
         )}
@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.lg,
   },
-  venueCardWrapper: {
+  clubCardWrapper: {
     marginHorizontal: -spacing.lg,
   },
-  venueCardSeparator: {
+  clubCardSeparator: {
     height: spacing.sm,
   },
   loadingContainer: {

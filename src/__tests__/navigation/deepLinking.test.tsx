@@ -60,7 +60,7 @@ const linkingConfig = {
       PlayerDetail: 'player/:id',
 
       // Course routes
-      Venue: 'venue/:venueId',
+      Club: 'club/:clubId',
       Course: 'course/:courseId',
     },
   },
@@ -344,11 +344,11 @@ jest.mock('@/screens/social/CompareStatsScreen', () => {
 });
 
 // Course Screens
-jest.mock('@/screens/courses/VenueScreen', () => {
+jest.mock('@/screens/courses/ClubScreen', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
   return function MockScreen() {
-    return React.createElement(View, { testID: 'venue-screen' }, React.createElement(Text, null, 'Venue'));
+    return React.createElement(View, { testID: 'club-screen' }, React.createElement(Text, null, 'Club'));
   };
 });
 jest.mock('@/screens/courses/CourseDetailScreen', () => {
@@ -671,12 +671,12 @@ describe('Deep Linking', () => {
       expect(state?.routes[0].params).toEqual({ courseId: 'course-123' });
     });
 
-    it('handles venue deep link', () => {
-      const path = 'venue/venue-456';
+    it('handles club deep link', () => {
+      const path = 'club/club-456';
       const state = getStateFromPath(path, linkingConfig.config);
 
-      expect(state?.routes[0].name).toBe('Venue');
-      expect(state?.routes[0].params).toEqual({ venueId: 'venue-456' });
+      expect(state?.routes[0].name).toBe('Club');
+      expect(state?.routes[0].params).toEqual({ clubId: 'club-456' });
     });
   });
 });

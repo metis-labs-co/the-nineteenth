@@ -108,9 +108,9 @@ export type RootStackParamList = {
     competitionId?: string;
   };
 
-  // Venues & Courses
-  Venue: { venueId: string };
-  Course: { courseId: string; venueId?: string };
+  // Clubs & Courses
+  Club: { clubId: string };
+  Course: { courseId: string; clubId?: string };
 
   // Notifications
   Notifications: undefined;

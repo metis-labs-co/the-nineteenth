@@ -3,11 +3,14 @@
  */
 
 import type { RoundDetailsFormData, GameType, TeeBoxFormData, SimplifiedRoundFormData } from '@/schemas/competition';
-import type { TeeBox, Venue } from '@/types/database.types';
-import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
+import type { TeeBox, Club } from '@/types/database.types';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
 
-// Type for favorite courses which include their venue
-export type FavoriteCourseWithVenue = CourseWithFavoriteStatus & { venue: Venue };
+// Type for favorite courses which include their club
+export type FavoriteCourseWithClub = CourseWithFavoriteStatus & { club: Club };
+
+/** @deprecated Use FavoriteCourseWithClub instead */
+export type FavoriteCourseWithVenue = FavoriteCourseWithClub;
 
 // =====================================================
 // CONSTANTS
@@ -82,12 +85,12 @@ export interface RoundCardProps {
 
 export interface CourseSelectionModalProps {
   visible: boolean;
-  displayItems: VenueCourseDisplayItem[];
-  favoriteCourses: FavoriteCourseWithVenue[];
+  displayItems: ClubCourseDisplayItem[];
+  favoriteCourses: FavoriteCourseWithClub[];
   courseSearchQuery: string;
   isLoading: boolean;
   isSearching: boolean;
-  onCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
+  onCourseSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
   onSearchChange: (query: string) => void;
   onClose: () => void;
 }

@@ -14,11 +14,11 @@ import type {
 } from '@/types/database.types';
 
 /**
- * Extended round data with course and venue details
+ * Extended round data with course and club details
  */
 export interface RoundWithCourse extends Round {
   course: (Course & {
-    venues?: {
+    clubs?: {
       name: string;
       city: string | null;
       state: string | null;

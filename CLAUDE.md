@@ -147,21 +147,24 @@ See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete impl
 
 1. **Competition** - Competition metadata (name, dates, handicap system, invite code)
 2. **Round** - Individual rounds within competitions (course, date, game type, status)
-3. **Course** - Golf course information (name, location, holes, pars, stroke indexes)
-4. **Player** - Player profiles (name, email, handicap, photo)
-5. **CompetitionPlayer** - Join table linking players to competitions
-6. **Pairing** - Player groupings for each round (2-4 players per group)
-7. **ScoringPair** - Designated scorer/marker for each player in a round (optional feature for competitive rounds)
-8. **Scorecard** - Hole-by-hole scores for each player in each round
-9. **HoleScore** - Individual hole scores (strokes, putts, penalties, etc.)
-10. **UserSubscription** - User subscription tier and payment status
-11. **TierLimits** - Configuration defining limits per subscription tier
-12. **SkinsGame** - Skins gambling side-game configuration (pot type, value, participants)
-13. **SkinsResult** - Hole-by-hole skins outcomes (winner or carryover)
-14. **SkinsPayout** - Final settlement summary for each participant
-15. **CompetitionPrizePool** - Prize pool funding for competitions (allocations for skins, winner, other prizes)
-16. **PoolTransaction** - Audit trail of pool transactions (draws, returns, payouts)
-17. **SkinsPlayerStatistics** - Aggregate skins statistics per player (games, holes, winnings, streaks)
+3. **Club** - Golf club/facility information (name, location, coordinates, contact details)
+4. **Course** - Golf course information (name, holes, pars, stroke indexes, linked to club)
+5. **Tee** - Tee box information (name, color, slope/course rating, per-hole distances)
+6. **HoleCoordinate** - GPS coordinates for tees and greens (for distance calculations)
+7. **Player** - Player profiles (name, email, handicap, photo, home club)
+8. **CompetitionPlayer** - Join table linking players to competitions
+9. **Pairing** - Player groupings for each round (2-4 players per group)
+10. **ScoringPair** - Designated scorer/marker for each player in a round (optional feature for competitive rounds)
+11. **Scorecard** - Hole-by-hole scores for each player in each round
+12. **HoleScore** - Individual hole scores (strokes, putts, penalties, etc.)
+13. **UserSubscription** - User subscription tier and payment status
+14. **TierLimits** - Configuration defining limits per subscription tier
+15. **SkinsGame** - Skins gambling side-game configuration (pot type, value, participants)
+16. **SkinsResult** - Hole-by-hole skins outcomes (winner or carryover)
+17. **SkinsPayout** - Final settlement summary for each participant
+18. **CompetitionPrizePool** - Prize pool funding for competitions (allocations for skins, winner, other prizes)
+19. **PoolTransaction** - Audit trail of pool transactions (draws, returns, payouts)
+20. **SkinsPlayerStatistics** - Aggregate skins statistics per player (games, holes, winnings, streaks)
 
 ### Subscription Tiers
 
@@ -405,17 +408,22 @@ const styles = StyleSheet.create({
 ### Golf Course Data
 
 **Primary**: GolfAPI.io
-- Coverage: 42,000+ courses globally (including Australia)
+- Coverage: 42,000+ courses globally (strong Australian coverage)
 - Features: Search by location/name, hole-by-hole data, tee ratings (slope/course rating)
-- Data includes: Hole pars, stroke indexes, yardages, tee box details
+- Data includes:
+  - **Clubs**: Name, address, contact details, coordinates
+  - **Courses**: Hole pars, stroke indexes, match play halves
+  - **Tees**: Slope/course ratings, per-hole distances, colors
+  - **GPS Coordinates**: Tee boxes and green centers for distance calculations
+- Caching: Explicitly allowed by GolfAPI.io terms
 
 **Fallback**: Manual entry by admin
 
 **Implementation Flow**:
-1. Admin searches course via API
-2. Import full course data including holes and tee ratings
+1. Admin searches club/course via API
+2. Import full data including tees and GPS coordinates
 3. Store in PostgreSQL with 30-day cache TTL
-4. Auto-refresh stale course data
+4. Auto-refresh stale course data on request
 
 **Complete integration guide**: See [API_INTEGRATION.md](docs/guides/API_INTEGRATION.md)
 

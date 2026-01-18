@@ -3,7 +3,7 @@
  */
 
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
-import type { Venue, TeeBox, GameType } from '@/types/database.types';
+import type { Club, TeeBox, GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
 
@@ -36,7 +36,9 @@ export interface PlayingPartner {
 export interface SelectedCourse {
   courseId: string;
   courseName: string;
-  venue: Venue;
+  club: Club;
+  /** @deprecated Use club instead */
+  venue?: Club;
   tees?: TeeBox[] | null;
 }
 
@@ -46,7 +48,9 @@ export interface SelectedCourse {
 export interface InitialCourse {
   courseId: string;
   courseName: string;
-  venue: Venue;
+  club: Club;
+  /** @deprecated Use club instead */
+  venue?: Club;
   tees?: TeeBox[] | null;
 }
 

@@ -3,26 +3,34 @@
  *
  * Handles:
  * - Loading state during search
- * - Empty states (no favorites, no search results, no venues)
- * - Venue/Course FlatList with pull-to-refresh
+ * - Empty states (no favorites, no search results, no clubs)
+ * - Club/Course FlatList with pull-to-refresh
  */
 
 import React from 'react';
 import { StyleSheet, View, FlatList, RefreshControl, Keyboard, Pressable } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
-import { VenueCard } from '@/components/courses/VenueCard';
-import type {
-  VenueCourseDisplayItem,
-  CourseWithFavoriteStatus,
-} from '@/hooks/useVenues';
-import type { Venue } from '@/types/database.types';
+import { ClubCard } from '@/components/courses/ClubCard';
+import type { ClubCardItem } from '@/components/courses/ClubCard';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
+import type { Club } from '@/types/database.types';
+
+/**
+ * Type guard to check if item is from GolfAPI.io (not yet imported to local DB)
+ */
+function isApiResult(item: ClubCardItem): item is GolfApiSearchResultItem {
+  return 'source' in item && item.source === 'golfapi';
+}
 
 interface CourseListContentProps {
-  displayItems: VenueCourseDisplayItem[];
+  /** Mixed results from local DB and/or GolfAPI.io */
+  displayItems: ClubCardItem[];
   isSearching: boolean;
   isRefreshing: boolean;
   showFavoritesOnly: boolean;
@@ -30,11 +38,15 @@ interface CourseListContentProps {
   searchQuery: string;
   isSuperAdmin: boolean;
   onRefresh: () => void;
-  onCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
-  onVenuePress: (venue: Venue) => void;
+  onCourseSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
+  onClubPress: (club: Club) => void;
   onToggleFavorite: (course: CourseWithFavoriteStatus) => void;
   togglingFavoriteId: string | null;
   onShowAddModal: () => void;
+  /** True when GolfAPI.io search is in progress */
+  isSearchingApi?: boolean;
+  /** GolfAPI club ID currently being imported (shows loading on that card) */
+  importingClubId?: string | null;
 }
 
 export function CourseListContent({
@@ -47,13 +59,33 @@ export function CourseListContent({
   isSuperAdmin,
   onRefresh,
   onCourseSelect,
-  onVenuePress,
+  onClubPress,
   onToggleFavorite,
   togglingFavoriteId,
   onShowAddModal,
+  isSearchingApi = false,
+  importingClubId = null,
 }: CourseListContentProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+
+  /**
+   * Get unique key for list item (handles both local and API results)
+   */
+  const getItemKey = (item: ClubCardItem): string => {
+    if (isApiResult(item)) {
+      return item.id; // e.g., "golfapi_12345"
+    }
+    return item.club.id;
+  };
+
+  /**
+   * Check if a specific item is being imported
+   */
+  const isItemImporting = (item: ClubCardItem): boolean => {
+    if (!importingClubId || !isApiResult(item)) return false;
+    return item.golfapi_club_id === importingClubId;
+  };
 
   // Loading state during search
   if (isSearching) {
@@ -69,8 +101,8 @@ export function CourseListContent({
     const title = showFavoritesOnly
       ? 'No favourite courses'
       : isSearchActive
-        ? 'No venues found'
-        : 'No venues yet';
+        ? 'No clubs found'
+        : 'No clubs yet';
 
     // Determine message based on context and permissions
     const getMessage = () => {
@@ -78,18 +110,18 @@ export function CourseListContent({
         return 'Star courses to add them to your favourites';
       }
       if (isSearchActive) {
-        return `No venues match "${searchQuery}". Try a different search.`;
+        return `No clubs match "${searchQuery}". Try a different search.`;
       }
-      return 'No venues available';
+      return 'No clubs available';
     };
 
     const icon = showFavoritesOnly ? 'star-outline' : 'golf';
 
-    // Determine action button - only show "Add Venue" for Super Admin
-    const showAddVenue = isSuperAdmin && !showFavoritesOnly;
+    // Determine action button - only show "Add Club" for Super Admin
+    const showAddClub = isSuperAdmin && !showFavoritesOnly;
 
-    const actionLabel = showAddVenue ? 'Add Venue' : undefined;
-    const onAction = showAddVenue ? onShowAddModal : undefined;
+    const actionLabel = showAddClub ? 'Add Club' : undefined;
+    const onAction = showAddClub ? onShowAddModal : undefined;
 
     return (
       <Pressable style={styles.emptyStateWrapper} onPress={Keyboard.dismiss}>
@@ -104,23 +136,38 @@ export function CourseListContent({
     );
   }
 
-  // Venue/Course list
-  const renderVenueItem = ({ item }: { item: VenueCourseDisplayItem }) => (
-    <VenueCard
+  // Club/Course list
+  const renderClubItem = ({ item }: { item: ClubCardItem }) => (
+    <ClubCard
       item={item}
       onCourseSelect={onCourseSelect}
-      onVenuePress={onVenuePress}
+      onClubPress={onClubPress}
       onToggleFavorite={onToggleFavorite}
       isTogglingFavorite={togglingFavoriteId}
       showFavoriteButton
+      isImporting={isItemImporting(item)}
     />
   );
+
+  // Footer component showing API search progress
+  const renderListFooter = () => {
+    if (!isSearchingApi) return null;
+
+    return (
+      <View style={styles.apiSearchingContainer}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.apiSearchingText, { color: colors.textSecondary }]}>
+          Searching more courses...
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <FlatList
       data={displayItems}
-      keyExtractor={(item) => item.venue.id}
-      renderItem={renderVenueItem}
+      keyExtractor={getItemKey}
+      renderItem={renderClubItem}
       contentContainerStyle={[
         styles.listContent,
         { paddingBottom: insets.bottom + spacing.xxxl },
@@ -135,6 +182,7 @@ export function CourseListContent({
       }
       showsVerticalScrollIndicator={false}
       ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+      ListFooterComponent={renderListFooter}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     />
@@ -155,5 +203,15 @@ const styles = StyleSheet.create({
   },
   listSeparator: {
     height: spacing.sm,
+  },
+  apiSearchingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  apiSearchingText: {
+    ...typography.small,
   },
 });

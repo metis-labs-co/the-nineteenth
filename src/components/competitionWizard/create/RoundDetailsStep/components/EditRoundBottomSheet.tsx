@@ -15,10 +15,10 @@ import { CourseSelectionModal } from './CourseSelectionModal';
 import { MatchTypeModal } from './MatchTypeModal';
 import { TeeSelectionModal } from './TeeSelectionModal';
 import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
-import type { TeeBox, Venue } from '@/types/database.types';
-import type { CourseWithFavoriteStatus, VenueCourseDisplayItem } from '@/hooks/useVenues';
-import { useVenuesWithCourses, useSearchVenues, useFavoriteCoursesWithVenues } from '@/hooks/useVenues';
-import type { FavoriteCourseWithVenue } from '../types';
+import type { TeeBox, Club } from '@/types/database.types';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
+import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs } from '@/hooks/useClubs';
+import type { FavoriteCourseWithClub } from '../types';
 
 export interface EditRoundBottomSheetProps {
   visible: boolean;
@@ -50,42 +50,47 @@ export function EditRoundBottomSheet({
   const [availableTees, setAvailableTees] = useState<TeeBox[]>([]);
 
   // Course search query
-  const [venueSearchQuery, setVenueSearchQuery] = useState('');
+  const [clubSearchQuery, setClubSearchQuery] = useState('');
 
-  // Venue/Course data hooks
-  const { data: allVenues = [], isLoading: isVenuesLoading } = useVenuesWithCourses();
-  const { data: favoriteCourses = [], isLoading: isFavoritesLoading } = useFavoriteCoursesWithVenues();
-  const { data: searchResults = [], isLoading: isSearching } = useSearchVenues(
-    venueSearchQuery,
+  // Club/Course data hooks
+  const { data: allClubs = [], isLoading: isClubsLoading } = useClubsWithCourses();
+  const { data: favoriteCourses = [], isLoading: isFavoritesLoading } = useFavoriteCoursesWithClubs();
+  const { data: searchResults = [], isLoading: isSearching } = useSearchClubs(
+    clubSearchQuery,
     undefined
   );
 
-  // Transform venues to display items
-  const displayItems: VenueCourseDisplayItem[] = React.useMemo(() => {
-    const venues = venueSearchQuery.length >= 2 ? searchResults : allVenues;
-    return (venues ?? []).map((venue) => ({
-      type: venue.is_multi_course ? 'multi-course-venue' : 'single-course',
-      venue: {
-        id: venue.id,
-        source: venue.source,
-        api_id: venue.api_id,
-        name: venue.name,
-        state: venue.state,
-        city: venue.city,
-        address: venue.address,
-        phone: venue.phone,
-        email: venue.email,
-        website: venue.website,
-        location: venue.location,
-        total_holes: venue.total_holes,
-        last_synced: venue.last_synced,
-        created_at: venue.created_at,
-        updated_at: venue.updated_at,
+  // Transform clubs to display items
+  const displayItems: ClubCourseDisplayItem[] = React.useMemo(() => {
+    const clubs = clubSearchQuery.length >= 2 ? searchResults : allClubs;
+    return (clubs ?? []).map((club) => ({
+      type: club.is_multi_course ? 'multi-course-club' : 'single-course',
+      club: {
+        id: club.id,
+        source: club.source,
+        golfapi_club_id: club.golfapi_club_id ?? null,
+        name: club.name,
+        state: club.state,
+        city: club.city,
+        address: club.address,
+        postal_code: club.postal_code ?? null,
+        country: club.country ?? 'Australia',
+        continent: club.continent ?? null,
+        phone: club.phone,
+        email: club.email,
+        website: club.website,
+        latitude: club.latitude ?? null,
+        longitude: club.longitude ?? null,
+        location: club.location,
+        total_holes: club.total_holes,
+        last_synced: club.last_synced,
+        created_at: club.created_at,
+        updated_at: club.updated_at,
       },
-      courses: venue.courses,
-      is_home: venue.is_home,
+      courses: club.courses,
+      is_home: club.is_home,
     }));
-  }, [venueSearchQuery, searchResults, allVenues]);
+  }, [clubSearchQuery, searchResults, allClubs]);
 
   // Reset local state when round changes
   useEffect(() => {
@@ -94,11 +99,11 @@ export function EditRoundBottomSheet({
 
   // Handle course selection
   const handleCourseSelect = useCallback(
-    (course: CourseWithFavoriteStatus, venue: Venue) => {
+    (course: CourseWithFavoriteStatus, club: Club) => {
       setLocalRound((prev) => ({
         ...prev,
         courseId: course.id,
-        courseName: `${course.name}${venue.name !== course.name ? ` (${venue.name})` : ''}`,
+        courseName: `${course.name}${club.name !== course.name ? ` (${club.name})` : ''}`,
         selectedTee: undefined, // Reset tee when course changes
         isConfigured: true,
       }));
@@ -427,11 +432,11 @@ export function EditRoundBottomSheet({
         visible={showCourseModal}
         displayItems={displayItems}
         favoriteCourses={favoriteCourses}
-        courseSearchQuery={venueSearchQuery}
-        isLoading={isVenuesLoading || isFavoritesLoading}
+        courseSearchQuery={clubSearchQuery}
+        isLoading={isClubsLoading || isFavoritesLoading}
         isSearching={isSearching}
         onCourseSelect={handleCourseSelect}
-        onSearchChange={setVenueSearchQuery}
+        onSearchChange={setClubSearchQuery}
         onClose={() => setShowCourseModal(false)}
       />
 

@@ -78,7 +78,7 @@ export const DetailsTab = React.memo(function DetailsTab({
 }: DetailsTabProps) {
   // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {
-    const courseMap = new Map<string, Course & { venues?: { name: string; city: string | null; state: string | null } | null }>();
+    const courseMap = new Map<string, Course & { clubs?: { name: string; city: string | null; state: string | null } | null }>();
 
     for (const round of rounds) {
       if (round.course && !courseMap.has(round.course.id)) {

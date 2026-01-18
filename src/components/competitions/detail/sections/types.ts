@@ -29,7 +29,7 @@ export interface SettingsSectionProps {
 }
 
 export interface CoursesSectionProps {
-  courses: (Course & { venues?: { name: string; city: string | null; state: string | null } | null })[];
+  courses: (Course & { clubs?: { name: string; city: string | null; state: string | null } | null })[];
   onViewCourse?: (course: Course) => void;
 }
 

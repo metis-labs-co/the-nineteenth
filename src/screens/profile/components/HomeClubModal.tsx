@@ -1,7 +1,7 @@
 /**
- * HomeVenueModal - Modal for selecting home golf venue
+ * HomeClubModal - Modal for selecting home golf club
  *
- * Full-screen modal with search, venue list, and clear option.
+ * Full-screen modal with search, club list, and clear option.
  */
 
 import React, { useCallback, useMemo } from 'react';
@@ -9,67 +9,72 @@ import { StyleSheet, View, Modal, FlatList, TouchableOpacity } from 'react-nativ
 import { Text, Icon, IconButton } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchBar, GolfBallLoader } from '@/components/common';
-import { VenueCard } from '@/components/courses/VenueCard';
+import { ClubCard } from '@/components/courses/ClubCard';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import type { VenueCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useVenues';
-import type { Venue } from '@/types/database.types';
+import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { Club } from '@/types/database.types';
 
-interface HomeVenueModalProps {
+interface HomeClubModalProps {
   /** Whether the modal is visible */
   visible: boolean;
   /** Close the modal */
   onClose: () => void;
-  /** Current home venue (null if not set) */
-  homeVenue: { id: string; name: string } | null;
+  /** Current home club (null if not set) */
+  homeClub: { id: string; name: string } | null;
   /** Search query value */
   searchQuery: string;
   /** Update search query */
   onSearchChange: (query: string) => void;
-  /** Venue display items for list */
-  displayItems: VenueCourseDisplayItem[];
-  /** Whether venues are loading */
+  /** Club display items for list */
+  displayItems: ClubCourseDisplayItem[];
+  /** Whether clubs are loading */
   isLoading: boolean;
   /** Whether a mutation is in progress */
   isProcessing: boolean;
   /** Whether clear mutation is pending */
-  isClearingVenue: boolean;
+  isClearingClub: boolean;
   /** Callback when a course is selected */
-  onCourseSelect: (course: CourseWithFavoriteStatus, venue: Venue) => void;
-  /** Callback when a venue is pressed */
-  onVenuePress: (venue: Venue) => void;
-  /** Callback to clear home venue */
-  onClearHomeVenue: () => void;
+  onCourseSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
+  /** Callback when a club is pressed */
+  onClubPress: (club: Club) => void;
+  /** Callback to clear home club */
+  onClearHomeClub: () => void;
 }
 
-export const HomeVenueModal = React.memo(function HomeVenueModal({
+/**
+ * @deprecated Use HomeClubModalProps instead
+ */
+export type HomeVenueModalProps = HomeClubModalProps;
+
+export const HomeClubModal = React.memo(function HomeClubModal({
   visible,
   onClose,
-  homeVenue,
+  homeClub,
   searchQuery,
   onSearchChange,
   displayItems,
   isLoading,
   isProcessing,
-  isClearingVenue,
+  isClearingClub,
   onCourseSelect,
-  onVenuePress,
-  onClearHomeVenue,
-}: HomeVenueModalProps) {
+  onClubPress,
+  onClearHomeClub,
+}: HomeClubModalProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const renderVenueItem = useCallback(
-    ({ item }: { item: VenueCourseDisplayItem }) => (
-      <VenueCard
+  const renderClubItem = useCallback(
+    ({ item }: { item: ClubCourseDisplayItem }) => (
+      <ClubCard
         item={item}
         onCourseSelect={onCourseSelect}
-        onVenuePress={onVenuePress}
+        onClubPress={onClubPress}
         showFavoriteButton={false}
         selectionMode
       />
     ),
-    [onCourseSelect, onVenuePress]
+    [onCourseSelect, onClubPress]
   );
 
   const ListEmptyComponent = useMemo(() => {
@@ -78,12 +83,12 @@ export const HomeVenueModal = React.memo(function HomeVenueModal({
       <View style={styles.emptyState}>
         <Icon source="home-city" size={48} color={colors.gray400} />
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          {searchQuery.length >= 2 ? 'No venues found' : 'No venues available'}
+          {searchQuery.length >= 2 ? 'No clubs found' : 'No clubs available'}
         </Text>
         <Text style={[styles.emptySubtext, { color: colors.gray400 }]}>
           {searchQuery.length >= 2
             ? 'Try a different search term'
-            : 'Add venues from the Courses tab'}
+            : 'Add clubs from the Courses tab'}
         </Text>
       </View>
     );
@@ -105,7 +110,7 @@ export const HomeVenueModal = React.memo(function HomeVenueModal({
           ]}
         >
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {homeVenue ? 'Change Home Venue' : 'Set Home Venue'}
+            {homeClub ? 'Change Home Club' : 'Set Home Club'}
           </Text>
           <IconButton icon="close" onPress={onClose} iconColor={colors.textPrimary} />
         </View>
@@ -119,21 +124,21 @@ export const HomeVenueModal = React.memo(function HomeVenueModal({
           hideBorder
         />
 
-        {/* Clear Home Venue Option */}
-        {homeVenue && (
+        {/* Clear Home Club Option */}
+        {homeClub && (
           <TouchableOpacity
             style={[styles.clearButton, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
-            onPress={onClearHomeVenue}
+            onPress={onClearHomeClub}
             disabled={isProcessing}
           >
-            {isClearingVenue ? (
+            {isClearingClub ? (
               <GolfBallLoader size="sm" />
             ) : (
               <>
                 <Icon source="home-remove" size={20} color={colors.error} />
                 <Text style={[styles.clearText, { color: colors.error }]}>
-                  Clear Home Venue
+                  Clear Home Club
                 </Text>
               </>
             )}
@@ -145,16 +150,16 @@ export const HomeVenueModal = React.memo(function HomeVenueModal({
           <View style={styles.loadingContainer}>
             <GolfBallLoader size="sm" />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading venues...
+              Loading clubs...
             </Text>
           </View>
         )}
 
-        {/* Venue List */}
+        {/* Club List */}
         <FlatList
           data={displayItems}
-          keyExtractor={(item) => item.venue.id}
-          renderItem={renderVenueItem}
+          keyExtractor={(item) => item.club.id}
+          renderItem={renderClubItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -164,6 +169,11 @@ export const HomeVenueModal = React.memo(function HomeVenueModal({
     </Modal>
   );
 });
+
+/**
+ * @deprecated Use HomeClubModal instead
+ */
+export const HomeVenueModal = HomeClubModal;
 
 const styles = StyleSheet.create({
   container: {
@@ -227,4 +237,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeVenueModal;
+export default HomeClubModal;

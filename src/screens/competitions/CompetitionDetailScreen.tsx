@@ -63,14 +63,14 @@ async function fetchCompetitionDetails(competitionId: string): Promise<Competiti
     throw new Error(`Failed to fetch competition: ${competitionError.message}`);
   }
 
-  // Fetch rounds with course and venue details
+  // Fetch rounds with course and club details
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
     .select(`
       *,
       courses (
         *,
-        venues (
+        clubs (
           name,
           city,
           state
@@ -111,8 +111,8 @@ async function fetchCompetitionDetails(competitionId: string): Promise<Competiti
     courses: {
       id: string;
       name: string;
-      venue_id: string | null;
-      venues: { name: string; city: string | null; state: string | null } | null;
+      club_id: string | null;
+      clubs: { name: string; city: string | null; state: string | null } | null;
     } | null;
     [key: string]: unknown;
   }
