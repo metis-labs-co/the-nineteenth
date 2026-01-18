@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useClubDetails } from '@/hooks/useClubDetails';
+import { useClubSync } from '@/hooks/useClubSync';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
 import { useHomeClub, useSetHomeClub } from '@/hooks/useHomeClub';
 import { CourseCard } from '@/components/courses/CourseCard';
@@ -45,36 +46,6 @@ interface CourseWithFavorite extends Course {
 // HELPER FUNCTIONS
 // =====================================================
 
-/**
- * Format a date string for display
- */
-function formatLastSynced(dateString: string | null | undefined): string {
-  if (!dateString) return 'Never';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-AU', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return 'Unknown';
-  }
-}
-
-/**
- * Get source display info
- */
-function getSourceInfo(source: string | undefined) {
-  switch (source) {
-    case 'api':
-      return { label: 'GolfAPI.io', color: 'success' as const };
-    case 'legacy':
-      return { label: 'Legacy', color: 'warning' as const };
-    default:
-      return { label: 'Manual', color: 'default' as const };
-  }
-}
 
 // =====================================================
 // CONTACT ITEM COMPONENT
@@ -132,6 +103,9 @@ export default function ClubScreen({ route, navigation }: Props) {
     refetch,
     isRefetching,
   } = useClubDetails(clubId);
+
+  // Club sync (auto-refresh stale data from GolfAPI.io)
+  const { isSyncing, forceSync, canSync } = useClubSync(clubId);
 
   // Favorite mutations
   const addFavorite = useAddCourseFavorite();
@@ -308,6 +282,14 @@ export default function ClubScreen({ route, navigation }: Props) {
         title={club.name}
         showBack
         onBack={() => navigation.goBack()}
+        rightActions={canSync ? [
+          {
+            icon: isSyncing ? 'loading' : 'refresh',
+            onPress: forceSync,
+            accessibilityLabel: 'Refresh club data',
+            disabled: isSyncing,
+          },
+        ] : undefined}
       />
       <ScrollView
         style={styles.scrollView}
@@ -402,64 +384,6 @@ export default function ClubScreen({ route, navigation }: Props) {
             <Icon source="directions" size={20} color={colors.primary} />
           </TouchableOpacity>
         )}
-      </View>
-
-      {/* Data Source Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-          Data Source
-        </Text>
-        <View style={[styles.sourceCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
-          <View style={styles.sourceRow}>
-            <View style={styles.sourceInfo}>
-              <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>Source</Text>
-              <View style={styles.sourceValueRow}>
-                <View
-                  style={[
-                    styles.sourceBadge,
-                    {
-                      backgroundColor:
-                        club.source === 'api'
-                          ? colors.successLight + '30'
-                          : club.source === 'legacy'
-                          ? colors.warningLight + '30'
-                          : colors.gray200,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sourceBadgeText,
-                      {
-                        color:
-                          club.source === 'api'
-                            ? colors.success
-                            : club.source === 'legacy'
-                            ? colors.warning
-                            : colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    {getSourceInfo(club.source).label}
-                  </Text>
-                </View>
-                {club.golfapi_club_id && (
-                  <Text style={[styles.sourceId, { color: colors.textTertiary }]}>
-                    #{club.golfapi_club_id}
-                  </Text>
-                )}
-              </View>
-            </View>
-            {club.golfapi_updated_at && (
-              <View style={styles.sourceInfo}>
-                <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>Last Updated</Text>
-                <Text style={[styles.sourceValue, { color: colors.textPrimary }]}>
-                  {formatLastSynced(club.golfapi_updated_at)}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
       </View>
 
       {/* Contact Information */}
@@ -682,49 +606,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.h4,
   },
-
-  // Source Card
-  sourceCard: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
-    ...shadows.sm,
-  },
-  sourceRow: {
-    flexDirection: 'row',
-    gap: spacing.xl,
-  },
-  sourceInfo: {
-    flex: 1,
-  },
-  sourceLabel: {
-    ...typography.caption,
-    marginBottom: spacing.xs,
-  },
-  sourceValue: {
-    ...typography.body,
-  },
-  sourceValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sourceBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  sourceBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    fontSize: 11,
-  },
-  sourceId: {
-    ...typography.caption,
-    fontSize: 11,
-  },
-
   courseCountBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

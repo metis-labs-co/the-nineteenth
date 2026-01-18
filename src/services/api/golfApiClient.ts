@@ -128,7 +128,7 @@ export class NetworkError extends Error {
 // CLIENT CONFIGURATION
 // =====================================================
 
-const DEFAULT_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_TIMEOUT = 20000; // 20 seconds
 
 /**
  * Get configuration from environment variables

@@ -36,13 +36,11 @@ interface CourseListContentProps {
   showFavoritesOnly: boolean;
   isSearchActive: boolean;
   searchQuery: string;
-  isSuperAdmin: boolean;
   onRefresh: () => void;
   onCourseSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
   onClubPress: (club: Club) => void;
   onToggleFavorite: (course: CourseWithFavoriteStatus) => void;
   togglingFavoriteId: string | null;
-  onShowAddModal: () => void;
   /** True when GolfAPI.io search is in progress */
   isSearchingApi?: boolean;
   /** GolfAPI club ID currently being imported (shows loading on that card) */
@@ -56,13 +54,11 @@ export function CourseListContent({
   showFavoritesOnly,
   isSearchActive,
   searchQuery,
-  isSuperAdmin,
   onRefresh,
   onCourseSelect,
   onClubPress,
   onToggleFavorite,
   togglingFavoriteId,
-  onShowAddModal,
   isSearchingApi = false,
   importingClubId = null,
 }: CourseListContentProps) {
@@ -102,7 +98,7 @@ export function CourseListContent({
       ? 'No favourite courses'
       : isSearchActive
         ? 'No clubs found'
-        : 'No clubs yet';
+        : 'Search for a club or course';
 
     // Determine message based on context and permissions
     const getMessage = () => {
@@ -112,16 +108,10 @@ export function CourseListContent({
       if (isSearchActive) {
         return `No clubs match "${searchQuery}". Try a different search.`;
       }
-      return 'No clubs available';
+      return 'Type a club name above to search';
     };
 
-    const icon = showFavoritesOnly ? 'star-outline' : 'golf';
-
-    // Determine action button - only show "Add Club" for Super Admin
-    const showAddClub = isSuperAdmin && !showFavoritesOnly;
-
-    const actionLabel = showAddClub ? 'Add Club' : undefined;
-    const onAction = showAddClub ? onShowAddModal : undefined;
+    const icon = showFavoritesOnly ? 'star-outline' : 'magnify';
 
     return (
       <Pressable style={styles.emptyStateWrapper} onPress={Keyboard.dismiss}>
@@ -129,8 +119,6 @@ export function CourseListContent({
           title={title}
           message={getMessage()}
           icon={icon}
-          actionLabel={actionLabel}
-          onAction={onAction}
         />
       </Pressable>
     );

@@ -19,7 +19,6 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { LoadingSpinner, SearchBar, PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
-  AddCourseModal,
   StateFilterList,
   CourseListContent,
 } from '@/components/courses';
@@ -35,7 +34,6 @@ import {
 } from '@/hooks/useClubs';
 import { useImportClub } from '@/hooks/useImportClub';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
-import { useSubscription } from '@/hooks/useSubscription';
 import type { AustralianState, Course, Club } from '@/types/database.types';
 
 /**
@@ -50,13 +48,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function CourseListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
-  const { isSuperAdmin } = useSubscription();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedState, setSelectedState] = useState<AustralianState | undefined>();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [importingClubId, setImportingClubId] = useState<string | null>(null);
 
@@ -232,10 +228,6 @@ export default function CourseListScreen() {
     setShowFavoritesOnly(false);
   }, []);
 
-  const handleClubCreated = useCallback((_club: Club, _course: Course) => {
-    // The query will be invalidated by the mutation
-  }, []);
-
   // Navigate to club details (or import first if API result)
   // Note: ClubCard passes GolfApiSearchResultItem cast to Club for API results
   const handleClubPress = useCallback(
@@ -273,26 +265,12 @@ export default function CourseListScreen() {
     [navigation]
   );
 
-  // Build right actions for PageHeader
-  // AddCourseModal is only available for Super Admin users
-  const headerRightActions = useMemo(() => {
-    const actions = [];
-    // Only Super Admin can add courses manually
-    if (isSuperAdmin) {
-      actions.push({
-        icon: 'plus',
-        onPress: () => setShowAddModal(true),
-        accessibilityLabel: 'Add new course manually',
-      });
-    }
-    return actions;
-  }, [isSuperAdmin]);
 
   // Loading state
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Courses" rightActions={headerRightActions} />
+        <PageHeader title="Courses"  />
         <View style={[styles.centerContent, { flex: 1 }]}>
           <LoadingSpinner size="lg" />
         </View>
@@ -304,7 +282,7 @@ export default function CourseListScreen() {
   if (error && !displayItems.length) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Courses" rightActions={headerRightActions} />
+        <PageHeader title="Courses"  />
         <ErrorState
           error={error}
           onRetry={handleRefresh}
@@ -317,7 +295,7 @@ export default function CourseListScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <PageHeader title="Courses" rightActions={headerRightActions} />
+      <PageHeader title="Courses"  />
 
       {/* Search Bar */}
       <SearchBar
@@ -345,25 +323,14 @@ export default function CourseListScreen() {
         showFavoritesOnly={showFavoritesOnly}
         isSearchActive={isSearchActive}
         searchQuery={searchQuery}
-        isSuperAdmin={isSuperAdmin}
         onRefresh={handleRefresh}
         onCourseSelect={handleCourseSelect}
         onClubPress={handleClubPress}
         onToggleFavorite={handleToggleFavorite}
         togglingFavoriteId={togglingFavoriteId}
-        onShowAddModal={() => setShowAddModal(true)}
         isSearchingApi={isSearchingApi}
         importingClubId={importingClubId}
       />
-
-      {/* Add Club Modal - Super Admin only */}
-      {isSuperAdmin && (
-        <AddCourseModal
-          visible={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onClubCreated={handleClubCreated}
-        />
-      )}
     </View>
   );
 }

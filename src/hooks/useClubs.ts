@@ -34,7 +34,7 @@
  * - `useAddCourseFavorite/useRemoveCourseFavorite` - Manage favorites
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +45,8 @@ import {
   useRemoveFavorite as useRemoveFavoriteBase,
 } from '@/hooks/useFavoriteCourses';
 import { useGolfApiSearch, isGolfApiResult } from '@/hooks/useGolfApiSearch';
+import { isClubStale, hasApiQuota } from '@/services/sync';
+import { courseService } from '@/services/courses';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 import type { Club, Course, AustralianState } from '@/types/database.types';
 
@@ -372,6 +374,56 @@ export function useSearchClubs(searchQuery: string, state?: AustralianState) {
     return [...localResults, ...newApiResults];
   }, [localResults, apiQuery.data]);
 
+  // =====================================================
+  // STALE CLUB SYNC (background refresh)
+  // =====================================================
+
+  // Track which clubs we've already queued for refresh this session
+  const syncedClubsRef = useRef<Set<string>>(new Set());
+
+  // Check for stale local clubs and queue background refresh
+  useEffect(() => {
+    if (!localResults) return;
+
+    // Filter local clubs that are stale and can be synced
+    const staleClubs = localResults.filter(
+      (club) =>
+        club.golfapi_club_id &&
+        isClubStale(club) &&
+        !syncedClubsRef.current.has(club.golfapi_club_id)
+    );
+
+    if (staleClubs.length === 0) return;
+
+    // Limit to 3 clubs per search to conserve API quota
+    const clubsToSync = staleClubs.slice(0, 3);
+
+    // Queue background refresh for each stale club
+    for (const club of clubsToSync) {
+      // Check quota before each refresh
+      if (!hasApiQuota()) {
+        console.warn('[useSearchClubs] Skipping sync - API quota exhausted');
+        break;
+      }
+
+      // Mark as queued (before async call)
+      syncedClubsRef.current.add(club.golfapi_club_id!);
+
+      // Fire and forget - don't await, don't block UI
+      courseService.importClubWithCourses(club.golfapi_club_id!).catch((error) => {
+        console.warn('[useSearchClubs] Background sync failed:', club.name, error);
+        // Remove from synced set so it can be retried later
+        syncedClubsRef.current.delete(club.golfapi_club_id!);
+      });
+    }
+  }, [localResults]);
+
+  // Calculate if any local results are stale (for UI indicator)
+  const hasStaleResults = useMemo(() => {
+    if (!localResults) return false;
+    return localResults.some((club) => club.golfapi_club_id && isClubStale(club));
+  }, [localResults]);
+
   return {
     ...localQuery,
     data: mergedResults,
@@ -379,6 +431,8 @@ export function useSearchClubs(searchQuery: string, state?: AustralianState) {
     // Additional API search status
     isSearchingApi: apiQuery.isLoading,
     apiSearchEnabled: shouldSearchApi,
+    // Stale data indicator
+    hasStaleResults,
   };
 }
 

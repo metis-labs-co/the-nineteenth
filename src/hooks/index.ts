@@ -148,6 +148,10 @@ export { useGolfApiSearch } from './useGolfApiSearch';
 export { useImportClub } from './useImportClub';
 export type { ImportClubResult } from './useImportClub';
 
+// Club Sync hooks (auto-refresh stale data)
+export { useClubSync } from './useClubSync';
+export type { UseClubSyncResult } from './useClubSync';
+
 // Leaderboard hooks
 export { useLeaderboard } from './useLeaderboard';
 export type { LeaderboardEntry } from './useLeaderboard';
