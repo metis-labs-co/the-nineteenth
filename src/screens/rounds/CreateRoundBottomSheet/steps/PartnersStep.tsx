@@ -8,7 +8,7 @@
  */
 
 import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { IconGolf } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -173,51 +173,59 @@ export const PartnersStep = memo(function PartnersStep({
   );
 
   return (
-    <>
-      {/* Selected Course & Match Type Banner */}
-      <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
-        <IconGolf size={20} color={colors.primary} />
-        <View style={styles.selectedBannerText}>
-          <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
-            {selectedCourse?.courseName}
-            {selectedTee && (
-              <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
-            )}
-          </Text>
-          <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
-            {selectedCourse?.venue && (
-              <>
-                {selectedCourse.venue.name}
-                {(selectedCourse.venue.city || selectedCourse.venue.state) &&
-                  ` · ${[selectedCourse.venue.city, selectedCourse.venue.state]
-                    .filter(Boolean)
-                    .join(', ')}`}
-                {' · '}
-              </>
-            )}
-            {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
-          </Text>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Selected Course & Match Type Banner */}
+        <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
+          <IconGolf size={20} color={colors.primary} />
+          <View style={styles.selectedBannerText}>
+            <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
+              {selectedCourse?.courseName}
+              {selectedTee && (
+                <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
+              )}
+            </Text>
+            <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
+              {selectedCourse?.venue && (
+                <>
+                  {selectedCourse.venue.name}
+                  {(selectedCourse.venue.city || selectedCourse.venue.state) &&
+                    ` · ${[selectedCourse.venue.city, selectedCourse.venue.state]
+                      .filter(Boolean)
+                      .join(', ')}`}
+                  {' · '}
+                </>
+              )}
+              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Friend Selector */}
-      <FriendSelector
-        selectedPlayers={selectedPlayers}
-        onSelectionChange={handleSelectionChange}
-        friends={acceptedFriends}
-        friendsLoading={friendsLoading}
-        searchQuery={friendSearchQuery}
-        onSearchQueryChange={onFriendSearchQueryChange}
-        limits={{ max: MAX_PARTNERS, min: 0 }}
-        limitIndicator={{ show: false }}
-        selectedTitle={`Playing with (${selectedPartners.length}/${MAX_PARTNERS})`}
-        listTitle={`Select up to ${MAX_PARTNERS} players (optional)`}
-        emptyMessage="Add friends from the Friends tab to play together"
-        testID="partners-step"
-        placeholderPlayers={placeholderPlayers || []}
-        onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
-        addPlaceholderLabel="Add Guest"
-      />
+        {/* Friend Selector */}
+        <FriendSelector
+          selectedPlayers={selectedPlayers}
+          onSelectionChange={handleSelectionChange}
+          friends={acceptedFriends}
+          friendsLoading={friendsLoading}
+          searchQuery={friendSearchQuery}
+          onSearchQueryChange={onFriendSearchQueryChange}
+          limits={{ max: MAX_PARTNERS, min: 0 }}
+          limitIndicator={{ show: false }}
+          selectedTitle={`Playing with (${selectedPartners.length}/${MAX_PARTNERS})`}
+          listTitle={`Select up to ${MAX_PARTNERS} players (optional)`}
+          emptyMessage="Add friends from the Friends tab to play together"
+          testID="partners-step"
+          placeholderPlayers={placeholderPlayers || []}
+          onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
+          addPlaceholderLabel="Add Guest"
+          disableInternalScroll={true}
+        />
+      </ScrollView>
 
       {/* Continue Button */}
       <View
@@ -240,11 +248,22 @@ export const PartnersStep = memo(function PartnersStep({
         onClose={() => setShowAddPlaceholderModal(false)}
         onPlayerCreated={handlePlaceholderCreated}
       />
-    </>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollView: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.md,
+  },
   selectedBanner: {
     flexDirection: 'row',
     alignItems: 'center',

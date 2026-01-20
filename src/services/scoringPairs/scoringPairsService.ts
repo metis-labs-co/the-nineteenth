@@ -151,14 +151,19 @@ export async function getRoundScoringPairs(
 /**
  * Get players that a specific scorer is responsible for scoring
  *
+ * Returns [self, ...partners] - the scorer themselves first, then their assigned partners.
+ * This enables dual-scoring where each player scores themselves AND their partner.
+ *
  * @param roundId - Round UUID
  * @param scorerId - Scorer (marker) player UUID
- * @returns Array of players assigned to this scorer
+ * @returns Array of players: [self, ...assigned partners]
  * @throws ScoringPairsServiceError if query fails
  *
  * @example
  * ```typescript
  * const players = await getPlayersToScore('round-123', currentUserId);
+ * // players[0] = self (currentUser)
+ * // players[1+] = assigned partners
  * players.forEach(player => {
  *   console.log(`You are scoring: ${player.name}`);
  * });
@@ -175,6 +180,22 @@ export async function getPlayersToScore(
     throw createError('Scorer ID is required', 'VALIDATION');
   }
 
+  // Fetch the scorer's own player record (self)
+  const { data: selfPlayer, error: selfError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', scorerId)
+    .single();
+
+  if (selfError) {
+    console.error('[ScoringPairsService] Failed to fetch self player:', selfError);
+    throw createError(
+      `Failed to fetch self player: ${selfError.message}`,
+      'DATABASE'
+    );
+  }
+
+  // Fetch assigned partners from scoring_pairs
   const { data: pairs, error } = await supabase
     .from('scoring_pairs')
     .select(
@@ -193,12 +214,73 @@ export async function getPlayersToScore(
     );
   }
 
-  // Extract player data and convert to app Player format
+  // Extract partner data and convert to app Player format
   const typedPairs = (pairs as PlayerToScoreQueryRow[]) || [];
-  return typedPairs
+  const partners = typedPairs
     .map((pair) => pair.player)
     .filter((player): player is Player => player !== null)
     .map(toAppPlayer);
+
+  // Return [self, ...partners] - self always first
+  const self = toAppPlayer(selfPlayer as Player);
+  return [self, ...partners];
+}
+
+/**
+ * Get the player who is assigned to score a specific user
+ *
+ * In scoring pairs, each player has exactly one scorer (marker) assigned.
+ * This function returns that scorer for mismatch detection purposes.
+ *
+ * @param roundId - Round UUID
+ * @param playerId - Player UUID (the one being scored)
+ * @returns The scorer (partner) assigned to score this player, or null if none
+ * @throws ScoringPairsServiceError if query fails
+ *
+ * @example
+ * ```typescript
+ * const myScorer = await getScoringPartner('round-123', currentUserId);
+ * if (myScorer) {
+ *   console.log(`${myScorer.name} is scoring your card`);
+ * }
+ * ```
+ */
+export async function getScoringPartner(
+  roundId: string,
+  playerId: string
+): Promise<AppPlayer | null> {
+  if (!roundId) {
+    throw createError('Round ID is required', 'VALIDATION');
+  }
+  if (!playerId) {
+    throw createError('Player ID is required', 'VALIDATION');
+  }
+
+  const { data: pair, error } = await supabase
+    .from('scoring_pairs')
+    .select(
+      `
+      scorer:players!scoring_pairs_scorer_id_fkey (*)
+    `
+    )
+    .eq('round_id', roundId)
+    .eq('player_id', playerId)
+    .single();
+
+  if (error) {
+    // PGRST116 = no rows returned, which is valid (no scorer assigned)
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error('[ScoringPairsService] Failed to fetch scoring partner:', error);
+    throw createError(
+      `Failed to fetch scoring partner: ${error.message}`,
+      'DATABASE'
+    );
+  }
+
+  const scorer = (pair as { scorer: Player | null })?.scorer;
+  return scorer ? toAppPlayer(scorer) : null;
 }
 
 /**
@@ -431,6 +513,7 @@ export async function hasScoringPairs(roundId: string): Promise<boolean> {
 export const scoringPairsService = {
   getRoundScoringPairs,
   getPlayersToScore,
+  getScoringPartner,
   createScoringPairs,
   autoGenerateAndSaveScoringPairs,
   generateTeamMatchPlayPairs,

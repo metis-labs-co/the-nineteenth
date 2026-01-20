@@ -1,11 +1,27 @@
 /**
  * useScoreSubmission - Hook for handling final score submission and sync logic
+ *
+ * Enhanced with scoring pairs mismatch detection:
+ * - Checks partner completion before allowing submission
+ * - Detects and creates mismatch records
+ * - Supports 30-minute bypass timer for unresponsive partners
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '@/services/supabase/client';
 import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
+import {
+  checkSubmissionReadiness,
+  createMismatchRecords,
+  getPendingMismatches,
+  startBypassTimer,
+  getSubmissionStatus,
+  markSubmissionBypassed,
+  applyBypassScores,
+  getPartnerProgress,
+} from '@/services/scoreMismatch';
+import { getScoringPartner } from '@/services/scoringPairs';
 import { submitLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -20,9 +36,13 @@ interface UseScoreSubmissionParams {
   scorecardCount: number;
   validateScores: () => IncompleteHole[];
   setShowIncompleteModal: (show: boolean) => void;
-  submitScorecards: () => Promise<void>;
+  submitScorecards: (options?: { bypassed?: boolean }) => Promise<void>;
   resetRound: () => void;
   navigation: NativeStackNavigationProp<RootStackParamList, 'ReviewScorecard'>;
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled?: boolean;
+  currentUserId?: string;
+  holeCount?: number;
 }
 
 interface UseScoreSubmissionReturn {
@@ -34,6 +54,18 @@ interface UseScoreSubmissionReturn {
   handleSyncPress: () => Promise<void>;
   handleRefresh: () => Promise<void>;
   getOfflineStatus: () => 'online' | 'offline' | 'syncing' | 'error';
+  // Mismatch modal state
+  showMismatchModal: boolean;
+  setShowMismatchModal: (show: boolean) => void;
+  // Bypass state
+  bypassAvailable: boolean;
+  bypassAvailableAt: Date | null;
+  handleBypassSubmit: () => Promise<void>;
+  // Partner waiting state
+  isWaitingForPartner: boolean;
+  partnerName: string | null;
+  partnerProgress: { completed: number; total: number } | null;
+  refreshPartnerStatus: () => Promise<void>;
 }
 
 export function useScoreSubmission({
@@ -48,14 +80,73 @@ export function useScoreSubmission({
   submitScorecards,
   resetRound,
   navigation,
+  // Scoring pairs mismatch detection
+  scoringPairsEnabled = false,
+  currentUserId,
+  holeCount = 18,
 }: UseScoreSubmissionParams): UseScoreSubmissionReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingSyncs, setPendingSyncs] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  // Mismatch modal state
+  const [showMismatchModal, setShowMismatchModal] = useState(false);
+
+  // Bypass state
+  const [bypassAvailable, setBypassAvailable] = useState(false);
+  const [bypassAvailableAt, setBypassAvailableAt] = useState<Date | null>(null);
+
+  // Partner waiting state
+  const [isWaitingForPartner, setIsWaitingForPartner] = useState(false);
+  const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [partnerProgress, setPartnerProgress] = useState<{ completed: number; total: number } | null>(null);
+
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
+
+  // Check bypass availability on mount and periodically
+  useEffect(() => {
+    if (!scoringPairsEnabled || !currentRoundId || !currentUserId) return;
+
+    const checkBypassStatus = async () => {
+      try {
+        const status = await getSubmissionStatus(currentRoundId, currentUserId);
+        if (status?.bypass_available_at) {
+          const bypassTime = new Date(status.bypass_available_at);
+          setBypassAvailableAt(bypassTime);
+          setBypassAvailable(bypassTime <= new Date());
+        }
+      } catch (error) {
+        submitLogger.warn('Failed to check bypass status', { error });
+      }
+    };
+
+    checkBypassStatus();
+
+    // Check every 30 seconds if we have a bypass timer
+    const interval = setInterval(() => {
+      if (bypassAvailableAt) {
+        setBypassAvailable(bypassAvailableAt <= new Date());
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [scoringPairsEnabled, currentRoundId, currentUserId, bypassAvailableAt]);
+
+  // Refresh partner status
+  const refreshPartnerStatus = useCallback(async () => {
+    if (!currentRoundId || !currentUserId) return;
+
+    try {
+      const progress = await getPartnerProgress(currentRoundId, currentUserId, holeCount);
+      setPartnerName(progress.partnerName);
+      setPartnerProgress(progress.progress);
+      setIsWaitingForPartner(!progress.complete);
+    } catch (error) {
+      submitLogger.warn('Failed to refresh partner status', { error });
+    }
+  }, [currentRoundId, currentUserId, holeCount]);
 
   // Update round status to completed in database
   const updateRoundStatus = useCallback(async (roundId: string): Promise<void> => {
@@ -110,6 +201,7 @@ export function useScoreSubmission({
       roundId: currentRoundId?.substring(0, 8) + '...',
       playerCount,
       scorecardCount,
+      scoringPairsEnabled,
     });
 
     const incomplete = validateScores();
@@ -123,6 +215,85 @@ export function useScoreSubmission({
     }
 
     const roundId = currentRoundId || routeRoundId;
+
+    // Check submission readiness when scoring pairs are enabled
+    if (scoringPairsEnabled && currentUserId && roundId && isOnline) {
+      try {
+        submitLogger.info('Checking submission readiness for scoring pairs');
+        const readiness = await checkSubmissionReadiness(roundId, currentUserId, true, holeCount);
+
+        if (!readiness.canSubmit) {
+          if (readiness.reason === 'waiting_for_partner') {
+            submitLogger.info('Waiting for partner to complete scoring', {
+              partnerName: readiness.partnerName,
+              progress: readiness.partnerProgress,
+            });
+
+            // Update partner state
+            setIsWaitingForPartner(true);
+            setPartnerName(readiness.partnerName ?? null);
+            setPartnerProgress(readiness.partnerProgress ?? null);
+
+            // Check if both have complete data (triggers bypass timer)
+            const partnerProgress = await getPartnerProgress(roundId, currentUserId, holeCount);
+            const myPartner = await getScoringPartner(roundId, currentUserId);
+
+            // If partner exists and we have complete data, start bypass timer
+            if (myPartner && !partnerProgress.complete) {
+              // Start bypass timer if not already started
+              const existingStatus = await getSubmissionStatus(roundId, currentUserId);
+              if (!existingStatus?.bypass_available_at) {
+                const { bypass_available_at } = await startBypassTimer(roundId, currentUserId, myPartner.id);
+                setBypassAvailableAt(new Date(bypass_available_at));
+                submitLogger.info('Bypass timer started', { bypass_available_at });
+                // TODO: Server-side push notification would be triggered here
+              }
+            }
+
+            // Convert entries to holes for display
+            const holesComplete = Math.floor((readiness.partnerProgress?.completed ?? 0) / 2);
+            const totalHoles = Math.floor((readiness.partnerProgress?.total ?? (holeCount * 2)) / 2);
+
+            Alert.alert(
+              'Waiting for Partner',
+              `${readiness.partnerName ?? 'Your partner'} hasn't finished entering scores yet.\n\nProgress: ${holesComplete}/${totalHoles} holes completed.${bypassAvailableAt ? `\n\nBypass available ${bypassAvailable ? 'now' : `at ${bypassAvailableAt.toLocaleTimeString()}`}` : ''}`,
+              [
+                { text: 'Check Again', onPress: () => refreshPartnerStatus() },
+                { text: 'OK', style: 'cancel' },
+              ]
+            );
+            return;
+          }
+
+          if (readiness.reason === 'unresolved_mismatches') {
+            submitLogger.info('Unresolved mismatches found', { count: readiness.mismatchCount });
+            setShowMismatchModal(true);
+            return;
+          }
+        }
+
+        // Partner complete - now detect and create any mismatches
+        submitLogger.info('Partner complete, detecting mismatches');
+        const mismatchCount = await createMismatchRecords(roundId);
+        submitLogger.info('Mismatch detection complete', { mismatchCount });
+
+        if (mismatchCount > 0) {
+          const mismatches = await getPendingMismatches(roundId);
+          if (mismatches.length > 0) {
+            submitLogger.info('Pending mismatches found, showing resolution modal', {
+              count: mismatches.length,
+            });
+            setShowMismatchModal(true);
+            return;
+          }
+        }
+
+        submitLogger.info('No mismatches or all resolved, proceeding with submission');
+      } catch (error) {
+        submitLogger.error('Error checking submission readiness', error);
+        // Continue with submission on error - don't block user
+      }
+    }
 
     Alert.alert(
       'Submit Scorecard',
@@ -209,6 +380,87 @@ export function useScoreSubmission({
     updateRoundStatus,
     navigateAfterSubmit,
     finalizeSkinsForRound,
+    scoringPairsEnabled,
+    currentUserId,
+    holeCount,
+    bypassAvailable,
+    bypassAvailableAt,
+    refreshPartnerStatus,
+  ]);
+
+  // Handle bypass submission (skip partner verification)
+  const handleBypassSubmit = useCallback(async () => {
+    const roundId = currentRoundId || routeRoundId;
+    if (!roundId || !currentUserId) {
+      Alert.alert('Error', 'Missing round or user information');
+      return;
+    }
+
+    Alert.alert(
+      'Submit Without Verification',
+      'Your scores will be used for both players. This submission will be flagged as unverified on the leaderboard.\n\nAre you sure you want to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit Anyway',
+          style: 'destructive',
+          onPress: async () => {
+            submitLogger.info('Bypass submission confirmed', { roundId: roundId.substring(0, 8) + '...' });
+            setIsSubmitting(true);
+            setSyncError(null);
+
+            try {
+              // Mark as bypassed
+              await markSubmissionBypassed(roundId, currentUserId);
+              submitLogger.info('Submission marked as bypassed');
+
+              // Apply bypass scores (use current user's scores as source of truth)
+              await applyBypassScores(roundId, currentUserId);
+              submitLogger.info('Bypass scores applied');
+
+              // Continue with normal submission (with bypassed flag)
+              await submitScorecards({ bypassed: true });
+              submitLogger.info('Bypassed submission completed');
+
+              if (isOnline) {
+                await updateRoundStatus(roundId);
+
+                // Finalize skins (non-blocking)
+                finalizeSkinsForRound(roundId).catch((error) => {
+                  submitLogger.warn('Skins finalization failed (non-blocking)', { error });
+                });
+              }
+
+              Alert.alert(
+                'Submitted (Unverified)',
+                'Your scores have been submitted. They will be flagged as unverified since partner verification was bypassed.',
+                [{ text: 'View Round', onPress: () => navigateAfterSubmit(roundId) }]
+              );
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              submitLogger.error('Bypass submission failed', error, { errorMessage });
+              setSyncError(errorMessage);
+              Alert.alert(
+                'Submission Failed',
+                `Failed to submit scores: ${errorMessage}. Please try again.`,
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [
+    currentRoundId,
+    routeRoundId,
+    currentUserId,
+    isOnline,
+    submitScorecards,
+    updateRoundStatus,
+    navigateAfterSubmit,
+    finalizeSkinsForRound,
   ]);
 
   const handleSyncPress = useCallback(async () => {
@@ -259,5 +511,17 @@ export function useScoreSubmission({
     handleSyncPress,
     handleRefresh,
     getOfflineStatus,
+    // Mismatch modal state
+    showMismatchModal,
+    setShowMismatchModal,
+    // Bypass state
+    bypassAvailable,
+    bypassAvailableAt,
+    handleBypassSubmit,
+    // Partner waiting state
+    isWaitingForPartner,
+    partnerName,
+    partnerProgress,
+    refreshPartnerStatus,
   };
 }

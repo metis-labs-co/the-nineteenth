@@ -3,23 +3,43 @@
  *
  * Fetches scoring pair assignments for competitive rounds.
  * Determines which players the current user can score.
+ *
+ * With mismatch detection enabled:
+ * - playersToScore includes [self, ...partners] (self first)
+ * - myScorer returns who is assigned to score the current user
+ * - isOwnScore helper checks if a playerId is the current user
  */
 
 import { useCallback, useState, useEffect } from 'react';
-import { getPlayersToScore, hasScoringPairs } from '@/services/scoringPairs';
+import { getPlayersToScore, getScoringPartner, hasScoringPairs } from '@/services/scoringPairs';
 import { roundDataLogger } from '@/utils/debugLogger';
 import type { Player } from '@/types';
 
 interface UseRoundScoringPairsResult {
+  /** Players the current user can score: [self, ...partners] */
   playersToScore: Player[];
+  /** Whether scoring pairs are enabled for this round */
   scoringPairsEnabled: boolean;
+  /** Loading state */
   isLoading: boolean;
+  /** Error message if any */
   error: string | null;
+  /** Refetch scoring pairs data */
   refetch: () => Promise<void>;
+  /** The player who is assigned to score the current user (for mismatch detection) */
+  myScorer: Player | null;
+  /** Helper to check if a player ID is the current user's own score */
+  isOwnScore: (playerId: string) => boolean;
 }
 
 /**
  * Hook for fetching scoring pair assignments
+ *
+ * @param roundId - Round UUID
+ * @param currentUserId - Current user's player UUID
+ * @param scoringPairsRequired - Whether scoring pairs are required for this round
+ * @param isTeamRound - Whether this is a team format round (kept for backward compatibility)
+ * @param allPlayers - All players in the round (kept for backward compatibility)
  */
 export function useRoundScoringPairs(
   roundId: string | undefined,
@@ -29,13 +49,23 @@ export function useRoundScoringPairs(
   allPlayers: Player[] = []
 ): UseRoundScoringPairsResult {
   const [playersToScore, setPlayersToScore] = useState<Player[]>([]);
+  const [myScorer, setMyScorer] = useState<Player | null>(null);
   const [scoringPairsEnabled, setScoringPairsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper to check if a playerId is the current user's own score
+  const isOwnScore = useCallback(
+    (playerId: string): boolean => {
+      return playerId === currentUserId;
+    },
+    [currentUserId]
+  );
+
   const fetchScoringPairs = useCallback(async () => {
     if (!roundId || !scoringPairsRequired) {
       setPlayersToScore([]);
+      setMyScorer(null);
       setScoringPairsEnabled(false);
       setIsLoading(false);
       return;
@@ -62,25 +92,18 @@ export function useRoundScoringPairs(
         );
         setScoringPairsEnabled(true);
         setPlayersToScore([]);
+        setMyScorer(null);
         setIsLoading(false);
         return;
       }
 
       setScoringPairsEnabled(true);
 
-      // If we have a current user, fetch the players they can score
+      // If we have a current user, fetch the players they can score and who scores them
       if (currentUserId) {
         try {
-          let playersToScoreList = await getPlayersToScore(roundId, currentUserId);
-
-          // For team rounds, also include the current user (you can always score yourself)
-          // This allows Best Ball to work properly - you see all scores but edit your own + assigned
-          if (isTeamRound) {
-            const currentUserPlayer = allPlayers.find((p) => p.id === currentUserId);
-            if (currentUserPlayer && !playersToScoreList.some((p) => p.id === currentUserId)) {
-              playersToScoreList = [currentUserPlayer, ...playersToScoreList];
-            }
-          }
+          // getPlayersToScore now returns [self, ...partners]
+          const playersToScoreList = await getPlayersToScore(roundId, currentUserId);
 
           roundDataLogger.info('Scoring pairs - user can score', {
             userCanScoreCount: playersToScoreList.length,
@@ -90,13 +113,23 @@ export function useRoundScoringPairs(
           });
 
           setPlayersToScore(playersToScoreList);
+
+          // Also fetch who is scoring the current user (for mismatch detection)
+          const scorer = await getScoringPartner(roundId, currentUserId);
+          setMyScorer(scorer);
+
+          if (scorer) {
+            roundDataLogger.debug('My scorer (partner)', { scorerName: scorer.name });
+          }
         } catch (scoringPairsError) {
           roundDataLogger.error('Failed to fetch scoring pairs', scoringPairsError);
           // Continue with empty players list
           setPlayersToScore([]);
+          setMyScorer(null);
         }
       } else {
         setPlayersToScore([]);
+        setMyScorer(null);
       }
 
       setIsLoading(false);
@@ -105,7 +138,7 @@ export function useRoundScoringPairs(
       setError(err instanceof Error ? err.message : 'Failed to check scoring pairs');
       setIsLoading(false);
     }
-  }, [roundId, currentUserId, scoringPairsRequired, isTeamRound, allPlayers]);
+  }, [roundId, currentUserId, scoringPairsRequired, isTeamRound]);
 
   useEffect(() => {
     fetchScoringPairs();
@@ -117,5 +150,7 @@ export function useRoundScoringPairs(
     isLoading,
     error,
     refetch: fetchScoringPairs,
+    myScorer,
+    isOwnScore,
   };
 }

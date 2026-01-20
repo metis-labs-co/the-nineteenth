@@ -117,8 +117,17 @@ export const styles = StyleSheet.create({
     ...typography.caption,
     marginLeft: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   nameText: {
     ...typography.body,
+    flexShrink: 1,
+  },
+  bypassIcon: {
+    marginLeft: spacing.xs,
   },
   membersText: {
     ...typography.caption,

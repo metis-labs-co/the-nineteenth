@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
-import { Text } from 'react-native-paper';
-import { IconTrophy } from '@tabler/icons-react-native';
+import { View, Pressable } from 'react-native';
+import { Text, Tooltip } from 'react-native-paper';
+import { IconTrophy, IconAlertTriangle } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
   type RoundLeaderboardEntry,
@@ -63,7 +63,8 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   const id = getEntryId(entry);
 
   // Build accessibility label
-  const accessibilityLabel = `Position ${entry.position}${isTied ? ' tied' : ''}: ${name}, Handicap ${handicap}, ${scoreDisplay} ${scoreLabel}${secondaryScore ? `, ${secondaryScore} ${secondaryLabel}` : ''}`;
+  const bypassedText = entry.bypassed ? ', unverified submission' : '';
+  const accessibilityLabel = `Position ${entry.position}${isTied ? ' tied' : ''}: ${name}, Handicap ${handicap}, ${scoreDisplay} ${scoreLabel}${secondaryScore ? `, ${secondaryScore} ${secondaryLabel}` : ''}${bypassedText}`;
 
   return (
     <View
@@ -97,16 +98,32 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
 
       {/* Name */}
       <View style={[styles.cell, styles.nameCol]}>
-        <Text
-          style={[
-            styles.nameText,
-            { color: colors.textPrimary },
-            isCurrentUser && { color: colors.primary, fontWeight: '600' },
-          ]}
-          numberOfLines={1}
-        >
-          {isCurrentUser ? 'You' : name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text
+            style={[
+              styles.nameText,
+              { color: colors.textPrimary },
+              isCurrentUser && { color: colors.primary, fontWeight: '600' },
+            ]}
+            numberOfLines={1}
+          >
+            {isCurrentUser ? 'You' : name}
+          </Text>
+          {entry.bypassed && (
+            <Tooltip title="Submitted without partner verification">
+              <Pressable
+                accessibilityLabel="Unverified submission"
+                accessibilityHint="This scorecard was submitted without partner verification"
+              >
+                <IconAlertTriangle
+                  size={14}
+                  color={colors.warning}
+                  style={styles.bypassIcon}
+                />
+              </Pressable>
+            </Tooltip>
+          )}
+        </View>
         {isTeamEntry(entry) && entry.members.length > 0 && (
           <Text
             style={[styles.membersText, { color: colors.textTertiary }]}

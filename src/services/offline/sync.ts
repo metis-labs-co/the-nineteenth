@@ -22,6 +22,7 @@ import {
 } from './database';
 import { supabase } from '@/services/supabase/client';
 import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
+import { saveScoreEntry } from '@/services/scoreMismatch';
 import type { Scorecard, PendingSync } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
@@ -470,6 +471,38 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     playerId: scorecard.playerId.substring(0, 8) + '...',
     holesScored: holesWithScores,
   });
+
+  // Also populate score_entries for mismatch detection (if scores have scoredBy attribution)
+  // This ensures offline scores are available for mismatch detection after reconnect
+  let scoreEntriesSynced = 0;
+  for (const [holeNum, score] of Object.entries(scorecard.scores)) {
+    if (score && isSingleBallScore(score) && score.strokes !== undefined && score.scoredBy) {
+      try {
+        await saveScoreEntry(
+          scorecard.roundId,
+          scorecard.playerId,
+          parseInt(holeNum),
+          score.scoredBy,
+          score
+        );
+        scoreEntriesSynced++;
+      } catch (entryError) {
+        // Non-critical - log but don't fail the sync
+        syncLogger.warn('Failed to save score entry during sync', {
+          error: entryError instanceof Error ? entryError.message : 'Unknown error',
+          holeNum,
+        });
+      }
+    }
+  }
+
+  if (scoreEntriesSynced > 0) {
+    syncLogger.debug('Score entries synced for mismatch detection', {
+      roundId: scorecard.roundId.substring(0, 8) + '...',
+      playerId: scorecard.playerId.substring(0, 8) + '...',
+      entriesCount: scoreEntriesSynced,
+    });
+  }
 }
 
 /**

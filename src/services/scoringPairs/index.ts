@@ -9,6 +9,7 @@ export {
   default,
   getRoundScoringPairs,
   getPlayersToScore,
+  getScoringPartner,
   createScoringPairs,
   autoGenerateAndSaveScoringPairs,
   generateTeamMatchPlayPairs,

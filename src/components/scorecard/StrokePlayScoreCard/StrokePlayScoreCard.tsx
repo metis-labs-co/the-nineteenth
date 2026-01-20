@@ -60,6 +60,8 @@ interface StrokePlayScoreCardProps {
   runningGross?: number;
   runningNet?: number;
   disabled?: boolean;
+  /** Whether this is the current user's own score (for visual distinction in scoring pairs) */
+  isOwnScore?: boolean;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -72,6 +74,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   runningGross = 0,
   runningNet = 0,
   disabled = false,
+  isOwnScore,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -202,6 +205,18 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
+      {/* Scoring Label - shows "Your Score" or "Partner's Score" when scoring pairs enabled */}
+      {isOwnScore !== undefined && (
+        <View style={styles.scoringLabelContainer}>
+          <Text style={[
+            styles.scoringLabel,
+            { color: isOwnScore ? colors.primary : colors.textSecondary }
+          ]}>
+            {isOwnScore ? 'Your Score' : "Partner's Score"}
+          </Text>
+        </View>
+      )}
+
       {/* Player Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -471,6 +486,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
     ...shadows.sm,
+  },
+  scoringLabelContainer: {
+    marginBottom: spacing.sm,
+  },
+  scoringLabel: {
+    ...typography.small,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   header: {
     flexDirection: 'row',

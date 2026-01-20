@@ -48,21 +48,64 @@ import { useGolfApiSearch, isGolfApiResult } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
-import type { Club, Course, AustralianState } from '@/types/database.types';
+import type { Club, Course, Tee, TeeBox, AustralianState } from '@/types/database.types';
 
 // Re-export mutations with club-specific names for backward compatibility
 export const useAddCourseFavorite = useAddFavoriteBase;
 export const useRemoveCourseFavorite = useRemoveFavoriteBase;
 
 // =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+/**
+ * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
+ * This provides backward compatibility for code that expects TeeBox[]
+ */
+function teeToTeeBox(tee: Tee): TeeBox {
+  return {
+    name: tee.name,
+    color: tee.color ?? tee.name.toLowerCase(), // Use hex color or fallback to name
+    totalYardage: tee.total_length ?? null,
+    courseRating: tee.course_rating ?? undefined,
+    slopeRating: tee.slope ?? undefined,
+  };
+}
+
+/**
+ * Merge tees from the tees table into the course's tees field
+ * Prioritizes tees from the table over legacy JSONB tees
+ */
+function mergeTees(course: SupabaseCourseWithTees): Course {
+  const teesFromTable = course.tees_from_table ?? [];
+  const legacyTees = course.tees ?? [];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { tees_from_table, ...courseWithoutTeesFromTable } = course;
+
+  return {
+    ...courseWithoutTeesFromTable,
+    // Prefer tees from table, fallback to legacy JSONB tees
+    tees: teesFromTable.length > 0 ? teesFromTable.map(teeToTeeBox) : legacyTees,
+  };
+}
+
+// =====================================================
 // SUPABASE RESPONSE TYPES
 // =====================================================
+
+/**
+ * Course with tees from the tees table join
+ */
+interface SupabaseCourseWithTees extends Course {
+  tees_from_table?: Tee[] | null;
+}
 
 /**
  * Club with courses from Supabase join
  */
 interface SupabaseClubWithCourses extends Club {
-  courses: Course[];
+  courses: SupabaseCourseWithTees[];
 }
 
 /**
@@ -73,11 +116,11 @@ interface SupabasePlayerHomeClub {
 }
 
 /**
- * Favorite course with course and club data
+ * Favorite course with course, club, and tees data
  */
 interface SupabaseFavoriteCourseWithClub {
   course_id: string;
-  courses: Course & { club: Club };
+  courses: SupabaseCourseWithTees & { club: Club };
 }
 
 // =====================================================
@@ -193,12 +236,16 @@ export function useClubsWithCourses(state?: AustralianState) {
       clubs: SupabaseClubWithCourses[];
       homeClubId: string | null;
     }> => {
-      // Fetch clubs with their courses
+      // Fetch clubs with their courses and tees
+      // Note: tees_from_table joins the normalized tees table
       let clubQuery = supabase
         .from('clubs')
         .select(`
           *,
-          courses!inner (*)
+          courses!inner (
+            *,
+            tees_from_table:tees (*)
+          )
         `)
         .order('name', { ascending: true });
 
@@ -230,11 +277,12 @@ export function useClubsWithCourses(state?: AustralianState) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Transform to ClubWithCourses with favorite status from shared hook
+  // Transform to ClubWithCourses with favorite status and merged tees
   const data = query.data
     ? query.data.clubs.map((club: SupabaseClubWithCourses) => {
-        const courses = (club.courses ?? []).map((course: Course) => ({
-          ...course,
+        // Merge tees from table into courses for backward compatibility
+        const courses = (club.courses ?? []).map((course: SupabaseCourseWithTees) => ({
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -284,7 +332,10 @@ export function useSearchClubs(searchQuery: string, state?: AustralianState) {
         .from('clubs')
         .select(`
           *,
-          courses!inner (*)
+          courses!inner (
+            *,
+            tees_from_table:tees (*)
+          )
         `);
 
       // Apply search filter (case-insensitive)
@@ -324,11 +375,12 @@ export function useSearchClubs(searchQuery: string, state?: AustralianState) {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Transform local results to ClubWithCourses
+  // Transform local results to ClubWithCourses with merged tees
   const localResults: ClubWithCourses[] | undefined = localQuery.data
     ? localQuery.data.clubs.map((club: SupabaseClubWithCourses) => {
-        const courses = (club.courses ?? []).map((course: Course) => ({
-          ...course,
+        // Merge tees from table into courses for backward compatibility
+        const courses = (club.courses ?? []).map((course: SupabaseCourseWithTees) => ({
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -512,14 +564,15 @@ export function useFavoriteCoursesWithClubs() {
     queryFn: async (): Promise<FavoriteCourseWithClub[]> => {
       if (!user) return [];
 
-      // Fetch favorites with course and club data
+      // Fetch favorites with course, club, and tees data
       const { data, error } = await supabase
         .from('favorite_courses')
         .select(`
           course_id,
           courses:course_id (
             *,
-            club:club_id (*)
+            club:club_id (*),
+            tees_from_table:tees (*)
           )
         `)
         .eq('player_id', user.id);
@@ -529,7 +582,7 @@ export function useFavoriteCoursesWithClubs() {
       const typedData = data as SupabaseFavoriteCourseWithClub[] | null;
       return (typedData ?? [])
         .map((item: SupabaseFavoriteCourseWithClub) => ({
-          ...item.courses,
+          ...mergeTees(item.courses),
           club: item.courses.club,
           venue: item.courses.club, // @deprecated - use club
           is_favorite: true,

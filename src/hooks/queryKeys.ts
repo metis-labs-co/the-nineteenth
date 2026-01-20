@@ -363,6 +363,21 @@ export const skinsKeys = {
 } as const;
 
 // =====================================================
+// SCORE MISMATCHES
+// =====================================================
+
+export const scoreMismatchKeys = {
+  all: ['scoreMismatch'] as const,
+  mismatches: (roundId: string) => [...scoreMismatchKeys.all, 'mismatches', roundId] as const,
+  readiness: (roundId: string, userId: string) =>
+    [...scoreMismatchKeys.all, 'readiness', roundId, userId] as const,
+  partnerStatus: (roundId: string, userId: string) =>
+    [...scoreMismatchKeys.all, 'partner', roundId, userId] as const,
+  submissionStatus: (roundId: string, playerId: string) =>
+    [...scoreMismatchKeys.all, 'submission', roundId, playerId] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -404,4 +419,5 @@ export const allQueryKeys = [
   cosmeticKeys.all,
   prizePoolKeys.all,
   skinsKeys.all,
+  scoreMismatchKeys.all,
 ] as const;

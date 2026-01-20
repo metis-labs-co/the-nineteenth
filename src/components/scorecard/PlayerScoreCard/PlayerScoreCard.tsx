@@ -84,6 +84,8 @@ interface PlayerScoreCardProps {
   runningTotalPoints?: number;
   /** Whether to show points preview below score controls (default true for Stableford) */
   showPointsPreview?: boolean;
+  /** Whether this is the current user's own score (for visual distinction in scoring pairs) */
+  isOwnScore?: boolean;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -96,6 +98,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   disabled = false,
   runningTotalPoints,
   showPointsPreview = true,
+  isOwnScore,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -141,6 +144,18 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
+      {/* Scoring Label - shows "Your Score" or "Partner's Score" when scoring pairs enabled */}
+      {isOwnScore !== undefined && (
+        <View style={styles.scoringLabelContainer}>
+          <Text style={[
+            styles.scoringLabel,
+            { color: isOwnScore ? colors.primary : colors.textSecondary }
+          ]}>
+            {isOwnScore ? 'Your Score' : "Partner's Score"}
+          </Text>
+        </View>
+      )}
+
       {/* Player Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -261,6 +276,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
     ...shadows.sm,
+  },
+  scoringLabelContainer: {
+    marginBottom: spacing.sm,
+  },
+  scoringLabel: {
+    ...typography.small,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   header: {
     flexDirection: 'row',

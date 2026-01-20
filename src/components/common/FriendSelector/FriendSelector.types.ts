@@ -114,6 +114,9 @@ export interface FriendSelectorProps {
 
   /** Label for add placeholder button (default: "Add Guest") */
   addPlaceholderLabel?: string;
+
+  /** When true, disables internal ScrollView - use when parent handles scrolling */
+  disableInternalScroll?: boolean;
 }
 
 /**

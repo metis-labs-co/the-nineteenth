@@ -14,6 +14,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import {
   IconGolf,
@@ -155,26 +156,32 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
 
   return (
     <>
-      {/* Selected Course & Partners Banner */}
-      <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
-        <IconGolf size={20} color={colors.primary} />
-        <View style={styles.selectedBannerText}>
-          <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
-            {selectedCourse?.courseName}
-            {selectedTee && (
-              <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
-            )}
-          </Text>
-          <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
-            {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
-            {' · '}
-            {selectedPartners.length + 1} players
-          </Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Selected Course & Partners Banner */}
+        <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
+          <IconGolf size={20} color={colors.primary} />
+          <View style={styles.selectedBannerText}>
+            <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
+              {selectedCourse?.courseName}
+              {selectedTee && (
+                <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
+              )}
+            </Text>
+            <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
+              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+              {' · '}
+              {selectedPartners.length + 1} players
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Scoring Pairs Toggle - Premium Feature */}
-      <View style={styles.scoringSetupContainer}>
+        {/* Scoring Pairs Toggle - Premium Feature */}
+        <View style={styles.scoringSetupContainer}>
         <Text style={[styles.scoringSetupTitle, { color: colors.textSecondary }]}>
           Scoring Configuration
         </Text>
@@ -406,21 +413,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
           </>
         )}
       </View>
-
-      {/* Skins Config Bottom Sheet */}
-      <SkinsConfigBottomSheet
-        visible={showSkinsConfigSheet}
-        onDismiss={handleSkinsConfigDismiss}
-        initialConfig={skinsConfig}
-        onSave={handleSkinsConfigSave}
-      />
-
-      {/* Skins Disclaimer Modal */}
-      <SkinsDisclaimerModal
-        visible={showSkinsDisclaimer}
-        onAccept={handleDisclaimerAccept}
-        onCancel={handleDisclaimerCancel}
-      />
+      </ScrollView>
 
       {/* Start Scoring Button */}
       {/* Disabled while skins config sheet is open to require confirmation first */}
@@ -447,11 +440,33 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Skins Config Bottom Sheet - rendered last to stack above everything */}
+      <SkinsConfigBottomSheet
+        visible={showSkinsConfigSheet}
+        onDismiss={handleSkinsConfigDismiss}
+        initialConfig={skinsConfig}
+        onSave={handleSkinsConfigSave}
+        showBackdrop={false}
+      />
+
+      {/* Skins Disclaimer Modal */}
+      <SkinsDisclaimerModal
+        visible={showSkinsDisclaimer}
+        onAccept={handleDisclaimerAccept}
+        onCancel={handleDisclaimerCancel}
+      />
     </>
   );
 });
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
   selectedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,7 +486,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
   scoringSetupContainer: {
-    flex: 1,
     paddingHorizontal: spacing.lg,
   },
   scoringSetupTitle: {

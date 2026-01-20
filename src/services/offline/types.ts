@@ -40,6 +40,7 @@ export interface HoleScoreRow {
   green_in_regulation: number;
   penalties: number;
   ball_scores: string | null;
+  scored_by: string | null;
   updated_at: string;
 }
 

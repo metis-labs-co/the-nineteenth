@@ -13,13 +13,16 @@
  * - Auto-refresh support via useRoundLeaderboard hook
  */
 
-import React from 'react';
-import { View } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
+import { IconAlertTriangle } from '@tabler/icons-react-native';
 import { LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
+import { spacing, typography } from '@/constants/theme';
 import type { GameType } from '@/types';
 
 // Sub-components
@@ -126,6 +129,12 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   const { entries, metadata } = data;
   const effectiveGameType = metadata.gameType;
 
+  // Check if any entries have bypassed scores
+  const hasBypassedEntries = useMemo(
+    () => entries.some((entry) => entry.bypassed),
+    [entries]
+  );
+
   // Select the appropriate leaderboard component based on game type
   const renderLeaderboardContent = () => {
     switch (effectiveGameType) {
@@ -162,8 +171,36 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       <View style={[styles.card, { backgroundColor: colors.surface }]}>
         {renderLeaderboardContent()}
       </View>
+
+      {/* Legend for bypassed indicator */}
+      {hasBypassedEntries && (
+        <View style={legendStyles.container}>
+          <IconAlertTriangle size={14} color={colors.warning} />
+          <Text style={[legendStyles.text, { color: colors.textTertiary }]}>
+            Submitted without partner verification
+          </Text>
+        </View>
+      )}
     </View>
   );
+});
+
+// =====================================================
+// LOCAL STYLES
+// =====================================================
+
+const legendStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  text: {
+    ...typography.caption,
+  },
 });
 
 export default RoundLeaderboard;

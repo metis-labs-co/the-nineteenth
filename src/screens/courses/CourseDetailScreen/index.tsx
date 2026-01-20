@@ -38,7 +38,7 @@ import { EditHoleBottomSheet } from '@/components/courses';
 import { supabase } from '@/services/supabase/client';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import type { TeeBox, GameType, Club, Hole } from '@/types/database.types';
+import type { TeeBox, Tee, GameType, Club, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
 
 import { HoleTable } from './components';
@@ -48,6 +48,20 @@ import type { PlayingPartner } from './types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Course'>;
 
+/**
+ * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
+ * This provides backward compatibility for components expecting TeeBox[]
+ */
+function teeToTeeBox(tee: Tee): TeeBox {
+  return {
+    name: tee.name,
+    color: tee.color ?? tee.name.toLowerCase(),
+    totalYardage: tee.total_length ?? null,
+    courseRating: tee.course_rating ?? undefined,
+    slopeRating: tee.slope ?? undefined,
+  };
+}
+
 export default function CourseScreen({ route, navigation }: Props) {
   const { courseId } = route.params;
   const colors = useThemeColors();
@@ -56,24 +70,32 @@ export default function CourseScreen({ route, navigation }: Props) {
   const cardBackground = colors.surface;
   const { formatDistance } = useFormattedDistance();
 
-  // Fetch course details
+  // Fetch course details with tees from the normalized tees table
   const {
     data: course,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useCourseDetails(courseId);
+  } = useCourseDetails(courseId, { includeTees: true });
+
+  // Get tees - prefer tees from normalized table, fallback to legacy JSONB
+  const courseTees = useMemo(() => {
+    if (course?.teesFromTable && course.teesFromTable.length > 0) {
+      return course.teesFromTable.map(teeToTeeBox);
+    }
+    return course?.tees ?? [];
+  }, [course?.teesFromTable, course?.tees]);
 
   // Selected tee for yardage display
   const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
 
   // Initialize selected tee when course loads
   React.useEffect(() => {
-    if (course?.tees && course.tees.length > 0 && !selectedTee) {
-      setSelectedTee(course.tees[0]);
+    if (courseTees.length > 0 && !selectedTee) {
+      setSelectedTee(courseTees[0]);
     }
-  }, [course?.tees, selectedTee]);
+  }, [courseTees, selectedTee]);
 
   // Get selected tee color for HoleTable and EditHoleBottomSheet (yardages are keyed by color)
   const selectedTeeColor = selectedTee?.color?.toLowerCase() ?? null;
@@ -306,10 +328,11 @@ export default function CourseScreen({ route, navigation }: Props) {
     return {
       courseId: course.id,
       courseName: course.name,
-      venue: course.club as Club, // Bottom sheet expects 'venue' property (deprecated alias)
-      tees: course.tees,
+      club: course.club as Club,
+      venue: course.club as Club, // Deprecated alias for backward compatibility
+      tees: courseTees, // Use merged tees from table + legacy
     };
-  }, [course]);
+  }, [course, courseTees]);
 
   // Loading state
   if (isLoading) {
@@ -474,9 +497,9 @@ export default function CourseScreen({ route, navigation }: Props) {
         </View>
 
         {/* Tee Selector */}
-        {course.tees && course.tees.length > 0 && (
+        {courseTees.length > 0 && (
           <TeeSelector
-            tees={course.tees}
+            tees={courseTees}
             selectedTee={selectedTee}
             onSelectTee={setSelectedTee}
             variant="pills"
@@ -532,7 +555,7 @@ export default function CourseScreen({ route, navigation }: Props) {
           onClose={() => setEditingHole(null)}
           hole={editingHole}
           allHoles={course.holes}
-          courseTees={course.tees ?? []}
+          courseTees={courseTees}
           selectedTee={selectedTeeColor}
           onSave={handleSaveHole}
           loading={updateCourseHolesMutation.isPending}

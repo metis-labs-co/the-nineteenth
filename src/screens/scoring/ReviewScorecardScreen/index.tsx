@@ -8,6 +8,7 @@
  * - Skins tab showing hole-by-hole results and settlement (if skins game active)
  * - Edit Scores and Submit All Scores buttons
  * - Handles online/offline submission with sync status
+ * - Mismatch resolution modal for scoring pairs verification
  */
 
 import React, { useCallback, useState, useMemo } from 'react';
@@ -28,9 +29,14 @@ import { ScorecardTable } from '@/components/scorecard';
 import { PageHeader } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
+import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
+import { useAuth } from '@/hooks';
+import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
+import { useRoundScoringPairs } from '@/hooks/scorecard';
+import { useRoundDetails } from '@/hooks/useRoundDetails';
 
 import { useScoreReview, useScoreSubmission } from './hooks';
 import {
@@ -195,6 +201,10 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('scorecard');
 
+  // Authentication
+  const { player } = useAuth();
+  const currentUserId = player?.id;
+
   // Review state and data
   const {
     holes,
@@ -213,6 +223,25 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
 
   // Get round ID from route params or store
   const roundId = route.params?.roundId || currentRoundId;
+
+  // Fetch round details to check if scoring pairs are required
+  const { data: roundDetails } = useRoundDetails(roundId || '');
+  const scoringPairsRequired = roundDetails?.scoring_pairs_required ?? false;
+  const holeCount = holes.length || 18;
+
+  // Scoring pairs hook for mismatch detection
+  const { scoringPairsEnabled, myScorer } = useRoundScoringPairs(
+    roundId || undefined,
+    currentUserId,
+    scoringPairsRequired,
+    false, // isTeamRound
+    currentPlayers
+  );
+
+  // Mismatch hooks
+  const { data: mismatches = [], isLoading: mismatchesLoading } = usePendingMismatches(roundId || undefined);
+  const { mutateAsync: resolveMismatch, isPending: isResolving } = useResolveMismatch();
+  const { data: partnerStatus } = usePartnerStatus(roundId || undefined, currentUserId, holeCount);
 
   // Check for active skins game
   const { data: skinsGame } = useActiveSkinsGameForRound(roundId || undefined);
@@ -239,6 +268,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     handleSyncPress,
     handleRefresh,
     getOfflineStatus,
+    showMismatchModal,
+    setShowMismatchModal,
   } = useScoreSubmission({
     isOnline,
     competitionId: route.params?.competitionId,
@@ -251,7 +282,36 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     submitScorecards,
     resetRound,
     navigation,
+    // Scoring pairs mismatch detection
+    scoringPairsEnabled,
+    currentUserId,
+    holeCount,
   });
+
+  // Handle mismatch resolution
+  const handleResolveMismatch = useCallback(
+    async (
+      mismatchId: string,
+      score: number,
+      mismatchRoundId: string,
+      playerId: string,
+      holeNumber: number
+    ) => {
+      if (!currentUserId) {
+        return { alreadyResolved: false };
+      }
+      const result = await resolveMismatch({
+        mismatchId,
+        resolvedScore: score,
+        resolvedBy: currentUserId,
+        roundId: mismatchRoundId,
+        playerId,
+        holeNumber,
+      });
+      return result;
+    },
+    [currentUserId, resolveMismatch]
+  );
 
   // Navigation handlers
   const handleGoBack = useCallback(() => {
@@ -365,6 +425,18 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         incompleteHoles={incompleteHoles}
         onClose={() => setShowIncompleteModal(false)}
         onHolePress={handleIncompleteHolePress}
+      />
+
+      {/* Mismatch Resolution Modal */}
+      <MismatchResolutionModal
+        visible={showMismatchModal}
+        mismatches={mismatches}
+        currentUserId={currentUserId ?? ''}
+        partnerName={partnerStatus?.partnerName ?? myScorer?.name ?? 'Partner'}
+        onResolve={handleResolveMismatch}
+        onClose={() => setShowMismatchModal(false)}
+        isOnline={isOnline}
+        isResolving={isResolving}
       />
     </View>
   );

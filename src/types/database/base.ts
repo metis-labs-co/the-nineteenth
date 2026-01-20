@@ -44,6 +44,7 @@ export interface HoleScore {
   fairwayHit?: boolean; // Phase 2
   greenInRegulation?: boolean; // Phase 2 (GIR)
   penalties?: number; // Phase 2
+  scoredBy?: string; // UUID of the player who entered this score (for mismatch detection)
 }
 
 /**

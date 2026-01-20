@@ -249,6 +249,7 @@ export function ScorecardScoreContent({
             onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
             onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
             onPlayerPress={() => onPlayerPress(player.id)}
+            isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
           />
         ))}
         <StrokePlayLeaderboard
@@ -280,6 +281,7 @@ export function ScorecardScoreContent({
           onPlayerPress={onPlayerPress}
           runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, player.handicap ?? 0) : undefined}
           showPointsPreview={isStableford}
+          isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
         />
       ))}
     </>

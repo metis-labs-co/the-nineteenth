@@ -9,7 +9,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
-import type { Round, Course, Scorecard, Player, Club, Pairing, Competition } from '@/types/database.types';
+import type { Round, Course, Scorecard, Player, Club, Pairing, Competition, Tee, TeeBox } from '@/types/database.types';
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+/**
+ * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
+ */
+function teeToTeeBox(tee: Tee): TeeBox {
+  return {
+    name: tee.name,
+    color: tee.color ?? tee.name.toLowerCase(),
+    totalYardage: tee.total_length ?? null,
+    courseRating: tee.course_rating ?? undefined,
+    slopeRating: tee.slope ?? undefined,
+  };
+}
 
 // =====================================================
 // TYPES
@@ -46,7 +63,8 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
       *,
       courses (
         *,
-        clubs (id, name, city, state, address)
+        clubs (id, name, city, state, address),
+        tees_from_table:tees (*)
       ),
       competitions (id, name, competition_type, status, start_date, end_date)
     `)
@@ -62,14 +80,28 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
   const courseData = roundData.courses as Record<string, unknown> | null;
   const competitionData = roundData.competitions as CompetitionSummary | null;
 
+  // Merge tees from table into course.tees for backward compatibility
+  let mergedCourse: CourseWithClub | null = null;
+  if (courseData) {
+    const teesFromTable = (courseData.tees_from_table as Tee[] | null) ?? [];
+    const legacyTees = (courseData.tees as TeeBox[] | null) ?? [];
+
+    // Prefer tees from table, fallback to legacy JSONB
+    const mergedTees = teesFromTable.length > 0 ? teesFromTable.map(teeToTeeBox) : legacyTees;
+
+    // Build merged course without temporary fields
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { tees_from_table, clubs, ...courseWithoutTemp } = courseData as Record<string, unknown>;
+    mergedCourse = {
+      ...courseWithoutTemp,
+      tees: mergedTees,
+      club: (clubs as CourseWithClub['club']) || null,
+    } as CourseWithClub;
+  }
+
   return {
     ...roundData,
-    course: courseData
-      ? {
-          ...courseData,
-          club: (courseData.clubs as CourseWithClub['club']) || null,
-        }
-      : null,
+    course: mergedCourse,
     competition: competitionData,
   } as RoundWithCourse;
 }

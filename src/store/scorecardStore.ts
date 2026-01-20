@@ -23,6 +23,7 @@ import {
   getHoles,
 } from '@/services/offline/database';
 import { queueScorecardSync, subscribeSyncState, getIsOnline } from '@/services/offline/sync';
+import { saveScoreEntry } from '@/services/scoreMismatch';
 import { calculateStablefordPoints, calculateNetScore } from '@/utils/scoring';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 
@@ -66,8 +67,9 @@ interface ScorecardState {
   setAllowedPlayers: (playerIds: string[]) => void;
   loadFromOffline: (roundId: string) => Promise<boolean>;
   setCurrentHole: (hole: number) => void;
-  setPlayerScore: (playerId: string, hole: number, strokes: number) => Promise<void>;
+  setPlayerScore: (playerId: string, hole: number, strokes: number, scoredBy?: string) => Promise<void>;
   updatePlayerHoleScore: (playerId: string, hole: number, updates: Partial<HoleScore>) => Promise<void>;
+  updateLocalScore: (roundId: string, playerId: string, holeNumber: number, strokes: number) => Promise<void>;
   getPlayerScore: (playerId: string, hole: number) => HoleScore | MultiBallHoleScore | undefined;
   getPlayerTotals: (playerId: string) => { gross: number; net: number; points: number };
   getHoleInfo: (holeNumber: number) => Hole | undefined;
@@ -306,7 +308,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       });
     },
 
-    setPlayerScore: async (playerId, hole, strokes) => {
+    setPlayerScore: async (playerId, hole, strokes, scoredBy) => {
       const { groupScorecards, holes, gameType, allowedPlayerIds, currentRoundId } = get();
 
       storeLogger.debug('Setting player score', {
@@ -314,6 +316,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         hole,
         strokes,
         roundId: currentRoundId?.substring(0, 8) + '...',
+        scoredBy: scoredBy?.substring(0, 8) + '...',
       });
 
       // Validate player is allowed to be scored (defensive check)
@@ -342,13 +345,14 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const existingScore = scorecard.scores[hole];
       const existingSingleBall = existingScore && isSingleBallScore(existingScore) ? existingScore : undefined;
 
-      // Create the score entry, preserving existing stats
+      // Create the score entry, preserving existing stats and adding attribution
       const holeScore: HoleScore = {
         strokes,
         putts: existingSingleBall?.putts,
         fairwayHit: existingSingleBall?.fairwayHit,
         greenInRegulation: existingSingleBall?.greenInRegulation,
         penalties: existingSingleBall?.penalties ?? 0,
+        scoredBy: scoredBy ?? existingSingleBall?.scoredBy,
       };
 
       // Update the scorecard
@@ -387,6 +391,24 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
           isStandalone: scorecard.isStandalone,
         });
         await queueScorecardSync(updatedScorecard, 'update');
+
+        // Also save to score_entries for mismatch detection (if scoredBy provided and not standalone)
+        if (scoredBy && currentRoundId && !scorecard.isStandalone) {
+          try {
+            await saveScoreEntry(currentRoundId, playerId, hole, scoredBy, holeScore);
+            storeLogger.debug('Score entry saved for mismatch detection', {
+              roundId: currentRoundId.substring(0, 8) + '...',
+              playerId: playerId.substring(0, 8) + '...',
+              hole,
+              scoredBy: scoredBy.substring(0, 8) + '...',
+            });
+          } catch (entryError) {
+            // Non-critical - log but don't fail the score save
+            storeLogger.warn('Failed to save score entry for mismatch detection', {
+              error: entryError instanceof Error ? entryError.message : 'Unknown error',
+            });
+          }
+        }
       } catch (error) {
         storeLogger.error('Failed to save score', error, {
           playerId: playerId.substring(0, 8) + '...',
@@ -813,6 +835,75 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             roundId: currentRoundId?.substring(0, 8) + '...',
           });
         }
+      }
+    },
+
+    // Update local SQLite score after mismatch resolution
+    // This ensures local state matches the resolved score from the server
+    updateLocalScore: async (roundId, playerId, holeNumber, strokes) => {
+      const { groupScorecards, holes, gameType } = get();
+
+      storeLogger.debug('Updating local score after resolution', {
+        roundId: roundId.substring(0, 8) + '...',
+        playerId: playerId.substring(0, 8) + '...',
+        holeNumber,
+        strokes,
+      });
+
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('Scorecard not found for player during local update', { playerId });
+        return;
+      }
+
+      // Get existing score to preserve stats
+      const existingScore = scorecard.scores[holeNumber];
+      const existingSingleBall = existingScore && isSingleBallScore(existingScore) ? existingScore : undefined;
+
+      // Update just the strokes, preserve everything else
+      const holeScore: HoleScore = {
+        strokes,
+        putts: existingSingleBall?.putts,
+        fairwayHit: existingSingleBall?.fairwayHit,
+        greenInRegulation: existingSingleBall?.greenInRegulation,
+        penalties: existingSingleBall?.penalties ?? 0,
+        scoredBy: existingSingleBall?.scoredBy,
+      };
+
+      // Update the scorecard
+      const updatedScorecard: Scorecard = {
+        ...scorecard,
+        scores: {
+          ...scorecard.scores,
+          [holeNumber]: holeScore,
+        },
+        updatedAt: new Date(),
+      };
+
+      // Calculate totals
+      const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
+      updatedScorecard.totalGross = totals.gross;
+      updatedScorecard.totalNet = totals.net;
+
+      // Update state
+      const newScorecards = new Map(groupScorecards);
+      newScorecards.set(playerId, updatedScorecard);
+      set({ groupScorecards: newScorecards });
+
+      // Save to SQLite
+      try {
+        await saveHoleScore(scorecard.id, holeNumber, holeScore);
+        await saveScorecard(updatedScorecard);
+        storeLogger.debug('Local score updated after resolution', {
+          playerId: playerId.substring(0, 8) + '...',
+          holeNumber,
+          strokes,
+        });
+      } catch (error) {
+        storeLogger.error('Failed to update local score', error, {
+          playerId: playerId.substring(0, 8) + '...',
+          holeNumber,
+        });
       }
     },
   };

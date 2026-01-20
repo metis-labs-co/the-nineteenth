@@ -68,6 +68,8 @@ export interface SkinsConfigBottomSheetProps {
   initialConfig?: SkinsConfig | null;
   /** Callback when configuration is saved */
   onSave: (config: SkinsConfig) => void;
+  /** Whether to show backdrop (default true, set false for nested sheets) */
+  showBackdrop?: boolean;
 }
 
 // ============================================================================
@@ -79,6 +81,7 @@ export function SkinsConfigBottomSheet({
   onDismiss,
   initialConfig,
   onSave,
+  showBackdrop = true,
 }: SkinsConfigBottomSheetProps) {
   const colors = useThemeColors();
 
@@ -154,6 +157,7 @@ export function SkinsConfigBottomSheet({
       height={0.7}
       title="Skins Configuration"
       showCloseButton
+      showBackdrop={showBackdrop}
       testID="skins-config-bottom-sheet"
     >
       <ScrollView

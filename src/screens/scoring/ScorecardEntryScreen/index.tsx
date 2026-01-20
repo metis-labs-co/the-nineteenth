@@ -199,8 +199,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         hole: currentHole,
         strokes,
         holeInfo: holeData ? { par: holeData.par, si: holeData.strokeIndex } : null,
+        scoredBy: user?.id?.substring(0, 8),
       });
-      await setPlayerScore(playerId, currentHole, strokes);
+      // Pass current user ID as scoredBy for mismatch detection attribution
+      await setPlayerScore(playerId, currentHole, strokes, user?.id);
 
       // Process skins if applicable (non-blocking, runs in background)
       if (holeData) {
@@ -238,7 +240,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         });
       }
     },
-    [currentHole, setPlayerScore, currentPlayers, getHoleInfo, roundId, processSkinsHole]
+    [currentHole, setPlayerScore, currentPlayers, getHoleInfo, roundId, processSkinsHole, user?.id]
   );
 
   const handleStatsUpdate = useCallback(

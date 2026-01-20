@@ -75,6 +75,8 @@ interface BaseLeaderboardEntry {
   competitionPoints: number;
   /** Whether this is a team result */
   isTeamResult: boolean;
+  /** Whether this scorecard was submitted without partner verification */
+  bypassed: boolean;
 }
 
 /** Individual player leaderboard entry */
@@ -155,6 +157,11 @@ interface RoundInfo {
   } | null;
 }
 
+/** Scorecard info from joined query */
+interface ScorecardInfo {
+  bypassed: boolean;
+}
+
 /** Round result row from Supabase with joins */
 interface RoundResultRow {
   id: string;
@@ -168,6 +175,7 @@ interface RoundResultRow {
   is_team_result: boolean;
   players: PlayerInfo | null;
   teams: TeamInfo | null;
+  scorecards: ScorecardInfo[] | null;  // Array because the join returns an array (one scorecard per player/round)
 }
 
 // =====================================================
@@ -287,7 +295,8 @@ function transformToLeaderboardEntry(
   gameType: GameType,
   isTeamRound: boolean,
   teamFormat: TeamFormat | null,
-  allResults: RoundResultRow[]
+  allResults: RoundResultRow[],
+  bypassMap: Map<string, boolean>
 ): RoundLeaderboardEntry {
   const scoreData = formatScoreData(
     gameType,
@@ -307,6 +316,11 @@ function transformToLeaderboardEntry(
         handicap: m.players?.handicap ?? 0,
       }));
 
+    // For teams, check if any team member has a bypassed scorecard
+    const teamBypassed = result.teams.team_members.some(
+      (m) => bypassMap.get(m.player_id) === true
+    );
+
     return {
       isTeamResult: true,
       position: result.position ?? 0,
@@ -315,10 +329,13 @@ function transformToLeaderboardEntry(
       teamName: result.teams.name,
       members,
       scoreData,
+      bypassed: teamBypassed,
     };
   }
 
-  // Individual player entry
+  // Individual player entry - get bypass status from map
+  const bypassed = bypassMap.get(result.player_id ?? '') ?? false;
+
   return {
     isTeamResult: false,
     position: result.position ?? 0,
@@ -327,6 +344,7 @@ function transformToLeaderboardEntry(
     playerName: result.players?.name ?? 'Unknown',
     handicap: result.players?.handicap ?? 0,
     scoreData,
+    bypassed,
   };
 }
 
@@ -371,6 +389,7 @@ async function fetchRoundLeaderboard(
   const typedRound = round as unknown as RoundInfo;
 
   // Get round results with player/team joins
+  // Note: We join scorecards via the players table to get bypass status
   const { data: results, error: resultsError } = await supabase
     .from('round_results')
     .select(
@@ -406,6 +425,23 @@ async function fetchRoundLeaderboard(
     .eq('round_id', roundId)
     .order('position', { ascending: true, nullsFirst: false });
 
+  // Fetch scorecards separately to get bypass status (needed because Supabase
+  // doesn't support joining on multiple columns in the same select)
+  const { data: scorecards } = await supabase
+    .from('scorecards')
+    .select('player_id, bypassed')
+    .eq('round_id', roundId);
+
+  // Build a map of player_id -> bypassed status
+  const bypassMap = new Map<string, boolean>();
+  if (scorecards) {
+    for (const sc of scorecards as { player_id: string | null; bypassed: boolean | null }[]) {
+      if (sc.player_id) {
+        bypassMap.set(sc.player_id, sc.bypassed ?? false);
+      }
+    }
+  }
+
   if (resultsError) {
     throw new Error(`Failed to fetch round results: ${resultsError.message}`);
   }
@@ -419,7 +455,8 @@ async function fetchRoundLeaderboard(
       typedRound.game_type,
       typedRound.is_team_round,
       typedRound.team_format,
-      typedResults
+      typedResults,
+      bypassMap
     )
   );
 

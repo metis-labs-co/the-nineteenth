@@ -134,7 +134,8 @@ function createStablefordPlayer(
   name: string,
   handicap: number,
   points: number,
-  position: number
+  position: number,
+  bypassed = false
 ): PlayerLeaderboardEntry {
   return {
     isTeamResult: false,
@@ -147,6 +148,7 @@ function createStablefordPlayer(
       type: 'stableford',
       totalPoints: points,
     },
+    bypassed,
   };
 }
 
@@ -158,7 +160,8 @@ function createStrokePlayer(
   name: string,
   handicap: number,
   grossScore: number,
-  position: number
+  position: number,
+  bypassed = false
 ): PlayerLeaderboardEntry {
   return {
     isTeamResult: false,
@@ -172,6 +175,7 @@ function createStrokePlayer(
       grossScore,
       netScore: grossScore - handicap,
     },
+    bypassed,
   };
 }
 
@@ -184,7 +188,8 @@ function createMatchPlayPlayer(
   opponentName: string,
   result: 'win' | 'loss' | 'halved',
   margin: string,
-  position: number
+  position: number,
+  bypassed = false
 ): PlayerLeaderboardEntry {
   return {
     isTeamResult: false,
@@ -203,6 +208,7 @@ function createMatchPlayPlayer(
       holesLost: result === 'loss' ? 5 : result === 'halved' ? 3 : 2,
       holesHalved: 3,
     },
+    bypassed,
   };
 }
 
@@ -214,7 +220,8 @@ function createTeamEntry(
   teamName: string,
   members: { playerId: string; playerName: string; handicap: number }[],
   teamScore: number,
-  position: number
+  position: number,
+  bypassed = false
 ): TeamLeaderboardEntry {
   return {
     isTeamResult: true,
@@ -228,6 +235,7 @@ function createTeamEntry(
       teamScore,
       teamFormat: 'best-ball',
     },
+    bypassed,
   };
 }
 
