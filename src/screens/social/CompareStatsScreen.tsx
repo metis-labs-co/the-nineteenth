@@ -42,6 +42,7 @@ import {
   PlayerCompareHeader,
   SectionHeader,
   ComparisonLegend,
+  ParTypeComparison,
 } from '@/components/social/comparison';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompareStats'>;
@@ -442,6 +443,101 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
                         decimals={1}
                       />
                     )}
+                  </View>
+                </>
+              )}
+
+              {/* Par Type Comparison */}
+              <ParTypeComparison
+                player1Par3={stats1.par3Stats}
+                player2Par3={stats2.par3Stats}
+                player1Par4={stats1.par4Stats}
+                player2Par4={stats2.par4Stats}
+                player1Par5={stats1.par5Stats}
+                player2Par5={stats2.par5Stats}
+                player1Name={player1.name}
+                player2Name={player2.name}
+              />
+
+              {/* Short Game Comparison */}
+              <SectionHeader title="Short Game" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
+              <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <ComparisonRow
+                  label="Scrambling"
+                  value1={stats1.shortGame.scramblingPercentage !== null ? `${stats1.shortGame.scramblingPercentage}` : '-'}
+                  value2={stats2.shortGame.scramblingPercentage !== null ? `${stats2.shortGame.scramblingPercentage}` : '-'}
+                  diff={
+                    stats1.shortGame.scramblingPercentage !== null && stats2.shortGame.scramblingPercentage !== null
+                      ? stats1.shortGame.scramblingPercentage - stats2.shortGame.scramblingPercentage
+                      : undefined
+                  }
+                  higherIsBetter
+                  suffix="%"
+                  decimals={1}
+                />
+                <ComparisonRow
+                  label="Bogey Avoidance"
+                  value1={`${stats1.shortGame.bogeyAvoidanceRate}`}
+                  value2={`${stats2.shortGame.bogeyAvoidanceRate}`}
+                  diff={stats1.shortGame.bogeyAvoidanceRate - stats2.shortGame.bogeyAvoidanceRate}
+                  higherIsBetter
+                  suffix="%"
+                  decimals={1}
+                />
+                <ComparisonRow
+                  label="Double+ Rate"
+                  value1={`${stats1.shortGame.doubleBogeyOrWorseRate}`}
+                  value2={`${stats2.shortGame.doubleBogeyOrWorseRate}`}
+                  diff={stats1.shortGame.doubleBogeyOrWorseRate - stats2.shortGame.doubleBogeyOrWorseRate}
+                  higherIsBetter={false}
+                  suffix="%"
+                  decimals={1}
+                />
+              </View>
+
+              {/* Putting Depth Comparison */}
+              {showPutts && (
+                <>
+                  <SectionHeader title="Putting Analysis" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
+                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                    <ComparisonRow
+                      label="One-Putt %"
+                      value1={stats1.puttingDepth.onePuttPercentage !== null ? `${stats1.puttingDepth.onePuttPercentage}` : '-'}
+                      value2={stats2.puttingDepth.onePuttPercentage !== null ? `${stats2.puttingDepth.onePuttPercentage}` : '-'}
+                      diff={
+                        stats1.puttingDepth.onePuttPercentage !== null && stats2.puttingDepth.onePuttPercentage !== null
+                          ? stats1.puttingDepth.onePuttPercentage - stats2.puttingDepth.onePuttPercentage
+                          : undefined
+                      }
+                      higherIsBetter
+                      suffix="%"
+                      decimals={1}
+                    />
+                    <ComparisonRow
+                      label="Three-Putt %"
+                      value1={stats1.puttingDepth.threePuttPercentage !== null ? `${stats1.puttingDepth.threePuttPercentage}` : '-'}
+                      value2={stats2.puttingDepth.threePuttPercentage !== null ? `${stats2.puttingDepth.threePuttPercentage}` : '-'}
+                      diff={
+                        stats1.puttingDepth.threePuttPercentage !== null && stats2.puttingDepth.threePuttPercentage !== null
+                          ? stats1.puttingDepth.threePuttPercentage - stats2.puttingDepth.threePuttPercentage
+                          : undefined
+                      }
+                      higherIsBetter={false}
+                      suffix="%"
+                      decimals={1}
+                    />
+                    <ComparisonRow
+                      label="Putts per GIR"
+                      value1={stats1.puttingDepth.puttsPerGIR !== null ? stats1.puttingDepth.puttsPerGIR.toFixed(2) : '-'}
+                      value2={stats2.puttingDepth.puttsPerGIR !== null ? stats2.puttingDepth.puttsPerGIR.toFixed(2) : '-'}
+                      diff={
+                        stats1.puttingDepth.puttsPerGIR !== null && stats2.puttingDepth.puttsPerGIR !== null
+                          ? stats1.puttingDepth.puttsPerGIR - stats2.puttingDepth.puttsPerGIR
+                          : undefined
+                      }
+                      higherIsBetter={false}
+                      decimals={2}
+                    />
                   </View>
                 </>
               )}

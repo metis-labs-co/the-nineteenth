@@ -382,6 +382,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         <View style={styles.contentArea}>
           <HoleHeader
             hole={holeData}
+            courseId={courseId ?? undefined}
             selectedTee={selectedTee ?? undefined}
             onPrevious={nav.handlePreviousHole}
             onNext={nav.handleNextHole}
@@ -452,6 +453,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     },
     [
       getHoleInfo,
+      courseId,
       selectedTee,
       nav.handlePreviousHole,
       nav.handleNextHole,

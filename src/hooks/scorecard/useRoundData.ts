@@ -80,10 +80,12 @@ export function useRoundData({
   const {
     currentRoundId,
     currentPlayers,
+    holes: storeHoles,
     isInitialized,
     loadFromOffline,
     initializeRound,
     resetRound,
+    updateHoles,
   } = useScorecardStore();
 
   // Track if we've already updated the round status to avoid duplicate calls
@@ -244,6 +246,32 @@ export function useRoundData({
   useEffect(() => {
     initializeRoundData();
   }, [initializeRoundData]);
+
+  // Update store holes when fresh course data has yardages that the cached data is missing
+  // This handles the case where offline data was loaded but lacks yardages from the tees table
+  useEffect(() => {
+    if (!isInitialized || courseHook.isLoading || !courseHook.holes.length) {
+      return;
+    }
+
+    // Check if fresh data has yardages
+    const freshHasYardages = courseHook.holes.some(
+      (h) => h.yardages && Object.keys(h.yardages).length > 0
+    );
+
+    // Check if store data is missing yardages
+    const storeNeedsYardages = storeHoles.length > 0 && !storeHoles.some(
+      (h) => h.yardages && Object.keys(h.yardages).length > 1 // More than just a placeholder
+    );
+
+    if (freshHasYardages && storeNeedsYardages) {
+      roundDataLogger.info('Updating store holes with fresh yardage data', {
+        freshYardageKeys: courseHook.holes[0]?.yardages ? Object.keys(courseHook.holes[0].yardages) : [],
+        storeYardageKeys: storeHoles[0]?.yardages ? Object.keys(storeHoles[0].yardages) : [],
+      });
+      updateHoles(courseHook.holes);
+    }
+  }, [isInitialized, courseHook.isLoading, courseHook.holes, storeHoles, updateHoles]);
 
   // Update round status to 'in-progress' when scoring begins
   // This runs separately from initialization to ensure it happens even if

@@ -28,7 +28,7 @@ import { FeatureButton } from '@/components/common/FeatureButton';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
-import { useUpdateCourseHoles } from '@/hooks';
+import { useUpdateCourseHoles, useCoordinateSummary } from '@/hooks';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -36,10 +36,12 @@ import { useFormattedDistance } from '@/store/settingsStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { EditHoleBottomSheet } from '@/components/courses';
 import { supabase } from '@/services/supabase/client';
+import { courseService } from '@/services/courses/courseService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TeeBox, Tee, GameType, Club, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
+import { hydrateHolesWithTeeYardages, resolveTeeYardageKey } from '@/utils/holeTransformers';
 
 import { HoleTable } from './components';
 import { TeeSelector, getTeeColor } from '@/components/common';
@@ -87,6 +89,13 @@ export default function CourseScreen({ route, navigation }: Props) {
     return course?.tees ?? [];
   }, [course?.teesFromTable, course?.tees]);
 
+  // Hydrate holes with yardages from the tees table
+  // The tees table stores per-hole lengths (length_hole_1, etc.) which need to be
+  // merged into holes as yardages: { blue: 425, white: 400, ... }
+  const holesWithYardages = useMemo(() => {
+    return hydrateHolesWithTeeYardages(course?.holes, course?.teesFromTable);
+  }, [course?.holes, course?.teesFromTable]);
+
   // Selected tee for yardage display
   const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
 
@@ -97,8 +106,9 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [courseTees, selectedTee]);
 
-  // Get selected tee color for HoleTable and EditHoleBottomSheet (yardages are keyed by color)
-  const selectedTeeColor = selectedTee?.color?.toLowerCase() ?? null;
+  // Get selected tee color for HoleTable and EditHoleBottomSheet (yardages are keyed by color name)
+  // Use resolveTeeYardageKey to ensure consistency with how holes are hydrated with yardages
+  const selectedTeeColor = selectedTee ? resolveTeeYardageKey(selectedTee.color, selectedTee.name) : null;
 
   // Favorite mutations
   const addFavorite = useAddCourseFavorite();
@@ -119,6 +129,12 @@ export default function CourseScreen({ route, navigation }: Props) {
   const isSuperAdmin = useIsSuperAdmin();
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
   const updateCourseHolesMutation = useUpdateCourseHoles();
+
+  // API refresh state (re-imports course from Golf API)
+  const [isRefreshingFromApi, setIsRefreshingFromApi] = useState(false);
+
+  // GPS coordinates summary
+  const { data: coordSummary, refetch: refetchCoords } = useCoordinateSummary(courseId);
 
   // Hide React Navigation header (we use PageHeader)
   React.useLayoutEffect(() => {
@@ -147,6 +163,36 @@ export default function CourseScreen({ route, navigation }: Props) {
       setTogglingFavorite(false);
     }
   }, [course, addFavorite, removeFavorite, refetch]);
+
+  // Handle refresh from Golf API (re-imports course data including tees and GPS coordinates)
+  const handleRefreshFromApi = useCallback(async () => {
+    if (isRefreshingFromApi) return; // Prevent double-clicks
+
+    if (!course?.golfapi_course_id) {
+      Alert.alert('Cannot Refresh', 'This course was not imported from the Golf API.');
+      return;
+    }
+
+    setIsRefreshingFromApi(true);
+    try {
+      const result = await courseService.importCourse(course.golfapi_course_id);
+      await refetch();
+      await refetchCoords();
+
+      // Build success message with details
+      const messages = ['Course data refreshed from Golf API.'];
+      if (result.coordinatesImported > 0) {
+        messages.push(`GPS coordinates imported: ${result.coordinatesImported} points`);
+      }
+
+      Alert.alert('Success', messages.join('\n'));
+    } catch (error) {
+      console.error('[CourseScreen] Failed to refresh from API:', error);
+      Alert.alert('Error', 'Failed to refresh course data. Please try again.');
+    } finally {
+      setIsRefreshingFromApi(false);
+    }
+  }, [course?.golfapi_course_id, refetch, refetchCoords, isRefreshingFromApi]);
 
   // Navigate to club
   const handleClubPress = useCallback(() => {
@@ -220,8 +266,8 @@ export default function CourseScreen({ route, navigation }: Props) {
       setIsBottomSheetVisible(false);
 
       try {
-        // Use course holes or default holes (fallback if empty array)
-        const holes: Hole[] = course.holes && course.holes.length > 0 ? course.holes : DEFAULT_HOLES;
+        // Use hydrated holes (with yardages) or default holes (fallback if empty array)
+        const holes: Hole[] = holesWithYardages && holesWithYardages.length > 0 ? holesWithYardages : DEFAULT_HOLES;
 
         // Create the round in Supabase
         const { data: roundData, error: roundError } = await (supabase
@@ -319,7 +365,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         setIsStartingRound(false);
       }
     },
-    [course, user, player, initializeRound, navigation, isStartingRound]
+    [course, holesWithYardages, user, player, initializeRound, navigation, isStartingRound]
   );
 
   // Prepare initial course data for bottom sheet
@@ -382,13 +428,29 @@ export default function CourseScreen({ route, navigation }: Props) {
     );
   }
 
-  // Calculate totals
-  const totalPar = course.holes?.reduce((sum, h) => sum + h.par, 0) || 0;
-  const holeCount = course.holes?.length || 0;
+  // Calculate totals (using hydrated holes)
+  const totalPar = holesWithYardages?.reduce((sum, h) => sum + h.par, 0) || 0;
+  const holeCount = holesWithYardages?.length || 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader variant="centered" title={course.name} showBack onBack={handleBack} />
+      <PageHeader
+        variant="centered"
+        title={course.name}
+        showBack
+        onBack={handleBack}
+        rightActions={
+          course.golfapi_course_id
+            ? [
+                {
+                  icon: isRefreshingFromApi ? 'loading' : 'refresh',
+                  onPress: handleRefreshFromApi,
+                  accessibilityLabel: 'Refresh course data from Golf API',
+                },
+              ]
+            : undefined
+        }
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}
@@ -476,6 +538,15 @@ export default function CourseScreen({ route, navigation }: Props) {
               <Text style={[styles.statValue, { color: colors.primary }]}>{course.course_rating || '-'}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>CR</Text>
             </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statBox}>
+              <Icon
+                source={coordSummary?.hasCoordinates ? 'crosshairs-gps' : 'crosshairs-off'}
+                size={20}
+                color={coordSummary?.hasCoordinates ? colors.success : colors.gray400}
+              />
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GPS</Text>
+            </View>
           </View>
 
           {/* Selected Tee Info */}
@@ -510,7 +581,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Hole Breakdown</Text>
 
-          {!course.holes || course.holes.length === 0 ? (
+          {!holesWithYardages || holesWithYardages.length === 0 ? (
             <View style={[styles.emptyHolesCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
               <Icon source="flag" size={32} color={colors.gray400} />
               <Text style={[styles.emptyHolesText, { color: colors.textSecondary }]}>
@@ -519,7 +590,7 @@ export default function CourseScreen({ route, navigation }: Props) {
             </View>
           ) : (
             <HoleTable
-              holes={course.holes}
+              holes={holesWithYardages}
               selectedTee={selectedTeeColor}
               isSuperAdmin={isSuperAdmin}
               onHolePress={handleHolePress}
@@ -549,12 +620,12 @@ export default function CourseScreen({ route, navigation }: Props) {
       />
 
       {/* Super admin hole editing modal */}
-      {editingHole && course?.holes && (
+      {editingHole && holesWithYardages && holesWithYardages.length > 0 && (
         <EditHoleBottomSheet
           visible={!!editingHole}
           onClose={() => setEditingHole(null)}
           hole={editingHole}
-          allHoles={course.holes}
+          allHoles={holesWithYardages}
           courseTees={courseTees}
           selectedTee={selectedTeeColor}
           onSave={handleSaveHole}

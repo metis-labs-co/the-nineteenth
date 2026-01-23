@@ -16,18 +16,22 @@
  * - HoleDetailsSection: Par, stroke index, and distance display
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useFormattedDistance } from '@/store/settingsStore';
+import { resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { HoleNavigationButton } from './HoleNavigationButton';
 import { HoleNumberDisplay } from './HoleNumberDisplay';
 import { HoleDetailsSection } from './HoleDetailsSection';
+import { DistanceToPin } from './DistanceToPin';
 import type { Hole } from '@/types';
 
 export interface HoleHeaderProps {
   hole: Hole;
+  /** Course ID for GPS distance-to-pin feature */
+  courseId?: string;
   selectedTee?: string;
   onPrevious?: () => void;
   onNext?: () => void;
@@ -42,6 +46,7 @@ export interface HoleHeaderProps {
 
 export const HoleHeader = React.memo(function HoleHeader({
   hole,
+  courseId,
   selectedTee = 'white',
   onPrevious,
   onNext,
@@ -53,9 +58,26 @@ export const HoleHeader = React.memo(function HoleHeader({
 }: HoleHeaderProps) {
   const colors = useThemeColors();
   const { formatDistance } = useFormattedDistance();
-  const yardage = hole.yardages?.[selectedTee];
+
+  // Resolve the tee key - handles hex colors (e.g., "#00ccff" → "blue") and normalizes names
+  const resolvedTeeKey = useMemo(() => resolveTeeYardageKey(selectedTee), [selectedTee]);
+
+  // Look up yardage using resolved key, with fallback to original selectedTee for backwards compatibility
+  const yardage = hole.yardages?.[resolvedTeeKey] ?? hole.yardages?.[selectedTee];
   const formattedDistance = yardage ? formatDistance(yardage) : undefined;
   const canEditHole = isSuperAdmin && !!onEditHole;
+
+  // Debug logging in development
+  if (__DEV__ && hole.number === 1) {
+    console.log('[HoleHeader] Yardage lookup:', {
+      holeNumber: hole.number,
+      selectedTee,
+      resolvedTeeKey,
+      availableYardageKeys: hole.yardages ? Object.keys(hole.yardages) : [],
+      yardage,
+      formattedDistance,
+    });
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -84,6 +106,12 @@ export const HoleHeader = React.memo(function HoleHeader({
         canEdit={canEditHole}
         onEditHole={onEditHole}
       />
+
+      {courseId && (
+        <View style={styles.gpsContainer}>
+          <DistanceToPin courseId={courseId} holeNumber={hole.number} />
+        </View>
+      )}
     </View>
   );
 });
@@ -100,5 +128,8 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     marginHorizontal: spacing.md,
+  },
+  gpsContainer: {
+    marginLeft: spacing.md,
   },
 });

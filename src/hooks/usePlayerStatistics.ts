@@ -50,6 +50,40 @@ export interface RoundSummary {
   isPracticeRound: boolean;
 }
 
+/**
+ * Statistics broken down by hole par type (3, 4, or 5)
+ */
+export interface ParTypeStats {
+  holesPlayed: number;
+  averageScore: number;
+  scoreToPar: number; // e.g., +0.4 means averaging 0.4 over par
+  girPercentage: number | null; // null if no GIR data
+  birdiePercentage: number;
+  parPercentage: number;
+  bogeyPercentage: number;
+  doublePlusPercentage: number;
+}
+
+/**
+ * Short game statistics derived from GIR and score data
+ */
+export interface ShortGameStats {
+  scramblingPercentage: number | null; // null if no GIR data
+  scrambleAttempts: number; // total missed GIRs
+  scramblesMade: number; // missed GIR + made par or better
+  bogeyAvoidanceRate: number; // % of holes with par or better
+  doubleBogeyOrWorseRate: number; // % of holes with double+
+}
+
+/**
+ * Extended putting statistics
+ */
+export interface PuttingDepthStats {
+  onePuttPercentage: number | null; // null if no putt data
+  threePuttPercentage: number | null;
+  puttsPerGIR: number | null; // avg putts when hitting GIR
+}
+
 export interface PlayerStatistics {
   // Overview Stats
   roundsPlayed: number;
@@ -103,6 +137,17 @@ export interface PlayerStatistics {
   greensInRegulation: number | null;
   girOpportunities: number; // Holes where GIR was recorded
   girPercentage: number | null;
+
+  // Par Type Stats (NEW)
+  par3Stats: ParTypeStats;
+  par4Stats: ParTypeStats;
+  par5Stats: ParTypeStats;
+
+  // Short Game Stats (NEW)
+  shortGame: ShortGameStats;
+
+  // Putting Depth Stats (NEW)
+  puttingDepth: PuttingDepthStats;
 }
 
 // =====================================================
@@ -156,6 +201,152 @@ function countScoreDistribution(
   });
 
   return distribution;
+}
+
+/**
+ * Calculate statistics for holes of a specific par value
+ */
+function calculateParTypeStats(
+  allScores: Array<{ strokes: number; par: number; gir: boolean | null; putts: number | null }>,
+  targetPar: number
+): ParTypeStats {
+  const parHoles = allScores.filter(s => s.par === targetPar);
+  const holesPlayed = parHoles.length;
+
+  if (holesPlayed === 0) {
+    return {
+      holesPlayed: 0,
+      averageScore: 0,
+      scoreToPar: 0,
+      girPercentage: null,
+      birdiePercentage: 0,
+      parPercentage: 0,
+      bogeyPercentage: 0,
+      doublePlusPercentage: 0,
+    };
+  }
+
+  const totalStrokes = parHoles.reduce((sum, h) => sum + h.strokes, 0);
+  const averageScore = Math.round((totalStrokes / holesPlayed) * 100) / 100;
+  const scoreToPar = Math.round((averageScore - targetPar) * 100) / 100;
+
+  // Score distribution for this par type
+  let birdies = 0, pars = 0, bogeys = 0, doublePlus = 0;
+  parHoles.forEach(h => {
+    const diff = h.strokes - h.par;
+    if (diff <= -1) birdies++;
+    else if (diff === 0) pars++;
+    else if (diff === 1) bogeys++;
+    else doublePlus++;
+  });
+
+  // GIR calculation (only if we have GIR data)
+  const holesWithGIRData = parHoles.filter(h => typeof h.gir === 'boolean');
+  const girPercentage = holesWithGIRData.length > 0
+    ? Math.round((holesWithGIRData.filter(h => h.gir).length / holesWithGIRData.length) * 1000) / 10
+    : null;
+
+  return {
+    holesPlayed,
+    averageScore,
+    scoreToPar,
+    girPercentage,
+    birdiePercentage: Math.round((birdies / holesPlayed) * 1000) / 10,
+    parPercentage: Math.round((pars / holesPlayed) * 1000) / 10,
+    bogeyPercentage: Math.round((bogeys / holesPlayed) * 1000) / 10,
+    doublePlusPercentage: Math.round((doublePlus / holesPlayed) * 1000) / 10,
+  };
+}
+
+/**
+ * Calculate scrambling and short game statistics
+ * Scrambling = making par or better after missing the green in regulation
+ */
+function calculateShortGameStats(
+  allScores: Array<{ strokes: number; par: number; gir: boolean | null }>
+): ShortGameStats {
+  const totalHoles = allScores.length;
+
+  // Bogey avoidance and double+ rate (always calculable)
+  const parOrBetter = allScores.filter(h => h.strokes <= h.par).length;
+  const doublePlus = allScores.filter(h => h.strokes >= h.par + 2).length;
+
+  const bogeyAvoidanceRate = totalHoles > 0
+    ? Math.round((parOrBetter / totalHoles) * 1000) / 10
+    : 0;
+  const doubleBogeyOrWorseRate = totalHoles > 0
+    ? Math.round((doublePlus / totalHoles) * 1000) / 10
+    : 0;
+
+  // Scrambling requires GIR data
+  const holesWithGIRData = allScores.filter(h => typeof h.gir === 'boolean');
+
+  if (holesWithGIRData.length === 0) {
+    return {
+      scramblingPercentage: null,
+      scrambleAttempts: 0,
+      scramblesMade: 0,
+      bogeyAvoidanceRate,
+      doubleBogeyOrWorseRate,
+    };
+  }
+
+  // Scramble attempts = missed GIRs
+  const missedGIRs = holesWithGIRData.filter(h => !h.gir);
+  const scrambleAttempts = missedGIRs.length;
+
+  // Scrambles made = missed GIR but still made par or better
+  const scramblesMade = missedGIRs.filter(h => h.strokes <= h.par).length;
+
+  const scramblingPercentage = scrambleAttempts > 0
+    ? Math.round((scramblesMade / scrambleAttempts) * 1000) / 10
+    : null;
+
+  return {
+    scramblingPercentage,
+    scrambleAttempts,
+    scramblesMade,
+    bogeyAvoidanceRate,
+    doubleBogeyOrWorseRate,
+  };
+}
+
+/**
+ * Calculate extended putting statistics
+ */
+function calculatePuttingDepthStats(
+  allScores: Array<{ putts: number | null; gir: boolean | null }>
+): PuttingDepthStats {
+  const holesWithPutts = allScores.filter(h => typeof h.putts === 'number' && h.putts >= 0);
+
+  if (holesWithPutts.length === 0) {
+    return {
+      onePuttPercentage: null,
+      threePuttPercentage: null,
+      puttsPerGIR: null,
+    };
+  }
+
+  const onePutts = holesWithPutts.filter(h => h.putts === 1).length;
+  const threePutts = holesWithPutts.filter(h => h.putts! >= 3).length;
+
+  const onePuttPercentage = Math.round((onePutts / holesWithPutts.length) * 1000) / 10;
+  const threePuttPercentage = Math.round((threePutts / holesWithPutts.length) * 1000) / 10;
+
+  // Putts per GIR - only count holes where we hit GIR and tracked putts
+  const girHolesWithPutts = allScores.filter(
+    h => h.gir === true && typeof h.putts === 'number' && h.putts >= 0
+  );
+
+  const puttsPerGIR = girHolesWithPutts.length > 0
+    ? Math.round((girHolesWithPutts.reduce((sum, h) => sum + h.putts!, 0) / girHolesWithPutts.length) * 100) / 100
+    : null;
+
+  return {
+    onePuttPercentage,
+    threePuttPercentage,
+    puttsPerGIR,
+  };
 }
 
 // =====================================================
@@ -282,6 +473,14 @@ export function usePlayerStatistics(
       let greensInRegulation = 0;
       let girOpportunities = 0; // Holes where GIR was recorded
 
+      // Collect all hole scores for par type and short game calculations
+      const allHoleScores: Array<{
+        strokes: number;
+        par: number;
+        gir: boolean | null;
+        putts: number | null;
+      }> = [];
+
       // Track course stats
       const courseStatsMap = new Map<string, {
         courseId: string;
@@ -357,6 +556,16 @@ export function usePlayerStatistics(
             if (holeScore.greenInRegulation) {
               greensInRegulation++;
             }
+          }
+
+          // Collect hole data for par type and short game stats
+          if (holeScore.strokes) {
+            allHoleScores.push({
+              strokes: holeScore.strokes,
+              par,
+              gir: typeof holeScore.greenInRegulation === 'boolean' ? holeScore.greenInRegulation : null,
+              putts: typeof holeScore.putts === 'number' ? holeScore.putts : null,
+            });
           }
         });
 
@@ -528,6 +737,17 @@ export function usePlayerStatistics(
         ? Math.round((greensInRegulation / girOpportunities) * 1000) / 10
         : null;
 
+      // Calculate par type stats
+      const par3Stats = calculateParTypeStats(allHoleScores, 3);
+      const par4Stats = calculateParTypeStats(allHoleScores, 4);
+      const par5Stats = calculateParTypeStats(allHoleScores, 5);
+
+      // Calculate short game stats
+      const shortGame = calculateShortGameStats(allHoleScores);
+
+      // Calculate putting depth stats
+      const puttingDepth = calculatePuttingDepthStats(allHoleScores);
+
       return {
         roundsPlayed,
         practiceRoundsPlayed: practiceRoundsCount,
@@ -563,6 +783,14 @@ export function usePlayerStatistics(
         greensInRegulation: girOpportunities > 0 ? greensInRegulation : null,
         girOpportunities,
         girPercentage,
+        // Par Type Stats
+        par3Stats,
+        par4Stats,
+        par5Stats,
+        // Short Game Stats
+        shortGame,
+        // Putting Depth Stats
+        puttingDepth,
       };
     },
     enabled: enabled && !!playerId,

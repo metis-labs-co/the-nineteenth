@@ -15,3 +15,6 @@ export type { HoleNumberDisplayProps } from './HoleNumberDisplay';
 
 export { HoleDetailsSection } from './HoleDetailsSection';
 export type { HoleDetailsSectionProps } from './HoleDetailsSection';
+
+export { DistanceToPin } from './DistanceToPin';
+export type { DistanceToPinProps } from './DistanceToPin';

@@ -119,3 +119,136 @@ export function parseAndTransformHoles(holesData: Hole[] | unknown[] | string | 
 
   return [];
 }
+
+/**
+ * Tee type from the normalized tees table
+ * Importing here to avoid circular dependencies
+ */
+interface TeeWithLengths {
+  name: string;
+  color?: string | null;
+  length_hole_1?: number | null;
+  length_hole_2?: number | null;
+  length_hole_3?: number | null;
+  length_hole_4?: number | null;
+  length_hole_5?: number | null;
+  length_hole_6?: number | null;
+  length_hole_7?: number | null;
+  length_hole_8?: number | null;
+  length_hole_9?: number | null;
+  length_hole_10?: number | null;
+  length_hole_11?: number | null;
+  length_hole_12?: number | null;
+  length_hole_13?: number | null;
+  length_hole_14?: number | null;
+  length_hole_15?: number | null;
+  length_hole_16?: number | null;
+  length_hole_17?: number | null;
+  length_hole_18?: number | null;
+}
+
+/**
+ * Common hex color to color name mappings.
+ * Exported for use in other components that need consistent tee key resolution.
+ */
+export const TEE_HEX_COLOR_MAP: Record<string, string> = {
+  '#ffffff': 'white',
+  '#000000': 'black',
+  '#0000ff': 'blue',
+  '#00ccff': 'blue',
+  '#0066cc': 'blue',
+  '#ff0000': 'red',
+  '#ff5050': 'red',
+  '#ffff00': 'yellow',
+  '#cccc00': 'gold',
+  '#ffd700': 'gold',
+  '#008000': 'green',
+  '#66ff66': 'green',
+  '#c0c0c0': 'silver',
+};
+
+/**
+ * Resolve a tee color (hex or name) to a consistent yardage key.
+ * Normalizes hex colors to color names (e.g., "#00CCFF" → "blue").
+ * Falls back to the input lowercased if not a recognized hex.
+ *
+ * @param color - Hex color string or color name
+ * @param fallbackName - Optional fallback name if color is null/undefined
+ * @returns Normalized color key (lowercase color name)
+ */
+export function resolveTeeYardageKey(color: string | null | undefined, fallbackName?: string): string {
+  if (!color) {
+    return fallbackName?.toLowerCase() ?? 'unknown';
+  }
+
+  const lowerColor = color.toLowerCase();
+
+  // Check if it's a hex color and map it
+  if (lowerColor.startsWith('#')) {
+    return TEE_HEX_COLOR_MAP[lowerColor] ?? fallbackName?.toLowerCase() ?? lowerColor;
+  }
+
+  return lowerColor;
+}
+
+/**
+ * Get the tee key for the yardages object.
+ * Uses color if available (lowercase), otherwise falls back to name (lowercase).
+ * Normalizes hex colors (e.g., "#FFFFFF" → "white") for common tee colors.
+ */
+function getTeeYardageKey(tee: TeeWithLengths): string {
+  return resolveTeeYardageKey(tee.color, tee.name);
+}
+
+/**
+ * Get the hole length from a tee for a specific hole number.
+ */
+function getTeeHoleLengthFromTee(tee: TeeWithLengths, holeNumber: number): number | null {
+  const key = `length_hole_${holeNumber}` as keyof TeeWithLengths;
+  const value = tee[key];
+  return typeof value === 'number' ? value : null;
+}
+
+/**
+ * Hydrate holes with yardage data from the tees table.
+ *
+ * The tees table stores per-hole yardages in separate columns (length_hole_1, etc.),
+ * but the Hole type expects yardages as a Record<string, number> keyed by tee color.
+ *
+ * This function merges tee yardages into holes so they can be displayed properly.
+ *
+ * @param holes - The holes array (with par and strokeIndex but no yardages)
+ * @param tees - The tees array from the tees table (with length_hole_X columns)
+ * @returns Holes array with yardages populated from tee data
+ *
+ * @example
+ * // Input hole: { number: 1, par: 4, strokeIndex: 5 }
+ * // Input tee: { name: 'Blue', color: 'blue', length_hole_1: 425, ... }
+ * // Output hole: { number: 1, par: 4, strokeIndex: 5, yardages: { blue: 425 } }
+ */
+export function hydrateHolesWithTeeYardages(
+  holes: Hole[] | null | undefined,
+  tees: TeeWithLengths[] | null | undefined
+): Hole[] {
+  if (!holes || holes.length === 0) return [];
+  if (!tees || tees.length === 0) return holes;
+
+  return holes.map((hole) => {
+    // Build yardages object from all tees
+    const yardages: Record<string, number> = {};
+
+    for (const tee of tees) {
+      const length = getTeeHoleLengthFromTee(tee, hole.number);
+      if (length !== null && length > 0) {
+        const key = getTeeYardageKey(tee);
+        yardages[key] = length;
+      }
+    }
+
+    // Return hole with yardages (or preserve existing if no new data)
+    return {
+      ...hole,
+      yardages: Object.keys(yardages).length > 0 ? yardages : hole.yardages,
+    };
+  });
+}

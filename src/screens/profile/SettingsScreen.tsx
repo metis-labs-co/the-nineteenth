@@ -5,6 +5,7 @@
  * - Theme mode (light/dark/system)
  * - Distance units (yards/metres)
  * - Push notification preferences
+ * - GPS distance-to-pin display during scoring
  * - Which stats to show in scoring entry (putts, FIR, GIR)
  * - These settings affect leaderboards, stats, and scorecard entry
  */
@@ -133,12 +134,14 @@ export default function SettingsScreen() {
   const showPutts = useSettingsStore((state) => state.showPutts);
   const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
   const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
+  const showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
   const setShowPutts = useSettingsStore((state) => state.setShowPutts);
   const setShowFairwayHit = useSettingsStore((state) => state.setShowFairwayHit);
   const setShowGreenInRegulation = useSettingsStore((state) => state.setShowGreenInRegulation);
+  const setShowGpsDistance = useSettingsStore((state) => state.setShowGpsDistance);
   const resetToDefaults = useSettingsStore((state) => state.resetToDefaults);
 
   const handleBack = useCallback(() => {
@@ -274,6 +277,14 @@ export default function SettingsScreen() {
               description="Track number of putts per hole"
               value={showPutts}
               onValueChange={setShowPutts}
+              colors={colors}
+            />
+            <SettingRow
+              icon="crosshairs-gps"
+              label="GPS Distance to Pin"
+              description="Show live distance to the green during scoring"
+              value={showGpsDistance}
+              onValueChange={setShowGpsDistance}
               colors={colors}
             />
             <FeatureLock

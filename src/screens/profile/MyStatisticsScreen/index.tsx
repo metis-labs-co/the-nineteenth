@@ -21,6 +21,11 @@ import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { UpgradePrompt } from '@/components/subscription';
+import {
+  ParTypeStatsSection,
+  ShortGameSection,
+  PuttingAnalysisSection,
+} from '@/components/statistics';
 
 // Local components and hooks
 import { useStatsUpgradePrompt } from './hooks';
@@ -148,13 +153,30 @@ export default function MyStatisticsScreen({ navigation }: Props) {
           showGreenInRegulation={showGreenInRegulation}
         />
 
-        {/* Section 2: Score Distribution - Social+ tier */}
+        {/* Section 2: Par Type Stats - Social+ tier */}
+        <ParTypeStatsSection
+          par3Stats={stats.par3Stats}
+          par4Stats={stats.par4Stats}
+          par5Stats={stats.par5Stats}
+        />
+
+        {/* Section 3: Short Game - Social+ tier */}
+        <ShortGameSection shortGame={stats.shortGame} />
+
+        {/* Section 4: Putting Analysis - Social+ tier */}
+        <PuttingAnalysisSection
+          puttingDepth={stats.puttingDepth}
+          averagePuttsPerHole={stats.averagePuttsPerHole}
+          totalPuttsPerRound={stats.averagePuttsPerRound}
+        />
+
+        {/* Section 5: Score Distribution - Social+ tier */}
         <ScoreDistributionSection
           stats={stats}
           onUpgradePress={handleScoreDistributionUpgrade}
         />
 
-        {/* Section 3: Advanced Analytics - Premium tier */}
+        {/* Section 6: Advanced Analytics - Premium tier */}
         <AdvancedAnalytics
           stats={stats}
           onUpgradePress={handleAdvancedStatsUpgrade}

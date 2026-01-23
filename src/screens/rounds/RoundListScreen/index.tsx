@@ -16,6 +16,7 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { ConfirmationDialog } from '@/components/common';
@@ -56,6 +57,13 @@ export default function RoundsScreen() {
   const { handleStartNewRound } = useStartNewRound(() => {
     setIsBottomSheetVisible(false);
   });
+
+  // Refetch rounds when screen is focused (e.g., navigating back from scoring)
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const handleOpenNewRound = useCallback(() => {
     setIsBottomSheetVisible(true);

@@ -23,6 +23,9 @@ interface SettingsState {
   showFairwayHit: boolean;
   showGreenInRegulation: boolean;
 
+  // GPS distance-to-pin feature
+  showGpsDistance: boolean;
+
   // Developer settings
   debugModeEnabled: boolean;
 
@@ -31,6 +34,7 @@ interface SettingsState {
   setShowPutts: (show: boolean) => void;
   setShowFairwayHit: (show: boolean) => void;
   setShowGreenInRegulation: (show: boolean) => void;
+  setShowGpsDistance: (show: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -40,6 +44,7 @@ const DEFAULT_SETTINGS = {
   showPutts: true,
   showFairwayHit: false,
   showGreenInRegulation: false,
+  showGpsDistance: true, // GPS distance-to-pin enabled by default
   debugModeEnabled: false,
 };
 
@@ -57,6 +62,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowFairwayHit: (show) => set({ showFairwayHit: show }),
 
       setShowGreenInRegulation: (show) => set({ showGreenInRegulation: show }),
+
+      setShowGpsDistance: (show) => set({ showGpsDistance: show }),
 
       setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
 

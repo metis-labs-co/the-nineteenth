@@ -371,6 +371,14 @@ export type {
   HoleCoordinateSummary,
 } from './useHoleCoordinates';
 
+// User Location hooks (GPS tracking for distance-to-pin)
+export { useUserLocation } from './useUserLocation';
+export type {
+  UseUserLocationReturn,
+  LocationPermissionStatus,
+  UserLocation as DeviceUserLocation,
+} from './useUserLocation';
+
 // Skins game hooks
 export {
   useSkinsGame,

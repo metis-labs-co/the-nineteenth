@@ -91,6 +91,8 @@ export interface ImportCourseResult {
   hasHoleData: boolean;
   /** Whether tee data was imported */
   hasTeeData: boolean;
+  /** Number of GPS coordinates imported */
+  coordinatesImported: number;
 }
 
 /**
@@ -250,6 +252,17 @@ class CourseService {
         }))
       );
 
+      // Import GPS coordinates (non-blocking - don't fail if coordinates unavailable)
+      let coordinatesImported = 0;
+      try {
+        coordinatesImported = await this.importCoordinates(golfapiCourseId, course.id);
+        if (coordinatesImported > 0) {
+          console.log(`[CourseService] Imported ${coordinatesImported} GPS coordinates for ${course.name}`);
+        }
+      } catch (coordError) {
+        console.warn('[CourseService] Failed to import coordinates (non-blocking):', coordError);
+      }
+
       return {
         club,
         course,
@@ -258,6 +271,7 @@ class CourseService {
         courseCreated,
         hasHoleData: hasHoleData(courseData),
         hasTeeData: hasTeeData(teesData),
+        coordinatesImported,
       };
     } catch (error) {
       // If API fails but we have cached data, return stale cache
@@ -279,6 +293,7 @@ class CourseService {
           courseCreated: false,
           hasHoleData: hasHoleData(existingCourse),
           hasTeeData: tees.length > 0,
+          coordinatesImported: 0,
         };
       }
 
@@ -341,6 +356,16 @@ class CourseService {
             );
 
             allTees.push(...tees);
+
+            // Import GPS coordinates (non-blocking)
+            try {
+              const coordCount = await this.importCoordinates(courseSummary.courseID, course.id);
+              if (coordCount > 0) {
+                console.log(`[CourseService] Imported ${coordCount} GPS coordinates for ${course.name}`);
+              }
+            } catch (coordError) {
+              console.warn('[CourseService] Failed to import coordinates for', course.name, coordError);
+            }
           } catch (courseError) {
             console.warn(
               '[CourseService] Failed to import course:',
@@ -478,6 +503,31 @@ class CourseService {
   }
 
   /**
+   * Import coordinates for an existing course by its internal ID
+   * Useful for backfilling coordinates for courses imported before coordinate support
+   *
+   * @param courseId - Internal course ID
+   * @returns Number of coordinates imported, or -1 if course not found or no API ID
+   */
+  async importCoordinatesForExistingCourse(courseId: string): Promise<number> {
+    // Get course to find its GolfAPI ID
+    const course = await courseCacheService.getCachedCourse(courseId);
+
+    if (!course) {
+      console.warn('[CourseService] Course not found:', courseId);
+      return -1;
+    }
+
+    if (!course.golfapi_course_id) {
+      console.warn('[CourseService] Course has no GolfAPI ID:', course.name);
+      return -1;
+    }
+
+    console.log(`[CourseService] Importing coordinates for existing course: ${course.name}`);
+    return this.importCoordinates(course.golfapi_course_id, courseId);
+  }
+
+  /**
    * Import coordinates for a course from API
    *
    * @param golfapiCourseId - The GolfAPI.io course identifier
@@ -493,7 +543,7 @@ class CourseService {
       }
 
       // Transform and filter to essential coordinates
-      const transformedCoords = transformApiCoordinates(coordsResponse.coordinates, courseId);
+      const transformedCoords = transformApiCoordinates(coordsResponse);
 
       if (transformedCoords.length === 0) {
         return 0;

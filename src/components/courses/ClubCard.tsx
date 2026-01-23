@@ -132,7 +132,8 @@ const CourseRow = React.memo(function CourseRow({
         <View style={styles.courseInfo}>
           <View style={styles.courseNameRow}>
             <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {course.name}
+              {/* For single-course clubs, show "Club Name - Course Name" for full context */}
+              {!isNested ? `${club.name} - ${course.name}` : course.name}
             </Text>
             {/* Home badge for single-course clubs */}
             {!isNested && isHomeClub && (
@@ -150,10 +151,10 @@ const CourseRow = React.memo(function CourseRow({
             )}
           </View>
 
-          {/* Show club name for non-nested (single course clubs) */}
+          {/* Show location for non-nested (single course clubs) */}
           {!isNested && locationText && (
             <Text style={[styles.clubSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-              {club.name} · {locationText}
+              {locationText}
             </Text>
           )}
 
