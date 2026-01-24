@@ -6,6 +6,12 @@
 import type { FriendshipStatus } from './enums';
 
 /**
+ * Player gender for GA Daily Handicap consistency factor
+ * Male: 0.9986, Female: 1.0483
+ */
+export type PlayerGender = 'male' | 'female';
+
+/**
  * Player profile extending Supabase auth.users
  * One-to-one relationship with auth.users for real players.
  * Placeholder players don't have an auth.users entry.
@@ -15,9 +21,21 @@ export interface Player {
   name: string;
   email: string;
   phone: string | null;
+  /**
+   * Player's GA Handicap (manually entered or imported from Golf Australia).
+   * This is the official handicap index used for daily handicap calculation.
+   */
   handicap: number | null; // NUMERIC(4,1) - e.g., 12.5 (nullable for players without handicap)
   golf_id: string | null; // 10-digit Golf Australia ID (formerly GOLF Link number)
   handicap_updated_at: string | null; // ISO timestamp when handicap was last updated
+  gender: PlayerGender | null; // Player gender for GA Daily Handicap consistency factor
+  /**
+   * Calculated Social Handicap Index from last 20 rounds in this app.
+   * Uses WHS formula: best X of 20 differentials × 0.96
+   * This is separate from the official GA Handicap above.
+   */
+  handicap_index: number | null; // NUMERIC(4,1) - calculated WHS handicap index (max 54.0)
+  handicap_index_updated_at: string | null; // ISO timestamp when index was last calculated
   photo_url: string | null;
   home_club_id: string | null; // UUID, reference to player's designated home golf club (renamed from home_venue_id)
   // Placeholder player fields

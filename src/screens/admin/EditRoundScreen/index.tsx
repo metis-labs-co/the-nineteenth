@@ -19,10 +19,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Text, Icon } from 'react-native-paper';
@@ -63,6 +64,9 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
   const { user } = useAuth();
+
+  // Confirmation dialog state
+  const { dialogConfig, showDialog, dismissDialog } = useConfirmationDialog();
 
   // Course selection modal state
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -141,6 +145,8 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     handleShuffleScoringPairs,
     isSubmitting,
     isShuffling,
+    dialogConfig: submissionDialogConfig,
+    dismissDialog: dismissSubmissionDialog,
   } = useRoundSubmission({
     roundId,
     competitionId,
@@ -155,18 +161,21 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   // Navigation handlers
   const handleBack = useCallback(() => {
     if (isDirty) {
-      Alert.alert(
-        'Unsaved Changes',
-        'You have unsaved changes. Are you sure you want to leave?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
+      showDialog({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave?',
+        confirmLabel: 'Leave',
+        confirmVariant: 'destructive',
+        icon: 'alert-outline',
+        onConfirm: () => {
+          dismissDialog();
+          navigation.goBack();
+        },
+      });
     } else {
       navigation.goBack();
     }
-  }, [navigation, isDirty]);
+  }, [navigation, isDirty, showDialog, dismissDialog]);
 
   const handleUpgradePress = useCallback(() => {
     navigation.navigate('Subscription');
@@ -397,6 +406,12 @@ export default function EditRoundScreen({ navigation, route }: Props) {
         searchQuery={courseSearchQuery}
         onSearchQueryChange={setCourseSearchQuery}
       />
+
+      {/* Confirmation Dialog - Unsaved changes */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      {/* Confirmation Dialog - Submission/shuffle dialogs */}
+      <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </KeyboardAvoidingView>
   );
 }

@@ -10,6 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { GeneratedPreview } from '@/components/ai';
+import { ConfirmationDialog } from '@/components/common';
 
 // Local components and hooks
 import {
@@ -33,6 +34,7 @@ export default function AICompetitionScreen() {
     errorMessage,
     isGenerating,
     isCreating,
+    dialogConfig,
     handleSuggestionSelect,
     handleGenerate,
     handleCreateCompetition,
@@ -92,6 +94,21 @@ export default function AICompetitionScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AICompetitionHeader screenState={screenState} onBack={handleBack} />
       <View style={styles.content}>{renderContent()}</View>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        visible={dialogConfig.visible}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        confirmLabel={dialogConfig.confirmLabel}
+        cancelLabel={dialogConfig.cancelLabel}
+        confirmVariant={dialogConfig.confirmVariant}
+        onConfirm={dialogConfig.onConfirm}
+        onCancel={dialogConfig.onCancel}
+        showSecondaryAction={dialogConfig.showSecondaryAction}
+        secondaryActionLabel={dialogConfig.secondaryActionLabel}
+        onSecondaryAction={dialogConfig.onSecondaryAction}
+      />
     </View>
   );
 }

@@ -5,7 +5,6 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -29,6 +28,30 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 // Screen states
 export type ScreenState = 'input' | 'loading' | 'preview' | 'error';
 
+// Dialog types for ConfirmationDialog
+export type DialogType =
+  | 'prompt_too_short'
+  | 'creation_failed'
+  | 'team_config_issue'
+  | 'courses_not_found'
+  | 'guest_players_warning'
+  | null;
+
+export interface DialogConfig {
+  visible: boolean;
+  type: DialogType;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  confirmVariant: 'primary' | 'destructive';
+  showSecondaryAction?: boolean;
+  secondaryActionLabel?: string;
+  onConfirm: () => void;
+  onSecondaryAction?: () => void;
+  onCancel: () => void;
+}
+
 // Parse DD/MM/YYYY string to Date object
 const parseAustralianDate = (dateString: string): Date => {
   if (!dateString) return new Date();
@@ -46,13 +69,28 @@ interface UseAICompetitionFlowReturn {
   errorMessage: string;
   isGenerating: boolean;
   isCreating: boolean;
+  dialogConfig: DialogConfig;
   handleSuggestionSelect: (suggestion: string) => void;
   handleGenerate: () => Promise<void>;
   handleCreateCompetition: () => Promise<void>;
   handleEditManually: () => void;
   handleBack: () => void;
   handleRetry: () => void;
+  dismissDialog: () => void;
 }
+
+// Default dialog config
+const defaultDialogConfig: DialogConfig = {
+  visible: false,
+  type: null,
+  title: '',
+  message: '',
+  confirmLabel: 'OK',
+  cancelLabel: 'Cancel',
+  confirmVariant: 'primary',
+  onConfirm: () => {},
+  onCancel: () => {},
+};
 
 export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   const navigation = useNavigation<NavigationProp>();
@@ -63,11 +101,27 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   const [generatedCompetition, setGeneratedCompetition] =
     useState<GeneratedCompetition | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [dialogConfig, setDialogConfig] = useState<DialogConfig>(defaultDialogConfig);
 
   // Hooks
   const generateAI = useGenerateAICompetition();
   const createCompetition = useCreateCompetition();
   const createPlaceholder = useCreatePlaceholderPlayer();
+
+  // Dismiss dialog helper
+  const dismissDialog = useCallback(() => {
+    setDialogConfig(defaultDialogConfig);
+  }, []);
+
+  // Show dialog helper
+  const showDialog = useCallback((config: Partial<DialogConfig> & { type: DialogType; title: string; message: string }) => {
+    setDialogConfig({
+      ...defaultDialogConfig,
+      visible: true,
+      ...config,
+      onCancel: config.onCancel ?? (() => setDialogConfig(defaultDialogConfig)),
+    });
+  }, []);
 
   // Handle suggestion selection
   const handleSuggestionSelect = useCallback((suggestion: string) => {
@@ -77,10 +131,13 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   // Handle generate
   const handleGenerate = useCallback(async () => {
     if (prompt.trim().length < 10) {
-      Alert.alert(
-        'Prompt Too Short',
-        'Please provide more details about your competition (at least 10 characters).'
-      );
+      showDialog({
+        type: 'prompt_too_short',
+        title: 'Prompt Too Short',
+        message: 'Please provide more details about your competition (at least 10 characters).',
+        confirmLabel: 'OK',
+        onConfirm: dismissDialog,
+      });
       return;
     }
 
@@ -108,7 +165,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
       );
       setScreenState('error');
     }
-  }, [prompt, generateAI]);
+  }, [prompt, generateAI, showDialog, dismissDialog]);
 
   // Actually create the competition
   const doCreateCompetition = useCallback(async () => {
@@ -184,15 +241,17 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
       navigation.replace('CompetitionDetail', { id: result.competition.id });
     } catch (error) {
       console.error('Failed to create competition:', error);
-      Alert.alert(
-        'Creation Failed',
-        error instanceof Error
+      showDialog({
+        type: 'creation_failed',
+        title: 'Creation Failed',
+        message: error instanceof Error
           ? error.message
           : 'Failed to create competition. Please try again.',
-        [{ text: 'OK' }]
-      );
+        confirmLabel: 'OK',
+        onConfirm: dismissDialog,
+      });
     }
-  }, [generatedCompetition, createCompetition, createPlaceholder, navigation]);
+  }, [generatedCompetition, createCompetition, createPlaceholder, navigation, showDialog, dismissDialog]);
 
   // Handle edit manually - navigate to wizard with pre-filled data
   const handleEditManually = useCallback(() => {
@@ -213,25 +272,40 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
     // Validate team formation
     const teamValidation = validateTeamFormation(generatedCompetition);
     if (!teamValidation.isValid) {
-      Alert.alert('Team Configuration Issue', teamValidation.reason, [
-        { text: 'Edit Manually', onPress: handleEditManually },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      showDialog({
+        type: 'team_config_issue',
+        title: 'Team Configuration Issue',
+        message: teamValidation.reason ?? 'Invalid team configuration.',
+        confirmLabel: 'Edit Manually',
+        cancelLabel: 'Cancel',
+        onConfirm: () => {
+          dismissDialog();
+          handleEditManually();
+        },
+      });
       return;
     }
 
     // Warn about missing courses
     const missingCourseRounds = getRoundsWithMissingCourses(generatedCompetition);
     if (missingCourseRounds.length > 0) {
-      Alert.alert(
-        'Courses Not Found',
-        `Round${missingCourseRounds.length > 1 ? 's' : ''} ${missingCourseRounds.join(', ')} ${missingCourseRounds.length > 1 ? 'have' : 'has'} courses that couldn't be found. You can edit manually to select courses, or create anyway and edit later.`,
-        [
-          { text: 'Edit Manually', onPress: handleEditManually },
-          { text: 'Create Anyway', onPress: doCreateCompetition },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+      showDialog({
+        type: 'courses_not_found',
+        title: 'Courses Not Found',
+        message: `Round${missingCourseRounds.length > 1 ? 's' : ''} ${missingCourseRounds.join(', ')} ${missingCourseRounds.length > 1 ? 'have' : 'has'} courses that couldn't be found. You can edit manually to select courses, or create anyway and edit later.`,
+        confirmLabel: 'Create Anyway',
+        cancelLabel: 'Cancel',
+        showSecondaryAction: true,
+        secondaryActionLabel: 'Edit Manually',
+        onConfirm: () => {
+          dismissDialog();
+          doCreateCompetition();
+        },
+        onSecondaryAction: () => {
+          dismissDialog();
+          handleEditManually();
+        },
+      });
       return;
     }
 
@@ -242,24 +316,28 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
 
     if (newPlaceholders.length > 0) {
       const placeholderNames = newPlaceholders.map((p) => p.name).join(', ');
-      Alert.alert(
-        'Guest Players Will Be Created',
-        `${newPlaceholders.length} guest player${newPlaceholders.length > 1 ? 's' : ''} will be created: ${placeholderNames}.\n\nYou can link these to real players later, or update their names when editing the competition.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Edit Manually', onPress: handleEditManually },
-          {
-            text: 'Create Competition',
-            onPress: doCreateCompetition,
-            style: 'default',
-          },
-        ]
-      );
+      showDialog({
+        type: 'guest_players_warning',
+        title: 'Guest Players Will Be Created',
+        message: `${newPlaceholders.length} guest player${newPlaceholders.length > 1 ? 's' : ''} will be created: ${placeholderNames}.\n\nYou can link these to real players later, or update their names when editing the competition.`,
+        confirmLabel: 'Create Competition',
+        cancelLabel: 'Cancel',
+        showSecondaryAction: true,
+        secondaryActionLabel: 'Edit Manually',
+        onConfirm: () => {
+          dismissDialog();
+          doCreateCompetition();
+        },
+        onSecondaryAction: () => {
+          dismissDialog();
+          handleEditManually();
+        },
+      });
       return;
     }
 
     doCreateCompetition();
-  }, [generatedCompetition, handleEditManually, doCreateCompetition]);
+  }, [generatedCompetition, handleEditManually, doCreateCompetition, showDialog, dismissDialog]);
 
   // Handle back
   const handleBack = useCallback(() => {
@@ -286,11 +364,13 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
     errorMessage,
     isGenerating: generateAI.isPending,
     isCreating: createCompetition.isPending,
+    dialogConfig,
     handleSuggestionSelect,
     handleGenerate,
     handleCreateCompetition,
     handleEditManually,
     handleBack,
     handleRetry,
+    dismissDialog,
   };
 }

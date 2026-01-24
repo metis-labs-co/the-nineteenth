@@ -10,8 +10,9 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useConfirmationDialog } from '@/hooks';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { Text, Button, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
@@ -42,6 +43,7 @@ import {
   type CompetitionPlayer,
   type CompetitionData,
 } from '@/components/competitions/detail';
+import { PointsBreakdownModal } from '@/components/leaderboard';
 import type { Competition } from '@/types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
@@ -215,9 +217,16 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Upgrade prompt state for player limits
   const [showPlayerUpgradePrompt, setShowPlayerUpgradePrompt] = useState(false);
 
+  // Points breakdown modal state
+  const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
+  const [selectedLeaderboardEntry, setSelectedLeaderboardEntry] = useState<CompetitionLeaderboardEntry | null>(null);
+
   // Subscription context for tier limit checks
   const { checkCanAddRound, checkCanAddPlayer } = useSubscriptionContext();
   const tierLimits = useTierLimits();
+
+  // Dialog state for alerts
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Fetch competition details
   const {
@@ -257,6 +266,8 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const {
     state: removePlayerState,
     removePlayer: initiateRemovePlayer,
+    dialogConfig: removePlayerDialogConfig,
+    dismissDialog: dismissRemovePlayerDialog,
   } = useRemoveCompetitionPlayer({
     competitionId: id,
     onSuccess: (playerId, affectedRoundIds) => {
@@ -267,15 +278,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
       // Notify organizer about affected rounds
       if (affectedRoundIds.length > 0) {
-        Alert.alert(
+        showAlert(
           'Player Removed',
-          `The player has been removed. ${affectedRoundIds.length} round${affectedRoundIds.length !== 1 ? 's' : ''} had scoring pair assignments that were deleted. Please re-configure scoring pairs for affected rounds.`,
-          [{ text: 'OK' }]
+          `The player has been removed. ${affectedRoundIds.length} round${affectedRoundIds.length !== 1 ? 's' : ''} had scoring pair assignments that were deleted. Please re-configure scoring pairs for affected rounds.`
         );
       }
     },
     onError: (error) => {
-      Alert.alert('Error', error.message || 'Failed to remove player');
+      showAlert('Error', error.message || 'Failed to remove player');
     },
   });
 
@@ -432,12 +442,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         { teamId, competitionId: id, name: newName },
         {
           onError: (error) => {
-            Alert.alert('Error', error.message || 'Failed to update team name');
+            showAlert('Error', error.message || 'Failed to update team name');
           },
         }
       );
     },
-    [updateTeamNameMutation, id]
+    [updateTeamNameMutation, id, showAlert]
   );
 
   const handleManageScoringPairs = useCallback(
@@ -473,6 +483,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     refetchPrizePool();
   }, [refetch, refetchLeaderboard, refetchTeams, refetchPrizePool]);
 
+  // Handle leaderboard entry press to show points breakdown
+  const handleLeaderboardEntryPress = useCallback((entry: CompetitionLeaderboardEntry) => {
+    setSelectedLeaderboardEntry(entry);
+    setShowPointsBreakdown(true);
+  }, []);
+
+  const handleClosePointsBreakdown = useCallback(() => {
+    setShowPointsBreakdown(false);
+    setSelectedLeaderboardEntry(null);
+  }, []);
+
   const handleDeleteCompetition = useCallback(async () => {
     setIsDeleting(true);
     try {
@@ -497,12 +518,12 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       navigation.goBack();
     } catch (error: unknown) {
       setIsDeleting(false);
-      Alert.alert(
+      showAlert(
         'Error',
         error instanceof Error ? error.message : 'Failed to delete competition. Please try again.'
       );
     }
-  }, [id, navigation, queryClient]);
+  }, [id, navigation, queryClient, showAlert]);
 
   // Loading state
   if (isLoading) {
@@ -656,6 +677,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             teamMode={competition.team_mode}
             rounds={rounds}
             currentUserId={user?.id}
+            onEntryPress={handleLeaderboardEntryPress}
           />
         )}
       </ScrollView>
@@ -736,6 +758,28 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         onCancel={() => setShowDeleteDialog(false)}
         loading={isDeleting}
       />
+
+      {/* Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      {/* Remove Player Dialog */}
+      <ConfirmationDialog {...removePlayerDialogConfig} onCancel={dismissRemovePlayerDialog} />
+
+      {/* Points Breakdown Modal */}
+      {selectedLeaderboardEntry && (
+        <PointsBreakdownModal
+          visible={showPointsBreakdown}
+          onClose={handleClosePointsBreakdown}
+          participantName={selectedLeaderboardEntry.participantName}
+          isTeam={selectedLeaderboardEntry.isTeam}
+          totalPoints={selectedLeaderboardEntry.totalPoints}
+          position={selectedLeaderboardEntry.position}
+          roundsPlayed={selectedLeaderboardEntry.roundsPlayed}
+          roundPoints={selectedLeaderboardEntry.roundPoints}
+          rounds={rounds}
+          testID="points-breakdown-modal"
+        />
+      )}
     </View>
   );
 }

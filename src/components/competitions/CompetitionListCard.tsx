@@ -206,19 +206,19 @@ export const CompetitionListCard = React.memo(function CompetitionListCard<
             )}
           </View>
 
-          {/* Winner Row - Only for completed competitions */}
-          {competition.status?.toLowerCase() === 'completed' && competition.winner && (
-            <View style={styles.winnerContainer}>
-              <WinnerRow winner={competition.winner} />
-            </View>
-          )}
-
           {/* Date Row */}
           <DateTimeDisplay
             date={competition.startDate}
             size="md"
             style={styles.dateRow}
           />
+
+          {/* Winner Row - Only for completed competitions */}
+          {competition.status?.toLowerCase() === 'completed' && competition.winner && (
+            <View style={styles.winnerContainer}>
+              <WinnerRow winner={competition.winner} />
+            </View>
+          )}
         </View>
 
         {/* Arrow */}

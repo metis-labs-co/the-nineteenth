@@ -130,6 +130,8 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
               editingTeeId={teeManagement.editingTeeId}
               newTeeName={teeManagement.newTeeName}
               newTeeColor={teeManagement.newTeeColor}
+              newSlopeRating={teeManagement.newSlopeRating}
+              newCourseRating={teeManagement.newCourseRating}
               onCourseNameChange={wizard.handleCourseNameChange}
               onAddTee={teeManagement.handleAddTee}
               onEditTee={teeManagement.handleEditTee}
@@ -138,6 +140,8 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
               onDeleteTee={teeManagement.handleDeleteTee}
               onTeeNameChange={teeManagement.setNewTeeName}
               onTeeColorChange={teeManagement.setNewTeeColor}
+              onSlopeRatingChange={teeManagement.setNewSlopeRating}
+              onCourseRatingChange={teeManagement.setNewCourseRating}
             />
           )}
           {wizard.currentStep === 3 && (

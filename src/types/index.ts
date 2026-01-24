@@ -94,6 +94,18 @@ export {
 // Re-export TierFeature from database.types (for DB function compatibility)
 export type { TierFeature } from './database.types';
 
+// Re-export handicap types (daily handicap + social handicap index)
+export type {
+  DailyHandicapParams,
+  DailyHandicapResult,
+  ScoreDifferentialParams,
+  HandicapRound,
+  HandicapSummary,
+} from './handicap.types';
+
+// Re-export player gender type
+export type { PlayerGender } from './database/player.types';
+
 // Re-export nested types from database.types.ts (single source of truth)
 // These are used in JSONB fields and should be consistent across app
 export type {
@@ -260,6 +272,7 @@ export interface Player {
   email: string;
   phone?: string | null;
   handicap?: number | null; // Nullable to match database type
+  gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
   photoUrl?: string | null;
   // Optional since most components don't need these
   createdAt?: Date | string;
@@ -317,6 +330,16 @@ export interface Scorecard {
   updatedAt: Date;
   /** True if this is a standalone/local round that shouldn't sync to server */
   isStandalone?: boolean;
+
+  // Sync metadata for handicap differential calculation (attached before sync)
+  /** Selected tee with course/slope ratings - attached for handicap calculation */
+  teeData?: TeeBox | null;
+  /** Player gender for selecting appropriate tee ratings */
+  playerGender?: 'male' | 'female' | null;
+  /** Player's GA handicap at time of round */
+  playerHandicap?: number | null;
+  /** Course par (sum of hole pars) */
+  coursePar?: number;
 }
 
 // HoleScore is re-exported from database.types.ts above

@@ -13,9 +13,10 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconUserQuestion, IconLink, IconTrash } from '@tabler/icons-react-native';
 import Toast from 'react-native-toast-message';
@@ -151,12 +152,18 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
+  // Confirmation dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
   // State
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<PlaceholderPlayerWithStats | null>(null);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Additional state for pending link operation
+  const [pendingLinkPlayer, setPendingLinkPlayer] = useState<PlayerSearchResult | null>(null);
 
   // Data hooks
   const {
@@ -185,90 +192,98 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
     setShowFriendSearch(true);
   }, []);
 
+  // Perform the actual link operation
+  const performLink = useCallback(async (placeholder: PlaceholderPlayerWithStats, player: PlayerSearchResult) => {
+    setShowFriendSearch(false);
+    setLinkingId(placeholder.id);
+
+    try {
+      await linkPlaceholder.mutateAsync({
+        placeholderId: placeholder.id,
+        realPlayerId: player.id,
+      });
+
+      Toast.show({
+        type: 'success',
+        text1: 'Guest Player Linked',
+        text2: `${placeholder.name}'s history has been transferred to ${player.name}`,
+        visibilityTime: 4000,
+        position: 'bottom',
+      });
+    } catch (err) {
+      showAlert(
+        'Link Failed',
+        err instanceof Error ? err.message : 'Failed to link guest player. Please try again.'
+      );
+    } finally {
+      setLinkingId(null);
+      setSelectedPlaceholder(null);
+      setPendingLinkPlayer(null);
+    }
+  }, [linkPlaceholder, showAlert]);
+
   // Handle selecting a real player to link to
   const handleSelectPlayer = useCallback((player: PlayerSearchResult) => {
     if (!selectedPlaceholder) return;
 
-    Alert.alert(
-      'Link Guest to Account?',
-      `All scores and history from "${selectedPlaceholder.name}" will be transferred to "${player.name}". This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Link',
-          style: 'destructive',
-          onPress: async () => {
-            setShowFriendSearch(false);
-            setLinkingId(selectedPlaceholder.id);
+    setPendingLinkPlayer(player);
+    showDialog({
+      title: 'Link Guest to Account?',
+      message: `All scores and history from "${selectedPlaceholder.name}" will be transferred to "${player.name}". This cannot be undone.`,
+      confirmLabel: 'Link',
+      confirmVariant: 'destructive',
+      icon: 'link-variant',
+      onConfirm: () => {
+        dismissDialog();
+        if (selectedPlaceholder && player) {
+          performLink(selectedPlaceholder, player);
+        }
+      },
+    });
+  }, [selectedPlaceholder, showDialog, dismissDialog, performLink]);
 
-            try {
-              await linkPlaceholder.mutateAsync({
-                placeholderId: selectedPlaceholder.id,
-                realPlayerId: player.id,
-              });
+  // Perform the actual delete operation
+  const performDelete = useCallback(async (placeholder: PlaceholderPlayerWithStats) => {
+    setDeletingId(placeholder.id);
 
-              Toast.show({
-                type: 'success',
-                text1: 'Guest Player Linked',
-                text2: `${selectedPlaceholder.name}'s history has been transferred to ${player.name}`,
-                visibilityTime: 4000,
-                position: 'bottom',
-              });
-            } catch (err) {
-              Alert.alert(
-                'Link Failed',
-                err instanceof Error ? err.message : 'Failed to link guest player. Please try again.'
-              );
-            } finally {
-              setLinkingId(null);
-              setSelectedPlaceholder(null);
-            }
-          },
-        },
-      ]
-    );
-  }, [selectedPlaceholder, linkPlaceholder]);
+    try {
+      await deletePlaceholder.mutateAsync(placeholder.id);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Guest Player Deleted',
+        text2: `${placeholder.name} has been removed`,
+        visibilityTime: 3000,
+        position: 'bottom',
+      });
+    } catch (err) {
+      showAlert(
+        'Delete Failed',
+        err instanceof Error ? err.message : 'Failed to delete guest player. Please try again.'
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }, [deletePlaceholder, showAlert]);
 
   // Handle delete button press
   const handleDeletePress = useCallback((placeholder: PlaceholderPlayerWithStats) => {
     const hasData = placeholder.competitions_count > 0 || placeholder.scorecards_count > 0;
 
-    Alert.alert(
-      'Delete Guest Player?',
-      hasData
+    showDialog({
+      title: 'Delete Guest Player?',
+      message: hasData
         ? `This will permanently delete "${placeholder.name}" and all their ${placeholder.scorecards_count} scorecard(s). This cannot be undone.`
         : `This will permanently delete "${placeholder.name}". This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(placeholder.id);
-
-            try {
-              await deletePlaceholder.mutateAsync(placeholder.id);
-
-              Toast.show({
-                type: 'success',
-                text1: 'Guest Player Deleted',
-                text2: `${placeholder.name} has been removed`,
-                visibilityTime: 3000,
-                position: 'bottom',
-              });
-            } catch (err) {
-              Alert.alert(
-                'Delete Failed',
-                err instanceof Error ? err.message : 'Failed to delete guest player. Please try again.'
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ]
-    );
-  }, [deletePlaceholder]);
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        performDelete(placeholder);
+      },
+    });
+  }, [showDialog, dismissDialog, performDelete]);
 
   // Close friend search modal
   const handleCloseFriendSearch = useCallback(() => {
@@ -442,6 +457,9 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
           )}
         </View>
       </BottomSheet>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

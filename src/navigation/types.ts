@@ -69,6 +69,7 @@ export type RootStackParamList = {
   // Profile
   EditProfile: undefined;
   MyStatistics: undefined;
+  HandicapHistory: undefined;
   Settings: undefined;
   NotificationSettings: undefined;
 

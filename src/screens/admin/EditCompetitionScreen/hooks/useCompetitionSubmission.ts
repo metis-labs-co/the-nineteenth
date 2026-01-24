@@ -9,8 +9,9 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
+import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { supabase } from '@/services/supabase/client';
 import type { Competition } from '@/types/database.types';
 import type { CompetitionUpdateInput } from '../types';
@@ -26,6 +27,10 @@ interface UseCompetitionSubmissionReturn {
   updateMutation: ReturnType<typeof useMutation<Competition, Error, EditCompetitionFormData>>;
   handleSubmit: (data: EditCompetitionFormData) => void;
   isSubmitting: boolean;
+  /** Dialog config for error display - parent should render ConfirmationDialog */
+  dialogConfig: DialogConfig;
+  /** Dismiss the error dialog */
+  dismissDialog: () => void;
 }
 
 /**
@@ -58,6 +63,7 @@ export function useCompetitionSubmission({
   onSuccess,
 }: UseCompetitionSubmissionOptions): UseCompetitionSubmissionReturn {
   const queryClient = useQueryClient();
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Update mutation
   const updateMutation = useMutation({
@@ -85,7 +91,7 @@ export function useCompetitionSubmission({
       onSuccess();
     },
     onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to update competition');
+      showAlert('Error', error.message || 'Failed to update competition');
     },
   });
 
@@ -100,5 +106,7 @@ export function useCompetitionSubmission({
     updateMutation,
     handleSubmit,
     isSubmitting: updateMutation.isPending,
+    dialogConfig,
+    dismissDialog,
   };
 }

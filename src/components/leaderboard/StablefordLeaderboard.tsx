@@ -51,6 +51,9 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
         <Text style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
           Pts
         </Text>
+        <Text style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+          CP
+        </Text>
       </View>
 
       {/* Table Rows */}
@@ -76,6 +79,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
             isTied={isTied}
             scoreDisplay={scoreDisplay}
             scoreLabel="points"
+            showCompetitionPoints
           />
         );
       })}

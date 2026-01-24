@@ -13,6 +13,7 @@ import {
   getStrokesReceived,
   calculateStablefordPointsNet,
 } from '@/utils/scoring';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
 import type { Hole, Player, Scorecard, HoleScore } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -31,6 +32,9 @@ export interface PlayerStats {
   totalPar: number;
   front9Par: number;
   back9Par: number;
+  // Handicap stats
+  handicap: number; // Raw GA handicap index
+  dailyHandicap: number; // Daily handicap (calculated from tee ratings)
   // FIR/GIR stats
   totalFairwaysHit: number;
   totalFairwaysPossible: number; // Par 4+ holes only
@@ -109,6 +113,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     isInitialized,
     isMultiBall,
     ballCount,
+    selectedTeeData,
   } = useScorecardStore();
 
   // Find the player
@@ -143,10 +148,33 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     return defaultHoles;
   }, [storeHoles]);
 
+  // Calculate course par for daily handicap calculation
+  const coursePar = useMemo(() => {
+    return holes.reduce((sum, hole) => sum + hole.par, 0);
+  }, [holes]);
+
+  // Calculate daily handicap using GA formula
+  const { handicap, dailyHandicap } = useMemo(() => {
+    const rawHandicap = player?.handicap || 0;
+
+    // Calculate daily handicap if tee data is available
+    let daily = rawHandicap;
+    if (selectedTeeData?.slopeRating && selectedTeeData?.courseRating && coursePar > 0) {
+      const result = calculateGADailyHandicap({
+        gaHandicap: rawHandicap,
+        slopeRating: selectedTeeData.slopeRating,
+        courseRating: selectedTeeData.courseRating,
+        par: coursePar,
+        gender: player?.gender,
+      });
+      daily = result.dailyHandicap;
+    }
+
+    return { handicap: rawHandicap, dailyHandicap: daily };
+  }, [player?.handicap, player?.gender, selectedTeeData, coursePar]);
+
   // Calculate hole row data
   const holeRowData: HoleRowData[] = useMemo(() => {
-    const handicap = player?.handicap || 0;
-
     return holes.map((hole) => {
       const rawScore = scorecard?.scores[hole.number];
       // Get single-ball score values (for single-ball or first ball of multi-ball)
@@ -155,7 +183,8 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       const putts = score?.putts;
       const fairwayHit = score?.fairwayHit;
       const greenInRegulation = score?.greenInRegulation;
-      const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+      // Use daily handicap for strokes received calculation
+      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
       const isPickup = strokes !== undefined && strokes >= PICKUP_SCORE;
 
       let stablefordPoints = 0;
@@ -174,7 +203,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
         greenInRegulation,
       };
     });
-  }, [holes, scorecard, player?.handicap]);
+  }, [holes, scorecard, dailyHandicap]);
 
   // Calculate player statistics
   const playerStats: PlayerStats = useMemo(() => {
@@ -237,13 +266,16 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
       totalPar: front9Par + back9Par,
       front9Par,
       back9Par,
+      // Handicap stats
+      handicap,
+      dailyHandicap,
       // FIR/GIR stats
       totalFairwaysHit,
       totalFairwaysPossible,
       totalGIR,
       totalGIRPossible,
     };
-  }, [holeRowData]);
+  }, [holeRowData, handicap, dailyHandicap]);
 
   // Split holes into front 9 and back 9
   const front9Holes = useMemo(() => {
@@ -258,11 +290,10 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
   const multiBallHoleData: MultiBallHoleRowData[] = useMemo(() => {
     if (!isMultiBall || ballCount <= 1) return [];
 
-    const handicap = player?.handicap || 0;
-
     return holes.map((hole) => {
       const score = scorecard?.scores[hole.number];
-      const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+      // Use daily handicap for strokes received calculation
+      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
 
       // Get ball scores from multi-ball structure
       const balls: BallScoreData[] = [];
@@ -296,7 +327,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
         balls,
       };
     });
-  }, [holes, scorecard, player?.handicap, isMultiBall, ballCount]);
+  }, [holes, scorecard, dailyHandicap, isMultiBall, ballCount]);
 
   // Split multi-ball data into front 9 and back 9
   const multiBallFront9 = useMemo(() => {

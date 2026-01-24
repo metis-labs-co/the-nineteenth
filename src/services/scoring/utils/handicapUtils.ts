@@ -2,11 +2,13 @@
  * Handicap Utilities
  *
  * Functions for calculating handicap-related adjustments.
+ * Updated to use Golf Australia 2025 Daily Handicap formula.
  */
 
 import type { Hole } from '../types';
 import type { GameType } from '@/types/database';
 import { getStrokesReceived } from '@/utils/scoring';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 
 /**
  * Calculate the number of strokes a player receives on a specific hole
@@ -24,14 +26,22 @@ export const calculateStrokesForHole = getStrokesReceived;
 /**
  * Get the playing handicap adjusted for the course and game type.
  *
- * Course Handicap = Handicap Index × (Slope Rating ÷ 113)
- * Playing Handicap = Course Handicap + (Course Rating - Par)
+ * Uses the Golf Australia 2025 Daily Handicap formula when course data is available:
+ * Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  *
- * @param handicapIndex - Player's handicap index
+ * Consistency Factors:
+ * - Men/Boys: 0.9986
+ * - Women/Girls: 1.0483
+ *
+ * Falls back to simplified formula when course data is missing:
+ * Course Handicap = Handicap Index × (Slope Rating ÷ 113)
+ *
+ * @param handicapIndex - Player's GA handicap index
  * @param slopeRating - Course slope rating (55-155, default 113)
- * @param courseRating - Course rating
- * @param par - Course par
+ * @param courseRating - Course rating (optional, enables GA formula)
+ * @param par - Course par (optional, enables GA formula)
  * @param gameType - The game type (may affect handicap allowance)
+ * @param gender - Player gender for consistency factor (optional, defaults to male)
  * @returns Adjusted playing handicap (rounded to nearest integer)
  */
 export function getPlayingHandicap(
@@ -39,20 +49,29 @@ export function getPlayingHandicap(
   slopeRating = 113,
   courseRating?: number,
   par?: number,
-  gameType?: GameType
+  gameType?: GameType,
+  gender?: 'male' | 'female' | null
 ): number {
-  // Calculate course handicap
-  const courseHandicap = Math.round((handicapIndex * slopeRating) / 113);
+  let dailyHandicap: number;
 
-  // If we have course rating and par, adjust for course difficulty
-  let playingHandicap = courseHandicap;
-  if (courseRating !== undefined && par !== undefined) {
-    playingHandicap = courseHandicap + Math.round(courseRating - par);
+  // Use GA formula when we have complete course data
+  if (par !== undefined && par > 0) {
+    const result = calculateGADailyHandicap({
+      gaHandicap: handicapIndex,
+      slopeRating,
+      courseRating,
+      par,
+      gender,
+    });
+    dailyHandicap = result.dailyHandicap;
+  } else {
+    // Fallback to simple formula when course data is missing
+    dailyHandicap = Math.round((handicapIndex * slopeRating) / 113);
   }
 
-  // Apply game type allowance
+  // Apply game type allowance to the daily handicap
   const allowance = getHandicapAllowance(gameType);
-  return Math.round(playingHandicap * allowance);
+  return Math.round(dailyHandicap * allowance);
 }
 
 /**

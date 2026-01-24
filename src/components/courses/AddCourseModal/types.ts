@@ -48,6 +48,8 @@ export interface TeeFormData {
   id: string;
   name: string;
   color: TeeColor;
+  slopeRating?: number; // For daily handicap calculation
+  courseRating?: number; // For daily handicap calculation
 }
 
 export interface HoleFormData {

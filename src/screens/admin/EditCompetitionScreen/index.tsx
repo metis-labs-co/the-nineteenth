@@ -16,10 +16,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { BottomSheet } from '@/components/common';
+import { BottomSheet, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 
 // Hooks
 import {
@@ -49,6 +49,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EditCompetition'>;
 export default function EditCompetitionScreen({ navigation, route }: Props) {
   const { id } = route.params;
 
+  // Confirmation dialog state
+  const { dialogConfig, showDialog, dismissDialog } = useConfirmationDialog();
+
   // Fetch competition data
   const {
     competition,
@@ -76,7 +79,12 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
   });
 
   // Submission handling
-  const { handleSubmit: submitForm, isSubmitting } = useCompetitionSubmission({
+  const {
+    handleSubmit: submitForm,
+    isSubmitting,
+    dialogConfig: submissionDialogConfig,
+    dismissDialog: dismissSubmissionDialog,
+  } = useCompetitionSubmission({
     competitionId: id,
     onSuccess: () => navigation.goBack(),
   });
@@ -84,18 +92,21 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
   // Handle close with unsaved changes confirmation
   const handleClose = useCallback(() => {
     if (isDirty) {
-      Alert.alert(
-        'Unsaved Changes',
-        'You have unsaved changes. Are you sure you want to leave?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
+      showDialog({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave?',
+        confirmLabel: 'Leave',
+        confirmVariant: 'destructive',
+        icon: 'alert-outline',
+        onConfirm: () => {
+          dismissDialog();
+          navigation.goBack();
+        },
+      });
     } else {
       navigation.goBack();
     }
-  }, [navigation, isDirty]);
+  }, [navigation, isDirty, showDialog, dismissDialog]);
 
   // Save button disabled state
   const isSaveDisabled = isSubmitting || !isDirty;
@@ -142,6 +153,12 @@ export default function EditCompetitionScreen({ navigation, route }: Props) {
         isDisabled={isSaveDisabled}
         isSaving={isSubmitting}
       />
+
+      {/* Confirmation Dialog - Unsaved changes */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      {/* Confirmation Dialog - Submission errors */}
+      <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </BottomSheet>
   );
 }

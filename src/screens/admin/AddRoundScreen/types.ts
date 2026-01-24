@@ -2,7 +2,7 @@
  * Types for AddRoundScreen
  */
 
-import type { GameType, TeamFormat, TeamWithMembers, SkinsPoolSource } from '@/types/database.types';
+import type { GameType, TeamFormat, TeamWithMembers, SkinsPoolSource, TeeBox } from '@/types/database.types';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { SkinsConfig } from '@/types';
 
@@ -12,6 +12,8 @@ import type { SkinsConfig } from '@/types';
 export interface RoundFormData {
   courseId: string;
   courseName: string;
+  courseTees: TeeBox[]; // Available tees for selected course
+  selectedTee: TeeBox | null; // Selected tee (with slope/course ratings for daily handicap)
   date: string;
   teeTime: string;
   gameType: GameType;
@@ -31,6 +33,8 @@ export interface RoundFormData {
 export const INITIAL_FORM_DATA: RoundFormData = {
   courseId: '',
   courseName: '',
+  courseTees: [],
+  selectedTee: null,
   date: '',
   teeTime: '',
   gameType: 'stableford',

@@ -29,6 +29,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useTeams } from '@/hooks/useTeams';
 import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
+import { ConfirmationDialog, TeeSelector } from '@/components/common';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 
 // Local imports
@@ -176,6 +177,23 @@ export default function AddRoundScreen({ navigation, route }: Props) {
             )}
           </View>
 
+          {/* Tee Selection - Only show when course has tees */}
+          {form.formData.courseId && form.formData.courseTees.length > 0 && (
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Tee Box</Text>
+              <TeeSelector
+                tees={form.formData.courseTees}
+                selectedTee={form.formData.selectedTee}
+                onSelectTee={form.handleTeeSelect}
+                variant="cards"
+                disabled={form.isPending}
+              />
+              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                Select a tee for daily handicap calculation
+              </Text>
+            </View>
+          )}
+
           {/* Date and Time Fields */}
           <DateTimeFields
             date={form.formData.date}
@@ -316,6 +334,9 @@ export default function AddRoundScreen({ navigation, route }: Props) {
         onConfigureNow={handleConfigureScoringPairsNow}
         onConfigureLater={handleConfigureScoringPairsLater}
       />
+
+      {/* Confirmation Dialog - Error messages */}
+      <ConfirmationDialog {...form.dialogConfig} onCancel={form.dismissDialog} />
     </KeyboardAvoidingView>
   );
 }
@@ -369,6 +390,10 @@ const styles = StyleSheet.create({
   },
   input: {},
   errorText: {
+    ...typography.caption,
+    marginTop: spacing.xs,
+  },
+  hintText: {
     ...typography.caption,
     marginTop: spacing.xs,
   },

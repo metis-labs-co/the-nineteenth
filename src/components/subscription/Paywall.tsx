@@ -22,10 +22,11 @@ import {
   Modal,
   ScrollView,
   Linking,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import { useConfirmationDialog } from '@/hooks';
+import { ConfirmationDialog } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows } from '@/constants/theme';
@@ -76,6 +77,9 @@ export function Paywall({
 }: PaywallProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+
+  // Dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   // State
   const [selectedTier, setSelectedTier] = useState<PaywallTier>(initialTier);
@@ -146,15 +150,15 @@ export function Paywall({
       } else if (result.errorCode === 'PURCHASE_CANCELLED') {
         // User cancelled - do nothing
       } else {
-        Alert.alert('Purchase Failed', result.error ?? 'Please try again.');
+        showAlert('Purchase Failed', result.error ?? 'Please try again.');
       }
     } catch (err) {
       console.error('[Paywall] Purchase error:', err);
-      Alert.alert('Purchase Failed', 'An unexpected error occurred. Please try again.');
+      showAlert('Purchase Failed', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsPurchasing(false);
     }
-  }, [selectedProduct, onPurchaseSuccess, onDismiss]);
+  }, [selectedProduct, onPurchaseSuccess, onDismiss, showAlert]);
 
   // Handle restore purchases
   const handleRestore = useCallback(async () => {
@@ -164,24 +168,29 @@ export function Paywall({
 
       if (result.success && result.data) {
         if (result.data.subscription) {
-          Alert.alert(
-            'Purchases Restored',
-            `Your ${result.data.subscription.tier} subscription has been restored.`,
-            [{ text: 'OK', onPress: onDismiss }]
-          );
+          showDialog({
+            title: 'Purchases Restored',
+            message: `Your ${result.data.subscription.tier} subscription has been restored.`,
+            confirmLabel: 'OK',
+            cancelLabel: '',
+            onConfirm: () => {
+              dismissDialog();
+              onDismiss();
+            },
+          });
         } else {
-          Alert.alert('No Purchases Found', 'We could not find any previous purchases to restore.');
+          showAlert('No Purchases Found', 'We could not find any previous purchases to restore.');
         }
       } else {
-        Alert.alert('Restore Failed', result.error ?? 'Please try again.');
+        showAlert('Restore Failed', result.error ?? 'Please try again.');
       }
     } catch (err) {
       console.error('[Paywall] Restore error:', err);
-      Alert.alert('Restore Failed', 'An unexpected error occurred. Please try again.');
+      showAlert('Restore Failed', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsRestoring(false);
     }
-  }, [onDismiss]);
+  }, [onDismiss, showDialog, showAlert, dismissDialog]);
 
   const handleOpenLink = useCallback((url: string) => {
     Linking.openURL(url).catch((err) => console.error('[Paywall] Failed to open URL:', err));
@@ -317,6 +326,9 @@ export function Paywall({
             your subscriptions by going to your account settings on the App Store after purchase.
           </Text>
         </ScrollView>
+
+        {/* Confirmation/Error Dialog */}
+        <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
       </View>
     </Modal>
   );

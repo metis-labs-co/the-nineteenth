@@ -11,8 +11,9 @@
  * Presented as a full-screen BottomSheet for consistent UX.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import type { PlayerGender } from '@/types/database/player.types';
 import {
   LoadingSpinner,
   GolfBallLoader,
@@ -87,6 +88,10 @@ export default function EditProfileScreen() {
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
   const [pendingAvatarId, setPendingAvatarId] = useState<string | null>(null);
 
+  // Gender selection state
+  const [selectedGender, setSelectedGender] = useState<PlayerGender | null>(player?.gender ?? null);
+  const [genderChanged, setGenderChanged] = useState(false);
+
   // Form setup with default values from current player data
   const {
     control,
@@ -122,6 +127,9 @@ export default function EditProfileScreen() {
         handicap: player.handicap?.toString() || '',
         golf_id: player.golf_id || '',
       });
+      // Reset gender state to match player data
+      setSelectedGender(player.gender ?? null);
+      setGenderChanged(false);
     }
   }, [player, reset]);
 
@@ -159,10 +167,13 @@ export default function EditProfileScreen() {
         ...(handicapChanged && { handicap_updated_at: new Date().toISOString() }),
         // Include photoUrl only when avatar was actually changed
         ...(photoUrl !== undefined && { photoUrl }),
+        // Include gender if it was changed
+        ...(genderChanged && { gender: selectedGender }),
       });
 
-      // Reset pending avatar state after successful save
+      // Reset pending avatar and gender states after successful save
       setPendingAvatarId(null);
+      setGenderChanged(false);
 
       setSnackbarMessage('Profile updated successfully');
       setSnackbarVisible(true);
@@ -189,8 +200,8 @@ export default function EditProfileScreen() {
     }, 150);
   }, [navigation]);
 
-  // Check if there are unsaved changes (form or avatar)
-  const hasUnsavedChanges = isDirty || pendingAvatarId !== null;
+  // Check if there are unsaved changes (form, avatar, or gender)
+  const hasUnsavedChanges = isDirty || pendingAvatarId !== null || genderChanged;
 
   // Handle cancel/back - show confirmation if form is dirty
   const handleCancel = useCallback(() => {
@@ -212,6 +223,19 @@ export default function EditProfileScreen() {
     setPendingAvatarId(avatarId);
     setAvatarModalVisible(false);
   }, []);
+
+  // Handle gender selection
+  const handleGenderSelect = useCallback((gender: PlayerGender | null) => {
+    setSelectedGender(gender);
+    setGenderChanged(gender !== (player?.gender ?? null));
+  }, [player?.gender]);
+
+  // Gender options for the selector
+  const genderOptions = useMemo(() => [
+    { value: 'male' as const, label: 'Male' },
+    { value: 'female' as const, label: 'Female' },
+    { value: null, label: 'Not specified' },
+  ], []);
 
   // Display email (read-only)
   const displayEmail = player?.email || user?.email || '';
@@ -384,6 +408,46 @@ export default function EditProfileScreen() {
               />
             )}
           />
+
+          {/* Gender Selection */}
+          <View style={styles.genderSection}>
+            <Text style={[styles.genderLabel, { color: colors.textPrimary }]}>
+              Gender
+            </Text>
+            <Text style={[styles.genderHint, { color: colors.textSecondary }]}>
+              Used for daily handicap calculations
+            </Text>
+            <View style={styles.genderButtons}>
+              {genderOptions.map((option) => {
+                const isSelected = selectedGender === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    onPress={() => handleGenderSelect(option.value)}
+                    style={[
+                      styles.genderButton,
+                      { borderColor: isSelected ? colors.primary : colors.border },
+                      isSelected && { backgroundColor: colors.primaryLight },
+                    ]}
+                    activeOpacity={0.7}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={option.label}
+                  >
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        { color: isSelected ? colors.primary : colors.textSecondary },
+                        isSelected && { fontWeight: '600' },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </View>
 
         {/* Info Section */}
@@ -516,5 +580,33 @@ const styles = StyleSheet.create({
   infoText: {
     ...typography.small,
     flex: 1,
+  },
+  genderSection: {
+    marginTop: spacing.md,
+  },
+  genderLabel: {
+    ...typography.bodyBold,
+    marginBottom: spacing.xs,
+  },
+  genderHint: {
+    ...typography.small,
+    marginBottom: spacing.sm,
+  },
+  genderButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  genderButtonText: {
+    ...typography.body,
   },
 });

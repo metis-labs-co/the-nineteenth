@@ -9,8 +9,9 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { supabase } from '@/services/supabase/client';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
+import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { deleteScorecardsByRound } from '@/services/offline/database';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { scoringLogger } from '@/utils/debugLogger';
@@ -36,6 +37,10 @@ export interface UseScorecardSubmissionReturn {
   handleSubmit: () => Promise<void>;
   performSubmit: () => Promise<void>;
   handleDeleteRound: () => void;
+  /** Dialog config for confirmations/errors - parent should render ConfirmationDialog */
+  dialogConfig: DialogConfig;
+  /** Dismiss the dialog */
+  dismissDialog: () => void;
 }
 
 export function useScorecardSubmission({
@@ -51,6 +56,9 @@ export function useScorecardSubmission({
   onSubmitError,
   onCloseIncompleteDialog,
 }: UseScorecardSubmissionParams): UseScorecardSubmissionReturn {
+  // Confirmation dialog hook
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
 
@@ -115,42 +123,46 @@ export function useScorecardSubmission({
     }
   }, [getCompletedHolesCount, performSubmit, onIncompleteRound]);
 
+  // Perform the actual delete operation
+  const performDelete = useCallback(async () => {
+    try {
+      const { error } = await supabase.from('rounds').delete().eq('id', roundId);
+
+      if (error) {
+        console.error('[ScorecardEntryScreen] Failed to delete round:', error);
+        showAlert('Error', 'Failed to delete round. Please try again.');
+        return;
+      }
+
+      await deleteScorecardsByRound(roundId);
+      resetRound();
+      navigation.goBack();
+    } catch (error) {
+      console.error('[ScorecardEntryScreen] Error deleting round:', error);
+      showAlert('Error', 'An unexpected error occurred. Please try again.');
+    }
+  }, [roundId, navigation, resetRound, showAlert]);
+
   // Delete a standalone round
   const handleDeleteRound = useCallback(() => {
-    Alert.alert(
-      'Delete Round',
-      'Are you sure you want to delete this round? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.from('rounds').delete().eq('id', roundId);
-
-              if (error) {
-                console.error('[ScorecardEntryScreen] Failed to delete round:', error);
-                Alert.alert('Error', 'Failed to delete round. Please try again.');
-                return;
-              }
-
-              await deleteScorecardsByRound(roundId);
-              resetRound();
-              navigation.goBack();
-            } catch (error) {
-              console.error('[ScorecardEntryScreen] Error deleting round:', error);
-              Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  }, [roundId, navigation, resetRound]);
+    showDialog({
+      title: 'Delete Round',
+      message: 'Are you sure you want to delete this round? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        performDelete();
+      },
+    });
+  }, [showDialog, dismissDialog, performDelete]);
 
   return {
     handleSubmit,
     performSubmit,
     handleDeleteRound,
+    dialogConfig,
+    dismissDialog,
   };
 }

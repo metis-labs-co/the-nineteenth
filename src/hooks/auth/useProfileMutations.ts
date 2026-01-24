@@ -47,6 +47,9 @@ export function useProfileMutations(user: User | null) {
       if (updates.photoUrl !== undefined) {
         updateData.photo_url = updates.photoUrl || null;
       }
+      if (updates.gender !== undefined) {
+        updateData.gender = updates.gender;
+      }
 
       if (Object.keys(updateData).length === 0) {
         throw new Error('No fields to update');

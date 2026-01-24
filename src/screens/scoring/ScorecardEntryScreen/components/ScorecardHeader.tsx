@@ -9,13 +9,15 @@
  * - Scoring pairs info header (when enabled)
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { ConfirmationDialog } from '@/components/common';
 import { PageHeader, OfflineIndicator } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
+import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
 
 export interface ScorecardHeaderProps {
@@ -26,6 +28,9 @@ export interface ScorecardHeaderProps {
   isStandaloneRound: boolean;
   // Round ID for skins indicator
   roundId: string;
+  // GPS distance to pin
+  courseId?: string;
+  currentHole: number;
   // Offline/sync state
   isOnline: boolean;
   isSyncing: boolean;
@@ -43,6 +48,8 @@ export function ScorecardHeader({
   onDeletePress,
   isStandaloneRound,
   roundId,
+  courseId,
+  currentHole,
   isOnline,
   isSyncing,
   pendingSyncCount,
@@ -52,13 +59,12 @@ export function ScorecardHeader({
 }: ScorecardHeaderProps) {
   const colors = useThemeColors();
 
+  // Dialog state
+  const [showSkinsAlert, setShowSkinsAlert] = useState(false);
+
   // Handle skins indicator press - show coming soon alert for now
   const handleSkinsPress = useCallback(() => {
-    Alert.alert(
-      'Skins Tracking',
-      'Detailed skins tracking view coming soon! Use the popover for quick summary.',
-      [{ text: 'OK' }]
-    );
+    setShowSkinsAlert(true);
   }, []);
 
   // Build subtitle with course name and tee info
@@ -107,22 +113,28 @@ export function ScorecardHeader({
     return 'online';
   };
 
-  // Custom right content with skins indicator and delete button
+  // Custom right content with GPS, skins indicator and delete button
+  // All icons use consistent 32x32 containers with 18px icons
   const renderRightContent = () => (
     <View style={styles.rightContent}>
-      {/* Skins Indicator - shows when skins game is active */}
-      <SkinsIndicator roundId={roundId} size="sm" />
+      {/* GPS Distance to Pin */}
+      {courseId && (
+        <DistanceToPin courseId={courseId} holeNumber={currentHole} />
+      )}
 
-      {/* Delete button for standalone rounds */}
+      {/* Skins Indicator - shows when skins game is active (minimal variant = no background) */}
+      <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
+
+      {/* Delete button for standalone rounds - matches other header icons */}
       {isStandaloneRound && onDeletePress && (
         <TouchableOpacity
-          style={styles.actionButton}
+          style={styles.headerIconButton}
           onPress={onDeletePress}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Delete round"
         >
-          <Icon source="delete-outline" size={24} color={colors.error} />
+          <Icon source="delete-outline" size={18} color={colors.error} />
         </TouchableOpacity>
       )}
     </View>
@@ -178,6 +190,17 @@ export function ScorecardHeader({
           </Text>
         </View>
       )}
+
+      {/* Skins Tracking Alert */}
+      <ConfirmationDialog
+        visible={showSkinsAlert}
+        title="Skins Tracking"
+        message="Detailed skins tracking view coming soon! Use the popover for quick summary."
+        confirmLabel="OK"
+        cancelLabel=""
+        onConfirm={() => setShowSkinsAlert(false)}
+        onCancel={() => setShowSkinsAlert(false)}
+      />
     </>
   );
 }
@@ -188,12 +211,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  actionButton: {
-    width: 40,
-    height: 40,
+  headerIconButton: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: borderRadius.lg,
   },
   syncLineContainer: {
     height: 2,

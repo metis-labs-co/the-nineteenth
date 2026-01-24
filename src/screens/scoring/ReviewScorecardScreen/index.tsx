@@ -26,7 +26,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { OfflineIndicator } from '@/components/common/OfflineIndicator';
 import { ScorecardTable } from '@/components/scorecard';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
 import { MismatchResolutionModal } from '@/components/scoring';
@@ -270,6 +270,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     getOfflineStatus,
     showMismatchModal,
     setShowMismatchModal,
+    dialogConfig,
+    dismissDialog,
   } = useScoreSubmission({
     isOnline,
     competitionId: route.params?.competitionId,
@@ -438,6 +440,9 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         isOnline={isOnline}
         isResolving={isResolving}
       />
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

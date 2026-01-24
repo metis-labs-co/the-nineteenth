@@ -83,6 +83,8 @@ export interface SkinsIndicatorProps {
   onPress?: () => void;
   /** Size of the icon */
   size?: 'sm' | 'md';
+  /** Variant - 'default' has background, 'minimal' has no background (for header use) */
+  variant?: 'default' | 'minimal';
   /** Test ID for testing */
   testID?: string;
 }
@@ -95,6 +97,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   roundId,
   onPress,
   size = 'md',
+  variant = 'default',
   testID,
 }: SkinsIndicatorProps) {
   const colors = useThemeColors();
@@ -178,7 +181,9 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   }
 
   // Icon and container sizes
-  const iconSize = size === 'sm' ? 20 : 24;
+  // sm: 32x32 container, 18px icon (for header use)
+  // md: 40x40 container, 24px icon (for standalone/card use)
+  const iconSize = size === 'sm' ? 18 : 24;
   const containerSize = size === 'sm' ? 32 : 40;
 
   // Show loading state
@@ -204,7 +209,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
           {
             width: containerSize,
             height: containerSize,
-            backgroundColor: `${skinsColor}15`,
+            backgroundColor: variant === 'default' ? `${skinsColor}15` : 'transparent',
           },
         ]}
         onPress={handlePress}

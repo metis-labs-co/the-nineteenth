@@ -33,7 +33,7 @@ import {
   INDIVIDUAL_TOTAL_WIDTH,
 } from '@/utils/scorecardLayout';
 import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
-import { isSingleBallScore, type Hole, type Player } from '@/types/database.types';
+import { isSingleBallScore, type Hole, type Player, type TeeBox } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -47,6 +47,8 @@ interface RoundScorecardTabProps {
   holes: CourseWithVenue['holes'] | null;
   /** Callback when a player name is pressed in the table view */
   onPlayerPress?: (playerId: string) => void;
+  /** Selected tee data with slope/course ratings for daily handicap calculation */
+  selectedTeeData?: TeeBox | null;
 }
 
 // =====================================================
@@ -62,6 +64,8 @@ interface IndividualScorecardViewProps {
   showFIR?: boolean;
   /** Whether to show GIR row */
   showGIR?: boolean;
+  /** Selected tee data for daily handicap calculation */
+  selectedTeeData?: TeeBox | null;
 }
 
 const IndividualScorecardView = React.memo(function IndividualScorecardView({
@@ -70,14 +74,15 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
   showPutts = false,
   showFIR = false,
   showGIR = false,
+  selectedTeeData,
 }: IndividualScorecardViewProps) {
   const colors = useThemeColors();
 
   const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
   const parTotals = useMemo(() => calculateParTotals(holes), [holes]);
   const playerStats = useMemo(
-    () => calculatePlayerStats(displayPlayers, holes),
-    [displayPlayers, holes]
+    () => calculatePlayerStats(displayPlayers, holes, selectedTeeData),
+    [displayPlayers, holes, selectedTeeData]
   );
 
   const renderPlayerScorecard = (displayPlayer: ScorecardTablePlayer, index: number) => {
@@ -369,6 +374,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   roundPlayers,
   holes,
   onPlayerPress,
+  selectedTeeData,
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -474,6 +480,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           showPutts={showPutts}
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
+          selectedTeeData={selectedTeeData}
         />
       ) : (
         <IndividualScorecardView
@@ -482,6 +489,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           showPutts={showPutts}
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
+          selectedTeeData={selectedTeeData}
         />
       )}
 

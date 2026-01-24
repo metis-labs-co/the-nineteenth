@@ -21,10 +21,10 @@ import {
   View,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -174,6 +174,9 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier>('social');
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
   const [downgradeTier, setDowngradeTier] = useState<SubscriptionTier>('free');
+
+  // Dialog state
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Refresh subscription data when screen gains focus
   useFocusEffect(
@@ -357,17 +360,16 @@ export default function SubscriptionScreen({ navigation }: Props) {
       const debugInfo = __DEV__
         ? '\n\n[Debug] This may be because RevenueCat failed to initialize. Check logs for details.'
         : '';
-      Alert.alert(
+      showAlert(
         'Purchases Not Available',
         `In-app purchases are not currently available. This could be because:\n\n` +
         `• The app is running in Expo Go (use TestFlight instead)\n` +
         `• RevenueCat is still initializing (try again in a moment)\n` +
         `• There was an initialization error\n\n` +
-        `If you're in TestFlight and this persists, please contact support.${debugInfo}`,
-        [{ text: 'OK' }]
+        `If you're in TestFlight and this persists, please contact support.${debugInfo}`
       );
     }
-  }, [purchasesEnabled]);
+  }, [purchasesEnabled, showAlert]);
 
   // Handle successful purchase
   const handlePurchaseSuccess = useCallback((newTier: SubscriptionTier) => {
@@ -605,6 +607,9 @@ export default function SubscriptionScreen({ navigation }: Props) {
         onConfirm={handleDowngradeConfirm}
         onDismiss={handleDowngradeDismiss}
       />
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

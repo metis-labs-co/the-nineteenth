@@ -17,8 +17,10 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Share, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Share, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import { useConfirmationDialog } from '@/hooks';
+import { ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import {
@@ -59,6 +61,7 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
   testID,
 }: SkinsSettlementCardProps) {
   const colors = useThemeColors();
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Sort payouts by total winnings (descending)
   const sortedPayouts = useMemo(() => {
@@ -136,10 +139,10 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
       });
     } catch (error) {
       if (error instanceof Error && error.message !== 'User did not share') {
-        Alert.alert('Share Error', 'Unable to share results. Please try again.');
+        showAlert('Share Error', 'Unable to share results. Please try again.');
       }
     }
-  }, [buildShareMessage]);
+  }, [buildShareMessage, showAlert]);
 
   // Get color for net result
   const getNetResultColor = (value: number): string => {
@@ -344,6 +347,9 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Error Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 });

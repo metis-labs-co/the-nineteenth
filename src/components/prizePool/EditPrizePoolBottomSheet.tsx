@@ -13,13 +13,14 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { BottomSheet } from '@/components/common';
+import { BottomSheet, ConfirmationDialog } from '@/components/common';
 import { PrizePoolSection, type PrizePoolConfig } from './PrizePoolSection';
 import {
   useCompetitionPrizePool,
@@ -115,6 +116,9 @@ export function EditPrizePoolBottomSheet({
   const { user } = useAuth();
   const { isPremium } = useSubscription();
 
+  // Dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
   // Fetch existing prize pool
   const {
     data: prizePool,
@@ -201,23 +205,26 @@ export function EditPrizePoolBottomSheet({
   // Handle close with unsaved changes check
   const handleClose = useCallback(() => {
     if (isDirty) {
-      Alert.alert(
-        'Unsaved Changes',
-        'You have unsaved changes. Are you sure you want to leave?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: onClose },
-        ]
-      );
+      showDialog({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave?',
+        confirmLabel: 'Leave',
+        cancelLabel: 'Cancel',
+        confirmVariant: 'destructive',
+        onConfirm: () => {
+          dismissDialog();
+          onClose();
+        },
+      });
     } else {
       onClose();
     }
-  }, [isDirty, onClose]);
+  }, [isDirty, onClose, showDialog, dismissDialog]);
 
   // Handle save
   const handleSave = useCallback(async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'You must be logged in to save prize pool');
+      showAlert('Error', 'You must be logged in to save prize pool');
       return;
     }
 
@@ -227,7 +234,7 @@ export function EditPrizePoolBottomSheet({
 
       // Don't allow changes to locked pool
       if (isLocked) {
-        Alert.alert('Error', 'Prize pool is locked and cannot be modified');
+        showAlert('Error', 'Prize pool is locked and cannot be modified');
         return;
       }
 
@@ -273,7 +280,7 @@ export function EditPrizePoolBottomSheet({
       onSuccess?.();
       onClose();
     } catch (error) {
-      Alert.alert(
+      showAlert(
         'Error',
         error instanceof Error ? error.message : 'Failed to save prize pool'
       );
@@ -290,6 +297,7 @@ export function EditPrizePoolBottomSheet({
     refetchPool,
     onSuccess,
     onClose,
+    showAlert,
   ]);
 
   // Build pool object for PrizePoolSection
@@ -453,6 +461,9 @@ export function EditPrizePoolBottomSheet({
           </View>
         </>
       )}
+
+      {/* Confirmation/Error Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </BottomSheet>
   );
 }

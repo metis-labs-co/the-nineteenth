@@ -105,6 +105,7 @@ export interface ProfileUpdateInput {
   golf_id?: string; // 10-digit Golf Australia ID
   handicap_updated_at?: string; // ISO timestamp
   photoUrl?: string;
+  gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
 }
 
 // =====================================================

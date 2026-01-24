@@ -161,7 +161,7 @@ export function buildUserMessage(
       ? courses
           .map(
             (c) =>
-              `- ${c.venue_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
+              `- ${c.club_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
           )
           .join('\n')
       : 'No matching courses found in database.';
@@ -171,7 +171,7 @@ export function buildUserMessage(
       ? favoriteCourses
           .map(
             (c) =>
-              `- ${c.venue_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
+              `- ${c.club_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
           )
           .join('\n')
       : 'No favorite courses saved.';

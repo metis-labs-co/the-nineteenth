@@ -91,8 +91,8 @@ export const generatedCompetitionSchema = z.object({
 const favoriteCourseSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
-  venue_id: z.string().uuid(),
-  venue_name: z.string().min(1),
+  club_id: z.string().uuid(),
+  club_name: z.string().min(1),
   state: z.string().min(1),
   city: z.string().nullable(),
 });

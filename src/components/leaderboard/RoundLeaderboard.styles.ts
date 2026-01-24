@@ -88,9 +88,11 @@ export const styles = StyleSheet.create({
   },
 
   // Column widths
+  // Note: alignItems works for View containers (rows), textAlign works for Text (headers)
   positionCol: {
     width: 36,
     alignItems: 'center',
+    textAlign: 'center',
   },
   nameCol: {
     flex: 1,
@@ -99,14 +101,22 @@ export const styles = StyleSheet.create({
   handicapCol: {
     width: 36,
     alignItems: 'center',
+    textAlign: 'center',
   },
   scoreCol: {
     width: 44,
     alignItems: 'flex-end',
+    textAlign: 'right',
   },
   grossCol: {
     width: 44,
     alignItems: 'flex-end',
+    textAlign: 'right',
+  },
+  compPtsCol: {
+    width: 36,
+    alignItems: 'center',
+    textAlign: 'center',
   },
 
   // Text styles
@@ -141,6 +151,9 @@ export const styles = StyleSheet.create({
   },
   grossText: {
     ...typography.small,
+  },
+  compPtsText: {
+    ...typography.smallBold,
   },
 
   // Match Play styles

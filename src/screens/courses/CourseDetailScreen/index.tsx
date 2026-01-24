@@ -15,10 +15,10 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, GolfBallLoader } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconGolf } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -71,6 +71,9 @@ export default function CourseScreen({ route, navigation }: Props) {
 
   const cardBackground = colors.surface;
   const { formatDistance } = useFormattedDistance();
+
+  // Dialog state
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Fetch course details with tees from the normalized tees table
   const {
@@ -158,18 +161,18 @@ export default function CourseScreen({ route, navigation }: Props) {
       }
       refetch();
     } catch {
-      Alert.alert('Error', 'Failed to update favorite status');
+      showAlert('Error', 'Failed to update favorite status');
     } finally {
       setTogglingFavorite(false);
     }
-  }, [course, addFavorite, removeFavorite, refetch]);
+  }, [course, addFavorite, removeFavorite, refetch, showAlert]);
 
   // Handle refresh from Golf API (re-imports course data including tees and GPS coordinates)
   const handleRefreshFromApi = useCallback(async () => {
     if (isRefreshingFromApi) return; // Prevent double-clicks
 
     if (!course?.golfapi_course_id) {
-      Alert.alert('Cannot Refresh', 'This course was not imported from the Golf API.');
+      showAlert('Cannot Refresh', 'This course was not imported from the Golf API.');
       return;
     }
 
@@ -185,14 +188,14 @@ export default function CourseScreen({ route, navigation }: Props) {
         messages.push(`GPS coordinates imported: ${result.coordinatesImported} points`);
       }
 
-      Alert.alert('Success', messages.join('\n'));
+      showAlert('Success', messages.join('\n'));
     } catch (error) {
       console.error('[CourseScreen] Failed to refresh from API:', error);
-      Alert.alert('Error', 'Failed to refresh course data. Please try again.');
+      showAlert('Error', 'Failed to refresh course data. Please try again.');
     } finally {
       setIsRefreshingFromApi(false);
     }
-  }, [course?.golfapi_course_id, refetch, refetchCoords, isRefreshingFromApi]);
+  }, [course?.golfapi_course_id, refetch, refetchCoords, isRefreshingFromApi, showAlert]);
 
   // Navigate to club
   const handleClubPress = useCallback(() => {
@@ -241,10 +244,10 @@ export default function CourseScreen({ route, navigation }: Props) {
         // Close the modal
         setEditingHole(null);
       } catch {
-        Alert.alert('Error', 'Failed to save hole data. Please try again.');
+        showAlert('Error', 'Failed to save hole data. Please try again.');
       }
     },
-    [course, updateCourseHolesMutation, refetch]
+    [course, updateCourseHolesMutation, refetch, showAlert]
   );
 
   const handleCloseBottomSheet = useCallback(() => {
@@ -360,12 +363,12 @@ export default function CourseScreen({ route, navigation }: Props) {
         }
       } catch (err) {
         console.error('[CourseScreen] Error starting round:', err);
-        Alert.alert('Error', 'Failed to start the round. Please try again.');
+        showAlert('Error', 'Failed to start the round. Please try again.');
       } finally {
         setIsStartingRound(false);
       }
     },
-    [course, holesWithYardages, user, player, initializeRound, navigation, isStartingRound]
+    [course, holesWithYardages, user, player, initializeRound, navigation, isStartingRound, showAlert]
   );
 
   // Prepare initial course data for bottom sheet
@@ -632,6 +635,9 @@ export default function CourseScreen({ route, navigation }: Props) {
           loading={updateCourseHolesMutation.isPending}
         />
       )}
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

@@ -3,22 +3,28 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useConfirmationDialog, type DialogConfig } from '@/hooks';
 import { skinsKeys, prizePoolKeys, roundKeys } from '@/hooks/queryKeys';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundItem, UseRoundActionsReturn } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export function useRoundActions(): UseRoundActionsReturn {
+export function useRoundActions(): UseRoundActionsReturn & {
+  dialogConfig: DialogConfig;
+  dismissDialog: () => void;
+} {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Dialog state for error alerts
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [roundToDelete, setRoundToDelete] = useState<RoundItem | null>(null);
@@ -128,7 +134,7 @@ export function useRoundActions(): UseRoundActionsReturn {
     },
     onError: (error) => {
       console.error('Error deleting round:', error);
-      Alert.alert('Error', 'Failed to delete round. Please try again.');
+      showAlert('Error', 'Failed to delete round. Please try again.');
     },
   });
 
@@ -200,5 +206,7 @@ export function useRoundActions(): UseRoundActionsReturn {
     deleteDialogVisible,
     roundToDelete,
     isDeleting: deleteRoundMutation.isPending,
+    dialogConfig,
+    dismissDialog,
   };
 }

@@ -64,7 +64,7 @@ interface Round {
   competitionId?: string;  // NULL for standalone rounds
   userId?: string;         // Owner of standalone rounds (NULL for competition rounds)
   roundNumber: number;
-  courseId: string;
+  courseId?: string;       // Can be NULL for TBD course selection
   date?: Date;
   teeTime?: string;
   gameType: 'stroke' | 'stableford' | 'match-play' | 'ambrose' | 'best-ball' | 'scramble';
@@ -76,8 +76,11 @@ interface Round {
   selectedTee?: TeeBox;    // Selected tee box configuration for this round
   // Scoring pairs
   scoringPairsRequired: boolean; // If TRUE, scoring pairs must be set up before round starts
+  // Multi-ball scoring (solo rounds)
+  ballCount: number;       // 1-4 balls per hole (requires Social tier for > 1)
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;        // Soft delete timestamp
 }
 
 // Club (physical golf club location) - renamed from Venue in GolfAPI.io migration
@@ -89,9 +92,11 @@ interface Club {
   // Basic Info
   name: string;                    // "The Eastern Golf Club"
   state: 'NSW' | 'VIC' | 'QLD' | 'SA' | 'WA' | 'TAS' | 'NT' | 'ACT';
+  country: string;                 // Defaults to 'Australia'
   city: string;
   address?: string;
-  postalCode?: string;             // New field from GolfAPI.io
+  postalCode?: string;             // From GolfAPI.io
+  continent?: string;              // From GolfAPI.io
   phone?: string;
   email?: string;
   website?: string;
@@ -116,16 +121,36 @@ interface Course {
   // Course Info
   name: string;                    // "East/West Course" or just "Championship"
   description?: string;            // Optional description of this configuration
+  numHoles: 9 | 18;                // Number of holes on this course
 
   // Course Details (18 holes for this configuration)
   holes: Hole[];                   // 18 holes with par, SI, yardages
-  tees?: TeeBox[];                 // Tee boxes with ratings for THIS course
+  holesWomen?: HoleWomen[];        // Women's par and stroke index data
+  matchPlayIndexes?: MatchPlayIndex[]; // Match play stroke indexes (may differ from stroke play)
+  tees?: TeeBox[];                 // Tee boxes with ratings for THIS course (legacy JSONB)
   slopeRating?: number;            // Slope rating for this configuration
   courseRating?: number;           // Course rating for this configuration
+  measureUnit?: 'm' | 'y';         // Distance measurement unit (meters or yards)
+
+  // GolfAPI.io identifiers
+  golfapiCourseId?: string;        // CourseID from GolfAPI.io
+  golfapiLongCourseId?: string;    // LongCourseID from GolfAPI.io
+  golfapiUpdatedAt?: Date;         // When GolfAPI.io last updated this course
 
   // Metadata
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface HoleWomen {
+  holeNumber: number;
+  parWomen: number;
+  indexWomen: number;
+}
+
+interface MatchPlayIndex {
+  holeNumber: number;
+  matchIndex: number;
 }
 
 interface Hole {
@@ -145,6 +170,62 @@ interface TeeBox {
   slopeRating?: number;
 }
 
+// Tee (normalized tee data from tees table - GolfAPI.io integration)
+interface Tee {
+  id: string;
+  courseId: string;
+  golfapiTeeId?: string;           // TeeID from GolfAPI.io
+
+  // Tee identification
+  name: string;                    // 'Championship', 'Members', etc.
+  color?: string;                  // Hex color e.g., '#FFFFFF', '#00CCFF'
+
+  // Men's ratings
+  slope?: number;
+  slopeFront9?: number;
+  slopeBack9?: number;
+  courseRating?: number;
+  courseRatingFront9?: number;
+  courseRatingBack9?: number;
+
+  // Women's ratings
+  slopeWomen?: number;
+  slopeWomenFront9?: number;
+  slopeWomenBack9?: number;
+  courseRatingWomen?: number;
+  courseRatingWomenFront9?: number;
+  courseRatingWomenBack9?: number;
+
+  // Distance unit
+  measureUnit: 'm' | 'y';          // meters or yards
+
+  // Per-hole distances
+  lengthHole1?: number;
+  lengthHole2?: number;
+  // ... lengthHole3 through lengthHole17
+  lengthHole18?: number;
+
+  // Computed totals (generated columns)
+  totalLength: number;             // Sum of all hole lengths
+  front9Length: number;            // Sum of holes 1-9
+  back9Length: number;             // Sum of holes 10-18
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Hole Coordinate (GPS coordinates for course features)
+interface HoleCoordinate {
+  id: string;
+  courseId: string;
+  holeNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
+  poiType: 'tee_front' | 'tee_back' | 'green_front' | 'green_center' | 'green_back';
+  latitude: number;
+  longitude: number;
+  sideOfFairway?: string;          // From GolfAPI.io SideOfFairway field
+  createdAt: Date;
+}
+
 // Player
 // Real players have id referencing auth.users(id)
 // Placeholder players have generated UUID and @placeholder.local email
@@ -157,10 +238,24 @@ interface Player {
   handicapUpdatedAt?: Date; // Timestamp when handicap was last updated
   golfId?: string;          // 10-digit Golf Australia ID
   photoUrl?: string;
+  homeClubId?: string;      // Reference to player's home golf club
+
   // Placeholder player fields
   isPlaceholder: boolean;   // TRUE for guest/placeholder players without auth accounts
   createdBy?: string;       // UUID of user who created this placeholder (NULL for real players)
   linkedPlayerId?: string;  // UUID of real player this placeholder was merged into
+
+  // Push notification preferences
+  pushEnabled: boolean;
+  pushCompetitionUpdates: boolean;
+  pushFriendRequests: boolean;
+  pushScorecardUpdates: boolean;
+
+  // Equipped cosmetics (from achievements system)
+  equippedBadgeId?: string;  // Currently equipped badge cosmetic
+  equippedFrameId?: string;  // Currently equipped frame cosmetic
+  equippedTitleId?: string;  // Currently equipped title cosmetic
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -208,11 +303,18 @@ interface Scorecard {
   roundId: string;
   playerId: string;
   scores: { [holeNumber: number]: HoleScore };
+  ballTotals?: BallTotals;  // Per-ball totals for multi-ball rounds
   totalGross: number;
   totalNet: number;
+  totalPoints: number;
   status: 'not-started' | 'in-progress' | 'completed' | 'confirmed';
   submittedAt?: Date;
-  submittedBy?: string;  // Player ID who submitted
+  submittedBy?: string;     // Player ID who submitted
+  bypassed: boolean;        // TRUE if submitted without partner verification (30-minute bypass)
+  deviceId?: string;        // Device ID for offline sync
+  syncedAt?: Date;          // Last sync timestamp
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface HoleScore {
@@ -221,6 +323,15 @@ interface HoleScore {
   fairwayHit?: boolean;
   greenInRegulation?: boolean;
   penalties?: number;
+}
+
+// Per-ball totals for multi-ball rounds
+interface BallTotals {
+  [ballNumber: string]: {
+    gross: number;
+    net: number;
+    points: number;
+  };
 }
 
 // Leaderboard (computed/cached)
@@ -506,6 +617,202 @@ interface SkinsConfig {
   scoringType: SkinsScoringType;
   currency?: string;
 }
+
+// =====================================================
+// SCORE ENTRIES (Dual Score Entry & Mismatch Detection)
+// =====================================================
+
+/**
+ * Individual score entry with attribution for mismatch detection.
+ * A player may have two entries per hole: self-entered and partner-entered.
+ */
+interface ScoreEntry {
+  id: string;
+  roundId: string;
+  playerId: string;         // Player whose score this is FOR
+  holeNumber: number;       // 1-18
+  scorerId: string;         // Who ENTERED this score
+
+  // Score Data
+  strokes: number;
+  putts?: number;
+  penalties: number;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Detected score discrepancy between self and partner entries
+ */
+interface ScoreMismatch {
+  id: string;
+  roundId: string;
+  playerId: string;         // Player whose score has the mismatch
+  holeNumber: number;
+
+  // Conflicting scores
+  selfScore: number;        // What the player recorded
+  partnerScore: number;     // What their partner recorded
+  selfScorerId: string;
+  partnerScorerId: string;
+
+  // Resolution
+  status: 'pending' | 'resolved';
+  resolvedScore?: number;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+
+  createdAt: Date;
+}
+
+/**
+ * Tracks submission progress and bypass timer for partner verification
+ */
+interface ScoreSubmissionStatus {
+  id: string;
+  roundId: string;
+  playerId: string;         // Player attempting submission
+  partnerId: string;        // Their scoring partner
+
+  // Bypass timer tracking
+  bypassAvailableAt?: Date; // When bypass becomes available (30 mins after first attempt)
+  bypassedAt?: Date;        // When bypass was used
+  bypassed: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// =====================================================
+// ACHIEVEMENTS SYSTEM
+// =====================================================
+
+/** Achievement categories */
+type AchievementCategory =
+  | 'rounds'
+  | 'game_types'
+  | 'scoring'
+  | 'competitions'
+  | 'social'
+  | 'courses'
+  | 'match_play'
+  | 'streaks'
+  | 'milestones';
+
+/** Achievement rarity levels */
+type AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+/**
+ * Master achievement definition
+ */
+interface AchievementDefinition {
+  id: string;
+  code: string;               // Unique code e.g., 'ROUND_VETERAN_3'
+  category: AchievementCategory;
+  name: string;
+  description: string;
+  icon: string;               // Material icon name
+  tier: number;               // 1-6 for progressive achievements
+  threshold: number;          // Number required to unlock
+  baseAchievement?: string;   // Parent achievement code for tiers > 1
+  points: number;             // Points awarded when earned
+  rarity: AchievementRarity;
+  isHidden: boolean;          // Secret achievements
+  createdAt: Date;
+}
+
+/**
+ * Player's earned achievement
+ */
+interface PlayerAchievement {
+  id: string;
+  playerId: string;
+  achievementId: string;
+  earnedAt: Date;
+  progress: number;           // Progress value when earned
+  notified: boolean;          // Whether user has been shown the notification
+}
+
+/**
+ * Real-time progress toward achievements
+ */
+interface AchievementProgress {
+  id: string;
+  playerId: string;
+  achievementCode: string;    // Base achievement code
+  currentValue: number;
+  lastUpdated: Date;
+}
+
+// =====================================================
+// COSMETICS SYSTEM
+// =====================================================
+
+/** Cosmetic types */
+type CosmeticType = 'badge' | 'frame' | 'title';
+
+/**
+ * Cosmetic reward definition
+ */
+interface CosmeticDefinition {
+  id: string;
+  code: string;               // Unique code e.g., 'BADGE_ROOKIE'
+  type: CosmeticType;
+  name: string;
+  description?: string;
+  icon?: string;
+  pointsRequired: number;     // Achievement points needed to unlock
+  sortOrder: number;          // Display order within type
+  createdAt: Date;
+}
+
+/**
+ * Player's unlocked cosmetic
+ */
+interface PlayerCosmetic {
+  id: string;
+  playerId: string;
+  cosmeticId: string;
+  unlockedAt: Date;
+}
+
+// =====================================================
+// USER PREFERENCES
+// =====================================================
+
+/**
+ * Centralized user preferences/settings
+ */
+interface UserPreferences {
+  id: string;
+  userId: string;
+
+  // Appearance
+  themeMode: 'light' | 'dark' | 'system';
+  distanceUnit: 'yards' | 'metres';
+
+  // Scoring display
+  showPutts: boolean;
+  showFairwayHit: boolean;
+  showGir: boolean;
+
+  // Push notifications
+  pushEnabled: boolean;
+  pushCompetitionUpdates: boolean;
+  pushFriendRequests: boolean;
+  pushScorecardUpdates: boolean;
+
+  // Features
+  roundTimerEnabled: boolean;
+  debugModeEnabled: boolean;
+
+  // Custom settings (JSONB)
+  customSettings: Record<string, any>;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
 ```
 
 ---
@@ -596,30 +903,44 @@ Data isolation is achieved through:
                                                            │ id (PK)            │
                                                            │ round_id (FK)      │
 ┌──────────────────┐       ┌───────────────────────────────│ player_id (FK)     │
-│ venues           │       │                               │ scores (JSONB)     │
-├──────────────────┤       │                               │ total_points       │
-│ id (PK)          │       │                               │ status             │
-│ name             │       │                               └──────────┬─────────┘
-│ state            │       │                                          │
-│ city             │       │                                          │
-│ address          │       │                               ┌──────────▼─────────┐
-│ location (GPS)   │       │                               │ scoring_pairs      │
-└────────┬─────────┘       │                               ├────────────────────┤
-         │                 │                               │ id (PK)            │
-         │ 1:N             │                               │ round_id (FK)      │
-         │                 │                               │ scorer_id (FK)     │
-┌────────▼─────────┐       │                               │ player_id (FK)     │
-│ courses          │◄──────┘                               └────────────────────┘
-├──────────────────┤
+│ clubs            │       │                               │ scores (JSONB)     │
+├──────────────────┤       │                               │ ball_totals (JSONB)│
+│ id (PK)          │       │                               │ total_points       │
+│ golfapi_club_id  │       │                               │ status             │
+│ name             │       │                               │ bypassed           │
+│ state, country   │       │                               └──────────┬─────────┘
+│ city, address    │       │                                          │
+│ location (GPS)   │       │                               ┌──────────▼─────────┐
+└────────┬─────────┘       │                               │ scoring_pairs      │
+         │                 │                               ├────────────────────┤
+         │ 1:N             │                               │ id (PK)            │
+         │                 │                               │ round_id (FK)      │
+┌────────▼─────────┐       │                               │ scorer_id (FK)     │
+│ courses          │◄──────┘                               │ player_id (FK)     │
+├──────────────────┤                                       └────────────────────┘
 │ id (PK)          │◄──────────────────────────────────────────────────────┐
-│ venue_id (FK)    │                                                       │
-│ name             │                                             ┌─────────┴────────┐
-│ holes (JSONB)    │                                             │ favorite_courses │
-│ tees (JSONB)     │                                             ├──────────────────┤
-│ slope_rating     │                                             │ id (PK)          │
-│ course_rating    │                                             │ player_id (FK)   │
-└──────────────────┘                                             │ course_id (FK)   │
-                                                                 └──────────────────┘
+│ club_id (FK)     │                                                       │
+│ golfapi_ids      │                                             ┌─────────┴────────┐
+│ name, num_holes  │                                             │ favorite_courses │
+│ holes (JSONB)    │                                             ├──────────────────┤
+│ holes_women      │                                             │ id (PK)          │
+│ slope/course_rtg │                                             │ player_id (FK)   │
+└────────┬─────────┘                                             │ course_id (FK)   │
+         │                                                       └──────────────────┘
+         │ 1:N
+         │
+┌────────▼─────────┐       ┌──────────────────────┐
+│ tees             │       │ hole_coordinates     │
+├──────────────────┤       ├──────────────────────┤
+│ id (PK)          │       │ id (PK)              │
+│ course_id (FK)   │       │ course_id (FK)       │
+│ golfapi_tee_id   │       │ hole_number          │
+│ name, color      │       │ poi_type             │
+│ slope (M/W)      │       │ latitude/longitude   │
+│ course_rating    │       │ location (GEOGRAPHY) │
+│ length_hole_1-18 │       └──────────────────────┘
+│ total_length     │
+└──────────────────┘
 
 ┌─────────────────────────┐      ┌─────────────────────────┐      ┌──────────────────────┐
 │ user_subscriptions      │      │ tier_limits             │      │ notifications        │
@@ -833,43 +1154,51 @@ Physical golf club locations. A club can have one or more playable courses.
 
 > **Migration Note (January 2026):** Table renamed from `venues` to `clubs` as part of GolfAPI.io integration.
 > - Column `api_id` renamed to `golfapi_club_id`
-> - Column `postal_code` added
+> - Columns `postal_code`, `country`, `continent` added
 > - Source enum now includes 'legacy' for pre-migration data
+> - FK references changed from `venue_id` to `club_id`
 
 **Columns:**
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `id` | UUID | PK | Venue unique identifier |
-| `source` | TEXT | CHECK('api', 'manual'), NOT NULL | Data source |
-| `api_id` | TEXT | NULL | External API identifier |
-| `name` | TEXT | NOT NULL | Venue/club name (e.g., "The Eastern Golf Club") |
+| `id` | UUID | PK | Club unique identifier |
+| `source` | TEXT | CHECK('api', 'manual', 'legacy'), NOT NULL | Data source |
+| `golfapi_club_id` | TEXT | NULL | GolfAPI.io club identifier (renamed from api_id) |
+| `name` | TEXT | NOT NULL | Club name (e.g., "The Eastern Golf Club") |
 | `state` | TEXT | CHECK(AU states), NULL | Australian state code |
+| `country` | TEXT | DEFAULT 'Australia' | Country name |
+| `continent` | TEXT | NULL | Continent name from GolfAPI.io |
 | `city` | TEXT | NULL | City name |
 | `address` | TEXT | NULL | Street address |
+| `postal_code` | TEXT | NULL | Postal/ZIP code |
 | `phone` | TEXT | NULL | Contact phone |
 | `email` | TEXT | NULL | Contact email |
-| `website` | TEXT | NULL | Venue website URL |
+| `website` | TEXT | NULL | Club website URL |
+| `latitude` | NUMERIC(10,7) | NULL | GPS latitude |
+| `longitude` | NUMERIC(10,7) | NULL | GPS longitude |
 | `location` | GEOGRAPHY(POINT) | NULL | GPS coordinates (PostGIS) |
-| `total_holes` | INTEGER | NULL | Total holes at venue (18, 27, 36, etc.) |
+| `total_holes` | INTEGER | NULL | Total holes at club (18, 27, 36, etc.) |
 | `last_synced` | TIMESTAMPTZ | NULL | Last API sync timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
 **Indexes:**
-- `idx_venues_name` on `name`
-- `idx_venues_state` on `state`
-- `idx_venues_source` on `source`
-- `idx_venues_location` (GIST spatial index) on `location`
+- `idx_clubs_name` on `name`
+- `idx_clubs_state` on `state`
+- `idx_clubs_source` on `source`
+- `idx_clubs_location` (GIST spatial index) on `location`
+- `idx_clubs_golfapi_id` on `golfapi_club_id` WHERE golfapi_club_id IS NOT NULL
 
 **RLS Policies:**
-- Anyone can view venues (read-only)
-- Authenticated users can create venues (manual entry)
+- Anyone can view clubs (read-only)
+- Authenticated users can create clubs (manual entry)
+- Super admins can manage clubs
 
 **Example:**
 ```typescript
-// Create venue (manual entry)
-const { data: venue } = await supabase
-  .from('venues')
+// Create club (manual entry)
+const { data: club } = await supabase
+  .from('clubs')
   .insert({
     name: 'The Eastern Golf Club',
     state: 'VIC',
@@ -880,16 +1209,16 @@ const { data: venue } = await supabase
   .select()
   .single();
 
-// Search venues by name
-const { data: venues } = await supabase
-  .from('venues')
+// Search clubs by name
+const { data: clubs } = await supabase
+  .from('clubs')
   .select('*')
   .ilike('name', '%eastern%')
   .eq('state', 'VIC');
 
-// Get venues with course count
-const { data: venuesWithCourses } = await supabase
-  .from('venues')
+// Get clubs with course count
+const { data: clubsWithCourses } = await supabase
+  .from('clubs')
   .select('*, courses(count)')
   .eq('state', 'VIC');
 ```
@@ -898,28 +1227,40 @@ const { data: venuesWithCourses } = await supabase
 
 ### `courses`
 
-Playable 18-hole course configurations at a venue. A venue with 27 holes (3 nines) would have 3 course records, one for each combination.
+Playable 9 or 18-hole course configurations at a club. A club with 27 holes (3 nines) would have 3 course records, one for each combination.
+
+> **Migration Note (January 2026):** FK column renamed from `venue_id` to `club_id`. New GolfAPI.io columns added.
 
 **Columns:**
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK | Course unique identifier |
-| `venue_id` | UUID | FK → venues(id), NOT NULL | Parent venue |
+| `club_id` | UUID | FK → clubs(id), NOT NULL | Parent club (renamed from venue_id) |
 | `name` | TEXT | NOT NULL | Course name (e.g., "East/West Course") |
 | `description` | TEXT | NULL | Optional description of this configuration |
-| `holes` | JSONB | NOT NULL | Array of 18 hole objects |
-| `tees` | JSONB | NULL | Array of tee box objects for this course |
+| `num_holes` | INTEGER | CHECK(9, 18), DEFAULT 18 | Number of holes on this course |
+| `holes` | JSONB | NOT NULL | Array of hole objects |
+| `holes_women` | JSONB | NULL | Women's par and stroke index data per hole |
+| `match_play_indexes` | JSONB | NULL | Match play stroke indexes (may differ from stroke play) |
+| `tees` | JSONB | NULL | Array of tee box objects (legacy, prefer `tees` table) |
 | `slope_rating` | NUMERIC(4,1) | NULL | Course slope rating for this configuration |
 | `course_rating` | NUMERIC(4,1) | NULL | Course rating for this configuration |
+| `measure_unit` | TEXT | CHECK('m', 'y'), DEFAULT 'm' | Distance unit: meters or yards |
+| `golfapi_course_id` | TEXT | NULL | CourseID from GolfAPI.io |
+| `golfapi_long_course_id` | TEXT | NULL | LongCourseID from GolfAPI.io |
+| `golfapi_updated_at` | TIMESTAMPTZ | NULL | When GolfAPI.io last updated this course |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
 **Indexes:**
-- `idx_courses_venue` on `venue_id`
+- `idx_courses_club` on `club_id` (renamed from idx_courses_venue)
 - `idx_courses_name` on `name`
+- `idx_courses_golfapi_id` on `golfapi_course_id` WHERE golfapi_course_id IS NOT NULL
+- `idx_courses_golfapi_long_id` on `golfapi_long_course_id` WHERE golfapi_long_course_id IS NOT NULL
 
 **Constraints:**
-- `unique_course_name_per_venue` - UNIQUE(venue_id, name)
+- `unique_course_name_per_club` - UNIQUE(club_id, name)
+- `courses_num_holes_valid` - CHECK(num_holes IN (9, 18))
 
 **RLS Policies:**
 - Anyone can view courses (read-only)
@@ -944,7 +1285,25 @@ Playable 18-hole course configurations at a venue. A venue with 27 holes (3 nine
 ]
 ```
 
-`tees` field:
+`holes_women` field:
+```json
+[
+  { "holeNumber": 1, "parWomen": 4, "indexWomen": 9 },
+  { "holeNumber": 2, "parWomen": 5, "indexWomen": 1 },
+  ...
+]
+```
+
+`match_play_indexes` field:
+```json
+[
+  { "holeNumber": 1, "matchIndex": 5 },
+  { "holeNumber": 2, "matchIndex": 1 },
+  ...
+]
+```
+
+`tees` field (legacy - prefer normalized `tees` table):
 ```json
 [
   {
@@ -960,12 +1319,13 @@ Playable 18-hole course configurations at a venue. A venue with 27 holes (3 nine
 
 **Example:**
 ```typescript
-// Create course at a venue
+// Create course at a club
 const { data: course } = await supabase
   .from('courses')
   .insert({
-    venue_id: venueId,
+    club_id: clubId,
     name: 'East/West Course',
+    num_holes: 18,
     holes: [
       { number: 1, par: 4, strokeIndex: 7 },
       { number: 2, par: 4, strokeIndex: 3 },
@@ -977,16 +1337,16 @@ const { data: course } = await supabase
   .select()
   .single();
 
-// Get all courses at a venue
+// Get all courses at a club
 const { data: courses } = await supabase
   .from('courses')
   .select('*')
-  .eq('venue_id', venueId);
+  .eq('club_id', clubId);
 
-// Get course with venue details
-const { data: courseWithVenue } = await supabase
+// Get course with club details
+const { data: courseWithClub } = await supabase
   .from('courses')
-  .select('*, venue:venues(*)')
+  .select('*, club:clubs(*)')
   .eq('id', courseId)
   .single();
 
@@ -995,13 +1355,20 @@ const { data: coursesAtClub } = await supabase
   .from('courses')
   .select('*, club:clubs!inner(*)')
   .ilike('club.name', '%eastern%');
+
+// Get course with normalized tees
+const { data: courseWithTees } = await supabase
+  .from('courses')
+  .select('*, tees(*)')
+  .eq('id', courseId)
+  .single();
 ```
 
 ---
 
 ### `tees` (new - January 2026)
 
-Tee box information for courses, sourced from GolfAPI.io. Stores slope/course ratings and per-hole distances.
+Normalized tee box information for courses, sourced from GolfAPI.io. Stores slope/course ratings for both men and women, plus per-hole distances.
 
 > **Note:** Previously tee information was stored as JSONB in the `courses.tees` column.
 > This normalized table provides better querying and supports GolfAPI.io's detailed tee data.
@@ -1010,21 +1377,41 @@ Tee box information for courses, sourced from GolfAPI.io. Stores slope/course ra
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK, DEFAULT gen_random_uuid() | Tee unique identifier |
-| `course_id` | UUID | FK → courses(id), NOT NULL | Parent course |
+| `course_id` | UUID | FK → courses(id) ON DELETE CASCADE, NOT NULL | Parent course |
+| `golfapi_tee_id` | TEXT | NULL | TeeID from GolfAPI.io |
 | `name` | TEXT | NOT NULL | Tee name (e.g., "Championship", "Members") |
-| `color` | TEXT | NULL | Tee color (e.g., "blue", "white", "red") |
-| `slope_rating` | NUMERIC(5,1) | NULL | Slope rating for this tee |
-| `course_rating` | NUMERIC(4,1) | NULL | Course rating for this tee |
-| `total_distance` | INTEGER | NULL | Total course distance in yards |
-| `gender` | TEXT | NULL | 'men' or 'women' |
-| `golfapi_tee_id` | TEXT | NULL | GolfAPI.io tee identifier |
-| `hole_distances` | JSONB | NULL | Per-hole distances { "1": 425, "2": 380, ... } |
+| `color` | TEXT | NULL | Hex color (e.g., "#FFFFFF", "#00CCFF") |
+| `slope` | INTEGER | NULL | Slope rating for men (18 holes) |
+| `slope_front9` | INTEGER | NULL | Slope rating for men (front 9) |
+| `slope_back9` | INTEGER | NULL | Slope rating for men (back 9) |
+| `course_rating` | NUMERIC(4,1) | NULL | Course rating for men (18 holes) |
+| `course_rating_front9` | NUMERIC(3,1) | NULL | Course rating for men (front 9) |
+| `course_rating_back9` | NUMERIC(3,1) | NULL | Course rating for men (back 9) |
+| `slope_women` | INTEGER | NULL | Slope rating for women (18 holes) |
+| `slope_women_front9` | INTEGER | NULL | Slope rating for women (front 9) |
+| `slope_women_back9` | INTEGER | NULL | Slope rating for women (back 9) |
+| `course_rating_women` | NUMERIC(4,1) | NULL | Course rating for women (18 holes) |
+| `course_rating_women_front9` | NUMERIC(3,1) | NULL | Course rating for women (front 9) |
+| `course_rating_women_back9` | NUMERIC(3,1) | NULL | Course rating for women (back 9) |
+| `measure_unit` | TEXT | CHECK('m', 'y'), DEFAULT 'm' | Distance unit: meters or yards |
+| `length_hole_1` | INTEGER | NULL | Hole 1 distance |
+| `length_hole_2` | INTEGER | NULL | Hole 2 distance |
+| ... | ... | ... | Holes 3-17 follow same pattern |
+| `length_hole_18` | INTEGER | NULL | Hole 18 distance |
+| `total_length` | INTEGER | GENERATED STORED | Computed sum of all hole lengths |
+| `front9_length` | INTEGER | GENERATED STORED | Computed sum of holes 1-9 |
+| `back9_length` | INTEGER | GENERATED STORED | Computed sum of holes 10-18 |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
 **Indexes:**
-- `idx_tees_course_id` on `course_id`
-- `idx_tees_golfapi_id` on `golfapi_tee_id`
+- `idx_tees_course` on `course_id`
+- `idx_tees_golfapi_id` on `golfapi_tee_id` WHERE golfapi_tee_id IS NOT NULL
+- `idx_tees_name` on `name`
+
+**RLS Policies:**
+- Anyone can view tees (read-only)
+- Super admins can manage tees
 
 **Example Queries:**
 ```typescript
@@ -1033,39 +1420,60 @@ const { data: tees } = await supabase
   .from('tees')
   .select('*')
   .eq('course_id', courseId)
-  .order('slope_rating', { ascending: false });
+  .order('slope', { ascending: false });
 
 // Get tees with specific color
 const { data: blueTees } = await supabase
   .from('tees')
   .select('*')
   .eq('course_id', courseId)
-  .eq('color', 'blue');
+  .eq('color', '#0000FF');
+
+// Get course with tees
+const { data: courseWithTees } = await supabase
+  .from('courses')
+  .select('*, tees(*)')
+  .eq('id', courseId)
+  .single();
 ```
 
 ---
 
 ### `hole_coordinates` (new - January 2026)
 
-GPS coordinates for course features (tees, greens), sourced from GolfAPI.io.
+GPS coordinates for course features (tee boxes and greens), sourced from GolfAPI.io. Enables distance-to-pin calculations, course flyovers, and shot tracking.
 
 **Columns:**
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | UUID | PK, DEFAULT gen_random_uuid() | Coordinate unique identifier |
-| `course_id` | UUID | FK → courses(id), NOT NULL | Parent course |
+| `course_id` | UUID | FK → courses(id) ON DELETE CASCADE, NOT NULL | Parent course |
 | `hole_number` | INTEGER | NOT NULL, CHECK(1-18) | Hole number |
-| `poi_type` | TEXT | NOT NULL | Point of interest: 'tee', 'green_center', 'green_front', 'green_back' |
-| `latitude` | NUMERIC(9,6) | NOT NULL | GPS latitude |
-| `longitude` | NUMERIC(9,6) | NOT NULL | GPS longitude |
+| `poi_type` | TEXT | NOT NULL, CHECK | Point of interest type |
+| `latitude` | NUMERIC(10,7) | NOT NULL | GPS latitude |
+| `longitude` | NUMERIC(10,7) | NOT NULL | GPS longitude |
+| `location` | GEOGRAPHY(POINT, 4326) | GENERATED STORED | PostGIS geography point |
+| `side_of_fairway` | TEXT | NULL | From GolfAPI.io SideOfFairway field |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 
+**POI Types:**
+- `tee_front` - Front of tee box
+- `tee_back` - Back of tee box
+- `green_front` - Front of green
+- `green_center` - Center of green
+- `green_back` - Back of green
+
 **Indexes:**
-- `idx_hole_coords_course_hole` on `(course_id, hole_number)`
-- `idx_hole_coords_course_type` on `(course_id, poi_type)`
+- `idx_hole_coords_course` on `course_id`
+- `idx_hole_coords_hole` on `(course_id, hole_number)`
+- `idx_hole_coords_location` (GIST spatial index) on `location`
 
 **Unique Constraints:**
-- `unique_course_hole_poi` - UNIQUE(course_id, hole_number, poi_type)
+- UNIQUE(course_id, hole_number, poi_type)
+
+**RLS Policies:**
+- Anyone can view hole coordinates (read-only)
+- Super admins can manage hole coordinates
 
 **Example Queries:**
 ```typescript
@@ -1076,18 +1484,26 @@ const { data: coords } = await supabase
   .eq('course_id', courseId)
   .order('hole_number');
 
-// Get green coordinates for distance calculation
+// Get green center coordinates for distance calculation
 const { data: greenCoords } = await supabase
   .from('hole_coordinates')
   .select('*')
   .eq('course_id', courseId)
   .eq('poi_type', 'green_center');
 
-// Calculate distance to green (using Haversine formula in app)
-const distanceToGreen = calculateHaversineDistance(
-  currentLat, currentLng,
-  greenCoord.latitude, greenCoord.longitude
-);
+// Use RPC function to calculate distance between POIs
+const { data: distance } = await supabase.rpc('calculate_hole_distance', {
+  p_course_id: courseId,
+  p_hole_number: 1,
+  p_from_poi: 'tee_back',
+  p_to_poi: 'green_center'
+});
+// Returns distance in meters
+
+// Get all hole distances for a course
+const { data: distances } = await supabase.rpc('get_course_hole_distances', {
+  p_course_id: courseId
+});
 ```
 
 ---
@@ -1112,6 +1528,7 @@ Individual rounds within competitions or standalone (social) rounds.
 | `team_format` | team_format | NULL | 'best-ball', 'scramble', 'aggregate', 'match-play-team' |
 | `selected_tee` | JSONB | NULL | Selected tee box configuration |
 | `scoring_pairs_required` | BOOLEAN | DEFAULT FALSE | If TRUE, scoring pairs must be set up |
+| `ball_count` | INTEGER | DEFAULT 1, CHECK(1-4) | Number of balls scored per hole (multi-ball for solo rounds) |
 | `deleted_at` | TIMESTAMPTZ | NULL | Soft delete timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
@@ -1138,11 +1555,13 @@ Individual rounds within competitions or standalone (social) rounds.
 - `idx_rounds_date` on `date`
 - `idx_rounds_user_id` on `user_id` (partial, WHERE user_id IS NOT NULL)
 - `idx_rounds_deleted_at` - Partial index WHERE deleted_at IS NULL
+- `idx_rounds_multi_ball` on `ball_count` WHERE ball_count > 1
 
 **Constraints:**
 - `unique_round_per_competition` - UNIQUE(competition_id, round_number)
 - `rounds_ownership_check` - CHECK (competition_id IS NOT NULL OR user_id IS NOT NULL)
 - `team_format_required_for_team_rounds` - CHECK (is_team_round = FALSE AND team_format IS NULL) OR (is_team_round = TRUE AND team_format IS NOT NULL)
+- `valid_ball_count` - CHECK (ball_count >= 1 AND ball_count <= 4)
 
 **RLS Policies:**
 - Organizers can manage rounds in their competitions
@@ -1365,12 +1784,14 @@ Player scorecards with hole-by-hole scores.
 | `round_id` | UUID | FK → rounds(id), NOT NULL | Parent round |
 | `player_id` | UUID | FK → players(id), NOT NULL | Player reference |
 | `scores` | JSONB | NOT NULL, DEFAULT {} | Hole-by-hole scores |
+| `ball_totals` | JSONB | NULL | Per-ball totals for multi-ball rounds |
 | `total_gross` | INTEGER | DEFAULT 0 | Total gross score |
 | `total_net` | INTEGER | DEFAULT 0 | Total net score |
 | `total_points` | INTEGER | DEFAULT 0 | Total Stableford points |
 | `status` | TEXT | CHECK(enum), DEFAULT 'not-started' | Scorecard status |
 | `submitted_at` | TIMESTAMPTZ | NULL | Submission timestamp |
 | `submitted_by` | UUID | FK → players(id), NULL | Submitter (could be partner) |
+| `bypassed` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if submitted without partner verification |
 | `device_id` | TEXT | NULL | Device ID for offline sync |
 | `synced_at` | TIMESTAMPTZ | NULL | Last sync timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
@@ -1382,6 +1803,7 @@ Player scorecards with hole-by-hole scores.
 - `idx_scorecards_status` on `status`
 - `idx_scorecards_round_status` (composite) on `(round_id, status)` - for leaderboard queries
 - `idx_scorecards_submitted_at` on `submitted_at`
+- `idx_scorecards_round_player_points` (composite) on `(round_id, player_id, total_points)`
 
 **Constraints:**
 - `unique_scorecard_per_player_round` - UNIQUE(round_id, player_id)
@@ -1402,6 +1824,15 @@ Player scorecards with hole-by-hole scores.
   "3": { "strokes": 3, "fairwayHit": true, "greenInRegulation": true },
   ...
   "18": { "strokes": 4 }
+}
+```
+
+`ball_totals` field (for multi-ball rounds):
+```json
+{
+  "1": { "gross": 85, "net": 72, "points": 36 },
+  "2": { "gross": 88, "net": 75, "points": 33 },
+  "3": { "gross": 82, "net": 69, "points": 39 }
 }
 ```
 
@@ -1448,6 +1879,102 @@ const { data: scorecards } = await supabase
   .eq('status', 'completed')
   .order('total_points', { ascending: false });
 ```
+
+---
+
+### `score_entries` (new - January 2026)
+
+Individual score entries with attribution for dual score entry and mismatch detection. Each player may have two entries per hole: self-entered and partner-entered.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Entry unique identifier |
+| `round_id` | UUID | FK → rounds(id) ON DELETE CASCADE, NOT NULL | Parent round |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player whose score this is FOR |
+| `hole_number` | INTEGER | NOT NULL, CHECK(1-18) | Hole number |
+| `scorer_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Who ENTERED this score |
+| `strokes` | INTEGER | NOT NULL, CHECK(> 0) | Number of strokes |
+| `putts` | INTEGER | NULL, CHECK(>= 0) | Number of putts |
+| `penalties` | INTEGER | DEFAULT 0, CHECK(>= 0) | Number of penalty strokes |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Entry creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_score_entries_round` on `round_id`
+- `idx_score_entries_round_player_hole` on `(round_id, player_id, hole_number)`
+- `idx_score_entries_round_scorer` on `(round_id, scorer_id)`
+
+**Constraints:**
+- `unique_score_entry_per_scorer` - UNIQUE(round_id, player_id, hole_number, scorer_id)
+
+**RLS Policies:**
+- Players can view entries in their competitions
+- Players can insert/update entries where they are the scorer
+- Organizers can delete entries in their competitions
+
+---
+
+### `score_mismatches` (new - January 2026)
+
+Detected score discrepancies between self-entered and partner-entered scores.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Mismatch unique identifier |
+| `round_id` | UUID | FK → rounds(id) ON DELETE CASCADE, NOT NULL | Parent round |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player whose score has mismatch |
+| `hole_number` | INTEGER | NOT NULL, CHECK(1-18) | Hole number |
+| `self_score` | INTEGER | NOT NULL | What the player recorded |
+| `partner_score` | INTEGER | NOT NULL | What their partner recorded |
+| `self_scorer_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | The player (self scorer) |
+| `partner_scorer_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | The partner who scored |
+| `status` | TEXT | DEFAULT 'pending', CHECK | 'pending' or 'resolved' |
+| `resolved_score` | INTEGER | NULL | Agreed-upon final score |
+| `resolved_by` | UUID | FK → players(id) ON DELETE SET NULL | Who resolved it |
+| `resolved_at` | TIMESTAMPTZ | NULL | Resolution timestamp |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Detection timestamp |
+
+**Indexes:**
+- `idx_score_mismatches_round` on `round_id`
+- `idx_score_mismatches_round_status` on `(round_id, status)`
+
+**Constraints:**
+- `unique_mismatch_per_player_hole` - UNIQUE(round_id, player_id, hole_number)
+
+**RLS Policies:**
+- Players involved can view and resolve their mismatches
+- Organizers can manage mismatches in their competitions
+
+---
+
+### `score_submission_status` (new - January 2026)
+
+Tracks submission progress and the 30-minute bypass timer for partner verification.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Status unique identifier |
+| `round_id` | UUID | FK → rounds(id) ON DELETE CASCADE, NOT NULL | Parent round |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player attempting submission |
+| `partner_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Their scoring partner |
+| `bypass_available_at` | TIMESTAMPTZ | NULL | When bypass becomes available |
+| `bypassed_at` | TIMESTAMPTZ | NULL | When bypass was used |
+| `bypassed` | BOOLEAN | DEFAULT FALSE | TRUE if bypass was used |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_score_submission_status_round` on `round_id`
+
+**Constraints:**
+- `unique_submission_status_per_player` - UNIQUE(round_id, player_id)
+
+**RLS Policies:**
+- Players can view/manage their own submission status
+- Organizers can manage status in their competitions
 
 ---
 
@@ -1542,7 +2069,7 @@ const { data } = await supabase
 // Get user's favorites with course details
 const { data: favorites } = await supabase
   .from('favorite_courses')
-  .select('*, course:courses(*, venue:venues(*))')
+  .select('*, course:courses(*, club:clubs(*))')
   .eq('player_id', currentUserId);
 
 // Remove favorite
@@ -2450,6 +2977,206 @@ const { data: leaderboard } = await supabase.rpc('get_skins_leaderboard', {
 const { data: rank } = await supabase.rpc('get_player_skins_rank', {
   p_player_id: userId,
   p_min_games: 1,
+});
+```
+
+---
+
+### `achievement_definitions` (new - December 2025)
+
+Master table of all achievement definitions with tiers, thresholds, and points.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Achievement unique identifier |
+| `code` | TEXT | UNIQUE, NOT NULL | Unique code e.g., 'ROUND_VETERAN_3' |
+| `category` | achievement_category | NOT NULL | 'rounds', 'game_types', 'scoring', etc. |
+| `name` | TEXT | NOT NULL | Display name |
+| `description` | TEXT | NOT NULL | Description of the achievement |
+| `icon` | TEXT | NOT NULL | Material icon name |
+| `tier` | INTEGER | NOT NULL, CHECK(1-6), DEFAULT 1 | Tier level for progressive achievements |
+| `threshold` | INTEGER | NOT NULL, CHECK(> 0) | Number required to unlock |
+| `base_achievement` | TEXT | NULL | Parent achievement code for tiers > 1 |
+| `points` | INTEGER | NOT NULL, CHECK(>= 0), DEFAULT 10 | Points awarded when earned |
+| `rarity` | achievement_rarity | NOT NULL, DEFAULT 'common' | 'common', 'uncommon', 'rare', 'epic', 'legendary' |
+| `is_hidden` | BOOLEAN | NOT NULL, DEFAULT FALSE | Secret achievements |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+
+**Indexes:**
+- `idx_achievement_definitions_category` on `category`
+- `idx_achievement_definitions_base` on `base_achievement` WHERE base_achievement IS NOT NULL
+- `idx_achievement_definitions_tier` on `tier`
+- `idx_achievement_definitions_rarity` on `rarity`
+
+**Constraints:**
+- `achievement_tier_valid` - CHECK ((tier = 1 AND base_achievement IS NULL) OR (tier > 1 AND base_achievement IS NOT NULL))
+
+**RLS Policies:**
+- Anyone can read achievement definitions
+- Service role can manage definitions
+
+---
+
+### `player_achievements` (new - December 2025)
+
+Tracks which achievements each player has earned.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Record unique identifier |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player who earned it |
+| `achievement_id` | UUID | FK → achievement_definitions(id) ON DELETE CASCADE, NOT NULL | Achievement earned |
+| `earned_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When achievement was earned |
+| `progress` | INTEGER | NOT NULL, CHECK(>= 0), DEFAULT 0 | Progress value when earned |
+| `notified` | BOOLEAN | NOT NULL, DEFAULT FALSE | Whether user has been shown notification |
+
+**Indexes:**
+- `idx_player_achievements_player` on `player_id`
+- `idx_player_achievements_achievement` on `achievement_id`
+- `idx_player_achievements_earned_at` on `earned_at DESC`
+- `idx_player_achievements_notified` on `(player_id, notified)` WHERE notified = FALSE
+
+**Constraints:**
+- `player_achievements_unique` - UNIQUE(player_id, achievement_id)
+
+**RLS Policies:**
+- Players can view their own achievements
+- Friends can view each other's achievements
+- Competition members can view each other's achievements
+- Players can insert/update their own achievements
+- Service role has full access
+
+---
+
+### `achievement_progress` (new - December 2025)
+
+Tracks real-time progress toward achievements.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Record unique identifier |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player whose progress |
+| `achievement_code` | TEXT | NOT NULL | Base achievement code |
+| `current_value` | INTEGER | NOT NULL, CHECK(>= 0), DEFAULT 0 | Current progress value |
+| `last_updated` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_achievement_progress_player` on `player_id`
+- `idx_achievement_progress_code` on `achievement_code`
+- `idx_achievement_progress_player_code` on `(player_id, achievement_code)`
+
+**Constraints:**
+- `achievement_progress_unique` - UNIQUE(player_id, achievement_code)
+
+**RLS Policies:**
+- Players can view/manage their own progress
+- Service role has full access
+
+---
+
+### `cosmetic_definitions` (new - December 2025)
+
+Master table of all cosmetic rewards unlocked by achievement points.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Cosmetic unique identifier |
+| `code` | TEXT | UNIQUE, NOT NULL | Unique code e.g., 'BADGE_ROOKIE' |
+| `type` | cosmetic_type | NOT NULL | 'badge', 'frame', or 'title' |
+| `name` | TEXT | NOT NULL | Display name |
+| `description` | TEXT | NULL | Description of the cosmetic |
+| `icon` | TEXT | NULL | Material icon or image reference |
+| `points_required` | INTEGER | NOT NULL, CHECK(>= 0) | Achievement points needed to unlock |
+| `sort_order` | INTEGER | NOT NULL, DEFAULT 0 | Display order within type |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+
+**Indexes:**
+- `idx_cosmetic_definitions_type` on `type`
+- `idx_cosmetic_definitions_points` on `points_required`
+- `idx_cosmetic_definitions_type_sort` on `(type, sort_order)`
+
+**RLS Policies:**
+- Anyone can read cosmetic definitions
+- Service role can manage definitions
+
+---
+
+### `player_cosmetics` (new - December 2025)
+
+Tracks which cosmetics each player has unlocked.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Record unique identifier |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player who unlocked it |
+| `cosmetic_id` | UUID | FK → cosmetic_definitions(id) ON DELETE CASCADE, NOT NULL | Cosmetic unlocked |
+| `unlocked_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | When cosmetic was unlocked |
+
+**Indexes:**
+- `idx_player_cosmetics_player` on `player_id`
+- `idx_player_cosmetics_cosmetic` on `cosmetic_id`
+- `idx_player_cosmetics_unlocked` on `unlocked_at DESC`
+
+**Constraints:**
+- `player_cosmetics_unique` - UNIQUE(player_id, cosmetic_id)
+
+**RLS Policies:**
+- Players can view their own cosmetics
+- Friends can view each other's cosmetics
+- Competition members can view each other's cosmetics
+- Players can insert their own cosmetics
+- Service role has full access
+
+---
+
+### `user_preferences` (new - December 2025)
+
+Centralized user preferences and settings. Auto-created when player signs up.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Record unique identifier |
+| `user_id` | UUID | FK → players(id) ON DELETE CASCADE, UNIQUE, NOT NULL | Owner |
+| `theme_mode` | TEXT | DEFAULT 'system' | 'light', 'dark', or 'system' |
+| `distance_unit` | TEXT | DEFAULT 'yards' | 'yards' or 'metres' |
+| `show_putts` | BOOLEAN | DEFAULT TRUE | Show putts on scorecard |
+| `show_fairway_hit` | BOOLEAN | DEFAULT FALSE | Show fairway hit tracking |
+| `show_gir` | BOOLEAN | DEFAULT FALSE | Show GIR tracking |
+| `push_enabled` | BOOLEAN | DEFAULT TRUE | Master push toggle |
+| `push_competition_updates` | BOOLEAN | DEFAULT TRUE | Competition notification toggle |
+| `push_friend_requests` | BOOLEAN | DEFAULT TRUE | Friend request notification toggle |
+| `push_scorecard_updates` | BOOLEAN | DEFAULT TRUE | Scorecard notification toggle |
+| `round_timer_enabled` | BOOLEAN | DEFAULT FALSE | Show round timer |
+| `debug_mode_enabled` | BOOLEAN | DEFAULT FALSE | Developer debug mode |
+| `custom_settings` | JSONB | DEFAULT '{}' | Additional custom settings |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_user_preferences_user` on `user_id`
+- `idx_user_preferences_push` on `(user_id, push_enabled)` WHERE push_enabled = TRUE
+
+**RLS Policies:**
+- Users can view/manage their own preferences
+
+**Example:**
+```typescript
+// Get user preferences
+const { data: prefs } = await supabase.rpc('get_user_preferences', {
+  p_user_id: userId,
+});
+
+// Update preferences
+const { data: updated } = await supabase.rpc('update_user_preferences', {
+  p_user_id: userId,
+  p_theme_mode: 'dark',
+  p_distance_unit: 'metres',
 });
 ```
 
@@ -3948,14 +4675,321 @@ const { data: rank } = await supabase.rpc('get_player_skins_rank', {
 
 ---
 
+### `calculate_hole_distance()`
+
+Calculate distance in meters between two GPS points on a hole (e.g., tee to green).
+
+**Signature:**
+```sql
+calculate_hole_distance(
+  p_course_id UUID,
+  p_hole_number INTEGER,
+  p_from_poi TEXT DEFAULT 'tee_back',
+  p_to_poi TEXT DEFAULT 'green_center'
+) RETURNS NUMERIC
+```
+
+**Parameters:**
+- `p_course_id` - Course UUID
+- `p_hole_number` - Hole number (1-18)
+- `p_from_poi` - Starting POI type
+- `p_to_poi` - Ending POI type
+
+**Returns:**
+- Distance in meters (NULL if coordinates not available)
+
+**Example:**
+```typescript
+const { data: distance } = await supabase.rpc('calculate_hole_distance', {
+  p_course_id: courseId,
+  p_hole_number: 1,
+  p_from_poi: 'tee_back',
+  p_to_poi: 'green_center',
+});
+// Returns: 425.3 (meters)
+```
+
+---
+
+### `get_course_coordinates()`
+
+Get all GPS coordinates for a course.
+
+**Signature:**
+```sql
+get_course_coordinates(p_course_id UUID)
+RETURNS TABLE (
+  hole_number INTEGER,
+  poi_type TEXT,
+  latitude NUMERIC,
+  longitude NUMERIC,
+  side_of_fairway TEXT
+)
+```
+
+---
+
+### `get_course_hole_distances()`
+
+Calculate distances for all 18 holes from tee to green.
+
+**Signature:**
+```sql
+get_course_hole_distances(
+  p_course_id UUID,
+  p_from_poi TEXT DEFAULT 'tee_back',
+  p_to_poi TEXT DEFAULT 'green_center'
+) RETURNS TABLE (
+  hole_number INTEGER,
+  distance_meters NUMERIC
+)
+```
+
+---
+
+### `get_achievement_leaderboard()`
+
+Get achievement leaderboard with scope filtering.
+
+**Signature:**
+```sql
+get_achievement_leaderboard(
+  p_scope TEXT,           -- 'global', 'friends', 'competition'
+  p_user_id UUID,
+  p_competition_id UUID DEFAULT NULL,
+  p_limit INTEGER DEFAULT 50
+) RETURNS TABLE (
+  rank BIGINT,
+  player_id UUID,
+  name TEXT,
+  photo_url TEXT,
+  equipped_badge_id UUID,
+  equipped_frame_id UUID,
+  equipped_title_id UUID,
+  total_points INTEGER,
+  achievements_earned INTEGER,
+  last_achievement_at TIMESTAMPTZ
+)
+```
+
+---
+
+### `get_player_achievement_summary()`
+
+Get summary of player's achievement progress.
+
+**Signature:**
+```sql
+get_player_achievement_summary(p_player_id UUID)
+RETURNS TABLE (
+  total_earned INTEGER,
+  total_available INTEGER,
+  total_points INTEGER,
+  completion_percentage NUMERIC,
+  recent_achievements JSONB,
+  by_category JSONB
+)
+```
+
+---
+
+### `get_achievements_with_progress()`
+
+Get all achievements with player's progress toward each.
+
+**Signature:**
+```sql
+get_achievements_with_progress(p_player_id UUID)
+RETURNS TABLE (
+  id UUID,
+  code TEXT,
+  category achievement_category,
+  name TEXT,
+  description TEXT,
+  icon TEXT,
+  tier INTEGER,
+  threshold INTEGER,
+  base_achievement TEXT,
+  points INTEGER,
+  rarity achievement_rarity,
+  is_hidden BOOLEAN,
+  earned BOOLEAN,
+  earned_at TIMESTAMPTZ,
+  current_progress INTEGER
+)
+```
+
+---
+
+### `award_achievement()`
+
+Award an achievement to a player.
+
+**Signature:**
+```sql
+award_achievement(
+  p_player_id UUID,
+  p_achievement_id UUID,
+  p_progress INTEGER DEFAULT 0
+) RETURNS player_achievements
+```
+
+---
+
+### `increment_achievement_progress()`
+
+Increment progress toward an achievement.
+
+**Signature:**
+```sql
+increment_achievement_progress(
+  p_player_id UUID,
+  p_achievement_code TEXT,
+  p_increment INTEGER DEFAULT 1
+) RETURNS achievement_progress
+```
+
+---
+
+### `get_cosmetics_with_status()`
+
+Get all cosmetics with unlock status for a player.
+
+**Signature:**
+```sql
+get_cosmetics_with_status(p_player_id UUID)
+RETURNS TABLE (
+  id UUID,
+  code TEXT,
+  type cosmetic_type,
+  name TEXT,
+  description TEXT,
+  icon TEXT,
+  points_required INTEGER,
+  sort_order INTEGER,
+  is_unlocked BOOLEAN,
+  unlocked_at TIMESTAMPTZ,
+  is_equipped BOOLEAN
+)
+```
+
+---
+
+### `equip_cosmetic()`
+
+Equip a cosmetic for a player.
+
+**Signature:**
+```sql
+equip_cosmetic(
+  p_player_id UUID,
+  p_cosmetic_id UUID
+) RETURNS BOOLEAN
+```
+
+**Returns:**
+- TRUE if successful
+
+**Throws:**
+- Exception if cosmetic not unlocked by player
+
+---
+
+### `check_cosmetic_unlocks()`
+
+Check and automatically unlock cosmetics based on player's achievement points.
+
+**Signature:**
+```sql
+check_cosmetic_unlocks(p_player_id UUID)
+RETURNS TABLE (
+  cosmetic_id UUID,
+  code TEXT,
+  name TEXT,
+  type cosmetic_type,
+  points_required INTEGER
+)
+```
+
+**Returns:**
+- Table of newly unlocked cosmetics
+
+---
+
+### `get_user_preferences()`
+
+Get user preferences/settings.
+
+**Signature:**
+```sql
+get_user_preferences(p_user_id UUID)
+RETURNS TABLE (
+  theme_mode TEXT,
+  distance_unit TEXT,
+  show_putts BOOLEAN,
+  show_fairway_hit BOOLEAN,
+  show_gir BOOLEAN,
+  push_enabled BOOLEAN,
+  push_competition_updates BOOLEAN,
+  push_friend_requests BOOLEAN,
+  push_scorecard_updates BOOLEAN,
+  round_timer_enabled BOOLEAN,
+  debug_mode_enabled BOOLEAN,
+  custom_settings JSONB
+)
+```
+
+---
+
+### `update_user_preferences()`
+
+Update user preferences/settings.
+
+**Signature:**
+```sql
+update_user_preferences(
+  p_user_id UUID,
+  p_theme_mode TEXT DEFAULT NULL,
+  p_distance_unit TEXT DEFAULT NULL,
+  p_show_putts BOOLEAN DEFAULT NULL,
+  -- ... other optional parameters
+) RETURNS TABLE (...)
+```
+
+**Note:** Only non-NULL parameters are updated.
+
+---
+
+### `get_clubs_with_courses()`
+
+Get clubs with their courses for course selection UI. Supports search and state filtering.
+
+**Signature:**
+```sql
+get_clubs_with_courses(
+  search_query TEXT DEFAULT NULL,
+  state_filter TEXT DEFAULT NULL
+) RETURNS TABLE (
+  club_id UUID,
+  club_name TEXT,
+  city TEXT,
+  state TEXT,
+  total_holes INTEGER,
+  course_count BIGINT,
+  courses JSONB
+)
+```
+
+---
+
 ## Common Query Patterns
 
-### 1. Create Venue and Course Flow
+### 1. Create Club and Course Flow
 
 ```typescript
-// Step 1: Create venue (the physical club)
-const { data: venue } = await supabase
-  .from('venues')
+// Step 1: Create club (the physical golf club)
+const { data: club } = await supabase
+  .from('clubs')
   .insert({
     name: 'The Eastern Golf Club',
     state: 'VIC',
@@ -3966,8 +5000,8 @@ const { data: venue } = await supabase
   .select()
   .single();
 
-// Step 2: Create course(s) at the venue
-// For a 27-hole venue, create 3 course configurations
+// Step 2: Create course(s) at the club
+// For a 27-hole club, create 3 course configurations
 const eastWestHoles = [...];  // 18 holes (East nine + West nine)
 const westNorthHoles = [...]; // 18 holes (West nine + North nine)
 const eastNorthHoles = [...]; // 18 holes (East nine + North nine)
@@ -3976,21 +5010,21 @@ const { data: courses } = await supabase
   .from('courses')
   .insert([
     {
-      venue_id: venue.id,
+      club_id: club.id,
       name: 'East/West Course',
       holes: eastWestHoles,
       slope_rating: 128,
       course_rating: 71.2,
     },
     {
-      venue_id: venue.id,
+      club_id: club.id,
       name: 'West/North Course',
       holes: westNorthHoles,
       slope_rating: 130,
       course_rating: 72.1,
     },
     {
-      venue_id: venue.id,
+      club_id: club.id,
       name: 'East/North Course',
       holes: eastNorthHoles,
       slope_rating: 126,
@@ -3999,9 +5033,9 @@ const { data: courses } = await supabase
   ])
   .select();
 
-// For a simple 18-hole venue, just create one course
-const { data: simpleVenue } = await supabase
-  .from('venues')
+// For a simple 18-hole club, just create one course
+const { data: simpleClub } = await supabase
+  .from('clubs')
   .insert({
     name: 'Kingston Heath Golf Club',
     state: 'VIC',
@@ -4015,8 +5049,8 @@ const { data: simpleVenue } = await supabase
 const { data: simpleCourse } = await supabase
   .from('courses')
   .insert({
-    venue_id: simpleVenue.id,
-    name: 'Championship Course',  // Or just the venue name
+    club_id: simpleClub.id,
+    name: 'Championship Course',  // Or just the club name
     holes: [...],  // 18 holes
     slope_rating: 135,
     course_rating: 74.5,
@@ -4028,9 +5062,9 @@ const { data: simpleCourse } = await supabase
 ### 2. Course Selection UI Query (Hybrid List)
 
 ```typescript
-// Get all venues with their courses for the selection UI
-const { data: venuesWithCourses } = await supabase
-  .from('venues')
+// Get all clubs with their courses for the selection UI
+const { data: clubsWithCourses } = await supabase
+  .from('clubs')
   .select(`
     id,
     name,
@@ -4046,15 +5080,21 @@ const { data: venuesWithCourses } = await supabase
   `)
   .order('name');
 
+// Or use the helper function
+const { data: clubsWithCourses } = await supabase.rpc('get_clubs_with_courses', {
+  search_query: 'eastern',
+  state_filter: 'VIC',
+});
+
 // Transform for hybrid UI display:
-// - Single-course venues: show course directly
-// - Multi-course venues: show as expandable group
-const displayItems = venuesWithCourses.map(venue => ({
-  venueId: venue.id,
-  venueName: venue.name,
-  location: `${venue.city} · ${venue.state}`,
-  isMultiCourse: venue.courses.length > 1,
-  courses: venue.courses,
+// - Single-course clubs: show course directly
+// - Multi-course clubs: show as expandable group
+const displayItems = clubsWithCourses.map(club => ({
+  clubId: club.id,
+  clubName: club.name,
+  location: `${club.city} · ${club.state}`,
+  isMultiCourse: club.courses.length > 1,
+  courses: club.courses,
 }));
 ```
 
@@ -4090,7 +5130,7 @@ const { data: eventComp } = await supabase
   .select()
   .single();
 
-// Step 2: Select existing course (from venue/course picker)
+// Step 2: Select existing course (from club/course picker)
 // courseId selected from UI
 
 // Step 3: Create round
@@ -4099,7 +5139,7 @@ const { data: round } = await supabase
   .insert({
     competition_id: competition.id,
     round_number: 1,
-    course_id: courseId,  // Selected from venue/course picker
+    course_id: courseId,  // Selected from club/course picker
     date: '2025-02-15',
     game_type: 'stableford',
   })
@@ -4333,16 +5373,29 @@ SELECT * FROM players;
 
 ---
 
-## Future Enhancements (Phase 2+)
+## Future Enhancements
 
-- [ ] Multi-round competitions (use `end_date`, multiple rounds)
-- [ ] Multiple game types (stroke play, match play, etc.)
-- [ ] Detailed statistics (putts, fairways, GIR in `scores` JSONB)
-- [ ] Course API integration (populate from external API)
+**Completed in Phase 2:**
+- [x] Multi-round competitions
+- [x] Multiple game types (stroke play, match play, ambrose, best-ball, scramble)
+- [x] Detailed statistics (putts, fairways, GIR in `scores` JSONB)
+- [x] GolfAPI.io integration (clubs, courses, tees, GPS coordinates)
+- [x] Team competitions (`teams`, `team_members` tables)
+- [x] Scoring pairs for competitive rounds
+- [x] Skins gambling side-game
+- [x] Competition prize pools
+- [x] Achievements and cosmetics system
+- [x] Push notifications
+- [x] User preferences
+- [x] Multi-ball scoring for solo rounds
+- [x] Dual score entry with mismatch detection
+
+**Planned:**
 - [ ] Auto-pairing algorithm (function to generate optimal pairings)
-- [ ] Real-time updates (Supabase Realtime subscriptions)
-- [ ] Team competitions (new `teams` table)
+- [ ] Real-time updates (Supabase Realtime subscriptions for leaderboards)
 - [ ] Photo uploads (Supabase Storage integration)
+- [ ] Match play bracket tournaments
+- [ ] Handicap history tracking
 
 ---
 
@@ -4355,4 +5408,4 @@ For questions or issues:
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: January 2026*

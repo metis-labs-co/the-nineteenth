@@ -12,7 +12,7 @@
  */
 
 import { create } from 'zustand';
-import { Scorecard, HoleScore, Player, Hole, GameType } from '@/types';
+import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
 import { isMultiBallScore, isSingleBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import {
@@ -34,6 +34,7 @@ interface ScorecardState {
   currentHole: number;
   holes: Hole[];
   gameType: GameType;
+  selectedTeeData: TeeBox | null; // For daily handicap calculation
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -62,9 +63,11 @@ interface ScorecardState {
     holes: Hole[],
     gameType?: GameType,
     isStandalone?: boolean,
-    allowedPlayerIds?: string[]
+    allowedPlayerIds?: string[],
+    selectedTeeData?: TeeBox | null
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
+  setSelectedTeeData: (teeData: TeeBox | null) => void;
   loadFromOffline: (roundId: string) => Promise<boolean>;
   setCurrentHole: (hole: number) => void;
   setPlayerScore: (playerId: string, hole: number, strokes: number, scoredBy?: string) => Promise<void>;
@@ -113,6 +116,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     currentHole: 1,
     holes: [],
     gameType: 'stableford',
+    selectedTeeData: null,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -124,7 +128,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isLoading: false,
     isInitialized: false,
 
-    initializeRound: async (roundId, players, holes, gameType = 'stableford', isStandalone = false, allowedPlayerIds = []) => {
+    initializeRound: async (roundId, players, holes, gameType = 'stableford', isStandalone = false, allowedPlayerIds = [], selectedTeeData = null) => {
       storeLogger.info('Initializing round', {
         roundId,
         playerCount: players.length,
@@ -132,8 +136,9 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         gameType,
         isStandalone,
         allowedPlayerCount: allowedPlayerIds.length,
+        hasTeeData: !!selectedTeeData,
       });
-      set({ isLoading: true });
+      set({ isLoading: true, selectedTeeData });
       initSyncListener();
 
       try {
@@ -305,6 +310,15 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       storeLogger.info('Allowed players updated', {
         playerCount: playerIds.length,
         allowed: playerIds.length > 0 ? 'specific' : 'all',
+      });
+    },
+
+    setSelectedTeeData: (teeData) => {
+      set({ selectedTeeData: teeData });
+      storeLogger.info('Selected tee data updated', {
+        hasData: !!teeData,
+        slopeRating: teeData?.slopeRating,
+        courseRating: teeData?.courseRating,
       });
     },
 
@@ -524,17 +538,21 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     submitScorecards: async () => {
-      const { groupScorecards, currentRoundId } = get();
+      const { groupScorecards, currentRoundId, selectedTeeData, holes } = get();
 
       storeLogger.info('Submitting scorecards', {
         roundId: currentRoundId?.substring(0, 8) + '...',
         scorecardCount: groupScorecards.size,
+        hasTeeData: !!selectedTeeData,
       });
 
       if (!currentRoundId) {
         storeLogger.error('Cannot submit - no round ID set');
         throw new Error('No round ID set');
       }
+
+      // Calculate course par from holes for handicap differential calculation
+      const coursePar = holes.reduce((sum, h) => sum + (h.par || 0), 0);
 
       const now = new Date();
       const newScorecards = new Map(groupScorecards);
@@ -543,11 +561,18 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
 
       for (const [playerId, scorecard] of newScorecards) {
         try {
+          // Attach sync metadata for handicap differential calculation
+          // This data is used by the sync service to calculate the differential
           const updatedScorecard: Scorecard = {
             ...scorecard,
             status: 'completed',
             submittedAt: now,
             updatedAt: now,
+            // Attach tee data for handicap calculation
+            teeData: selectedTeeData,
+            playerGender: scorecard.player?.gender || null,
+            playerHandicap: scorecard.player?.handicap || null,
+            coursePar,
           };
 
           storeLogger.debug('Submitting scorecard', logScorecardSummary(updatedScorecard));
@@ -560,11 +585,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             playerId: playerId.substring(0, 8) + '...',
           });
 
-          // Queue for sync
+          // Queue for sync (with metadata attached for differential calculation)
           await queueScorecardSync(updatedScorecard, 'update');
           storeLogger.debug('Scorecard queued for sync', {
             playerId: playerId.substring(0, 8) + '...',
             isStandalone: updatedScorecard.isStandalone,
+            hasTeeData: !!updatedScorecard.teeData,
+            playerGender: updatedScorecard.playerGender,
           });
 
           successCount++;
@@ -598,6 +625,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         currentHole: 1,
         holes: [],
         gameType: 'stableford',
+        selectedTeeData: null,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),

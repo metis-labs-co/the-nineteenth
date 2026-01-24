@@ -5,7 +5,7 @@
  * Shows different states based on permission status and data availability.
  *
  * Display states:
- * 1. No coordinates for course: Hidden
+ * 1. No coordinates for course: Shows crossed-out GPS icon (tappable for info modal)
  * 2. Permission undetermined + not asked: Shows "Enable GPS" prompt
  * 3. Permission undetermined + already asked: Hidden (don't nag)
  * 4. Permission denied: Hidden
@@ -13,9 +13,10 @@
  * 6. Active: Shows distance badge (e.g., "145m" or "158yd")
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { ConfirmationDialog } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -80,6 +81,17 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   const showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const { formatDistance } = useFormattedDistance();
+
+  // Modal state for no-GPS info
+  const [showNoGpsModal, setShowNoGpsModal] = useState(false);
+
+  const handleNoGpsPress = useCallback(() => {
+    setShowNoGpsModal(true);
+  }, []);
+
+  const handleCloseNoGpsModal = useCallback(() => {
+    setShowNoGpsModal(false);
+  }, []);
 
   // Check if course has GPS coordinates
   const { data: hasCoordinates, isLoading: isLoadingCoords } = useHasCoordinates(courseId);
@@ -150,10 +162,33 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     return null;
   }
 
-  // State 1: No coordinates for course - hide completely
+  // State 1: No coordinates for course - show disabled GPS icon (tappable for info)
   if (!hasCoordinates) {
-    if (__DEV__) console.log('[DistanceToPin] Hidden: course has no GPS coordinates');
-    return null;
+    if (__DEV__) console.log('[DistanceToPin] No GPS: course has no GPS coordinates');
+    return (
+      <>
+        <TouchableOpacity
+          style={styles.noGpsContainer}
+          onPress={handleNoGpsPress}
+          activeOpacity={0.7}
+          accessibilityLabel="GPS coordinates not available for this course"
+          accessibilityHint="Tap for more information"
+          accessibilityRole="button"
+        >
+          <Icon source="crosshairs-off" size={18} color={colors.gray400} />
+        </TouchableOpacity>
+
+        <ConfirmationDialog
+          visible={showNoGpsModal}
+          title="GPS Not Available"
+          message="GPS distance tracking is not available for this course. Course coordinates have not been added yet."
+          confirmLabel="OK"
+          cancelLabel=""
+          onConfirm={handleCloseNoGpsModal}
+          onCancel={handleCloseNoGpsModal}
+        />
+      </>
+    );
   }
 
   // State 4: Permission denied - hide completely
@@ -236,6 +271,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  noGpsContainer: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.lg,
+  },
   enableContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,7 +290,7 @@ const styles = StyleSheet.create({
     ...typography.small,
   },
   distanceText: {
-    ...typography.bodySmall,
+    ...typography.small,
     fontWeight: '600',
   },
 });

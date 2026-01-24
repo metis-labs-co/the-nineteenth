@@ -42,7 +42,7 @@ export interface ConfirmationDialogProps {
   message: string;
   /** Label for the confirm button */
   confirmLabel?: string;
-  /** Label for the cancel button */
+  /** Label for the cancel button. Pass empty string to hide cancel button. */
   cancelLabel?: string;
   /** Variant for the confirm button styling */
   confirmVariant?: 'primary' | 'destructive';
@@ -56,6 +56,12 @@ export interface ConfirmationDialogProps {
   icon?: string;
   /** Icon color (defaults based on confirmVariant) */
   iconColor?: string;
+  /** Optional secondary action (shows as third button between cancel and confirm) */
+  showSecondaryAction?: boolean;
+  /** Label for the secondary action button */
+  secondaryActionLabel?: string;
+  /** Callback when secondary action is pressed */
+  onSecondaryAction?: () => void;
 }
 
 export function ConfirmationDialog({
@@ -70,6 +76,9 @@ export function ConfirmationDialog({
   loading = false,
   icon,
   iconColor,
+  showSecondaryAction = false,
+  secondaryActionLabel,
+  onSecondaryAction,
 }: ConfirmationDialogProps) {
   const colors = useThemeColors();
 
@@ -77,6 +86,9 @@ export function ConfirmationDialog({
     confirmVariant === 'destructive' ? colors.error : colors.primary;
   const defaultIconColor =
     confirmVariant === 'destructive' ? colors.error : colors.primary;
+
+  // Hide cancel button if cancelLabel is empty
+  const showCancelButton = !!cancelLabel;
 
   return (
     <Modal
@@ -128,24 +140,52 @@ export function ConfirmationDialog({
               </Text>
 
               {/* Actions */}
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.cancelButton,
-                    { backgroundColor: colors.surfaceVariant },
-                  ]}
-                  onPress={onCancel}
-                  disabled={loading}
-                  accessibilityRole="button"
-                  accessibilityLabel={cancelLabel}
-                >
-                  <Text
-                    style={[styles.buttonText, { color: colors.textPrimary }]}
+              <View style={[styles.actions, (showSecondaryAction || !showCancelButton) && styles.actionsVertical]}>
+                {showCancelButton && (
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.cancelButton,
+                      {
+                        backgroundColor: colors.surfaceVariant,
+                        borderWidth: 1,
+                        borderColor: colors.borderStrong,
+                      },
+                      showSecondaryAction && styles.buttonFullWidth,
+                    ]}
+                    onPress={onCancel}
+                    disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={cancelLabel}
                   >
-                    {cancelLabel}
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[styles.buttonText, { color: colors.textPrimary }]}
+                    >
+                      {cancelLabel}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {showSecondaryAction && secondaryActionLabel && onSecondaryAction && (
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.secondaryButton,
+                      styles.buttonFullWidth,
+                      { borderColor: colors.primary },
+                    ]}
+                    onPress={onSecondaryAction}
+                    disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={secondaryActionLabel}
+                  >
+                    <Text
+                      style={[styles.buttonText, { color: colors.primary }]}
+                    >
+                      {secondaryActionLabel}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   style={[
@@ -153,6 +193,7 @@ export function ConfirmationDialog({
                     styles.confirmButton,
                     { backgroundColor: confirmButtonColor },
                     loading && styles.buttonDisabled,
+                    (showSecondaryAction || !showCancelButton) && styles.buttonFullWidth,
                   ]}
                   onPress={onConfirm}
                   disabled={loading}
@@ -214,6 +255,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     width: '100%',
   },
+  actionsVertical: {
+    flexDirection: 'column',
+    gap: spacing.sm,
+  },
   button: {
     flex: 1,
     height: 48,
@@ -221,7 +266,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonFullWidth: {
+    flex: 0,
+    width: '100%',
+  },
   cancelButton: {},
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+  },
   confirmButton: {},
   buttonDisabled: {
     opacity: 0.7,

@@ -13,6 +13,9 @@ export type {
 export { LeaderboardTab } from './LeaderboardTab';
 export type { LeaderboardTabProps } from './LeaderboardTab';
 
+export { PointsBreakdownModal } from './PointsBreakdownModal';
+export type { PointsBreakdownModalProps } from './PointsBreakdownModal';
+
 // RoundLeaderboard and sub-components
 export { RoundLeaderboard } from './RoundLeaderboard';
 export type { RoundLeaderboardProps } from './RoundLeaderboard';

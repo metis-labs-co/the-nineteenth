@@ -11,9 +11,10 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Switch, Icon, Divider } from 'react-native-paper';
-import { GolfBallLoader } from '@/components/common';
+import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -124,6 +125,9 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [isClearing, setIsClearing] = useState(false);
 
+  // Dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
   // Get theme colors and mode
   const colors = useThemeColors();
   const { themeMode, setThemeMode } = useTheme();
@@ -152,34 +156,34 @@ export default function SettingsScreen() {
     resetToDefaults();
   }, [resetToDefaults]);
 
-  const handleClearSyncQueue = useCallback(async () => {
-    Alert.alert(
-      'Clear Sync Queue',
-      'This will clear all pending sync operations and remove any invalid data. Your saved scores will not be affected.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            setIsClearing(true);
-            try {
-              const result = await clearSyncQueue();
-              Alert.alert(
-                'Sync Queue Cleared',
-                `Cleared ${result.pendingCleared} pending syncs and ${result.invalidCleared} invalid entries.`
-              );
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clear sync queue. Please try again.');
-              console.error('[Settings] Failed to clear sync queue:', error);
-            } finally {
-              setIsClearing(false);
-            }
-          },
-        },
-      ]
-    );
-  }, []);
+  // Perform the actual clear operation
+  const performClearSyncQueue = useCallback(async () => {
+    dismissDialog();
+    setIsClearing(true);
+    try {
+      const result = await clearSyncQueue();
+      showAlert(
+        'Sync Queue Cleared',
+        `Cleared ${result.pendingCleared} pending syncs and ${result.invalidCleared} invalid entries.`
+      );
+    } catch (error) {
+      showAlert('Error', 'Failed to clear sync queue. Please try again.');
+      console.error('[Settings] Failed to clear sync queue:', error);
+    } finally {
+      setIsClearing(false);
+    }
+  }, [dismissDialog, showAlert]);
+
+  const handleClearSyncQueue = useCallback(() => {
+    showDialog({
+      title: 'Clear Sync Queue',
+      message: 'This will clear all pending sync operations and remove any invalid data. Your saved scores will not be affected.',
+      confirmLabel: 'Clear',
+      confirmVariant: 'destructive',
+      icon: 'sync-off',
+      onConfirm: performClearSyncQueue,
+    });
+  }, [showDialog, performClearSyncQueue]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -374,6 +378,9 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

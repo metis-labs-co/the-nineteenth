@@ -216,6 +216,7 @@ export default function ProfileScreen() {
           placeholderPlayersCount={placeholderPlayers?.length ?? 0}
           onEditProfile={() => navigation.navigate('EditProfile')}
           onMyStatistics={() => navigation.navigate('MyStatistics')}
+          onHandicapHistory={() => navigation.navigate('HandicapHistory')}
           onAchievements={() => navigation.navigate('Achievements')}
           onCustomizeProfile={() => setShowCustomizeSheet(true)}
           onSubscription={() => navigation.navigate('Subscription')}

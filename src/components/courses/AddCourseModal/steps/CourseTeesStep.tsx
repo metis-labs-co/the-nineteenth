@@ -22,6 +22,8 @@ interface CourseTeesStepProps {
   editingTeeId: string | null;
   newTeeName: string;
   newTeeColor: TeeColor;
+  newSlopeRating: string;
+  newCourseRating: string;
   onCourseNameChange: (text: string) => void;
   onAddTee: () => void;
   onEditTee: (tee: TeeFormData) => void;
@@ -30,6 +32,8 @@ interface CourseTeesStepProps {
   onDeleteTee: (teeId: string) => void;
   onTeeNameChange: (name: string) => void;
   onTeeColorChange: (color: TeeColor) => void;
+  onSlopeRatingChange: (rating: string) => void;
+  onCourseRatingChange: (rating: string) => void;
 }
 
 export const CourseTeesStep = React.memo(function CourseTeesStep({
@@ -38,6 +42,8 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
   editingTeeId,
   newTeeName,
   newTeeColor,
+  newSlopeRating,
+  newCourseRating,
   onCourseNameChange,
   onAddTee,
   onEditTee,
@@ -46,6 +52,8 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
   onDeleteTee,
   onTeeNameChange,
   onTeeColorChange,
+  onSlopeRatingChange,
+  onCourseRatingChange,
 }: CourseTeesStepProps) {
   const colors = useThemeColors();
 
@@ -145,6 +153,48 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
                     />
                   ))}
                 </View>
+
+                {/* Slope and Course Rating Inputs */}
+                <View style={styles.ratingInputsContainer}>
+                  <View style={styles.ratingInputGroup}>
+                    <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>
+                      Slope Rating
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.ratingInput,
+                        { color: colors.textPrimary, backgroundColor: colors.gray100 },
+                      ]}
+                      placeholder="113"
+                      placeholderTextColor={colors.gray400}
+                      value={newSlopeRating}
+                      onChangeText={onSlopeRatingChange}
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                  </View>
+                  <View style={styles.ratingInputGroup}>
+                    <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>
+                      Course Rating
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.ratingInput,
+                        { color: colors.textPrimary, backgroundColor: colors.gray100 },
+                      ]}
+                      placeholder="72.0"
+                      placeholderTextColor={colors.gray400}
+                      value={newCourseRating}
+                      onChangeText={onCourseRatingChange}
+                      keyboardType="decimal-pad"
+                      maxLength={5}
+                    />
+                  </View>
+                </View>
+                <Text style={[styles.ratingHint, { color: colors.textSecondary }]}>
+                  Optional - used for daily handicap calculation
+                </Text>
+
                 <View style={styles.teeEditActions}>
                   <TouchableOpacity
                     onPress={() => onCancelEdit(findTeeById(tee.id))}
@@ -319,5 +369,29 @@ const styles = StyleSheet.create({
   },
   teeIconButton: {
     padding: spacing.xs,
+  },
+  ratingInputsContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  ratingInputGroup: {
+    flex: 1,
+  },
+  ratingLabel: {
+    ...typography.small,
+    marginBottom: spacing.xs,
+  },
+  ratingInput: {
+    ...typography.body,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    textAlign: 'center',
+  },
+  ratingHint: {
+    ...typography.caption,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
 });

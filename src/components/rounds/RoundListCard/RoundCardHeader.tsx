@@ -56,7 +56,9 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
           {round.hasSkins
             ? 'Skins Match'
             : round.isStandalone
-              ? 'Practice Round'
+              ? round.players && round.players.length > 1
+                ? 'Match'
+                : 'Practice Round'
               : round.competition?.name || 'Competition'}
         </Text>
       </View>

@@ -3,11 +3,11 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useConfirmationDialog, type DialogConfig } from '@/hooks';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
 import { transformHolesIfNeeded } from '@/utils/holeTransformers';
@@ -40,12 +40,17 @@ export interface UseStartNewRoundReturn {
     skinsConfig?: StandaloneSkinsConfig
   ) => Promise<void>;
   isStartingRound: boolean;
+  dialogConfig: DialogConfig;
+  dismissDialog: () => void;
 }
 
 export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn {
   const navigation = useNavigation<NavigationProp>();
   const { user, player } = useAuth();
   const { initializeRound } = useScorecardStore();
+
+  // Dialog state for error alerts
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   const [isStartingRound, setIsStartingRound] = useState(false);
 
@@ -264,20 +269,18 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         }
       } catch (error) {
         console.error('[RoundsScreen] Error starting round:', error);
-        Alert.alert(
-          'Error',
-          'Failed to start the round. Please try again.',
-          [{ text: 'OK' }]
-        );
+        showAlert('Error', 'Failed to start the round. Please try again.');
       } finally {
         setIsStartingRound(false);
       }
     },
-    [navigation, player, user, initializeRound, isStartingRound, onStarted]
+    [navigation, player, user, initializeRound, isStartingRound, onStarted, showAlert]
   );
 
   return {
     handleStartNewRound,
     isStartingRound,
+    dialogConfig,
+    dismissDialog,
   };
 }

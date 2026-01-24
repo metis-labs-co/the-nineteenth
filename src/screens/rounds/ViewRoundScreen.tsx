@@ -14,8 +14,9 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
+import { useConfirmationDialog } from '@/hooks';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -114,6 +115,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const queryClient = useQueryClient();
+
+  // Dialog state
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Delete mutation
   const { mutate: deleteRound, isPending: isDeleting } = useDeleteRound();
@@ -418,12 +422,11 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
         // Skins requires at least 2 participants
         if (participantIds.length < 2) {
-          Alert.alert(
+          showAlert(
             'Not Enough Players',
             competitionId
               ? 'Skins games require at least 2 players. Make sure the competition has players added.'
-              : 'Skins games require at least 2 players. Add more players to the round first.',
-            [{ text: 'OK' }]
+              : 'Skins games require at least 2 players. Add more players to the round first.'
           );
           return;
         }
@@ -444,17 +447,13 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             },
             onError: (error) => {
               console.error('[ViewRoundScreen] Failed to create skins game:', error);
-              Alert.alert(
-                'Error',
-                'Failed to create skins game. Please try again.',
-                [{ text: 'OK' }]
-              );
+              showAlert('Error', 'Failed to create skins game. Please try again.');
             },
           }
         );
       }
     },
-    [skinsGames, updateSkinsGame, createSkinsGame, roundId, user?.id, roundPlayers, scorecards, competitionId]
+    [skinsGames, updateSkinsGame, createSkinsGame, roundId, user?.id, roundPlayers, scorecards, competitionId, showAlert]
   );
 
   const handleSkinsConfigClose = useCallback(() => {
@@ -648,6 +647,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             roundPlayers={roundPlayers || []}
             holes={round.course?.holes || null}
             onPlayerPress={handlePlayerPress}
+            selectedTeeData={round.selected_tee}
           />
         )}
         {activeTab === 'match' && (isMatchPlayRound || isTeamMatchPlayRound) && matchPlayData && (
@@ -737,6 +737,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         }
         onSave={handleSkinsConfigSave}
       />
+
+      {/* Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

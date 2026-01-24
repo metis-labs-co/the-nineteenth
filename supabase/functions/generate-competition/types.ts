@@ -74,8 +74,8 @@ export interface GenerateCompetitionRequest {
 export interface CourseSearchResult {
   id: string;
   name: string;
-  venue_id: string;
-  venue_name: string;
+  club_id: string;
+  club_name: string;
   state: string;
   city: string | null;
 }
@@ -86,8 +86,8 @@ export interface CourseSearchResult {
 export interface FavoriteCourseInput {
   id: string;
   name: string;
-  venue_id: string;
-  venue_name: string;
+  club_id: string;
+  club_name: string;
   state: string;
   city: string | null;
 }

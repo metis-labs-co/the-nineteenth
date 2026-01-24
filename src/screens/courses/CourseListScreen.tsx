@@ -11,12 +11,13 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, View, Alert } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
-import { LoadingSpinner, SearchBar, PageHeader } from '@/components/common';
+import { LoadingSpinner, SearchBar, PageHeader, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
   StateFilterList,
@@ -48,6 +49,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function CourseListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+
+  // Dialog state
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,11 +245,7 @@ export default function CourseListScreen() {
           navigation.navigate('Club', { clubId: result.club.id });
         } catch (error) {
           console.error('Failed to import club:', error);
-          Alert.alert(
-            'Import Failed',
-            'Failed to import course. Please try again.',
-            [{ text: 'OK' }]
-          );
+          showAlert('Import Failed', 'Failed to import course. Please try again.');
         } finally {
           setImportingClubId(null);
         }
@@ -331,6 +331,9 @@ export default function CourseListScreen() {
         isSearchingApi={isSearchingApi}
         importingClubId={importingClubId}
       />
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

@@ -3,8 +3,9 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
+import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { format } from 'date-fns';
 import { roundKeys, scoringPairsKeys, skinsKeys } from '@/hooks/queryKeys';
 import type { RoundFormData, SkinsEditState } from '../types';
@@ -33,6 +34,10 @@ interface UseRoundSubmissionReturn {
   handleShuffleScoringPairs: () => void;
   isSubmitting: boolean;
   isShuffling: boolean;
+  /** Dialog config for confirmations/errors - parent should render ConfirmationDialog */
+  dialogConfig: DialogConfig;
+  /** Dismiss the dialog */
+  dismissDialog: () => void;
 }
 
 /**
@@ -49,6 +54,7 @@ export function useRoundSubmission({
   onSuccess,
 }: UseRoundSubmissionOptions): UseRoundSubmissionReturn {
   const queryClient = useQueryClient();
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   /**
    * Handle skins game changes (create, update, or delete)
@@ -188,7 +194,7 @@ export function useRoundSubmission({
       onSuccess();
     },
     onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to update round');
+      showAlert('Error', error.message || 'Failed to update round');
     },
   });
 
@@ -197,39 +203,37 @@ export function useRoundSubmission({
     mutationFn: () => shuffleScoringPairs(roundId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scoringPairsKeys.list(roundId) });
-      Alert.alert(
+      showAlert(
         'Scoring Pairs Shuffled',
-        'Existing scoring pairs have been cleared. New pairs will be auto-generated when players view the round.',
-        [{ text: 'OK' }]
+        'Existing scoring pairs have been cleared. New pairs will be auto-generated when players view the round.'
       );
     },
     onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to shuffle scoring pairs');
+      showAlert('Error', error.message || 'Failed to shuffle scoring pairs');
     },
   });
 
   const handleSubmit = useCallback(() => {
     if (!formData.date) {
-      Alert.alert('Error', 'Please select a date');
+      showAlert('Error', 'Please select a date');
       return;
     }
     updateMutation.mutate();
-  }, [formData.date, updateMutation]);
+  }, [formData.date, updateMutation, showAlert]);
 
   const handleShuffleScoringPairs = useCallback(() => {
-    Alert.alert(
-      'Shuffle Scoring Pairs',
-      'This will clear all existing scoring pairs and generate new random ones. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Shuffle',
-          style: 'destructive',
-          onPress: () => shuffleMutation.mutate(),
-        },
-      ]
-    );
-  }, [shuffleMutation]);
+    showDialog({
+      title: 'Shuffle Scoring Pairs',
+      message: 'This will clear all existing scoring pairs and generate new random ones. Continue?',
+      confirmLabel: 'Shuffle',
+      confirmVariant: 'destructive',
+      icon: 'shuffle-variant',
+      onConfirm: () => {
+        dismissDialog();
+        shuffleMutation.mutate();
+      },
+    });
+  }, [shuffleMutation, showDialog, dismissDialog]);
 
   return {
     updateMutation,
@@ -238,5 +242,7 @@ export function useRoundSubmission({
     handleShuffleScoringPairs,
     isSubmitting: updateMutation.isPending,
     isShuffling: shuffleMutation.isPending,
+    dialogConfig,
+    dismissDialog,
   };
 }

@@ -11,14 +11,15 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
+import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
 import { skinsKeys, roundKeys } from '@/hooks/queryKeys';
-import type { GameType, TeamFormat, Competition, SkinsPoolSource } from '@/types/database.types';
+import type { GameType, TeamFormat, Competition, SkinsPoolSource, TeeBox } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
 import type { PoolSourceData } from '@/components/skins';
@@ -74,6 +75,7 @@ async function createRound(
       is_team_round: data.isTeamRound,
       team_format: data.isTeamRound ? data.teamFormat : null,
       scoring_pairs_required: data.scoringPairsRequired,
+      selected_tee: data.selectedTee, // TeeBox with slope/course ratings for daily handicap
       status: 'upcoming',
     })
     .select('id')
@@ -193,6 +195,7 @@ interface UseAddRoundFormReturn {
   // Setters
   updateField: (field: keyof RoundFormData, value: string) => void;
   handleCourseSelect: (course: CourseWithFavorite) => void;
+  handleTeeSelect: (tee: TeeBox) => void;
   handleDateChange: (date: Date) => void;
   handleTimeChange: (time: Date) => void;
   clearTeeTime: () => void;
@@ -217,6 +220,12 @@ interface UseAddRoundFormReturn {
   // Helpers
   getSelectedDate: () => Date;
   getSelectedTime: () => Date;
+
+  // Dialog
+  /** Dialog config for error display - parent should render ConfirmationDialog */
+  dialogConfig: DialogConfig;
+  /** Dismiss the error dialog */
+  dismissDialog: () => void;
 }
 
 export function useAddRoundForm({
@@ -225,6 +234,7 @@ export function useAddRoundForm({
 }: UseAddRoundFormOptions): UseAddRoundFormReturn {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Form state
   const [formData, setFormData] = useState<RoundFormData>(INITIAL_FORM_DATA);
@@ -317,7 +327,7 @@ export function useAddRoundForm({
       onSuccess(result.roundId, result.scoringPairsRequired);
     },
     onError: (error: Error) => {
-      Alert.alert('Error', error.message || 'Failed to add round');
+      showAlert('Error', error.message || 'Failed to add round');
     },
   });
 
@@ -341,12 +351,19 @@ export function useAddRoundForm({
       ...prev,
       courseId: course.id,
       courseName: course.name,
+      courseTees: course.tees || [], // Store available tees
+      selectedTee: null, // Reset tee selection when course changes
     }));
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors.course;
       return newErrors;
     });
+  }, []);
+
+  // Handle tee selection
+  const handleTeeSelect = useCallback((tee: TeeBox) => {
+    setFormData((prev) => ({ ...prev, selectedTee: tee }));
   }, []);
 
   // Handle date change
@@ -487,6 +504,7 @@ export function useAddRoundForm({
     isTeamMatchPlay,
     updateField,
     handleCourseSelect,
+    handleTeeSelect,
     handleDateChange,
     handleTimeChange,
     clearTeeTime,
@@ -503,5 +521,7 @@ export function useAddRoundForm({
     isPending: createMutation.isPending,
     getSelectedDate,
     getSelectedTime,
+    dialogConfig,
+    dismissDialog,
   };
 }

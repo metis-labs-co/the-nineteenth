@@ -8,8 +8,9 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
 import { supabase } from '@/services/supabase/client';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
+import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
 import {
   checkSubmissionReadiness,
@@ -22,7 +23,9 @@ import {
   getPartnerProgress,
 } from '@/services/scoreMismatch';
 import { getScoringPartner } from '@/services/scoringPairs';
+import { finalizeRound } from '@/services/rounds/roundResultsService';
 import { submitLogger } from '@/utils/debugLogger';
+import type { Scorecard, GameType, PointSystemConfig } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
@@ -66,6 +69,10 @@ interface UseScoreSubmissionReturn {
   partnerName: string | null;
   partnerProgress: { completed: number; total: number } | null;
   refreshPartnerStatus: () => Promise<void>;
+  /** Dialog config for confirmations/errors - parent should render ConfirmationDialog */
+  dialogConfig: DialogConfig;
+  /** Dismiss the dialog */
+  dismissDialog: () => void;
 }
 
 export function useScoreSubmission({
@@ -89,6 +96,9 @@ export function useScoreSubmission({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingSyncs, setPendingSyncs] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Confirmation dialog hook
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Mismatch modal state
   const [showMismatchModal, setShowMismatchModal] = useState(false);
@@ -167,6 +177,86 @@ export function useScoreSubmission({
       submitLogger.info('Round status updated successfully', { roundId: roundId.substring(0, 8) + '...' });
     } catch (error) {
       submitLogger.error('Error updating round status', error);
+    }
+  }, []);
+
+  // Finalize round results (calculate positions and competition points)
+  const finalizeRoundResults = useCallback(async (roundId: string): Promise<void> => {
+    try {
+      submitLogger.info('Finalizing round results', { roundId: roundId.substring(0, 8) + '...' });
+
+      // Fetch round data to get game type and point system
+      const { data: round, error: roundError } = await supabase
+        .from('rounds')
+        .select('game_type, competition_id')
+        .eq('id', roundId)
+        .single();
+
+      if (roundError || !round) {
+        submitLogger.error('Failed to fetch round data for finalization', roundError, { roundId: roundId.substring(0, 8) + '...' });
+        return;
+      }
+
+      // Fetch competition to get point system config
+      const { data: competition, error: compError } = await supabase
+        .from('competitions')
+        .select('point_system')
+        .eq('id', round.competition_id)
+        .single();
+
+      if (compError || !competition) {
+        submitLogger.error('Failed to fetch competition for finalization', compError, { competitionId: round.competition_id?.substring(0, 8) + '...' });
+        return;
+      }
+
+      // Fetch all scorecards for this round
+      const { data: scorecards, error: scError } = await supabase
+        .from('scorecards')
+        .select('*')
+        .eq('round_id', roundId)
+        .eq('status', 'completed');
+
+      if (scError || !scorecards || scorecards.length === 0) {
+        submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
+        return;
+      }
+
+      // Transform scorecards to the format expected by finalizeRound
+      const scorecardsForFinalize: Scorecard[] = scorecards.map((sc) => ({
+        id: sc.id,
+        round_id: sc.round_id,
+        player_id: sc.player_id,
+        scores: sc.scores || {},
+        total_gross: sc.total_gross || 0,
+        total_net: sc.total_net || 0,
+        total_points: sc.total_points || 0,
+        status: sc.status,
+        created_at: sc.created_at,
+        updated_at: sc.updated_at,
+      }));
+
+      // Use default point system if none configured
+      const pointSystem: PointSystemConfig = competition.point_system || {
+        type: 'standard',
+        rules: { '1': 10, '2': 8, '3': 6, '4': 5, '5': 4, '6': 3, '7': 2, '8': 1, 'default': 1 },
+      };
+
+      const gameType = round.game_type as GameType;
+
+      submitLogger.info('Calling finalizeRound', {
+        roundId: roundId.substring(0, 8) + '...',
+        gameType,
+        scorecardCount: scorecardsForFinalize.length,
+        pointSystemType: pointSystem.type,
+      });
+
+      // Call finalizeRound to calculate positions and competition points
+      await finalizeRound(roundId, scorecardsForFinalize, gameType, pointSystem);
+
+      submitLogger.info('Round results finalized successfully', { roundId: roundId.substring(0, 8) + '...' });
+    } catch (error) {
+      submitLogger.error('Error finalizing round results', error, { roundId: roundId.substring(0, 8) + '...' });
+      // Don't throw - this is a non-critical operation and shouldn't block the submission flow
     }
   }, []);
 
@@ -254,14 +344,17 @@ export function useScoreSubmission({
             const holesComplete = Math.floor((readiness.partnerProgress?.completed ?? 0) / 2);
             const totalHoles = Math.floor((readiness.partnerProgress?.total ?? (holeCount * 2)) / 2);
 
-            Alert.alert(
-              'Waiting for Partner',
-              `${readiness.partnerName ?? 'Your partner'} hasn't finished entering scores yet.\n\nProgress: ${holesComplete}/${totalHoles} holes completed.${bypassAvailableAt ? `\n\nBypass available ${bypassAvailable ? 'now' : `at ${bypassAvailableAt.toLocaleTimeString()}`}` : ''}`,
-              [
-                { text: 'Check Again', onPress: () => refreshPartnerStatus() },
-                { text: 'OK', style: 'cancel' },
-              ]
-            );
+            showDialog({
+              title: 'Waiting for Partner',
+              message: `${readiness.partnerName ?? 'Your partner'} hasn't finished entering scores yet.\n\nProgress: ${holesComplete}/${totalHoles} holes completed.${bypassAvailableAt ? `\n\nBypass available ${bypassAvailable ? 'now' : `at ${bypassAvailableAt.toLocaleTimeString()}`}` : ''}`,
+              confirmLabel: 'Check Again',
+              cancelLabel: 'OK',
+              icon: 'account-clock-outline',
+              onConfirm: () => {
+                dismissDialog();
+                refreshPartnerStatus();
+              },
+            });
             return;
           }
 
@@ -295,78 +388,94 @@ export function useScoreSubmission({
       }
     }
 
-    Alert.alert(
-      'Submit Scorecard',
-      isOnline
+    // Perform the actual submission
+    const performSubmission = async () => {
+      submitLogger.info('Submit confirmed by user', { isOnline });
+      setIsSubmitting(true);
+      setSyncError(null);
+
+      try {
+        submitLogger.info('Calling submitScorecards');
+        await submitScorecards();
+        submitLogger.info('submitScorecards completed successfully');
+
+        if (roundId && isOnline) {
+          await updateRoundStatus(roundId);
+
+          // Finalize round results (calculate positions and competition points)
+          await finalizeRoundResults(roundId);
+
+          // Finalize skins game if applicable (non-blocking)
+          finalizeSkinsForRound(roundId).then((result) => {
+            if (result.finalized) {
+              submitLogger.info('Skins game finalized', { roundId: roundId?.substring(0, 8) + '...' });
+            } else if (result.error) {
+              submitLogger.warn('Skins finalization error (non-blocking)', { error: result.error });
+            }
+          }).catch((error) => {
+            // Non-blocking - log error but don't fail submission
+            submitLogger.warn('Skins finalization failed (non-blocking)', { error });
+          });
+        }
+
+        if (!isOnline) {
+          submitLogger.info('Offline submission - scores queued for later sync');
+          setPendingSyncs((prev) => prev + 1);
+          showDialog({
+            title: 'Saved Offline',
+            message: 'Your scores have been saved locally and will be submitted when you reconnect.',
+            confirmLabel: 'OK',
+            cancelLabel: '',
+            icon: 'cloud-off-outline',
+            onConfirm: () => {
+              dismissDialog();
+              navigateAfterSubmit(roundId);
+            },
+          });
+        } else {
+          submitLogger.info('Online submission successful');
+          showDialog({
+            title: 'Success',
+            message: 'All scores have been submitted successfully!',
+            confirmLabel: 'View Round',
+            cancelLabel: '',
+            icon: 'check-circle-outline',
+            onConfirm: () => {
+              dismissDialog();
+              navigateAfterSubmit(roundId);
+            },
+          });
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        submitLogger.error('Submission failed', error, {
+          errorMessage,
+          competitionId: competitionId?.substring(0, 8) + '...',
+        });
+        setSyncError(errorMessage);
+        showAlert(
+          'Submission Failed',
+          `Failed to submit scores: ${errorMessage}. Please try again.`
+        );
+      } finally {
+        setIsSubmitting(false);
+        submitLogger.debug('Submission process ended');
+      }
+    };
+
+    showDialog({
+      title: 'Submit Scorecard',
+      message: isOnline
         ? 'Are you sure you want to submit all scores? This action cannot be undone.'
         : 'You are offline. Scores will be saved locally and submitted when you reconnect.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          style: 'default',
-          onPress: async () => {
-            submitLogger.info('Submit confirmed by user', { isOnline });
-            setIsSubmitting(true);
-            setSyncError(null);
-
-            try {
-              submitLogger.info('Calling submitScorecards');
-              await submitScorecards();
-              submitLogger.info('submitScorecards completed successfully');
-
-              if (roundId && isOnline) {
-                await updateRoundStatus(roundId);
-
-                // Finalize skins game if applicable (non-blocking)
-                finalizeSkinsForRound(roundId).then((result) => {
-                  if (result.finalized) {
-                    submitLogger.info('Skins game finalized', { roundId: roundId?.substring(0, 8) + '...' });
-                  } else if (result.error) {
-                    submitLogger.warn('Skins finalization error (non-blocking)', { error: result.error });
-                  }
-                }).catch((error) => {
-                  // Non-blocking - log error but don't fail submission
-                  submitLogger.warn('Skins finalization failed (non-blocking)', { error });
-                });
-              }
-
-              if (!isOnline) {
-                submitLogger.info('Offline submission - scores queued for later sync');
-                setPendingSyncs((prev) => prev + 1);
-                Alert.alert(
-                  'Saved Offline',
-                  'Your scores have been saved locally and will be submitted when you reconnect.',
-                  [{ text: 'OK', onPress: () => navigateAfterSubmit(roundId) }]
-                );
-              } else {
-                submitLogger.info('Online submission successful');
-                Alert.alert(
-                  'Success',
-                  'All scores have been submitted successfully!',
-                  [{ text: 'View Round', onPress: () => navigateAfterSubmit(roundId) }]
-                );
-              }
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-              submitLogger.error('Submission failed', error, {
-                errorMessage,
-                competitionId: competitionId?.substring(0, 8) + '...',
-              });
-              setSyncError(errorMessage);
-              Alert.alert(
-                'Submission Failed',
-                `Failed to submit scores: ${errorMessage}. Please try again.`,
-                [{ text: 'OK' }]
-              );
-            } finally {
-              setIsSubmitting(false);
-              submitLogger.debug('Submission process ended');
-            }
-          },
-        },
-      ]
-    );
+      confirmLabel: 'Submit',
+      cancelLabel: 'Cancel',
+      icon: 'check-circle-outline',
+      onConfirm: () => {
+        dismissDialog();
+        performSubmission();
+      },
+    });
   }, [
     isOnline,
     competitionId,
@@ -378,6 +487,7 @@ export function useScoreSubmission({
     setShowIncompleteModal,
     submitScorecards,
     updateRoundStatus,
+    finalizeRoundResults,
     navigateAfterSubmit,
     finalizeSkinsForRound,
     scoringPairsEnabled,
@@ -386,72 +496,85 @@ export function useScoreSubmission({
     bypassAvailable,
     bypassAvailableAt,
     refreshPartnerStatus,
+    showDialog,
+    showAlert,
+    dismissDialog,
   ]);
 
   // Handle bypass submission (skip partner verification)
   const handleBypassSubmit = useCallback(async () => {
     const roundId = currentRoundId || routeRoundId;
     if (!roundId || !currentUserId) {
-      Alert.alert('Error', 'Missing round or user information');
+      showAlert('Error', 'Missing round or user information');
       return;
     }
 
-    Alert.alert(
-      'Submit Without Verification',
-      'Your scores will be used for both players. This submission will be flagged as unverified on the leaderboard.\n\nAre you sure you want to proceed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit Anyway',
-          style: 'destructive',
-          onPress: async () => {
-            submitLogger.info('Bypass submission confirmed', { roundId: roundId.substring(0, 8) + '...' });
-            setIsSubmitting(true);
-            setSyncError(null);
+    // Perform the actual bypass submission
+    const performBypassSubmission = async () => {
+      submitLogger.info('Bypass submission confirmed', { roundId: roundId.substring(0, 8) + '...' });
+      setIsSubmitting(true);
+      setSyncError(null);
 
-            try {
-              // Mark as bypassed
-              await markSubmissionBypassed(roundId, currentUserId);
-              submitLogger.info('Submission marked as bypassed');
+      try {
+        // Mark as bypassed
+        await markSubmissionBypassed(roundId, currentUserId);
+        submitLogger.info('Submission marked as bypassed');
 
-              // Apply bypass scores (use current user's scores as source of truth)
-              await applyBypassScores(roundId, currentUserId);
-              submitLogger.info('Bypass scores applied');
+        // Apply bypass scores (use current user's scores as source of truth)
+        await applyBypassScores(roundId, currentUserId);
+        submitLogger.info('Bypass scores applied');
 
-              // Continue with normal submission (with bypassed flag)
-              await submitScorecards({ bypassed: true });
-              submitLogger.info('Bypassed submission completed');
+        // Continue with normal submission (with bypassed flag)
+        await submitScorecards({ bypassed: true });
+        submitLogger.info('Bypassed submission completed');
 
-              if (isOnline) {
-                await updateRoundStatus(roundId);
+        if (isOnline) {
+          await updateRoundStatus(roundId);
 
-                // Finalize skins (non-blocking)
-                finalizeSkinsForRound(roundId).catch((error) => {
-                  submitLogger.warn('Skins finalization failed (non-blocking)', { error });
-                });
-              }
+          // Finalize round results (calculate positions and competition points)
+          await finalizeRoundResults(roundId);
 
-              Alert.alert(
-                'Submitted (Unverified)',
-                'Your scores have been submitted. They will be flagged as unverified since partner verification was bypassed.',
-                [{ text: 'View Round', onPress: () => navigateAfterSubmit(roundId) }]
-              );
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-              submitLogger.error('Bypass submission failed', error, { errorMessage });
-              setSyncError(errorMessage);
-              Alert.alert(
-                'Submission Failed',
-                `Failed to submit scores: ${errorMessage}. Please try again.`,
-                [{ text: 'OK' }]
-              );
-            } finally {
-              setIsSubmitting(false);
-            }
+          // Finalize skins (non-blocking)
+          finalizeSkinsForRound(roundId).catch((error) => {
+            submitLogger.warn('Skins finalization failed (non-blocking)', { error });
+          });
+        }
+
+        showDialog({
+          title: 'Submitted (Unverified)',
+          message: 'Your scores have been submitted. They will be flagged as unverified since partner verification was bypassed.',
+          confirmLabel: 'View Round',
+          cancelLabel: '',
+          icon: 'alert-circle-outline',
+          onConfirm: () => {
+            dismissDialog();
+            navigateAfterSubmit(roundId);
           },
-        },
-      ]
-    );
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        submitLogger.error('Bypass submission failed', error, { errorMessage });
+        setSyncError(errorMessage);
+        showAlert(
+          'Submission Failed',
+          `Failed to submit scores: ${errorMessage}. Please try again.`
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    showDialog({
+      title: 'Submit Without Verification',
+      message: 'Your scores will be used for both players. This submission will be flagged as unverified on the leaderboard.\n\nAre you sure you want to proceed?',
+      confirmLabel: 'Submit Anyway',
+      confirmVariant: 'destructive',
+      icon: 'alert-outline',
+      onConfirm: () => {
+        dismissDialog();
+        performBypassSubmission();
+      },
+    });
   }, [
     currentRoundId,
     routeRoundId,
@@ -459,8 +582,12 @@ export function useScoreSubmission({
     isOnline,
     submitScorecards,
     updateRoundStatus,
+    finalizeRoundResults,
     navigateAfterSubmit,
     finalizeSkinsForRound,
+    showDialog,
+    showAlert,
+    dismissDialog,
   ]);
 
   const handleSyncPress = useCallback(async () => {
@@ -468,7 +595,7 @@ export function useScoreSubmission({
 
     if (!isOnline) {
       submitLogger.warn('Sync attempted while offline');
-      Alert.alert('No Connection', 'Please connect to the internet to sync your scores.');
+      showAlert('No Connection', 'Please connect to the internet to sync your scores.');
       return;
     }
 
@@ -479,7 +606,7 @@ export function useScoreSubmission({
       setPendingSyncs(0);
       setSyncError(null);
       submitLogger.info('Manual sync completed successfully');
-      Alert.alert('Sync Complete', 'All pending scores have been submitted.');
+      showAlert('Sync Complete', 'All pending scores have been submitted.');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       submitLogger.error('Manual sync failed', error, { errorMessage });
@@ -487,7 +614,7 @@ export function useScoreSubmission({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isOnline, submitScorecards, pendingSyncs]);
+  }, [isOnline, submitScorecards, pendingSyncs, showAlert]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -523,5 +650,8 @@ export function useScoreSubmission({
     partnerName,
     partnerProgress,
     refreshPartnerStatus,
+    // Dialog
+    dialogConfig,
+    dismissDialog,
   };
 }

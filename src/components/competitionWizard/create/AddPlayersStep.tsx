@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Platform, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type PlayerFormData } from '@/schemas/competition';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useConfirmationDialog } from '@/hooks';
 import { useFriendsWithPendingSent, useCheckCanAddFriend } from '@/hooks/useFriends';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
+import { ConfirmationDialog } from '@/components/common';
 import { AddFriendModal } from '@/components/social/AddFriendModal';
 import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
 import type { Friend, Player } from '@/types/database.types';
@@ -43,6 +45,9 @@ export default function AddPlayersStep({
   const { data: friends = [], isLoading: isLoadingFriends } = useFriendsWithPendingSent();
   const friendsAccess = useCheckCanAddFriend();
   const { data: placeholderPlayers } = usePlaceholderPlayers();
+
+  // Dialog state for alerts
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Modal state for adding friends
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
@@ -118,47 +123,44 @@ export default function AddPlayersStep({
     (players: SelectedPlayer[]) => {
       // Don't allow removing current user
       if (user?.id && !players.some((p) => p.id === user.id)) {
-        Alert.alert('Cannot Remove', 'You must be included in the competition.');
+        showAlert('Cannot Remove', 'You must be included in the competition.');
         return;
       }
 
       // Check if adding would exceed limit
       if (players.length > effectiveMaxPlayers) {
-        Alert.alert(
+        showAlert(
           'Player Limit Reached',
-          `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`,
-          [{ text: 'OK' }]
+          `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`
         );
         return;
       }
 
       setSelectedPlayers(players);
     },
-    [user?.id, effectiveMaxPlayers]
+    [user?.id, effectiveMaxPlayers, showAlert]
   );
 
   // Handle add friend button press
   const handleAddFriendPress = useCallback(() => {
     if (!friendsAccess.allowed) {
-      Alert.alert(
+      showAlert(
         'Friends Limit Reached',
-        friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.',
-        [{ text: 'OK' }]
+        friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.'
       );
       return;
     }
     setShowAddFriendModal(true);
-  }, [friendsAccess.allowed, friendsAccess.reason]);
+  }, [friendsAccess.allowed, friendsAccess.reason, showAlert]);
 
   // Handle placeholder player creation - auto-add to selected players
   const handlePlaceholderCreated = useCallback(
     (player: Player) => {
       // Check if adding would exceed limit
       if (selectedPlayers.length >= effectiveMaxPlayers) {
-        Alert.alert(
+        showAlert(
           'Player Limit Reached',
-          `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`,
-          [{ text: 'OK' }]
+          `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`
         );
         setShowAddPlaceholderModal(false);
         return;
@@ -177,20 +179,20 @@ export default function AddPlayersStep({
       ]);
       setShowAddPlaceholderModal(false);
     },
-    [selectedPlayers.length, effectiveMaxPlayers]
+    [selectedPlayers.length, effectiveMaxPlayers, showAlert]
   );
 
   // Proceed to next step
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (selectedPlayers.length < 2) {
-      Alert.alert(
+      showAlert(
         'Not Enough Players',
         'Please select at least 1 friend to add to the competition (minimum 2 players total).'
       );
       return;
     }
     if (selectedPlayers.length > effectiveMaxPlayers) {
-      Alert.alert(
+      showAlert(
         'Too Many Players',
         `Maximum ${effectiveMaxPlayers} players allowed on your plan. Upgrade to add more players.`
       );
@@ -200,7 +202,7 @@ export default function AddPlayersStep({
     // Convert selected players to form data
     const playersData = selectedPlayers.map(playerToFormData);
     onComplete(playersData);
-  };
+  }, [selectedPlayers, effectiveMaxPlayers, showAlert, onComplete]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -262,10 +264,9 @@ export default function AddPlayersStep({
         canAddFriend={friendsAccess.allowed}
         onAtLimitError={() => {
           setShowAddFriendModal(false);
-          Alert.alert(
+          showAlert(
             'Friends Limit Reached',
-            friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.',
-            [{ text: 'OK' }]
+            friendsAccess.reason || 'You have reached your friends limit. Upgrade to add more friends.'
           );
         }}
         testID="add-players-add-friend-modal"
@@ -277,6 +278,9 @@ export default function AddPlayersStep({
         onClose={() => setShowAddPlaceholderModal(false)}
         onPlayerCreated={handlePlaceholderCreated}
       />
+
+      {/* Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
 
       {/* Action Buttons - Sticky Footer */}
       <View

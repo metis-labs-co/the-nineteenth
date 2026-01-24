@@ -11,10 +11,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
-import { IconTrophy, IconChartBar } from '@tabler/icons-react-native';
+import { IconTrophy, IconChartBar, IconChevronRight } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -33,6 +33,8 @@ export interface LeaderboardTableProps {
   showTiedIndicator?: boolean;
   /** Custom empty state message */
   emptyMessage?: string;
+  /** Callback when an entry row is pressed (for showing points breakdown) */
+  onEntryPress?: (playerId: string) => void;
   /** Test ID for testing */
   testID?: string;
 }
@@ -81,6 +83,7 @@ export function LeaderboardTable({
   showRoundsPlayed = false,
   showTiedIndicator = true,
   emptyMessage = 'Scores will appear here once players submit their scorecards.',
+  onEntryPress,
   testID,
 }: LeaderboardTableProps) {
   const colors = useThemeColors();
@@ -129,19 +132,10 @@ export function LeaderboardTable({
       {leaderboardWithPositions.map((entry) => {
         const isCurrentUser = entry.playerId === currentUserId;
         const isFirstPlace = entry.position === 1;
+        const isPressable = !!onEntryPress;
 
-        return (
-          <View
-            key={entry.playerId}
-            style={[
-              styles.tableRow,
-              { borderBottomColor: colors.border },
-              isCurrentUser && [styles.tableRowHighlighted, { backgroundColor: withOpacity(colors.primaryLighter, 0.19) }],
-              isFirstPlace && [styles.tableRowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
-            ]}
-            accessibilityRole="text"
-            accessibilityLabel={`Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}: ${entry.playerName}, Handicap ${entry.handicap}, ${entry.totalPoints} points`}
-          >
+        const rowContent = (
+          <>
             {/* Position */}
             <View style={[styles.tableCell, styles.positionCol]}>
               {isFirstPlace ? (
@@ -207,6 +201,47 @@ export function LeaderboardTable({
                 {entry.totalPoints}
               </Text>
             </View>
+
+            {/* Chevron indicator when pressable */}
+            {isPressable && (
+              <View style={[styles.tableCell, styles.chevronCol]}>
+                <IconChevronRight size={16} color={colors.textTertiary} />
+              </View>
+            )}
+          </>
+        );
+
+        const rowStyle = [
+          styles.tableRow,
+          { borderBottomColor: colors.border },
+          isCurrentUser && [styles.tableRowHighlighted, { backgroundColor: withOpacity(colors.primaryLighter, 0.19) }],
+          isFirstPlace && [styles.tableRowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
+        ];
+
+        if (isPressable) {
+          return (
+            <TouchableOpacity
+              key={entry.playerId}
+              style={rowStyle}
+              onPress={() => onEntryPress(entry.playerId)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`View points breakdown for ${isCurrentUser ? 'You' : entry.playerName}, Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}, Handicap ${entry.handicap}, ${entry.totalPoints} points`}
+              accessibilityHint="Tap to view round-by-round points breakdown"
+            >
+              {rowContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View
+            key={entry.playerId}
+            style={rowStyle}
+            accessibilityRole="text"
+            accessibilityLabel={`Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}: ${entry.playerName}, Handicap ${entry.handicap}, ${entry.totalPoints} points`}
+          >
+            {rowContent}
           </View>
         );
       })}
@@ -272,6 +307,11 @@ const styles = StyleSheet.create({
   pointsCol: {
     width: 50,
     alignItems: 'flex-end',
+  },
+  chevronCol: {
+    width: 20,
+    alignItems: 'center',
+    marginLeft: spacing.xs,
   },
 
   // Position

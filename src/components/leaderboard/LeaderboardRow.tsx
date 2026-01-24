@@ -43,6 +43,8 @@ export interface LeaderboardRowProps {
   secondaryScore?: string;
   /** Secondary score label */
   secondaryLabel?: string;
+  /** Show competition points column */
+  showCompetitionPoints?: boolean;
 }
 
 export const LeaderboardRow = React.memo(function LeaderboardRow({
@@ -53,6 +55,7 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   scoreLabel,
   secondaryScore,
   secondaryLabel,
+  showCompetitionPoints = false,
 }: LeaderboardRowProps) {
   const colors = useThemeColors();
 
@@ -64,7 +67,8 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
 
   // Build accessibility label
   const bypassedText = entry.bypassed ? ', unverified submission' : '';
-  const accessibilityLabel = `Position ${entry.position}${isTied ? ' tied' : ''}: ${name}, Handicap ${handicap}, ${scoreDisplay} ${scoreLabel}${secondaryScore ? `, ${secondaryScore} ${secondaryLabel}` : ''}${bypassedText}`;
+  const compPtsText = showCompetitionPoints ? `, ${entry.competitionPoints} competition points` : '';
+  const accessibilityLabel = `Position ${entry.position}${isTied ? ' tied' : ''}: ${name}, Handicap ${handicap}, ${scoreDisplay} ${scoreLabel}${secondaryScore ? `, ${secondaryScore} ${secondaryLabel}` : ''}${compPtsText}${bypassedText}`;
 
   return (
     <View
@@ -172,6 +176,21 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             ]}
           >
             {secondaryScore}
+          </Text>
+        </View>
+      )}
+
+      {/* Competition Points */}
+      {showCompetitionPoints && (
+        <View style={[styles.cell, styles.compPtsCol]}>
+          <Text
+            style={[
+              styles.compPtsText,
+              { color: colors.primary },
+              isCurrentUser && { color: colors.primary },
+            ]}
+          >
+            {entry.competitionPoints}
           </Text>
         </View>
       )}

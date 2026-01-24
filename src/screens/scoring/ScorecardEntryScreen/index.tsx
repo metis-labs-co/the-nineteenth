@@ -18,7 +18,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/store/settingsStore';
@@ -167,6 +167,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     onSubmitError: dialogs.openSubmitErrorDialog,
     onCloseIncompleteDialog: dialogs.closeIncompleteDialog,
   });
+
+  // Destructure dialog from submission hook for delete confirmation
+  const { dialogConfig: submissionDialogConfig, dismissDialog: dismissSubmissionDialog } = submission;
 
   // Team scoring hook
   const {
@@ -382,7 +385,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         <View style={styles.contentArea}>
           <HoleHeader
             hole={holeData}
-            courseId={courseId ?? undefined}
             selectedTee={selectedTee ?? undefined}
             onPrevious={nav.handlePreviousHole}
             onNext={nav.handleNextHole}
@@ -547,6 +549,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         onDeletePress={submission.handleDeleteRound}
         isStandaloneRound={isStandaloneRound}
         roundId={roundId}
+        courseId={courseId ?? undefined}
+        currentHole={currentHole}
         isOnline={isOnline}
         isSyncing={isSyncing}
         pendingSyncCount={pendingSyncCount}
@@ -603,6 +607,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           loading={updateCourseHolesMutation.isPending}
         />
       )}
+
+      {/* Submission confirmation/error dialog */}
+      <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </SafeAreaView>
   );
 }

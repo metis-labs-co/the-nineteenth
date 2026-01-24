@@ -27,10 +27,11 @@ import {
   FIXED_COLUMNS_WIDTH,
 } from '@/utils/scorecardLayout';
 import { getFirstName } from '@/utils/displayHelpers';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { ScoreIndicator } from '../ScoreIndicator';
 import { styles } from './styles';
 import type { ScorecardTableProps, ScorecardTablePlayer } from './types';
-import { isSingleBallScore, type Hole } from '@/types/database.types';
+import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
 import type { PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
 // =====================================================
@@ -61,25 +62,46 @@ interface ScrollableHeaderCellsProps {
   players: ScorecardTablePlayer[];
   playerCellWidth: number;
   onPlayerPress?: (playerId: string) => void;
+  selectedTeeData?: TeeBox | null;
+  coursePar: number;
 }
 
 const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
   players,
   playerCellWidth,
   onPlayerPress,
+  selectedTeeData,
+  coursePar,
 }: ScrollableHeaderCellsProps) {
   const colors = useThemeColors();
 
   return (
     <>
       {players.map((playerData) => {
+        // Calculate daily handicap if tee data is available
+        const rawHandicap = playerData.player?.handicap ?? 0;
+        let displayHandicap = rawHandicap;
+        let handicapLabel = 'HC';
+
+        if (selectedTeeData?.slopeRating && selectedTeeData?.courseRating) {
+          const result = calculateGADailyHandicap({
+            gaHandicap: rawHandicap,
+            slopeRating: selectedTeeData.slopeRating,
+            courseRating: selectedTeeData.courseRating,
+            par: coursePar,
+            gender: playerData.player?.gender,
+          });
+          displayHandicap = result.dailyHandicap;
+          handicapLabel = 'DHC';
+        }
+
         const content = (
           <>
             <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
               {getFirstName(playerData.player?.name)}
             </Text>
             <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
-              HC: {playerData.player?.handicap || 0}
+              {handicapLabel}: {displayHandicap}
             </Text>
           </>
         );
@@ -675,6 +697,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   showPutts = false,
   showFIR = false,
   showGIR = false,
+  selectedTeeData,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -689,14 +712,20 @@ export const ScorecardTable = React.memo(function ScorecardTable({
     [screenWidth, players.length]
   );
 
-  // Calculate player statistics
+  // Calculate player statistics (with daily handicap if tee data available)
   const playerStats = useMemo(
-    () => calculatePlayerStats(players, holes),
-    [players, holes]
+    () => calculatePlayerStats(players, holes, selectedTeeData),
+    [players, holes, selectedTeeData]
   );
 
   // Calculate par totals
   const parTotals = useMemo(() => calculateParTotals(holes), [holes]);
+
+  // Calculate course par for daily handicap
+  const coursePar = useMemo(
+    () => holes.reduce((sum, hole) => sum + hole.par, 0),
+    [holes]
+  );
 
   // Split holes
   const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
@@ -757,7 +786,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             <View>
               {/* Header */}
               <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
+                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} selectedTeeData={selectedTeeData} coursePar={coursePar} />
                 {showSoloStats && (
                   <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -828,7 +857,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Header */}
       <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         <FixedHeaderCells />
-        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} />
+        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} selectedTeeData={selectedTeeData} coursePar={coursePar} />
         {showSoloStats && (
           <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}

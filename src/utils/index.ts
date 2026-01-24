@@ -49,6 +49,15 @@ export type { AchievementProgressResult, ProgressMap } from './achievementCalcul
 // App Store utilities
 export { openAppStoreSubscriptionSettings } from './appStore';
 
+// Daily handicap calculation (GA 2025)
+export {
+  GA_HANDICAP_MULTIPLIER,
+  GA_CONSISTENCY_FACTOR_MALE,
+  GA_CONSISTENCY_FACTOR_FEMALE,
+  getConsistencyFactor,
+  calculateGADailyHandicap,
+} from './dailyHandicap';
+
 // Skins calculation utilities
 export {
   // Pot calculations

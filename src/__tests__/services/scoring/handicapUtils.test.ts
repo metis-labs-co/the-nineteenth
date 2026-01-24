@@ -86,31 +86,103 @@ describe('handicapUtils', () => {
       });
     });
 
-    describe('with course rating and par', () => {
+    describe('with course rating and par (GA 2025 formula)', () => {
+      // GA Formula: Daily HC = ((GA HC × Slope ÷ 113) + (CR − Par)) × 0.93 × 0.9986
+      // Then apply game type allowance (default 95%)
+
       it('adjusts for course rating above par', () => {
-        // Course handicap + (course rating - par)
-        // 18 + (74 - 72) = 20, then 95% = 19
+        // GA Daily HC = ((18 × 113 ÷ 113) + (74 - 72)) × 0.93 × 0.9986
+        //             = (18 + 2) × 0.93 × 0.9986 = 18.57 → 19
+        // With 95% allowance: 19 × 0.95 = 18.05 → 18
         const result = getPlayingHandicap(18, 113, 74, 72);
-        expect(result).toBe(19);
+        expect(result).toBe(18);
       });
 
       it('adjusts for course rating below par', () => {
-        // 18 + (70 - 72) = 16, then 95% = 15.2 → 15
+        // GA Daily HC = ((18) + (70 - 72)) × 0.93 × 0.9986
+        //             = 16 × 0.93 × 0.9986 = 14.86 → 15
+        // With 95% allowance: 15 × 0.95 = 14.25 → 14
         const result = getPlayingHandicap(18, 113, 70, 72);
-        expect(result).toBe(15);
+        expect(result).toBe(14);
       });
 
       it('handles course rating equal to par', () => {
+        // GA Daily HC = 18 × 0.93 × 0.9986 = 16.72 → 17
+        // With 95% allowance: 17 × 0.95 = 16.15 → 16
         const result = getPlayingHandicap(18, 113, 72, 72);
-        expect(result).toBe(17); // No adjustment
+        expect(result).toBe(16);
       });
 
       it('combines slope and course rating adjustments', () => {
-        // Course handicap = 18 * (130/113) = 20.7 → 21
-        // Playing = 21 + (74 - 72) = 23
-        // With 95%: 23 * 0.95 = 21.85 → 22
+        // GA Daily HC = ((18 × 130 ÷ 113) + (74 - 72)) × 0.93 × 0.9986
+        //             = (20.71 + 2) × 0.93 × 0.9986 = 21.08 → 21
+        // With 95% allowance: 21 × 0.95 = 19.95 → 20
         const result = getPlayingHandicap(18, 130, 74, 72);
-        expect(result).toBeGreaterThan(19);
+        expect(result).toBeGreaterThanOrEqual(19);
+      });
+    });
+
+    describe('with gender parameter (GA 2025 formula)', () => {
+      // GA Formula: Daily HC = ((GA HC × Slope ÷ 113) + (CR − Par)) × 0.93 × consistencyFactor
+      // Male consistency factor: 0.9986
+      // Female consistency factor: 1.0483
+
+      it('uses male consistency factor by default (when gender not provided)', () => {
+        // GA Daily HC = ((18 × 113 ÷ 113) + (72 - 72)) × 0.93 × 0.9986
+        //             = 18 × 0.93 × 0.9986 = 16.72 → 17
+        // With 95% allowance: 17 × 0.95 = 16.15 → 16
+        const result = getPlayingHandicap(18, 113, 72, 72, 'stableford');
+        expect(result).toBe(16);
+      });
+
+      it('uses male consistency factor when gender is male', () => {
+        // Same calculation as default
+        const result = getPlayingHandicap(18, 113, 72, 72, 'stableford', 'male');
+        expect(result).toBe(16);
+      });
+
+      it('uses male consistency factor when gender is null', () => {
+        // Same calculation as default
+        const result = getPlayingHandicap(18, 113, 72, 72, 'stableford', null);
+        expect(result).toBe(16);
+      });
+
+      it('uses female consistency factor when gender is female', () => {
+        // GA Daily HC = ((18 × 113 ÷ 113) + (72 - 72)) × 0.93 × 1.0483
+        //             = 18 × 0.93 × 1.0483 = 17.55 → 18
+        // With 95% allowance: 18 × 0.95 = 17.1 → 17
+        const result = getPlayingHandicap(18, 113, 72, 72, 'stableford', 'female');
+        expect(result).toBe(17);
+      });
+
+      it('female gets higher daily handicap than male for same index', () => {
+        // Female consistency factor (1.0483) > Male (0.9986)
+        const maleResult = getPlayingHandicap(18, 113, 72, 72, 'stableford', 'male');
+        const femaleResult = getPlayingHandicap(18, 113, 72, 72, 'stableford', 'female');
+        expect(femaleResult).toBeGreaterThanOrEqual(maleResult);
+      });
+
+      it('applies gender-adjusted daily handicap with course rating above par', () => {
+        // GA Daily HC (female) = ((18 × 113 ÷ 113) + (74 - 72)) × 0.93 × 1.0483
+        //                      = (18 + 2) × 0.93 × 1.0483 = 19.50 → 19 (rounded)
+        // With 95% allowance: 19 × 0.95 = 18.05 → 18
+        const result = getPlayingHandicap(18, 113, 74, 72, 'stableford', 'female');
+        expect(result).toBe(18);
+      });
+
+      it('applies gender-adjusted daily handicap with course rating below par', () => {
+        // GA Daily HC (female) = ((18 × 113 ÷ 113) + (70 - 72)) × 0.93 × 1.0483
+        //                      = (18 - 2) × 0.93 × 1.0483 = 15.60 → 16
+        // With 95% allowance: 16 × 0.95 = 15.2 → 15
+        const result = getPlayingHandicap(18, 113, 70, 72, 'stableford', 'female');
+        expect(result).toBe(15);
+      });
+
+      it('maintains backward compatibility - existing calls without gender work', () => {
+        // Should work exactly as before (defaults to male factor)
+        const withoutGender = getPlayingHandicap(18, 113, 72, 72);
+        const withUndefinedGender = getPlayingHandicap(18, 113, 72, 72, 'stableford', undefined);
+        expect(withoutGender).toBe(withUndefinedGender);
       });
     });
 

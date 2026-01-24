@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
-import { LoadingSpinner } from '@/components/common';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { Text, Snackbar, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -91,6 +92,9 @@ export default function CreateCompetitionScreen() {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [upgradePromptConfig, setUpgradePromptConfig] = useState<UpgradePromptConfig | null>(null);
   const [isAtCompetitionLimit, setIsAtCompetitionLimit] = useState(false);
+
+  // Confirmation dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Check if user is at competition limit on mount
   useEffect(() => {
@@ -191,13 +195,13 @@ export default function CreateCompetitionScreen() {
   // Handle final submission - dynamic step flow with prize pool
   const handleSubmit = async () => {
     if (!wizardData.step1 || !wizardData.step2) {
-      Alert.alert('Error', 'Please complete all steps');
+      showAlert('Error', 'Please complete all steps');
       return;
     }
 
     // If prize pool enabled but not configured, show error
     if (wizardData.step1.enablePrizePool && !wizardData.prizePoolConfig) {
-      Alert.alert('Error', 'Please configure the prize pool');
+      showAlert('Error', 'Please configure the prize pool');
       return;
     }
 
@@ -254,7 +258,7 @@ export default function CreateCompetitionScreen() {
           // Log pool creation error but don't fail the whole process
           console.warn('Failed to create prize pool:', poolError);
           // Competition was created successfully, just show a warning
-          Alert.alert(
+          showAlert(
             'Warning',
             'Competition created, but prize pool setup failed. You can configure it later from competition settings.'
           );
@@ -301,10 +305,9 @@ export default function CreateCompetitionScreen() {
         });
         setShowUpgradePrompt(true);
       } else {
-        Alert.alert(
+        showAlert(
           'Error',
-          'Failed to create competition. Please try again.',
-          [{ text: 'OK' }]
+          'Failed to create competition. Please try again.'
         );
       }
     }
@@ -333,21 +336,18 @@ export default function CreateCompetitionScreen() {
 
   // Handle form reset
   const handleReset = () => {
-    Alert.alert(
-      'Reset Form',
-      'Are you sure you want to reset the form? All entered data will be lost.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            clearWizardDraft();
-            setCurrentStep(1);
-          },
-        },
-      ]
-    );
+    showDialog({
+      title: 'Reset Form',
+      message: 'Are you sure you want to reset the form? All entered data will be lost.',
+      confirmLabel: 'Reset',
+      confirmVariant: 'destructive',
+      icon: 'refresh',
+      onConfirm: () => {
+        dismissDialog();
+        clearWizardDraft();
+        setCurrentStep(1);
+      },
+    });
   };
 
   // Render current step - dynamic wizard with optional prize pool step
@@ -563,6 +563,9 @@ export default function CreateCompetitionScreen() {
           visible={showUpgradePrompt}
         />
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

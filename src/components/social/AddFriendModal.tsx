@@ -6,10 +6,11 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, FlatList, Alert } from 'react-native';
+import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useConfirmationDialog } from '@/hooks';
 import Toast from 'react-native-toast-message';
-import { LoadingSpinner, SearchBar, BottomSheet } from '@/components/common';
+import { LoadingSpinner, SearchBar, BottomSheet, ConfirmationDialog } from '@/components/common';
 import { SearchResultCard } from './SearchResultCard';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
@@ -62,6 +63,7 @@ export function AddFriendModal({
   testID,
 }: AddFriendModalProps) {
   const colors = useThemeColors();
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [addingPlayerId, setAddingPlayerId] = useState<string | null>(null);
 
@@ -94,7 +96,7 @@ export function AddFriendModal({
       } catch (error) {
         console.error('Failed to add friend:', error);
         // Show error alert
-        Alert.alert(
+        showAlert(
           'Could not add friend',
           error instanceof Error ? error.message : 'Please try again later'
         );
@@ -102,7 +104,7 @@ export function AddFriendModal({
         setAddingPlayerId(null);
       }
     },
-    [addFriend, canAddFriend, onAtLimitError]
+    [addFriend, canAddFriend, onAtLimitError, showAlert]
   );
 
   const handleClose = useCallback(() => {
@@ -169,6 +171,9 @@ export function AddFriendModal({
           </View>
         )}
       </View>
+
+      {/* Error Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </BottomSheet>
   );
 }

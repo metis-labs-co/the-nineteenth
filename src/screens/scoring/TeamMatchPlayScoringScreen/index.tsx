@@ -15,9 +15,10 @@
  */
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, BackHandler } from 'react-native';
+import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon, Button } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { HoleHeader, SwipeableHoleNavigator } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -54,6 +55,9 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 export default function TeamMatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, team1Id, team2Id } = route.params;
   const colors = useThemeColors();
+
+  // Confirmation dialog hook
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
@@ -432,18 +436,21 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   const handleBackPress = useCallback(() => {
     const holesWithScores = Object.keys(holeResults).length;
     if (holesWithScores > 0 && !isMatchComplete) {
-      Alert.alert(
-        'Unsaved Match',
-        'Are you sure you want to leave? Your match progress will be lost.',
-        [
-          { text: 'Stay', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: () => navigation.goBack() },
-        ]
-      );
+      showDialog({
+        title: 'Unsaved Match',
+        message: 'Are you sure you want to leave? Your match progress will be lost.',
+        confirmLabel: 'Leave',
+        confirmVariant: 'destructive',
+        icon: 'alert-outline',
+        onConfirm: () => {
+          dismissDialog();
+          navigation.goBack();
+        },
+      });
     } else {
       navigation.goBack();
     }
-  }, [holeResults, isMatchComplete, navigation]);
+  }, [holeResults, isMatchComplete, navigation, showDialog, dismissDialog]);
 
   // Handle back button
   useEffect(() => {
@@ -456,28 +463,25 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Delete round handler (super admin only)
   const handleDeleteRound = useCallback(() => {
-    Alert.alert(
-      'Delete Match',
-      'Are you sure you want to delete this match? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement actual deletion
-            teamMatchPlayLogger.info('TEAM MATCH PLAY: Delete requested', { roundId });
-            navigation.goBack();
-          },
-        },
-      ]
-    );
-  }, [navigation, roundId]);
+    showDialog({
+      title: 'Delete Match',
+      message: 'Are you sure you want to delete this match? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        // TODO: Implement actual deletion
+        teamMatchPlayLogger.info('TEAM MATCH PLAY: Delete requested', { roundId });
+        navigation.goBack();
+      },
+    });
+  }, [navigation, roundId, showDialog, dismissDialog]);
 
   // Submit match result
   const handleSubmitMatch = useCallback(async () => {
     if (!isMatchComplete) {
-      Alert.alert('Match Not Complete', 'The match must be finished before submitting.');
+      showAlert('Match Not Complete', 'The match must be finished before submitting.');
       return;
     }
 
@@ -486,15 +490,23 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       // TODO: Submit match result to API
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      Alert.alert('Match Submitted', matchStatusText, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showDialog({
+        title: 'Match Submitted',
+        message: matchStatusText,
+        confirmLabel: 'OK',
+        cancelLabel: '',
+        icon: 'check-circle-outline',
+        onConfirm: () => {
+          dismissDialog();
+          navigation.goBack();
+        },
+      });
     } catch {
-      Alert.alert('Error', 'Failed to submit match result. Please try again.');
+      showAlert('Error', 'Failed to submit match result. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [isMatchComplete, matchStatusText, navigation]);
+  }, [isMatchComplete, matchStatusText, navigation, showAlert, showDialog, dismissDialog]);
 
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
@@ -720,6 +732,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         onNextHole={handleNextHole}
         onSubmitMatch={handleSubmitMatch}
       />
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </SafeAreaView>
   );
 }

@@ -67,6 +67,8 @@ const createDefaultPlayerStats = (): PlayerStats => ({
   totalPar: 72,
   front9Par: 36,
   back9Par: 36,
+  handicap: 18,
+  dailyHandicap: 15,
   totalFairwaysHit: 7,
   totalFairwaysPossible: 14,
   totalGIR: 10,

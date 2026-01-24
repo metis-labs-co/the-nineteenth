@@ -20,6 +20,7 @@ interface ProfileMenuSectionProps {
   /** Navigation callbacks */
   onEditProfile: () => void;
   onMyStatistics: () => void;
+  onHandicapHistory: () => void;
   onAchievements: () => void;
   onCustomizeProfile: () => void;
   onSubscription: () => void;
@@ -35,6 +36,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   placeholderPlayersCount,
   onEditProfile,
   onMyStatistics,
+  onHandicapHistory,
   onAchievements,
   onCustomizeProfile,
   onSubscription,
@@ -65,6 +67,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="My Statistics"
             onPress={onMyStatistics}
             testID="menu-statistics"
+          />
+          <MenuItemRow
+            icon="chart-timeline-variant"
+            title="Handicap History"
+            onPress={onHandicapHistory}
+            testID="menu-handicap-history"
           />
           <MenuItemRow
             icon="trophy"

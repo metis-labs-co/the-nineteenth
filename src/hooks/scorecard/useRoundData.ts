@@ -216,8 +216,17 @@ export function useRoundData({
       playerCount: playersToInitialize.length,
       holeCount: holes.length,
       gameType,
+      hasTeeData: !!metadata.data?.selectedTeeData,
     });
-    await initializeRound(roundId, playersToInitialize, holes, gameType as GameType);
+    await initializeRound(
+      roundId,
+      playersToInitialize,
+      holes,
+      gameType as GameType,
+      false, // isStandalone
+      [], // allowedPlayerIds
+      metadata.data?.selectedTeeData ?? null // selectedTeeData for daily handicap
+    );
   }, [
     roundId,
     competitionId,

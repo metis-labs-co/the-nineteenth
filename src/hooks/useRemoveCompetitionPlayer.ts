@@ -12,8 +12,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useConfirmationDialog, type DialogConfig } from './useConfirmationDialog';
 import {
   checkPlayerScoringPairs,
   removePlayerFromCompetition,
@@ -55,6 +55,10 @@ export interface UseRemoveCompetitionPlayerResult {
   removePlayer: (playerId: string, playerName: string) => Promise<void>;
   /** Reset the state */
   reset: () => void;
+  /** Dialog configuration - parent should render ConfirmationDialog with this */
+  dialogConfig: DialogConfig;
+  /** Dismiss dialog callback */
+  dismissDialog: () => void;
 }
 
 // =====================================================
@@ -90,6 +94,7 @@ export function useRemoveCompetitionPlayer({
   onError,
 }: UseRemoveCompetitionPlayerOptions): UseRemoveCompetitionPlayerResult {
   const queryClient = useQueryClient();
+  const { dialogConfig, showDialog, dismissDialog } = useConfirmationDialog();
 
   const [state, setState] = useState<RemovePlayerState>({
     isChecking: false,
@@ -157,6 +162,18 @@ export function useRemoveCompetitionPlayer({
   );
 
   /**
+   * Handle cancel dialog
+   */
+  const handleCancelDialog = useCallback(() => {
+    dismissDialog();
+    setState((prev) => ({
+      ...prev,
+      isChecking: false,
+      removalCheck: null,
+    }));
+  }, [dismissDialog]);
+
+  /**
    * Show confirmation dialog and handle removal
    */
   const showRemovalConfirmation = useCallback(
@@ -172,55 +189,35 @@ export function useRemoveCompetitionPlayer({
           .map((r) => `• Round ${r.roundNumber}${r.courseName ? ` (${r.courseName})` : ''}`)
           .join('\n');
 
-        Alert.alert(
-          'Remove Player?',
-          `${playerName} has scoring pair assignments in ${roundCount} round${roundCount !== 1 ? 's' : ''}:\n\n${roundsList}\n\nRemoving them will delete those assignments. Affected rounds will need to be re-configured.`,
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => {
-                setState((prev) => ({
-                  ...prev,
-                  isChecking: false,
-                  removalCheck: null,
-                }));
-              },
-            },
-            {
-              text: 'Remove Anyway',
-              style: 'destructive',
-              onPress: () => performRemoval(playerId),
-            },
-          ]
-        );
+        showDialog({
+          title: 'Remove Player?',
+          message: `${playerName} has scoring pair assignments in ${roundCount} round${roundCount !== 1 ? 's' : ''}:\n\n${roundsList}\n\nRemoving them will delete those assignments. Affected rounds will need to be re-configured.`,
+          confirmLabel: 'Remove Anyway',
+          cancelLabel: 'Cancel',
+          confirmVariant: 'destructive',
+          icon: 'alert',
+          onConfirm: () => {
+            dismissDialog();
+            performRemoval(playerId);
+          },
+        });
       } else {
         // No scoring pairs, simple confirmation
-        Alert.alert(
-          'Remove Player?',
-          `Are you sure you want to remove ${playerName} from this competition?`,
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => {
-                setState((prev) => ({
-                  ...prev,
-                  isChecking: false,
-                  removalCheck: null,
-                }));
-              },
-            },
-            {
-              text: 'Remove',
-              style: 'destructive',
-              onPress: () => performRemoval(playerId),
-            },
-          ]
-        );
+        showDialog({
+          title: 'Remove Player?',
+          message: `Are you sure you want to remove ${playerName} from this competition?`,
+          confirmLabel: 'Remove',
+          cancelLabel: 'Cancel',
+          confirmVariant: 'destructive',
+          icon: 'account-remove',
+          onConfirm: () => {
+            dismissDialog();
+            performRemoval(playerId);
+          },
+        });
       }
     },
-    [performRemoval]
+    [performRemoval, showDialog, dismissDialog]
   );
 
   /**
@@ -277,6 +274,8 @@ export function useRemoveCompetitionPlayer({
     state,
     removePlayer,
     reset,
+    dialogConfig,
+    dismissDialog: handleCancelDialog,
   };
 }
 

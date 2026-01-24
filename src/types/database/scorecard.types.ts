@@ -42,6 +42,16 @@ export interface Scorecard {
   device_id: string | null; // For conflict resolution
   synced_at: string | null; // ISO timestamp
 
+  // Handicap Tracking (calculated at submission time)
+  // These fields store the handicap data calculated when the scorecard is synced.
+  // daily_handicap_used captures strokes received for historical accuracy
+  // (player's GA handicap may change later).
+  // handicap_differential is used for calculating the player's Social Handicap Index.
+  daily_handicap_used: number | null; // Strokes received for this round (snapshot)
+  handicap_differential: number | null; // WHS score differential
+  course_rating_used: number | null; // Snapshot of course rating at time of round
+  slope_rating_used: number | null; // Snapshot of slope rating at time of round
+
   // Metadata
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp

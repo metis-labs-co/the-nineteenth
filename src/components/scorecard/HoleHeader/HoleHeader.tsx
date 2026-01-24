@@ -25,13 +25,10 @@ import { resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { HoleNavigationButton } from './HoleNavigationButton';
 import { HoleNumberDisplay } from './HoleNumberDisplay';
 import { HoleDetailsSection } from './HoleDetailsSection';
-import { DistanceToPin } from './DistanceToPin';
 import type { Hole } from '@/types';
 
 export interface HoleHeaderProps {
   hole: Hole;
-  /** Course ID for GPS distance-to-pin feature */
-  courseId?: string;
   selectedTee?: string;
   onPrevious?: () => void;
   onNext?: () => void;
@@ -46,7 +43,6 @@ export interface HoleHeaderProps {
 
 export const HoleHeader = React.memo(function HoleHeader({
   hole,
-  courseId,
   selectedTee = 'white',
   onPrevious,
   onNext,
@@ -106,12 +102,6 @@ export const HoleHeader = React.memo(function HoleHeader({
         canEdit={canEditHole}
         onEditHole={onEditHole}
       />
-
-      {courseId && (
-        <View style={styles.gpsContainer}>
-          <DistanceToPin courseId={courseId} holeNumber={hole.number} />
-        </View>
-      )}
     </View>
   );
 });
@@ -128,8 +118,5 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     marginHorizontal: spacing.md,
-  },
-  gpsContainer: {
-    marginLeft: spacing.md,
   },
 });

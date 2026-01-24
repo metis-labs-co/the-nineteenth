@@ -15,9 +15,10 @@
  */
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, BackHandler } from 'react-native';
+import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ErrorState, Pill, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { HoleHeader, SwipeableHoleNavigator } from '@/components/scorecard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -40,6 +41,9 @@ type Props = RootStackScreenProps<'MatchPlayScoring'>;
 export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   const { roundId, player1Id, player2Id, team1Id, team2Id, initialHole, competitionId } = route.params;
   const colors = useThemeColors();
+
+  // Confirmation dialog hook
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
   // Online status for round status update
   const isOnline = useOnlineStatus();
@@ -263,32 +267,29 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Delete round handler (super admin only)
   const handleDeleteRound = useCallback(() => {
-    Alert.alert(
-      'Delete Match',
-      'Are you sure you want to delete this match? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement actual deletion
-            matchPlayLogger.info('MATCH PLAY: Delete requested', { roundId });
-            navigation.goBack();
-          },
-        },
-      ]
-    );
-  }, [navigation, roundId]);
+    showDialog({
+      title: 'Delete Match',
+      message: 'Are you sure you want to delete this match? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        // TODO: Implement actual deletion
+        matchPlayLogger.info('MATCH PLAY: Delete requested', { roundId });
+        navigation.goBack();
+      },
+    });
+  }, [navigation, roundId, showDialog, dismissDialog]);
 
   // Show submit confirmation dialog
   const handleSubmitMatch = useCallback(() => {
     if (!isMatchComplete) {
-      Alert.alert('Match Not Complete', 'The match must be finished before submitting.');
+      showAlert('Match Not Complete', 'The match must be finished before submitting.');
       return;
     }
     setShowSubmitDialog(true);
-  }, [isMatchComplete]);
+  }, [isMatchComplete, showAlert]);
 
   // Confirm and submit match result
   const handleConfirmSubmit = useCallback(async () => {
@@ -323,11 +324,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       navigation.navigate('ViewRound', { roundId });
     } catch (error) {
       matchPlayLogger.error('Failed to submit match', { error });
-      Alert.alert('Error', 'Failed to submit match result. Please try again.');
+      showAlert('Error', 'Failed to submit match result. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [navigation, roundId, submitScorecards, isOnline]);
+  }, [navigation, roundId, submitScorecards, isOnline, showAlert]);
 
   // Cancel submit dialog
   const handleCancelSubmit = useCallback(() => {
@@ -589,6 +590,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
         onConfirm={handleConfirmSubmit}
         onCancel={handleCancelSubmit}
       />
+
+      {/* General Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </SafeAreaView>
   );
 }

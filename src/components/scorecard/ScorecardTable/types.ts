@@ -4,7 +4,8 @@
  * Shared type definitions for the scorecard table components.
  */
 
-import type { Hole } from '@/types/database.types';
+import type { Hole, TeeBox } from '@/types/database.types';
+import type { PlayerGender } from '@/types/database/player.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
 /**
@@ -14,6 +15,7 @@ export interface ScorecardPlayerInfo {
   id: string;
   name: string;
   handicap?: number | null;
+  gender?: PlayerGender | null; // For daily handicap calculation
 }
 
 /**
@@ -50,6 +52,8 @@ export interface ScorecardTableProps {
   showFIR?: boolean;
   /** Whether to show GIR column (only shown for solo rounds) */
   showGIR?: boolean;
+  /** Selected tee data with slope/course ratings for daily handicap calculation */
+  selectedTeeData?: TeeBox | null;
 }
 
 /**

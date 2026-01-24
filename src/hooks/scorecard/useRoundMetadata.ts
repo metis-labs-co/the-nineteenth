@@ -24,6 +24,7 @@ export interface RoundMetadata {
   scoringPairsRequired: boolean;
   ballCount: BallCount;
   selectedTee: string | null;
+  selectedTeeData: TeeBox | null; // Full tee object with ratings for daily handicap
   courseId: string | null;
   courseName: string | null;
   courseTees: TeeBox[];
@@ -88,6 +89,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         scoringPairsRequired: roundData.scoring_pairs_required ?? false,
         ballCount: (roundData.ball_count ?? 1) as BallCount,
         selectedTee: selectedTeeColor,
+        selectedTeeData: selectedTeeData, // Full TeeBox with slopeRating/courseRating
         courseId: roundData.courses?.id || null,
         courseName: roundData.courses?.name || null,
         courseTees: (roundData.courses?.tees as TeeBox[]) || [],

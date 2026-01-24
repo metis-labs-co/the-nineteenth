@@ -5,10 +5,12 @@
  * for scorecard displays. Used by ReviewScorecardScreen and RoundScorecardTab.
  */
 
-import type { Hole, HoleScore } from '@/types/database.types';
+import type { Hole, HoleScore, TeeBox } from '@/types/database.types';
 import type { MultiBallHoleScore } from '@/types/database/base';
+import type { PlayerGender } from '@/types/database/player.types';
 import { isSingleBallScore } from '@/types/database/base';
 import { getStrokesReceived, calculateStablefordPointsNet } from './scoring';
+import { calculateGADailyHandicap } from './dailyHandicap';
 
 // =====================================================
 // TYPES
@@ -27,6 +29,7 @@ export interface ScorecardPlayerInfo {
   id: string;
   name: string;
   handicap?: number | null;
+  gender?: PlayerGender | null; // For daily handicap calculation
 }
 
 /**
@@ -35,7 +38,8 @@ export interface ScorecardPlayerInfo {
 export interface PlayerStats {
   playerId: string;
   playerName: string;
-  handicap: number;
+  handicap: number; // Raw GA handicap index
+  dailyHandicap: number; // Daily handicap (calculated from tee ratings)
   front9Gross: number;
   back9Gross: number;
   front9Stableford: number;
@@ -75,16 +79,34 @@ export interface ScorecardPlayerData {
  *
  * @param players Array of player data with scores
  * @param holes Array of hole data
+ * @param selectedTee Optional tee data with slope/course ratings for daily handicap calculation
  * @returns Array of player statistics
  */
 export function calculatePlayerStats(
   players: ScorecardPlayerData[],
-  holes: Hole[]
+  holes: Hole[],
+  selectedTee?: TeeBox | null
 ): PlayerStats[] {
+  // Calculate course par once for daily handicap calculations
+  const coursePar = holes.reduce((sum, hole) => sum + hole.par, 0);
+
   return players.map((playerData) => {
     const player = playerData.player;
     const scores = playerData.scores;
     const handicap = player?.handicap || 0;
+
+    // Calculate daily handicap if tee data is available
+    let dailyHandicap = handicap;
+    if (selectedTee?.slopeRating && selectedTee?.courseRating && coursePar > 0) {
+      const result = calculateGADailyHandicap({
+        gaHandicap: handicap,
+        slopeRating: selectedTee.slopeRating,
+        courseRating: selectedTee.courseRating,
+        par: coursePar,
+        gender: player?.gender,
+      });
+      dailyHandicap = result.dailyHandicap;
+    }
 
     let front9Gross = 0;
     let back9Gross = 0;
@@ -97,7 +119,8 @@ export function calculatePlayerStats(
       // Only process single-ball scores (for multi-ball, we'd use ball_totals)
       const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
       if (strokes > 0) hasScores = true;
-      const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+      // Use daily handicap for strokes received calculation
+      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
       const stablefordPoints =
         strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
 
@@ -111,13 +134,15 @@ export function calculatePlayerStats(
     });
 
     const totalGross = front9Gross + back9Gross;
-    const totalNet = totalGross - handicap;
+    // Use daily handicap for net score calculation
+    const totalNet = totalGross - dailyHandicap;
     const totalStableford = front9Stableford + back9Stableford;
 
     return {
       playerId: playerData.id,
       playerName: player?.name || 'Unknown',
       handicap,
+      dailyHandicap,
       front9Gross,
       back9Gross,
       front9Stableford,

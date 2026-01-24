@@ -15,10 +15,10 @@ import {
   RefreshControl,
   TouchableOpacity,
   Linking,
-  Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -95,6 +95,9 @@ export default function ClubScreen({ route, navigation }: Props) {
 
   const cardBackground = colors.surface;
 
+  // Dialog state for error alerts
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
+
   // Fetch club details
   const {
     data: club,
@@ -143,12 +146,12 @@ export default function ClubScreen({ route, navigation }: Props) {
       await setHomeClub.mutateAsync(club.id);
       refetch();
     } catch {
-      Alert.alert('Error', 'Failed to set home club');
+      showAlert('Error', 'Failed to set home club');
     } finally {
       setIsSettingHome(false);
       setShowHomeConfirmDialog(false);
     }
-  }, [club, setHomeClub, refetch]);
+  }, [club, setHomeClub, refetch, showAlert]);
 
   // Handle course press - navigate to CourseScreen
   const handleCoursePress = useCallback(
@@ -169,12 +172,12 @@ export default function ClubScreen({ route, navigation }: Props) {
           await addFavorite.mutateAsync(course.id);
         }
       } catch (err) {
-        Alert.alert('Error', 'Failed to update favorite status');
+        showAlert('Error', 'Failed to update favorite status');
       } finally {
         setTogglingFavorite(null);
       }
     },
-    [addFavorite, removeFavorite]
+    [addFavorite, removeFavorite, showAlert]
   );
 
   // Contact handlers
@@ -185,11 +188,11 @@ export default function ClubScreen({ route, navigation }: Props) {
         if (supported) {
           Linking.openURL(phoneUrl);
         } else {
-          Alert.alert('Unable to call', `Cannot make phone calls on this device`);
+          showAlert('Unable to call', 'Cannot make phone calls on this device');
         }
       });
     }
-  }, [club?.phone]);
+  }, [club?.phone, showAlert]);
 
   const handleEmailPress = useCallback(() => {
     if (club?.email) {
@@ -472,6 +475,9 @@ export default function ClubScreen({ route, navigation }: Props) {
         loading={isSettingHome}
         icon="home-switch"
       />
+
+      {/* Error Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

@@ -80,6 +80,12 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     }
   );
 
+  // Check if any entries have bypassed scores (must be before early returns)
+  const hasBypassedEntries = useMemo(
+    () => data?.entries.some((entry) => entry.bypassed) ?? false,
+    [data?.entries]
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -128,12 +134,6 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
 
   const { entries, metadata } = data;
   const effectiveGameType = metadata.gameType;
-
-  // Check if any entries have bypassed scores
-  const hasBypassedEntries = useMemo(
-    () => entries.some((entry) => entry.bypassed),
-    [entries]
-  );
 
   // Select the appropriate leaderboard component based on game type
   const renderLeaderboardContent = () => {

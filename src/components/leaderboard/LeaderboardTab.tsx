@@ -37,6 +37,8 @@ export interface LeaderboardTabProps {
   currentUserId?: string;
   /** Enable auto-refresh */
   autoRefresh?: boolean;
+  /** Callback when a leaderboard entry is pressed (for showing points breakdown) */
+  onEntryPress?: (entry: CompetitionLeaderboardEntry) => void;
 }
 
 type LeaderboardView = 'individual' | 'team';
@@ -235,6 +237,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   rounds,
   currentUserId,
   autoRefresh = true,
+  onEntryPress,
 }: LeaderboardTabProps) {
   const colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
@@ -288,6 +291,15 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   const handleViewChange = useCallback((view: LeaderboardView) => {
     setSelectedView(view);
   }, []);
+
+  // Handle entry press to show points breakdown modal
+  const handleEntryPress = useCallback((participantId: string) => {
+    if (!onEntryPress || !leaderboard) return;
+    const entry = leaderboard.find((e) => e.participantId === participantId);
+    if (entry) {
+      onEntryPress(entry);
+    }
+  }, [onEntryPress, leaderboard]);
 
   // Convert to appropriate format based on view
   const individualEntries = useMemo(() => {
@@ -377,6 +389,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           isLoading={false}
           showRoundsPlayed
           showTiedIndicator={false}
+          onEntryPress={onEntryPress ? handleEntryPress : undefined}
           testID="competition-individual-leaderboard"
         />
       )}

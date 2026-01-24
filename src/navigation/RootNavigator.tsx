@@ -54,6 +54,7 @@ import { MatchPlayScorecardScreen } from '@/screens/scoring';
 // Profile Screens
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
 import MyStatisticsScreen from '@/screens/profile/MyStatisticsScreen';
+import HandicapHistoryScreen from '@/screens/profile/HandicapHistoryScreen';
 import SettingsScreen from '@/screens/profile/SettingsScreen';
 import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
 import HelpAndSupportScreen from '@/screens/profile/HelpAndSupportScreen';
@@ -357,6 +358,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={MyStatisticsScreen}
               options={{
                 title: 'My Statistics',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="HandicapHistory"
+              component={HandicapHistoryScreen}
+              options={{
+                title: 'Handicap History',
                 headerShown: false,
               }}
             />

@@ -17,11 +17,11 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Linking,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
-import { GolfBallLoader } from '@/components/common';
+import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { useConfirmationDialog, type DialogConfig } from '@/hooks';
 import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -59,6 +59,13 @@ interface ContactFormState {
   subject: string;
   message: string;
   isSubmitting: boolean;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  title?: string;
+  message?: string;
+  focusField?: 'subject' | 'message';
 }
 
 function useContactForm() {
@@ -105,28 +112,31 @@ function useContactForm() {
     [state.inquiryType, state.subject, state.message]
   );
 
-  const validate = useCallback(() => {
+  // Returns validation result - caller handles showing alert
+  const validate = useCallback((): ValidationResult => {
     if (!state.inquiryType) {
-      Alert.alert('Required', 'Please select an inquiry type');
-      return false;
+      return { isValid: false, title: 'Required', message: 'Please select an inquiry type' };
     }
     if (!state.subject.trim()) {
-      Alert.alert('Required', 'Please enter a subject');
-      subjectInputRef.current?.focus();
-      return false;
+      return { isValid: false, title: 'Required', message: 'Please enter a subject', focusField: 'subject' };
     }
     if (!state.message.trim()) {
-      Alert.alert('Required', 'Please enter a message');
-      messageInputRef.current?.focus();
-      return false;
+      return { isValid: false, title: 'Required', message: 'Please enter a message', focusField: 'message' };
     }
     if (state.message.trim().length < CONTACT_MESSAGE_MIN_LENGTH) {
-      Alert.alert('Too Short', 'Please provide more detail in your message');
-      messageInputRef.current?.focus();
-      return false;
+      return { isValid: false, title: 'Too Short', message: 'Please provide more detail in your message', focusField: 'message' };
     }
-    return true;
+    return { isValid: true };
   }, [state.inquiryType, state.subject, state.message]);
+
+  // Focus a field by name
+  const focusField = useCallback((field: 'subject' | 'message') => {
+    if (field === 'subject') {
+      subjectInputRef.current?.focus();
+    } else {
+      messageInputRef.current?.focus();
+    }
+  }, []);
 
   return {
     ...state,
@@ -137,6 +147,7 @@ function useContactForm() {
     resetForm,
     canSubmit,
     validate,
+    focusField,
     subjectInputRef,
     messageInputRef,
   };
@@ -155,6 +166,9 @@ export default function HelpAndSupportScreen() {
   // FAQ state
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
+  // Dialog state
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
   // Contact form hook
   const form = useContactForm();
 
@@ -171,16 +185,22 @@ export default function HelpAndSupportScreen() {
     (email: string = SUPPORT_EMAIL) => {
       const mailtoUrl = `mailto:${email}?subject=Support Request`;
       Linking.openURL(mailtoUrl).catch(() => {
-        Alert.alert('Cannot Open Email', `Please email us directly at ${email}`, [
-          { text: 'OK' },
-        ]);
+        showAlert('Cannot Open Email', `Please email us directly at ${email}`);
       });
     },
-    []
+    [showAlert]
   );
 
   const handleSubmit = useCallback(async () => {
-    if (!form.validate()) return;
+    // Validate and show alert if invalid
+    const validation = form.validate();
+    if (!validation.isValid) {
+      showAlert(validation.title || 'Error', validation.message || 'Please check the form');
+      if (validation.focusField) {
+        form.focusField(validation.focusField);
+      }
+      return;
+    }
     if (!form.inquiryType) return;
 
     form.setIsSubmitting(true);
@@ -208,11 +228,17 @@ export default function HelpAndSupportScreen() {
         throw new Error(data?.error || 'Failed to send email');
       }
 
-      Alert.alert(
-        'Message Sent',
-        "Thank you for your feedback! We'll get back to you as soon as possible.",
-        [{ text: 'OK', onPress: form.resetForm }]
-      );
+      showDialog({
+        title: 'Message Sent',
+        message: "Thank you for your feedback! We'll get back to you as soon as possible.",
+        confirmLabel: 'OK',
+        cancelLabel: '',
+        icon: 'check-circle-outline',
+        onConfirm: () => {
+          dismissDialog();
+          form.resetForm();
+        },
+      });
     } catch (err) {
       console.error('[HelpAndSupportScreen] Failed to send support email:', err);
 
@@ -225,26 +251,24 @@ export default function HelpAndSupportScreen() {
       const body = encodeURIComponent(`${form.message.trim()}${deviceInfo}`);
       const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
 
-      Alert.alert(
-        'Open Email App?',
-        "We couldn't send your message directly. Would you like to open your email app instead?",
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Open Email',
-            onPress: () => {
-              Linking.openURL(mailtoUrl).catch(() => {
-                Alert.alert('Error', `Please email us directly at ${targetEmail}`);
-              });
-              form.resetForm();
-            },
-          },
-        ]
-      );
+      showDialog({
+        title: 'Open Email App?',
+        message: "We couldn't send your message directly. Would you like to open your email app instead?",
+        confirmLabel: 'Open Email',
+        cancelLabel: 'Cancel',
+        icon: 'email-outline',
+        onConfirm: () => {
+          dismissDialog();
+          Linking.openURL(mailtoUrl).catch(() => {
+            showAlert('Error', `Please email us directly at ${targetEmail}`);
+          });
+          form.resetForm();
+        },
+      });
     } finally {
       form.setIsSubmitting(false);
     }
-  }, [form, player]);
+  }, [form, player, showDialog, showAlert, dismissDialog]);
 
   // Memoized styles for dynamic colors
   const dynamicStyles = useMemo(
@@ -445,6 +469,9 @@ export default function HelpAndSupportScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Confirmation/Alert Dialog */}
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
   );
 }

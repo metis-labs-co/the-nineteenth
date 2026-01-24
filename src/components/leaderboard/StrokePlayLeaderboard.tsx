@@ -55,6 +55,9 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
         <Text style={[styles.headerCell, styles.grossCol, { color: colors.textSecondary }]}>
           Gross
         </Text>
+        <Text style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+          CP
+        </Text>
       </View>
 
       {/* Table Rows */}
@@ -86,6 +89,7 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
             scoreLabel="net"
             secondaryScore={grossDisplay}
             secondaryLabel="gross"
+            showCompetitionPoints
           />
         );
       })}

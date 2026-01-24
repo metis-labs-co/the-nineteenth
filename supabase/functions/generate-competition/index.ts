@@ -145,8 +145,8 @@ async function searchCourses(
           results.push({
             id: course.id,
             name: course.name,
-            venue_id: club.id,
-            venue_name: club.name,
+            club_id: club.id,
+            club_name: club.name,
             state: club.state,
             city: club.city,
           });
@@ -183,8 +183,8 @@ async function searchCourses(
         results.push({
           id: course.id,
           name: course.name,
-          venue_id: course.club_id,
-          venue_name: course.clubs.name,
+          club_id: course.club_id,
+          club_name: course.clubs.name,
           state: course.clubs.state,
           city: course.clubs.city,
         });

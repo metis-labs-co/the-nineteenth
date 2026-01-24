@@ -6,6 +6,7 @@
  */
 
 import type { Hole, TeeBox, TeamFormat, Player as DBPlayer } from '@/types/database.types';
+import type { PlayerGender } from '@/types/database/player.types';
 import type { BallCount } from '@/types/multiball.types';
 
 // =====================================================
@@ -21,6 +22,7 @@ export interface SupabasePlayerData {
   email: string | null;
   phone: string | null;
   handicap: number | null;
+  gender?: PlayerGender | null; // For GA Daily Handicap consistency factor
   photo_url?: string | null;
 }
 
@@ -140,6 +142,7 @@ export const TEAMS_WITH_MEMBERS_SELECT = `
       email,
       phone,
       handicap,
+      gender,
       photo_url
     )
   )
@@ -155,7 +158,8 @@ export const COMPETITION_PLAYERS_SELECT = `
     name,
     email,
     phone,
-    handicap
+    handicap,
+    gender
   )
 `;
 
@@ -173,6 +177,7 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     email: data.email || '',
     phone: data.phone,
     handicap: data.handicap,
+    gender: data.gender ?? null, // For GA Daily Handicap consistency factor
     photo_url: data.photo_url ?? null,
     // Default values for required fields not fetched
     golf_id: null,

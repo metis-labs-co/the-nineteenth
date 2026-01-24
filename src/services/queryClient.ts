@@ -52,3 +52,14 @@ export function invalidateScorecardCache(roundId?: string): void {
   }
   console.log('[QueryClient] Scorecard cache invalidated');
 }
+
+/**
+ * Invalidate handicap history cache for a player
+ * Call this after a scorecard with a differential is synced
+ */
+export function invalidateHandicapCache(playerId: string): void {
+  queryClient.invalidateQueries({
+    queryKey: ['handicap', 'history', playerId],
+  });
+  console.log('[QueryClient] Handicap cache invalidated for player:', playerId);
+}

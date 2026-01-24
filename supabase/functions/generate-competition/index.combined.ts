@@ -79,8 +79,8 @@ interface TierLimitsInput {
 interface FavoriteCourseInput {
   id: string;
   name: string;
-  venue_id: string;
-  venue_name: string;
+  club_id: string;
+  club_name: string;
   state: string;
   city: string | null;
 }
@@ -103,8 +103,8 @@ interface GenerateCompetitionRequest {
 interface CourseSearchResult {
   id: string;
   name: string;
-  venue_id: string;
-  venue_name: string;
+  club_id: string;
+  club_name: string;
   state: string;
   city: string | null;
 }
@@ -279,8 +279,8 @@ const generatedCompetitionSchema = z.object({
 const favoriteCourseSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
-  venue_id: z.string().uuid(),
-  venue_name: z.string().min(1),
+  club_id: z.string().uuid(),
+  club_name: z.string().min(1),
   state: z.string().min(1),
   city: z.string().nullable(),
 });
@@ -479,7 +479,7 @@ function buildUserMessage(
       ? courses
           .map(
             (c) =>
-              `- ${c.venue_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
+              `- ${c.club_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
           )
           .join('\n')
       : 'No matching courses found in database.';
@@ -489,7 +489,7 @@ function buildUserMessage(
       ? favoriteCourses
           .map(
             (c) =>
-              `- ${c.venue_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
+              `- ${c.club_name} - ${c.name} (ID: ${c.id}, Location: ${c.city || 'Unknown'}, ${c.state})`
           )
           .join('\n')
       : 'No favorite courses saved.';
@@ -666,8 +666,8 @@ async function searchCourses(
           results.push({
             id: course.id,
             name: course.name,
-            venue_id: club.id,
-            venue_name: club.name,
+            club_id: club.id,
+            club_name: club.name,
             state: club.state,
             city: club.city,
           });
@@ -704,8 +704,8 @@ async function searchCourses(
         results.push({
           id: course.id,
           name: course.name,
-          venue_id: course.club_id,
-          venue_name: course.clubs.name,
+          club_id: course.club_id,
+          club_name: course.clubs.name,
           state: course.clubs.state,
           city: course.clubs.city,
         });

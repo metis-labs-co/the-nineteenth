@@ -21,11 +21,14 @@ import {
   clearAllPendingSyncs,
 } from './database';
 import { supabase } from '@/services/supabase/client';
-import { invalidateLeaderboardCache, invalidateScorecardCache } from '@/services/queryClient';
+import { invalidateLeaderboardCache, invalidateScorecardCache, invalidateHandicapCache } from '@/services/queryClient';
 import { saveScoreEntry } from '@/services/scoreMismatch';
 import type { Scorecard, PendingSync } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
+import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 
 const MAX_RETRY_COUNT = 3;
 
@@ -423,6 +426,69 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     return typeof date === 'string' ? date : null;
   };
 
+  // Calculate handicap differential if tee data is available
+  let dailyHandicapUsed: number | null = null;
+  let handicapDifferential: number | null = null;
+  let courseRatingUsed: number | null = null;
+  let slopeRatingUsed: number | null = null;
+
+  // Check if we have the metadata needed for handicap calculation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scorecardWithMeta = scorecard as any;
+  const teeData = scorecardWithMeta.teeData;
+  const playerGender = scorecardWithMeta.playerGender;
+  const playerHandicap = scorecardWithMeta.playerHandicap;
+  const coursePar = scorecardWithMeta.coursePar;
+
+  if (teeData && coursePar) {
+    // Get ratings based on player gender
+    const ratings = getRatingsForGender(teeData, playerGender);
+
+    if (ratings) {
+      courseRatingUsed = ratings.courseRating;
+      slopeRatingUsed = ratings.slopeRating;
+
+      // Calculate daily handicap if player has a GA handicap
+      if (playerHandicap != null) {
+        const dailyResult = calculateGADailyHandicap({
+          gaHandicap: playerHandicap,
+          slopeRating: ratings.slopeRating,
+          courseRating: ratings.courseRating,
+          par: coursePar,
+          gender: playerGender,
+        });
+        dailyHandicapUsed = dailyResult.dailyHandicap;
+      }
+
+      // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment)
+      const differential = calculateScoreDifferential({
+        adjustedGrossScore: scorecard.totalGross || 0,
+        courseRating: ratings.courseRating,
+        slopeRating: ratings.slopeRating,
+      });
+      handicapDifferential = differential;
+
+      syncLogger.debug('Calculated handicap data for scorecard', {
+        dailyHandicapUsed,
+        handicapDifferential,
+        courseRatingUsed,
+        slopeRatingUsed,
+        totalGross: scorecard.totalGross,
+        playerGender,
+      });
+    } else {
+      syncLogger.warn('Could not get ratings for handicap calculation - missing valid ratings', {
+        hasTeeData: !!teeData,
+        playerGender,
+      });
+    }
+  } else {
+    syncLogger.debug('Skipping handicap calculation - missing metadata', {
+      hasTeeData: !!teeData,
+      hasCoursePar: !!coursePar,
+    });
+  }
+
   // Prepare data for Supabase upsert
   // Don't send 'id' - let Supabase generate it or use the unique constraint (round_id, player_id)
   const scorecardData = {
@@ -436,6 +502,11 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     submitted_at: toISOString(scorecard.submittedAt),
     submitted_by: scorecard.submittedBy || null,
     synced_at: new Date().toISOString(),
+    // Handicap tracking fields
+    daily_handicap_used: dailyHandicapUsed,
+    handicap_differential: handicapDifferential,
+    course_rating_used: courseRatingUsed,
+    slope_rating_used: slopeRatingUsed,
   };
 
   syncLogger.debug('Upserting to Supabase', {
@@ -443,6 +514,7 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     playerId: scorecard.playerId.substring(0, 8) + '...',
     status: scorecardData.status,
     hasSubmittedAt: !!scorecardData.submitted_at,
+    hasHandicapDifferential: handicapDifferential !== null,
   });
 
   // Use type assertion due to Supabase types configuration
@@ -470,7 +542,21 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     roundId: scorecard.roundId.substring(0, 8) + '...',
     playerId: scorecard.playerId.substring(0, 8) + '...',
     holesScored: holesWithScores,
+    handicapDifferential: scorecardData.handicap_differential,
   });
+
+  // Update player's handicap index if we calculated a differential
+  if (scorecardData.handicap_differential !== null) {
+    invalidateHandicapCache(scorecard.playerId);
+
+    // Update player's handicap index in background (fire-and-forget)
+    updatePlayerHandicapIndex(scorecard.playerId).catch((error) => {
+      syncLogger.warn('Failed to update player handicap index', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        playerId: scorecard.playerId.substring(0, 8) + '...',
+      });
+    });
+  }
 
   // Also populate score_entries for mismatch detection (if scores have scoredBy attribution)
   // This ensures offline scores are available for mismatch detection after reconnect

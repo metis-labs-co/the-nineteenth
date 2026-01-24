@@ -52,9 +52,15 @@ export default function RoundsScreen() {
     deleteDialogVisible,
     roundToDelete,
     isDeleting,
+    dialogConfig: actionsDialogConfig,
+    dismissDialog: dismissActionsDialog,
   } = useRoundActions();
 
-  const { handleStartNewRound } = useStartNewRound(() => {
+  const {
+    handleStartNewRound,
+    dialogConfig: startRoundDialogConfig,
+    dismissDialog: dismissStartRoundDialog,
+  } = useStartNewRound(() => {
     setIsBottomSheetVisible(false);
   });
 
@@ -137,6 +143,12 @@ export default function RoundsScreen() {
         loading={isDeleting}
         icon="delete"
       />
+
+      {/* Round Actions Error Dialog */}
+      <ConfirmationDialog {...actionsDialogConfig} onCancel={dismissActionsDialog} />
+
+      {/* Start Round Error Dialog */}
+      <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
     </View>
   );
 }

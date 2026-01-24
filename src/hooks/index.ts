@@ -445,3 +445,10 @@ export type {
 export { useAutoSplitSkinsSync } from './useAutoSplitSkinsSync';
 export type { UseAutoSplitSkinsSyncReturn } from './useAutoSplitSkinsSync';
 
+// UI hooks
+export { useConfirmationDialog } from './useConfirmationDialog';
+export type { DialogConfig, UseConfirmationDialogReturn } from './useConfirmationDialog';
+
+// Handicap history hooks
+export { useHandicapHistory, handicapKeys } from './useHandicapHistory';
+
