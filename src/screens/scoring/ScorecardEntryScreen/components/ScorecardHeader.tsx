@@ -72,9 +72,11 @@ export function ScorecardHeader({
     if (!courseName) return undefined;
 
     if (selectedTee?.name) {
-      const teeInfo = selectedTee.color
-        ? `${selectedTee.name} (${selectedTee.color})`
-        : selectedTee.name;
+      // Avoid redundancy when name and color are identical (e.g., "Yellow (Yellow)")
+      const teeInfo =
+        selectedTee.color && selectedTee.color.toLowerCase() !== selectedTee.name.toLowerCase()
+          ? `${selectedTee.name} (${selectedTee.color})`
+          : selectedTee.name;
       return `${courseName} - ${teeInfo}`;
     }
 

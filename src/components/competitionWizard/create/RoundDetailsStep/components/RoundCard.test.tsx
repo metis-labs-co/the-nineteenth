@@ -398,12 +398,12 @@ describe('RoundCard', () => {
       expect(matchTypeInput.props.value).toBe('Match Play');
     });
 
-    it('displays Ambrose when selected', () => {
-      const round = createMockRound({ matchType: 'ambrose' });
+    it('displays Scramble when selected', () => {
+      const round = createMockRound({ matchType: 'scramble' });
       const { UNSAFE_root } = render(<RoundCard {...defaultProps} round={round} />);
       const textInputs = UNSAFE_root.findAllByType(require('react-native-paper').TextInput);
       const matchTypeInput = textInputs[1];
-      expect(matchTypeInput.props.value).toBe('Ambrose');
+      expect(matchTypeInput.props.value).toBe('Scramble');
     });
 
     it('displays Best Ball when selected', () => {

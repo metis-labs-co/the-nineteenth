@@ -29,7 +29,7 @@ const meta: Meta<typeof RoundCard> = {
     },
     gameType: {
       control: { type: 'select' },
-      options: ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'],
+      options: ['stableford', 'stroke', 'match-play', 'best-ball', 'scramble', 'shamble'],
     },
     hasStartedScoring: { control: 'boolean' },
   },
@@ -209,18 +209,18 @@ export const GameTypeMatchPlay: Story = {
 };
 
 /**
- * Ambrose format
+ * Scramble format
  */
-export const GameTypeAmbrose: Story = {
+export const GameTypeScramble: Story = {
   render: () => (
     <CardWrapper>
       <RoundCard
-        roundId="round-ambrose"
+        roundId="round-scramble"
         roundNumber={1}
         courseName="Metropolitan GC"
         date="2025-01-15"
         teeTime="09:00:00"
-        gameType="ambrose"
+        gameType="scramble"
         status="upcoming"
         onStartRound={(id) => console.log('Start:', id)}
       />
@@ -509,7 +509,7 @@ export const MultipleRounds: Story = {
         roundNumber={4}
         courseName="Metropolitan GC"
         date={null}
-        gameType="ambrose"
+        gameType="scramble"
         status="upcoming"
       />
     </CardWrapper>
@@ -672,7 +672,7 @@ export const UseCaseCorporateEvent: Story = {
         courseName="Commonwealth Golf Club"
         date="2025-03-15"
         teeTime="08:00:00"
-        gameType="ambrose"
+        gameType="scramble"
         status="upcoming"
         onStartRound={(id) => console.log('Start team round:', id)}
         onPress={() => console.log('View event details')}
@@ -748,7 +748,7 @@ export const AllGameTypesComparison: Story = {
   name: 'All Game Types Comparison',
   render: () => (
     <CardWrapper>
-      {(['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'] as const).map(
+      {(['stableford', 'stroke', 'match-play', 'best-ball', 'scramble', 'shamble'] as const).map(
         (gameType, index) => (
           <RoundCard
             key={gameType}

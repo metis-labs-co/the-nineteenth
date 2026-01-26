@@ -514,11 +514,11 @@ describe('RoundListCard', () => {
       expect(screen.getByText('Match Play')).toBeTruthy();
     });
 
-    it('displays Ambrose game type', () => {
-      const round = createRoundData({ gameType: 'ambrose' });
+    it('displays Scramble game type', () => {
+      const round = createRoundData({ gameType: 'scramble' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByText('Ambrose')).toBeTruthy();
+      expect(screen.getByText('Scramble')).toBeTruthy();
     });
 
     it('displays Best Ball game type', () => {

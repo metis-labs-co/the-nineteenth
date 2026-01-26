@@ -919,7 +919,7 @@ describe('ReviewStep', () => {
         { courseId: '1', courseName: 'Course 1', date: '15/01/2025', matchType: 'stableford', scoringPairsRequired: false },
         { courseId: '2', courseName: 'Course 2', date: '16/01/2025', matchType: 'stroke', scoringPairsRequired: false },
         { courseId: '3', courseName: 'Course 3', date: '17/01/2025', matchType: 'match-play', scoringPairsRequired: false },
-        { courseId: '4', courseName: 'Course 4', date: '18/01/2025', matchType: 'ambrose', scoringPairsRequired: false },
+        { courseId: '4', courseName: 'Course 4', date: '18/01/2025', matchType: 'shamble', scoringPairsRequired: false },
         { courseId: '5', courseName: 'Course 5', date: '19/01/2025', matchType: 'best-ball', scoringPairsRequired: false },
         { courseId: '6', courseName: 'Course 6', date: '20/01/2025', matchType: 'scramble', scoringPairsRequired: false },
       ];
@@ -934,7 +934,7 @@ describe('ReviewStep', () => {
       expect(screen.getByText('Stableford')).toBeTruthy();
       expect(screen.getByText('Stroke Play')).toBeTruthy();
       expect(screen.getByText('Match Play')).toBeTruthy();
-      expect(screen.getByText('Ambrose')).toBeTruthy();
+      expect(screen.getByText('Shamble')).toBeTruthy();
       expect(screen.getByText('Best Ball')).toBeTruthy();
       expect(screen.getByText('Scramble')).toBeTruthy();
     });

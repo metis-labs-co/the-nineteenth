@@ -25,22 +25,35 @@ import {
   calculateBuyIn,
   prepareHoleScores,
   validateHoleScores,
+  // Team skins functions
+  prepareTeamHoleScores,
+  processTeamHoleResult,
+  calculateTeamFinalPayouts,
 } from '@/utils/skinsCalculations';
+import type { SkinsTeamInfo, TeamPayoutParticipant } from '@/utils/skinsCalculations';
 import { prizePoolKeys } from '@/hooks/queryKeys';
 import type {
   SkinsGame,
   SkinsGameWithParticipants,
+  SkinsGameWithTeamParticipants,
   SkinsResult,
   SkinsResultWithWinner,
+  SkinsResultWithTeamWinner,
   SkinsPayout,
   SkinsPayoutWithPlayer,
+  SkinsPayoutWithTeam,
   SkinsGameSummary,
   CreateSkinsGameInput,
   SkinsHoleScores,
+  SkinsTeamHoleScores,
   SkinsParticipant,
+  SkinsTeamParticipant,
   SkinsWinner,
+  SkinsTeamWinner,
   SkinsPayoutPlayer,
+  SkinsPayoutTeam,
 } from '@/types/database/skins.types';
+import type { TeamFormat } from '@/types/database/enums';
 
 // =====================================================
 // TYPES
@@ -54,12 +67,22 @@ export interface SkinsServiceError extends Error {
 }
 
 /**
- * Input for processing a skins hole
+ * Input for processing a skins hole (individual)
  */
 export interface ProcessSkinsHoleInput {
   skinsGameId: string;
   holeNumber: number;
   holeScores: SkinsHoleScores;
+}
+
+/**
+ * Input for processing a team skins hole
+ */
+export interface ProcessTeamSkinsHoleInput {
+  skinsGameId: string;
+  holeNumber: number;
+  teamScores: SkinsTeamHoleScores;
+  teamFormat: TeamFormat;
 }
 
 // =====================================================
@@ -727,6 +750,149 @@ export function useProcessSkinsHole() {
 }
 
 /**
+ * Mutation hook to process a team skins hole result
+ *
+ * Calculates winning team/carryover and stores the result.
+ * Used for team formats: best-ball, scramble, shamble.
+ *
+ * @returns Mutation result with process function
+ *
+ * @example
+ * ```tsx
+ * function ProcessTeamHoleButton({ gameId, holeNumber, teamScores, teamFormat }: Props) {
+ *   const { mutate: processHole, isPending } = useProcessTeamSkinsHole();
+ *
+ *   return (
+ *     <Button
+ *       onPress={() => processHole({ skinsGameId: gameId, holeNumber, teamScores, teamFormat })}
+ *       loading={isPending}
+ *     >
+ *       Process Team Skins
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
+export function useProcessTeamSkinsHole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: ProcessTeamSkinsHoleInput): Promise<SkinsResult> => {
+      const { skinsGameId, holeNumber, teamScores, teamFormat } = input;
+
+      // Fetch game to get scoring type and pot config
+      const { data: game, error: gameError } = await supabase
+        .from('skins_games')
+        .select('*')
+        .eq('id', skinsGameId)
+        .single();
+
+      if (gameError || !game) {
+        throw createError('Skins game not found', 'NOT_FOUND');
+      }
+
+      if (!game.is_team_skins) {
+        throw createError('This is not a team skins game', 'VALIDATION');
+      }
+
+      // Fetch existing results to calculate carryover
+      const { data: existingResults } = await supabase
+        .from('skins_results')
+        .select('*')
+        .eq('skins_game_id', skinsGameId)
+        .order('hole_number', { ascending: true });
+
+      const currentCarryover = calculateCurrentCarryover(existingResults ?? []);
+      const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
+
+      // Process the team hole result using client-side calculation
+      const resultData = processTeamHoleResult(
+        holeNumber,
+        teamScores,
+        baseHoleValue,
+        currentCarryover,
+        teamFormat,
+        game.scoring_type
+      );
+
+      // Check if result already exists for this hole
+      const { data: existingHole } = await supabase
+        .from('skins_results')
+        .select('id')
+        .eq('skins_game_id', skinsGameId)
+        .eq('hole_number', holeNumber)
+        .single();
+
+      let result: SkinsResult;
+
+      if (existingHole) {
+        // Update existing result
+        const { data, error } = await supabase
+          .from('skins_results')
+          .update({
+            team_winner_id: resultData.team_winner_id,
+            winner_id: null, // Clear individual winner for team skins
+            is_carryover: resultData.is_carryover,
+            hole_scores: resultData.hole_scores,
+            hole_pot_value: resultData.hole_pot_value,
+            carryover_to_next: resultData.carryover_to_next,
+            payout_amount: resultData.payout_amount,
+            calculated_at: new Date().toISOString(),
+          })
+          .eq('id', existingHole.id)
+          .select()
+          .single();
+
+        if (error) {
+          throw createError(`Failed to update team skins result: ${error.message}`, 'DATABASE');
+        }
+
+        result = data as SkinsResult;
+      } else {
+        // Insert new result
+        const { data, error } = await supabase
+          .from('skins_results')
+          .insert({
+            skins_game_id: skinsGameId,
+            hole_number: holeNumber,
+            team_winner_id: resultData.team_winner_id,
+            winner_id: null, // Team skins don't have individual winners
+            is_carryover: resultData.is_carryover,
+            hole_scores: resultData.hole_scores,
+            hole_pot_value: resultData.hole_pot_value,
+            carryover_to_next: resultData.carryover_to_next,
+            payout_amount: resultData.payout_amount,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          throw createError(`Failed to insert team skins result: ${error.message}`, 'DATABASE');
+        }
+
+        result = data as SkinsResult;
+      }
+
+      return result;
+    },
+
+    onSuccess: (data) => {
+      // Invalidate results and summary for this game
+      queryClient.invalidateQueries({
+        queryKey: skinsKeys.results(data.skins_game_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: skinsKeys.summary(data.skins_game_id),
+      });
+    },
+
+    onError: (error) => {
+      console.error('[useProcessTeamSkinsHole] Failed to process team hole:', error);
+    },
+  });
+}
+
+/**
  * Mutation hook to finalize a skins game
  *
  * Calculates final payouts, handles hole 18 carryover appropriately based on pool source:
@@ -1117,9 +1283,12 @@ export interface ProcessSkinsResult {
  *
  * This hook encapsulates the logic for:
  * 1. Checking if a skins game exists for the round
- * 2. Validating all participants have scores for the hole
- * 3. Processing the hole result (winner or carryover)
- * 4. Handling errors gracefully (non-blocking)
+ * 2. Detecting individual vs team skins and routing appropriately
+ * 3. Validating all participants/teams have scores for the hole
+ * 4. Processing the hole result (winner or carryover)
+ * 5. Handling errors gracefully (non-blocking)
+ *
+ * Supports both individual skins and team skins (best-ball, scramble, shamble).
  *
  * @returns Object with process function and loading state
  *
@@ -1133,6 +1302,7 @@ export interface ProcessSkinsResult {
  *     await setPlayerScore(playerId, hole, strokes);
  *
  *     // Process skins if applicable (non-blocking)
+ *     // Works for both individual and team skins
  *     const result = await processSkinsHole({
  *       roundId,
  *       holeNumber: hole,
@@ -1149,6 +1319,7 @@ export interface ProcessSkinsResult {
  */
 export function useProcessSkinsIfNeeded() {
   const processSkinsHoleMutation = useProcessSkinsHole();
+  const processTeamSkinsHoleMutation = useProcessTeamSkinsHole();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const processSkinsHole = useCallback(
@@ -1173,7 +1344,21 @@ export function useProcessSkinsIfNeeded() {
           return { processed: false };
         }
 
-        // 2. Fetch participant details for handicap calculations
+        // 2. Check if this is a team skins game
+        if (skinsGame.is_team_skins && skinsGame.participant_team_ids?.length) {
+          // TEAM SKINS PROCESSING
+          return await processTeamSkins(
+            skinsGame,
+            roundId,
+            holeNumber,
+            scorecards,
+            hole,
+            processTeamSkinsHoleMutation
+          );
+        }
+
+        // INDIVIDUAL SKINS PROCESSING
+        // 3. Fetch participant details for handicap calculations
         const { data: players } = await supabase
           .from('players')
           .select('id, name, handicap')
@@ -1184,14 +1369,14 @@ export function useProcessSkinsIfNeeded() {
           return { processed: false, error: 'No participants found' };
         }
 
-        // 3. Prepare participant info for score calculation
+        // 4. Prepare participant info for score calculation
         const participants = players.map((p) => ({
           id: p.id,
           name: p.name,
           handicap: p.handicap,
         }));
 
-        // 4. Check if all participants have scores for this hole
+        // 5. Check if all participants have scores for this hole
         const holeScores = prepareHoleScores(
           participants.map((p) => ({ id: p.id, handicap: p.handicap })),
           scorecards,
@@ -1213,14 +1398,14 @@ export function useProcessSkinsIfNeeded() {
           return { processed: false };
         }
 
-        // 5. Process the skins hole
+        // 6. Process the skins hole
         const result = await processSkinsHoleMutation.mutateAsync({
           skinsGameId: skinsGame.id,
           holeNumber,
           holeScores,
         });
 
-        // 6. Return result with human-readable info
+        // 7. Return result with human-readable info
         if (result.is_carryover) {
           return {
             processed: true,
@@ -1249,13 +1434,121 @@ export function useProcessSkinsIfNeeded() {
         setIsProcessing(false);
       }
     },
-    [processSkinsHoleMutation]
+    [processSkinsHoleMutation, processTeamSkinsHoleMutation]
   );
 
   return {
     processSkinsHole,
     isProcessing,
   };
+}
+
+/**
+ * Internal helper to process team skins
+ */
+async function processTeamSkins(
+  skinsGame: SkinsGame,
+  roundId: string,
+  holeNumber: number,
+  scorecards: Record<string, { [holeNumber: string]: { strokes: number } | number }>,
+  hole: { par: number; strokeIndex: number },
+  processTeamSkinsHoleMutation: ReturnType<typeof useProcessTeamSkinsHole>
+): Promise<ProcessSkinsResult> {
+  // 1. Fetch round to get team format
+  const { data: round, error: roundError } = await supabase
+    .from('rounds')
+    .select('team_format')
+    .eq('id', roundId)
+    .single();
+
+  if (roundError || !round?.team_format) {
+    console.warn('[processTeamSkins] Could not get team format:', roundError);
+    return { processed: false, error: 'Could not determine team format' };
+  }
+
+  const teamFormat = round.team_format as TeamFormat;
+
+  // 2. Fetch teams with their members
+  const { data: teams, error: teamsError } = await supabase
+    .from('teams')
+    .select(`
+      id,
+      name,
+      team_members (
+        player_id,
+        players (
+          id,
+          name,
+          handicap
+        )
+      )
+    `)
+    .in('id', skinsGame.participant_team_ids ?? []);
+
+  if (teamsError || !teams || teams.length === 0) {
+    console.warn('[processTeamSkins] Could not fetch teams:', teamsError);
+    return { processed: false, error: 'Could not fetch teams' };
+  }
+
+  // 3. Transform teams into SkinsTeamInfo format
+  const teamsInfo: SkinsTeamInfo[] = teams.map((team) => {
+    const members = (team.team_members ?? []).map((tm: { player_id: string; players: { id: string; name: string; handicap: number | null } | null }) => ({
+      id: tm.player_id,
+      handicap: tm.players?.handicap ?? null,
+    }));
+
+    return {
+      id: team.id,
+      member_ids: members.map((m: { id: string }) => m.id),
+      members,
+    };
+  });
+
+  // 4. Prepare team hole scores
+  const teamHoleScores = prepareTeamHoleScores(
+    teamsInfo,
+    scorecards,
+    hole,
+    holeNumber,
+    teamFormat
+  );
+
+  // 5. Check if all teams have scores (at least one member per team)
+  const teamsWithScores = Object.keys(teamHoleScores);
+  if (teamsWithScores.length < (skinsGame.participant_team_ids?.length ?? 0)) {
+    console.log(
+      `[processTeamSkins] Hole ${holeNumber} not complete. ` +
+      `Teams with scores: ${teamsWithScores.length}/${skinsGame.participant_team_ids?.length ?? 0}`
+    );
+    return { processed: false };
+  }
+
+  // 6. Process the team skins hole
+  const result = await processTeamSkinsHoleMutation.mutateAsync({
+    skinsGameId: skinsGame.id,
+    holeNumber,
+    teamScores: teamHoleScores,
+    teamFormat,
+  });
+
+  // 7. Return result with human-readable info
+  if (result.is_carryover) {
+    return {
+      processed: true,
+      hasWinner: false,
+      carryoverAmount: result.carryover_to_next,
+    };
+  } else if (result.team_winner_id) {
+    const winningTeam = teams.find((t) => t.id === result.team_winner_id);
+    return {
+      processed: true,
+      hasWinner: true,
+      winnerName: winningTeam?.name ?? 'Unknown Team',
+      winningsAmount: result.payout_amount,
+    };
+  }
+
+  return { processed: true };
 }
 
 /**

@@ -36,6 +36,11 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_scored_by_column',
     up: `ALTER TABLE hole_scores ADD COLUMN scored_by TEXT`,
   },
+  {
+    version: 4,
+    name: 'add_shot_contributions_column',
+    up: `ALTER TABLE hole_scores ADD COLUMN shot_contributions TEXT`,
+  },
 ];
 
 /**

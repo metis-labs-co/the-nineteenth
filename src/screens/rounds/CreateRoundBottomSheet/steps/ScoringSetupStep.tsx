@@ -22,10 +22,11 @@ import {
   IconLock,
   IconArrowsExchange,
   IconDice,
+  IconUsers,
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { ScoringPairFormationInline } from '@/components/scoring';
+import { ScoringPairFormationInline, TeamFormationInline } from '@/components/scoring';
 import {
   SkinsConfigBottomSheet,
   SkinsDisclaimerModal,
@@ -33,11 +34,31 @@ import {
 } from '@/components/skins';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
-import type { SelectedCourse, PlayingPartner } from '../types';
+import type { SelectedCourse, PlayingPartner, ScrambleTeam } from '../types';
 import { MATCH_TYPES } from '../types';
 
 /** Amber/gold color for skins feature */
 const SKINS_AMBER = '#f59e0b';
+
+/** Team game types that require splitIntoTeams for skins */
+const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
+
+/**
+ * Check if skins can be enabled for the given game configuration
+ * Team formats require splitIntoTeams=true to use skins
+ */
+function canEnableSkinsForGameType(
+  gameType: GameType,
+  splitIntoTeams: boolean
+): { canEnable: boolean; reason: string | null } {
+  if (TEAM_GAME_TYPES.includes(gameType) && !splitIntoTeams) {
+    return {
+      canEnable: false,
+      reason: 'Skins requires team mode for team formats. Enable "Split into Teams" above to use skins.',
+    };
+  }
+  return { canEnable: true, reason: null };
+}
 
 interface ScoringSetupStepProps {
   selectedCourse: SelectedCourse | null;
@@ -50,6 +71,12 @@ interface ScoringSetupStepProps {
   scoringPairs: ScoringPairCreateInput[];
   onScoringPairsEnabledChange: (enabled: boolean) => void;
   onScoringPairsChange: (pairs: ScoringPairCreateInput[], type: 'reciprocal' | 'circular') => void;
+  // Teams (scramble format)
+  teams: ScrambleTeam[];
+  teamsLocked: boolean;
+  splitIntoTeams: boolean;
+  onShuffleTeams: () => void;
+  onSplitIntoTeamsChange: (enabled: boolean) => void;
   // Skins game
   skinsEnabled: boolean;
   skinsConfig: SkinsConfig | null;
@@ -69,6 +96,11 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   scoringPairs,
   onScoringPairsEnabledChange,
   onScoringPairsChange,
+  teams,
+  teamsLocked,
+  splitIntoTeams,
+  onShuffleTeams,
+  onSplitIntoTeamsChange,
   skinsEnabled,
   skinsConfig,
   onSkinsEnabledChange,
@@ -82,7 +114,14 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   const [showSkinsDisclaimer, setShowSkinsDisclaimer] = useState(false);
 
   // Skins is only available for 2+ players (current user + at least 1 partner)
-  const canUseSkins = selectedPartners.length >= 1;
+  const hasEnoughPlayers = selectedPartners.length >= 1;
+
+  // Check if skins is allowed for this game type
+  const skinsGameTypeValidation = canEnableSkinsForGameType(selectedMatchType, splitIntoTeams);
+  const canUseSkins = hasEnoughPlayers && skinsGameTypeValidation.canEnable;
+  const skinsDisabledReason = !hasEnoughPlayers
+    ? 'Skins requires at least 2 players'
+    : skinsGameTypeValidation.reason;
 
   /**
    * Handle skins toggle press
@@ -289,14 +328,123 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
           </View>
         )}
 
-        {/* Skins Game Section - Only show for 2+ players */}
-        {canUseSkins && (
+        {/* Teams Section - Best Ball: auto-show teams with 2+ players, Scramble/Shamble: show toggle for 4+ players */}
+        {/* Best Ball: Always show teams (no toggle) when there are partners */}
+        {selectedMatchType === 'best-ball' && selectedPartners.length >= 1 && teams.length > 0 && (
+          <>
+            {/* Divider */}
+            <View style={[styles.teamsDivider, { backgroundColor: colors.border }]} />
+
+            {/* Team Formation Display (auto-enabled for Best Ball) */}
+            <View style={styles.teamsFormation}>
+              <TeamFormationInline
+                teams={teams}
+                onShuffle={onShuffleTeams}
+                locked={teamsLocked}
+              />
+            </View>
+          </>
+        )}
+
+        {/* Scramble/Shamble/Match Play: Show toggle for 3+ total players (2+ partners) */}
+        {(selectedMatchType === 'scramble' || selectedMatchType === 'shamble' || selectedMatchType === 'match-play') && selectedPartners.length >= 2 && (
+          <>
+            {/* Divider */}
+            <View style={[styles.teamsDivider, { backgroundColor: colors.border }]} />
+
+            {/* Split into Teams Toggle */}
+            <TouchableOpacity
+              style={[
+                styles.teamsToggle,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: splitIntoTeams ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => onSplitIntoTeamsChange(!splitIntoTeams)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.teamsToggleContent}>
+                <View
+                  style={[
+                    styles.teamsIconContainer,
+                    { backgroundColor: splitIntoTeams ? colors.primaryLighter : colors.gray100 },
+                  ]}
+                >
+                  <IconUsers
+                    size={20}
+                    color={splitIntoTeams ? colors.primary : colors.gray400}
+                  />
+                </View>
+                <View style={styles.teamsToggleText}>
+                  <Text style={[styles.teamsToggleLabel, { color: colors.textPrimary }]}>
+                    Split into Teams
+                  </Text>
+                  <Text style={[styles.teamsToggleDescription, { color: colors.textSecondary }]}>
+                    {splitIntoTeams
+                      ? 'Players divided into 2-player teams'
+                      : selectedMatchType === 'match-play'
+                        ? 'Individual match play (no teams)'
+                        : 'All players as one team (default)'}
+                  </Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    backgroundColor: splitIntoTeams ? colors.primary : colors.surface,
+                    borderColor: splitIntoTeams ? colors.primary : colors.gray300,
+                  },
+                ]}
+              >
+                {splitIntoTeams && <IconCheck size={14} color={colors.white} />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Team Formation Display (when split is enabled) */}
+            {splitIntoTeams && teams.length > 0 && (
+              <View style={styles.teamsFormation}>
+                <TeamFormationInline
+                  teams={teams}
+                  onShuffle={onShuffleTeams}
+                  locked={teamsLocked}
+                />
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Skins Game Section - Show for 2+ players or show disabled state for team formats */}
+        {(hasEnoughPlayers) && (
           <>
             {/* Divider */}
             <View style={[styles.skinsDivider, { backgroundColor: colors.border }]} />
 
-            {/* Skins Toggle */}
-            {isPremium ? (
+            {/* Skins Toggle - Disabled for team formats without team mode */}
+            {!canUseSkins && skinsDisabledReason && isPremium ? (
+              <View
+                style={[
+                  styles.skinsToggle,
+                  styles.skinsToggleLocked,
+                  { backgroundColor: colors.gray100, borderColor: colors.gray200 },
+                ]}
+              >
+                <View style={styles.skinsToggleContent}>
+                  <View style={[styles.skinsIconContainer, { backgroundColor: colors.gray200 }]}>
+                    <IconDice size={20} color={colors.gray400} />
+                  </View>
+                  <View style={styles.skinsToggleText}>
+                    <Text style={[styles.skinsToggleLabel, { color: colors.textSecondary }]}>
+                      Add Skins Game
+                    </Text>
+                    <Text style={[styles.skinsToggleDescription, { color: colors.textTertiary }]}>
+                      {skinsDisabledReason}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : isPremium ? (
               <TouchableOpacity
                 style={[
                   styles.skinsToggle,
@@ -563,6 +711,63 @@ const styles = StyleSheet.create({
   infoText: {
     ...typography.small,
     flex: 1,
+  },
+  // Teams styles
+  teamsDivider: {
+    height: 1,
+    marginVertical: spacing.lg,
+  },
+  teamsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  teamsToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  teamsIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  teamsToggleText: {
+    flex: 1,
+  },
+  teamsToggleLabel: {
+    ...typography.bodyBold,
+  },
+  teamsToggleDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  teamsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  teamsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  teamsHeaderTitle: {
+    ...typography.bodyBold,
+  },
+  teamsHeaderSubtitle: {
+    ...typography.caption,
+  },
+  teamsFormation: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
   buttonContainer: {
     padding: spacing.lg,

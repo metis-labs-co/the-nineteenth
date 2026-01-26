@@ -71,7 +71,7 @@ const TIER_BENEFITS: Record<SubscriptionTier, string[]> = {
   ],
   premium: [
     'Match Play game type',
-    'Team formats (Ambrose, Best Ball)',
+    'Team formats (Shamble, Scramble, Best Ball)',
     'Unlimited competitions',
     'Designated scoring pairs',
   ],

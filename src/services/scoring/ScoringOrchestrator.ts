@@ -125,10 +125,14 @@ export class ScoringOrchestrator {
     switch (format) {
       case 'best-ball':
         return engine.calculateBestBall(teamScores, courseData, config);
-      case 'ambrose':
+      case 'scramble':
+        // Scramble uses same logic as Ambrose (team plays one ball)
         return engine.calculateAmbrose(teamScores, courseData, config);
       case 'aggregate':
         return engine.calculateAggregate(teamScores, courseData, config);
+      case 'shamble':
+        // Shamble uses aggregate with Stableford scoring mode (sum of all Stableford points)
+        return engine.calculateAggregate(teamScores, courseData, config, 'stableford');
       default:
         return engine.calculateBestBall(teamScores, courseData, config);
     }
@@ -160,7 +164,8 @@ export class ScoringOrchestrator {
     }));
 
     // Sort based on format
-    const higherIsBetter = format === 'best-ball';
+    // Shamble and Best Ball use Stableford points (higher is better)
+    const higherIsBetter = format === 'best-ball' || format === 'shamble';
     entries.sort((a, b) =>
       higherIsBetter ? b.rawScore - a.rawScore : a.rawScore - b.rawScore
     );
@@ -220,8 +225,10 @@ export class ScoringOrchestrator {
         return new MatchPlayEngine();
       case 'best-ball':
         return new TeamScoringEngine('best-ball');
-      case 'ambrose':
-        return new TeamScoringEngine('ambrose');
+      case 'scramble':
+        return new TeamScoringEngine('scramble');
+      case 'shamble':
+        return new TeamScoringEngine('shamble');
       default:
         // Default to Stableford
         return new StablefordEngine();

@@ -73,7 +73,7 @@ function extractCourseKeywords(prompt: string): string[] {
     'best',
     'ball',
     'scramble',
-    'ambrose',
+    'shamble',
   ]);
 
   // Look for capitalized words (likely proper nouns/place names)

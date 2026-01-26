@@ -8,11 +8,12 @@
  * - Scoring pairs configuration
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
+import { useAuth } from '@/hooks/useAuth';
 import { useIsSocial } from '@/store/subscriptionStore';
 import type { BallCount } from '@/types/multiball.types';
 import type {
@@ -23,8 +24,16 @@ import type {
   ScoringPairsConfig,
   StandaloneSkinsConfig,
   InitialCourse,
+  ScrambleTeam,
+  TeamConfig,
 } from '../types';
 import { MAX_PARTNERS } from '../types';
+
+/** Team game types that require splitIntoTeams for skins */
+const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
+
+/** Game types that support optional team splitting (user can choose) */
+const OPTIONAL_TEAM_FORMATS: GameType[] = ['scramble', 'shamble', 'match-play'];
 
 interface UseCreateRoundWizardOptions {
   visible: boolean;
@@ -37,7 +46,8 @@ interface UseCreateRoundWizardOptions {
     gameType?: GameType,
     scoringPairs?: ScoringPairsConfig,
     ballCount?: BallCount,
-    skinsConfig?: StandaloneSkinsConfig
+    skinsConfig?: StandaloneSkinsConfig,
+    teamConfig?: TeamConfig
   ) => void;
   onClose: () => void;
 }
@@ -73,6 +83,10 @@ interface UseCreateRoundWizardReturn {
   setSkinsEnabled: (enabled: boolean) => void;
   handleSkinsConfigChange: (config: SkinsConfig) => void;
 
+  // Teams (scramble format)
+  shuffleTeams: () => void;
+  setSplitIntoTeams: (enabled: boolean) => void;
+
   // Ball count (solo rounds only)
   handleSelectBallCount: (ballCount: BallCount) => void;
   handleStartSoloRound: () => void;
@@ -102,6 +116,9 @@ const initialData: WizardData = {
   ballCount: 1,
   skinsEnabled: false,
   skinsConfig: null,
+  teams: [],
+  teamsLocked: false,
+  splitIntoTeams: false,
 };
 
 export function useCreateRoundWizard({
@@ -118,6 +135,28 @@ export function useCreateRoundWizard({
 
   // Fetch home club for pre-fill
   const { data: homeClub } = useHomeClub();
+
+  // Get current user for team generation
+  const { user, player } = useAuth();
+
+  // Build current user as PlayingPartner for team generation
+  const currentUserAsPartner = useMemo((): PlayingPartner | null => {
+    if (player) {
+      return {
+        id: player.id,
+        name: player.name || user?.email?.split('@')[0] || 'You',
+        handicap: player.handicap ?? undefined,
+      };
+    }
+    if (user) {
+      return {
+        id: user.id,
+        name: user.email?.split('@')[0] || 'You',
+        handicap: undefined,
+      };
+    }
+    return null;
+  }, [player, user]);
 
   // Handle initial course when sheet opens (priority: initialCourse > homeClub single course)
   useEffect(() => {
@@ -342,6 +381,137 @@ export function useCreateRoundWizard({
     }));
   }, []);
 
+  // Team generation for scramble format
+  const generateTeams = useCallback(
+    (players: PlayingPartner[]): ScrambleTeam[] => {
+      if (!currentUserAsPartner) return [];
+
+      const allPlayers = [currentUserAsPartner, ...players];
+      const teams: ScrambleTeam[] = [];
+
+      for (let i = 0; i < allPlayers.length; i += 2) {
+        const members = [allPlayers[i]];
+        if (i + 1 < allPlayers.length) {
+          members.push(allPlayers[i + 1]);
+        } else if (teams.length > 0) {
+          // Odd player: add to last team as 3rd member
+          teams[teams.length - 1].members.push(allPlayers[i]);
+          continue;
+        }
+        teams.push({
+          id: `team-${teams.length + 1}`,
+          name: `Team ${teams.length + 1}`,
+          members,
+        });
+      }
+      return teams;
+    },
+    [currentUserAsPartner]
+  );
+
+  // Fisher-Yates shuffle for team randomization
+  const shuffleTeams = useCallback(() => {
+    if (data.teamsLocked || !currentUserAsPartner) return;
+
+    const allPlayers = [currentUserAsPartner, ...data.selectedPartners];
+
+    // Fisher-Yates shuffle
+    const shuffled = [...allPlayers];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Re-generate teams from shuffled players
+    const teams: ScrambleTeam[] = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+      const members = [shuffled[i]];
+      if (i + 1 < shuffled.length) {
+        members.push(shuffled[i + 1]);
+      } else if (teams.length > 0) {
+        // Odd player: add to last team as 3rd member
+        teams[teams.length - 1].members.push(shuffled[i]);
+        continue;
+      }
+      teams.push({
+        id: `team-${teams.length + 1}`,
+        name: `Team ${teams.length + 1}`,
+        members,
+      });
+    }
+
+    setData((prev) => ({ ...prev, teams }));
+  }, [data.teamsLocked, data.selectedPartners, currentUserAsPartner]);
+
+  // Handler for split into teams toggle
+  const setSplitIntoTeams = useCallback(
+    (enabled: boolean) => {
+      if (enabled && currentUserAsPartner) {
+        // Generate teams when toggle is turned on
+        const teams = generateTeams(data.selectedPartners);
+        setData((prev) => ({ ...prev, splitIntoTeams: true, teams }));
+      } else {
+        // Clear teams when toggle is turned off
+        // Also disable skins if this is a team game type (skins requires teams for team formats)
+        const isTeamFormat = data.selectedMatchType && TEAM_GAME_TYPES.includes(data.selectedMatchType);
+        setData((prev) => ({
+          ...prev,
+          splitIntoTeams: false,
+          teams: [],
+          // Auto-disable skins for team formats when teams are disabled
+          skinsEnabled: isTeamFormat ? false : prev.skinsEnabled,
+          skinsConfig: isTeamFormat ? null : prev.skinsConfig,
+        }));
+      }
+    },
+    [currentUserAsPartner, data.selectedPartners, data.selectedMatchType, generateTeams]
+  );
+
+  // Auto-enable teams for Best Ball format (it's always a team format)
+  // Clear split teams setting when match type changes away from team formats
+  // Also disable skins if switching from a team format (skins validation requires re-check)
+  useEffect(() => {
+    const isTeamFormat = data.selectedMatchType && TEAM_GAME_TYPES.includes(data.selectedMatchType);
+    const isBestBall = data.selectedMatchType === 'best-ball';
+
+    if (isBestBall && currentUserAsPartner && data.selectedPartners.length >= 1) {
+      // Best Ball: auto-enable teams when there are partners
+      if (!data.splitIntoTeams) {
+        const teams = generateTeams(data.selectedPartners);
+        setData((prev) => ({
+          ...prev,
+          splitIntoTeams: true,
+          teams,
+        }));
+      }
+    } else if (!isTeamFormat && data.splitIntoTeams && !OPTIONAL_TEAM_FORMATS.includes(data.selectedMatchType!)) {
+      // Non-team format (and not an optional team format like match-play): clear teams
+      setData((prev) => ({
+        ...prev,
+        splitIntoTeams: false,
+        teams: [],
+      }));
+    }
+  }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners.length, currentUserAsPartner, generateTeams]);
+
+  // Regenerate teams when partners change for Best Ball (teams must stay in sync)
+  useEffect(() => {
+    const isBestBall = data.selectedMatchType === 'best-ball';
+    if (isBestBall && data.splitIntoTeams && currentUserAsPartner) {
+      // Regenerate teams to include all current partners
+      const teams = generateTeams(data.selectedPartners);
+      setData((prev) => {
+        // Only update if teams actually changed (avoid infinite loop)
+        const currentMemberIds = prev.teams.flatMap((t) => t.members.map((m) => m.id)).sort().join(',');
+        const newMemberIds = teams.flatMap((t) => t.members.map((m) => m.id)).sort().join(',');
+        if (currentMemberIds !== newMemberIds) {
+          return { ...prev, teams };
+        }
+        return prev;
+      });
+    }
+  }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners, currentUserAsPartner, generateTeams]);
+
   // Navigation handlers
   const handleBackToCourse = useCallback(() => {
     setCurrentStep('course');
@@ -435,6 +605,18 @@ export function useCreateRoundWizard({
             }
           : undefined;
 
+      // Build team config for scramble format (only for standalone rounds, not competition)
+      const teamConfig: TeamConfig | undefined =
+        data.teams.length > 0 && !data.teamsLocked
+          ? {
+              teams: data.teams.map((t) => ({
+                id: t.id,
+                name: t.name,
+                memberIds: t.members.map((m) => m.id),
+              })),
+            }
+          : undefined;
+
       // DEBUG: Log skins configuration being passed to round creation
       console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
         skinsEnabled: data.skinsEnabled,
@@ -452,7 +634,8 @@ export function useCreateRoundWizard({
         data.selectedMatchType ?? undefined,
         scoringPairsConfig,
         undefined, // ballCount is only for solo rounds
-        standaloneSkinsConfig
+        standaloneSkinsConfig,
+        teamConfig
       );
 
       resetState();
@@ -481,6 +664,8 @@ export function useCreateRoundWizard({
     handleScoringPairsChange,
     setSkinsEnabled,
     handleSkinsConfigChange,
+    shuffleTeams,
+    setSplitIntoTeams,
     handleSelectBallCount,
     handleStartSoloRound,
     handleBackToCourse,

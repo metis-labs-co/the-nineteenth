@@ -43,6 +43,29 @@ export interface SkinsHoleScoreData {
 export type SkinsHoleScores = Record<string, SkinsHoleScoreData>;
 
 // =====================================================
+// TEAM HOLE SCORE DATA
+// =====================================================
+
+/**
+ * Score data for a team on a hole (team skins)
+ * Used in the hole_scores JSONB field for team skins
+ */
+export interface SkinsTeamHoleScoreData {
+  /** Team score for the hole (calculated based on format) */
+  team_score: number;
+  /** Individual scores for each team member */
+  member_scores: Record<string, SkinsHoleScoreData>;
+  /** Player who contributed the winning score (for best-ball format) */
+  contributing_player_id?: string;
+}
+
+/**
+ * Map of team IDs to their hole score data
+ * Format: { "team-uuid": { team_score, member_scores: { player_id: {...} } } }
+ */
+export type SkinsTeamHoleScores = Record<string, SkinsTeamHoleScoreData>;
+
+// =====================================================
 // SKINS GAME
 // =====================================================
 
@@ -54,6 +77,7 @@ export interface SkinsGame {
   id: string;
   round_id: string;
   pairing_id: string | null;
+  /** Individual player participants (for individual skins) */
   participant_ids: string[];
   pot_type: SkinsPotType;
   pot_value: number;
@@ -71,10 +95,14 @@ export interface SkinsGame {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  /** TRUE if this is a team-based skins game */
+  is_team_skins: boolean;
+  /** Team participants (for team skins) - array of team UUIDs */
+  participant_team_ids: string[] | null;
 }
 
 /**
- * Participant info for display purposes
+ * Participant info for display purposes (individual skins)
  */
 export interface SkinsParticipant {
   id: string;
@@ -83,10 +111,27 @@ export interface SkinsParticipant {
 }
 
 /**
- * Skins game with populated participant details
+ * Team participant info for display purposes (team skins)
+ */
+export interface SkinsTeamParticipant {
+  id: string;
+  name: string;
+  /** Team members */
+  members: SkinsParticipant[];
+}
+
+/**
+ * Skins game with populated participant details (individual)
  */
 export interface SkinsGameWithParticipants extends SkinsGame {
   participants: SkinsParticipant[];
+}
+
+/**
+ * Skins game with populated team participant details (team skins)
+ */
+export interface SkinsGameWithTeamParticipants extends SkinsGame {
+  teams: SkinsTeamParticipant[];
 }
 
 // =====================================================
@@ -100,9 +145,13 @@ export interface SkinsResult {
   id: string;
   skins_game_id: string;
   hole_number: number;
+  /** Player who won this hole (individual skins), NULL if carryover */
   winner_id: string | null;
+  /** Team that won this hole (team skins), NULL if carryover */
+  team_winner_id: string | null;
   is_carryover: boolean;
-  hole_scores: SkinsHoleScores;
+  /** Hole scores - either SkinsHoleScores (individual) or SkinsTeamHoleScores (team) */
+  hole_scores: SkinsHoleScores | SkinsTeamHoleScores;
   hole_pot_value: number;
   carryover_to_next: number;
   payout_amount: number;
@@ -110,7 +159,7 @@ export interface SkinsResult {
 }
 
 /**
- * Winner info for display purposes
+ * Winner info for display purposes (individual)
  */
 export interface SkinsWinner {
   id: string;
@@ -118,10 +167,26 @@ export interface SkinsWinner {
 }
 
 /**
- * Skins result with populated winner details
+ * Team winner info for display purposes (team skins)
+ */
+export interface SkinsTeamWinner {
+  id: string;
+  name: string;
+  members: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Skins result with populated winner details (individual)
  */
 export interface SkinsResultWithWinner extends SkinsResult {
   winner: SkinsWinner | null;
+}
+
+/**
+ * Skins result with populated team winner details (team skins)
+ */
+export interface SkinsResultWithTeamWinner extends SkinsResult {
+  team_winner: SkinsTeamWinner | null;
 }
 
 // =====================================================
@@ -129,12 +194,17 @@ export interface SkinsResultWithWinner extends SkinsResult {
 // =====================================================
 
 /**
- * Final payout summary for a player in a skins game
+ * Final payout summary for a player or team in a skins game
  */
 export interface SkinsPayout {
   id: string;
   skins_game_id: string;
-  player_id: string;
+  /** Player this payout is for (individual skins) - NULL for team payouts */
+  player_id: string | null;
+  /** Team this payout is for (team skins) - NULL for individual payouts */
+  team_id: string | null;
+  /** TRUE if this is a team-level payout */
+  is_team_payout: boolean;
   buy_in: number;
   total_winnings: number;
   net_result: number;
@@ -153,10 +223,28 @@ export interface SkinsPayoutPlayer {
 }
 
 /**
- * Skins payout with populated player details
+ * Team info for payout display
+ */
+export interface SkinsPayoutTeam {
+  id: string;
+  name: string;
+  members: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Skins payout with populated player details (individual)
  */
 export interface SkinsPayoutWithPlayer extends SkinsPayout {
-  player: SkinsPayoutPlayer;
+  player: SkinsPayoutPlayer | null;
+}
+
+/**
+ * Skins payout with populated team details (team skins)
+ */
+export interface SkinsPayoutWithTeam extends SkinsPayout {
+  team: SkinsPayoutTeam;
+  /** Per-member split amount (net_result / member count) */
+  per_member_amount: number;
 }
 
 // =====================================================
@@ -164,7 +252,7 @@ export interface SkinsPayoutWithPlayer extends SkinsPayout {
 // =====================================================
 
 /**
- * Input for creating a new skins game
+ * Input for creating a new individual skins game
  */
 export interface CreateSkinsGameInput {
   round_id: string;
@@ -180,12 +268,37 @@ export interface CreateSkinsGameInput {
 }
 
 /**
- * Input for processing a hole result
+ * Input for creating a new team skins game
+ */
+export interface CreateTeamSkinsGameInput {
+  round_id: string;
+  /** Team UUIDs participating (2-4 teams) */
+  participant_team_ids: string[];
+  pot_type: SkinsPotType;
+  pot_value: number;
+  currency?: string;
+  scoring_type: SkinsScoringType;
+  pool_source?: SkinsPoolSource;
+  /** Prize pool ID when funding from competition prize pool */
+  pool_id?: string;
+}
+
+/**
+ * Input for processing a hole result (individual)
  */
 export interface ProcessSkinsHoleInput {
   skins_game_id: string;
   hole_number: number;
   hole_scores: SkinsHoleScores;
+}
+
+/**
+ * Input for processing a team hole result (team skins)
+ */
+export interface ProcessTeamSkinsHoleInput {
+  skins_game_id: string;
+  hole_number: number;
+  team_scores: SkinsTeamHoleScores;
 }
 
 // =====================================================
@@ -234,7 +347,7 @@ export interface SkinsPoolSourceConfig {
 }
 
 /**
- * Debt transaction for settlement
+ * Debt transaction for settlement (individual)
  */
 export interface SkinsDebtTransaction {
   from_player_id: string;
@@ -243,9 +356,48 @@ export interface SkinsDebtTransaction {
 }
 
 /**
+ * Debt transaction for team settlement (team skins)
+ */
+export interface SkinsTeamDebtTransaction {
+  from_team_id: string;
+  to_team_id: string;
+  amount: number;
+  /** Per-member amount for display */
+  per_member_amount: number;
+}
+
+/**
  * Net position for a player (winnings minus buy-in)
  */
 export interface SkinsNetPosition {
   player_id: string;
   net_amount: number;
+}
+
+/**
+ * Net position for a team (winnings minus buy-in)
+ */
+export interface SkinsTeamNetPosition {
+  team_id: string;
+  net_amount: number;
+  /** Per-member amount for display */
+  per_member_amount: number;
+}
+
+// =====================================================
+// TEAM WINNER DETERMINATION
+// =====================================================
+
+/**
+ * Result of determining the team hole winner
+ */
+export interface TeamHoleWinnerResult {
+  /** Winning team ID (null if carryover) */
+  winnerTeamId: string | null;
+  /** TRUE if this hole was tied */
+  isCarryover: boolean;
+  /** The minimum score achieved */
+  minScore: number;
+  /** Team IDs that tied for lowest score */
+  tiedTeamIds: string[];
 }

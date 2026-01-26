@@ -45,7 +45,7 @@ const createPremiumTierLimits = (): TierLimits => ({
   maxRoundsPerCompetition: 10,
   maxPlayersPerCompetition: 40,
   maxFriends: 100,
-  allowedGameTypes: ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'] as GameType[],
+  allowedGameTypes: ['stableford', 'stroke', 'match-play', 'shamble', 'best-ball', 'scramble'] as GameType[],
   canUseTeamFormats: true,
   canUseScoringPairs: true,
   canViewBasicStats: true,
@@ -170,7 +170,7 @@ describe('getRequiredTierForGameType', () => {
   });
 
   it('should return premium for team formats', () => {
-    expect(getRequiredTierForGameType('ambrose')).toBe('premium');
+    expect(getRequiredTierForGameType('shamble')).toBe('premium');
     expect(getRequiredTierForGameType('best-ball')).toBe('premium');
     expect(getRequiredTierForGameType('scramble')).toBe('premium');
   });

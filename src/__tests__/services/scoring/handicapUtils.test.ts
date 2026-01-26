@@ -210,8 +210,8 @@ describe('handicapUtils', () => {
         expect(result).toBe(17);
       });
 
-      it('applies 100% for ambrose', () => {
-        const result = getPlayingHandicap(20, 113, undefined, undefined, 'ambrose');
+      it('applies 100% for scramble', () => {
+        const result = getPlayingHandicap(20, 113, undefined, undefined, 'scramble');
         // 20 * 1.0 = 20
         expect(result).toBe(20);
       });
@@ -243,8 +243,8 @@ describe('handicapUtils', () => {
       expect(getHandicapAllowance('best-ball')).toBe(0.85);
     });
 
-    it('returns 1.0 (100%) for ambrose', () => {
-      expect(getHandicapAllowance('ambrose')).toBe(1.0);
+    it('returns 1.0 (100%) for scramble', () => {
+      expect(getHandicapAllowance('scramble')).toBe(1.0);
     });
 
     it('returns 0.95 (95%) for undefined game type', () => {

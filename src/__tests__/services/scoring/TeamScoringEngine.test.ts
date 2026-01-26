@@ -121,8 +121,8 @@ describe('TeamScoringEngine', () => {
       expect(engine.higherIsBetter).toBe(true);
     });
 
-    it('has higherIsBetter = false for ambrose', () => {
-      const engine = createTeamScoringEngine('ambrose');
+    it('has higherIsBetter = false for scramble', () => {
+      const engine = createTeamScoringEngine('scramble');
       expect(engine.higherIsBetter).toBe(false);
     });
 
@@ -300,13 +300,13 @@ describe('TeamScoringEngine', () => {
   });
 
   // ==========================================================================
-  // calculateAmbrose
+  // calculateAmbrose (used by Scramble format)
   // ==========================================================================
   describe('calculateAmbrose', () => {
     let engine: TeamScoringEngine;
 
     beforeEach(() => {
-      engine = createTeamScoringEngine('ambrose');
+      engine = createTeamScoringEngine('scramble');
     });
 
     it('calculates 2-person team handicap correctly', () => {
@@ -763,7 +763,7 @@ describe('TeamScoringEngine', () => {
     });
 
     it('creates engine for each format', () => {
-      const formats: TeamFormat[] = ['best-ball', 'ambrose', 'aggregate'];
+      const formats: TeamFormat[] = ['best-ball', 'scramble', 'aggregate', 'shamble'];
 
       for (const format of formats) {
         const engine = createTeamScoringEngine(format);

@@ -505,7 +505,7 @@ function determineWinner(
       break;
 
     case 'stroke':
-    case 'ambrose':
+    case 'scramble':
       // Lowest net score wins (use gross if net not available)
       for (const sc of validScorecards) {
         const score = sc.total_net ?? sc.total_gross ?? 999;

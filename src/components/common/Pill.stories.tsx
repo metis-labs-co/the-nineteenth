@@ -406,9 +406,9 @@ export const GameTypeLabels: Story = {
       </Section>
       <Section title="Team Formats">
         <Row>
-          <Pill label="Ambrose" variant="info" />
+          <Pill label="Scramble" variant="info" />
           <Pill label="Best Ball" variant="info" />
-          <Pill label="Foursome" variant="info" />
+          <Pill label="Shamble" variant="info" />
         </Row>
       </Section>
     </StoryWrapper>

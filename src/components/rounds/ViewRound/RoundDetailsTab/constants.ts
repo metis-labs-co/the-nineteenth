@@ -8,9 +8,9 @@ export const GAME_TYPE_LABELS: Record<GameType, string> = {
   stableford: 'Stableford',
   stroke: 'Stroke Play',
   'match-play': 'Match Play',
-  ambrose: 'Ambrose',
   'best-ball': 'Best Ball',
   scramble: 'Scramble',
+  shamble: 'Shamble',
 };
 
 export const COMPETITION_TYPE_LABELS: Record<CompetitionType, string> = {

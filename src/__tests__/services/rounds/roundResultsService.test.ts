@@ -990,7 +990,7 @@ describe('finalizeRound()', () => {
       });
     });
 
-    it('should handle ambrose/scramble game type', async () => {
+    it('should handle scramble game type', async () => {
       const roundId = createUUID();
       const playerId = createUUID();
 
@@ -1011,10 +1011,10 @@ describe('finalizeRound()', () => {
         select: jest.fn().mockResolvedValue({ data: [{ id: 'result-1' }], error: null }),
       });
 
-      await finalizeRound(roundId, scorecards, 'ambrose', STANDARD_POINT_SYSTEM);
+      await finalizeRound(roundId, scorecards, 'scramble', STANDARD_POINT_SYSTEM);
 
       const insertCall = mockInsert.mock.calls[0][0];
-      // For ambrose with no points, should use net score
+      // For scramble with no points, should use net score
       expect(insertCall[0].raw_score).toBe(68);
     });
   });
@@ -1154,7 +1154,7 @@ describe('finalizeTeamRound()', () => {
         }),
       });
 
-      await finalizeTeamRound(roundId, teamScores, 'ambrose', STANDARD_POINT_SYSTEM);
+      await finalizeTeamRound(roundId, teamScores, 'scramble', STANDARD_POINT_SYSTEM);
 
       const insertCall = mockInsert.mock.calls[0][0];
       const team1Result = insertCall.find((r: any) => r.team_id === team1);

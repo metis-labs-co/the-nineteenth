@@ -80,8 +80,8 @@ function getGameTypeLabel(gameType: GameType, teamFormat?: TeamFormat | null): s
       return 'STROKE PLAY';
     case 'match-play':
       return 'MATCH PLAY';
-    case 'ambrose':
-      return 'AMBROSE';
+    case 'shamble':
+      return 'SHAMBLE';
     case 'best-ball':
       return 'BEST BALL';
     case 'scramble':
@@ -216,7 +216,7 @@ export const GameTypeHeader = React.memo(function GameTypeHeader({
   }
 
   // Render Scramble header
-  if ((teamFormat === 'scramble' || gameType === 'ambrose') && teamScores.length > 0) {
+  if (teamFormat === 'scramble' && teamScores.length > 0) {
     const teamScore = teamScores[0];
     const grossDisplay = teamScore.gross !== undefined
       ? (teamScore.gross > 0 ? `+${teamScore.gross}` : teamScore.gross === 0 ? 'E' : teamScore.gross)

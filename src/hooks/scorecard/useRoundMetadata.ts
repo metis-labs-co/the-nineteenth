@@ -3,17 +3,21 @@
  *
  * Fetches round metadata including game type, team settings, and course info.
  * This is a focused hook extracted from the larger useRoundData.
+ *
+ * Tee data is fetched from both the legacy courses.tees JSONB column and the
+ * normalized tees table, preferring the normalized table when available.
  */
 
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
-import type { TeeBox, TeamFormat, GameType } from '@/types/database.types';
+import type { TeeBox, TeamFormat, GameType, Tee } from '@/types/database.types';
 import type { RoundStatus } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import {
   ROUND_METADATA_SELECT,
   type SupabaseRoundData,
+  type StandaloneTeamConfig,
 } from '@/types/supabase/roundQueries';
 
 export interface RoundMetadata {
@@ -29,6 +33,8 @@ export interface RoundMetadata {
   courseName: string | null;
   courseTees: TeeBox[];
   roundStatus: RoundStatus;
+  /** Team configuration for standalone scramble rounds (split into teams) */
+  teamConfig: StandaloneTeamConfig | null;
 }
 
 interface UseRoundMetadataResult {
@@ -81,6 +87,43 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
       const selectedTeeData = roundData.selected_tee as TeeBox | null;
       const selectedTeeColor = selectedTeeData?.color?.toLowerCase() || null;
 
+      // Get tees from legacy JSONB column first
+      let courseTees: TeeBox[] = (roundData.courses?.tees as TeeBox[]) || [];
+
+      // If no tees in legacy column but we have a course ID, fetch from normalized tees table
+      const courseId = roundData.courses?.id;
+      if (courseTees.length === 0 && courseId) {
+        roundDataLogger.debug('No tees in legacy column, fetching from normalized tees table', {
+          courseId: courseId.substring(0, 8),
+        });
+
+        const { data: normalizedTees, error: teesError } = await supabase
+          .from('tees')
+          .select('*')
+          .eq('course_id', courseId)
+          .order('slope', { ascending: false, nullsFirst: false }) as {
+            data: Tee[] | null;
+            error: { message: string } | null;
+          };
+
+        if (teesError) {
+          roundDataLogger.warn('Failed to fetch tees from normalized table', teesError);
+        } else if (normalizedTees && normalizedTees.length > 0) {
+          roundDataLogger.debug('Found tees in normalized table', {
+            count: normalizedTees.length,
+            teeNames: normalizedTees.map(t => t.name),
+          });
+
+          // Convert Tee to TeeBox format for compatibility
+          courseTees = normalizedTees.map((tee): TeeBox => ({
+            name: tee.name,
+            color: tee.color || tee.name,
+            slopeRating: tee.slope || undefined,
+            courseRating: tee.course_rating || undefined,
+          }));
+        }
+      }
+
       const metadata: RoundMetadata = {
         id: roundData.id,
         gameType: (roundData.game_type || 'stableford') as GameType,
@@ -90,10 +133,11 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         ballCount: (roundData.ball_count ?? 1) as BallCount,
         selectedTee: selectedTeeColor,
         selectedTeeData: selectedTeeData, // Full TeeBox with slopeRating/courseRating
-        courseId: roundData.courses?.id || null,
+        courseId: courseId || null,
         courseName: roundData.courses?.name || null,
-        courseTees: (roundData.courses?.tees as TeeBox[]) || [],
+        courseTees,
         roundStatus: (roundData.status || 'upcoming') as RoundStatus,
+        teamConfig: roundData.team_config ?? null,
       };
 
       roundDataLogger.debug('Round metadata loaded', {

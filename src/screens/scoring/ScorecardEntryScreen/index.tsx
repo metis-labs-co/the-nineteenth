@@ -181,6 +181,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     handleBestBallScoreSelect,
     handleTeamMatchPlayScoreSelect,
     getTeamScore,
+    handleShotContributionsChange,
   } = useTeamScoring({
     teams,
     teamFormat,
@@ -424,6 +425,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               selectedContributor={selectedContributor}
               teamMatchPlayResults={teamMatchPlayResults}
               playerScoresMap={playerScoresMap}
+              handleShotContributionsChange={handleShotContributionsChange}
               // Multi-ball props
               isMultiBall={isMultiBall}
               ballCount={storeBallCount}

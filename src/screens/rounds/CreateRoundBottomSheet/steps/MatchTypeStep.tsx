@@ -35,7 +35,7 @@ const TIER_BENEFITS: Record<string, string[]> = {
     'Up to 16 players per competition',
   ],
   premium: [
-    'Team formats (Ambrose, Best Ball, Scramble)',
+    'Team formats (Shamble, Scramble, Best Ball)',
     'Unlimited competitions',
     'Up to 40 players per competition',
     'Designated scoring pairs',

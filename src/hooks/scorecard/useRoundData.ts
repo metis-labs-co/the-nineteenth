@@ -348,6 +348,91 @@ export function useRoundData({
     const isTeamRound = metadata.data?.isTeamRound ?? false;
     const isSoloRound = playerCount === 1 && !isTeamRound;
 
+    // Determine teams to use
+    let teams: TeamWithMembers[] = teamsHook.teams;
+
+    // For standalone team rounds (scramble, shamble, best-ball), create teams from team_config or create implicit team
+    const isStandaloneRound = competitionId === 'standalone' || !competitionId;
+    const teamFormats = ['scramble', 'shamble', 'best-ball'];
+    const isTeamFormatRound = teamFormats.includes(metadata.data?.teamFormat || '') ||
+                              teamFormats.includes(metadata.data?.gameType || '');
+
+    if (isStandaloneRound && isTeamRound && isTeamFormatRound && teams.length === 0) {
+      const players = currentPlayers.length > 0 ? currentPlayers : playersHook.players;
+      const teamConfig = metadata.data?.teamConfig;
+
+      // Helper to convert Player to DBPlayer format for team members
+      const playerToDBPlayer = (p: Player): import('@/types/database.types').Player => ({
+        id: p.id,
+        name: p.name,
+        email: p.email || '',
+        phone: p.phone ?? null,
+        handicap: p.handicap ?? null,
+        gender: null,
+        photo_url: null,
+        golf_id: null,
+        handicap_updated_at: null,
+        handicap_index: null,
+        handicap_index_updated_at: null,
+        home_club_id: null,
+        is_placeholder: false,
+        created_by: null,
+        linked_player_id: null,
+        push_enabled: false,
+        push_competition_updates: false,
+        push_friend_requests: false,
+        push_scorecard_updates: false,
+        equipped_badge_id: null,
+        equipped_frame_id: null,
+        equipped_title_id: null,
+        created_at: '',
+        updated_at: '',
+      });
+
+      if (teamConfig?.teams && teamConfig.teams.length > 0) {
+        // Use team_config from database (user split into teams)
+        roundDataLogger.info('Creating teams from team_config', {
+          teamCount: teamConfig.teams.length,
+          teamFormat: metadata.data?.teamFormat,
+        });
+        teams = teamConfig.teams.map((t) => ({
+          id: t.id,
+          competition_id: '',
+          name: t.name,
+          created_at: '',
+          updated_at: '',
+          members: t.memberIds.map((memberId) => {
+            const player = players.find((p) => p.id === memberId);
+            return {
+              team_id: t.id,
+              player_id: memberId,
+              joined_at: '',
+              player: player ? playerToDBPlayer(player) : undefined,
+            };
+          }),
+        }));
+      } else if (players.length > 0) {
+        // Create implicit single team with all players (default team format behavior)
+        roundDataLogger.info('Creating implicit single team for team format', {
+          playerCount: players.length,
+          teamFormat: metadata.data?.teamFormat,
+        });
+        teams = [{
+          id: 'implicit-team-1',
+          competition_id: '',
+          name: 'Team',
+          created_at: '',
+          updated_at: '',
+          members: players.map((p) => ({
+            team_id: 'implicit-team-1',
+            player_id: p.id,
+            joined_at: '',
+            player: playerToDBPlayer(p),
+          })),
+        }];
+      }
+    }
+
     setState({
       courseName: metadata.data?.courseName || courseHook.course?.name || null,
       courseId: metadata.data?.courseId || courseHook.course?.id || null,
@@ -356,7 +441,7 @@ export function useRoundData({
       isTeamRound,
       teamFormat: metadata.data?.teamFormat || null,
       gameType: (metadata.data?.gameType as GameType) || 'stableford',
-      teams: teamsHook.teams,
+      teams,
       fetchError,
       isLoading,
       scoringPairsEnabled: scoringPairsHook.scoringPairsEnabled,
@@ -382,6 +467,8 @@ export function useRoundData({
     scoringPairsHook.isLoading,
     scoringPairsHook.error,
     currentPlayers.length,
+    currentPlayers,
+    competitionId,
   ]);
 
   const retryFetch = useCallback(() => {

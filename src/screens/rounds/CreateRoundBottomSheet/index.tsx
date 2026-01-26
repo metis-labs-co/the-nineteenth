@@ -47,6 +47,7 @@ export type {
   ScoringPairsConfig,
   PlayingPartner,
   StandaloneSkinsConfig,
+  TeamConfig,
 } from './types';
 
 export default function CreateRoundBottomSheet({
@@ -279,6 +280,11 @@ export default function CreateRoundBottomSheet({
             scoringPairs={wizard.data.scoringPairs}
             onScoringPairsEnabledChange={wizard.setScoringPairsEnabled}
             onScoringPairsChange={wizard.handleScoringPairsChange}
+            teams={wizard.data.teams}
+            teamsLocked={wizard.data.teamsLocked}
+            splitIntoTeams={wizard.data.splitIntoTeams}
+            onShuffleTeams={wizard.shuffleTeams}
+            onSplitIntoTeamsChange={wizard.setSplitIntoTeams}
             skinsEnabled={wizard.data.skinsEnabled}
             skinsConfig={wizard.data.skinsConfig}
             onSkinsEnabledChange={wizard.setSkinsEnabled}

@@ -25,10 +25,11 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { OfflineIndicator } from '@/components/common/OfflineIndicator';
-import { ScorecardTable } from '@/components/scorecard';
+import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable, ContributionLeaderboard, ScrambleTeamLeaderboard } from '@/components/scorecard';
 import { PageHeader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
+import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -37,6 +38,8 @@ import { useAuth } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs } from '@/hooks/scorecard';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
+import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import type { Player, HoleScore, MultiBallHoleScore } from '@/types';
 
 import { useScoreReview, useScoreSubmission } from './hooks';
 import {
@@ -52,7 +55,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 // TAB TYPES
 // =====================================================
 
-type TabKey = 'scorecard' | 'skins';
+type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'scorecard', label: 'Scorecard' },
@@ -188,6 +191,55 @@ function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: 
 }
 
 // =====================================================
+// LEADERBOARD TAB CONTENT COMPONENT
+// =====================================================
+
+interface LeaderboardTabContentProps {
+  players: import('@/types').Player[];
+  holes: import('@/types').Hole[];
+  getPlayerScore: (playerId: string, holeNumber: number) => import('@/types').HoleScore | import('@/types').MultiBallHoleScore | undefined;
+  currentUserId?: string;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  bottomInset: number;
+}
+
+function LeaderboardTabContent({
+  players,
+  holes,
+  getPlayerScore,
+  currentUserId,
+  isRefreshing,
+  onRefresh,
+  bottomInset,
+}: LeaderboardTabContentProps) {
+  const colors = useThemeColors();
+
+  return (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={[styles.leaderboardScrollContent, { paddingBottom: bottomInset + 100 }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.textPrimary}
+        />
+      }
+      showsVerticalScrollIndicator={true}
+    >
+      <StrokePlayLeaderboardFull
+        players={players}
+        holes={holes}
+        getPlayerScore={getPlayerScore}
+        currentUserId={currentUserId}
+        testID="stroke-play-leaderboard-full"
+      />
+    </ScrollView>
+  );
+}
+
+// =====================================================
 // MAIN COMPONENT
 // =====================================================
 
@@ -200,6 +252,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('scorecard');
+  const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
 
   // Authentication
   const { player } = useAuth();
@@ -212,6 +265,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     currentPlayers,
     groupScorecards,
     currentRoundId,
+    gameType,
+    getPlayerScore,
     incompleteHoles,
     showIncompleteModal,
     setShowIncompleteModal,
@@ -247,16 +302,131 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const { data: skinsGame } = useActiveSkinsGameForRound(roundId || undefined);
   const hasSkinsGame = !!skinsGame;
 
-  // Build tabs dynamically based on skins availability
-  const tabs = useMemo<TabItem<TabKey>[]>(() => {
-    if (hasSkinsGame) {
-      return [
-        ...BASE_TABS,
-        { key: 'skins' as const, label: 'Skins' },
-      ];
+  // Check if this is a stroke play round (for leaderboard tab)
+  // Use roundDetails as fallback since store's gameType may not be preserved when loading from offline
+  const effectiveGameType = roundDetails?.game_type || gameType;
+  const isStrokePlay = effectiveGameType === 'stroke';
+
+  // Check if this is a scramble round
+  const isScramble = effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble';
+
+  // Check if this is a shamble round
+  const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
+
+  // Calculate team handicap for scramble rounds
+  const teamHandicap = useMemo(() => {
+    if (!isScramble || currentPlayers.length === 0) return 0;
+    const handicaps = currentPlayers
+      .map((p) => p.handicap ?? 0)
+      .sort((a, b) => a - b);
+    if (handicaps.length === 0) return 0;
+    // Scramble formula: 25% of sum of all handicaps
+    const sum = handicaps.reduce((acc, h) => acc + h, 0);
+    return Math.round((sum * 0.25) * 10) / 10;
+  }, [isScramble, currentPlayers]);
+
+  // Get team score for a hole (for scramble, all players have the same score)
+  const getTeamScoreForHole = useCallback(
+    (holeNumber: number) => {
+      if (currentPlayers.length === 0) return undefined;
+      // For scramble, all players have the same score, so just get the first one
+      return getPlayerScore(currentPlayers[0].id, holeNumber);
+    },
+    [currentPlayers, getPlayerScore]
+  );
+
+  // Extract teams from team_config for multi-team scramble rounds
+  const scrambleTeams = useMemo(() => {
+    if (!isScramble) return [];
+
+    // Check for standalone team config from round details
+    const teamConfig = (roundDetails as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
+    if (teamConfig?.teams && teamConfig.teams.length > 0) {
+      return teamConfig.teams;
     }
-    return BASE_TABS;
-  }, [hasSkinsGame]);
+
+    // Fallback: treat all players as one team
+    const allPlayerIds = currentPlayers.map((p) => p.id);
+    if (allPlayerIds.length > 0) {
+      return [{
+        id: 'default-team',
+        name: 'Team',
+        memberIds: allPlayerIds,
+      }];
+    }
+
+    return [];
+  }, [isScramble, roundDetails, currentPlayers]);
+
+  // Get players for a specific team by index
+  const getScrambleTeamPlayersByIndex = useCallback((teamIndex: number): Player[] => {
+    if (!isScramble || scrambleTeams.length === 0) return [];
+
+    const team = scrambleTeams[teamIndex];
+    if (!team) return [];
+
+    // Filter currentPlayers to only team members
+    return team.memberIds
+      .map((id) => currentPlayers.find((p) => p.id === id))
+      .filter((p): p is Player => p !== undefined);
+  }, [isScramble, scrambleTeams, currentPlayers]);
+
+  // Get team handicap for a specific team by index
+  const getScrambleTeamHandicapByIndex = useCallback((teamIndex: number): number => {
+    const teamPlayers = getScrambleTeamPlayersByIndex(teamIndex);
+    if (teamPlayers.length === 0) return 0;
+    const handicaps = teamPlayers
+      .map((p) => p.handicap ?? 0)
+      .sort((a, b) => a - b);
+    const sum = handicaps.reduce((acc, h) => acc + h, 0);
+    return Math.round((sum * 0.25) * 10) / 10;
+  }, [getScrambleTeamPlayersByIndex]);
+
+  // Get team score for a specific team by index
+  const getScrambleTeamScoreByIndex = useCallback((teamIndex: number, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    const team = scrambleTeams[teamIndex];
+    if (!team) return undefined;
+
+    // Find score from any team member (they should all have the same team score)
+    for (const playerId of team.memberIds) {
+      const score = getPlayerScore(playerId, holeNumber);
+      if (score) return score;
+    }
+    return undefined;
+  }, [scrambleTeams, getPlayerScore]);
+
+  // Build tabs dynamically based on game type and skins availability
+  const tabs = useMemo<TabItem<TabKey>[]>(() => {
+    const tabList: TabItem<TabKey>[] = [...BASE_TABS];
+
+    // For scramble, keep scorecard tab as "Scorecard", add leaderboard and contributions
+    if (isScramble) {
+      tabList[0] = { key: 'scorecard' as const, label: 'Scorecard' };
+      tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      tabList.push({ key: 'contributions' as const, label: 'Contributions' });
+    }
+
+    // For shamble, keep scorecard tab as "Scorecard" and add "Team Scores" tab
+    if (isShamble) {
+      tabList[0] = { key: 'scorecard' as const, label: 'Scorecard' };
+      tabList.push({ key: 'contributions' as const, label: 'Team Scores' });
+    }
+
+    // Add leaderboard tab for stroke play
+    if (isStrokePlay) {
+      tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+    }
+
+    // Add skins tab if skins game exists
+    if (hasSkinsGame) {
+      tabList.push({ key: 'skins' as const, label: 'Skins' });
+    }
+
+    return tabList;
+  }, [hasSkinsGame, isStrokePlay, isScramble, isShamble]);
+
+  // Determine if we need to show tabs (more than just scorecard)
+  const showTabs = isStrokePlay || hasSkinsGame || isScramble || isShamble;
 
   // Submission and sync logic
   const {
@@ -362,8 +532,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         isSyncing={isSubmitting}
       />
 
-      {/* Tab Navigation - only show if skins game exists */}
-      {hasSkinsGame && (
+      {/* Tab Navigation - show if leaderboard (stroke play) or skins game exists */}
+      {showTabs && (
         <View style={styles.tabContainer}>
           <Tabs
             tabs={tabs}
@@ -376,8 +546,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       )}
 
       {/* Tab Content */}
-      {activeTab === 'scorecard' ? (
-        /* Scorecard Content */
+      {activeTab === 'scorecard' && (
+        /* Scorecard Content - Different view for scramble vs individual */
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
@@ -394,22 +564,116 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           }
           showsVerticalScrollIndicator={true}
         >
-          <ScorecardTable
-            players={tablePlayerData}
-            holes={holes}
-            screenWidth={screenWidth}
+          {isScramble ? (
+            <>
+              {/* Team selector */}
+              <ScrambleTeamSelector
+                teams={scrambleTeams}
+                selectedIndex={selectedTeamIndex}
+                onSelectTeam={setSelectedTeamIndex}
+                getTeamPlayers={getScrambleTeamPlayersByIndex}
+              />
+              {/* Selected team's scorecard */}
+              <ScrambleScorecardTable
+                holes={holes}
+                teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
+                teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
+                getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
+              />
+            </>
+          ) : (
+            <ScorecardTable
+              players={tablePlayerData}
+              holes={holes}
+              screenWidth={screenWidth}
+            />
+          )}
+        </ScrollView>
+      )}
+
+      {activeTab === 'contributions' && (isScramble || isShamble) && (
+        /* Contributions Content - Scramble or Shamble */
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.textPrimary]}
+              tintColor={colors.textPrimary}
+            />
+          }
+          showsVerticalScrollIndicator={true}
+        >
+          {isScramble && (
+            <ScrambleTeamSelector
+              teams={scrambleTeams}
+              selectedIndex={selectedTeamIndex}
+              onSelectTeam={setSelectedTeamIndex}
+              getTeamPlayers={getScrambleTeamPlayersByIndex}
+            />
+          )}
+          <ContributionLeaderboard
+            players={isScramble ? getScrambleTeamPlayersByIndex(selectedTeamIndex) : currentPlayers}
+            getTeamScore={isScramble ? (holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber) : getTeamScoreForHole}
+            totalHoles={holes.length}
+            showOnlyDrives={isShamble}
+            getPlayerScore={isShamble ? getPlayerScore : undefined}
+            holes={isShamble ? holes : undefined}
           />
         </ScrollView>
-      ) : (
-        /* Skins Content */
-        skinsGame && (
-          <SkinsTabContent
-            skinsGameId={skinsGame.id}
-            isRefreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            bottomInset={insets.bottom}
+      )}
+
+      {activeTab === 'leaderboard' && isScramble && (
+        /* Scramble Team Leaderboard */
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.leaderboardScrollContent, { paddingBottom: insets.bottom + 100 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.textPrimary}
+            />
+          }
+          showsVerticalScrollIndicator={true}
+        >
+          <ScrambleTeamLeaderboard
+            teams={scrambleTeams}
+            players={currentPlayers}
+            holes={holes}
+            getTeamScore={getScrambleTeamScoreByIndex}
+            currentUserId={currentUserId}
+            testID="scramble-team-leaderboard"
           />
-        )
+        </ScrollView>
+      )}
+
+      {activeTab === 'leaderboard' && !isScramble && (
+        /* Stroke Play Leaderboard Content */
+        <LeaderboardTabContent
+          players={currentPlayers}
+          holes={holes}
+          getPlayerScore={getPlayerScore}
+          currentUserId={currentUserId}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
+      )}
+
+      {activeTab === 'skins' && skinsGame && (
+        /* Skins Content */
+        <SkinsTabContent
+          skinsGameId={skinsGame.id}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
       )}
 
       {/* Action Buttons */}
@@ -507,5 +771,9 @@ const styles = StyleSheet.create({
   inProgressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Leaderboard tab styles
+  leaderboardScrollContent: {
+    flexGrow: 1,
   },
 });

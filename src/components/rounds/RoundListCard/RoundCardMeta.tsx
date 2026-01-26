@@ -117,7 +117,7 @@ const getPointsLabel = (gameType: string): string => {
     case 'stableford':
       return 'pts';
     case 'stroke':
-    case 'ambrose':
+    case 'scramble':
       return 'strokes';
     case 'match_play':
       return '';

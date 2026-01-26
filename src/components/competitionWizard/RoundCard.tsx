@@ -16,9 +16,9 @@ const GAME_TYPE_LABELS: Record<GameType, string> = {
   stroke: 'Stroke Play',
   stableford: 'Stableford',
   'match-play': 'Match Play',
-  ambrose: 'Ambrose',
   'best-ball': 'Best Ball',
   scramble: 'Scramble',
+  shamble: 'Shamble',
 };
 
 export interface RoundCardProps {

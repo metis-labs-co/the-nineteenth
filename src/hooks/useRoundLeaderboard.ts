@@ -277,7 +277,8 @@ function formatScoreData(
       return formatStablefordData(resultData);
     case 'stroke':
       return formatStrokeData(resultData);
-    case 'ambrose':
+    case 'scramble':
+    case 'shamble':
     case 'best-ball':
       // Team formats fall through to team data
       return formatTeamData(resultData, gameType as TeamFormat);

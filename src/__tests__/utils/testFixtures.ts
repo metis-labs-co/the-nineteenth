@@ -227,12 +227,12 @@ export function createBestBallRound(overrides: Partial<Round> = {}): Round {
 }
 
 /**
- * Create a Scramble/Ambrose team round
+ * Create a Scramble team round
  */
 export function createScrambleRound(overrides: Partial<Round> = {}): Round {
   return createTestRound({
     id: 'round-scramble',
-    game_type: 'ambrose',
+    game_type: 'scramble',
     is_team_round: true,
     team_format: 'scramble',
     ...overrides,

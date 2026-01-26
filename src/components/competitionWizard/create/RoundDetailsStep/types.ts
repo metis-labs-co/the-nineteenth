@@ -33,18 +33,18 @@ export const GAME_TYPE_LABELS: Record<GameType, string> = {
   stableford: 'Stableford',
   stroke: 'Stroke Play',
   'match-play': 'Match Play',
-  ambrose: 'Ambrose',
   'best-ball': 'Best Ball',
   scramble: 'Scramble',
+  shamble: 'Shamble',
 };
 
 export const GAME_TYPES: GameTypeOption[] = [
   { value: 'stableford', label: 'Stableford', description: 'Points-based scoring (most popular)' },
   { value: 'stroke', label: 'Stroke Play', description: 'Count total strokes' },
   { value: 'match-play', label: 'Match Play', description: 'Hole-by-hole competition' },
-  { value: 'ambrose', label: 'Ambrose', description: 'Team-based best ball' },
   { value: 'best-ball', label: 'Best Ball', description: 'Best score from team counts' },
   { value: 'scramble', label: 'Scramble', description: 'Team picks best shot each time' },
+  { value: 'shamble', label: 'Shamble', description: 'Best drive, then individual play' },
 ];
 
 // =====================================================

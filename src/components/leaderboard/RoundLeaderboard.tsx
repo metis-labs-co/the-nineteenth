@@ -147,7 +147,8 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           <StrokePlayLeaderboard entries={entries} currentUserId={currentUserId} />
         );
       case 'stableford':
-      case 'ambrose':
+      case 'scramble':
+      case 'shamble':
       case 'best-ball':
       default:
         return (

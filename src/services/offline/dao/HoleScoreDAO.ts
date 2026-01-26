@@ -28,16 +28,20 @@ export async function saveHoleScore(
     const ballScoresJson = JSON.stringify(score.balls);
     await database.runAsync(
       `INSERT OR REPLACE INTO ${TABLE_NAMES.HOLE_SCORES}
-       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [scorecardId, holeNumber, 0, null, 0, 0, 0, ballScoresJson, null, now]
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [scorecardId, holeNumber, 0, null, 0, 0, 0, ballScoresJson, null, null, now]
     );
   } else {
-    // Single-ball score: store normally with attribution
+    // Single-ball score: store normally with attribution and shot contributions
+    const shotContributionsJson = score.shotContributions
+      ? JSON.stringify(score.shotContributions)
+      : null;
+
     await database.runAsync(
       `INSERT OR REPLACE INTO ${TABLE_NAMES.HOLE_SCORES}
-       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (scorecard_id, hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         scorecardId,
         holeNumber,
@@ -48,6 +52,7 @@ export async function saveHoleScore(
         score.penalties ?? 0,
         null,
         score.scoredBy ?? null,
+        shotContributionsJson,
         now,
       ]
     );
@@ -63,9 +68,9 @@ export async function getHoleScores(
   const database = await getDb();
 
   const rows = await database.getAllAsync<Pick<HoleScoreRow,
-    'hole_number' | 'strokes' | 'putts' | 'fairway_hit' | 'green_in_regulation' | 'penalties' | 'ball_scores' | 'scored_by'
+    'hole_number' | 'strokes' | 'putts' | 'fairway_hit' | 'green_in_regulation' | 'penalties' | 'ball_scores' | 'scored_by' | 'shot_contributions'
   >>(
-    `SELECT hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by
+    `SELECT hole_number, strokes, putts, fairway_hit, green_in_regulation, penalties, ball_scores, scored_by, shot_contributions
      FROM ${TABLE_NAMES.HOLE_SCORES} WHERE scorecard_id = ?`,
     [scorecardId]
   );
@@ -87,7 +92,20 @@ export async function getHoleScores(
         scores[row.hole_number] = { balls: [] };
       }
     } else {
-      // Single-ball score with attribution
+      // Single-ball score with attribution and shot contributions
+      let shotContributions: HoleScore['shotContributions'];
+      if (row.shot_contributions) {
+        try {
+          shotContributions = JSON.parse(row.shot_contributions);
+        } catch (error) {
+          dbLogger.warn('Failed to parse shot_contributions JSON', {
+            scorecardId: scorecardId.substring(0, 8) + '...',
+            holeNumber: row.hole_number,
+            error,
+          });
+        }
+      }
+
       scores[row.hole_number] = {
         strokes: row.strokes,
         putts: row.putts ?? undefined,
@@ -95,6 +113,7 @@ export async function getHoleScores(
         greenInRegulation: row.green_in_regulation === 1,
         penalties: row.penalties,
         scoredBy: row.scored_by ?? undefined,
+        shotContributions,
       };
     }
   }

@@ -476,12 +476,12 @@ export const MatchTypeMatchPlay: Story = {
 };
 
 /**
- * Ambrose
+ * Scramble
  */
-export const MatchTypeAmbrose: Story = {
+export const MatchTypeScramble: Story = {
   render: () => (
     <InteractiveRoundCard
-      round={createMockRound({ matchType: 'ambrose' })}
+      round={createMockRound({ matchType: 'scramble' })}
       index={0}
       errors={{}}
       isRemovable={false}
@@ -840,7 +840,7 @@ export const UseCaseCorporateEvent: Story = {
           courseName: 'The Metropolitan Golf Club',
           date: '15/02/2025',
           teeTime: '08:00',
-          matchType: 'ambrose',
+          matchType: 'scramble',
           scoringPairsRequired: true,
           selectedTee: {
             name: 'Yellow Tees',

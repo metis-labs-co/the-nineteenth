@@ -15,7 +15,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-import type { ScoringPairsConfig, StandaloneSkinsConfig } from '../../CreateRoundBottomSheet';
+import type { ScoringPairsConfig, StandaloneSkinsConfig, TeamConfig } from '../../CreateRoundBottomSheet';
 import type { PlayingPartner } from '../types';
 
 // Default holes (used when course has no hole data)
@@ -37,7 +37,8 @@ export interface UseStartNewRoundReturn {
     gameType?: GameType,
     scoringPairsConfig?: ScoringPairsConfig,
     ballCount?: BallCount,
-    skinsConfig?: StandaloneSkinsConfig
+    skinsConfig?: StandaloneSkinsConfig,
+    teamConfig?: TeamConfig
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
@@ -63,7 +64,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
       gameType: GameType = 'stableford',
       scoringPairsConfig?: ScoringPairsConfig,
       ballCount: BallCount = 1,
-      skinsConfig?: StandaloneSkinsConfig
+      skinsConfig?: StandaloneSkinsConfig,
+      teamConfig?: TeamConfig
     ) => {
       if (isStartingRound) return;
 
@@ -87,6 +89,11 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         const rawHoles = (courseData as any)?.holes as unknown[] | null;
         const holes: Hole[] = rawHoles && rawHoles.length > 0 ? transformHolesIfNeeded(rawHoles) : DEFAULT_HOLES;
 
+        // Determine if this is a team format (scramble, shamble, best-ball, or match-play with teams)
+        const isStandardTeamFormat = ['scramble', 'shamble', 'best-ball'].includes(gameType);
+        const isMatchPlayWithTeams = gameType === 'match-play' && !!teamConfig;
+        const isTeamFormat = isStandardTeamFormat || isMatchPlayWithTeams;
+
         // Create the round in Supabase (standalone round - no competition)
         const { data: roundData, error: roundError } = await (supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
@@ -102,6 +109,10 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
             selected_tee: selectedTee ?? null,
             scoring_pairs_required: scoringPairsConfig?.enabled ?? false,
             ball_count: ballCount,
+            team_config: teamConfig ?? null,
+            // Set team round fields for team formats (scramble, shamble, best-ball, match-play with teams)
+            is_team_round: isTeamFormat,
+            team_format: isMatchPlayWithTeams ? 'match-play-team' : (isStandardTeamFormat ? gameType : null),
           })
           .select('id')
           .single();
@@ -255,7 +266,9 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         await initializeRound(roundId, players, holes, gameType, false);
 
         // Navigate to appropriate scoring screen based on game type
-        if (gameType === 'match-play') {
+        // Individual match play (2 players) goes to dedicated MatchPlayScoring screen
+        // Team match play (3+ players with teams) goes to regular Scorecard
+        if (gameType === 'match-play' && !isMatchPlayWithTeams) {
           navigation.navigate('MatchPlayScoring', {
             roundId,
             player1Id: players[0]?.id,

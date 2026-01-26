@@ -611,7 +611,7 @@ describe('UpgradePrompt', () => {
         title: 'Unlock Team Formats',
         message: 'Play Best Ball, Scramble, and more team games',
         targetTier: 'premium',
-        benefits: ['Best Ball scoring', 'Scramble/Ambrose', 'Team Match Play'],
+        benefits: ['Best Ball scoring', 'Scramble / Shamble', 'Team Match Play'],
       });
 
       render(<UpgradePrompt config={config} onUpgrade={jest.fn()} />);
@@ -619,7 +619,7 @@ describe('UpgradePrompt', () => {
       expect(screen.getByText('Unlock Team Formats')).toBeTruthy();
       expect(screen.getByText('Play Best Ball, Scramble, and more team games')).toBeTruthy();
       expect(screen.getByText('Best Ball scoring')).toBeTruthy();
-      expect(screen.getByText('Scramble/Ambrose')).toBeTruthy();
+      expect(screen.getByText('Scramble / Shamble')).toBeTruthy();
       expect(screen.getByText('Team Match Play')).toBeTruthy();
     });
 

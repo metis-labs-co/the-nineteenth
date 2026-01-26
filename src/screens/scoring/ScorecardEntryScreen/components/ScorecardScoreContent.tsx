@@ -12,7 +12,7 @@
  * the current user is allowed to score.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   PlayerScoreCard,
   TeamScoreCard,
@@ -21,8 +21,9 @@ import {
   MultiBallScoreInput,
   StrokePlayScoreCard,
   StrokePlayLeaderboard,
+  DriveContributorPicker,
 } from '@/components/scorecard';
-import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions, HoleShotContributions } from '@/types';
 import type { TeamFormat, TeamWithMembers, GameType } from '@/types/database.types';
 import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
@@ -61,6 +62,8 @@ export interface ScorecardScoreContentProps {
   // Team match play results - Map of hole number -> result
   teamMatchPlayResults: Map<number, 'team1' | 'team2' | 'halved'>;
   playerScoresMap: Map<string, HoleScore | MultiBallHoleScore | undefined>;
+  // Shot contributions handler for scramble format
+  handleShotContributionsChange?: (teamIndex: number, contributions: HoleShotContributions) => Promise<void>;
   // Multi-ball props (solo practice rounds)
   isMultiBall?: boolean;
   ballCount?: BallCount;
@@ -96,6 +99,7 @@ export function ScorecardScoreContent({
   selectedContributor,
   teamMatchPlayResults,
   playerScoresMap,
+  handleShotContributionsChange,
   // Multi-ball props
   isMultiBall = false,
   ballCount = 1,
@@ -106,6 +110,38 @@ export function ScorecardScoreContent({
   showFIR = false,
   showGIR = false,
 }: ScorecardScoreContentProps) {
+  // Get shot contributions for a specific team (persisted in scorecard)
+  // Each team stores its own contributions in its members' scorecards
+  const getTeamShotContributions = useCallback(
+    (teamIndex: number): ShotContributions | undefined => {
+      if (!isTeamRound || teamFormat !== 'scramble' || teams.length === 0) {
+        return undefined;
+      }
+      // Get the first team member's score (all members share the same score in scramble)
+      const team = teams[teamIndex];
+      const firstMember = team?.members?.[0];
+      if (!firstMember) return undefined;
+
+      const score = playerScoresMap.get(firstMember.player_id);
+      if (score && isSingleBallScore(score)) {
+        return score.shotContributions;
+      }
+      return undefined;
+    },
+    [isTeamRound, teamFormat, teams, playerScoresMap]
+  );
+
+  // Create a callback for shot contributions change for a specific team
+  const createShotContributionsHandler = useCallback(
+    (teamIndex: number) => (contributions: ShotContributions) => {
+      if (handleShotContributionsChange) {
+        // Convert ShotContributions to HoleShotContributions (same structure)
+        handleShotContributionsChange(teamIndex, contributions as HoleShotContributions);
+      }
+    },
+    [handleShotContributionsChange]
+  );
+
   // Determine which players to render based on scoring pairs setting
   const playersToRender =
     scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
@@ -166,6 +202,9 @@ export function ScorecardScoreContent({
                 currentHole={currentHoleData}
                 currentScore={getTeamScore(index)}
                 onScoreSelect={(strokes) => handleTeamScoreSelect(index, strokes)}
+                shotContributions={getTeamShotContributions(index)}
+                onShotContributionsChange={createShotContributionsHandler(index)}
+                // Legacy props - kept for backward compatibility
                 onContributorSelect={setSelectedContributor}
                 selectedContributor={selectedContributor}
               />
@@ -196,6 +235,55 @@ export function ScorecardScoreContent({
             onScoreSelect={handleBestBallScoreSelect}
             editablePlayerIds={editablePlayerIds}
           />
+        ))}
+      </>
+    );
+  }
+
+  // Team round: Shamble format
+  // Best drive selected, then each player plays their own ball - sum all Stableford points
+  if (isTeamRound && teamFormat === 'shamble' && teams.length > 0) {
+    // Build set of editable player IDs (players the current user can score)
+    const editablePlayerIds =
+      scoringPairsEnabled && playersToScore.length > 0
+        ? new Set(playersToScore.map((p) => p.id))
+        : undefined;
+
+    // Get drive contributor from the first team member's score (shared across team)
+    const shambleDriveContributor = (() => {
+      const firstMember = teams[0]?.members?.[0];
+      if (!firstMember) return undefined;
+      const score = playerScoresMap.get(firstMember.player_id);
+      if (score && isSingleBallScore(score)) {
+        return score.shotContributions?.drive;
+      }
+      return undefined;
+    })();
+
+    return (
+      <>
+        {teams.map((team, index) => (
+          <React.Fragment key={team.id}>
+            <DriveContributorPicker
+              team={team}
+              selectedPlayerId={shambleDriveContributor}
+              onSelect={(playerId) => {
+                // Store drive contributor in shotContributions
+                if (handleShotContributionsChange) {
+                  handleShotContributionsChange(index, { drive: playerId });
+                }
+              }}
+            />
+            <BestBallScoreView
+              team={team}
+              currentHole={currentHoleData}
+              playerScores={playerScoresMap}
+              onScoreSelect={handleBestBallScoreSelect}
+              editablePlayerIds={editablePlayerIds}
+              aggregation="sum"
+              formatLabel="Shamble Format"
+            />
+          </React.Fragment>
         ))}
       </>
     );

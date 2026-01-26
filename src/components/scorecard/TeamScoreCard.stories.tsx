@@ -353,7 +353,7 @@ export const FourPlayerTeam: Story = {
   render: () => (
     <StoryWrapper
       title="Four-Player Team (Foursome)"
-      description="4-player Ambrose/Scramble format"
+      description="4-player Scramble format"
     >
       <TeamScoreCard
         team={createFourPlayerTeam('Team Foursome', [5, 15, 22, 30])}

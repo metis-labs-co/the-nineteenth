@@ -165,7 +165,7 @@ export const formatUserScore = (
       return null;
 
     case 'stroke':
-    case 'ambrose':
+    case 'scramble':
     case 'fourball_bestball':
       // Stroke-based: Show Gross and Net (e.g., "Gross: 84, Net: 71")
       if (userScore.totalGross != null && userScore.totalNet != null) {

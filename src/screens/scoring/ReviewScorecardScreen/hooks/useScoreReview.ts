@@ -7,7 +7,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { generateDefaultHoles } from '@/utils/scorecardCalculations';
 import { isSingleBallScore } from '@/types/database/base';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
-import type { Hole, Player, Scorecard } from '@/types/index';
+import type { Hole, Player, Scorecard, GameType, HoleScore, MultiBallHoleScore } from '@/types/index';
 
 export interface IncompleteHole {
   holeNumber: number;
@@ -25,6 +25,8 @@ interface UseScoreReviewReturn {
   currentPlayers: Player[];
   groupScorecards: Map<string, Scorecard>;
   currentRoundId: string | null;
+  gameType: GameType;
+  getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
 
   // Validation
   incompleteHoles: IncompleteHole[];
@@ -44,6 +46,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     currentPlayers,
     groupScorecards,
     holes: storeHoles,
+    gameType,
+    getPlayerScore,
     submitScorecards,
     resetRound,
     setCurrentHole,
@@ -116,6 +120,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     currentPlayers,
     groupScorecards,
     currentRoundId,
+    gameType,
+    getPlayerScore,
 
     // Validation
     incompleteHoles,

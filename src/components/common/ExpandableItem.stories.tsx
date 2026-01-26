@@ -461,10 +461,10 @@ function HelpTopicsDemo() {
         'In match play, you compete hole-by-hole against your opponent. Win a hole by scoring lower, and the match is determined by how many holes you\'re ahead with holes remaining.',
     },
     {
-      id: 'ambrose',
-      title: 'Ambrose Team Format',
+      id: 'scramble',
+      title: 'Scramble Team Format',
       content:
-        'In Ambrose, all team members hit their tee shots. The best shot is selected, and all players hit from that spot. This continues until the ball is holed.',
+        'In Scramble, all team members hit their tee shots. The best shot is selected, and all players hit from that spot. This continues until the ball is holed.',
     },
   ];
 

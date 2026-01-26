@@ -166,9 +166,9 @@ export function getRequiredTierForGameType(gameType: GameType): SubscriptionTier
     case 'stroke':
       return 'social';
     case 'match-play':
-    case 'ambrose':
     case 'best-ball':
     case 'scramble':
+    case 'shamble':
       return 'premium';
     default:
       return 'premium';

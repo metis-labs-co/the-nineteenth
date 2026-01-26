@@ -37,6 +37,7 @@ export const CREATE_SCORECARDS_TABLE = `
 /**
  * CREATE TABLE statement for hole_scores
  * Note: strokes can be NULL for multi-ball scores (stored in ball_scores instead)
+ * Note: shot_contributions stores JSON for scramble/shamble (drive, approach, putt player IDs)
  */
 export const CREATE_HOLE_SCORES_TABLE = `
   CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.HOLE_SCORES} (
@@ -50,6 +51,7 @@ export const CREATE_HOLE_SCORES_TABLE = `
     penalties INTEGER DEFAULT 0,
     ball_scores TEXT,
     scored_by TEXT,
+    shot_contributions TEXT,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (scorecard_id) REFERENCES ${TABLE_NAMES.SCORECARDS}(id),
     UNIQUE(scorecard_id, hole_number)

@@ -20,7 +20,7 @@ import {
   clearInvalidMockData,
   clearAllPendingSyncs,
 } from './database';
-import { supabase } from '@/services/supabase/client';
+import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { invalidateLeaderboardCache, invalidateScorecardCache, invalidateHandicapCache } from '@/services/queryClient';
 import { saveScoreEntry } from '@/services/scoreMismatch';
 import type { Scorecard, PendingSync } from '@/types';
@@ -398,7 +398,13 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
   }
 
   // Transform scores object to ensure string keys (Supabase JSONB compatibility)
-  const scoresForDb: Record<string, { strokes: number; putts?: number; penalties?: number }> = {};
+  // Include shotContributions for scramble/shamble team formats
+  const scoresForDb: Record<string, {
+    strokes: number;
+    putts?: number;
+    penalties?: number;
+    shotContributions?: { drive?: string; approach?: string; putt?: string };
+  }> = {};
   let holesWithScores = 0;
   for (const [holeNum, score] of Object.entries(scorecard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined) {
@@ -406,6 +412,8 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
         strokes: score.strokes,
         putts: score.putts,
         penalties: score.penalties || 0,
+        // Include shot contributions if present (scramble/shamble formats)
+        ...(score.shotContributions && { shotContributions: score.shotContributions }),
       };
       holesWithScores++;
     }
@@ -427,6 +435,7 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
   };
 
   // Calculate handicap differential if tee data is available
+  let gaHandicapUsed: number | null = null;
   let dailyHandicapUsed: number | null = null;
   let handicapDifferential: number | null = null;
   let courseRatingUsed: number | null = null;
@@ -450,6 +459,9 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
 
       // Calculate daily handicap if player has a GA handicap
       if (playerHandicap != null) {
+        // Capture the GA handicap used for this round (historical snapshot)
+        gaHandicapUsed = playerHandicap;
+
         const dailyResult = calculateGADailyHandicap({
           gaHandicap: playerHandicap,
           slopeRating: ratings.slopeRating,
@@ -503,6 +515,7 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     submitted_by: scorecard.submittedBy || null,
     synced_at: new Date().toISOString(),
     // Handicap tracking fields
+    ga_handicap_used: gaHandicapUsed,
     daily_handicap_used: dailyHandicapUsed,
     handicap_differential: handicapDifferential,
     course_rating_used: courseRatingUsed,
@@ -560,9 +573,21 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
 
   // Also populate score_entries for mismatch detection (if scores have scoredBy attribution)
   // This ensures offline scores are available for mismatch detection after reconnect
+  // NOTE: Only sync entries where the current user is the scorer (RLS policy requirement)
   let scoreEntriesSynced = 0;
+  let entriesSkipped = 0;
+  const currentUser = await getCurrentUser();
+  const currentUserId = currentUser?.id;
+
   for (const [holeNum, score] of Object.entries(scorecard.scores)) {
     if (score && isSingleBallScore(score) && score.strokes !== undefined && score.scoredBy) {
+      // Only sync entries where current user was the scorer (RLS policy requires scorer_id = auth.uid())
+      // Entries scored by others will be synced when they sync their own device
+      if (currentUserId && score.scoredBy !== currentUserId) {
+        entriesSkipped++;
+        continue;
+      }
+
       try {
         await saveScoreEntry(
           scorecard.roundId,
@@ -582,11 +607,12 @@ async function syncScorecard(scorecard: Scorecard): Promise<void> {
     }
   }
 
-  if (scoreEntriesSynced > 0) {
+  if (scoreEntriesSynced > 0 || entriesSkipped > 0) {
     syncLogger.debug('Score entries synced for mismatch detection', {
       roundId: scorecard.roundId.substring(0, 8) + '...',
       playerId: scorecard.playerId.substring(0, 8) + '...',
       entriesCount: scoreEntriesSynced,
+      entriesSkipped: entriesSkipped, // Skipped because scorer was another user
     });
   }
 }

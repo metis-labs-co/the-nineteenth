@@ -3,8 +3,9 @@
  *
  * Implements team scoring for various formats:
  * - Best Ball: Best score from team members on each hole
- * - Ambrose: One ball played, team handicap applied
+ * - Scramble (formerly Ambrose): One ball played, team handicap applied
  * - Aggregate: Sum of all team member scores
+ * - Shamble: Best drive, then individual play - sum all Stableford points
  */
 
 import type { IScoringEngine } from './IScoringEngine';
@@ -29,8 +30,9 @@ import { sortByScore, assignPositions } from '../utils/leaderboardUtils';
 
 /**
  * Team format type
+ * Matches database team_format enum + shamble for future use
  */
-export type TeamFormat = 'best-ball' | 'ambrose' | 'aggregate';
+export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
 
 /**
  * Team scoring engine for multi-player team formats.
@@ -48,8 +50,8 @@ export class TeamScoringEngine implements IScoringEngine {
 
   constructor(format: TeamFormat = 'best-ball') {
     this.teamFormat = format;
-    // Best ball uses Stableford (higher is better), others use stroke (lower is better)
-    this.higherIsBetter = format === 'best-ball';
+    // Best ball and Shamble use Stableford (higher is better), others use stroke (lower is better)
+    this.higherIsBetter = format === 'best-ball' || format === 'shamble';
   }
 
   /**
@@ -269,12 +271,12 @@ export class TeamScoringEngine implements IScoringEngine {
       courseData.slopeRating,
       courseData.courseRating,
       courseData.par,
-      'ambrose'
+      'scramble'
     );
 
     const holeMap = new Map(courseData.holes.map((h) => [h.number, h]));
 
-    // In Ambrose, team plays best drive then alternates
+    // In Scramble, team plays best shot each time
     // We assume the scorecard contains the final team strokes per hole
     const teamScorecard = teamScores[0];
     if (!teamScorecard) {
@@ -324,35 +326,47 @@ export class TeamScoringEngine implements IScoringEngine {
 
   /**
    * Calculate Aggregate score (sum of all members)
+   *
+   * @param teamScores - Array of scorecards for team members
+   * @param courseData - Course hole data
+   * @param config - Engine configuration
+   * @param scoringMode - 'net' for net strokes (lower is better), 'stableford' for points (higher is better)
    */
   calculateAggregate(
     teamScores: ScorecardWithHandicap[],
     courseData: CourseHoleData,
-    config: EngineConfig = DEFAULT_ENGINE_CONFIG
+    config: EngineConfig = DEFAULT_ENGINE_CONFIG,
+    scoringMode: 'net' | 'stableford' = 'net'
   ): TeamScoringResult {
     let teamGross = 0;
     let teamNet = 0;
+    let teamPoints = 0;
 
     const memberScores: TeamScoringResult['memberScores'] = [];
 
     for (const sc of teamScores) {
       const result = this.calculateScore(sc, courseData, config);
+      const playerPoints = result.stablefordPoints ?? 0;
       teamGross += result.grossScore;
       teamNet += result.netScore;
+      teamPoints += playerPoints;
 
       memberScores.push({
         playerId: sc.scorecard.player_id,
-        contribution: result.netScore,
+        contribution: scoringMode === 'stableford' ? playerPoints : result.netScore,
       });
     }
 
+    const rawScore = scoringMode === 'stableford' ? teamPoints : teamNet;
+
     return {
       teamId: teamScores[0]?.teamId || '',
-      rawScore: teamNet,
+      rawScore,
       resultData: {
-        team_score: teamNet,
+        team_score: rawScore,
         gross_score: teamGross,
         net_score: teamNet,
+        stableford_points: teamPoints,
       },
       memberScores,
     };

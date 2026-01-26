@@ -407,7 +407,7 @@ function getProgressIncrementForScorecard(
   }
 
   if (baseCode.startsWith('TEAM_PLAYER')) {
-    return ['ambrose', 'best_ball', 'scramble', 'fourball'].includes(gameType ?? '') ? 1 : 0;
+    return ['best_ball', 'scramble', 'shamble', 'fourball'].includes(gameType ?? '') ? 1 : 0;
   }
 
   // Score thresholds

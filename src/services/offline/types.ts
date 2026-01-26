@@ -41,6 +41,7 @@ export interface HoleScoreRow {
   penalties: number;
   ball_scores: string | null;
   scored_by: string | null;
+  shot_contributions: string | null;
   updated_at: string;
 }
 

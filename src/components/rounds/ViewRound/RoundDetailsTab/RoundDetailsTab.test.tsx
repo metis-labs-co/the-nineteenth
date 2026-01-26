@@ -764,7 +764,7 @@ describe('RoundDetailsTab', () => {
       { type: 'stableford', expectedLabel: 'Stableford' },
       { type: 'stroke', expectedLabel: 'Stroke Play' },
       { type: 'match-play', expectedLabel: 'Match Play' },
-      { type: 'ambrose', expectedLabel: 'Ambrose' },
+      { type: 'shamble', expectedLabel: 'Shamble' },
       { type: 'best-ball', expectedLabel: 'Best Ball' },
       { type: 'scramble', expectedLabel: 'Scramble' },
     ];

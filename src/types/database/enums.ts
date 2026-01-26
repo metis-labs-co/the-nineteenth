@@ -10,12 +10,12 @@ export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'canc
 export type CompetitionType = 'league' | 'event';
 
 // Game enums
-export type GameType = 'stroke' | 'stableford' | 'match-play' | 'ambrose' | 'best-ball' | 'scramble';
+export type GameType = 'stroke' | 'stableford' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
 export type RoundStatus = 'upcoming' | 'in-progress' | 'completed';
 
 // Team enums
 export type TeamMode = 'none' | 'fixed' | 'per-round';
-export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team';
+export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
 
 // Player/Invitation enums
 export type InvitationStatus = 'invited' | 'accepted' | 'declined';

@@ -329,7 +329,7 @@ export const AllGameTypes: Story = {
   render: () => (
     <InteractiveWrapper
       initialRounds={[createMockRound()]}
-      allowedGameTypes={['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble']}
+      allowedGameTypes={['stableford', 'stroke', 'match-play', 'best-ball', 'scramble', 'shamble']}
     />
   ),
   parameters: {
@@ -393,9 +393,9 @@ export const TeamFormatRounds: Story = {
       initialRounds={[
         createMockRound({
           courseId: 'course-1',
-          courseName: 'Ambrose Challenge Course',
+          courseName: 'Shamble Challenge Course',
           date: '15/01/2025',
-          matchType: 'ambrose',
+          matchType: 'shamble',
         }),
         createMockRound({
           courseId: 'course-2',
@@ -410,7 +410,7 @@ export const TeamFormatRounds: Story = {
           matchType: 'scramble',
         }),
       ]}
-      allowedGameTypes={['stableford', 'ambrose', 'best-ball', 'scramble']}
+      allowedGameTypes={['stableford', 'best-ball', 'scramble', 'shamble']}
     />
   ),
   parameters: {
@@ -711,19 +711,19 @@ export const CorporateEvent: Story = {
           courseName: 'Corporate Golf Club',
           date: '20/03/2025',
           teeTime: '08:00',
-          matchType: 'ambrose',
+          matchType: 'scramble',
           scoringPairsRequired: false,
           selectedTee: { name: 'White Tees', color: 'white', totalYardage: 6100 },
         }),
       ]}
       maxRoundsPerCompetition={1}
-      allowedGameTypes={['stableford', 'ambrose', 'scramble']}
+      allowedGameTypes={['stableford', 'scramble', 'shamble']}
     />
   ),
   parameters: {
     docs: {
       description: {
-        story: 'Single-round corporate event with Ambrose format.',
+        story: 'Single-round corporate event with Scramble format.',
       },
     },
   },

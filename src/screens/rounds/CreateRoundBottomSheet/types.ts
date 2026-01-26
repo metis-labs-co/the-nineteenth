@@ -64,6 +64,27 @@ export interface ScoringPairsConfig {
 }
 
 /**
+ * Scramble team for wizard state (includes full player objects)
+ */
+export interface ScrambleTeam {
+  id: string;
+  name: string; // "Team 1", "Team 2"
+  members: PlayingPartner[];
+}
+
+/**
+ * Team configuration for database storage (uses player UUIDs only)
+ * Stored in rounds.team_config JSONB column for standalone scramble rounds
+ */
+export interface TeamConfig {
+  teams: Array<{
+    id: string;
+    name: string;
+    memberIds: string[]; // Player UUIDs
+  }>;
+}
+
+/**
  * Match type option for display
  */
 export interface MatchTypeOption {
@@ -93,6 +114,12 @@ export interface WizardData {
   skinsEnabled: boolean;
   /** Skins game configuration (pot type, value, scoring type) */
   skinsConfig: SkinsConfig | null;
+  /** Scramble teams when split into smaller teams */
+  teams: ScrambleTeam[];
+  /** Whether teams are locked (true when using competition teams, prevents shuffling) */
+  teamsLocked: boolean;
+  /** Whether to split players into smaller teams for scramble (default: false = all play as one team) */
+  splitIntoTeams: boolean;
 }
 
 /**
@@ -109,7 +136,8 @@ export interface CreateRoundBottomSheetProps {
     gameType?: GameType,
     scoringPairs?: ScoringPairsConfig,
     ballCount?: BallCount,
-    skinsConfig?: StandaloneSkinsConfig
+    skinsConfig?: StandaloneSkinsConfig,
+    teamConfig?: TeamConfig
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;
@@ -138,12 +166,6 @@ export const MATCH_TYPES: MatchTypeOption[] = [
     requiredTier: 'social',
   },
   {
-    value: 'ambrose',
-    label: 'Ambrose',
-    description: 'Team format - best drive, then all play',
-    requiredTier: 'premium',
-  },
-  {
     value: 'best-ball',
     label: 'Best Ball',
     description: 'Team format - best score counts',
@@ -153,6 +175,12 @@ export const MATCH_TYPES: MatchTypeOption[] = [
     value: 'scramble',
     label: 'Scramble',
     description: 'Team format - everyone plays from best shot',
+    requiredTier: 'premium',
+  },
+  {
+    value: 'shamble',
+    label: 'Shamble',
+    description: 'Best drive, then individual play - sum all points',
     requiredTier: 'premium',
   },
 ];

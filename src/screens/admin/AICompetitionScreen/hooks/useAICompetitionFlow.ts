@@ -224,14 +224,28 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
         teamMode: generatedCompetition.teamMode,
         teamSize: generatedCompetition.teamSize ?? undefined,
 
-        // Rounds
-        rounds: generatedCompetition.rounds.map((round) => ({
-          courseName: round.courseName,
-          courseId: round.courseId || undefined,
-          date: parseAustralianDate(round.date),
-          teeTime: round.teeTime || undefined,
-          matchType: round.gameType,
-        })),
+        // Rounds - set team properties based on competition team mode and game type
+        rounds: generatedCompetition.rounds.map((round) => {
+          // Determine if this round should be a team round based on competition settings and game type
+          const isTeamGameType = ['best-ball', 'scramble', 'shamble'].includes(round.gameType);
+          const hasTeams = generatedCompetition.teamMode !== 'none';
+          const isTeamRound = hasTeams && isTeamGameType;
+
+          // Map game type to team format when applicable
+          const teamFormat = isTeamRound
+            ? (round.gameType as 'best-ball' | 'scramble' | 'shamble')
+            : undefined;
+
+          return {
+            courseName: round.courseName,
+            courseId: round.courseId || undefined,
+            date: parseAustralianDate(round.date),
+            teeTime: round.teeTime || undefined,
+            matchType: round.gameType,
+            isTeamRound,
+            teamFormat,
+          };
+        }),
 
         // Players (with real IDs for any new placeholders)
         players: finalPlayers,

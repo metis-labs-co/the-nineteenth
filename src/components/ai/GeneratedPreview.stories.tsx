@@ -289,12 +289,12 @@ export const MatchPlayFormat: Story = {
   },
 };
 
-export const AmbroseFormat: Story = {
+export const ScrambleFormat: Story = {
   args: {
     competition: createCompetition({
       teamMode: 'fixed',
       teamSize: 4,
-      rounds: [createRound({ gameType: 'ambrose' })],
+      rounds: [createRound({ gameType: 'scramble' })],
     }),
     isCreating: false,
   },

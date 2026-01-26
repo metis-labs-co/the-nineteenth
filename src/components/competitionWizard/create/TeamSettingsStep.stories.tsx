@@ -218,7 +218,7 @@ export const TeamSizeThree: Story = {
 
 /**
  * Teams of 4 (Foursomes).
- * Four players per team - common for Ambrose and corporate events.
+ * Four players per team - common for Scramble and corporate events.
  */
 export const TeamSizeFour: Story = {
   args: {

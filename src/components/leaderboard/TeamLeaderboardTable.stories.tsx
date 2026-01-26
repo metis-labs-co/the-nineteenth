@@ -359,7 +359,7 @@ export const ManyTeams: Story = {
 // ===========================================================================
 
 /**
- * Scramble/Ambrose format (hide member points)
+ * Scramble format (hide member points)
  */
 export const ScrambleFormat: Story = {
   args: {

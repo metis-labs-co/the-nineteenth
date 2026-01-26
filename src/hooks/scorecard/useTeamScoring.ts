@@ -10,7 +10,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { teamScoringLogger } from '@/utils/debugLogger';
-import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
+import type { HoleScore, MultiBallHoleScore, Player, HoleShotContributions } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
 
@@ -35,6 +35,8 @@ interface UseTeamScoringResult {
   handleBestBallScoreSelect: (playerId: string, strokes: number) => Promise<void>;
   handleTeamMatchPlayScoreSelect: (teamIndex: number, strokes: number) => Promise<void>;
   getTeamScore: (teamIndex: number) => HoleScore | MultiBallHoleScore | undefined;
+  /** Update shot contributions for scramble format */
+  handleShotContributionsChange: (teamIndex: number, contributions: HoleShotContributions) => Promise<void>;
 }
 
 /**
@@ -46,7 +48,7 @@ export function useTeamScoring({
   currentHole,
   players,
 }: UseTeamScoringParams): UseTeamScoringResult {
-  const { setPlayerScore, getPlayerScore, groupScorecards: _groupScorecards } = useScorecardStore();
+  const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards } = useScorecardStore();
 
   // Team-specific state
   const [selectedContributor, setSelectedContributor] = useState<string | undefined>();
@@ -86,8 +88,7 @@ export function useTeamScoring({
     });
 
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- groupScorecards intentionally excluded, scores update via getPlayerScore
-  }, [players, teams, currentHole, getPlayerScore, teamFormat]);
+  }, [players, teams, currentHole, getPlayerScore, teamFormat, groupScorecards]);
 
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(
@@ -196,6 +197,31 @@ export function useTeamScoring({
     [teams, getPlayerScore, currentHole]
   );
 
+  // Handler for shot contributions (scramble format)
+  const handleShotContributionsChange = useCallback(
+    async (teamIndex: number, contributions: HoleShotContributions) => {
+      const team = teams[teamIndex];
+      if (!team) {
+        teamScoringLogger.warn('handleShotContributionsChange: Team not found', { teamIndex });
+        return;
+      }
+
+      teamScoringLogger.info('SCRAMBLE: Updating shot contributions for team', {
+        teamIndex,
+        teamName: team.name,
+        hole: currentHole,
+        contributions,
+        memberCount: team.members?.length || 0,
+      });
+
+      // Update shot contributions for all team members (they share the same scorecard data)
+      for (const member of team.members || []) {
+        await updateShotContributions(member.player_id, currentHole, contributions);
+      }
+    },
+    [currentHole, updateShotContributions, teams]
+  );
+
   return {
     selectedContributor,
     teamMatchPlayResults,
@@ -205,5 +231,6 @@ export function useTeamScoring({
     handleBestBallScoreSelect,
     handleTeamMatchPlayScoreSelect,
     getTeamScore,
+    handleShotContributionsChange,
   };
 }

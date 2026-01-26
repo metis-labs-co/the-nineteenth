@@ -258,7 +258,7 @@ const fiveRounds: RoundDetailsFormData[] = [
   { courseId: '2', courseName: 'Kingston Heath', date: '22/01/2025', teeTime: '08:00', matchType: 'stroke', scoringPairsRequired: false },
   { courseId: '3', courseName: 'Metropolitan', date: '29/01/2025', teeTime: '08:00', matchType: 'stableford', scoringPairsRequired: false },
   { courseId: '4', courseName: 'Victoria Golf Club', date: '05/02/2025', teeTime: '08:00', matchType: 'best-ball', scoringPairsRequired: false },
-  { courseId: '5', courseName: 'Commonwealth', date: '12/02/2025', teeTime: '08:00', matchType: 'ambrose', scoringPairsRequired: false },
+  { courseId: '5', courseName: 'Commonwealth', date: '12/02/2025', teeTime: '08:00', matchType: 'scramble', scoringPairsRequired: false },
 ];
 
 const teamFormatRounds: RoundDetailsFormData[] = [
@@ -283,7 +283,7 @@ const teamFormatRounds: RoundDetailsFormData[] = [
     courseName: 'Long Island Golf Club',
     date: '17/01/2025',
     teeTime: '08:00',
-    matchType: 'ambrose',
+    matchType: 'shamble',
     scoringPairsRequired: false,
   },
 ];
@@ -518,7 +518,7 @@ export const MatchPlay: Story = {
 };
 
 /**
- * Team formats (Best Ball, Scramble, Ambrose).
+ * Team formats (Best Ball, Scramble, Shamble).
  */
 export const TeamFormats: Story = {
   args: {

@@ -7,9 +7,9 @@ export type GameType =
   | 'stroke'
   | 'stableford'
   | 'match-play'
-  | 'ambrose'
   | 'best-ball'
-  | 'scramble';
+  | 'scramble'
+  | 'shamble';
 
 // Team mode enum
 export type TeamMode = 'none' | 'fixed' | 'per-round';

@@ -31,19 +31,29 @@ import {
   calculateTotalPot,
   formatCurrency,
   formatNetResult,
+  // Team skins functions
+  calculateTeamNetPositions,
+  simplifyTeamDebts,
+  formatTeamDebtTransactions,
   type PlayerNameMap,
+  type TeamNameMap,
+  type TeamPayoutParticipant,
 } from '@/utils/skinsCalculations';
-import type { SkinsPayoutWithPlayer, SkinsGame } from '@/types';
+import type { SkinsPayoutWithPlayer, SkinsPayoutWithTeam, SkinsGame } from '@/types';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface SkinsSettlementCardProps {
-  /** Array of skins payouts with player details */
-  payouts: SkinsPayoutWithPlayer[];
+  /** Array of skins payouts with player details (individual skins) */
+  payouts?: SkinsPayoutWithPlayer[];
+  /** Array of team payouts with team details (team skins) */
+  teamPayouts?: SkinsPayoutWithTeam[];
   /** The skins game configuration */
   game: SkinsGame;
+  /** Whether this is a team skins game */
+  isTeamSkins?: boolean;
   /** Optional: Unsettled carryover amount (if hole 18 was tied) */
   unsettledCarryover?: number;
   /** Test ID for testing */
@@ -55,63 +65,107 @@ export interface SkinsSettlementCardProps {
 // ============================================================================
 
 export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
-  payouts,
+  payouts = [],
+  teamPayouts = [],
   game,
+  isTeamSkins = false,
   unsettledCarryover = 0,
   testID,
 }: SkinsSettlementCardProps) {
   const colors = useThemeColors();
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
-  // Sort payouts by total winnings (descending)
+  // Determine which payouts to use based on mode
+  const activePayouts = isTeamSkins ? teamPayouts : payouts;
+  const participantCount = activePayouts.length;
+
+  // Sort payouts by total winnings (descending) - unified for both modes
   const sortedPayouts = useMemo(() => {
+    if (isTeamSkins) {
+      return [...teamPayouts].sort((a, b) => b.total_winnings - a.total_winnings);
+    }
     return [...payouts].sort((a, b) => b.total_winnings - a.total_winnings);
-  }, [payouts]);
+  }, [isTeamSkins, payouts, teamPayouts]);
 
-  // Sort payouts by net result for the settlement section
-  const payoutsByNet = useMemo(() => {
-    return [...payouts].sort((a, b) => b.net_result - a.net_result);
-  }, [payouts]);
+  // Calculate who owes who (handles both individual and team)
+  const { debtTransactions, teamDebtTransactions, formattedDebts, nameMap } = useMemo(() => {
+    if (isTeamSkins) {
+      // Team skins - calculate team debts
+      const map: TeamNameMap = {};
+      const teamParticipants: TeamPayoutParticipant[] = [];
+      teamPayouts.forEach((p) => {
+        map[p.team_id] = p.team.name;
+        teamParticipants.push({
+          id: p.team_id,
+          member_count: p.team.members?.length ?? 1,
+        });
+      });
 
-  // Calculate who owes who
-  const { debtTransactions, formattedDebts, playerMap } = useMemo(() => {
-    // Create player name map
-    const map: PlayerNameMap = {};
-    payouts.forEach((p) => {
-      map[p.player_id] = p.player.name;
-    });
+      const netPositions = calculateTeamNetPositions(
+        teamPayouts.map((p) => ({ team_id: p.team_id, net_result: p.net_result })),
+        teamParticipants
+      );
+      const transactions = simplifyTeamDebts(netPositions, teamParticipants);
+      const formatted = formatTeamDebtTransactions(transactions, map);
 
-    // Calculate net positions and simplify debts
-    const netPositions = calculateNetPositions(payouts);
-    const transactions = simplifyDebts(netPositions);
-    const formatted = formatDebtTransactions(transactions, map);
+      return {
+        debtTransactions: [],
+        teamDebtTransactions: transactions,
+        formattedDebts: formatted,
+        nameMap: map,
+      };
+    } else {
+      // Individual skins - calculate player debts
+      const map: PlayerNameMap = {};
+      payouts.forEach((p) => {
+        map[p.player_id] = p.player.name;
+      });
 
-    return {
-      debtTransactions: transactions,
-      formattedDebts: formatted,
-      playerMap: map,
-    };
-  }, [payouts]);
+      const netPositions = calculateNetPositions(payouts);
+      const transactions = simplifyDebts(netPositions);
+      const formatted = formatDebtTransactions(transactions, map);
 
-  // Calculate per-player split if there's unsettled carryover
-  const perPlayerSplit = useMemo(() => {
-    if (unsettledCarryover <= 0 || payouts.length === 0) return 0;
-    return Math.round((unsettledCarryover / payouts.length) * 100) / 100;
-  }, [unsettledCarryover, payouts.length]);
+      return {
+        debtTransactions: transactions,
+        teamDebtTransactions: [],
+        formattedDebts: formatted,
+        nameMap: map,
+      };
+    }
+  }, [isTeamSkins, payouts, teamPayouts]);
+
+  // Calculate per-participant split if there's unsettled carryover
+  const perParticipantSplit = useMemo(() => {
+    if (unsettledCarryover <= 0 || participantCount === 0) return 0;
+    return Math.round((unsettledCarryover / participantCount) * 100) / 100;
+  }, [unsettledCarryover, participantCount]);
 
   // Build share message
   const buildShareMessage = useCallback((): string => {
     const perHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
     const totalPot = calculateTotalPot(game.pot_type, game.pot_value);
 
-    let message = `Skins Game Settlement\n`;
+    let message = `${isTeamSkins ? 'Team ' : ''}Skins Game Settlement\n`;
     message += `${formatCurrency(perHoleValue)}/hole | ${totalPot.toFixed(0)} total pot | ${game.scoring_type === 'gross' ? 'Gross' : 'Net'}\n\n`;
 
     message += `Results:\n`;
-    sortedPayouts.forEach((p, index) => {
-      const prefix = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
-      message += `${prefix}: ${p.player.name} - ${formatNetResult(p.net_result)} (${p.holes_won} holes won)\n`;
-    });
+    if (isTeamSkins) {
+      (sortedPayouts as SkinsPayoutWithTeam[]).forEach((p, index) => {
+        const prefix = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
+        const memberCount = p.team.members?.length ?? 1;
+        const perMember = p.net_result / memberCount;
+        message += `${prefix}: ${p.team.name} - ${formatNetResult(p.net_result)} (${p.holes_won} holes won)`;
+        if (memberCount > 1) {
+          message += ` [${formatNetResult(perMember)}/member]`;
+        }
+        message += '\n';
+      });
+    } else {
+      (sortedPayouts as SkinsPayoutWithPlayer[]).forEach((p, index) => {
+        const prefix = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
+        message += `${prefix}: ${p.player.name} - ${formatNetResult(p.net_result)} (${p.holes_won} holes won)\n`;
+      });
+    }
 
     if (formattedDebts.length > 0) {
       message += `\nSettlement:\n`;
@@ -121,13 +175,14 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
     }
 
     if (unsettledCarryover > 0) {
-      message += `\nUnsettled: ${formatCurrency(unsettledCarryover)} (split ${formatCurrency(perPlayerSplit)} each)`;
+      const splitLabel = isTeamSkins ? 'per team' : 'each';
+      message += `\nUnsettled: ${formatCurrency(unsettledCarryover)} (split ${formatCurrency(perParticipantSplit)} ${splitLabel})`;
     }
 
     message += `\n\nShared from The Nineteenth`;
 
     return message;
-  }, [game, sortedPayouts, formattedDebts, unsettledCarryover, perPlayerSplit]);
+  }, [game, isTeamSkins, sortedPayouts, formattedDebts, unsettledCarryover, perParticipantSplit]);
 
   // Handle share button press
   const handleShare = useCallback(async () => {
@@ -169,13 +224,13 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
       {/* Totals Won Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          TOTALS WON
+          {isTeamSkins ? 'TEAM TOTALS' : 'TOTALS WON'}
         </Text>
         <View style={[styles.table, { borderColor: colors.border }]}>
           {/* Table Header */}
           <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.surfaceVariant }]}>
             <Text style={[styles.tableHeaderCell, styles.playerColumn, { color: colors.textSecondary }]}>
-              Player
+              {isTeamSkins ? 'Team' : 'Player'}
             </Text>
             <Text style={[styles.tableHeaderCell, styles.holesColumn, { color: colors.textSecondary }]}>
               Holes
@@ -188,8 +243,8 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
             </Text>
           </View>
 
-          {/* Table Rows */}
-          {sortedPayouts.map((payout, index) => (
+          {/* Table Rows - Individual */}
+          {!isTeamSkins && (sortedPayouts as SkinsPayoutWithPlayer[]).map((payout, index) => (
             <View
               key={payout.player_id}
               style={[
@@ -227,21 +282,70 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
               </Text>
             </View>
           ))}
+
+          {/* Table Rows - Team */}
+          {isTeamSkins && (sortedPayouts as SkinsPayoutWithTeam[]).map((payout, index) => {
+            const memberCount = payout.team.members?.length ?? 1;
+            const perMemberNet = payout.net_result / memberCount;
+            return (
+              <View
+                key={payout.team_id}
+                style={[
+                  styles.tableRow,
+                  {
+                    backgroundColor: index % 2 === 0 ? colors.surface : colors.background,
+                    borderBottomColor: colors.border,
+                  },
+                  index === sortedPayouts.length - 1 && styles.lastRow,
+                ]}
+              >
+                <View style={[styles.tableCell, styles.playerColumn]}>
+                  <Text
+                    style={[styles.playerName, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {payout.team.name}
+                  </Text>
+                  {memberCount > 1 && (
+                    <Text style={[styles.perMemberNote, { color: colors.textTertiary }]}>
+                      {formatNetResult(perMemberNet)}/member
+                    </Text>
+                  )}
+                </View>
+                <Text style={[styles.tableCell, styles.holesColumn, { color: colors.textSecondary }]}>
+                  {payout.holes_won}
+                </Text>
+                <Text style={[styles.tableCell, styles.wonColumn, { color: colors.textPrimary }]}>
+                  {formatCurrency(payout.total_winnings)}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableCell,
+                    styles.netColumn,
+                    styles.netValue,
+                    { color: getNetResultColor(payout.net_result) },
+                  ]}
+                >
+                  {formatNetResult(payout.net_result)}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
 
       <Divider style={{ backgroundColor: colors.border }} />
 
-      {/* Who Owes Who Section */}
-      {formattedDebts.length > 0 && (
+      {/* Who Owes Who Section - Individual */}
+      {!isTeamSkins && formattedDebts.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             WHO OWES WHO
           </Text>
           <View style={styles.debtList}>
             {debtTransactions.map((transaction, index) => {
-              const fromName = playerMap[transaction.from_player_id] || 'Unknown';
-              const toName = playerMap[transaction.to_player_id] || 'Unknown';
+              const fromName = (nameMap as PlayerNameMap)[transaction.from_player_id] || 'Unknown';
+              const toName = (nameMap as PlayerNameMap)[transaction.to_player_id] || 'Unknown';
 
               return (
                 <View
@@ -266,6 +370,52 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
                   <Text style={[styles.debtAmount, { color: colors.textPrimary }]}>
                     {formatCurrency(transaction.amount)}
                   </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Who Owes Who Section - Team */}
+      {isTeamSkins && formattedDebts.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            TEAM SETTLEMENTS
+          </Text>
+          <View style={styles.debtList}>
+            {teamDebtTransactions.map((transaction, index) => {
+              const fromName = (nameMap as TeamNameMap)[transaction.from_team_id] || 'Unknown';
+              const toName = (nameMap as TeamNameMap)[transaction.to_team_id] || 'Unknown';
+
+              return (
+                <View
+                  key={`${transaction.from_team_id}-${transaction.to_team_id}-${index}`}
+                  style={[
+                    styles.debtRow,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.debtParties}>
+                    <Text style={[styles.debtFromName, { color: colors.error }]}>
+                      {fromName}
+                    </Text>
+                    <Icon source="arrow-right" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.debtToName, { color: colors.success }]}>
+                      {toName}
+                    </Text>
+                  </View>
+                  <View style={styles.debtAmountContainer}>
+                    <Text style={[styles.debtAmount, { color: colors.textPrimary }]}>
+                      {formatCurrency(transaction.amount)}
+                    </Text>
+                    <Text style={[styles.perMemberDebt, { color: colors.textTertiary }]}>
+                      ({formatCurrency(transaction.per_member_amount)}/member)
+                    </Text>
+                  </View>
                 </View>
               );
             })}
@@ -301,7 +451,7 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
                 </Text>
               </View>
               <Text style={[styles.unsettledSuggestion, { color: colors.textSecondary }]}>
-                Hole 18 was tied. Suggestion: split evenly ({formatCurrency(perPlayerSplit)} each)
+                Hole 18 was tied. Suggestion: split evenly ({formatCurrency(perParticipantSplit)} {isTeamSkins ? 'per team' : 'each'})
               </Text>
             </View>
           </View>
@@ -466,6 +616,17 @@ const styles = StyleSheet.create({
   },
   debtAmount: {
     ...typography.bodyBold,
+  },
+  debtAmountContainer: {
+    alignItems: 'flex-end',
+  },
+  perMemberDebt: {
+    ...typography.caption,
+    fontStyle: 'italic',
+  },
+  perMemberNote: {
+    ...typography.caption,
+    fontStyle: 'italic',
   },
 
   // Even card

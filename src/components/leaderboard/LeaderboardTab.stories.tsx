@@ -109,7 +109,7 @@ const _scrambleRounds: RoundWithCourse[] = [
     id: 'round-1',
     round_number: 1,
     status: 'completed',
-    game_type: 'ambrose',
+    game_type: 'scramble',
     is_team_round: true,
     team_format: 'scramble',
   }),
@@ -117,7 +117,7 @@ const _scrambleRounds: RoundWithCourse[] = [
     id: 'round-2',
     round_number: 2,
     status: 'in-progress',
-    game_type: 'ambrose',
+    game_type: 'scramble',
     is_team_round: true,
     team_format: 'scramble',
   }),
@@ -305,7 +305,7 @@ export const ScrambleOnlyCompetition: Story = {
     >
       <View style={styles.infoCard}>
         <Text style={styles.infoText}>
-          For competitions where all rounds use scramble/ambrose format, individual
+          For competitions where all rounds use scramble format, individual
           standings don't apply. The component automatically hides the toggle and
           displays only team standings. Member points are also hidden since
           scramble scores are team-based.

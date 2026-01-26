@@ -41,6 +41,10 @@ interface BestBallScoreViewProps {
   disabled?: boolean;
   /** Set of player IDs that can be edited. If undefined, all players can be edited (when not disabled). */
   editablePlayerIds?: Set<string>;
+  /** Aggregation mode: 'best' (default) selects best score, 'sum' adds all scores (for Shamble) */
+  aggregation?: 'best' | 'sum';
+  /** Format label override (e.g., "Shamble Format") */
+  formatLabel?: string;
 }
 
 const MIN_SCORE = 1;
@@ -53,6 +57,8 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
   onScoreSelect,
   disabled = false,
   editablePlayerIds,
+  aggregation = 'best',
+  formatLabel,
 }: BestBallScoreViewProps) {
   const colors = useThemeColors();
 
@@ -103,25 +109,36 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
       };
     });
 
-    // Find the best net score (lowest)
-    const validNetScores = scores.filter((s) => s.netScore !== null);
-    if (validNetScores.length > 0) {
-      const bestNetScore = Math.min(...validNetScores.map((s) => s.netScore!));
-      // Mark the first player with the best score
-      const bestPlayer = scores.find((s) => s.netScore === bestNetScore);
-      if (bestPlayer) {
-        bestPlayer.isBest = true;
+    // Only mark "best" player in 'best' aggregation mode (not 'sum' for Shamble)
+    if (aggregation !== 'sum') {
+      // Find the best net score (lowest)
+      const validNetScores = scores.filter((s) => s.netScore !== null);
+      if (validNetScores.length > 0) {
+        const bestNetScore = Math.min(...validNetScores.map((s) => s.netScore!));
+        // Mark the first player with the best score
+        const bestPlayer = scores.find((s) => s.netScore === bestNetScore);
+        if (bestPlayer) {
+          bestPlayer.isBest = true;
+        }
       }
     }
 
     return scores;
-  }, [team.members, playerScores, currentHole]);
+  }, [team.members, playerScores, currentHole, aggregation]);
 
-  // Calculate team total (best ball points)
+  // Calculate team total based on aggregation mode
   const teamTotal = useMemo(() => {
+    if (aggregation === 'sum') {
+      // Shamble: sum all player points
+      return playerScoreData.reduce((sum, p) => sum + p.stablefordPoints, 0);
+    }
+    // Best Ball: use best score only
     const bestScore = playerScoreData.find((p) => p.isBest);
     return bestScore?.stablefordPoints ?? 0;
-  }, [playerScoreData]);
+  }, [playerScoreData, aggregation]);
+
+  // Determine the format label to display
+  const displayFormatLabel = formatLabel ?? (aggregation === 'sum' ? 'Team Total' : 'Best Ball Format');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -135,7 +152,7 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
             </Text>
           </View>
           <Text style={[styles.formatLabel, { color: colors.textSecondary }]}>
-            Best Ball Format
+            {displayFormatLabel}
           </Text>
         </View>
         <View style={styles.teamTotal}>

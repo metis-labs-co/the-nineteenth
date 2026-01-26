@@ -298,9 +298,9 @@ describe('RoundCard', () => {
       expect(screen.getByText('Match Play')).toBeTruthy();
     });
 
-    it('displays Ambrose label', () => {
-      render(<RoundCard {...createMockProps({ gameType: 'ambrose' })} />);
-      expect(screen.getByText('Ambrose')).toBeTruthy();
+    it('displays Scramble label', () => {
+      render(<RoundCard {...createMockProps({ gameType: 'scramble' })} />);
+      expect(screen.getByText('Scramble')).toBeTruthy();
     });
 
     it('displays Best Ball label', () => {

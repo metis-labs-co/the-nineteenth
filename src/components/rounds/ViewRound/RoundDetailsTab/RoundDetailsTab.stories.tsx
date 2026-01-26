@@ -226,10 +226,10 @@ export const MatchPlayFormat: Story = {
   },
 };
 
-export const AmbroseFormat: Story = {
+export const ScrambleFormat: Story = {
   args: {
     round: createRound({
-      game_type: 'ambrose',
+      game_type: 'scramble',
       is_team_round: true,
       team_format: 'scramble',
     }),
@@ -524,7 +524,7 @@ export const LeagueMatchDay: Story = {
 export const TeamEvent: Story = {
   args: {
     round: createRound({
-      game_type: 'ambrose',
+      game_type: 'scramble',
       is_team_round: true,
       team_format: 'scramble',
       competition: createCompetition({

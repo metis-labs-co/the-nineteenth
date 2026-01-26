@@ -28,20 +28,24 @@ import {
 } from '@/utils/skinsCalculations';
 import type {
   SkinsResultWithWinner,
+  SkinsResult,
   SkinsPotType,
   SkinsScoringType,
   SkinsParticipant,
+  SkinsTeamParticipant,
 } from '@/types/database';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface PlayerTotal {
+interface ParticipantTotal {
   id: string;
   name: string;
   holesWon: number;
   totalWinnings: number;
+  /** For team skins: number of members for per-member calculation */
+  memberCount?: number;
 }
 
 export interface SkinsResultsCardProps {
@@ -57,6 +61,10 @@ export interface SkinsResultsCardProps {
   parValues?: Record<number, number>;
   /** Optional list of all participants (to show players with zero skins) */
   participants?: SkinsParticipant[];
+  /** Whether this is a team skins game */
+  isTeamSkins?: boolean;
+  /** Team participants (for team skins) */
+  teams?: SkinsTeamParticipant[];
   /** Test ID for testing */
   testID?: string;
 }
@@ -67,7 +75,7 @@ type ResultRow =
   | { type: 'hole'; result: SkinsResultWithWinner }
   | { type: 'subtotal'; label: string; value: number; holeRange: string }
   | { type: 'total'; value: number; unsettledCarryover: number }
-  | { type: 'playerTotals'; totals: PlayerTotal[] };
+  | { type: 'participantTotals'; totals: ParticipantTotal[]; isTeamSkins: boolean };
 
 // ============================================================================
 // COMPONENT
@@ -80,6 +88,8 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
   scoringType,
   parValues,
   participants,
+  isTeamSkins = false,
+  teams,
   testID,
 }: SkinsResultsCardProps) {
   const colors = useThemeColors();
@@ -125,45 +135,69 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
     return { front9Total: front, back9Total: back, unsettledCarryover: carryover };
   }, [results, resultsMap]);
 
-  // Calculate player totals
-  const playerTotals = useMemo<PlayerTotal[]>(() => {
-    // If participants provided, initialize all players
-    // Otherwise, only include players who have won at least one skin
-    const totalsMap = new Map<string, PlayerTotal>();
+  // Calculate participant totals (players or teams)
+  const participantTotals = useMemo<ParticipantTotal[]>(() => {
+    const totalsMap = new Map<string, ParticipantTotal>();
 
-    if (participants) {
-      participants.forEach((p) => {
-        totalsMap.set(p.id, {
-          id: p.id,
-          name: p.name,
+    if (isTeamSkins && teams) {
+      // Team skins - initialize all teams
+      teams.forEach((t) => {
+        totalsMap.set(t.id, {
+          id: t.id,
+          name: t.name,
           holesWon: 0,
           totalWinnings: 0,
+          memberCount: t.members?.length ?? 0,
         });
+      });
+
+      // Accumulate winnings from results using team_winner_id
+      results.forEach((result) => {
+        const skinsResult = result as SkinsResult;
+        if (!skinsResult.is_carryover && skinsResult.team_winner_id && skinsResult.payout_amount > 0) {
+          const existing = totalsMap.get(skinsResult.team_winner_id);
+          if (existing) {
+            existing.holesWon += 1;
+            existing.totalWinnings += skinsResult.payout_amount;
+          }
+        }
+      });
+    } else {
+      // Individual skins - initialize all players
+      if (participants) {
+        participants.forEach((p) => {
+          totalsMap.set(p.id, {
+            id: p.id,
+            name: p.name,
+            holesWon: 0,
+            totalWinnings: 0,
+          });
+        });
+      }
+
+      // Accumulate winnings from results
+      results.forEach((result) => {
+        if (!result.is_carryover && result.winner_id && result.winner && result.payout_amount > 0) {
+          const existing = totalsMap.get(result.winner_id);
+          if (existing) {
+            existing.holesWon += 1;
+            existing.totalWinnings += result.payout_amount;
+          } else {
+            // Winner not in participants list (or no participants provided)
+            totalsMap.set(result.winner_id, {
+              id: result.winner_id,
+              name: result.winner.name,
+              holesWon: 1,
+              totalWinnings: result.payout_amount,
+            });
+          }
+        }
       });
     }
 
-    // Accumulate winnings from results
-    results.forEach((result) => {
-      if (!result.is_carryover && result.winner_id && result.winner && result.payout_amount > 0) {
-        const existing = totalsMap.get(result.winner_id);
-        if (existing) {
-          existing.holesWon += 1;
-          existing.totalWinnings += result.payout_amount;
-        } else {
-          // Winner not in participants list (or no participants provided)
-          totalsMap.set(result.winner_id, {
-            id: result.winner_id,
-            name: result.winner.name,
-            holesWon: 1,
-            totalWinnings: result.payout_amount,
-          });
-        }
-      }
-    });
-
     // Convert to array and sort by total winnings descending
     return Array.from(totalsMap.values()).sort((a, b) => b.totalWinnings - a.totalWinnings);
-  }, [results, participants]);
+  }, [results, participants, isTeamSkins, teams]);
 
   // Build row data for FlatList
   const rowData = useMemo<ResultRow[]>(() => {
@@ -247,16 +281,17 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
       unsettledCarryover,
     });
 
-    // Player totals row (only if we have any players)
-    if (playerTotals.length > 0) {
+    // Participant totals row (players or teams)
+    if (participantTotals.length > 0) {
       rows.push({
-        type: 'playerTotals',
-        totals: playerTotals,
+        type: 'participantTotals',
+        totals: participantTotals,
+        isTeamSkins,
       });
     }
 
     return rows;
-  }, [resultsMap, perHoleValue, front9Total, back9Total, unsettledCarryover, playerTotals]);
+  }, [resultsMap, perHoleValue, front9Total, back9Total, unsettledCarryover, participantTotals, isTeamSkins]);
 
   // Render a single row
   const renderRow: ListRenderItem<ResultRow> = ({ item, index }) => {
@@ -347,18 +382,22 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
           </View>
         );
 
-      case 'playerTotals':
+      case 'participantTotals':
         return (
           <View style={[styles.playerTotalsSection, { borderTopColor: colors.border }]}>
             <View style={styles.playerTotalsHeader}>
-              <Icon source="account-group" size={20} color={colors.textPrimary} />
+              <Icon
+                source={item.isTeamSkins ? 'account-multiple' : 'account-group'}
+                size={20}
+                color={colors.textPrimary}
+              />
               <Text style={[styles.playerTotalsTitle, { color: colors.textPrimary }]}>
-                PLAYER TOTALS
+                {item.isTeamSkins ? 'TEAM TOTALS' : 'PLAYER TOTALS'}
               </Text>
             </View>
-            {item.totals.map((player, idx) => (
+            {item.totals.map((participant, idx) => (
               <View
-                key={player.id}
+                key={participant.id}
                 style={[
                   styles.playerTotalRow,
                   {
@@ -372,21 +411,28 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
                     style={[styles.playerTotalName, { color: colors.textPrimary }]}
                     numberOfLines={1}
                   >
-                    {player.name}
+                    {participant.name}
                   </Text>
-                  <Text style={[styles.playerTotalSkins, { color: colors.textSecondary }]}>
-                    {player.holesWon} skin{player.holesWon !== 1 ? 's' : ''} won
-                  </Text>
+                  <View style={styles.playerTotalMeta}>
+                    <Text style={[styles.playerTotalSkins, { color: colors.textSecondary }]}>
+                      {participant.holesWon} skin{participant.holesWon !== 1 ? 's' : ''} won
+                    </Text>
+                    {item.isTeamSkins && participant.memberCount && participant.totalWinnings > 0 && (
+                      <Text style={[styles.perMemberSplit, { color: colors.textTertiary }]}>
+                        ({formatCurrency(participant.totalWinnings / participant.memberCount)}/ea)
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <Text
                   style={[
                     styles.playerTotalAmount,
                     {
-                      color: player.totalWinnings > 0 ? colors.success : colors.textSecondary,
+                      color: participant.totalWinnings > 0 ? colors.success : colors.textSecondary,
                     },
                   ]}
                 >
-                  {formatCurrency(player.totalWinnings)}
+                  {formatCurrency(participant.totalWinnings)}
                 </Text>
               </View>
             ))}
@@ -402,13 +448,23 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
   const renderHoleRow = (result: SkinsResultWithWinner, index: number) => {
     const isPlayed = result.calculated_at !== '';
     const isCarryover = result.is_carryover;
-    const hasWinner = result.winner !== null;
     const par = parValues?.[result.hole_number];
+
+    // Check for winner (individual or team)
+    const skinsResult = result as SkinsResult;
+    const hasIndividualWinner = result.winner !== null;
+    const hasTeamWinner = isTeamSkins && skinsResult.team_winner_id !== null;
+    const hasWinner = hasIndividualWinner || hasTeamWinner;
 
     // Determine winner display text
     let winnerText = '--';
     if (isPlayed) {
-      if (hasWinner && result.winner) {
+      if (hasTeamWinner && teams) {
+        // Team skins - find team name
+        const winningTeam = teams.find((t) => t.id === skinsResult.team_winner_id);
+        winnerText = winningTeam?.name ?? 'Unknown Team';
+      } else if (hasIndividualWinner && result.winner) {
+        // Individual skins
         winnerText = result.winner.name;
       } else if (isCarryover) {
         winnerText = '--';
@@ -754,6 +810,16 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     minWidth: 70,
     textAlign: 'right',
+  },
+  playerTotalMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  perMemberSplit: {
+    ...typography.caption,
+    fontStyle: 'italic',
   },
 });
 

@@ -247,7 +247,7 @@ export const TeamFormatsFeature: Story = {
       targetTier: 'premium',
       benefits: [
         'Best Ball scoring',
-        'Scramble / Ambrose',
+        'Scramble / Shamble',
         'Team Match Play',
         'Automatic team formation',
       ],
@@ -628,7 +628,7 @@ export const TeamFormatsLocked: Story = {
       targetTier: 'premium',
       benefits: [
         'Best Ball (better ball)',
-        'Scramble / Ambrose',
+        'Scramble / Shamble',
         'Team Match Play',
         'Automatic team scoring',
         'Team leaderboards',

@@ -17,7 +17,13 @@ import type {
   SkinsPayout,
   SkinsNetPosition,
   SkinsDebtTransaction,
+  SkinsTeamHoleScores,
+  SkinsTeamHoleScoreData,
+  TeamHoleWinnerResult,
+  SkinsTeamNetPosition,
+  SkinsTeamDebtTransaction,
 } from '@/types/database';
+import type { TeamFormat } from '@/types/database/enums';
 import { getStrokesReceived } from './scoring';
 
 // =====================================================
@@ -241,6 +247,544 @@ export function determineHoleWinner(
     minScore,
     tiedPlayerIds,
   };
+}
+
+// =====================================================
+// TEAM SCORE PREPARATION FUNCTIONS
+// =====================================================
+
+/**
+ * Team info needed for team skins score preparation
+ */
+export interface SkinsTeamInfo {
+  id: string;
+  /** Member player IDs */
+  member_ids: string[];
+  /** Member details with handicaps (optional, populated for score calculation) */
+  members?: Array<{ id: string; handicap: number | null }>;
+}
+
+/**
+ * Prepare team hole scores for all teams on a specific hole.
+ * Calculates team scores based on team format (best-ball, scramble, shamble).
+ *
+ * @param teams - Array of team info with member IDs and handicaps
+ * @param scorecards - Map of player ID to their scorecard data
+ * @param hole - Hole data with par and strokeIndex
+ * @param holeNumber - The hole number (1-18)
+ * @param teamFormat - The team format ('best-ball', 'scramble', 'shamble')
+ * @returns SkinsTeamHoleScores record for database storage
+ *
+ * @example
+ * const scores = prepareTeamHoleScores(
+ *   [{ id: 't1', member_ids: ['p1', 'p2'], members: [...] }],
+ *   { p1: { '1': { strokes: 5 } }, p2: { '1': { strokes: 4 } } },
+ *   { par: 4, strokeIndex: 5 },
+ *   1,
+ *   'best-ball'
+ * );
+ */
+export function prepareTeamHoleScores(
+  teams: SkinsTeamInfo[],
+  scorecards: Record<string, SkinsScorecardData>,
+  hole: Pick<Hole, 'par' | 'strokeIndex'>,
+  holeNumber: number,
+  teamFormat: TeamFormat
+): SkinsTeamHoleScores {
+  const teamScores: SkinsTeamHoleScores = {};
+
+  for (const team of teams) {
+    // Calculate individual member scores first
+    const memberScores: Record<string, SkinsHoleScoreData> = {};
+    let bestNetScore = Infinity;
+    let bestGrossScore = Infinity;
+    let contributingPlayerId: string | undefined;
+
+    for (const memberId of team.member_ids) {
+      const scorecard = scorecards[memberId];
+      if (!scorecard) continue;
+
+      const holeData = scorecard[String(holeNumber)];
+      if (holeData === undefined) continue;
+
+      const gross = typeof holeData === 'number' ? holeData : holeData.strokes;
+
+      // Find member handicap
+      const member = team.members?.find((m) => m.id === memberId);
+      const handicap = member?.handicap ?? 0;
+      const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+      const net = gross - strokesReceived;
+
+      memberScores[memberId] = {
+        gross,
+        net,
+        strokes_received: strokesReceived,
+      };
+
+      // Track best scores for team calculation
+      if (net < bestNetScore) {
+        bestNetScore = net;
+        contributingPlayerId = memberId;
+      }
+      if (gross < bestGrossScore) {
+        bestGrossScore = gross;
+      }
+    }
+
+    // Skip if no member scores
+    if (Object.keys(memberScores).length === 0) continue;
+
+    // Calculate team score based on format
+    let teamScore: number;
+
+    switch (teamFormat) {
+      case 'best-ball':
+      case 'shamble':
+        // Best individual net score
+        teamScore = bestNetScore;
+        break;
+      case 'scramble':
+        // For scramble, all players play from the same position
+        // The team score is typically the single team score (all players have same score)
+        // Use the best gross score as the team score
+        teamScore = bestGrossScore;
+        contributingPlayerId = undefined; // All contribute in scramble
+        break;
+      default:
+        // For other formats (aggregate, match-play-team), use best net
+        teamScore = bestNetScore;
+    }
+
+    teamScores[team.id] = {
+      team_score: teamScore,
+      member_scores: memberScores,
+      contributing_player_id: contributingPlayerId,
+    };
+  }
+
+  return teamScores;
+}
+
+/**
+ * Get the comparison score for a team based on format and scoring type.
+ *
+ * @param teamData - Team hole score data
+ * @param teamFormat - Team format ('best-ball', 'scramble', 'shamble')
+ * @param scoringType - 'gross' or 'net'
+ * @returns The score to use for comparison
+ */
+export function getTeamScoreForFormat(
+  teamData: SkinsTeamHoleScoreData,
+  teamFormat: TeamFormat,
+  scoringType: SkinsScoringType
+): number {
+  switch (teamFormat) {
+    case 'scramble':
+      // Scramble always uses the team_score (gross-based)
+      return teamData.team_score;
+
+    case 'best-ball':
+    case 'shamble':
+      // Best individual score - recalculate from member scores
+      if (scoringType === 'gross') {
+        return Math.min(
+          ...Object.values(teamData.member_scores).map((s) => s.gross)
+        );
+      }
+      // Net scoring - use pre-calculated team_score or find best net
+      return Math.min(
+        ...Object.values(teamData.member_scores).map((s) => s.net)
+      );
+
+    default:
+      // Default to team_score
+      return teamData.team_score;
+  }
+}
+
+// =====================================================
+// TEAM WINNER DETERMINATION FUNCTIONS
+// =====================================================
+
+/**
+ * Determine the winning team for a hole based on team scores and format.
+ * Ties always result in carryover (no tie-breakers).
+ *
+ * @param teamScores - Scores for all teams
+ * @param teamFormat - Team format ('best-ball', 'scramble', 'shamble')
+ * @param scoringType - 'gross' or 'net'
+ * @returns Winner result with winnerTeamId (null if tie), isCarryover flag, and tied teams
+ *
+ * @example
+ * const result = determineTeamHoleWinner(
+ *   { t1: { team_score: 3, member_scores: {...} }, t2: { team_score: 4, member_scores: {...} } },
+ *   'best-ball',
+ *   'net'
+ * );
+ * // Returns: { winnerTeamId: 't1', isCarryover: false, minScore: 3, tiedTeamIds: ['t1'] }
+ */
+export function determineTeamHoleWinner(
+  teamScores: SkinsTeamHoleScores,
+  teamFormat: TeamFormat,
+  scoringType: SkinsScoringType
+): TeamHoleWinnerResult {
+  const teamIds = Object.keys(teamScores);
+
+  if (teamIds.length === 0) {
+    return {
+      winnerTeamId: null,
+      isCarryover: true,
+      minScore: 0,
+      tiedTeamIds: [],
+    };
+  }
+
+  // Find the minimum score based on format and scoring type
+  let minScore = Infinity;
+  for (const teamId of teamIds) {
+    const score = getTeamScoreForFormat(
+      teamScores[teamId],
+      teamFormat,
+      scoringType
+    );
+    if (score < minScore) {
+      minScore = score;
+    }
+  }
+
+  // Find all teams with the minimum score
+  const tiedTeamIds = teamIds.filter((teamId) => {
+    const score = getTeamScoreForFormat(
+      teamScores[teamId],
+      teamFormat,
+      scoringType
+    );
+    return score === minScore;
+  });
+
+  // If more than one team has the minimum score, it's a tie (carryover)
+  const isCarryover = tiedTeamIds.length > 1;
+  const winnerTeamId = isCarryover ? null : tiedTeamIds[0];
+
+  return {
+    winnerTeamId,
+    isCarryover,
+    minScore,
+    tiedTeamIds,
+  };
+}
+
+// =====================================================
+// TEAM HOLE RESULT PROCESSING
+// =====================================================
+
+/**
+ * Processed team hole result (without database IDs)
+ */
+export interface ProcessedTeamHoleResult {
+  hole_number: number;
+  team_winner_id: string | null;
+  is_carryover: boolean;
+  hole_scores: SkinsTeamHoleScores;
+  hole_pot_value: number;
+  carryover_to_next: number;
+  payout_amount: number;
+}
+
+/**
+ * Process a team hole result, calculating pot values and carryover.
+ *
+ * @param holeNumber - The hole number (1-18)
+ * @param teamScores - Scores for all teams
+ * @param baseHoleValue - Base pot value for this hole
+ * @param currentCarryover - Carryover from previous holes
+ * @param teamFormat - Team format ('best-ball', 'scramble', 'shamble')
+ * @param scoringType - 'gross' or 'net'
+ * @returns Processed result ready for database insert (without IDs)
+ *
+ * @example
+ * const result = processTeamHoleResult(3, teamScores, 5, 10, 'best-ball', 'net');
+ * // If winner: { payout_amount: 15, carryover_to_next: 0 }
+ * // If tie: { payout_amount: 0, carryover_to_next: 15 }
+ */
+export function processTeamHoleResult(
+  holeNumber: number,
+  teamScores: SkinsTeamHoleScores,
+  baseHoleValue: number,
+  currentCarryover: number,
+  teamFormat: TeamFormat,
+  scoringType: SkinsScoringType
+): ProcessedTeamHoleResult {
+  const { winnerTeamId, isCarryover } = determineTeamHoleWinner(
+    teamScores,
+    teamFormat,
+    scoringType
+  );
+  const totalHolePot = roundCurrency(baseHoleValue + currentCarryover);
+
+  if (isCarryover) {
+    return {
+      hole_number: holeNumber,
+      team_winner_id: null,
+      is_carryover: true,
+      hole_scores: teamScores,
+      hole_pot_value: baseHoleValue,
+      carryover_to_next: totalHolePot,
+      payout_amount: 0,
+    };
+  }
+
+  return {
+    hole_number: holeNumber,
+    team_winner_id: winnerTeamId,
+    is_carryover: false,
+    hole_scores: teamScores,
+    hole_pot_value: baseHoleValue,
+    carryover_to_next: 0,
+    payout_amount: totalHolePot,
+  };
+}
+
+// =====================================================
+// TEAM PAYOUT CALCULATIONS
+// =====================================================
+
+/**
+ * Team participant info for payout calculations
+ */
+export interface TeamPayoutParticipant {
+  id: string;
+  /** Number of members in the team (for split calculation) */
+  member_count: number;
+}
+
+/**
+ * Calculated team payout data (without database IDs)
+ */
+export interface CalculatedTeamPayout {
+  team_id: string;
+  buy_in: number;
+  total_winnings: number;
+  net_result: number;
+  holes_won: number;
+  holes_tied: number;
+  holes_lost: number;
+  /** Per-member split of net result */
+  per_member_amount: number;
+}
+
+/**
+ * Result of final team payout calculation with carryover info
+ */
+export interface FinalTeamPayoutResult {
+  /** Payouts for each team */
+  payouts: CalculatedTeamPayout[];
+  /** Remaining carryover (for pool-sourced games) */
+  remainingCarryover: number;
+  /** Whether hole 18 carryover was split among teams */
+  hole18CarryoverSplit: boolean;
+}
+
+/**
+ * Calculate final payouts for all teams in a completed team skins game.
+ *
+ * @param game - The skins game configuration
+ * @param results - All hole results
+ * @param teams - List of teams with member counts
+ * @param options - Options including poolSourced flag
+ * @returns Team payout result with payouts and carryover info
+ */
+export function calculateTeamFinalPayouts(
+  game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_team_ids'>,
+  results: Pick<
+    SkinsResult,
+    | 'hole_number'
+    | 'team_winner_id'
+    | 'is_carryover'
+    | 'payout_amount'
+    | 'carryover_to_next'
+    | 'hole_scores'
+  >[],
+  teams: TeamPayoutParticipant[],
+  options?: FinalPayoutOptions
+): FinalTeamPayoutResult {
+  const buyIn = calculateBuyIn(game.pot_type, game.pot_value, teams.length);
+  const poolSourced = options?.poolSourced ?? false;
+
+  // Initialize payout tracking for each team
+  const payoutMap = new Map<string, CalculatedTeamPayout>();
+  for (const team of teams) {
+    payoutMap.set(team.id, {
+      team_id: team.id,
+      buy_in: buyIn,
+      total_winnings: 0,
+      net_result: 0,
+      holes_won: 0,
+      holes_tied: 0,
+      holes_lost: 0,
+      per_member_amount: 0,
+    });
+  }
+
+  // Process each hole result
+  for (const result of results) {
+    const teamIds = Object.keys(result.hole_scores);
+
+    if (result.is_carryover) {
+      // All teams in this hole tied
+      for (const teamId of teamIds) {
+        const payout = payoutMap.get(teamId);
+        if (payout) {
+          payout.holes_tied += 1;
+        }
+      }
+    } else if (result.team_winner_id) {
+      // One winner, everyone else lost
+      for (const teamId of teamIds) {
+        const payout = payoutMap.get(teamId);
+        if (payout) {
+          if (teamId === result.team_winner_id) {
+            payout.holes_won += 1;
+            payout.total_winnings += result.payout_amount;
+          } else {
+            payout.holes_lost += 1;
+          }
+        }
+      }
+    }
+  }
+
+  // Calculate remaining carryover (from hole 18 if it was tied)
+  const remainingCarryover = calculateCurrentCarryover(results);
+  let hole18CarryoverSplit = false;
+
+  // For direct pot games, split hole 18 carryover among teams
+  if (remainingCarryover > 0 && !poolSourced) {
+    const splitAmount = calculateHole18Split(remainingCarryover, teams.length);
+    for (const payout of payoutMap.values()) {
+      payout.total_winnings += splitAmount;
+    }
+    hole18CarryoverSplit = true;
+  }
+
+  // Calculate net results and per-member amounts
+  const payouts: CalculatedTeamPayout[] = [];
+  for (const payout of payoutMap.values()) {
+    payout.net_result = roundCurrency(payout.total_winnings - payout.buy_in);
+
+    // Find team to get member count
+    const team = teams.find((t) => t.id === payout.team_id);
+    const memberCount = team?.member_count ?? 1;
+    payout.per_member_amount = roundCurrency(payout.net_result / memberCount);
+
+    payouts.push(payout);
+  }
+
+  return {
+    payouts,
+    remainingCarryover: poolSourced ? remainingCarryover : 0,
+    hole18CarryoverSplit,
+  };
+}
+
+// =====================================================
+// TEAM DEBT CALCULATION FUNCTIONS
+// =====================================================
+
+/**
+ * Calculate net positions for all teams from payouts.
+ *
+ * @param payouts - Array of team payouts
+ * @param teams - Array of teams with member counts
+ * @returns Array of net positions sorted by amount (creditors first)
+ */
+export function calculateTeamNetPositions(
+  payouts: Pick<CalculatedTeamPayout, 'team_id' | 'net_result'>[],
+  teams: TeamPayoutParticipant[]
+): SkinsTeamNetPosition[] {
+  return payouts
+    .map((p) => {
+      const team = teams.find((t) => t.id === p.team_id);
+      const memberCount = team?.member_count ?? 1;
+      return {
+        team_id: p.team_id,
+        net_amount: p.net_result,
+        per_member_amount: roundCurrency(p.net_result / memberCount),
+      };
+    })
+    .sort((a, b) => b.net_amount - a.net_amount); // Creditors first
+}
+
+/**
+ * Simplify team debts to minimize the number of transactions.
+ *
+ * @param netPositions - Net positions for all teams
+ * @param teams - Array of teams with member counts
+ * @returns Minimal set of team transactions to settle all debts
+ */
+export function simplifyTeamDebts(
+  netPositions: SkinsTeamNetPosition[],
+  teams: TeamPayoutParticipant[]
+): SkinsTeamDebtTransaction[] {
+  const transactions: SkinsTeamDebtTransaction[] = [];
+
+  // Create mutable copies
+  const positions = netPositions.map((p) => ({ ...p }));
+
+  // Separate into creditors (positive) and debtors (negative)
+  const creditors = positions.filter((p) => p.net_amount > 0);
+  const debtors = positions.filter((p) => p.net_amount < 0);
+
+  // Match debtors to creditors
+  for (const debtor of debtors) {
+    let remaining = Math.abs(debtor.net_amount);
+    const debtorTeam = teams.find((t) => t.id === debtor.team_id);
+    const debtorMemberCount = debtorTeam?.member_count ?? 1;
+
+    for (const creditor of creditors) {
+      if (remaining <= 0) break;
+      if (creditor.net_amount <= 0) continue;
+
+      const amount = Math.min(remaining, creditor.net_amount);
+      if (amount > 0.01) {
+        // Skip tiny amounts
+        transactions.push({
+          from_team_id: debtor.team_id,
+          to_team_id: creditor.team_id,
+          amount: roundCurrency(amount),
+          per_member_amount: roundCurrency(amount / debtorMemberCount),
+        });
+      }
+
+      remaining -= amount;
+      creditor.net_amount -= amount;
+    }
+  }
+
+  return transactions;
+}
+
+/**
+ * Team name lookup map
+ */
+export type TeamNameMap = Record<string, string>;
+
+/**
+ * Format team debt transactions as human-readable strings.
+ *
+ * @param transactions - Array of team debt transactions
+ * @param teamMap - Map of team IDs to names
+ * @returns Array of formatted strings like "Team A owes Team B: $12.50 ($6.25/member)"
+ */
+export function formatTeamDebtTransactions(
+  transactions: SkinsTeamDebtTransaction[],
+  teamMap: TeamNameMap
+): string[] {
+  return transactions.map((t) => {
+    const fromName = teamMap[t.from_team_id] || 'Unknown';
+    const toName = teamMap[t.to_team_id] || 'Unknown';
+    return `${fromName} owes ${toName}: $${t.amount.toFixed(2)} ($${t.per_member_amount.toFixed(2)}/member)`;
+  });
 }
 
 // =====================================================

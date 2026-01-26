@@ -34,8 +34,22 @@ import {
   SkinsDisclaimerModal,
   hasAcceptedSkinsDisclaimer,
 } from '@/components/skins';
-import type { SkinsConfig, SkinsPoolSource, CompetitionPrizePool } from '@/types';
+import type { SkinsConfig, SkinsPoolSource, CompetitionPrizePool, TeamFormat } from '@/types';
 import type { PoolBalanceSummary } from '@/types/database/prizePool.types';
+
+/**
+ * Team format types that require team mode for skins
+ */
+const TEAM_GAME_TYPES: string[] = ['best-ball', 'scramble', 'shamble'];
+
+/**
+ * Simple team info for display
+ */
+export interface SkinsTeamInfo {
+  id: string;
+  name: string;
+  memberCount: number;
+}
 
 /**
  * State for tracking existing skins game in edit mode
@@ -79,6 +93,12 @@ export interface SkinsSectionProps {
   poolSource?: SkinsPoolSource;
   /** Handler for pool source change */
   onPoolSourceChange?: (source: SkinsPoolSource) => void;
+  /** Whether this is a team round (splitIntoTeams=true) */
+  isTeamRound?: boolean;
+  /** The team format (best-ball, scramble, shamble, etc.) */
+  teamFormat?: TeamFormat | null;
+  /** Available teams for team skins selection */
+  teams?: SkinsTeamInfo[];
 }
 
 export const SkinsSection = memo(function SkinsSection({
@@ -93,6 +113,9 @@ export const SkinsSection = memo(function SkinsSection({
   poolData,
   poolSource = 'direct',
   onPoolSourceChange,
+  isTeamRound = false,
+  teamFormat,
+  teams,
 }: SkinsSectionProps) {
   const colors = useThemeColors();
 
@@ -103,8 +126,17 @@ export const SkinsSection = memo(function SkinsSection({
   // Determine if we're in edit mode and if skins can be modified
   const isEditMode = editState !== undefined;
   const isLocked = isEditMode && !editState.canEditSkins;
-  const isDisabled = disabled || isLocked;
   const hasExistingSkins = isEditMode && editState.hasExistingSkins;
+
+  // Team skins validation
+  // Team formats (best-ball, scramble, shamble) require team mode for skins
+  const isTeamFormat = teamFormat && TEAM_GAME_TYPES.includes(teamFormat);
+  const needsTeamModeForSkins = isTeamFormat && !isTeamRound;
+  const isTeamSkins = isTeamRound && isTeamFormat;
+  const hasValidTeams = teams && teams.length >= 2;
+
+  // Combined disabled state
+  const isDisabled = disabled || isLocked || needsTeamModeForSkins;
 
   // Pool source state
   const hasPool = poolData?.pool !== null;
@@ -215,10 +247,23 @@ export const SkinsSection = memo(function SkinsSection({
   }, [isLocked]);
 
   // Get label and description based on mode
-  const labelText = hasExistingSkins ? 'Skins Game Enabled' : 'Enable Skins Game';
-  const descriptionText = isLocked && editState?.lockedReason
-    ? editState.lockedReason
-    : 'Hole-by-hole betting between players';
+  const labelText = hasExistingSkins
+    ? (isTeamSkins ? 'Team Skins Enabled' : 'Skins Game Enabled')
+    : (isTeamSkins ? 'Enable Team Skins' : 'Enable Skins Game');
+
+  const getDescriptionText = (): string => {
+    if (isLocked && editState?.lockedReason) {
+      return editState.lockedReason;
+    }
+    if (needsTeamModeForSkins) {
+      return 'Enable "Split Into Teams" to use skins with team formats';
+    }
+    if (isTeamSkins) {
+      return `Team vs team betting - ${teams?.length ?? 0} teams`;
+    }
+    return 'Hole-by-hole betting between players';
+  };
+  const descriptionText = getDescriptionText();
 
   return (
     <>
@@ -374,6 +419,16 @@ export const SkinsSection = memo(function SkinsSection({
                     </Text>
                   </View>
                 )}
+                {isTeamSkins && (
+                  <View style={styles.configRow}>
+                    <Text style={[styles.configLabel, { color: colors.textSecondary }]}>
+                      Mode:
+                    </Text>
+                    <Text style={[styles.configValue, { color: skinsColor }]}>
+                      Team Skins ({teams?.length ?? 0} teams)
+                    </Text>
+                  </View>
+                )}
               </View>
               {isLocked ? (
                 <View style={styles.lockedHint}>
@@ -392,6 +447,26 @@ export const SkinsSection = memo(function SkinsSection({
               <IconAlertCircle size={20} color={colors.error} />
               <Text style={[styles.warningText, { color: colors.errorDark }]}>
                 Pot amount exceeds available skins budget (${skinsRemaining.toFixed(2)}). Reduce the pot value or switch to Direct Pot.
+              </Text>
+            </View>
+          )}
+
+          {/* Warning for team skins without enough teams */}
+          {skinsEnabled && isTeamSkins && !hasValidTeams && (
+            <View style={[styles.warningBox, { backgroundColor: colors.warningLight }]}>
+              <IconAlertCircle size={20} color={colors.warning} />
+              <Text style={[styles.warningText, { color: colors.warningDark }]}>
+                Team skins requires at least 2 teams. Create teams in the team settings step.
+              </Text>
+            </View>
+          )}
+
+          {/* Info message for team format without team mode */}
+          {needsTeamModeForSkins && (
+            <View style={[styles.infoBox, { backgroundColor: colors.surfaceVariant, marginTop: spacing.md }]}>
+              <IconAlertCircle size={20} color={colors.textSecondary} />
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                {teamFormat === 'scramble' ? 'Scramble' : teamFormat === 'shamble' ? 'Shamble' : 'Best Ball'} format requires teams to be enabled for skins games. Enable "Split Into Teams" in the match type settings.
               </Text>
             </View>
           )}
@@ -467,6 +542,8 @@ export const SkinsSection = memo(function SkinsSection({
         onDismiss={handleSkinsConfigDismiss}
         initialConfig={skinsConfig}
         onSave={handleSkinsConfigSave}
+        isTeamSkins={isTeamSkins}
+        teams={teams}
       />
 
       {/* Skins Disclaimer Modal */}

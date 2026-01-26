@@ -74,9 +74,9 @@ jest.mock('@/constants/statusConfig', () => ({
     stableford: 'Stableford',
     stroke: 'Stroke Play',
     'match-play': 'Match Play',
-    ambrose: 'Ambrose',
     'best-ball': 'Best Ball',
     scramble: 'Scramble',
+    shamble: 'Shamble',
   },
 }));
 
@@ -676,7 +676,7 @@ describe('GeneratedPreview', () => {
     });
 
     it('handles all game types', () => {
-      const gameTypes = ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'] as const;
+      const gameTypes = ['stableford', 'stroke', 'match-play', 'best-ball', 'scramble', 'shamble'] as const;
 
       gameTypes.forEach((gameType) => {
         const competition = createTestCompetition({
@@ -849,7 +849,7 @@ describe('GeneratedPreview', () => {
       expect(screen.getByText(/Match Play/)).toBeTruthy();
     });
 
-    it('renders Ambrose game type', () => {
+    it('renders Shamble game type', () => {
       const competition = createTestCompetition({
         rounds: [
           {
@@ -859,12 +859,12 @@ describe('GeneratedPreview', () => {
             venueName: 'Test',
             date: '15/01/2025',
             teeTime: null,
-            gameType: 'ambrose',
+            gameType: 'shamble',
           },
         ],
       });
       render(<GeneratedPreview {...defaultProps} competition={competition} />);
-      expect(screen.getByText(/Ambrose/)).toBeTruthy();
+      expect(screen.getByText(/Shamble/)).toBeTruthy();
     });
 
     it('renders Best Ball game type', () => {

@@ -223,10 +223,10 @@ export const MatchPlay: Story = {
   },
 };
 
-export const Ambrose: Story = {
+export const Scramble: Story = {
   args: {
     round: createRoundData({
-      gameType: 'ambrose',
+      gameType: 'scramble',
     }),
   },
 };

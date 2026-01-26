@@ -30,28 +30,35 @@ import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
-import type { SkinsResultWithWinner, SkinsParticipant } from '@/types/database/skins.types';
+import type {
+  SkinsResultWithWinner,
+  SkinsParticipant,
+  SkinsTeamParticipant,
+  SkinsResult,
+} from '@/types/database/skins.types';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface PlayerTotal {
+interface ParticipantTotal {
   id: string;
   name: string;
   holesWon: number;
   totalWinnings: number;
+  /** For team skins, number of members for display */
+  memberCount?: number;
 }
 
 /**
- * Calculate player totals from skins results
+ * Calculate player totals from skins results (individual skins)
  */
 function calculatePlayerTotals(
   results: SkinsResultWithWinner[],
   participants: SkinsParticipant[]
-): PlayerTotal[] {
+): ParticipantTotal[] {
   // Initialize totals for all participants
-  const totalsMap = new Map<string, PlayerTotal>();
+  const totalsMap = new Map<string, ParticipantTotal>();
   participants.forEach((p) => {
     totalsMap.set(p.id, {
       id: p.id,
@@ -68,6 +75,40 @@ function calculatePlayerTotals(
       if (playerTotal) {
         playerTotal.holesWon += 1;
         playerTotal.totalWinnings += result.payout_amount;
+      }
+    }
+  });
+
+  // Convert to array and sort by total winnings descending
+  return Array.from(totalsMap.values()).sort((a, b) => b.totalWinnings - a.totalWinnings);
+}
+
+/**
+ * Calculate team totals from skins results (team skins)
+ */
+function calculateTeamTotals(
+  results: SkinsResult[],
+  teams: SkinsTeamParticipant[]
+): ParticipantTotal[] {
+  // Initialize totals for all teams
+  const totalsMap = new Map<string, ParticipantTotal>();
+  teams.forEach((t) => {
+    totalsMap.set(t.id, {
+      id: t.id,
+      name: t.name,
+      holesWon: 0,
+      totalWinnings: 0,
+      memberCount: t.members?.length ?? 0,
+    });
+  });
+
+  // Accumulate winnings from results
+  results.forEach((result) => {
+    if (!result.is_carryover && result.team_winner_id && result.payout_amount > 0) {
+      const teamTotal = totalsMap.get(result.team_winner_id);
+      if (teamTotal) {
+        teamTotal.holesWon += 1;
+        teamTotal.totalWinnings += result.payout_amount;
       }
     }
   });
@@ -134,30 +175,67 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     return count;
   }, [summary?.results]);
 
-  // Get last winner info
+  // Detect if this is a team skins game
+  const isTeamSkins = useMemo(() => {
+    return summary?.game?.is_team_skins ?? false;
+  }, [summary?.game?.is_team_skins]);
+
+  // Get last winner info (works for both individual and team skins)
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
   const lastWinner = useMemo(() => {
     if (!summary?.results) return null;
     // Find the last non-carryover result (last actual winner)
     for (let i = summary.results.length - 1; i >= 0; i--) {
       const result = summary.results[i];
-      if (!result.is_carryover && result.winner) {
-        return {
-          name: result.winner.name,
-          hole: result.hole_number,
-          amount: result.payout_amount,
-        };
+      if (!result.is_carryover) {
+        // Check for team winner first (team skins)
+        if (result.team_winner_id && (summary.game as { teams?: SkinsTeamParticipant[] })?.teams) {
+          const winningTeam = (summary.game as { teams?: SkinsTeamParticipant[] }).teams?.find(
+            (t: SkinsTeamParticipant) => t.id === result.team_winner_id
+          );
+          if (winningTeam) {
+            return {
+              name: winningTeam.name,
+              hole: result.hole_number,
+              amount: result.payout_amount,
+              isTeam: true,
+            };
+          }
+        }
+        // Individual winner
+        if (result.winner) {
+          return {
+            name: result.winner.name,
+            hole: result.hole_number,
+            amount: result.payout_amount,
+            isTeam: false,
+          };
+        }
       }
     }
     return null;
-  }, [summary?.results]);
+  }, [summary?.results, summary?.game]);
 
-  // Calculate player totals for display
+  // Calculate participant totals for display (handles both individual and team skins)
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
-  const playerTotals = useMemo(() => {
-    if (!summary?.results || !summary?.game?.participants) return [];
-    return calculatePlayerTotals(summary.results, summary.game.participants);
-  }, [summary?.results, summary?.game?.participants]);
+  const participantTotals = useMemo(() => {
+    if (!summary?.results) return [];
+
+    // Team skins - calculate team totals
+    if (isTeamSkins && (summary.game as { teams?: SkinsTeamParticipant[] })?.teams) {
+      return calculateTeamTotals(
+        summary.results as SkinsResult[],
+        (summary.game as { teams?: SkinsTeamParticipant[] }).teams ?? []
+      );
+    }
+
+    // Individual skins - calculate player totals
+    if (summary.game?.participants) {
+      return calculatePlayerTotals(summary.results, summary.game.participants);
+    }
+
+    return [];
+  }, [summary?.results, summary?.game, isTeamSkins]);
 
   // Handle press
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
@@ -325,39 +403,46 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
                   </View>
                 )}
 
-                {/* Player Totals */}
-                {playerTotals.length > 0 && (
+                {/* Participant Totals (Players or Teams) */}
+                {participantTotals.length > 0 && (
                   <>
                     <Divider style={styles.divider} />
                     <View style={styles.playerTotalsSection}>
                       <Text style={[styles.playerTotalsTitle, { color: colors.textPrimary }]}>
-                        Running Totals
+                        {isTeamSkins ? 'Team Totals' : 'Running Totals'}
                       </Text>
                       <ScrollView style={styles.playerTotalsList} nestedScrollEnabled>
-                        {playerTotals.map((player) => (
-                          <View key={player.id} style={styles.playerTotalRow}>
+                        {participantTotals.map((participant) => (
+                          <View key={participant.id} style={styles.playerTotalRow}>
                             <View style={styles.playerTotalLeft}>
                               <Text
                                 style={[styles.playerTotalName, { color: colors.textPrimary }]}
                                 numberOfLines={1}
                               >
-                                {player.name}
+                                {participant.name}
                               </Text>
-                              {player.holesWon > 0 && (
-                                <Text style={[styles.playerTotalHoles, { color: colors.textSecondary }]}>
-                                  {player.holesWon} skin{player.holesWon !== 1 ? 's' : ''}
-                                </Text>
-                              )}
+                              <View style={styles.participantMeta}>
+                                {participant.holesWon > 0 && (
+                                  <Text style={[styles.playerTotalHoles, { color: colors.textSecondary }]}>
+                                    {participant.holesWon} skin{participant.holesWon !== 1 ? 's' : ''}
+                                  </Text>
+                                )}
+                                {isTeamSkins && participant.memberCount && participant.totalWinnings > 0 && (
+                                  <Text style={[styles.perMemberAmount, { color: colors.textSecondary }]}>
+                                    (${(participant.totalWinnings / participant.memberCount).toFixed(2)}/ea)
+                                  </Text>
+                                )}
+                              </View>
                             </View>
                             <Text
                               style={[
                                 styles.playerTotalAmount,
                                 {
-                                  color: player.totalWinnings > 0 ? colors.success : colors.textSecondary,
+                                  color: participant.totalWinnings > 0 ? colors.success : colors.textSecondary,
                                 },
                               ]}
                             >
-                              ${player.totalWinnings.toFixed(2)}
+                              ${participant.totalWinnings.toFixed(2)}
                             </Text>
                           </View>
                         ))}
@@ -522,6 +607,16 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
     minWidth: 60,
     textAlign: 'right',
+  },
+  participantMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  perMemberAmount: {
+    ...typography.caption,
+    fontStyle: 'italic',
   },
 });
 

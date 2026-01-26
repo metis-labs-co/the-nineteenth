@@ -10,3 +10,6 @@ export type { ScoringPairFormationInlineProps, InlinePlayer } from './ScoringPai
 
 export { MismatchResolutionModal, default as MismatchResolutionModalDefault } from './MismatchResolutionModal';
 export type { MismatchResolutionModalProps } from './MismatchResolutionModal';
+
+export { TeamFormationInline, default as TeamFormationInlineDefault } from './TeamFormationInline';
+export type { TeamFormationInlineProps } from './TeamFormationInline';

@@ -25,7 +25,7 @@ const meta: Meta<typeof RoundLeaderboard> = {
   argTypes: {
     gameType: {
       control: { type: 'select' },
-      options: ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball'],
+      options: ['stableford', 'stroke', 'match-play', 'scramble', 'shamble', 'best-ball'],
     },
     isTeamRound: { control: 'boolean' },
     autoRefresh: { control: 'boolean' },
@@ -230,24 +230,24 @@ export const TeamBestBall: Story = {
 };
 
 /**
- * Team round with Ambrose/Scramble format
+ * Team round with Scramble format
  */
-export const TeamAmbrose: Story = {
+export const TeamScramble: Story = {
   render: () => (
     <MockLeaderboard
-      title="Team Leaderboard (Ambrose)"
+      title="Team Leaderboard (Scramble)"
       description="Shows team rankings in Scramble format"
     >
       <View style={styles.infoCard}>
         <Text style={styles.infoText}>
-          Ambrose (Scramble) rounds show combined team scores. Each team
+          Scramble rounds show combined team scores. Each team
           plays one ball with the best shot selected each time.
         </Text>
         <View style={styles.codeBlock}>
           <Text style={styles.codeText}>
             {`<RoundLeaderboard
   roundId="round-uuid"
-  gameType="ambrose"
+  gameType="scramble"
   isTeamRound={true}
 />`}
           </Text>

@@ -34,6 +34,15 @@ export interface TeeBox {
 }
 
 /**
+ * Shot contributions for scramble format - tracks who contributed each shot type
+ */
+export interface HoleShotContributions {
+  drive?: string; // Player ID who contributed the drive
+  approach?: string; // Player ID who contributed the approach
+  putt?: string; // Player ID who made the putt
+}
+
+/**
  * Hole score (stored in Scorecard.scores JSONB object)
  * MVP: Strokes only
  * Phase 2: Putts, fairways, GIR, penalties
@@ -45,6 +54,8 @@ export interface HoleScore {
   greenInRegulation?: boolean; // Phase 2 (GIR)
   penalties?: number; // Phase 2
   scoredBy?: string; // UUID of the player who entered this score (for mismatch detection)
+  /** Shot contributions for scramble format (who contributed each shot type) */
+  shotContributions?: HoleShotContributions;
 }
 
 /**

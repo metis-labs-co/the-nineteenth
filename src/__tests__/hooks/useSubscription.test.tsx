@@ -132,7 +132,7 @@ function createDBTierLimits(tier: SubscriptionTier, overrides: Partial<any> = {}
       max_rounds_per_competition: 10,
       max_players_per_competition: 40,
       max_friends: -1,
-      allowed_game_types: ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'],
+      allowed_game_types: ['stableford', 'stroke', 'match-play', 'shamble', 'best-ball', 'scramble'],
       can_use_team_formats: true,
       can_use_scoring_pairs: true,
       can_export_data: true,
@@ -154,7 +154,7 @@ function createDBTierLimits(tier: SubscriptionTier, overrides: Partial<any> = {}
       max_rounds_per_competition: -2,
       max_players_per_competition: -2,
       max_friends: -2,
-      allowed_game_types: ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'],
+      allowed_game_types: ['stableford', 'stroke', 'match-play', 'shamble', 'best-ball', 'scramble'],
       can_use_team_formats: true,
       can_use_scoring_pairs: true,
       can_export_data: true,
@@ -423,7 +423,7 @@ describe('useSubscription', () => {
         expect(result.current.limits).not.toBeNull();
       });
 
-      const gameTypes: GameType[] = ['stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'];
+      const gameTypes: GameType[] = ['stableford', 'stroke', 'match-play', 'shamble', 'best-ball', 'scramble'];
 
       gameTypes.forEach((gameType) => {
         const access = result.current.checkFeature('game_type', { gameType });
@@ -857,7 +857,7 @@ describe('useSubscription - Additional Features', () => {
       expect(access.requiredTier).toBe('premium');
     });
 
-    it('should require premium tier for ambrose', async () => {
+    it('should require premium tier for shamble', async () => {
       setupMockData('social');
       const wrapper = createWrapper();
       const { result } = renderHook(() => useSubscription(), { wrapper });
@@ -866,7 +866,7 @@ describe('useSubscription - Additional Features', () => {
         expect(result.current.limits).not.toBeNull();
       });
 
-      const access = result.current.checkFeature('game_type', { gameType: 'ambrose' });
+      const access = result.current.checkFeature('game_type', { gameType: 'shamble' });
       expect(access.allowed).toBe(false);
       expect(access.requiredTier).toBe('premium');
     });

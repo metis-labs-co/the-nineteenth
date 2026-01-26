@@ -25,7 +25,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
-import { LoadingSpinner, SearchBar, BottomSheet, EmptyState, ErrorState } from '@/components/common';
+import { LoadingSpinner, SearchBar, BottomSheet, EmptyState, ErrorState, Pill } from '@/components/common';
 // SearchResultCard removed - using custom LinkSearchResultCard below
 import {
   usePlaceholderPlayers,
@@ -77,9 +77,7 @@ function PlaceholderCard({
           <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
             {placeholder.name}
           </Text>
-          <View style={[styles.guestBadge, { backgroundColor: colors.gray600 }]}>
-            <Text style={[styles.guestBadgeText, { color: colors.white }]}>Guest</Text>
-          </View>
+          <Pill label="Guest" variant="default" filled size="sm" />
         </View>
 
         <View style={styles.detailsRow}>
@@ -515,15 +513,6 @@ const styles = StyleSheet.create({
   name: {
     ...typography.bodyBold,
     flexShrink: 1,
-  },
-  guestBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  guestBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   detailsRow: {
     flexDirection: 'row',

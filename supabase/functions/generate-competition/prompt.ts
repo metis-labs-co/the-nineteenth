@@ -43,7 +43,7 @@ You MUST return valid JSON matching this exact schema:
       "venueName": "string",
       "date": "DD/MM/YYYY",
       "teeTime": "HH:MM (24hr format)" | null,
-      "gameType": "stableford" | "stroke" | "match-play" | "ambrose" | "best-ball" | "scramble",
+      "gameType": "stableford" | "stroke" | "match-play" | "best-ball" | "scramble" | "shamble",
       "courseNotFound": true (only if course wasn't in available list)
     }
   ],

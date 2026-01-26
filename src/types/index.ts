@@ -114,6 +114,7 @@ export type {
   HoleScore,
   MultiBallHoleScore,
   BallTotals,
+  HoleShotContributions,
   // Also export DB versions of entities used in tests
   Player as DBPlayer,
   Scorecard as DBScorecard,
@@ -125,6 +126,8 @@ export type {
   TeamWithMembers,
   // Scoring pair types
   ScoringPairWithPlayers,
+  // Shot contribution types for scramble
+  ShotContributions,
   // Skins types
   SkinsConfig,
   SkinsPoolSource,

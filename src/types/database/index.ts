@@ -80,7 +80,7 @@ export type {
 } from './prizePool.types';
 
 // Base types
-export type { GeoPoint, Hole, TeeBox, HoleScore, MultiBallHoleScore, BallTotals } from './base';
+export type { GeoPoint, Hole, TeeBox, HoleScore, MultiBallHoleScore, BallTotals, HoleShotContributions } from './base';
 export { isMultiBallScore, isSingleBallScore } from './base';
 
 // Player types
@@ -147,6 +147,7 @@ export type {
   ScoringPairWithPlayers,
   ScoringPairInput,
   ScoringPairsValidation,
+  ShotContributions,
 } from './scorecard.types';
 
 // Team types

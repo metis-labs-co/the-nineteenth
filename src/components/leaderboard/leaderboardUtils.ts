@@ -23,10 +23,12 @@ export function getGameTypeLabel(gameType: GameType): string {
       return 'Stroke Play';
     case 'match-play':
       return 'Match Play';
-    case 'ambrose':
-      return 'Ambrose';
     case 'best-ball':
       return 'Best Ball';
+    case 'scramble':
+      return 'Scramble';
+    case 'shamble':
+      return 'Shamble';
     default:
       return gameType;
   }
@@ -45,8 +47,9 @@ export function getGameTypeVariant(
       return 'info';
     case 'match-play':
       return 'warning';
-    case 'ambrose':
     case 'best-ball':
+    case 'scramble':
+    case 'shamble':
       return 'success';
     default:
       return 'primary';

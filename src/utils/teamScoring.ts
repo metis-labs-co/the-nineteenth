@@ -148,7 +148,7 @@ export function calculateBestBallHole(
 // ============================================================================
 
 /**
- * Calculate the scramble/ambrose result for a single hole.
+ * Calculate the scramble result for a single hole.
  *
  * In scramble format, the team plays one ball and selects the best shot
  * each time. The team handicap is applied to the single team score.

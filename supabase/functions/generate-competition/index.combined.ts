@@ -24,9 +24,9 @@ type GameType =
   | 'stroke'
   | 'stableford'
   | 'match-play'
-  | 'ambrose'
   | 'best-ball'
-  | 'scramble';
+  | 'scramble'
+  | 'shamble';
 
 // Team mode enum
 type TeamMode = 'none' | 'fixed' | 'per-round';
@@ -197,9 +197,9 @@ const gameTypeSchema = z.enum([
   'stroke',
   'stableford',
   'match-play',
-  'ambrose',
   'best-ball',
   'scramble',
+  'shamble',
 ]);
 
 const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
@@ -361,7 +361,7 @@ You MUST return valid JSON matching this exact schema:
       "venueName": "string",
       "date": "DD/MM/YYYY",
       "teeTime": "HH:MM (24hr format)" | null,
-      "gameType": "stableford" | "stroke" | "match-play" | "ambrose" | "best-ball" | "scramble",
+      "gameType": "stableford" | "stroke" | "match-play" | "best-ball" | "scramble" | "shamble",
       "courseNotFound": true (only if course wasn't in available list)
     }
   ],
@@ -594,7 +594,7 @@ function extractCourseKeywords(prompt: string): string[] {
     'best',
     'ball',
     'scramble',
-    'ambrose',
+    'shamble',
   ]);
 
   // Look for capitalized words (likely proper nouns/place names)

@@ -666,7 +666,7 @@ export const AustraliaDayEvent: Story = {
     <StoryWrapper title="Australia Day Golf" description="Public holiday golf event">
       <CompetitionDetailsStep
         initialData={{
-          name: 'Australia Day Ambrose',
+          name: 'Australia Day Scramble',
           description: 'Celebrate Australia Day on the course! BBQ lunch included.',
           competitionType: 'event',
           startDate: '26/01/2026',

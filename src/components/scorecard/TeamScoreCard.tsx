@@ -10,8 +10,11 @@
  * - Large touch targets for on-course use
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, ScrollView, Pressable, Animated, Dimensions } from 'react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7;
 import { Text, Icon, Menu } from 'react-native-paper';
 import {
   spacing,
@@ -21,7 +24,7 @@ import {
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
-import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 import { PICKUP_SCORE } from '@/constants/scoring';
@@ -31,8 +34,14 @@ interface TeamScoreCardProps {
   currentHole: Hole;
   currentScore: HoleScore | MultiBallHoleScore | undefined;
   onScoreSelect: (strokes: number) => void;
+  /** @deprecated Use onShotContributionsChange instead */
   onContributorSelect?: (playerId: string) => void;
+  /** @deprecated Use shotContributions instead */
   selectedContributor?: string;
+  /** Shot contributions for granular tracking (Drive, Approach, Putt) */
+  shotContributions?: ShotContributions;
+  /** Callback when shot contributions change */
+  onShotContributionsChange?: (contributions: ShotContributions) => void;
   disabled?: boolean;
   /** Running total points for the team (thru previous holes) */
   runningTotalPoints?: number;
@@ -74,6 +83,8 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
   onScoreSelect,
   onContributorSelect,
   selectedContributor,
+  shotContributions,
+  onShotContributionsChange,
   disabled = false,
   runningTotalPoints,
   runningTotalGross,
@@ -81,6 +92,36 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
 }: TeamScoreCardProps) {
   const colors = useThemeColors();
   const [contributorMenuVisible, setContributorMenuVisible] = useState(false);
+  const [activeShotType, setActiveShotType] = useState<'drive' | 'approach' | 'putt' | null>(null);
+  const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+
+  // Animate sheet when modal becomes visible
+  useEffect(() => {
+    if (activeShotType !== null) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      slideAnim.setValue(SHEET_HEIGHT);
+    }
+  }, [activeShotType, slideAnim]);
+
+  // Close modal with animation
+  const handleCloseModal = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: SHEET_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveShotType(null);
+    });
+  }, [slideAnim]);
+
+  // Determine if we should use the new shot contributions UI or the legacy contributor UI
+  const usesShotContributions = !!onShotContributionsChange;
 
   // Calculate team handicap
   const teamHandicap = useMemo(
@@ -122,6 +163,14 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
     return member?.player?.name ?? 'Unknown';
   }, [selectedContributor, team.members]);
 
+  // Get team member names for display
+  const teamMemberNames = useMemo(() => {
+    if (!team.members || team.members.length === 0) return '';
+    return team.members
+      .map((m) => m.player?.name ?? 'Unknown')
+      .join(' • ');
+  }, [team.members]);
+
   const handlePickUp = useCallback(() => {
     if (!disabled) {
       onScoreSelect(PICKUP_SCORE);
@@ -157,6 +206,42 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
     onContributorSelect?.(playerId);
   }, [onContributorSelect]);
 
+  // Shot contribution handlers
+  const handleShotSelect = useCallback((shotType: 'drive' | 'approach' | 'putt', playerId: string | undefined) => {
+    if (!onShotContributionsChange) return;
+    onShotContributionsChange({
+      ...shotContributions,
+      [shotType]: playerId,
+    });
+    // Animate the close
+    Animated.timing(slideAnim, {
+      toValue: SHEET_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveShotType(null);
+    });
+  }, [onShotContributionsChange, shotContributions, slideAnim]);
+
+  const handlePlayerSelectForShot = useCallback((playerId: string) => {
+    if (activeShotType) {
+      handleShotSelect(activeShotType, playerId);
+    }
+  }, [activeShotType, handleShotSelect]);
+
+  const handleClearShot = useCallback(() => {
+    if (activeShotType) {
+      handleShotSelect(activeShotType, undefined);
+    }
+  }, [activeShotType, handleShotSelect]);
+
+  // Get player name for shot type
+  const getShotPlayerName = useCallback((playerId: string | undefined): string => {
+    if (!playerId) return 'Select player';
+    const member = team.members?.find((m) => m.player_id === playerId);
+    return member?.player?.name ?? 'Unknown';
+  }, [team.members]);
+
   return (
     <View style={[styles.card, { backgroundColor: colors.surface }]}>
       {/* Team Header */}
@@ -168,6 +253,11 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
               {team.name}
             </Text>
           </View>
+          {teamMemberNames && (
+            <Text style={[styles.teamMemberNames, { color: colors.textSecondary }]} numberOfLines={2}>
+              {teamMemberNames}
+            </Text>
+          )}
           <View style={styles.formatRow}>
             <View style={[styles.formatBadge, { backgroundColor: colors.primary }]}>
               <Text style={[styles.formatBadgeText, { color: colors.white }]}>SCRAMBLE</Text>
@@ -299,8 +389,206 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
         </View>
       </View>
 
-      {/* Contributing Player Selector */}
-      {onContributorSelect && (
+      {/* Shot Contributions (new granular tracking) */}
+      {usesShotContributions && (
+        <>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.shotContributionsContainer}>
+            <Text style={[styles.shotContributionsTitle, { color: colors.textSecondary }]}>
+              Shot Contributions
+            </Text>
+
+            {/* Shot type chips */}
+            <View style={styles.shotChipsContainer}>
+              {/* Drive */}
+              <TouchableOpacity
+                style={[
+                  styles.shotChip,
+                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+                  shotContributions?.drive && { backgroundColor: colors.primary + '20', borderColor: colors.primary },
+                ]}
+                onPress={() => setActiveShotType('drive')}
+                disabled={disabled}
+                activeOpacity={0.7}
+              >
+                <Icon source="golf-tee" size={16} color={shotContributions?.drive ? colors.primary : colors.textSecondary} />
+                <View style={styles.shotChipContent}>
+                  <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Drive</Text>
+                  <Text
+                    style={[
+                      styles.shotChipPlayer,
+                      { color: shotContributions?.drive ? colors.primary : colors.textTertiary }
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getShotPlayerName(shotContributions?.drive)}
+                  </Text>
+                </View>
+                {shotContributions?.drive && (
+                  <Icon source="check-circle" size={16} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+
+              {/* Approach */}
+              <TouchableOpacity
+                style={[
+                  styles.shotChip,
+                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+                  shotContributions?.approach && { backgroundColor: colors.success + '20', borderColor: colors.success },
+                ]}
+                onPress={() => setActiveShotType('approach')}
+                disabled={disabled}
+                activeOpacity={0.7}
+              >
+                <Icon source="flag" size={16} color={shotContributions?.approach ? colors.success : colors.textSecondary} />
+                <View style={styles.shotChipContent}>
+                  <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Approach</Text>
+                  <Text
+                    style={[
+                      styles.shotChipPlayer,
+                      { color: shotContributions?.approach ? colors.success : colors.textTertiary }
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getShotPlayerName(shotContributions?.approach)}
+                  </Text>
+                </View>
+                {shotContributions?.approach && (
+                  <Icon source="check-circle" size={16} color={colors.success} />
+                )}
+              </TouchableOpacity>
+
+              {/* Putt */}
+              <TouchableOpacity
+                style={[
+                  styles.shotChip,
+                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+                  shotContributions?.putt && { backgroundColor: colors.warning + '20', borderColor: colors.warning },
+                ]}
+                onPress={() => setActiveShotType('putt')}
+                disabled={disabled}
+                activeOpacity={0.7}
+              >
+                <Icon source="circle-outline" size={16} color={shotContributions?.putt ? colors.warning : colors.textSecondary} />
+                <View style={styles.shotChipContent}>
+                  <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Putt</Text>
+                  <Text
+                    style={[
+                      styles.shotChipPlayer,
+                      { color: shotContributions?.putt ? colors.warning : colors.textTertiary }
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getShotPlayerName(shotContributions?.putt)}
+                  </Text>
+                </View>
+                {shotContributions?.putt && (
+                  <Icon source="check-circle" size={16} color={colors.warning} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Player Selection Modal */}
+          <Modal
+            visible={activeShotType !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={handleCloseModal}
+          >
+            <Pressable
+              style={styles.modalOverlay}
+              onPress={handleCloseModal}
+            >
+              <Animated.View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: colors.surface },
+                  { transform: [{ translateY: slideAnim }] },
+                ]}
+              >
+                <Pressable onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.modalHandle}>
+                    <View style={[styles.modalHandleBar, { backgroundColor: colors.gray300 }]} />
+                  </View>
+
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  Select {activeShotType === 'drive' ? 'Drive' : activeShotType === 'approach' ? 'Approach' : 'Putt'} Contributor
+                </Text>
+
+                <ScrollView style={styles.modalPlayerList} showsVerticalScrollIndicator={false}>
+                  {team.members?.map((member) => {
+                    const isSelected = activeShotType === 'drive'
+                      ? shotContributions?.drive === member.player_id
+                      : activeShotType === 'approach'
+                        ? shotContributions?.approach === member.player_id
+                        : shotContributions?.putt === member.player_id;
+
+                    const shotColor = activeShotType === 'drive'
+                      ? colors.primary
+                      : activeShotType === 'approach'
+                        ? colors.success
+                        : colors.warning;
+
+                    return (
+                      <TouchableOpacity
+                        key={member.player_id}
+                        style={[
+                          styles.modalPlayerItem,
+                          { backgroundColor: colors.surfaceVariant },
+                          isSelected && { backgroundColor: shotColor + '20', borderColor: shotColor, borderWidth: 2 },
+                        ]}
+                        onPress={() => handlePlayerSelectForShot(member.player_id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.modalPlayerAvatar, { backgroundColor: shotColor + '30' }]}>
+                          <Text style={[styles.modalPlayerInitial, { color: shotColor }]}>
+                            {(member.player?.name ?? 'U')[0].toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={[styles.modalPlayerName, { color: colors.textPrimary }]}>
+                          {member.player?.name ?? 'Unknown'}
+                        </Text>
+                        {isSelected && (
+                          <Icon source="check-circle" size={24} color={shotColor} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Clear selection button */}
+                {((activeShotType === 'drive' && shotContributions?.drive) ||
+                  (activeShotType === 'approach' && shotContributions?.approach) ||
+                  (activeShotType === 'putt' && shotContributions?.putt)) && (
+                  <TouchableOpacity
+                    style={[styles.modalClearButton, { borderColor: colors.border }]}
+                    onPress={handleClearShot}
+                    activeOpacity={0.7}
+                  >
+                    <Icon source="close-circle-outline" size={20} color={colors.textSecondary} />
+                    <Text style={[styles.modalClearText, { color: colors.textSecondary }]}>
+                      Clear selection
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.modalCloseButton, { backgroundColor: colors.primary }]}
+                  onPress={handleCloseModal}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.modalCloseText, { color: colors.white }]}>Done</Text>
+                </TouchableOpacity>
+                </Pressable>
+              </Animated.View>
+            </Pressable>
+          </Modal>
+        </>
+      )}
+
+      {/* Legacy Contributing Player Selector (deprecated) */}
+      {!usesShotContributions && onContributorSelect && (
         <>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.contributorContainer}>
@@ -374,6 +662,11 @@ const styles = StyleSheet.create({
   teamName: {
     ...typography.h3,
     flexShrink: 1,
+  },
+  teamMemberNames: {
+    ...typography.small,
+    marginTop: spacing.xs,
+    lineHeight: 18,
   },
   handicapLabel: {
     ...typography.small,
@@ -509,6 +802,111 @@ const styles = StyleSheet.create({
     ...typography.body,
     flex: 1,
     marginRight: spacing.sm,
+  },
+  // Shot contributions styles
+  shotContributionsContainer: {
+    paddingTop: spacing.xs,
+  },
+  shotContributionsTitle: {
+    ...typography.smallBold,
+    marginBottom: spacing.md,
+  },
+  shotChipsContainer: {
+    gap: spacing.sm,
+  },
+  shotChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  shotChipContent: {
+    flex: 1,
+  },
+  shotChipLabel: {
+    ...typography.caption,
+    marginBottom: 2,
+  },
+  shotChipPlayer: {
+    ...typography.bodyBold,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: '70%',
+  },
+  modalHandle: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  modalHandleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  modalTitle: {
+    ...typography.h3,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  modalPlayerList: {
+    maxHeight: 300,
+  },
+  modalPlayerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  modalPlayerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalPlayerInitial: {
+    ...typography.h3,
+    fontWeight: '600',
+  },
+  modalPlayerName: {
+    ...typography.body,
+    flex: 1,
+  },
+  modalClearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  modalClearText: {
+    ...typography.body,
+  },
+  modalCloseButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  modalCloseText: {
+    ...typography.bodyBold,
   },
 });
 

@@ -30,6 +30,7 @@ import { RadioButtonOption } from '@/screens/profile/components/RadioButtonOptio
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import type { SkinsConfig, SkinsPotType, SkinsScoringType } from '@/types/database/skins.types';
+import type { SkinsTeamInfo } from './SkinsSection';
 
 // ============================================================================
 // CONSTANTS
@@ -70,6 +71,10 @@ export interface SkinsConfigBottomSheetProps {
   onSave: (config: SkinsConfig) => void;
   /** Whether to show backdrop (default true, set false for nested sheets) */
   showBackdrop?: boolean;
+  /** Whether this is a team skins game */
+  isTeamSkins?: boolean;
+  /** Available teams for team skins (shows team info instead of players) */
+  teams?: SkinsTeamInfo[];
 }
 
 // ============================================================================
@@ -82,6 +87,8 @@ export function SkinsConfigBottomSheet({
   initialConfig,
   onSave,
   showBackdrop = true,
+  isTeamSkins = false,
+  teams,
 }: SkinsConfigBottomSheetProps) {
   const colors = useThemeColors();
 
@@ -277,17 +284,55 @@ export function SkinsConfigBottomSheet({
         </View>
 
         {/* PARTICIPANTS INFO */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-          ]}
-        >
-          <Icon source="account-group" size={20} color={colors.textSecondary} />
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            All players in your group will participate in the skins game
-          </Text>
-        </View>
+        {isTeamSkins && teams && teams.length > 0 ? (
+          <View style={styles.teamInfoSection}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              PARTICIPATING TEAMS
+            </Text>
+            <View
+              style={[
+                styles.teamListCard,
+                { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+              ]}
+            >
+              <Icon source="account-multiple" size={20} color={colors.textSecondary} />
+              <View style={styles.teamListContent}>
+                {teams.map((team, index) => (
+                  <Text
+                    key={team.id}
+                    style={[styles.teamName, { color: colors.textPrimary }]}
+                  >
+                    {team.name} ({team.memberCount} {team.memberCount === 1 ? 'player' : 'players'})
+                    {index < teams.length - 1 ? ',' : ''}
+                  </Text>
+                ))}
+              </View>
+            </View>
+            <View
+              style={[
+                styles.teamInfoNote,
+                { backgroundColor: `${colors.info}10` },
+              ]}
+            >
+              <Icon source="information-outline" size={16} color={colors.info} />
+              <Text style={[styles.teamInfoNoteText, { color: colors.infoDark }]}>
+                Winnings will be split equally among team members
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.infoCard,
+              { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+            ]}
+          >
+            <Icon source="account-group" size={20} color={colors.textSecondary} />
+            <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+              All players in your group will participate in the skins game
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* SAVE BUTTON */}
@@ -386,6 +431,38 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...typography.small,
+    flex: 1,
+  },
+  // Team skins styles
+  teamInfoSection: {
+    gap: spacing.sm,
+  },
+  teamListCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  teamListContent: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  teamName: {
+    ...typography.small,
+  },
+  teamInfoNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  teamInfoNoteText: {
+    ...typography.caption,
     flex: 1,
   },
   footer: {

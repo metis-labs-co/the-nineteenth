@@ -9,9 +9,9 @@ const gameTypeSchema = z.enum([
   'stroke',
   'stableford',
   'match-play',
-  'ambrose',
   'best-ball',
   'scramble',
+  'shamble',
 ]);
 
 const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);

@@ -42,13 +42,12 @@ export interface Scorecard {
   device_id: string | null; // For conflict resolution
   synced_at: string | null; // ISO timestamp
 
-  // Handicap Tracking (calculated at submission time)
-  // These fields store the handicap data calculated when the scorecard is synced.
-  // daily_handicap_used captures strokes received for historical accuracy
-  // (player's GA handicap may change later).
-  // handicap_differential is used for calculating the player's Social Handicap Index.
-  daily_handicap_used: number | null; // Strokes received for this round (snapshot)
-  handicap_differential: number | null; // WHS score differential
+  // Handicap Tracking (captured at submission time)
+  // These fields store the handicap data when the scorecard is synced for historical accuracy.
+  // Player's GA handicap may change later, but these snapshots preserve the round context.
+  ga_handicap_used: number | null; // Player's GA handicap at time of round (input value)
+  daily_handicap_used: number | null; // Strokes received for this round (calculated from GA handicap + course/slope)
+  handicap_differential: number | null; // WHS score differential (for Social Handicap Index calculation)
   course_rating_used: number | null; // Snapshot of course rating at time of round
   slope_rating_used: number | null; // Snapshot of slope rating at time of round
 
@@ -108,4 +107,18 @@ export interface ScoringPairsValidation {
   is_valid: boolean;
   missing_players: string[]; // UUIDs of players without scorers
   message: string;
+}
+
+/**
+ * Shot contributions for scramble format
+ * Tracks which team member contributed each shot on a hole
+ * Optional - used for detailed shot attribution in scramble rounds
+ */
+export interface ShotContributions {
+  /** Player ID who hit the tee shot used */
+  drive?: string;
+  /** Player ID who hit the approach shot used */
+  approach?: string;
+  /** Player ID who made the putt */
+  putt?: string;
 }

@@ -11,9 +11,16 @@
 -- Add num_holes column with default of 18 (most common)
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS num_holes INTEGER DEFAULT 18;
 
--- Add constraint to ensure valid values
-ALTER TABLE courses ADD CONSTRAINT courses_num_holes_valid
-  CHECK (num_holes IN (9, 18));
+-- Add constraint to ensure valid values (if not exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'courses_num_holes_valid'
+  ) THEN
+    ALTER TABLE courses ADD CONSTRAINT courses_num_holes_valid
+      CHECK (num_holes IN (9, 18));
+  END IF;
+END $$;
 
 -- =====================================================
 -- UPDATE COMMENT

@@ -37,6 +37,17 @@ export interface SupabaseCourseData {
 }
 
 /**
+ * Team config for standalone scramble rounds (stored in rounds.team_config JSONB)
+ */
+export interface StandaloneTeamConfig {
+  teams: Array<{
+    id: string;
+    name: string;
+    memberIds: string[];
+  }>;
+}
+
+/**
  * Round data returned from Supabase queries
  */
 export interface SupabaseRoundData {
@@ -48,6 +59,7 @@ export interface SupabaseRoundData {
   scoring_pairs_required: boolean | null;
   ball_count: number | null;
   selected_tee: TeeBox | null;
+  team_config: StandaloneTeamConfig | null;
   courses: SupabaseCourseData | null;
 }
 
@@ -97,6 +109,7 @@ export const ROUND_METADATA_SELECT = `
   scoring_pairs_required,
   ball_count,
   selected_tee,
+  team_config,
   courses!course_id (
     id,
     name,
@@ -182,7 +195,9 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     // Default values for required fields not fetched
     golf_id: null,
     handicap_updated_at: null,
-    home_venue_id: null,
+    handicap_index: null,
+    handicap_index_updated_at: null,
+    home_club_id: null,
     is_placeholder: false,
     created_by: null,
     linked_player_id: null,

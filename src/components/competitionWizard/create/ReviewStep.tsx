@@ -25,9 +25,9 @@ const gameTypeLabels: Record<GameType, string> = {
   'stableford': 'Stableford',
   'stroke': 'Stroke Play',
   'match-play': 'Match Play',
-  'ambrose': 'Ambrose',
   'best-ball': 'Best Ball',
   'scramble': 'Scramble',
+  'shamble': 'Shamble',
 };
 
 // Team mode labels for display (values match database.types.ts)

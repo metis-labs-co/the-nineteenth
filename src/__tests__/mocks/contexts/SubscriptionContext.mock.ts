@@ -53,7 +53,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: 16,
     maxFriends: 50,
     maxRoundsPlayed: -1, // unlimited
-    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose'],
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble'],
     canUseTeamFormats: false,
     canUseScoringPairs: false,
     canExportData: true,
@@ -76,7 +76,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: 40,
     maxFriends: -1, // unlimited
     maxRoundsPlayed: -1, // unlimited
-    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'scramble'],
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
     canUseTeamFormats: true,
     canUseScoringPairs: true,
     canExportData: true,
@@ -99,7 +99,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: -2,
     maxFriends: -1,
     maxRoundsPlayed: -2, // no system limit
-    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'ambrose', 'scramble'],
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
     canUseTeamFormats: true,
     canUseScoringPairs: true,
     canExportData: true,

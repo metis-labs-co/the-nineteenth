@@ -187,7 +187,7 @@ BEGIN
       JOIN rounds r ON sc.round_id = r.id
       WHERE sc.player_id = v_player.id
         AND sc.status IN ('completed', 'confirmed')
-        AND r.game_type IN ('ambrose', 'best-ball');
+        AND r.game_type IN ('scramble', 'shamble', 'best-ball');
 
       -- Count unique game types played
       SELECT COUNT(DISTINCT r.game_type) INTO v_unique_game_types

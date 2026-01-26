@@ -15,6 +15,17 @@ export { TeamScoreCard } from './TeamScoreCard';
 export { BestBallScoreView } from './BestBallScoreView';
 export { TeamMatchPlayScoreView } from './TeamMatchPlayScoreView';
 
+// Scramble format
+export { ScrambleScorecardTable } from './ScrambleScorecardTable';
+export { ScrambleTeamSelector } from './ScrambleTeamSelector';
+export type { ScrambleTeam } from './ScrambleTeamSelector';
+export { ContributionLeaderboard } from './ContributionLeaderboard';
+export { ScrambleTeamLeaderboard } from './ScrambleTeamLeaderboard';
+
+// Shamble format
+export { DriveContributorPicker } from './DriveContributorPicker';
+export type { DriveContributorPickerProps } from './DriveContributorPicker';
+
 // Format-specific scoring
 export { StrokePlayScoreCard } from './StrokePlayScoreCard';
 export { StrokePlayLeaderboard } from './StrokePlayLeaderboard';

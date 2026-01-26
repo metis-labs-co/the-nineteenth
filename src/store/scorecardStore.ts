@@ -12,7 +12,7 @@
  */
 
 import { create } from 'zustand';
-import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox } from '@/types';
+import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox, HoleShotContributions } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
 import { isMultiBallScore, isSingleBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import {
@@ -72,6 +72,7 @@ interface ScorecardState {
   setCurrentHole: (hole: number) => void;
   setPlayerScore: (playerId: string, hole: number, strokes: number, scoredBy?: string) => Promise<void>;
   updatePlayerHoleScore: (playerId: string, hole: number, updates: Partial<HoleScore>) => Promise<void>;
+  updateShotContributions: (playerId: string, hole: number, contributions: HoleShotContributions) => Promise<void>;
   updateLocalScore: (roundId: string, playerId: string, holeNumber: number, strokes: number) => Promise<void>;
   getPlayerScore: (playerId: string, hole: number) => HoleScore | MultiBallHoleScore | undefined;
   getPlayerTotals: (playerId: string) => { gross: number; net: number; points: number };
@@ -355,7 +356,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         return;
       }
 
-      // Get existing score to preserve stats (putts, FIR, GIR)
+      // Get existing score to preserve stats (putts, FIR, GIR, shotContributions)
       const existingScore = scorecard.scores[hole];
       const existingSingleBall = existingScore && isSingleBallScore(existingScore) ? existingScore : undefined;
 
@@ -367,6 +368,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         greenInRegulation: existingSingleBall?.greenInRegulation,
         penalties: existingSingleBall?.penalties ?? 0,
         scoredBy: scoredBy ?? existingSingleBall?.scoredBy,
+        shotContributions: existingSingleBall?.shotContributions,
       };
 
       // Update the scorecard
@@ -488,6 +490,69 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         await queueScorecardSync(updatedScorecard, 'update');
       } catch (error) {
         console.error('[ScorecardStore] Failed to save hole score:', error);
+      }
+    },
+
+    updateShotContributions: async (playerId, hole, contributions) => {
+      const { groupScorecards, holes, gameType } = get();
+
+      storeLogger.debug('Updating shot contributions', {
+        playerId: playerId.substring(0, 8) + '...',
+        hole,
+        contributions,
+      });
+
+      const scorecard = groupScorecards.get(playerId);
+      if (!scorecard) {
+        storeLogger.warn('Scorecard not found for player', { playerId });
+        return;
+      }
+
+      const rawExistingScore = scorecard.scores[hole];
+      const existingScore: HoleScore = rawExistingScore && isSingleBallScore(rawExistingScore)
+        ? rawExistingScore
+        : { strokes: 0 };
+
+      // Merge contributions with existing score
+      const holeScore: HoleScore = {
+        ...existingScore,
+        shotContributions: contributions,
+      };
+
+      // Update the scorecard
+      const updatedScorecard: Scorecard = {
+        ...scorecard,
+        scores: {
+          ...scorecard.scores,
+          [hole]: holeScore,
+        },
+        updatedAt: new Date(),
+      };
+
+      // Calculate totals
+      const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
+      updatedScorecard.totalGross = totals.gross;
+      updatedScorecard.totalNet = totals.net;
+
+      // Update state
+      const newScorecards = new Map(groupScorecards);
+      newScorecards.set(playerId, updatedScorecard);
+      set({ groupScorecards: newScorecards });
+
+      // Save to SQLite
+      try {
+        await saveHoleScore(scorecard.id, hole, holeScore);
+        await saveScorecard(updatedScorecard);
+        await queueScorecardSync(updatedScorecard, 'update');
+        storeLogger.debug('Shot contributions saved', {
+          playerId: playerId.substring(0, 8) + '...',
+          hole,
+        });
+      } catch (error) {
+        storeLogger.error('Failed to save shot contributions', error, {
+          playerId: playerId.substring(0, 8) + '...',
+          hole,
+        });
       }
     },
 

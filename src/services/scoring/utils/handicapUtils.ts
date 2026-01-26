@@ -82,7 +82,8 @@ export function getPlayingHandicap(
  * - Individual Stableford: 95%
  * - Match play: 100%
  * - Best ball: 85%
- * - Ambrose: varies (handled separately)
+ * - Shamble: 85% (same as best ball - individual scoring from best drive)
+ * - Scramble: 100% (team handicap calculated differently)
  *
  * @param gameType - The game type
  * @returns Allowance as a decimal (e.g., 0.95 for 95%)
@@ -92,8 +93,9 @@ export function getHandicapAllowance(gameType?: GameType): number {
     case 'match-play':
       return 1.0; // 100%
     case 'best-ball':
+    case 'shamble':
       return 0.85; // 85%
-    case 'ambrose':
+    case 'scramble':
       return 1.0; // Team handicap calculated differently
     case 'stableford':
     case 'stroke':

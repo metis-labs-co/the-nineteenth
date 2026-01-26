@@ -44,11 +44,16 @@ import {
 import { ScoringPairsConfigBottomSheet } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
 import { SkinsConfigBottomSheet } from '@/components/skins';
 import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
+import { MatchPlayScorecardTable } from '@/components/scorecard/MatchPlayScorecardTable';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
 import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults } from '@/hooks/useSkins';
 import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
 import { SkinsResultsCard } from '@/components/skins';
+import { ContributionLeaderboard, ScrambleTeamSelector, ScrambleScorecardTable, ScrambleTeamLeaderboard } from '@/components/scorecard';
+import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import type { SkinsConfig } from '@/types/database/skins.types';
+import type { HoleScore, MultiBallHoleScore, Player, Hole } from '@/types';
+import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
@@ -56,7 +61,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 // TYPES & CONSTANTS
 // =====================================================
 
-type TabKey = 'details' | 'scorecard' | 'match' | 'skins';
+type TabKey = 'details' | 'scorecard' | 'match' | 'skins' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
 // Commented out for trial - keeping for potential future use
 // type TabKey = 'details' | 'players' | 'leaderboard';
 
@@ -190,6 +195,18 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   // Check if this is a team match play round
   const isTeamMatchPlayRound = round?.game_type === 'match-play' && round?.is_team_round;
 
+  // Check if this is a shamble round
+  const isShambleRound = round?.game_type === 'shamble' || round?.team_format === 'shamble';
+
+  // Check if this is a scramble round
+  const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble';
+
+  // Check if this is a stroke play round (for leaderboard tab)
+  const isStrokePlayRound = round?.game_type === 'stroke';
+
+  // State for selected team in multi-team scramble rounds
+  const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
+
   // Fetch match play leaderboard data (for both individual and team match play rounds)
   const {
     data: matchPlayData,
@@ -218,10 +235,29 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
   // Build tabs dynamically based on game type and features
   const tabs = useMemo<TabItem<TabKey>[]>(() => {
-    const result: TabItem<TabKey>[] = [...BASE_TABS];
+    // For scramble rounds, skip the standard scorecard tab (covered by Team Score tab)
+    const baseTabs = isScrambleRound
+      ? BASE_TABS.filter((tab) => tab.key !== 'scorecard')
+      : [...BASE_TABS];
+
+    const result: TabItem<TabKey>[] = baseTabs;
 
     if (isMatchPlayRound || isTeamMatchPlayRound) {
       result.push({ key: 'match' as const, label: 'Match' });
+    }
+
+    if (isShambleRound) {
+      result.push({ key: 'teamScores' as const, label: 'Team Scores' });
+    }
+
+    if (isScrambleRound) {
+      result.push({ key: 'scrambleTeamScore' as const, label: 'Scorecard' });
+      result.push({ key: 'scrambleLeaderboard' as const, label: 'Leaderboard' });
+      result.push({ key: 'scrambleContributions' as const, label: 'Contributions' });
+    }
+
+    if (isStrokePlayRound) {
+      result.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
     }
 
     if (hasSkinsGame) {
@@ -229,7 +265,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, hasSkinsGame]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame]);
 
   const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers || ((isMatchPlayRound || isTeamMatchPlayRound) && isLoadingMatchPlay);
   const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults;
@@ -288,6 +324,304 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
     return false;
   }, [user?.id, round, isStandalone, competitionInfo?.organizer_id]);
+
+  // Get match play players for individual match play rounds
+  // For match play, we need exactly 2 players
+  const matchPlayPlayers = useMemo(() => {
+    if (!isMatchPlayRound) return null;
+
+    // Get players from scorecards or roundPlayers
+    const players = scorecards?.map((sc) => ({
+      id: sc.player_id,
+      name: sc.player?.name || 'Unknown',
+    })) || roundPlayers?.map((p) => ({
+      id: p.id,
+      name: p.name,
+    })) || [];
+
+    // Match play requires exactly 2 players
+    if (players.length >= 2) {
+      return {
+        player1: players[0],
+        player2: players[1],
+      };
+    }
+
+    return null;
+  }, [isMatchPlayRound, scorecards, roundPlayers]);
+
+  // Get player score from scorecards for match play scorecard table
+  const getPlayerScore = useCallback((playerId: string, holeNumber: number) => {
+    const scorecard = scorecards?.find((sc) => sc.player_id === playerId);
+    if (!scorecard) return undefined;
+
+    const holeScore = scorecard.scores?.[String(holeNumber)];
+    if (!holeScore) return undefined;
+
+    // Handle both HoleScore and MultiBallHoleScore
+    if ('strokes' in holeScore) {
+      return holeScore.strokes;
+    }
+
+    return undefined;
+  }, [scorecards]);
+
+  // Get full hole score for shamble team scores tab
+  const getShamblePlayerScore = useCallback((playerId: string, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    const scorecard = scorecards?.find((sc) => sc.player_id === playerId);
+    if (!scorecard) return undefined;
+
+    return scorecard.scores?.[String(holeNumber)];
+  }, [scorecards]);
+
+  // Get team score for shamble (uses first player's scorecard for shot contributions)
+  const getShambleTeamScore = useCallback((holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    if (!scorecards || scorecards.length === 0) return undefined;
+
+    // For shamble, shot contributions are stored in the first player's scorecard
+    return scorecards[0]?.scores?.[String(holeNumber)];
+  }, [scorecards]);
+
+  // Convert round players to Player type for ContributionLeaderboard
+  const shamblePlayers: Player[] = useMemo(() => {
+    if (!isShambleRound) return [];
+
+    // Prefer scorecards for player info (has more complete data)
+    if (scorecards && scorecards.length > 0) {
+      return scorecards.map((sc) => ({
+        id: sc.player_id,
+        name: sc.player?.name || 'Unknown',
+        handicap: sc.player?.handicap ?? 0,
+        email: sc.player?.email || '',
+      }));
+    }
+
+    // Fall back to round players
+    if (roundPlayers && roundPlayers.length > 0) {
+      return roundPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap ?? 0,
+        email: p.email || '',
+      }));
+    }
+
+    return [];
+  }, [isShambleRound, scorecards, roundPlayers]);
+
+  // Convert round players to Player type for StrokePlayLeaderboard
+  const strokePlayPlayers: Player[] = useMemo(() => {
+    if (!isStrokePlayRound) return [];
+
+    // Prefer scorecards for player info (has more complete data)
+    if (scorecards && scorecards.length > 0) {
+      return scorecards.map((sc) => ({
+        id: sc.player_id,
+        name: sc.player?.name || 'Unknown',
+        handicap: sc.player?.handicap ?? 0,
+        email: sc.player?.email || '',
+      }));
+    }
+
+    // Fall back to round players
+    if (roundPlayers && roundPlayers.length > 0) {
+      return roundPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap ?? 0,
+        email: p.email || '',
+      }));
+    }
+
+    return [];
+  }, [isStrokePlayRound, scorecards, roundPlayers]);
+
+  // Get full hole score for stroke play leaderboard
+  const getStrokePlayPlayerScore = useCallback((playerId: string, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    const scorecard = scorecards?.find((sc) => sc.player_id === playerId);
+    if (!scorecard) return undefined;
+
+    return scorecard.scores?.[String(holeNumber)];
+  }, [scorecards]);
+
+  // Extract teams from team_config for standalone scramble rounds
+  const scrambleTeams = useMemo(() => {
+    if (!isScrambleRound) return [];
+
+    // Check for standalone team config
+    const teamConfig = (round as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
+    if (teamConfig?.teams && teamConfig.teams.length > 0) {
+      return teamConfig.teams;
+    }
+
+    // For competition scramble or single-team rounds, treat all players as one team
+    // Create a single team from all players
+    const allPlayerIds = scorecards?.map((sc) => sc.player_id) ||
+      roundPlayers?.map((p) => p.id) || [];
+
+    if (allPlayerIds.length > 0) {
+      return [{
+        id: 'default-team',
+        name: 'Team',
+        memberIds: allPlayerIds,
+      }];
+    }
+
+    return [];
+  }, [isScrambleRound, round, scorecards, roundPlayers]);
+
+  // Get players for the currently selected scramble team
+  const scrambleTeamPlayers: Player[] = useMemo(() => {
+    if (!isScrambleRound || scrambleTeams.length === 0) return [];
+
+    const selectedTeam = scrambleTeams[selectedTeamIndex] || scrambleTeams[0];
+    if (!selectedTeam) return [];
+
+    // Get player info from scorecards or roundPlayers
+    const playerMap = new Map<string, Player>();
+
+    // Build map from scorecards
+    scorecards?.forEach((sc) => {
+      playerMap.set(sc.player_id, {
+        id: sc.player_id,
+        name: sc.player?.name || 'Unknown',
+        handicap: sc.player?.handicap ?? 0,
+        email: sc.player?.email || '',
+      });
+    });
+
+    // Fall back to roundPlayers for any missing
+    roundPlayers?.forEach((p) => {
+      if (!playerMap.has(p.id)) {
+        playerMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          handicap: p.handicap ?? 0,
+          email: p.email || '',
+        });
+      }
+    });
+
+    // Filter to only team members
+    return selectedTeam.memberIds
+      .map((id) => playerMap.get(id))
+      .filter((p): p is Player => p !== undefined);
+  }, [isScrambleRound, scrambleTeams, selectedTeamIndex, scorecards, roundPlayers]);
+
+  // Get team handicap (average of team members for scramble)
+  const scrambleTeamHandicap = useMemo(() => {
+    if (scrambleTeamPlayers.length === 0) return 0;
+    const totalHandicap = scrambleTeamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
+    // Scramble team handicap is typically a percentage of combined handicap
+    // Using 25% of the combined total (common rule)
+    return Math.round((totalHandicap * 0.25) * 10) / 10;
+  }, [scrambleTeamPlayers]);
+
+  // Get all players for scramble leaderboard (needed for player lookup)
+  const allScramblePlayers: Player[] = useMemo(() => {
+    if (!isScrambleRound) return [];
+
+    // Build from scorecards first (has most complete data)
+    if (scorecards && scorecards.length > 0) {
+      return scorecards.map((sc) => ({
+        id: sc.player_id,
+        name: sc.player?.name || 'Unknown',
+        handicap: sc.player?.handicap ?? 0,
+        email: sc.player?.email || '',
+      }));
+    }
+
+    // Fall back to roundPlayers
+    if (roundPlayers && roundPlayers.length > 0) {
+      return roundPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap ?? 0,
+        email: p.email || '',
+      }));
+    }
+
+    return [];
+  }, [isScrambleRound, scorecards, roundPlayers]);
+
+  // Get team score for scramble (from first team member's scorecard)
+  const getScrambleTeamScore = useCallback((holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    if (!scorecards || scorecards.length === 0) return undefined;
+
+    // For scramble, score is stored in first player's scorecard
+    const selectedTeam = scrambleTeams[selectedTeamIndex] || scrambleTeams[0];
+    if (!selectedTeam) return undefined;
+
+    // Find scorecard for any team member (they should all have the same team score)
+    const teamScorecard = scorecards.find((sc) =>
+      selectedTeam.memberIds.includes(sc.player_id)
+    );
+
+    return teamScorecard?.scores?.[String(holeNumber)];
+  }, [scorecards, scrambleTeams, selectedTeamIndex]);
+
+  // Get team score for a specific team by index (for displaying all teams)
+  const getScrambleTeamScoreByIndex = useCallback((teamIndex: number, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
+    if (!scorecards || scorecards.length === 0) return undefined;
+
+    const team = scrambleTeams[teamIndex];
+    if (!team) return undefined;
+
+    // Find scorecard for any team member
+    const teamScorecard = scorecards.find((sc) =>
+      team.memberIds.includes(sc.player_id)
+    );
+
+    return teamScorecard?.scores?.[String(holeNumber)];
+  }, [scorecards, scrambleTeams]);
+
+  // Get players for a specific team by index (for displaying all teams)
+  const getScrambleTeamPlayersByIndex = useCallback((teamIndex: number): Player[] => {
+    if (!isScrambleRound || scrambleTeams.length === 0) return [];
+
+    const team = scrambleTeams[teamIndex];
+    if (!team) return [];
+
+    // Get player info from scorecards or roundPlayers
+    const playerMap = new Map<string, Player>();
+
+    // Build map from scorecards
+    scorecards?.forEach((sc) => {
+      playerMap.set(sc.player_id, {
+        id: sc.player_id,
+        name: sc.player?.name || 'Unknown',
+        handicap: sc.player?.handicap ?? 0,
+        email: sc.player?.email || '',
+      });
+    });
+
+    // Fall back to roundPlayers for any missing
+    roundPlayers?.forEach((p) => {
+      if (!playerMap.has(p.id)) {
+        playerMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          handicap: p.handicap ?? 0,
+          email: p.email || '',
+        });
+      }
+    });
+
+    // Filter to only team members
+    return team.memberIds
+      .map((id) => playerMap.get(id))
+      .filter((p): p is Player => p !== undefined);
+  }, [isScrambleRound, scrambleTeams, scorecards, roundPlayers]);
+
+  // Get team handicap for a specific team by index
+  const getScrambleTeamHandicapByIndex = useCallback((teamIndex: number): number => {
+    const teamPlayers = getScrambleTeamPlayersByIndex(teamIndex);
+    if (teamPlayers.length === 0) return 0;
+    const totalHandicap = teamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
+    // Scramble team handicap is typically a percentage of combined handicap
+    // Using 25% of the combined total (common rule)
+    return Math.round((totalHandicap * 0.25) * 10) / 10;
+  }, [getScrambleTeamPlayersByIndex]);
 
   // Navigation handlers
   const handleBack = useCallback(() => {
@@ -519,7 +853,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           </View>
         );
       }
-      return 'Practice Round';
+      // Show "Match" if there are multiple players, "Practice Round" for solo
+      const playerCount = scorecards?.length || roundPlayers?.length || 0;
+      return playerCount > 1 ? 'Match' : 'Practice Round';
     }
     return `Round ${round?.round_number || ''}`;
   };
@@ -650,17 +986,44 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             selectedTeeData={round.selected_tee}
           />
         )}
-        {activeTab === 'match' && (isMatchPlayRound || isTeamMatchPlayRound) && matchPlayData && (
+        {activeTab === 'match' && (isMatchPlayRound || isTeamMatchPlayRound) && (
           <View style={styles.matchTabContent}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Match Results
-            </Text>
-            <MatchPlayLeaderboard
-              entries={matchPlayData.entries}
-              currentUserId={user?.id}
-              roundStatus={round.status}
-              isTeamRound={round.is_team_round || false}
-            />
+            {/* Individual Match Play Scorecard */}
+            {isMatchPlayRound && matchPlayPlayers && round.course?.holes && (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  Match Scorecard
+                </Text>
+                <MatchPlayScorecardTable
+                  holes={round.course.holes}
+                  player1={matchPlayPlayers.player1}
+                  player2={matchPlayPlayers.player2}
+                  getPlayerScore={getPlayerScore}
+                />
+              </>
+            )}
+
+            {/* Match Play Results (if available) */}
+            {matchPlayData && matchPlayData.entries.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.lg }]}>
+                  Match Results
+                </Text>
+                <MatchPlayLeaderboard
+                  entries={matchPlayData.entries}
+                  currentUserId={user?.id}
+                  roundStatus={round.status}
+                  isTeamRound={round.is_team_round || false}
+                />
+              </>
+            )}
+
+            {/* Empty state when no data available */}
+            {!isMatchPlayRound && !matchPlayData && (
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No match data available yet.
+              </Text>
+            )}
           </View>
         )}
         {activeTab === 'skins' && hasSkinsGame && activeSkinsGame && (
@@ -677,6 +1040,101 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
                   {} as Record<number, number>
                 )
               }
+            />
+          </View>
+        )}
+        {activeTab === 'leaderboard' && isStrokePlayRound && (
+          <View style={styles.leaderboardTabContent}>
+            <StrokePlayLeaderboardFull
+              players={strokePlayPlayers}
+              holes={round.course?.holes as Hole[] || []}
+              getPlayerScore={getStrokePlayPlayerScore}
+              currentUserId={user?.id}
+            />
+          </View>
+        )}
+        {activeTab === 'teamScores' && isShambleRound && (
+          <View style={styles.teamScoresTabContent}>
+            <ContributionLeaderboard
+              players={shamblePlayers}
+              getTeamScore={getShambleTeamScore}
+              totalHoles={round.course?.holes?.length || 18}
+              showOnlyDrives={true}
+              getPlayerScore={getShamblePlayerScore}
+              holes={round.course?.holes || undefined}
+            />
+          </View>
+        )}
+        {activeTab === 'scrambleTeamScore' && isScrambleRound && (
+          <View style={styles.scrambleTabContent}>
+            {round.course?.holes && scrambleTeams.length > 0 ? (
+              <>
+                {/* Team selector */}
+                <ScrambleTeamSelector
+                  teams={scrambleTeams}
+                  selectedIndex={selectedTeamIndex}
+                  onSelectTeam={setSelectedTeamIndex}
+                  getTeamPlayers={getScrambleTeamPlayersByIndex}
+                />
+                {/* Selected team's scorecard */}
+                <ScrambleScorecardTable
+                  holes={round.course.holes as Hole[]}
+                  teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
+                  teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
+                  getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
+                />
+              </>
+            ) : (
+              <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
+                <Icon source="account-group" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  No Team Data
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Team scores will appear here once scoring begins.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+        {activeTab === 'scrambleLeaderboard' && isScrambleRound && (
+          <View style={styles.scrambleTabContent}>
+            {round.course?.holes && scrambleTeams.length > 0 ? (
+              <ScrambleTeamLeaderboard
+                teams={scrambleTeams}
+                players={allScramblePlayers}
+                holes={round.course.holes as Hole[]}
+                getTeamScore={getScrambleTeamScoreByIndex}
+                currentUserId={user?.id}
+                testID="scramble-team-leaderboard"
+              />
+            ) : (
+              <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
+                <Icon source="trophy-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  No Leaderboard Data
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Team standings will appear here once scoring begins.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+        {activeTab === 'scrambleContributions' && isScrambleRound && (
+          <View style={styles.scrambleTabContent}>
+            {/* Team selector */}
+            <ScrambleTeamSelector
+              teams={scrambleTeams}
+              selectedIndex={selectedTeamIndex}
+              onSelectTeam={setSelectedTeamIndex}
+              getTeamPlayers={getScrambleTeamPlayersByIndex}
+            />
+            <ContributionLeaderboard
+              players={getScrambleTeamPlayersByIndex(selectedTeamIndex)}
+              getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
+              totalHoles={round.course?.holes?.length || 18}
+              showOnlyDrives={false}
             />
           </View>
         )}
@@ -793,6 +1251,12 @@ const styles = StyleSheet.create({
   skinsTabContent: {
     gap: spacing.md,
   },
+  teamScoresTabContent: {
+    gap: spacing.md,
+  },
+  leaderboardTabContent: {
+    gap: spacing.md,
+  },
   sectionTitle: {
     ...typography.h4,
     marginBottom: spacing.xs,
@@ -808,5 +1272,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     lineHeight: 24,
+  },
+
+  // Empty State
+  emptyText: {
+    ...typography.body,
+    textAlign: 'center',
+    paddingVertical: spacing.xl,
+  },
+
+  // Scramble Tabs
+  scrambleTabContent: {
+    gap: spacing.md,
+  },
+  emptyContainer: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  emptyTitle: {
+    ...typography.h3,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    ...typography.body,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
 });
