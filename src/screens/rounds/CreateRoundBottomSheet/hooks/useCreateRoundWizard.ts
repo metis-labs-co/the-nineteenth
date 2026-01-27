@@ -29,6 +29,23 @@ import type {
 } from '../types';
 import { MAX_PARTNERS } from '../types';
 
+/**
+ * Generate a UUID v4 for team IDs
+ * Uses crypto.randomUUID() if available, falls back to manual generation
+ */
+const generateUUID = (): string => {
+  // Try native crypto.randomUUID() first (available in modern environments)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback: manual UUID v4 generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 /** Team game types that require splitIntoTeams for skins */
 const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
 
@@ -399,7 +416,7 @@ export function useCreateRoundWizard({
           continue;
         }
         teams.push({
-          id: `team-${teams.length + 1}`,
+          id: generateUUID(),
           name: `Team ${teams.length + 1}`,
           members,
         });
@@ -434,7 +451,7 @@ export function useCreateRoundWizard({
         continue;
       }
       teams.push({
-        id: `team-${teams.length + 1}`,
+        id: generateUUID(),
         name: `Team ${teams.length + 1}`,
         members,
       });

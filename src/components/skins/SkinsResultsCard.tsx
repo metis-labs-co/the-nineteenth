@@ -88,11 +88,18 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
   scoringType,
   parValues,
   participants,
-  isTeamSkins = false,
+  isTeamSkins: isTeamSkinsProp = false,
   teams,
   testID,
 }: SkinsResultsCardProps) {
   const colors = useThemeColors();
+
+  // Auto-detect team skins from results if prop is not set but results have team_winner_id
+  const isTeamSkins = useMemo(() => {
+    if (isTeamSkinsProp) return true;
+    // Check if any result has team_winner_id - indicates team skins
+    return results.some((r) => (r as SkinsResult).team_winner_id);
+  }, [isTeamSkinsProp, results]);
 
   // Calculate values
   const perHoleValue = useMemo(
@@ -459,10 +466,19 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
     // Determine winner display text
     let winnerText = '--';
     if (isPlayed) {
-      if (hasTeamWinner && teams) {
-        // Team skins - find team name
-        const winningTeam = teams.find((t) => t.id === skinsResult.team_winner_id);
-        winnerText = winningTeam?.name ?? 'Unknown Team';
+      if (hasTeamWinner) {
+        // Team skins - try multiple sources for team name
+        // 1. Check team_winner object from useSkinsResults
+        const resultWithTeamWinner = result as SkinsResult & { team_winner?: { id: string; name: string } | null };
+        if (resultWithTeamWinner.team_winner?.name) {
+          winnerText = resultWithTeamWinner.team_winner.name;
+        } else if (teams) {
+          // 2. Fallback to looking up in teams prop
+          const winningTeam = teams.find((t) => t.id === skinsResult.team_winner_id);
+          winnerText = winningTeam?.name ?? 'Unknown Team';
+        } else {
+          winnerText = 'Unknown Team';
+        }
       } else if (hasIndividualWinner && result.winner) {
         // Individual skins
         winnerText = result.winner.name;
@@ -479,13 +495,33 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
         notesText = `Tied, +${formatCurrency(carryoverAmount)} carried`;
       } else if (hasWinner) {
         // Show winning score if available
-        const winnerScore = result.winner_id
-          ? result.hole_scores[result.winner_id]
-          : null;
-        if (winnerScore) {
-          const scoreValue =
-            scoringType === 'gross' ? winnerScore.gross : winnerScore.net;
-          notesText = `Won with ${scoreValue}`;
+        // For team skins, hole_scores are keyed by team ID with { team_score, member_scores }
+        // For individual skins, hole_scores are keyed by player ID with { gross, net }
+        const winnerId = hasTeamWinner ? skinsResult.team_winner_id : result.winner_id;
+        if (winnerId) {
+          const holeScores = result.hole_scores as Record<string, unknown>;
+          const winnerScoreData = holeScores[winnerId];
+
+          let scoreValue: number | undefined;
+          if (winnerScoreData != null) {
+            if (typeof winnerScoreData === 'number') {
+              // Simple number format
+              scoreValue = winnerScoreData;
+            } else if (typeof winnerScoreData === 'object') {
+              const scoreObj = winnerScoreData as { team_score?: number; gross?: number; net?: number };
+              if ('team_score' in scoreObj && scoreObj.team_score !== undefined) {
+                // Team skins format: { team_score, member_scores }
+                scoreValue = scoreObj.team_score;
+              } else if ('gross' in scoreObj || 'net' in scoreObj) {
+                // Individual skins format: { gross, net }
+                scoreValue = scoringType === 'gross' ? scoreObj.gross : scoreObj.net;
+              }
+            }
+          }
+
+          if (scoreValue !== undefined) {
+            notesText = `Won with ${scoreValue}`;
+          }
         }
       }
     }
@@ -597,8 +633,8 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
         return `subtotal-${item.label}`;
       case 'total':
         return 'total';
-      case 'playerTotals':
-        return 'playerTotals';
+      case 'participantTotals':
+        return 'participantTotals';
       default:
         return `row-${index}`;
     }

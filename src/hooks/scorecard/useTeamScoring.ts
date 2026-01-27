@@ -9,16 +9,38 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { teamScoringLogger } from '@/utils/debugLogger';
-import type { HoleScore, MultiBallHoleScore, Player, HoleShotContributions } from '@/types';
+import { teamScoringLogger, scoringLogger } from '@/utils/debugLogger';
+import type { HoleScore, MultiBallHoleScore, Player, HoleShotContributions, Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import type { TeamFormat, TeamWithMembers } from '@/types/database.types';
+
+/** Skins processing function signature */
+interface ProcessSkinsHoleParams {
+  roundId: string;
+  holeNumber: number;
+  scorecards: Record<string, { [holeNumber: string]: { strokes: number } | number }>;
+  hole: { par: number; strokeIndex: number };
+}
+
+interface ProcessSkinsHoleResult {
+  processed: boolean;
+  hasWinner?: boolean;
+  winnerName?: string;
+  winningsAmount?: number;
+  carryoverAmount?: number;
+}
 
 interface UseTeamScoringParams {
   teams: TeamWithMembers[];
   teamFormat: TeamFormat | null;
   currentHole: number;
   players: Player[];
+  /** Round ID for skins processing */
+  roundId?: string;
+  /** Function to get hole info for skins processing */
+  getHoleInfo?: (holeNumber: number) => Hole | undefined;
+  /** Skins processing function */
+  processSkinsHole?: (params: ProcessSkinsHoleParams) => Promise<ProcessSkinsHoleResult>;
 }
 
 interface UseTeamScoringResult {
@@ -47,8 +69,71 @@ export function useTeamScoring({
   teamFormat,
   currentHole,
   players,
+  roundId,
+  getHoleInfo,
+  processSkinsHole,
 }: UseTeamScoringParams): UseTeamScoringResult {
   const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards } = useScorecardStore();
+
+  // Helper to trigger skins processing after team score entry
+  const triggerSkinsProcessing = useCallback(async (holeNumber: number) => {
+    if (!processSkinsHole || !roundId || !getHoleInfo) {
+      teamScoringLogger.debug('Skins processing skipped - missing dependencies', {
+        hasProcessFn: !!processSkinsHole,
+        hasRoundId: !!roundId,
+        hasGetHoleInfo: !!getHoleInfo,
+      });
+      return;
+    }
+
+    const holeData = getHoleInfo(holeNumber);
+    if (!holeData) {
+      teamScoringLogger.debug('Skins processing skipped - no hole data', { holeNumber });
+      return;
+    }
+
+    // Get fresh state from store after scores were saved
+    const latestScorecards = useScorecardStore.getState().groupScorecards;
+    const scorecardsRecord: Record<string, { [holeNumber: string]: { strokes: number } | number }> = {};
+    latestScorecards.forEach((scorecard, pId) => {
+      // Cast scores to expected type - runtime compatible even though TS types differ
+      scorecardsRecord[pId] = scorecard.scores as unknown as { [holeNumber: string]: { strokes: number } | number };
+    });
+
+    teamScoringLogger.debug('Triggering skins processing', {
+      roundId: roundId.substring(0, 8),
+      holeNumber,
+      teamFormat,
+      scorecardCount: Object.keys(scorecardsRecord).length,
+    });
+
+    try {
+      const result = await processSkinsHole({
+        roundId,
+        holeNumber,
+        scorecards: scorecardsRecord,
+        hole: { par: holeData.par, strokeIndex: holeData.strokeIndex },
+      });
+
+      if (result.processed) {
+        if (result.hasWinner) {
+          scoringLogger.info('SKINS (team): Hole winner', {
+            hole: holeNumber,
+            winner: result.winnerName,
+            amount: result.winningsAmount,
+          });
+        } else if (result.carryoverAmount) {
+          scoringLogger.info('SKINS (team): Hole tied, carryover', {
+            hole: holeNumber,
+            carryover: result.carryoverAmount,
+          });
+        }
+      }
+    } catch (error) {
+      // Non-blocking - log error but don't fail score entry
+      scoringLogger.warn('SKINS (team): Processing error (non-blocking)', { error });
+    }
+  }, [processSkinsHole, roundId, getHoleInfo, teamFormat]);
 
   // Team-specific state
   const [selectedContributor, setSelectedContributor] = useState<string | undefined>();
@@ -93,6 +178,13 @@ export function useTeamScoring({
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(
     async (teamIndex: number, strokes: number) => {
+      teamScoringLogger.info('SCRAMBLE: handleTeamScoreSelect', {
+        teamIndex,
+        strokes,
+        hole: currentHole,
+        teamsCount: teams.length,
+      });
+
       // For Scramble, all team members get the same score
       const team = teams[teamIndex];
       if (!team) {
@@ -100,25 +192,22 @@ export function useTeamScoring({
         return;
       }
 
-      teamScoringLogger.info('SCRAMBLE: Setting score for all team members', {
+      teamScoringLogger.debug('SCRAMBLE: Setting score for all team members', {
         teamIndex,
         teamName: team.name,
         strokes,
         hole: currentHole,
         memberCount: team.members?.length || 0,
-        members: team.members?.map(m => m.player?.name || m.player_id.substring(0, 8)),
       });
 
       for (const member of team.members || []) {
-        teamScoringLogger.debug('SCRAMBLE: Setting player score', {
-          playerId: member.player_id.substring(0, 8),
-          playerName: member.player?.name,
-          strokes,
-        });
         await setPlayerScore(member.player_id, currentHole, strokes);
       }
+
+      // Trigger skins processing after all scores are saved (non-blocking)
+      triggerSkinsProcessing(currentHole);
     },
-    [currentHole, setPlayerScore, teams]
+    [currentHole, setPlayerScore, teams, triggerSkinsProcessing]
   );
 
   // Handler for Best Ball score selection
@@ -136,8 +225,11 @@ export function useTeamScoring({
         hole: currentHole,
       });
       await setPlayerScore(playerId, currentHole, strokes);
+
+      // Trigger skins processing after score is saved (non-blocking)
+      triggerSkinsProcessing(currentHole);
     },
-    [currentHole, setPlayerScore, teams]
+    [currentHole, setPlayerScore, teams, triggerSkinsProcessing]
   );
 
   // Handler for Team Match Play score selection
@@ -162,6 +254,9 @@ export function useTeamScoring({
           scoreHolderName: firstMember.player?.name,
         });
         await setPlayerScore(firstMember.player_id, currentHole, strokes);
+
+        // Trigger skins processing after score is saved (non-blocking)
+        triggerSkinsProcessing(currentHole);
       } else {
         teamScoringLogger.warn('TEAM MATCH PLAY: No members in team', {
           teamIndex,
@@ -169,7 +264,7 @@ export function useTeamScoring({
         });
       }
     },
-    [currentHole, setPlayerScore, teams]
+    [currentHole, setPlayerScore, teams, triggerSkinsProcessing]
   );
 
   // Get team score for match play

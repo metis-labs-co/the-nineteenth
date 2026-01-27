@@ -16,6 +16,7 @@ import { ConfirmationDialog } from '@/components/common';
 import { PageHeader, OfflineIndicator } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
+import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { Player, TeeBox } from '@/types';
@@ -67,17 +68,25 @@ export function ScorecardHeader({
     setShowSkinsAlert(true);
   }, []);
 
-  // Build subtitle with course name and tee info
-  const getSubtitle = (): string | undefined => {
+  // Build subtitle with course name, color circle, and tee name
+  const renderSubtitle = (): React.ReactNode | undefined => {
     if (!courseName) return undefined;
 
     if (selectedTee?.name) {
-      // Avoid redundancy when name and color are identical (e.g., "Yellow (Yellow)")
-      const teeInfo =
-        selectedTee.color && selectedTee.color.toLowerCase() !== selectedTee.name.toLowerCase()
-          ? `${selectedTee.name} (${selectedTee.color})`
-          : selectedTee.name;
-      return `${courseName} - ${teeInfo}`;
+      const teeColorHex = getTeeColor(selectedTee.color, colors.textDisabled);
+      return (
+        <View style={styles.subtitleContainer}>
+          <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
+            {courseName} -{' '}
+          </Text>
+          <View
+            style={[styles.teeColorCircle, { backgroundColor: teeColorHex }]}
+          />
+          <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
+            {' '}{selectedTee.name}
+          </Text>
+        </View>
+      );
     }
 
     return courseName;
@@ -146,7 +155,7 @@ export function ScorecardHeader({
     <>
       <PageHeader
         title="Score Entry"
-        subtitle={getSubtitle()}
+        subtitle={renderSubtitle()}
         showBack
         onBack={onBack}
         rightContent={renderRightContent()}
@@ -219,6 +228,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: borderRadius.lg,
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subtitleText: {
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  teeColorCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   syncLineContainer: {
     height: 2,

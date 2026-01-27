@@ -13,7 +13,6 @@ import { supabase } from '@/services/supabase/client';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { deleteScorecardsByRound } from '@/services/offline/database';
-import { useFinalizeSkinsForRound } from '@/hooks';
 import { scoringLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -59,10 +58,8 @@ export function useScorecardSubmission({
   // Confirmation dialog hook
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
-  // Skins finalization hook
-  const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
-
-  // Perform the actual submission
+  // Perform the actual submission (navigates to review screen)
+  // Note: Skins finalization happens only when submitting from ReviewScorecard
   const performSubmit = useCallback(async () => {
     onCloseIncompleteDialog();
     scoringLogger.info('SUBMIT: Starting scorecard submission', {
@@ -74,19 +71,7 @@ export function useScorecardSubmission({
       await submitScorecards();
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
-      // Finalize skins game if applicable (non-blocking)
-      finalizeSkinsForRound(roundId).then((result) => {
-        if (result.finalized) {
-          scoringLogger.info('SUBMIT: Skins game finalized', { roundId: roundId?.substring(0, 8) });
-        } else if (result.error) {
-          scoringLogger.warn('SUBMIT: Skins finalization error (non-blocking)', { error: result.error });
-        }
-        // No skins game = result.finalized is false with no error, which is fine
-      }).catch((error) => {
-        // Non-blocking - log error but don't fail submission
-        scoringLogger.warn('SUBMIT: Skins finalization failed (non-blocking)', { error });
-      });
-
+      // Navigate to review screen - skins finalization happens there on final submit
       navigation.navigate('ReviewScorecard', {
         roundId,
         competitionId,
@@ -105,7 +90,6 @@ export function useScorecardSubmission({
     playerCount,
     onSubmitError,
     onCloseIncompleteDialog,
-    finalizeSkinsForRound,
   ]);
 
   // Handle submit button press with completion check

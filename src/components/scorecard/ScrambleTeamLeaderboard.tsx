@@ -102,8 +102,6 @@ export function ScrambleTeamLeaderboard({
   const teamScores: TeamScoreData[] = useMemo(() => {
     if (teams.length === 0 || holes.length === 0) return [];
 
-    const totalPar = holes.reduce((sum, h) => sum + h.par, 0);
-
     const scores = teams.map((team, teamIndex) => {
       // Get team members
       const members = team.memberIds
@@ -117,6 +115,7 @@ export function ScrambleTeamLeaderboard({
       let gross = 0;
       let handicapStrokes = 0;
       let holesCompleted = 0;
+      let parForHolesPlayed = 0;
 
       for (let holeNum = 1; holeNum <= holes.length; holeNum++) {
         const score = getTeamScore(teamIndex, holeNum);
@@ -125,14 +124,17 @@ export function ScrambleTeamLeaderboard({
         holesCompleted++;
         gross += score.strokes;
 
-        // Get stroke index for this hole
+        // Get hole data for stroke index and par
         const holeData = holes.find((h) => h.number === holeNum);
         const strokeIndex = holeData?.strokeIndex ?? holeNum;
         handicapStrokes += getHandicapStrokesForHole(teamHandicap, strokeIndex);
+
+        // Add par only for holes that have been played
+        parForHolesPlayed += holeData?.par ?? 0;
       }
 
       const net = gross - handicapStrokes;
-      const toPar = holesCompleted > 0 ? net - totalPar : 0;
+      const toPar = holesCompleted > 0 ? net - parForHolesPlayed : 0;
 
       // Check if current user is a member
       const hasCurrentUser = currentUserId

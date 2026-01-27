@@ -29,9 +29,18 @@ const TEE_COLOR_MAP: Record<string, string> = {
 
 /**
  * Map tee color names to actual colors
+ * Handles both color names (e.g., "blue") and hex codes (e.g., "#2563eb")
  */
 export const getTeeColor = (color: string, fallbackColor: string): string => {
-  return TEE_COLOR_MAP[color?.toLowerCase()] ?? fallbackColor;
+  if (!color) return fallbackColor;
+
+  // If it's already a hex code, use it directly
+  if (color.startsWith('#')) {
+    return color;
+  }
+
+  // Otherwise, try to map the color name
+  return TEE_COLOR_MAP[color.toLowerCase()] ?? fallbackColor;
 };
 
 // ===========================================================================

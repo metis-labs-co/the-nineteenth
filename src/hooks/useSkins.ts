@@ -10,7 +10,7 @@
  * - Utility: useCanUseSkins, useActiveSkinsGameForRound
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys, subscriptionKeys } from '@/hooks/queryKeys';
@@ -83,6 +83,8 @@ export interface ProcessTeamSkinsHoleInput {
   holeNumber: number;
   teamScores: SkinsTeamHoleScores;
   teamFormat: TeamFormat;
+  /** Skip is_team_skins validation (used when auto-detected from round format) */
+  skipTeamValidation?: boolean;
 }
 
 // =====================================================
@@ -132,7 +134,7 @@ function createError(
 export function useSkinsGame(gameId: string | undefined) {
   return useQuery({
     queryKey: skinsKeys.game(gameId ?? ''),
-    queryFn: async (): Promise<SkinsGameWithParticipants | null> => {
+    queryFn: async (): Promise<SkinsGameWithParticipants | SkinsGameWithTeamParticipants | null> => {
       if (!gameId) return null;
 
       const { data: game, error } = await supabase
@@ -148,7 +150,89 @@ export function useSkinsGame(gameId: string | undefined) {
 
       if (!game) return null;
 
-      // Fetch participant details
+      // Check if this is a team skins game
+      if (game.is_team_skins) {
+        let teamParticipants: SkinsTeamParticipant[] = [];
+
+        // Source 1: Try using participant_team_ids if available
+        if (game.participant_team_ids?.length) {
+          const { data: teams, error: teamsError } = await supabase
+            .from('teams')
+            .select(`
+              id,
+              name,
+              team_members (
+                player_id,
+                players:player_id (
+                  id,
+                  name,
+                  handicap
+                )
+              )
+            `)
+            .in('id', game.participant_team_ids);
+
+          if (teamsError) {
+            console.error('[useSkins] Failed to fetch team participants:', teamsError);
+          }
+
+          teamParticipants = (teams ?? []).map((team) => ({
+            id: team.id,
+            name: team.name,
+            members: (team.team_members ?? []).map((tm: { player_id: string; players: { id: string; name: string; handicap: number | null } | null }) => ({
+              id: tm.player_id,
+              name: tm.players?.name ?? 'Unknown',
+              handicap: tm.players?.handicap ?? null,
+            })),
+          }));
+        }
+
+        // Source 2: Fallback to round's team_config for standalone rounds
+        if (teamParticipants.length === 0 && game.round_id) {
+          const { data: round } = await supabase
+            .from('rounds')
+            .select('team_config')
+            .eq('id', game.round_id)
+            .single();
+
+          const teamConfig = (round as { team_config?: { teams?: Array<{ id: string; name: string; memberIds: string[] }> } })?.team_config;
+
+          if (teamConfig?.teams && teamConfig.teams.length > 0) {
+            // Get player details for members
+            const allMemberIds = teamConfig.teams.flatMap(t => t.memberIds);
+            const { data: players } = await supabase
+              .from('players')
+              .select('id, name, handicap')
+              .in('id', allMemberIds);
+
+            const playerMap = new Map(players?.map(p => [p.id, p]) ?? []);
+
+            teamParticipants = teamConfig.teams.map(team => ({
+              id: team.id,
+              name: team.name,
+              members: team.memberIds.map(memberId => {
+                const player = playerMap.get(memberId);
+                return {
+                  id: memberId,
+                  name: player?.name ?? 'Unknown',
+                  handicap: player?.handicap ?? null,
+                };
+              }),
+            }));
+          }
+        }
+
+        // If we found team data, return with teams
+        if (teamParticipants.length > 0) {
+          return {
+            ...game,
+            participants: [], // Empty for team skins
+            teams: teamParticipants,
+          } as SkinsGameWithTeamParticipants;
+        }
+      }
+
+      // Individual skins - fetch player participants
       const { data: players, error: playersError } = await supabase
         .from('players')
         .select('id, name, handicap')
@@ -268,8 +352,13 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
 export function useSkinsResults(gameId: string | undefined) {
   return useQuery({
     queryKey: skinsKeys.results(gameId ?? ''),
-    queryFn: async (): Promise<SkinsResultWithWinner[]> => {
-      if (!gameId) return [];
+    queryFn: async (): Promise<SkinsResultWithWinner[] | SkinsResultWithTeamWinner[]> => {
+      if (!gameId) {
+        console.log('[useSkinsResults] No gameId provided, returning empty');
+        return [];
+      }
+
+      console.log('[useSkinsResults] Fetching results for game:', gameId);
 
       const { data: results, error } = await supabase
         .from('skins_results')
@@ -277,16 +366,79 @@ export function useSkinsResults(gameId: string | undefined) {
         .eq('skins_game_id', gameId)
         .order('hole_number', { ascending: true });
 
+      console.log('[useSkinsResults] Query result:', {
+        gameId,
+        resultsCount: results?.length ?? 0,
+        holeNumbers: results?.map(r => r.hole_number),
+        teamWinnerIds: results?.map(r => r.team_winner_id),
+        error: error?.message,
+      });
+
       if (error) {
         throw createError(`Failed to fetch skins results: ${error.message}`, 'DATABASE');
       }
 
       if (!results || results.length === 0) return [];
 
-      // Get unique winner IDs (excluding nulls for carryovers)
+      // Check if any results have team winners (team skins)
+      const hasTeamWinners = results.some((r) => r.team_winner_id);
+
+      if (hasTeamWinners) {
+        // Team skins - fetch team winner details
+        const teamWinnerIds = [...new Set(results.map((r) => r.team_winner_id).filter(Boolean))] as string[];
+
+        let teamWinnerMap = new Map<string, SkinsTeamWinner>();
+        if (teamWinnerIds.length > 0) {
+          // First try to fetch from teams table (competition teams)
+          const { data: teams } = await supabase
+            .from('teams')
+            .select('id, name')
+            .in('id', teamWinnerIds);
+
+          if (teams && teams.length > 0) {
+            teamWinnerMap = new Map(teams.map((t) => [t.id, { id: t.id, name: t.name, members: [] }]));
+          }
+
+          // If not all teams found in teams table, check round.team_config (standalone rounds)
+          if (teamWinnerMap.size < teamWinnerIds.length) {
+            // Fetch the skins game to get round_id
+            const { data: skinsGame } = await supabase
+              .from('skins_games')
+              .select('round_id')
+              .eq('id', gameId)
+              .single();
+
+            if (skinsGame?.round_id) {
+              // Fetch the round's team_config
+              const { data: round } = await supabase
+                .from('rounds')
+                .select('team_config')
+                .eq('id', skinsGame.round_id)
+                .single();
+
+              const teamConfig = (round as { team_config?: { teams?: Array<{ id: string; name: string }> } })?.team_config;
+              if (teamConfig?.teams) {
+                // Add teams from team_config that aren't already in the map
+                teamConfig.teams.forEach((t) => {
+                  if (!teamWinnerMap.has(t.id)) {
+                    teamWinnerMap.set(t.id, { id: t.id, name: t.name, members: [] });
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        return results.map((result) => ({
+          ...result,
+          winner: null, // No individual winner for team skins
+          team_winner: result.team_winner_id ? teamWinnerMap.get(result.team_winner_id) ?? null : null,
+        })) as SkinsResultWithTeamWinner[];
+      }
+
+      // Individual skins - fetch player winner details
       const winnerIds = [...new Set(results.map((r) => r.winner_id).filter(Boolean))];
 
-      // Fetch winner details
       let winnerMap = new Map<string, SkinsWinner>();
       if (winnerIds.length > 0) {
         const { data: winners } = await supabase
@@ -305,9 +457,10 @@ export function useSkinsResults(gameId: string | undefined) {
       })) as SkinsResultWithWinner[];
     },
     enabled: !!gameId,
-    staleTime: 10 * 1000, // 10 seconds - more frequent updates during play
+    staleTime: 0, // Always refetch to ensure fresh data during play
     gcTime: 5 * 60 * 1000,
     retry: 2,
+    refetchOnMount: 'always', // Always refetch when component mounts
     refetchOnWindowFocus: false,
   });
 }
@@ -406,34 +559,46 @@ export function useSkinsSummary(gameId: string | undefined) {
   const resultsQuery = useSkinsResults(gameId);
   const payoutsQuery = useSkinsPayouts(gameId);
 
-  return useQuery({
-    queryKey: skinsKeys.summary(gameId ?? ''),
-    queryFn: async (): Promise<SkinsGameSummary | null> => {
-      const game = gameQuery.data;
-      const results = resultsQuery.data ?? [];
-      const payouts = payoutsQuery.data ?? [];
+  // Extract data from dependent queries
+  const game = gameQuery.data;
+  const results = resultsQuery.data ?? [];
+  const payouts = payoutsQuery.data ?? [];
 
-      if (!game) return null;
+  // Compute summary directly using useMemo - this reacts to changes in dependent data
+  const summary = useMemo((): SkinsGameSummary | null => {
+    if (!game) return null;
 
-      const totalPot = calculateTotalPot(game.pot_type, game.pot_value);
-      const perHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
-      const currentCarryover = calculateCurrentCarryover(results);
-      const holesCompleted = results.length;
+    const totalPot = calculateTotalPot(game.pot_type, game.pot_value);
+    const perHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
+    const currentCarryover = calculateCurrentCarryover(results as SkinsResult[]);
+    const holesCompleted = results.length;
 
-      return {
-        game,
-        results,
-        payouts,
-        current_carryover: currentCarryover,
-        holes_completed: holesCompleted,
-        total_pot: totalPot,
-        per_hole_value: perHoleValue,
-      };
+    return {
+      game: game as SkinsGameWithParticipants,
+      results: results as SkinsResultWithWinner[],
+      payouts: payouts as SkinsPayoutWithPlayer[],
+      current_carryover: currentCarryover,
+      holes_completed: holesCompleted,
+      total_pot: totalPot,
+      per_hole_value: perHoleValue,
+    };
+  }, [game, results, payouts]);
+
+  // Return a query-like object for backwards compatibility
+  return {
+    data: summary,
+    isLoading: gameQuery.isLoading || resultsQuery.isLoading || payoutsQuery.isLoading,
+    isError: gameQuery.isError || resultsQuery.isError || payoutsQuery.isError,
+    error: gameQuery.error || resultsQuery.error || payoutsQuery.error,
+    refetch: async () => {
+      // Refetch all dependent queries
+      await Promise.all([
+        gameQuery.refetch(),
+        resultsQuery.refetch(),
+        payoutsQuery.refetch(),
+      ]);
     },
-    enabled: !!gameId && !gameQuery.isLoading && !resultsQuery.isLoading && !payoutsQuery.isLoading,
-    staleTime: 10 * 1000,
-    gcTime: 5 * 60 * 1000,
-  });
+  };
 }
 
 // =====================================================
@@ -569,6 +734,9 @@ export function useCreateSkinsGame() {
         disclaimer_accepted_at: new Date().toISOString(),
         disclaimer_accepted_by: disclaimerAcceptedBy,
         created_by: disclaimerAcceptedBy,
+        // Team skins fields
+        is_team_skins: gameInput.is_team_skins ?? false,
+        participant_team_ids: gameInput.participant_team_ids ?? null,
       };
 
       const { data, error } = await supabase
@@ -734,12 +902,19 @@ export function useProcessSkinsHole() {
     },
 
     onSuccess: (data) => {
-      // Invalidate results and summary for this game
+      console.log('[useProcessSkinsHole] Success, invalidating cache for game:', data.skins_game_id);
+      // Invalidate and refetch results and summary for this game
       queryClient.invalidateQueries({
         queryKey: skinsKeys.results(data.skins_game_id),
+        refetchType: 'all',
       });
       queryClient.invalidateQueries({
         queryKey: skinsKeys.summary(data.skins_game_id),
+        refetchType: 'all',
+      });
+      queryClient.invalidateQueries({
+        queryKey: skinsKeys.game(data.skins_game_id),
+        refetchType: 'all',
       });
     },
 
@@ -778,7 +953,7 @@ export function useProcessTeamSkinsHole() {
 
   return useMutation({
     mutationFn: async (input: ProcessTeamSkinsHoleInput): Promise<SkinsResult> => {
-      const { skinsGameId, holeNumber, teamScores, teamFormat } = input;
+      const { skinsGameId, holeNumber, teamScores, teamFormat, skipTeamValidation } = input;
 
       // Fetch game to get scoring type and pot config
       const { data: game, error: gameError } = await supabase
@@ -791,7 +966,8 @@ export function useProcessTeamSkinsHole() {
         throw createError('Skins game not found', 'NOT_FOUND');
       }
 
-      if (!game.is_team_skins) {
+      // Validate is_team_skins unless explicitly skipped (auto-detected from round format)
+      if (!skipTeamValidation && !game.is_team_skins) {
         throw createError('This is not a team skins game', 'VALIDATION');
       }
 
@@ -815,18 +991,26 @@ export function useProcessTeamSkinsHole() {
         game.scoring_type
       );
 
-      // Check if result already exists for this hole
-      const { data: existingHole } = await supabase
+      // Check if result already exists for this hole (use maybeSingle to avoid error on no match)
+      const { data: existingHole, error: existingError } = await supabase
         .from('skins_results')
         .select('id')
         .eq('skins_game_id', skinsGameId)
         .eq('hole_number', holeNumber)
-        .single();
+        .maybeSingle();
+
+      console.log('[useProcessTeamSkinsHole] Checking existing result:', {
+        skinsGameId,
+        holeNumber,
+        existingHoleId: existingHole?.id,
+        existingError: existingError?.message,
+      });
 
       let result: SkinsResult;
 
       if (existingHole) {
         // Update existing result
+        console.log('[useProcessTeamSkinsHole] Updating existing result:', existingHole.id);
         const { data, error } = await supabase
           .from('skins_results')
           .update({
@@ -849,10 +1033,11 @@ export function useProcessTeamSkinsHole() {
 
         result = data as SkinsResult;
       } else {
-        // Insert new result
+        // Insert new result using upsert to handle race conditions
+        console.log('[useProcessTeamSkinsHole] Inserting new result for hole:', holeNumber);
         const { data, error } = await supabase
           .from('skins_results')
-          .insert({
+          .upsert({
             skins_game_id: skinsGameId,
             hole_number: holeNumber,
             team_winner_id: resultData.team_winner_id,
@@ -862,12 +1047,15 @@ export function useProcessTeamSkinsHole() {
             hole_pot_value: resultData.hole_pot_value,
             carryover_to_next: resultData.carryover_to_next,
             payout_amount: resultData.payout_amount,
+            calculated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'skins_game_id,hole_number',
           })
           .select()
           .single();
 
         if (error) {
-          throw createError(`Failed to insert team skins result: ${error.message}`, 'DATABASE');
+          throw createError(`Failed to upsert team skins result: ${error.message}`, 'DATABASE');
         }
 
         result = data as SkinsResult;
@@ -877,12 +1065,20 @@ export function useProcessTeamSkinsHole() {
     },
 
     onSuccess: (data) => {
-      // Invalidate results and summary for this game
+      console.log('[useProcessTeamSkinsHole] Success, invalidating cache for game:', data.skins_game_id);
+      // Invalidate and refetch results and summary for this game
       queryClient.invalidateQueries({
         queryKey: skinsKeys.results(data.skins_game_id),
+        refetchType: 'all', // Force immediate refetch of all active queries
       });
       queryClient.invalidateQueries({
         queryKey: skinsKeys.summary(data.skins_game_id),
+        refetchType: 'all',
+      });
+      // Also invalidate the game query to refresh team data
+      queryClient.invalidateQueries({
+        queryKey: skinsKeys.game(data.skins_game_id),
+        refetchType: 'all',
       });
     },
 
@@ -1181,7 +1377,7 @@ export function useCanUseSkins(userId: string | undefined) {
 export function useActiveSkinsGameForRound(roundId: string | undefined) {
   return useQuery({
     queryKey: [...skinsKeys.gamesByRound(roundId ?? ''), 'active'],
-    queryFn: async (): Promise<SkinsGameWithParticipants | null> => {
+    queryFn: async (): Promise<SkinsGameWithParticipants | SkinsGameWithTeamParticipants | null> => {
       console.log('[useActiveSkinsGameForRound] Fetching for roundId:', roundId);
 
       if (!roundId) {
@@ -1196,28 +1392,69 @@ export function useActiveSkinsGameForRound(roundId: string | undefined) {
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       console.log('[useActiveSkinsGameForRound] Query result:', {
         gameFound: !!game,
         gameId: game?.id,
         gameStatus: game?.status,
+        isTeamSkins: game?.is_team_skins,
         errorCode: error?.code,
         errorMessage: error?.message
       });
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('[useActiveSkinsGameForRound] No active skins game found (PGRST116)');
-          return null; // Not found
-        }
         console.error('[useActiveSkinsGameForRound] Database error:', error);
         throw createError(`Failed to fetch active skins game: ${error.message}`, 'DATABASE');
       }
 
       if (!game) return null;
 
-      // Fetch participant details
+      // Check if this is a team skins game
+      if (game.is_team_skins && game.participant_team_ids?.length) {
+        console.log('[useActiveSkinsGameForRound] Team skins game, fetching teams:', game.participant_team_ids);
+
+        // Fetch team participants with their members
+        const { data: teams, error: teamsError } = await supabase
+          .from('teams')
+          .select(`
+            id,
+            name,
+            team_members (
+              player_id,
+              players:player_id (
+                id,
+                name,
+                handicap
+              )
+            )
+          `)
+          .in('id', game.participant_team_ids);
+
+        if (teamsError) {
+          console.error('[useActiveSkinsGameForRound] Failed to fetch team participants:', teamsError);
+        }
+
+        const teamParticipants: SkinsTeamParticipant[] = (teams ?? []).map((team) => ({
+          id: team.id,
+          name: team.name,
+          members: (team.team_members ?? []).map((tm: { player_id: string; players: { id: string; name: string; handicap: number | null } | null }) => ({
+            id: tm.player_id,
+            name: tm.players?.name ?? 'Unknown',
+            handicap: tm.players?.handicap ?? null,
+          })),
+        }));
+
+        console.log('[useActiveSkinsGameForRound] Team participants:', teamParticipants);
+
+        return {
+          ...game,
+          participants: [], // Empty for team skins
+          teams: teamParticipants,
+        } as SkinsGameWithTeamParticipants;
+      }
+
+      // Individual skins - fetch player participants
       const { data: players } = await supabase
         .from('players')
         .select('id, name, handicap')
@@ -1326,6 +1563,13 @@ export function useProcessSkinsIfNeeded() {
     async (input: ProcessSkinsInput): Promise<ProcessSkinsResult> => {
       const { roundId, holeNumber, scorecards, hole } = input;
 
+      console.log('[useProcessSkinsIfNeeded] Starting processing:', {
+        roundId,
+        holeNumber,
+        scorecardCount: Object.keys(scorecards).length,
+        hole,
+      });
+
       try {
         setIsProcessing(true);
 
@@ -1339,15 +1583,65 @@ export function useProcessSkinsIfNeeded() {
           .limit(1)
           .single();
 
+        console.log('[useProcessSkinsIfNeeded] Skins game query result:', {
+          found: !!skinsGame,
+          gameId: skinsGame?.id,
+          isTeamSkins: skinsGame?.is_team_skins,
+          participantTeamIds: skinsGame?.participant_team_ids,
+          participantIds: skinsGame?.participant_ids?.length,
+          error: gameError?.message,
+        });
+
         if (gameError || !skinsGame) {
           // No active skins game - this is normal, not an error
+          console.log('[useProcessSkinsIfNeeded] No active skins game found, skipping');
           return { processed: false };
         }
 
-        // 2. Check if this is a team skins game
-        if (skinsGame.is_team_skins && skinsGame.participant_team_ids?.length) {
+        // 2. Determine if this should be treated as team skins
+        // Check the skins game flag first, but also check round format as fallback
+        let shouldProcessAsTeamSkins = skinsGame.is_team_skins;
+
+        // If not already marked as team skins, check the round format
+        if (!shouldProcessAsTeamSkins) {
+          const { data: round } = await supabase
+            .from('rounds')
+            .select('is_team_round, team_format, team_config')
+            .eq('id', roundId)
+            .single();
+
+          const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
+          // Check if this is a team format - either by is_team_round flag, team_format, or has team_config
+          const hasTeamFormat = round?.team_format && TEAM_GAME_TYPES.includes(round.team_format);
+          const hasTeamConfig = round?.team_config && typeof round.team_config === 'object' &&
+            (round.team_config as { teams?: unknown[] })?.teams?.length;
+          const isTeamRound = round?.is_team_round || hasTeamFormat || hasTeamConfig;
+
+          if (isTeamRound && hasTeamFormat) {
+            shouldProcessAsTeamSkins = true;
+            console.log('[useProcessSkinsIfNeeded] Detected team format from round, processing as team skins:', {
+              team_format: round?.team_format,
+              is_team_round: round?.is_team_round,
+              hasTeamConfig: !!hasTeamConfig,
+            });
+
+            // Update the skins game to mark it as team skins for future processing
+            // Also update the local object so the mutation doesn't fail validation
+            await supabase
+              .from('skins_games')
+              .update({ is_team_skins: true })
+              .eq('id', skinsGame.id);
+
+            // Update local object to reflect the change
+            skinsGame.is_team_skins = true;
+          }
+        }
+
+        // 3. Process as team skins if applicable
+        if (shouldProcessAsTeamSkins) {
           // TEAM SKINS PROCESSING
-          return await processTeamSkins(
+          console.log('[useProcessSkinsIfNeeded] Processing as TEAM SKINS');
+          const teamResult = await processTeamSkins(
             skinsGame,
             roundId,
             holeNumber,
@@ -1355,6 +1649,8 @@ export function useProcessSkinsIfNeeded() {
             hole,
             processTeamSkinsHoleMutation
           );
+          console.log('[useProcessSkinsIfNeeded] Team skins result:', teamResult);
+          return teamResult;
         }
 
         // INDIVIDUAL SKINS PROCESSING
@@ -1454,12 +1750,26 @@ async function processTeamSkins(
   hole: { par: number; strokeIndex: number },
   processTeamSkinsHoleMutation: ReturnType<typeof useProcessTeamSkinsHole>
 ): Promise<ProcessSkinsResult> {
-  // 1. Fetch round to get team format
+  console.log('[processTeamSkins] Starting with:', {
+    skinsGameId: skinsGame.id,
+    roundId,
+    holeNumber,
+    scorecardPlayerIds: Object.keys(scorecards),
+    participantTeamIds: skinsGame.participant_team_ids,
+  });
+
+  // 1. Fetch round to get team format AND team_config (for standalone rounds)
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('team_format')
+    .select('team_format, team_config')
     .eq('id', roundId)
     .single();
+
+  console.log('[processTeamSkins] Round query result:', {
+    teamFormat: round?.team_format,
+    hasTeamConfig: !!(round as { team_config?: unknown })?.team_config,
+    error: roundError?.message,
+  });
 
   if (roundError || !round?.team_format) {
     console.warn('[processTeamSkins] Could not get team format:', roundError);
@@ -1469,21 +1779,101 @@ async function processTeamSkins(
   const teamFormat = round.team_format as TeamFormat;
 
   // 2. Fetch teams with their members
-  const { data: teams, error: teamsError } = await supabase
-    .from('teams')
-    .select(`
-      id,
-      name,
-      team_members (
-        player_id,
-        players (
-          id,
-          name,
-          handicap
+  // Try multiple sources: participant_team_ids, teams table by round_id, or team_config
+  let teams: Array<{ id: string; name: string; team_members?: Array<{ player_id: string; players: { id: string; name: string; handicap: number | null } | null }> }> | null = null;
+  let teamsError;
+
+  // Source 1: Try using participant_team_ids from skins game
+  if (skinsGame.participant_team_ids && skinsGame.participant_team_ids.length > 0) {
+    console.log('[processTeamSkins] Fetching teams by participant_team_ids');
+    const result = await supabase
+      .from('teams')
+      .select(`
+        id,
+        name,
+        team_members (
+          player_id,
+          players (
+            id,
+            name,
+            handicap
+          )
         )
-      )
-    `)
-    .in('id', skinsGame.participant_team_ids ?? []);
+      `)
+      .in('id', skinsGame.participant_team_ids);
+    teams = result.data;
+    teamsError = result.error;
+  }
+
+  // Source 2: Try fetching teams by round_id from teams table
+  if (!teams || teams.length === 0) {
+    console.log('[processTeamSkins] Fetching teams by round_id from teams table');
+    const result = await supabase
+      .from('teams')
+      .select(`
+        id,
+        name,
+        team_members (
+          player_id,
+          players (
+            id,
+            name,
+            handicap
+          )
+        )
+      `)
+      .eq('round_id', roundId);
+    teams = result.data;
+    teamsError = result.error;
+
+    // Also update the skins game with the team IDs for future processing
+    if (teams && teams.length > 0) {
+      const teamIds = teams.map(t => t.id);
+      await supabase
+        .from('skins_games')
+        .update({ participant_team_ids: teamIds })
+        .eq('id', skinsGame.id);
+      console.log('[processTeamSkins] Updated skins game with team IDs:', teamIds);
+    }
+  }
+
+  // Source 3: Try extracting teams from round.team_config (standalone rounds)
+  if (!teams || teams.length === 0) {
+    console.log('[processTeamSkins] Checking team_config on round');
+    const teamConfig = (round as { team_config?: { teams?: Array<{ id: string; name: string; memberIds: string[] }> } })?.team_config;
+
+    if (teamConfig?.teams && teamConfig.teams.length > 0) {
+      console.log('[processTeamSkins] Found teams in team_config:', teamConfig.teams.length);
+
+      // Get player details for members
+      const allMemberIds = teamConfig.teams.flatMap(t => t.memberIds);
+      const { data: players } = await supabase
+        .from('players')
+        .select('id, name, handicap')
+        .in('id', allMemberIds);
+
+      const playerMap = new Map(players?.map(p => [p.id, p]) ?? []);
+
+      // Transform team_config teams to match expected format
+      teams = teamConfig.teams.map(team => ({
+        id: team.id,
+        name: team.name,
+        team_members: team.memberIds.map(memberId => ({
+          player_id: memberId,
+          players: playerMap.get(memberId) ?? { id: memberId, name: 'Unknown', handicap: null },
+        })),
+      }));
+
+      teamsError = null;
+    }
+  }
+
+  console.log('[processTeamSkins] Teams query result:', {
+    teamsCount: teams?.length ?? 0,
+    teamIds: teams?.map(t => t.id),
+    teamNames: teams?.map(t => t.name),
+    error: teamsError?.message,
+  });
 
   if (teamsError || !teams || teams.length === 0) {
     console.warn('[processTeamSkins] Could not fetch teams:', teamsError);
@@ -1504,7 +1894,22 @@ async function processTeamSkins(
     };
   });
 
+  console.log('[processTeamSkins] Teams info built:', {
+    teamsCount: teamsInfo.length,
+    teams: teamsInfo.map(t => ({
+      id: t.id,
+      memberIds: t.member_ids,
+    })),
+  });
+
   // 4. Prepare team hole scores
+  console.log('[processTeamSkins] Preparing team hole scores with scorecards:', {
+    scorecardPlayerIds: Object.keys(scorecards),
+    hole,
+    holeNumber,
+    teamFormat,
+  });
+
   const teamHoleScores = prepareTeamHoleScores(
     teamsInfo,
     scorecards,
@@ -1513,22 +1918,46 @@ async function processTeamSkins(
     teamFormat
   );
 
+  console.log('[processTeamSkins] Team hole scores result:', {
+    teamScoresCount: Object.keys(teamHoleScores).length,
+    teamIds: Object.keys(teamHoleScores),
+    scores: teamHoleScores,
+  });
+
   // 5. Check if all teams have scores (at least one member per team)
   const teamsWithScores = Object.keys(teamHoleScores);
-  if (teamsWithScores.length < (skinsGame.participant_team_ids?.length ?? 0)) {
+  const totalTeams = teams.length;
+  if (teamsWithScores.length < totalTeams) {
     console.log(
       `[processTeamSkins] Hole ${holeNumber} not complete. ` +
-      `Teams with scores: ${teamsWithScores.length}/${skinsGame.participant_team_ids?.length ?? 0}`
+      `Teams with scores: ${teamsWithScores.length}/${totalTeams}`
     );
     return { processed: false };
   }
 
   // 6. Process the team skins hole
+  // Skip team validation since we've already auto-detected team skins from round format
+  console.log('[processTeamSkins] Calling mutation with:', {
+    skinsGameId: skinsGame.id,
+    holeNumber,
+    teamScores: teamHoleScores,
+    teamFormat,
+  });
+
   const result = await processTeamSkinsHoleMutation.mutateAsync({
     skinsGameId: skinsGame.id,
     holeNumber,
     teamScores: teamHoleScores,
     teamFormat,
+    skipTeamValidation: true,
+  });
+
+  console.log('[processTeamSkins] Mutation result:', {
+    holeNumber,
+    resultId: result.id,
+    isCarryover: result.is_carryover,
+    teamWinnerId: result.team_winner_id,
+    payoutAmount: result.payout_amount,
   });
 
   // 7. Return result with human-readable info

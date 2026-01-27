@@ -37,18 +37,26 @@ export type {
   // Score data types
   SkinsHoleScoreData,
   SkinsHoleScores,
+  SkinsTeamHoleScoreData,
+  SkinsTeamHoleScores,
   // Game types
   SkinsGame,
   SkinsParticipant,
+  SkinsTeamParticipant,
   SkinsGameWithParticipants,
+  SkinsGameWithTeamParticipants,
   // Result types
   SkinsResult,
   SkinsWinner,
+  SkinsTeamWinner,
   SkinsResultWithWinner,
+  SkinsResultWithTeamWinner,
   // Payout types
   SkinsPayout,
   SkinsPayoutPlayer,
+  SkinsPayoutTeam,
   SkinsPayoutWithPlayer,
+  SkinsPayoutWithTeam,
   // Input types
   CreateSkinsGameInput,
   ProcessSkinsHoleInput,
@@ -57,7 +65,9 @@ export type {
   SkinsConfig,
   SkinsPoolSourceConfig,
   SkinsDebtTransaction,
+  SkinsTeamDebtTransaction,
   SkinsNetPosition,
+  SkinsTeamNetPosition,
 } from './skins.types';
 
 // Prize Pool types

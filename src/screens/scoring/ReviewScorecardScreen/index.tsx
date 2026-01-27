@@ -503,6 +503,15 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     [navigation, setCurrentHole, setShowIncompleteModal]
   );
 
+  // Handle hole press to navigate back to that hole
+  const handleHolePress = useCallback(
+    (holeNumber: number) => {
+      setCurrentHole(holeNumber);
+      navigation.goBack();
+    },
+    [navigation, setCurrentHole]
+  );
+
   // Handle tab change
   const handleTabChange = useCallback((tab: TabKey) => {
     setActiveTab(tab);
@@ -579,6 +588,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
                 teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
                 teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
                 getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
+                onHolePress={handleHolePress}
               />
             </>
           ) : (
@@ -586,6 +596,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
               players={tablePlayerData}
               holes={holes}
               screenWidth={screenWidth}
+              onHolePress={handleHolePress}
             />
           )}
         </ScrollView>

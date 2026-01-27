@@ -17,7 +17,6 @@ export interface ScorecardFooterProps {
   currentHole: number;
   onPreviousHole: () => void;
   onNextHole: () => void;
-  onSubmit: () => void;
   onViewScorecard: () => void;
   canGoPrevious: boolean;
   canGoNext: boolean;
@@ -29,7 +28,6 @@ export function ScorecardFooter({
   currentHole: _currentHole,
   onPreviousHole,
   onNextHole,
-  onSubmit,
   onViewScorecard,
   canGoPrevious,
   canGoNext,
@@ -37,8 +35,8 @@ export function ScorecardFooter({
 }: ScorecardFooterProps) {
   const colors = useThemeColors();
 
-  // Show submit button when on last hole OR when all holes are complete
-  const showSubmitButton = !canGoNext || isAllComplete;
+  // Show review button when on last hole OR when all holes are complete
+  const showReviewButton = !canGoNext || isAllComplete;
 
   return (
     <View
@@ -70,7 +68,7 @@ export function ScorecardFooter({
           Previous
         </Button>
 
-        {showSubmitButton ? (
+        {showReviewButton ? (
           <>
             {/* Show Next Hole button if not on last hole */}
             {canGoNext && (
@@ -86,12 +84,12 @@ export function ScorecardFooter({
             )}
             <Button
               mode="contained"
-              onPress={onSubmit}
+              onPress={onViewScorecard}
               style={[styles.navButton, { backgroundColor: colors.success }]}
               labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
               contentStyle={styles.navButtonContent}
             >
-              Review & Submit
+              Review Scores
             </Button>
           </>
         ) : (

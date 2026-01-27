@@ -55,8 +55,8 @@ export type PageHeaderVariant = 'default' | 'centered';
 export interface PageHeaderProps {
   /** Page title (required) */
   title: string | React.ReactNode;
-  /** Optional subtitle displayed below the title */
-  subtitle?: string;
+  /** Optional subtitle displayed below the title (can be string or custom React node) */
+  subtitle?: string | React.ReactNode;
   /**
    * Layout variant:
    * - 'default': Title left-aligned (with back button inline if shown)
@@ -198,13 +198,17 @@ export function PageHeader({
                 {title}
               </Text>
               {subtitle && (
-                <Text
-                  style={[styles.subtitle, styles.centeredTitle, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {subtitle}
-                </Text>
+                typeof subtitle === 'string' ? (
+                  <Text
+                    style={[styles.subtitle, styles.centeredTitle, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {subtitle}
+                  </Text>
+                ) : (
+                  <View style={styles.subtitleWrapper}>{subtitle}</View>
+                )
               )}
             </View>
 
@@ -229,13 +233,17 @@ export function PageHeader({
                   {title}
                 </Text>
                 {subtitle && (
-                  <Text
-                    style={[styles.subtitle, { color: colors.textSecondary }]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {subtitle}
-                  </Text>
+                  typeof subtitle === 'string' ? (
+                    <Text
+                      style={[styles.subtitle, { color: colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {subtitle}
+                    </Text>
+                  ) : (
+                    <View style={styles.subtitleWrapper}>{subtitle}</View>
+                  )
                 )}
               </View>
             </View>
@@ -303,6 +311,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     lineHeight: 16,
+    marginTop: 2,
+    flexShrink: 1,
+  },
+  subtitleWrapper: {
     marginTop: 2,
     flexShrink: 1,
   },

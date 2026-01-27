@@ -13,9 +13,10 @@
  * Works for both standalone rounds (practice rounds) and competition rounds.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { useConfirmationDialog } from '@/hooks';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +47,7 @@ import { SkinsConfigBottomSheet } from '@/components/skins';
 import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
 import { MatchPlayScorecardTable } from '@/components/scorecard/MatchPlayScorecardTable';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
-import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults } from '@/hooks/useSkins';
+import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults, useSkinsGame } from '@/hooks/useSkins';
 import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
 import { SkinsResultsCard } from '@/components/skins';
 import { ContributionLeaderboard, ScrambleTeamSelector, ScrambleScorecardTable, ScrambleTeamLeaderboard } from '@/components/scorecard';
@@ -232,6 +233,95 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
   // Fetch skins results for the tab (only when there's an active game)
   const { data: skinsResults, refetch: refetchSkinsResults, isRefetching: isRefetchingSkinsResults } = useSkinsResults(activeSkinsGame?.id);
+
+  // Fetch full skins game data (including team participants for team skins)
+  const { data: skinsGameWithParticipants, refetch: refetchSkinsGame } = useSkinsGame(activeSkinsGame?.id);
+
+  // Determine if it's a team skins game and get team data
+  // Check multiple sources: skins game flag, round team format, or team_winner_id in results
+  const isTeamSkins = useMemo(() => {
+    // Source 1: Explicit skins game flag
+    if (skinsGameWithParticipants?.is_team_skins) return true;
+
+    // Source 2: Round is a team format that uses team skins
+    const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
+    if (round?.is_team_round && round?.team_format && TEAM_GAME_TYPES.includes(round.team_format)) {
+      return true;
+    }
+
+    // Source 3: Check if results have team_winner_id (indicates team skins regardless of flag)
+    if (skinsResults && skinsResults.some((r) => (r as { team_winner_id?: string }).team_winner_id)) {
+      return true;
+    }
+
+    return false;
+  }, [skinsGameWithParticipants?.is_team_skins, round?.is_team_round, round?.team_format, skinsResults]);
+
+  const skinsTeams = useMemo((): { id: string; name: string; members: { id: string; name: string; handicap: number | null }[] }[] | undefined => {
+    if (!isTeamSkins) return undefined;
+
+    // Source 1: From useSkinsGame (has team member details)
+    const gameTeams = (skinsGameWithParticipants as { teams?: { id: string; name: string; members?: { id: string; name: string; handicap: number | null }[] }[] })?.teams;
+    if (gameTeams && gameTeams.length > 0) {
+      // Filter to only teams with members and ensure members is defined
+      return gameTeams
+        .filter((t): t is { id: string; name: string; members: { id: string; name: string; handicap: number | null }[] } =>
+          t.members !== undefined && t.members.length > 0
+        );
+    }
+
+    // Source 2: From round's team_config (for standalone rounds)
+    const teamConfig = (round as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
+    if (teamConfig?.teams && teamConfig.teams.length > 0) {
+      // Convert team_config format to SkinsTeamParticipant format
+      // Get player names from scorecards
+      const playerMap = new Map<string, string>();
+      scorecards?.forEach((sc) => {
+        if (sc.player?.name) {
+          playerMap.set(sc.player_id, sc.player.name);
+        }
+      });
+
+      return teamConfig.teams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        members: t.memberIds.map((memberId) => ({
+          id: memberId,
+          name: playerMap.get(memberId) ?? 'Player',
+          handicap: null,
+        })),
+      }));
+    }
+
+    return undefined;
+  }, [isTeamSkins, skinsGameWithParticipants, round, scorecards]);
+
+  // DEBUG: Log skins data (after all skins-related hooks are defined)
+  console.log('[ViewRoundScreen] Skins data:', {
+    activeSkinsGameId: activeSkinsGame?.id,
+    skinsResultsCount: skinsResults?.length ?? 0,
+    skinsResultsHoles: skinsResults?.map(r => ({
+      hole: r.hole_number,
+      teamWinnerId: (r as { team_winner_id?: string }).team_winner_id,
+      teamWinner: (r as { team_winner?: { name: string } | null }).team_winner?.name,
+    })),
+    isRefetching: isRefetchingSkinsResults,
+    isTeamSkins,
+    skinsTeamsCount: skinsTeams?.length ?? 0,
+    skinsTeamNames: skinsTeams?.map(t => t.name),
+    gameIsTeamSkins: skinsGameWithParticipants?.is_team_skins,
+    roundTeamFormat: round?.team_format,
+  });
+
+  // Refetch skins data when screen gains focus (to sync with score entry screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (hasSkinsGame && activeSkinsGame?.id) {
+        refetchSkinsResults();
+        refetchSkinsGame();
+      }
+    }, [hasSkinsGame, activeSkinsGame?.id, refetchSkinsResults, refetchSkinsGame])
+  );
 
   // Build tabs dynamically based on game type and features
   const tabs = useMemo<TabItem<TabKey>[]>(() => {
@@ -765,6 +855,39 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           return;
         }
 
+        // Determine if this is a team skins game
+        const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
+        const isTeamSkins = round?.is_team_round && round?.team_format && TEAM_GAME_TYPES.includes(round.team_format);
+
+        // Get team IDs if team skins
+        let teamIds: string[] = [];
+        if (isTeamSkins && scrambleTeams.length > 0) {
+          // For standalone rounds with team_config, use those team IDs
+          teamIds = scrambleTeams
+            .filter((t) => t.id !== 'default-team') // Exclude default team
+            .map((t) => t.id);
+        }
+
+        // If we have teams, also try to fetch actual team records from DB
+        if (isTeamSkins && teamIds.length === 0 && competitionId) {
+          // Try to fetch teams from database for competition rounds
+          const { data: dbTeams } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('round_id', roundId);
+
+          if (dbTeams && dbTeams.length > 0) {
+            teamIds = dbTeams.map((t) => t.id);
+          }
+        }
+
+        console.log('[ViewRoundScreen] Creating skins game:', {
+          isTeamSkins,
+          teamFormat: round?.team_format,
+          teamIds,
+          participantIds: participantIds.length,
+        });
+
         createSkinsGame(
           {
             round_id: roundId,
@@ -774,6 +897,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             scoring_type: config.scoring_type,
             currency: config.currency,
             disclaimerAcceptedBy: user.id,
+            // Team skins fields
+            is_team_skins: isTeamSkins ?? false,
+            participant_team_ids: teamIds.length > 0 ? teamIds : undefined,
           },
           {
             onSuccess: () => {
@@ -787,7 +913,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         );
       }
     },
-    [skinsGames, updateSkinsGame, createSkinsGame, roundId, user?.id, roundPlayers, scorecards, competitionId, showAlert]
+    [skinsGames, updateSkinsGame, createSkinsGame, roundId, user?.id, roundPlayers, scorecards, competitionId, showAlert, round, scrambleTeams]
   );
 
   const handleSkinsConfigClose = useCallback(() => {
@@ -836,8 +962,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     }
     if (hasSkinsGame) {
       refetchSkinsResults();
+      refetchSkinsGame();
     }
-  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults]);
+  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults, refetchSkinsGame]);
 
   // Get header title
   const getHeaderTitle = (): string | React.ReactNode => {
@@ -1034,6 +1161,8 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
               potValue={activeSkinsGame.pot_value}
               scoringType={activeSkinsGame.scoring_type}
               participants={activeSkinsGame.participants}
+              isTeamSkins={isTeamSkins}
+              teams={skinsTeams}
               parValues={
                 round.course?.holes?.reduce(
                   (acc, hole) => ({ ...acc, [hole.number]: hole.par }),

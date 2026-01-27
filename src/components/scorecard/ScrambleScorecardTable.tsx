@@ -5,13 +5,14 @@
  * - Hole number, par, and stroke index
  * - Team gross score per hole
  * - Team net score per hole (with strokes received)
+ * - To par (+/-) showing net score relative to par
  * - Stableford points per hole
  * - Front 9 (OUT) and Back 9 (IN) subtotals
- * - Total gross, net, and points
+ * - Total gross, net, to par, and points
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -29,6 +30,8 @@ interface ScrambleScorecardTableProps {
   teamHandicap: number;
   /** Function to get team score for a hole */
   getTeamScore: (holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
+  /** Callback when a hole number is pressed to navigate to that hole */
+  onHolePress?: (holeNumber: number) => void;
 }
 
 interface HoleRowData {
@@ -36,6 +39,7 @@ interface HoleRowData {
   gross: number | null;
   strokesReceived: number;
   net: number | null;
+  toPar: number | null;
   points: number;
 }
 
@@ -44,6 +48,7 @@ export function ScrambleScorecardTable({
   teamName,
   teamHandicap,
   getTeamScore,
+  onHolePress,
 }: ScrambleScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -54,6 +59,7 @@ export function ScrambleScorecardTable({
       const strokes = score && isSingleBallScore(score) ? score.strokes : null;
       const strokesReceived = getStrokesOnHole(teamHandicap, hole);
       const net = strokes !== null ? Math.max(0, strokes - strokesReceived) : null;
+      const toPar = net !== null ? net - hole.par : null;
       const points = strokes !== null
         ? calculateStablefordPoints(strokes, teamHandicap, hole)
         : 0;
@@ -63,6 +69,7 @@ export function ScrambleScorecardTable({
         gross: strokes,
         strokesReceived,
         net,
+        toPar,
         points,
       };
     });
@@ -72,39 +79,73 @@ export function ScrambleScorecardTable({
   const front9 = holeData.slice(0, 9);
   const back9 = holeData.slice(9, 18);
 
-  // Calculate totals
-  const front9Totals = useMemo(() => ({
-    par: front9.reduce((sum, h) => sum + h.hole.par, 0),
-    gross: front9.reduce((sum, h) => sum + (h.gross ?? 0), 0),
-    net: front9.reduce((sum, h) => sum + (h.net ?? 0), 0),
-    points: front9.reduce((sum, h) => sum + h.points, 0),
-    hasScores: front9.some((h) => h.gross !== null),
-  }), [front9]);
+  // Calculate totals (only include par for holes that have scores)
+  const front9Totals = useMemo(() => {
+    const holesWithScores = front9.filter((h) => h.gross !== null);
+    const parForScoredHoles = holesWithScores.reduce((sum, h) => sum + h.hole.par, 0);
+    const netTotal = holesWithScores.reduce((sum, h) => sum + (h.net ?? 0), 0);
+    return {
+      par: front9.reduce((sum, h) => sum + h.hole.par, 0),
+      gross: front9.reduce((sum, h) => sum + (h.gross ?? 0), 0),
+      net: netTotal,
+      toPar: holesWithScores.length > 0 ? netTotal - parForScoredHoles : null,
+      points: front9.reduce((sum, h) => sum + h.points, 0),
+      hasScores: holesWithScores.length > 0,
+    };
+  }, [front9]);
 
-  const back9Totals = useMemo(() => ({
-    par: back9.reduce((sum, h) => sum + h.hole.par, 0),
-    gross: back9.reduce((sum, h) => sum + (h.gross ?? 0), 0),
-    net: back9.reduce((sum, h) => sum + (h.net ?? 0), 0),
-    points: back9.reduce((sum, h) => sum + h.points, 0),
-    hasScores: back9.some((h) => h.gross !== null),
-  }), [back9]);
+  const back9Totals = useMemo(() => {
+    const holesWithScores = back9.filter((h) => h.gross !== null);
+    const parForScoredHoles = holesWithScores.reduce((sum, h) => sum + h.hole.par, 0);
+    const netTotal = holesWithScores.reduce((sum, h) => sum + (h.net ?? 0), 0);
+    return {
+      par: back9.reduce((sum, h) => sum + h.hole.par, 0),
+      gross: back9.reduce((sum, h) => sum + (h.gross ?? 0), 0),
+      net: netTotal,
+      toPar: holesWithScores.length > 0 ? netTotal - parForScoredHoles : null,
+      points: back9.reduce((sum, h) => sum + h.points, 0),
+      hasScores: holesWithScores.length > 0,
+    };
+  }, [back9]);
 
-  const totalTotals = useMemo(() => ({
-    par: front9Totals.par + back9Totals.par,
-    gross: front9Totals.gross + back9Totals.gross,
-    net: front9Totals.net + back9Totals.net,
-    points: front9Totals.points + back9Totals.points,
-    hasScores: front9Totals.hasScores || back9Totals.hasScores,
-  }), [front9Totals, back9Totals]);
+  const totalTotals = useMemo(() => {
+    const allHolesWithScores = holeData.filter((h) => h.gross !== null);
+    const parForScoredHoles = allHolesWithScores.reduce((sum, h) => sum + h.hole.par, 0);
+    const netTotal = allHolesWithScores.reduce((sum, h) => sum + (h.net ?? 0), 0);
+    return {
+      par: front9Totals.par + back9Totals.par,
+      gross: front9Totals.gross + back9Totals.gross,
+      net: netTotal,
+      toPar: allHolesWithScores.length > 0 ? netTotal - parForScoredHoles : null,
+      points: front9Totals.points + back9Totals.points,
+      hasScores: front9Totals.hasScores || back9Totals.hasScores,
+    };
+  }, [front9Totals, back9Totals, holeData]);
 
   // Use flex ratios for columns to fill screen width
-  // Hole and Par are narrower, Gross/Net/Pts are wider
+  // Hole and Par are narrower, Gross/Net/+/-/Pts are wider
   const colFlex = {
     hole: 1,
     par: 1,
     gross: 1.2,
     net: 1.2,
+    toPar: 1,
     pts: 1,
+  };
+
+  // Format to-par display
+  const formatToPar = (value: number | null): string => {
+    if (value === null) return '-';
+    if (value === 0) return 'E';
+    return value > 0 ? `+${value}` : `${value}`;
+  };
+
+  // Get color for to-par value
+  const getToParColor = (value: number | null): string => {
+    if (value === null) return colors.textSecondary;
+    if (value < 0) return colors.success;
+    if (value > 0) return colors.error;
+    return colors.textSecondary;
   };
 
   // Get score color based on relation to par
@@ -122,6 +163,12 @@ export function ScrambleScorecardTable({
     const isEven = index % 2 === 0;
     const scoreColor = getScoreColor(data.gross, data.hole.par);
 
+    const holeCellContent = (
+      <Text style={[styles.cellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
+        {data.hole.number}
+      </Text>
+    );
+
     return (
       <View
         key={data.hole.number}
@@ -130,11 +177,19 @@ export function ScrambleScorecardTable({
           { backgroundColor: isEven ? colors.surface : colors.surfaceVariant },
         ]}
       >
-        <View style={[styles.cell, { flex: colFlex.hole }]}>
-          <Text style={[styles.cellText, { color: colors.textPrimary }]}>
-            {data.hole.number}
-          </Text>
-        </View>
+        {onHolePress ? (
+          <TouchableOpacity
+            style={[styles.cell, { flex: colFlex.hole }]}
+            onPress={() => onHolePress(data.hole.number)}
+            activeOpacity={0.7}
+          >
+            {holeCellContent}
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.cell, { flex: colFlex.hole }]}>
+            {holeCellContent}
+          </View>
+        )}
         <View style={[styles.cell, { flex: colFlex.par }]}>
           <Text style={[styles.cellText, { color: colors.textSecondary }]}>
             {data.hole.par}
@@ -159,6 +214,11 @@ export function ScrambleScorecardTable({
             {data.net ?? '-'}
           </Text>
         </View>
+        <View style={[styles.cell, { flex: colFlex.toPar }]}>
+          <Text style={[styles.cellTextBold, { color: getToParColor(data.toPar) }]}>
+            {formatToPar(data.toPar)}
+          </Text>
+        </View>
         <View style={[styles.cell, { flex: colFlex.pts }]}>
           <Text style={[styles.cellTextBold, { color: colors.primary }]}>
             {data.points || '-'}
@@ -172,66 +232,86 @@ export function ScrambleScorecardTable({
     label: string,
     totals: typeof front9Totals,
     isGrandTotal: boolean = false
-  ) => (
-    <View
-      style={[
-        styles.row,
-        styles.totalsRow,
-        { backgroundColor: isGrandTotal ? colors.primary : colors.surfaceVariant },
-      ]}
-    >
-      <View style={[styles.cell, { flex: colFlex.hole }]}>
-        <Text
-          style={[
-            styles.cellTextBold,
-            { color: isGrandTotal ? colors.white : colors.textPrimary },
-          ]}
-        >
-          {label}
-        </Text>
+  ) => {
+    // For grand total row, use white for under/even par, keep red for over par
+    const getToParColorForTotal = (value: number | null): string => {
+      if (!isGrandTotal) return getToParColor(value);
+      if (value === null) return colors.white;
+      if (value > 0) return colors.error;
+      return colors.white;
+    };
+
+    return (
+      <View
+        style={[
+          styles.row,
+          styles.totalsRow,
+          { backgroundColor: isGrandTotal ? colors.primary : colors.surfaceVariant },
+        ]}
+      >
+        <View style={[styles.cell, { flex: colFlex.hole }]}>
+          <Text
+            style={[
+              styles.cellTextBold,
+              { color: isGrandTotal ? colors.white : colors.textPrimary },
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
+        <View style={[styles.cell, { flex: colFlex.par }]}>
+          <Text
+            style={[
+              styles.cellText,
+              { color: isGrandTotal ? colors.white : colors.textSecondary },
+            ]}
+          >
+            {totals.par}
+          </Text>
+        </View>
+        <View style={[styles.cell, { flex: colFlex.gross }]}>
+          <Text
+            style={[
+              styles.cellTextBold,
+              { color: isGrandTotal ? colors.white : colors.textPrimary },
+            ]}
+          >
+            {totals.hasScores ? totals.gross : '-'}
+          </Text>
+        </View>
+        <View style={[styles.cell, { flex: colFlex.net }]}>
+          <Text
+            style={[
+              styles.cellText,
+              { color: isGrandTotal ? colors.white : colors.textSecondary },
+            ]}
+          >
+            {totals.hasScores ? totals.net : '-'}
+          </Text>
+        </View>
+        <View style={[styles.cell, { flex: colFlex.toPar }]}>
+          <Text
+            style={[
+              styles.cellTextBold,
+              { color: isGrandTotal ? getToParColorForTotal(totals.toPar) : getToParColor(totals.toPar) },
+            ]}
+          >
+            {totals.hasScores ? formatToPar(totals.toPar) : '-'}
+          </Text>
+        </View>
+        <View style={[styles.cell, { flex: colFlex.pts }]}>
+          <Text
+            style={[
+              styles.cellTextBold,
+              { color: isGrandTotal ? colors.white : colors.primary },
+            ]}
+          >
+            {totals.hasScores ? totals.points : '-'}
+          </Text>
+        </View>
       </View>
-      <View style={[styles.cell, { flex: colFlex.par }]}>
-        <Text
-          style={[
-            styles.cellText,
-            { color: isGrandTotal ? colors.white : colors.textSecondary },
-          ]}
-        >
-          {totals.par}
-        </Text>
-      </View>
-      <View style={[styles.cell, { flex: colFlex.gross }]}>
-        <Text
-          style={[
-            styles.cellTextBold,
-            { color: isGrandTotal ? colors.white : colors.textPrimary },
-          ]}
-        >
-          {totals.hasScores ? totals.gross : '-'}
-        </Text>
-      </View>
-      <View style={[styles.cell, { flex: colFlex.net }]}>
-        <Text
-          style={[
-            styles.cellText,
-            { color: isGrandTotal ? colors.white : colors.textSecondary },
-          ]}
-        >
-          {totals.hasScores ? totals.net : '-'}
-        </Text>
-      </View>
-      <View style={[styles.cell, { flex: colFlex.pts }]}>
-        <Text
-          style={[
-            styles.cellTextBold,
-            { color: isGrandTotal ? colors.white : colors.primary },
-          ]}
-        >
-          {totals.hasScores ? totals.points : '-'}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -259,6 +339,9 @@ export function ScrambleScorecardTable({
           </View>
           <View style={[styles.cell, { flex: colFlex.net }]}>
             <Text style={[styles.headerText, { color: colors.textSecondary }]}>Net</Text>
+          </View>
+          <View style={[styles.cell, { flex: colFlex.toPar }]}>
+            <Text style={[styles.headerText, { color: colors.textSecondary }]}>+/-</Text>
           </View>
           <View style={[styles.cell, { flex: colFlex.pts }]}>
             <Text style={[styles.headerText, { color: colors.textSecondary }]}>Pts</Text>

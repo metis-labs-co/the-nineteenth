@@ -17,7 +17,7 @@
  * ```
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -27,15 +27,19 @@ import {
   ScrollView,
 } from 'react-native';
 import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
+import { useQuery } from '@tanstack/react-query';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
+import { supabase } from '@/services/supabase/client';
 import type {
   SkinsResultWithWinner,
   SkinsParticipant,
   SkinsTeamParticipant,
   SkinsResult,
 } from '@/types/database/skins.types';
+
+const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
 
 // ============================================================================
 // TYPES
@@ -87,7 +91,7 @@ function calculatePlayerTotals(
  * Calculate team totals from skins results (team skins)
  */
 function calculateTeamTotals(
-  results: SkinsResult[],
+  results: Array<SkinsResult & { team_winner?: { id: string; name: string } | null }>,
   teams: SkinsTeamParticipant[]
 ): ParticipantTotal[] {
   // Initialize totals for all teams
@@ -104,11 +108,15 @@ function calculateTeamTotals(
 
   // Accumulate winnings from results
   results.forEach((result) => {
-    if (!result.is_carryover && result.team_winner_id && result.payout_amount > 0) {
-      const teamTotal = totalsMap.get(result.team_winner_id);
-      if (teamTotal) {
-        teamTotal.holesWon += 1;
-        teamTotal.totalWinnings += result.payout_amount;
+    if (!result.is_carryover && result.payout_amount > 0) {
+      // Get team winner ID from either team_winner object or team_winner_id field
+      const teamWinnerId = result.team_winner?.id ?? result.team_winner_id;
+      if (teamWinnerId) {
+        const teamTotal = totalsMap.get(teamWinnerId);
+        if (teamTotal) {
+          teamTotal.holesWon += 1;
+          teamTotal.totalWinnings += result.payout_amount;
+        }
       }
     }
   });
@@ -148,7 +156,23 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   const { data: skinsGame, isLoading: isGameLoading, error: gameError } = useActiveSkinsGameForRound(roundId);
 
   // Get summary data for the popover
-  const { data: summary, isLoading: isSummaryLoading } = useSkinsSummary(skinsGame?.id);
+  // Refetch every 3 seconds while popover is open to keep running totals updated
+  const { data: summary, isLoading: isSummaryLoading, refetch: refetchSummary } = useSkinsSummary(skinsGame?.id);
+
+  // Fetch round data to check team format (fallback when is_team_skins not set)
+  const { data: roundData } = useQuery({
+    queryKey: ['round-team-format', roundId],
+    queryFn: async (): Promise<{ is_team_round: boolean | null; team_format: string | null; team_config: unknown } | null> => {
+      const { data } = await supabase
+        .from('rounds')
+        .select('is_team_round, team_format, team_config')
+        .eq('id', roundId)
+        .single();
+      return data as { is_team_round: boolean | null; team_format: string | null; team_config: unknown } | null;
+    },
+    enabled: !!roundId,
+    staleTime: 60 * 1000, // 1 minute
+  });
 
   // DEBUG: Log skins indicator state
   console.log('[SkinsIndicator] Debug:', {
@@ -157,6 +181,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     skinsGame: skinsGame ? { id: skinsGame.id, status: skinsGame.status } : null,
     gameError: gameError?.message ?? null,
     willRender: !!(skinsGame || isGameLoading),
+    roundData: roundData ? { team_format: roundData.team_format, is_team_round: roundData.is_team_round } : null,
   });
 
   // Calculate carryover holes count
@@ -176,9 +201,19 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   }, [summary?.results]);
 
   // Detect if this is a team skins game
+  // Check multiple sources: skins game flag, round's team format, team_config, or team_winner_id in results
   const isTeamSkins = useMemo(() => {
-    return summary?.game?.is_team_skins ?? false;
-  }, [summary?.game?.is_team_skins]);
+    // First check the skins game flag
+    if (summary?.game?.is_team_skins) return true;
+    // Check if results have team_winner_id (indicates team skins regardless of flag)
+    if (summary?.results?.some((r) => (r as SkinsResult).team_winner_id)) return true;
+    // Fallback: check if round is a team format (scramble, best-ball, shamble)
+    if (roundData?.team_format && TEAM_GAME_TYPES.includes(roundData.team_format)) return true;
+    // Also check team_config for standalone rounds
+    const teamConfig = roundData?.team_config as { teams?: unknown[] } | null;
+    if (teamConfig?.teams?.length) return true;
+    return false;
+  }, [summary?.game?.is_team_skins, summary?.results, roundData?.team_format, roundData?.team_config]);
 
   // Get last winner info (works for both individual and team skins)
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
@@ -186,9 +221,18 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     if (!summary?.results) return null;
     // Find the last non-carryover result (last actual winner)
     for (let i = summary.results.length - 1; i >= 0; i--) {
-      const result = summary.results[i];
+      const result = summary.results[i] as SkinsResult & { winner?: { name: string } | null; team_winner?: { name: string } | null };
       if (!result.is_carryover) {
-        // Check for team winner first (team skins)
+        // Check for team winner first (team skins) - from the team_winner object
+        if (result.team_winner) {
+          return {
+            name: result.team_winner.name,
+            hole: result.hole_number,
+            amount: result.payout_amount,
+            isTeam: true,
+          };
+        }
+        // Also check team_winner_id as fallback and lookup from game.teams
         if (result.team_winner_id && (summary.game as { teams?: SkinsTeamParticipant[] })?.teams) {
           const winningTeam = (summary.game as { teams?: SkinsTeamParticipant[] }).teams?.find(
             (t: SkinsTeamParticipant) => t.id === result.team_winner_id
@@ -222,11 +266,32 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     if (!summary?.results) return [];
 
     // Team skins - calculate team totals
-    if (isTeamSkins && (summary.game as { teams?: SkinsTeamParticipant[] })?.teams) {
-      return calculateTeamTotals(
-        summary.results as SkinsResult[],
-        (summary.game as { teams?: SkinsTeamParticipant[] }).teams ?? []
-      );
+    if (isTeamSkins) {
+      // Try to get teams from the skins game
+      let teams = (summary.game as { teams?: SkinsTeamParticipant[] })?.teams;
+
+      // Fallback: build teams from round's team_config
+      if (!teams || teams.length === 0) {
+        const teamConfig = roundData?.team_config as { teams?: Array<{ id: string; name: string; memberIds: string[] }> } | null;
+        if (teamConfig?.teams) {
+          teams = teamConfig.teams.map(team => ({
+            id: team.id,
+            name: team.name,
+            members: team.memberIds.map(memberId => ({
+              id: memberId,
+              name: 'Player', // We don't have player names here, but member count is what matters for split
+              handicap: null,
+            })),
+          }));
+        }
+      }
+
+      if (teams && teams.length > 0) {
+        return calculateTeamTotals(
+          summary.results as SkinsResult[],
+          teams
+        );
+      }
     }
 
     // Individual skins - calculate player totals
@@ -235,7 +300,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     }
 
     return [];
-  }, [summary?.results, summary?.game, isTeamSkins]);
+  }, [summary?.results, summary?.game, isTeamSkins, roundData?.team_config]);
 
   // Handle press
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
@@ -252,6 +317,22 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   const handleClosePopover = useCallback(() => {
     setShowPopover(false);
   }, []);
+
+  // Refetch summary when popover opens and poll while open
+  // This ensures running totals stay up-to-date as scores are entered
+  useEffect(() => {
+    if (!showPopover || !skinsGame?.id) return;
+
+    // Refetch immediately when popover opens
+    refetchSummary();
+
+    // Poll every 3 seconds while popover is open
+    const intervalId = setInterval(() => {
+      refetchSummary();
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [showPopover, skinsGame?.id, refetchSummary]);
 
   // Don't render if no active skins game
   if (!skinsGame && !isGameLoading) {

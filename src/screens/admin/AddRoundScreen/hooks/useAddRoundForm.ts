@@ -109,6 +109,11 @@ async function getNextRoundNumber(competitionId: string): Promise<number> {
 }
 
 /**
+ * Team game types that should use team skins
+ */
+const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
+
+/**
  * Create a skins game for a round
  * Note: For competition rounds, participants are determined when pairings are created
  * This creates a placeholder that will be activated when round starts
@@ -118,18 +123,25 @@ async function getNextRoundNumber(competitionId: string): Promise<number> {
  * @param userId - User creating the game
  * @param poolSource - Source of the pot funds ('direct' or 'prize_pool')
  * @param poolId - Prize pool ID when using pool source (optional)
+ * @param isTeamRound - Whether this is a team round
+ * @param teamFormat - The team format (best-ball, scramble, shamble, etc.)
  */
 async function createSkinsGame(
   roundId: string,
   skinsConfig: SkinsConfig,
   userId: string,
   poolSource: SkinsPoolSource = 'direct',
-  poolId?: string
+  poolId?: string,
+  isTeamRound?: boolean,
+  teamFormat?: TeamFormat | null
 ): Promise<string> {
   // Calculate pool draw amount if using prize pool
   const poolDrawAmount = poolSource === 'prize_pool'
     ? (skinsConfig.pot_type === 'per_hole' ? skinsConfig.pot_value * 18 : skinsConfig.pot_value)
     : 0;
+
+  // Determine if this is a team skins game
+  const isTeamSkins = isTeamRound && teamFormat && TEAM_GAME_TYPES.includes(teamFormat);
 
   // For competition rounds, we create the skins game with organizer as participant
   // Actual participants will be set when pairings/round starts
@@ -150,6 +162,9 @@ async function createSkinsGame(
       disclaimer_accepted_at: new Date().toISOString(),
       disclaimer_accepted_by: userId,
       created_by: userId,
+      // Team skins fields - team IDs will be populated when round starts
+      is_team_skins: isTeamSkins ?? false,
+      participant_team_ids: null, // Will be populated when teams are formed
     })
     .select('id')
     .single();
@@ -283,9 +298,11 @@ export function useAddRoundForm({
             formData.skinsConfig,
             user.id,
             formData.skinsPoolSource,
-            formData.skinsPoolSource === 'prize_pool' ? prizePool?.id : undefined
+            formData.skinsPoolSource === 'prize_pool' ? prizePool?.id : undefined,
+            formData.isTeamRound,
+            formData.teamFormat
           );
-          console.log('[AddRound] Skins game created:', skinsGameId, 'pool source:', formData.skinsPoolSource);
+          console.log('[AddRound] Skins game created:', skinsGameId, 'pool source:', formData.skinsPoolSource, 'is_team_skins:', formData.isTeamRound && formData.teamFormat && TEAM_GAME_TYPES.includes(formData.teamFormat));
         } catch (skinsError) {
           // Log error but don't fail the round creation
           console.error('[AddRound] Failed to create skins game:', skinsError);

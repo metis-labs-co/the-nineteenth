@@ -252,11 +252,12 @@ export interface SkinsPayoutWithTeam extends SkinsPayout {
 // =====================================================
 
 /**
- * Input for creating a new individual skins game
+ * Input for creating a new skins game (supports both individual and team skins)
  */
 export interface CreateSkinsGameInput {
   round_id: string;
   pairing_id?: string;
+  /** Individual player participants (required for individual skins) */
   participant_ids: string[];
   pot_type: SkinsPotType;
   pot_value: number;
@@ -265,6 +266,10 @@ export interface CreateSkinsGameInput {
   pool_source?: SkinsPoolSource;
   /** Prize pool ID when funding from competition prize pool */
   pool_id?: string;
+  /** TRUE if this is a team-based skins game */
+  is_team_skins?: boolean;
+  /** Team UUIDs participating (required for team skins) */
+  participant_team_ids?: string[];
 }
 
 /**

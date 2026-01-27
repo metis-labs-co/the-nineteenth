@@ -46,6 +46,8 @@ export interface ScorecardTableProps {
   screenWidth: number;
   /** Callback when a player name is pressed in the header */
   onPlayerPress?: (playerId: string) => void;
+  /** Callback when a hole number is pressed to navigate to that hole */
+  onHolePress?: (holeNumber: number) => void;
   /** Whether to show putts column (only shown for solo rounds) */
   showPutts?: boolean;
   /** Whether to show FIR column (only shown for solo rounds) */

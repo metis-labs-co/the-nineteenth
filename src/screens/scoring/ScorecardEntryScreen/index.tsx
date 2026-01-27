@@ -171,7 +171,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Destructure dialog from submission hook for delete confirmation
   const { dialogConfig: submissionDialogConfig, dismissDialog: dismissSubmissionDialog } = submission;
 
-  // Team scoring hook
+  // Team scoring hook - pass skins processing for team formats
   const {
     selectedContributor,
     teamMatchPlayResults,
@@ -187,6 +187,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     teamFormat,
     currentHole,
     players: currentPlayers,
+    // Pass skins processing dependencies for team formats
+    roundId,
+    getHoleInfo,
+    processSkinsHole,
   });
 
   // Mutation hook for updating course holes (super admin)
@@ -215,7 +219,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         // Get fresh state from store after score was saved
         const latestScorecards = useScorecardStore.getState().groupScorecards;
         latestScorecards.forEach((scorecard, pId) => {
-          scorecardsRecord[pId] = scorecard.scores;
+          // Cast scores to expected type - runtime compatible even though TS types differ
+          scorecardsRecord[pId] = scorecard.scores as unknown as { [holeNumber: string]: { strokes: number } | number };
         });
 
         processSkinsHole({
@@ -575,7 +580,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         currentHole={currentHole}
         onPreviousHole={nav.handlePreviousHole}
         onNextHole={nav.handleNextHole}
-        onSubmit={submission.handleSubmit}
         onViewScorecard={handleViewScorecard}
         canGoPrevious={nav.canGoPrevious}
         canGoNext={nav.canGoNext}
