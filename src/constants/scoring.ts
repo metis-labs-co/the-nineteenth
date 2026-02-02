@@ -47,6 +47,20 @@ export const STABLEFORD_POINTS = {
 } as const;
 
 /**
+ * Par game point values relative to par (net score)
+ * Players win, halve, or lose each hole based on their net score vs par.
+ *
+ * - Net birdie or better (net score ≤ par - 1): +1 (Win)
+ * - Net par (net score = par): 0 (Square)
+ * - Net bogey or worse (net score ≥ par + 1): -1 (Loss)
+ */
+export const PAR_GAME_POINTS = {
+  WIN: 1, // Net birdie or better
+  SQUARE: 0, // Net par
+  LOSS: -1, // Net bogey or worse
+} as const;
+
+/**
  * Hole-in-one detection
  */
 export const HOLE_IN_ONE_SCORE = 1;

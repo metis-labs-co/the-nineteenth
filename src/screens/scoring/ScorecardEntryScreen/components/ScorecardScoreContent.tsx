@@ -23,11 +23,14 @@ import {
   StrokePlayLeaderboard,
   DriveContributorPicker,
 } from '@/components/scorecard';
+import { WolfDecisionPrompt } from '@/components/wolf';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions, HoleShotContributions } from '@/types';
+import type { WolfGameWithParticipants, WolfHoleDecision } from '@/types/database/wolf.types';
 import type { TeamFormat, TeamWithMembers, GameType } from '@/types/database.types';
 import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
-import { calculateStablefordPoints } from '@/utils/scoring';
+import { calculateStablefordPoints, calculateNetScore, calculateParScore, getStrokesOnHole } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 
 export interface ScorecardScoreContentProps {
   // Current hole info
@@ -73,6 +76,11 @@ export interface ScorecardScoreContentProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
+  // Wolf game props
+  wolfGame?: WolfGameWithParticipants | null;
+  wolfDecision?: WolfHoleDecision | null;
+  onWolfChoosePartner?: () => void;
+  isWolfProcessing?: boolean;
 }
 
 export function ScorecardScoreContent({
@@ -109,6 +117,11 @@ export function ScorecardScoreContent({
   // Stats visibility
   showFIR = false,
   showGIR = false,
+  // Wolf game props
+  wolfGame,
+  wolfDecision,
+  onWolfChoosePartner,
+  isWolfProcessing = false,
 }: ScorecardScoreContentProps) {
   // Get shot contributions for a specific team (persisted in scorecard)
   // Each team stores its own contributions in its members' scorecards
@@ -171,6 +184,56 @@ export function ScorecardScoreContent({
       }
 
       return totalPoints;
+    },
+    [currentHole, holes, getPlayerScore]
+  );
+
+  /**
+   * Calculate running gross and net totals for a player up to (but not including) the current hole.
+   * Used for Stroke Play and Par game types.
+   */
+  const getRunningGrossNet = useCallback(
+    (playerId: string, playerHandicap: number): { gross: number; net: number } => {
+      let totalGross = 0;
+      let totalNet = 0;
+
+      for (let holeNum = 1; holeNum < currentHole; holeNum++) {
+        const holeData = holes.find((h) => h.number === holeNum);
+        if (!holeData) continue;
+
+        const score = getPlayerScore(playerId, holeNum);
+        if (!score) continue;
+
+        const strokes = isSingleBallScore(score) ? score.strokes : undefined;
+        if (!strokes || strokes <= 0 || strokes === PICKUP_SCORE) continue;
+
+        totalGross += strokes;
+        totalNet += calculateNetScore(strokes, playerHandicap, holeData);
+      }
+
+      return { gross: totalGross, net: totalNet };
+    },
+    [currentHole, holes, getPlayerScore]
+  );
+
+  /**
+   * Calculate running par score for a player up to (but not including) the current hole.
+   * Returns sum of +1 (win), 0 (square), -1 (loss) for each completed hole.
+   */
+  const getRunningParScore = useCallback(
+    (playerId: string, playerHandicap: number): number => {
+      let totalParScore = 0;
+      for (let holeNum = 1; holeNum < currentHole; holeNum++) {
+        const holeData = holes.find((h) => h.number === holeNum);
+        if (!holeData) continue;
+        const score = getPlayerScore(playerId, holeNum);
+        if (!score) continue;
+        const strokes = isSingleBallScore(score) ? score.strokes : undefined;
+        if (!strokes || strokes <= 0 || strokes === PICKUP_SCORE) continue;
+        const strokesReceived = getStrokesOnHole(playerHandicap, holeData);
+        totalParScore += calculateParScore(strokes, holeData.par, strokesReceived);
+      }
+      return totalParScore;
     },
     [currentHole, holes, getPlayerScore]
   );
@@ -324,30 +387,51 @@ export function ScorecardScoreContent({
     );
   }
 
-  // Stroke Play: Individual scoring with relative-to-par UI and mini leaderboard
-  if (gameType === 'stroke' && !isTeamRound) {
+  // Stroke Play & Par: Individual scoring with relative-to-par UI
+  if ((gameType === 'stroke' || gameType === 'par') && !isTeamRound) {
+    const isPar = gameType === 'par';
     return (
       <>
-        {playersToRender.map((player) => (
-          <StrokePlayScoreCard
-            key={player.id}
-            player={player}
-            currentHole={currentHoleData}
-            currentScore={getPlayerScore(player.id, currentHole)}
-            onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
-            onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
-            onPlayerPress={() => onPlayerPress(player.id)}
-            isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
+        {/* Wolf Decision Prompt - show for individual play game types */}
+        {wolfGame && onWolfChoosePartner && (
+          <WolfDecisionPrompt
+            wolfGame={wolfGame}
+            currentHole={currentHole}
+            currentDecision={wolfDecision}
+            onChoosePartner={onWolfChoosePartner}
+            isProcessing={isWolfProcessing}
           />
-        ))}
-        <StrokePlayLeaderboard
-          players={playersToRender}
-          getPlayerScore={getPlayerScore}
-          currentHole={currentHole}
-          holes={holes}
-          currentUserId={currentUserId}
-          sortBy="net"
-        />
+        )}
+        {playersToRender.map((player) => {
+          const handicap = player.handicap ?? 0;
+          const { gross, net } = getRunningGrossNet(player.id, handicap);
+          return (
+            <StrokePlayScoreCard
+              key={player.id}
+              player={player}
+              currentHole={currentHoleData}
+              currentScore={getPlayerScore(player.id, currentHole)}
+              onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
+              onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
+              onPlayerPress={() => onPlayerPress(player.id)}
+              runningGross={gross}
+              runningNet={net}
+              displayMode={isPar ? 'par' : 'stroke'}
+              runningParScore={isPar ? getRunningParScore(player.id, handicap) : undefined}
+              isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
+            />
+          );
+        })}
+        {!isPar && (
+          <StrokePlayLeaderboard
+            players={playersToRender}
+            getPlayerScore={getPlayerScore}
+            currentHole={currentHole}
+            holes={holes}
+            currentUserId={currentUserId}
+            sortBy="net"
+          />
+        )}
       </>
     );
   }
@@ -358,6 +442,16 @@ export function ScorecardScoreContent({
 
   return (
     <>
+      {/* Wolf Decision Prompt - show for Stableford individual play */}
+      {wolfGame && onWolfChoosePartner && (
+        <WolfDecisionPrompt
+          wolfGame={wolfGame}
+          currentHole={currentHole}
+          currentDecision={wolfDecision}
+          onChoosePartner={onWolfChoosePartner}
+          isProcessing={isWolfProcessing}
+        />
+      )}
       {playersToRender.map((player) => (
         <PlayerScoreCard
           key={player.id}

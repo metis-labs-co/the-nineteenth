@@ -42,6 +42,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import type { TeeBox, Tee, GameType, Club, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
 import { hydrateHolesWithTeeYardages, resolveTeeYardageKey } from '@/utils/holeTransformers';
+import { teeToTeeBox } from '@/utils/teeTransformers';
 
 import { HoleTable } from './components';
 import { TeeSelector, getTeeColor } from '@/components/common';
@@ -49,20 +50,6 @@ import { DEFAULT_HOLES } from './utils';
 import type { PlayingPartner } from './types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Course'>;
-
-/**
- * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
- * This provides backward compatibility for components expecting TeeBox[]
- */
-function teeToTeeBox(tee: Tee): TeeBox {
-  return {
-    name: tee.name,
-    color: tee.color ?? tee.name.toLowerCase(),
-    totalYardage: tee.total_length ?? null,
-    courseRating: tee.course_rating ?? undefined,
-    slopeRating: tee.slope ?? undefined,
-  };
-}
 
 export default function CourseScreen({ route, navigation }: Props) {
   const { courseId } = route.params;

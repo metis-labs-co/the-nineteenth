@@ -9,24 +9,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
+import { teeToTeeBox } from '@/utils/teeTransformers';
 import type { Round, Course, Scorecard, Player, Club, Pairing, Competition, Tee, TeeBox } from '@/types/database.types';
-
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-
-/**
- * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
- */
-function teeToTeeBox(tee: Tee): TeeBox {
-  return {
-    name: tee.name,
-    color: tee.color ?? tee.name.toLowerCase(),
-    totalYardage: tee.total_length ?? null,
-    courseRating: tee.course_rating ?? undefined,
-    slopeRating: tee.slope ?? undefined,
-  };
-}
 
 // =====================================================
 // TYPES

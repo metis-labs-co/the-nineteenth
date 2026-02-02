@@ -213,10 +213,10 @@ export function calculateCompetitionPoints<TParticipant = string>(
   }
 
   // Sort results based on game type
-  // Stableford: higher is better (descending)
+  // Stableford & Par: higher is better (descending)
   // Stroke: lower is better (ascending)
   const sortedResults = [...results].sort((a, b) => {
-    if (gameType === 'stableford') {
+    if (gameType === 'stableford' || gameType === 'par') {
       return b.rawScore - a.rawScore;
     }
     return a.rawScore - b.rawScore;

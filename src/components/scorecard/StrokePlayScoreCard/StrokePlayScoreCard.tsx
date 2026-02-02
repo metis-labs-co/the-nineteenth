@@ -28,6 +28,7 @@ import {
   getStrokesOnHole,
   calculateNetScore,
   getScoreDescription,
+  calculateParScore,
 } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
 
@@ -62,6 +63,10 @@ interface StrokePlayScoreCardProps {
   disabled?: boolean;
   /** Whether this is the current user's own score (for visual distinction in scoring pairs) */
   isOwnScore?: boolean;
+  /** Display mode: 'stroke' shows gross/net, 'par' shows par score */
+  displayMode?: 'stroke' | 'par';
+  /** Running par score (only used when displayMode='par') */
+  runningParScore?: number;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -75,6 +80,8 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   runningNet = 0,
   disabled = false,
   isOwnScore,
+  displayMode = 'stroke',
+  runningParScore = 0,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -123,6 +130,35 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
     },
     [colors]
   );
+
+  // Par game display helpers
+  const formatParScoreDisplay = useCallback((value: number): string => {
+    if (value === 0) return 'E';
+    return value > 0 ? `+${value}` : `${value}`;
+  }, []);
+
+  const getParScoreLabel = useCallback((parScore: number | null): string => {
+    if (parScore === null) return '';
+    if (parScore === 1) return 'Win';
+    if (parScore === 0) return 'Square';
+    return 'Loss';
+  }, []);
+
+  const getParScoreColor = useCallback(
+    (parScore: number | null): string => {
+      if (parScore === null) return colors.textSecondary;
+      if (parScore === 1) return colors.success;
+      if (parScore === 0) return colors.par;
+      return colors.error;
+    },
+    [colors]
+  );
+
+  // Calculate par game score for current hole
+  const currentParScore = useMemo(() => {
+    if (displayMode !== 'par' || !selectedScore || isPickedUp) return null;
+    return calculateParScore(selectedScore, currentHole.par, strokesReceived);
+  }, [displayMode, selectedScore, currentHole.par, strokesReceived, isPickedUp]);
 
   // Handle score button press
   const handleScoreButtonPress = useCallback(
@@ -249,18 +285,29 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
 
         {/* Running Totals */}
         <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              {runningGross > 0 ? formatRelativeToPar(runningGross - (currentHole.number - 1) * 4) : '-'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GROSS</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              {runningNet !== 0 ? formatRelativeToPar(runningNet) : 'E'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>NET</Text>
-          </View>
+          {displayMode === 'par' ? (
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                {formatParScoreDisplay(runningParScore)}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SCORE</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {runningGross > 0 ? formatRelativeToPar(runningGross - (currentHole.number - 1) * 4) : '-'}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GROSS</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {runningNet !== 0 ? formatRelativeToPar(runningNet) : 'E'}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>NET</Text>
+              </View>
+            </>
+          )}
         </View>
       </View>
 
@@ -356,7 +403,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
               <Text
                 style={[
                   styles.currentScoreNumber,
-                  { color: getScoreColor(currentRelativeToPar) },
+                  { color: displayMode === 'par' ? getParScoreColor(currentParScore) : getScoreColor(currentRelativeToPar) },
                 ]}
               >
                 {selectedScore}
@@ -364,14 +411,25 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
               <Text style={[styles.currentScoreEquals, { color: colors.textSecondary }]}>
                 =
               </Text>
-              <Text
-                style={[
-                  styles.currentScoreRelative,
-                  { color: getScoreColor(currentRelativeToPar) },
-                ]}
-              >
-                {formatRelativeToPar(currentRelativeToPar)} ({scoreDescription})
-              </Text>
+              {displayMode === 'par' ? (
+                <Text
+                  style={[
+                    styles.currentScoreRelative,
+                    { color: getParScoreColor(currentParScore) },
+                  ]}
+                >
+                  {formatParScoreDisplay(currentParScore ?? 0)} ({getParScoreLabel(currentParScore)})
+                </Text>
+              ) : (
+                <Text
+                  style={[
+                    styles.currentScoreRelative,
+                    { color: getScoreColor(currentRelativeToPar) },
+                  ]}
+                >
+                  {formatRelativeToPar(currentRelativeToPar)} ({scoreDescription})
+                </Text>
+              )}
             </View>
             <TouchableOpacity
               style={[styles.pickUpButton, { backgroundColor: colors.error + '20' }]}

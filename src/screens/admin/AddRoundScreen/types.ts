@@ -5,6 +5,7 @@
 import type { GameType, TeamFormat, TeamWithMembers, SkinsPoolSource, TeeBox } from '@/types/database.types';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { SkinsConfig } from '@/types';
+import type { WolfConfig } from '@/types/database/wolf.types';
 
 /**
  * Form data for adding a new round
@@ -25,6 +26,9 @@ export interface RoundFormData {
   skinsConfig: SkinsConfig | null;
   // Pool source for skins (Phase 2: Prize Pool integration)
   skinsPoolSource: SkinsPoolSource;
+  // Wolf game configuration
+  wolfEnabled: boolean;
+  wolfConfig: WolfConfig | null;
 }
 
 /**
@@ -44,6 +48,8 @@ export const INITIAL_FORM_DATA: RoundFormData = {
   skinsEnabled: false,
   skinsConfig: null,
   skinsPoolSource: 'direct',
+  wolfEnabled: false,
+  wolfConfig: null,
 };
 
 /**

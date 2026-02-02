@@ -30,6 +30,7 @@ export {
   cosmeticKeys,
   prizePoolKeys,
   skinsKeys,
+  wolfKeys,
   allQueryKeys,
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
@@ -153,11 +154,10 @@ export { useClubSync } from './useClubSync';
 export type { UseClubSyncResult } from './useClubSync';
 
 // Leaderboard hooks
-export { useLeaderboard } from './useLeaderboard';
-export type { LeaderboardEntry } from './useLeaderboard';
 export { useCompetitionLeaderboard } from './useCompetitionLeaderboard';
 export type {
   CompetitionLeaderboardEntry,
+  LeaderboardEntry,
   LeaderboardFilter,
   TeamMemberInfo,
   UseCompetitionLeaderboardOptions,
@@ -221,6 +221,19 @@ export {
   useDeleteTeam,
   useAutoGenerateTeams,
 } from './useTeams';
+
+// Pairing hooks (player groupings with tee times)
+export {
+  usePairings,
+  useHasPairings,
+  useCreatePairings,
+  useUpdatePairing,
+  useDeletePairing,
+  useDeleteAllPairings,
+  useAutoGeneratePairings,
+  useReplacePairings,
+  useUpdatePairingTeeTimes,
+} from './usePairings';
 
 // Round details hooks
 export { useRoundDetails, useRoundScorecards, useRoundPlayers } from './useRoundDetails';
@@ -419,6 +432,40 @@ export type {
   SkinsGameHistoryOptions,
 } from './useSkins';
 
+// Wolf game hooks (strategic partner selection side-game)
+export {
+  // Query hooks
+  useWolfGame,
+  useWolfGameByRound,
+  useWolfHoleDecisions,
+  useWolfCurrentHoleDecision,
+  useWolfStandings,
+  useWolfPayouts,
+  useCanUseWolf,
+  useWolfSummary,
+  // Mutation hooks
+  useCreateWolfGame,
+  useSubmitWolfDecision,
+  useRecordWolfHoleResult,
+  useFinalizeWolfGame,
+  useCancelWolfGame,
+  useDeleteWolfGame,
+  // Helpers
+  isWolfServiceError,
+  getWolfErrorMessage,
+} from './wolf';
+export type {
+  WolfServiceError,
+  ProcessWolfDecisionResult,
+  ProcessWolfHoleResultResponse,
+  WolfStandingsDisplayEntry,
+  WolfHoleSummary,
+  WolfGameCreateOptions,
+  WolfSettlementEntry,
+  WolfSettlementTransaction,
+  CreateWolfGameWithDisclaimerInput,
+} from './wolf';
+
 // Prize pool hooks
 export {
   useCompetitionPrizePool,
@@ -449,6 +496,31 @@ export type { UseAutoSplitSkinsSyncReturn } from './useAutoSplitSkinsSync';
 export { useConfirmationDialog } from './useConfirmationDialog';
 export type { DialogConfig, UseConfirmationDialogReturn } from './useConfirmationDialog';
 
+// Utility hooks
+export {
+  useDebouncedValue,
+  useDebouncedCallback,
+  useDebouncedValueWithPending,
+  DEFAULT_DEBOUNCE_DELAY,
+} from './useDebouncedValue';
+
+// Generic entity hooks
+export { useEntity, useEntities, createEntityHook } from './useEntity';
+export type { SupabaseTable, TableRow, UseEntityOptions } from './useEntity';
+
 // Handicap history hooks
 export { useHandicapHistory, handicapKeys } from './useHandicapHistory';
+
+// Competition details data hooks
+export {
+  useCompetitionDetailsData,
+  fetchCompetitionDetails,
+  getCurrentPlayerStanding,
+  competitionDetailsKeys,
+} from './useCompetitionDetailsData';
+export type { UseCompetitionDetailsDataOptions } from './useCompetitionDetailsData';
+
+// Competition info hooks (lightweight version)
+export { useCompetitionInfo } from './useCompetitionInfo';
+export type { CompetitionInfo, UseCompetitionInfoOptions } from './useCompetitionInfo';
 

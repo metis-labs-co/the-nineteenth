@@ -10,7 +10,7 @@ export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'canc
 export type CompetitionType = 'league' | 'event';
 
 // Game enums
-export type GameType = 'stroke' | 'stableford' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
+export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
 export type RoundStatus = 'upcoming' | 'in-progress' | 'completed';
 
 // Team enums

@@ -1,3 +1,6 @@
+// Tee transformation utilities
+export { teeToTeeBox, teesToTeeBoxes } from './teeTransformers';
+
 // Formatting utilities
 export * from './formatting';
 
@@ -58,6 +61,38 @@ export {
   calculateGADailyHandicap,
 } from './dailyHandicap';
 
+// Round leaderboard formatters
+export {
+  // Formatters
+  formatStablefordData,
+  formatStrokeData,
+  formatMatchPlayData,
+  formatTeamData,
+  formatScoreData,
+  transformToLeaderboardEntry,
+  sortLeaderboardEntries,
+  // Type guards
+  isPlayerEntry,
+  isTeamEntry,
+  isStablefordScore,
+  isStrokeScore,
+  isMatchPlayScore,
+  isTeamScore,
+} from './roundLeaderboardFormatters';
+export type {
+  StablefordScoreData,
+  StrokeScoreData,
+  MatchPlayScoreData,
+  TeamScoreData,
+  FormatSpecificScoreData,
+  PlayerLeaderboardEntry,
+  TeamLeaderboardEntry,
+  RoundLeaderboardEntry,
+  PlayerInfo,
+  TeamInfo,
+  RoundResultRow,
+} from './roundLeaderboardFormatters';
+
 // Skins calculation utilities
 export {
   // Pot calculations
@@ -101,3 +136,44 @@ export type {
   HoleScoresValidationResult,
   PlayerNameMap,
 } from './skinsCalculations';
+
+// GPS calculation utilities
+export {
+  // Constants
+  EARTH_RADIUS_METERS,
+  METERS_TO_YARDS,
+  // Conversion functions
+  toRadians,
+  metersToYards,
+  yardsToMeters,
+  // Distance calculations
+  calculateDistance,
+  calculateCoordinateDistance,
+  calculateDistanceToCoordinate,
+  // Coordinate grouping
+  groupCoordinatesByHole,
+  getCoordinateByPoiType,
+  getCoordinatesForHole,
+} from './gpsCalculations';
+export type { HoleCoordinatesByHole } from './gpsCalculations';
+
+// Pairing algorithm utilities (snake draft, group management)
+export {
+  // Snake draft algorithm
+  generateSnakeDraftPairings,
+  // Tee time calculations
+  calculateTeeTime,
+  formatTeeTimeForDisplay,
+  parseDisplayTimeToTeeTime,
+  recalculateTeeTimes,
+  // Group size calculations
+  calculateRecommendedGroupCount,
+  getOptimalGroupSizes,
+  // Group management
+  movePlayerToGroup,
+  addPlayerToGroup,
+  removePlayerFromGroups,
+  addEmptyGroup,
+  // Validation
+  validatePairingGroups,
+} from './pairingAlgorithm';

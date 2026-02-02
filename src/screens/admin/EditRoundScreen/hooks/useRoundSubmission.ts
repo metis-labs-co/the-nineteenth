@@ -7,8 +7,8 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { format } from 'date-fns';
-import { roundKeys, scoringPairsKeys, skinsKeys } from '@/hooks/queryKeys';
-import type { RoundFormData, SkinsEditState } from '../types';
+import { roundKeys, scoringPairsKeys, skinsKeys, wolfKeys } from '@/hooks/queryKeys';
+import type { RoundFormData, SkinsEditState, WolfEditState } from '../types';
 import { updateRound, shuffleScoringPairs } from './useEditRoundData';
 import { parseAustralianDate } from '@/utils/formatting';
 import { supabase } from '@/services/supabase/client';
@@ -18,7 +18,8 @@ interface UseRoundSubmissionOptions {
   competitionId?: string;
   formData: RoundFormData;
   skinsEditState: SkinsEditState;
-  /** Current user ID for creating skins game */
+  wolfEditState: WolfEditState;
+  /** Current user ID for creating skins/wolf game */
   userId: string | undefined;
   /** Participant IDs for the skins game (competition players) */
   participantIds: string[];
@@ -48,6 +49,7 @@ export function useRoundSubmission({
   competitionId,
   formData,
   skinsEditState,
+  wolfEditState,
   userId,
   participantIds,
   poolId,
@@ -156,6 +158,85 @@ export function useRoundSubmission({
     }
   };
 
+  /**
+   * Handle Wolf game changes (create, update, or delete)
+   */
+  const handleWolfChanges = async () => {
+    // Skip if Wolf can't be edited (round has started)
+    if (!wolfEditState.canEditWolf) return;
+
+    const { wolfEnabled, wolfConfig } = formData;
+    const existingGameId = wolfEditState.existingWolfGameId;
+
+    try {
+      if (wolfEnabled && wolfConfig) {
+        if (existingGameId) {
+          // Update existing Wolf game
+          console.log('[useRoundSubmission] Updating existing Wolf game:', existingGameId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
+          const { error } = await (supabase
+            .from('wolf_games') as any)
+            .update({
+              scoring_type: wolfConfig.scoring_type,
+              blind_wolf_enabled: wolfConfig.blind_wolf_enabled,
+              pot_enabled: wolfConfig.pot_enabled,
+              pot_value_per_point: wolfConfig.pot_value_per_point ?? 0,
+              currency: wolfConfig.currency || 'AUD',
+              wolf_order: wolfConfig.wolf_order ?? [],
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingGameId);
+
+          if (error) {
+            console.error('[useRoundSubmission] Failed to update Wolf game:', error);
+            throw new Error('Failed to update Wolf game');
+          }
+        } else if (userId) {
+          // Create new Wolf game
+          console.log('[useRoundSubmission] Creating new Wolf game for round:', roundId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
+          const { error } = await (supabase.from('wolf_games') as any).insert({
+            round_id: roundId,
+            scoring_type: wolfConfig.scoring_type,
+            blind_wolf_enabled: wolfConfig.blind_wolf_enabled,
+            pot_enabled: wolfConfig.pot_enabled,
+            pot_value_per_point: wolfConfig.pot_value_per_point ?? 0,
+            currency: wolfConfig.currency || 'AUD',
+            wolf_order: wolfConfig.wolf_order ?? [],
+            status: 'active',
+            current_hole: 1,
+            disclaimer_accepted_at: new Date().toISOString(),
+            disclaimer_accepted_by: userId,
+            created_by: userId,
+          });
+
+          if (error) {
+            console.error('[useRoundSubmission] Failed to create Wolf game:', error);
+            throw new Error('Failed to create Wolf game');
+          }
+        }
+      } else if (!wolfEnabled && existingGameId) {
+        // Delete existing Wolf game (user disabled Wolf)
+        console.log('[useRoundSubmission] Deleting Wolf game:', existingGameId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
+        const { error } = await (supabase
+          .from('wolf_games') as any)
+          .delete()
+          .eq('id', existingGameId);
+
+        if (error) {
+          console.error('[useRoundSubmission] Failed to delete Wolf game:', error);
+          throw new Error('Failed to delete Wolf game');
+        }
+      }
+    } catch (error) {
+      // Log but don't fail the entire submission
+      console.error('[useRoundSubmission] Wolf operation failed:', error);
+      // Re-throw to let caller know Wolf failed
+      throw error;
+    }
+  };
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -181,11 +262,20 @@ export function useRoundSubmission({
         console.error('[useRoundSubmission] Skins changes failed but round updated:', skinsError);
         // Could show a warning to user here if needed
       }
+
+      // Handle Wolf changes (non-blocking - log errors but don't fail submission)
+      try {
+        await handleWolfChanges();
+      } catch (wolfError) {
+        console.error('[useRoundSubmission] Wolf changes failed but round updated:', wolfError);
+        // Could show a warning to user here if needed
+      }
     },
     onSuccess: () => {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.gamesByRound(roundId) });
+      queryClient.invalidateQueries({ queryKey: wolfKeys.gameByRound(roundId) });
       if (competitionId) {
         queryClient.invalidateQueries({
           queryKey: ['competition', competitionId, 'details'],

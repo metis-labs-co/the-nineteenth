@@ -70,6 +70,44 @@ export type {
   SkinsTeamNetPosition,
 } from './skins.types';
 
+// Wolf types
+export type {
+  // Enums
+  WolfScoringType,
+  WolfGameStatus,
+  WolfServiceErrorCode,
+  // Point values
+  WolfPointValues,
+  // Score data types
+  WolfHoleScores,
+  WolfPointsAwarded,
+  // Game types
+  WolfGame,
+  WolfParticipant,
+  WolfGameWithParticipants,
+  // Decision types
+  WolfHoleDecision,
+  WolfDecisionWithDetails,
+  // Payout types
+  WolfPayout,
+  WolfPayoutPlayer,
+  WolfPayoutWithPlayer,
+  // Input types
+  CreateWolfGameInput,
+  SubmitWolfDecisionInput,
+  RecordWolfHoleResultInput,
+  // Config and result types
+  WolfConfig,
+  WolfHoleResult,
+  WolfStandingEntry,
+  WolfDebtTransaction,
+  // Summary types
+  WolfGameSummary,
+  // Service error
+  WolfServiceError,
+} from './wolf.types';
+export { WOLF_POINTS } from './wolf.types';
+
 // Prize Pool types
 export type {
   // Enums

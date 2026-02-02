@@ -17,6 +17,25 @@ import { supabase } from '@/services/supabase/client';
 import type { HoleCoordinate } from '@/types/database.types';
 import type { PoiType } from '@/types/database/enums';
 import type { Database } from '@/types/supabase';
+import {
+  calculateCoordinateDistance,
+  groupCoordinatesByHole,
+  getCoordinateByPoiType,
+  type HoleCoordinatesByHole,
+} from '@/utils/gpsCalculations';
+
+// Re-export GPS calculation utilities for backward compatibility
+export {
+  EARTH_RADIUS_METERS,
+  toRadians,
+  calculateDistance,
+  calculateCoordinateDistance,
+  metersToYards,
+  yardsToMeters,
+  groupCoordinatesByHole,
+  getCoordinateByPoiType,
+  type HoleCoordinatesByHole,
+} from '@/utils/gpsCalculations';
 
 // =====================================================
 // TYPES
@@ -40,12 +59,7 @@ export type HoleCoordinateInsert = Omit<Partial<HoleCoordinate>, 'id' | 'created
   longitude: number;
 };
 
-/**
- * Grouped coordinates by hole number
- */
-export interface HoleCoordinatesByHole {
-  [holeNumber: number]: HoleCoordinate[];
-}
+// HoleCoordinatesByHole type now imported from @/utils/gpsCalculations
 
 /**
  * Coordinate summary for a hole
@@ -65,11 +79,6 @@ export interface HoleCoordinateSummary {
 // =====================================================
 
 /**
- * Earth's radius in meters for Haversine calculations
- */
-const EARTH_RADIUS_METERS = 6371000;
-
-/**
  * Essential POI types for basic course data
  * At minimum, we need tee_back and green_center for distance calculations
  */
@@ -85,115 +94,6 @@ export const ALL_POI_TYPES: PoiType[] = [
   'green_center',
   'green_back',
 ];
-
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-
-/**
- * Convert degrees to radians
- */
-function toRadians(degrees: number): number {
-  return degrees * (Math.PI / 180);
-}
-
-/**
- * Calculate distance between two GPS coordinates using Haversine formula
- * Returns distance in meters
- *
- * @param lat1 - Latitude of first point
- * @param lon1 - Longitude of first point
- * @param lat2 - Latitude of second point
- * @param lon2 - Longitude of second point
- * @returns Distance in meters
- */
-export function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return EARTH_RADIUS_METERS * c;
-}
-
-/**
- * Calculate distance between two HoleCoordinate objects
- *
- * @param from - Starting coordinate
- * @param to - Ending coordinate
- * @returns Distance in meters
- */
-export function calculateCoordinateDistance(
-  from: HoleCoordinate,
-  to: HoleCoordinate
-): number {
-  return calculateDistance(from.latitude, from.longitude, to.latitude, to.longitude);
-}
-
-/**
- * Convert distance in meters to yards
- *
- * @param meters - Distance in meters
- * @returns Distance in yards
- */
-export function metersToYards(meters: number): number {
-  return meters * 1.09361;
-}
-
-/**
- * Convert distance in yards to meters
- *
- * @param yards - Distance in yards
- * @returns Distance in meters
- */
-export function yardsToMeters(yards: number): number {
-  return yards / 1.09361;
-}
-
-/**
- * Group coordinates by hole number
- *
- * @param coordinates - Array of hole coordinates
- * @returns Object with hole numbers as keys and coordinate arrays as values
- */
-export function groupCoordinatesByHole(
-  coordinates: HoleCoordinate[]
-): HoleCoordinatesByHole {
-  const grouped: HoleCoordinatesByHole = {};
-  for (const coord of coordinates) {
-    if (!grouped[coord.hole_number]) {
-      grouped[coord.hole_number] = [];
-    }
-    grouped[coord.hole_number].push(coord);
-  }
-  return grouped;
-}
-
-/**
- * Get a specific POI type from a list of coordinates
- *
- * @param coordinates - Array of coordinates for a hole
- * @param poiType - The POI type to find
- * @returns The coordinate or undefined if not found
- */
-export function getCoordinateByPoiType(
-  coordinates: HoleCoordinate[],
-  poiType: PoiType
-): HoleCoordinate | undefined {
-  return coordinates.find((c) => c.poi_type === poiType);
-}
 
 // =====================================================
 // COORDINATES SERVICE

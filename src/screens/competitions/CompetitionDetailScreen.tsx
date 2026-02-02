@@ -12,8 +12,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useConfirmationDialog } from '@/hooks';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useConfirmationDialog, useCompetitionDetailsData, getCurrentPlayerStanding } from '@/hooks';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { Text, Button, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -39,157 +39,12 @@ import {
   PlayersTab,
   TeamsTab,
   LeaderboardTab,
-  type RoundWithCourse,
-  type CompetitionPlayer,
-  type CompetitionData,
 } from '@/components/competitions/detail';
 import { PointsBreakdownModal } from '@/components/leaderboard';
-import type { Competition } from '@/types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
 
 type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard';
-
-/**
- * Fetch competition details including rounds and players
- */
-async function fetchCompetitionDetails(competitionId: string): Promise<CompetitionData> {
-  // Fetch competition
-  const { data: competition, error: competitionError } = await supabase
-    .from('competitions')
-    .select('*')
-    .eq('id', competitionId)
-    .single();
-
-  if (competitionError) {
-    throw new Error(`Failed to fetch competition: ${competitionError.message}`);
-  }
-
-  // Fetch rounds with course and club details
-  const { data: rounds, error: roundsError } = await supabase
-    .from('rounds')
-    .select(`
-      *,
-      courses (
-        *,
-        clubs (
-          name,
-          city,
-          state
-        )
-      )
-    `)
-    .eq('competition_id', competitionId)
-    .order('round_number', { ascending: true });
-
-  if (roundsError) {
-    throw new Error(`Failed to fetch rounds: ${roundsError.message}`);
-  }
-
-  // Fetch players
-  const { data: players, error: playersError } = await supabase
-    .from('competition_players')
-    .select(`
-      player_id,
-      status,
-      players!player_id (
-        id,
-        name,
-        email,
-        handicap,
-        photo_url
-      )
-    `)
-    .eq('competition_id', competitionId)
-    .eq('status', 'accepted');
-
-  if (playersError) {
-    throw new Error(`Failed to fetch players: ${playersError.message}`);
-  }
-
-  // Define types for the joined data
-  interface RoundRowWithCourses {
-    id: string;
-    courses: {
-      id: string;
-      name: string;
-      club_id: string | null;
-      clubs: { name: string; city: string | null; state: string | null } | null;
-    } | null;
-    [key: string]: unknown;
-  }
-
-  interface CompetitionPlayerRow {
-    player_id: string;
-    status: string;
-    players: {
-      id: string;
-      name: string;
-      email: string | null;
-      handicap: number | null;
-      photo_url: string | null;
-    } | null;
-  }
-
-  // Transform rounds data - rename courses to course for RoundWithCourse interface
-  const transformedRounds: RoundWithCourse[] = (rounds || []).map((round: RoundRowWithCourses) => {
-    const { courses, ...rest } = round;
-    return {
-      ...rest,
-      course: courses || null,
-    } as RoundWithCourse;
-  });
-
-  // Transform players data
-  const transformedPlayers: CompetitionPlayer[] = (players || []).map((cp: CompetitionPlayerRow) => ({
-    player_id: cp.player_id,
-    status: cp.status,
-    player: cp.players || null,
-  }));
-
-  return {
-    competition: competition as Competition,
-    rounds: transformedRounds,
-    players: transformedPlayers,
-  };
-}
-
-/**
- * Hook to fetch competition details
- */
-function useCompetitionDetails(competitionId: string) {
-  return useQuery({
-    queryKey: ['competition', competitionId, 'details'],
-    queryFn: () => fetchCompetitionDetails(competitionId),
-    enabled: !!competitionId,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
-  });
-}
-
-/**
- * Get current player's position and points from leaderboard
- */
-function getCurrentPlayerStanding(
-  leaderboard: CompetitionLeaderboardEntry[] | undefined,
-  currentPlayerId: string | undefined
-): { position: number; points: number } | null {
-  if (!leaderboard || !currentPlayerId) return null;
-
-  // Find the entry for the current player (check individual entries, not team entries)
-  const playerEntry = leaderboard.find(
-    (entry) => !entry.isTeam && entry.participantId === currentPlayerId
-  );
-
-  if (!playerEntry) return null;
-
-  return {
-    position: playerEntry.position,
-    points: playerEntry.totalPoints,
-  };
-}
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -235,7 +90,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     error,
     refetch,
     isRefetching,
-  } = useCompetitionDetails(id);
+  } = useCompetitionDetailsData(id);
 
   // Fetch leaderboard data (individuals filter for current standing)
   const {

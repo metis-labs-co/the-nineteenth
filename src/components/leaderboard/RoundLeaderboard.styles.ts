@@ -87,10 +87,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Column widths
+  // Column widths (minWidth for text scaling flexibility)
   // Note: alignItems works for View containers (rows), textAlign works for Text (headers)
   positionCol: {
-    width: 36,
+    minWidth: 36,
     alignItems: 'center',
     textAlign: 'center',
   },
@@ -99,22 +99,22 @@ export const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   handicapCol: {
-    width: 36,
+    minWidth: 36,
     alignItems: 'center',
     textAlign: 'center',
   },
   scoreCol: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'flex-end',
     textAlign: 'right',
   },
   grossCol: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'flex-end',
     textAlign: 'right',
   },
   compPtsCol: {
-    width: 36,
+    minWidth: 36,
     alignItems: 'center',
     textAlign: 'center',
   },

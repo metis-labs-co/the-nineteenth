@@ -11,8 +11,8 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 import {
   type RoundLeaderboardEntry,
   isStrokeScore,
@@ -40,24 +40,24 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
     <View style={styles.table}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerCell, styles.positionCol, { color: colors.textSecondary }]}>
+        <ScaledText category="caption" style={[styles.headerCell, styles.positionCol, { color: colors.textSecondary }]}>
           #
-        </Text>
-        <Text style={[styles.headerCell, styles.nameCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.nameCol, { color: colors.textSecondary }]}>
           {isTeamLeaderboard ? 'Team' : 'Player'}
-        </Text>
-        <Text style={[styles.headerCell, styles.handicapCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.handicapCol, { color: colors.textSecondary }]}>
           HC
-        </Text>
-        <Text style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
           Net
-        </Text>
-        <Text style={[styles.headerCell, styles.grossCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.grossCol, { color: colors.textSecondary }]}>
           Gross
-        </Text>
-        <Text style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
           CP
-        </Text>
+        </ScaledText>
       </View>
 
       {/* Table Rows */}

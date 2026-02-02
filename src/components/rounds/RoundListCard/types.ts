@@ -89,6 +89,8 @@ export interface RoundListCardData {
   winner?: WinnerInfo;
   /** Whether this round has an active skins game */
   hasSkins?: boolean;
+  /** Whether this round has an active wolf game */
+  hasWolf?: boolean;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {

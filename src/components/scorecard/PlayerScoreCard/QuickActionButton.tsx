@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
 import {
   spacing,
   borderRadius,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 
 interface QuickActionButtonProps {
   label: string;
@@ -51,7 +51,8 @@ export const QuickActionButton = React.memo(function QuickActionButton({
         accessibilityRole="button"
         accessibilityHint={accessibilityHint}
       >
-        <Text
+        <ScaledText
+          category="critical"
           style={[
             styles.buttonText,
             { color: colors.textPrimary },
@@ -59,9 +60,9 @@ export const QuickActionButton = React.memo(function QuickActionButton({
           ]}
         >
           {value}
-        </Text>
+        </ScaledText>
       </TouchableOpacity>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <ScaledText category="caption" style={[styles.label, { color: colors.textSecondary }]}>{label}</ScaledText>
     </View>
   );
 });

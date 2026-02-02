@@ -13,7 +13,7 @@
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { LeaderboardTable } from './LeaderboardTable';
-import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
+import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
 // =====================================================
 // META CONFIGURATION

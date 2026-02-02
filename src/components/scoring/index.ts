@@ -13,3 +13,6 @@ export type { MismatchResolutionModalProps } from './MismatchResolutionModal';
 
 export { TeamFormationInline, default as TeamFormationInlineDefault } from './TeamFormationInline';
 export type { TeamFormationInlineProps } from './TeamFormationInline';
+
+export { ScoringPairsToggle, default as ScoringPairsToggleDefault } from './ScoringPairsToggle';
+export type { ScoringPairsToggleProps } from './ScoringPairsToggle';

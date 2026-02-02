@@ -6,6 +6,7 @@ import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { Club, TeeBox, GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
+import type { WolfConfig } from '@/types/database/wolf.types';
 
 /**
  * Skins configuration for standalone rounds
@@ -14,6 +15,15 @@ import type { BallCount } from '@/types/multiball.types';
 export interface StandaloneSkinsConfig {
   enabled: boolean;
   config: SkinsConfig;
+}
+
+/**
+ * Wolf configuration for standalone rounds
+ * Wrapper to indicate if Wolf is enabled along with configuration
+ */
+export interface StandaloneWolfConfig {
+  enabled: boolean;
+  config: WolfConfig;
 }
 
 /**
@@ -120,6 +130,10 @@ export interface WizardData {
   teamsLocked: boolean;
   /** Whether to split players into smaller teams for scramble (default: false = all play as one team) */
   splitIntoTeams: boolean;
+  /** Whether Wolf game is enabled for this round (requires 3-4 players) */
+  wolfEnabled: boolean;
+  /** Wolf game configuration (scoring type, blind wolf, pot) */
+  wolfConfig: WolfConfig | null;
 }
 
 /**
@@ -137,7 +151,8 @@ export interface CreateRoundBottomSheetProps {
     scoringPairs?: ScoringPairsConfig,
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
-    teamConfig?: TeamConfig
+    teamConfig?: TeamConfig,
+    wolfConfig?: StandaloneWolfConfig
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;
@@ -157,6 +172,12 @@ export const MATCH_TYPES: MatchTypeOption[] = [
     value: 'stroke',
     label: 'Stroke Play',
     description: 'Lowest total strokes wins',
+    requiredTier: 'social',
+  },
+  {
+    value: 'par',
+    label: 'Par',
+    description: 'Win/lose each hole (+1, 0, -1 scoring)',
     requiredTier: 'social',
   },
   {

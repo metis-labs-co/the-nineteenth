@@ -9,12 +9,8 @@ import type { RoundStatus } from '@/types/database/enums';
 export interface RoundDetailsTabProps {
   round: RoundWithCourse;
   isOrganizer?: boolean;
-  isPremium?: boolean;
   onEditPress?: () => void;
   onCourseSelectPress?: () => void;
-  onScoringPairsEditPress?: () => void;
-  onSkinsEditPress?: () => void;
-  competitionId?: string;
 }
 
 export interface HoleTableProps {
@@ -33,6 +29,13 @@ export interface ScoringPairsSectionProps {
 }
 
 export interface SkinsGameSectionProps {
+  roundId: string;
+  roundStatus: RoundStatus;
+  cardBackground: string;
+  onEditPress?: () => void;
+}
+
+export interface WolfGameSectionProps {
   roundId: string;
   roundStatus: RoundStatus;
   cardBackground: string;

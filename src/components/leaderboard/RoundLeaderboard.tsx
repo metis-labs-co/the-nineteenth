@@ -15,9 +15,8 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { IconAlertTriangle } from '@tabler/icons-react-native';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ScaledText } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -135,6 +134,12 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   const { entries, metadata } = data;
   const effectiveGameType = metadata.gameType;
 
+  // Format par score display (+3, -2, E)
+  const formatParScore = (value: number): string => {
+    if (value === 0) return 'E';
+    return value > 0 ? `+${value}` : `${value}`;
+  };
+
   // Select the appropriate leaderboard component based on game type
   const renderLeaderboardContent = () => {
     switch (effectiveGameType) {
@@ -145,6 +150,16 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       case 'stroke':
         return (
           <StrokePlayLeaderboard entries={entries} currentUserId={currentUserId} />
+        );
+      case 'par':
+        return (
+          <StablefordLeaderboard
+            entries={entries}
+            currentUserId={currentUserId}
+            scoreColumnHeader="Score"
+            scoreLabel="par score"
+            formatScore={formatParScore}
+          />
         );
       case 'stableford':
       case 'scramble':
@@ -177,9 +192,9 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       {hasBypassedEntries && (
         <View style={legendStyles.container}>
           <IconAlertTriangle size={14} color={colors.warning} />
-          <Text style={[legendStyles.text, { color: colors.textTertiary }]}>
+          <ScaledText category="caption" style={[legendStyles.text, { color: colors.textTertiary }]}>
             Submitted without partner verification
-          </Text>
+          </ScaledText>
         </View>
       )}
     </View>

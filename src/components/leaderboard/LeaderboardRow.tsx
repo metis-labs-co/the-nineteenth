@@ -13,9 +13,10 @@
 
 import React from 'react';
 import { View, Pressable } from 'react-native';
-import { Text, Tooltip } from 'react-native-paper';
+import { Tooltip } from 'react-native-paper';
 import { IconTrophy, IconAlertTriangle } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 import {
   type RoundLeaderboardEntry,
   isTeamEntry,
@@ -87,7 +88,8 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
         {isFirstPlace ? (
           <IconTrophy size={18} color={colors.warning} />
         ) : (
-          <Text
+          <ScaledText
+            category="caption"
             style={[
               styles.positionText,
               { color: colors.textSecondary },
@@ -95,15 +97,16 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             ]}
           >
             {entry.position}
-            {isTied && <Text style={styles.tiedIndicator}>T</Text>}
-          </Text>
+            {isTied && <ScaledText category="caption" style={styles.tiedIndicator}>T</ScaledText>}
+          </ScaledText>
         )}
       </View>
 
       {/* Name */}
       <View style={[styles.cell, styles.nameCol]}>
         <View style={styles.nameRow}>
-          <Text
+          <ScaledText
+            category="body"
             style={[
               styles.nameText,
               { color: colors.textPrimary },
@@ -112,7 +115,7 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             numberOfLines={1}
           >
             {isCurrentUser ? 'You' : name}
-          </Text>
+          </ScaledText>
           {entry.bypassed && (
             <Tooltip title="Submitted without partner verification">
               <Pressable
@@ -129,18 +132,20 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
           )}
         </View>
         {isTeamEntry(entry) && entry.members.length > 0 && (
-          <Text
+          <ScaledText
+            category="caption"
             style={[styles.membersText, { color: colors.textTertiary }]}
             numberOfLines={1}
           >
             {entry.members.map((m) => m.playerName).join(', ')}
-          </Text>
+          </ScaledText>
         )}
       </View>
 
       {/* Handicap */}
       <View style={[styles.cell, styles.handicapCol]}>
-        <Text
+        <ScaledText
+          category="caption"
           style={[
             styles.handicapText,
             { color: colors.textSecondary },
@@ -148,12 +153,13 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
           ]}
         >
           {handicap}
-        </Text>
+        </ScaledText>
       </View>
 
       {/* Primary Score */}
       <View style={[styles.cell, styles.scoreCol]}>
-        <Text
+        <ScaledText
+          category="caption"
           style={[
             styles.scoreText,
             { color: colors.textPrimary },
@@ -162,13 +168,14 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
           ]}
         >
           {scoreDisplay}
-        </Text>
+        </ScaledText>
       </View>
 
       {/* Secondary Score (optional) */}
       {secondaryScore !== undefined && (
         <View style={[styles.cell, styles.grossCol]}>
-          <Text
+          <ScaledText
+            category="caption"
             style={[
               styles.grossText,
               { color: colors.textSecondary },
@@ -176,14 +183,15 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             ]}
           >
             {secondaryScore}
-          </Text>
+          </ScaledText>
         </View>
       )}
 
       {/* Competition Points */}
       {showCompetitionPoints && (
         <View style={[styles.cell, styles.compPtsCol]}>
-          <Text
+          <ScaledText
+            category="caption"
             style={[
               styles.compPtsText,
               { color: colors.primary },
@@ -191,7 +199,7 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             ]}
           >
             {entry.competitionPoints}
-          </Text>
+          </ScaledText>
         </View>
       )}
     </View>

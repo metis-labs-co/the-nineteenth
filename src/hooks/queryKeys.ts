@@ -363,6 +363,24 @@ export const skinsKeys = {
 } as const;
 
 // =====================================================
+// WOLF (Strategic Partner Selection Side-Game)
+// =====================================================
+
+export const wolfKeys = {
+  all: ['wolf'] as const,
+  games: () => [...wolfKeys.all, 'games'] as const,
+  game: (id: string) => [...wolfKeys.games(), id] as const,
+  gameByRound: (roundId: string) => [...wolfKeys.games(), 'round', roundId] as const,
+  decisions: (gameId: string) => [...wolfKeys.all, 'decisions', gameId] as const,
+  decision: (gameId: string, holeNumber: number) =>
+    [...wolfKeys.decisions(gameId), holeNumber] as const,
+  standings: (gameId: string) => [...wolfKeys.all, 'standings', gameId] as const,
+  payouts: (gameId: string) => [...wolfKeys.all, 'payouts', gameId] as const,
+  summary: (gameId: string) => [...wolfKeys.all, 'summary', gameId] as const,
+  canUseWolf: (userId: string) => [...wolfKeys.all, 'can-use', userId] as const,
+} as const;
+
+// =====================================================
 // SCORE MISMATCHES
 // =====================================================
 
@@ -419,5 +437,6 @@ export const allQueryKeys = [
   cosmeticKeys.all,
   prizePoolKeys.all,
   skinsKeys.all,
+  wolfKeys.all,
   scoreMismatchKeys.all,
 ] as const;

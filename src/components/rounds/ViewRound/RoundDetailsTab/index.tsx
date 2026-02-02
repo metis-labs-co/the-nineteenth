@@ -4,7 +4,11 @@
  * Displays round information including:
  * - Course header card with icon, name, venue link, and quick stats
  * - Round details (date, tee time, format, status)
+ * - Players section
  * - Hole breakdown table with OUT/IN/TOTAL summaries
+ *
+ * Game configuration (Scoring Pairs, Skins, Wolf) has been moved to
+ * the separate RoundGameSetupTab component.
  *
  * Styled to match CourseScreen design patterns.
  */
@@ -17,27 +21,25 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
 import { useSkinsGamesByRound } from '@/hooks/useSkins';
+import { useWolfGameByRound } from '@/hooks/wolf';
+import { WOLF_COLOR } from '@/components/wolf';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
-import { GAME_TYPE_LABELS, COMPETITION_TYPE_LABELS } from './constants';
-import { HoleTable, PlayersSection, ScoringPairsSection, SkinsGameSection } from './components';
+import { GAME_TYPE_LABELS } from './constants';
+import { HoleTable, PlayersSection } from './components';
 import type { RoundDetailsTabProps } from './types';
-import type { RoundStatus } from '@/types/database/enums';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   round,
   isOrganizer = false,
-  isPremium = false,
   onEditPress,
   onCourseSelectPress,
-  onScoringPairsEditPress,
-  onSkinsEditPress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
@@ -48,6 +50,10 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // Check if round has an active skins game
   const { data: skinsGames } = useSkinsGamesByRound(round.id);
   const hasSkins = skinsGames && skinsGames.length > 0;
+
+  // Check if round has a Wolf game
+  const { data: wolfGame } = useWolfGameByRound(round.id);
+  const hasWolf = !!wolfGame;
 
   // Get selected tee from round, or fall back to course default/first available
   const { totalPar, selectedTeeName } = useMemo(() => {
@@ -83,13 +89,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const handleCoursePress = () => {
     if (round.course) {
       navigation.navigate('Course', { courseId: round.course.id });
-    }
-  };
-
-  // Navigate to competition
-  const handleCompetitionPress = () => {
-    if (round.competition?.id) {
-      navigation.navigate('CompetitionDetail', { id: round.competition.id });
     }
   };
 
@@ -172,35 +171,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         </View>
       </TouchableOpacity>
 
-      {/* Competition Card - Only show if round belongs to a competition */}
-      {round.competition && (
-        <TouchableOpacity
-          style={[styles.competitionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleCompetitionPress}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.competitionIconContainer, { backgroundColor: colors.primaryLighter }]}>
-            <Icon source="trophy" size={24} color={colors.primary} />
-          </View>
-          <View style={styles.competitionInfo}>
-            <Text style={[styles.competitionLabel, { color: colors.textSecondary }]}>
-              Competition
-            </Text>
-            <Text style={[styles.competitionName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {round.competition.name}
-            </Text>
-          </View>
-          <View style={styles.competitionRight}>
-            <Pill
-              label={COMPETITION_TYPE_LABELS[round.competition.competition_type]}
-              variant="primary"
-              size="sm"
-            />
-            <Icon source="chevron-right" size={24} color={colors.gray400} />
-          </View>
-        </TouchableOpacity>
-      )}
-
       {/* Round Details Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -259,6 +229,9 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
                 {hasSkins && (
                   <Icon source="dice-multiple" size={18} color={skinsColor} />
                 )}
+                {hasWolf && (
+                  <Icon source="dog-side" size={18} color={WOLF_COLOR} />
+                )}
                 <Pill
                   label={GAME_TYPE_LABELS[round.game_type]}
                   variant="primary"
@@ -300,24 +273,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
       <PlayersSection
         roundId={round.id}
         cardBackground={colors.surface}
-      />
-
-      {/* Scoring Pairs Section - Premium Feature */}
-      <ScoringPairsSection
-        roundId={round.id}
-        scoringPairsRequired={round.scoring_pairs_required}
-        isPremium={isPremium}
-        cardBackground={colors.surface}
-        roundStatus={round.status as RoundStatus}
-        onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
-      />
-
-      {/* Skins Game Section - Shows if round has skins enabled */}
-      <SkinsGameSection
-        roundId={round.id}
-        roundStatus={round.status as RoundStatus}
-        cardBackground={colors.surface}
-        onEditPress={isOrganizer ? onSkinsEditPress : undefined}
       />
 
       {/* Hole Breakdown Section */}
@@ -416,39 +371,6 @@ const styles = StyleSheet.create({
     width: 1,
     alignSelf: 'stretch',
     marginVertical: spacing.xs,
-  },
-
-  // Competition Card
-  competitionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    ...shadows.sm,
-  },
-  competitionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  competitionInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  competitionLabel: {
-    ...typography.caption,
-  },
-  competitionName: {
-    ...typography.bodyBold,
-    marginTop: 2,
-  },
-  competitionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
 
   // Section

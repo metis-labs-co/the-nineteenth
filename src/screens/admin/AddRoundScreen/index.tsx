@@ -1,13 +1,10 @@
 /**
  * AddRoundScreen - Add a new round to an existing competition
  *
- * Allows organizers to add rounds with:
- * - Course selection
- * - Date selection
- * - Tee time (optional)
- * - Game type selection (Stableford, Stroke Play, Match Play)
- * - Team round configuration (if competition supports teams)
- * - Team format selection (Best Ball, Scramble, etc.)
+ * Multi-step wizard:
+ * - Step 1: Course & Schedule (course, tee, date, time)
+ * - Step 2: Game Format (game type, team round, team format)
+ * - Step 3: Options (scoring pairs, skins, wolf)
  */
 
 import React, { useState, useCallback } from 'react';
@@ -21,29 +18,43 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text, TextInput, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useTeams } from '@/hooks/useTeams';
-import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
-import { ConfirmationDialog, TeeSelector } from '@/components/common';
+import { ConfirmationDialog } from '@/components/common';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
+import type { SkinsConfig } from '@/types';
+import type { WolfConfig } from '@/types/database/wolf.types';
+import {
+  SkinsConfigBottomSheet,
+  SkinsDisclaimerModal,
+  hasAcceptedSkinsDisclaimer,
+} from '@/components/skins';
+import {
+  WolfConfigBottomSheet,
+  WolfDisclaimerModal,
+  hasAcceptedWolfDisclaimer,
+} from '@/components/wolf';
 
 // Local imports
 import { useAddRoundForm } from './hooks';
-import {
-  CourseSelectionModal,
-  DateTimeFields,
-  TeamRoundSection,
-  ScoringPairsSection,
-  ScoringPairsPromptModal,
-} from './components';
-import { SkinsSection } from '@/components/skins';
+import { CourseSelectionModal, ScoringPairsPromptModal } from './components';
+import { CourseScheduleStep, GameFormatStep, OptionsStep } from './steps';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddRound'>;
+
+type Step = 1 | 2 | 3;
+const TOTAL_STEPS = 3;
+
+const STEP_TITLES: Record<Step, string> = {
+  1: 'Course & Schedule',
+  2: 'Game Format',
+  3: 'Options',
+};
 
 export default function AddRoundScreen({ navigation, route }: Props) {
   const { competitionId } = route.params;
@@ -52,11 +63,22 @@ export default function AddRoundScreen({ navigation, route }: Props) {
   const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
 
+  // Step state
+  const [currentStep, setCurrentStep] = useState<Step>(1);
+
   // Modal state
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showScoringPairsPrompt, setShowScoringPairsPrompt] = useState(false);
   const [createdRoundId, setCreatedRoundId] = useState<string | null>(null);
+
+  // Skins modal state
+  const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
+  const [showSkinsDisclaimer, setShowSkinsDisclaimer] = useState(false);
+
+  // Wolf modal state
+  const [showWolfConfigSheet, setShowWolfConfigSheet] = useState(false);
+  const [showWolfDisclaimer, setShowWolfDisclaimer] = useState(false);
 
   // Fetch teams for team pairing preview
   const { data: teams = [] } = useTeams(competitionId);
@@ -74,10 +96,20 @@ export default function AddRoundScreen({ navigation, route }: Props) {
     },
   });
 
-  // Handle navigation
+  // Navigation handlers
   const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    if (currentStep > 1) {
+      setCurrentStep((prev) => (prev - 1) as Step);
+    } else {
+      navigation.goBack();
+    }
+  }, [currentStep, navigation]);
+
+  const handleNext = useCallback(() => {
+    if (currentStep < TOTAL_STEPS) {
+      setCurrentStep((prev) => (prev + 1) as Step);
+    }
+  }, [currentStep]);
 
   // Handle course selection
   const handleCourseSelect = useCallback(
@@ -102,6 +134,197 @@ export default function AddRoundScreen({ navigation, route }: Props) {
     navigation.goBack();
   }, [navigation]);
 
+  // ===== Skins handlers =====
+  const handleSkinsTogglePress = useCallback(async () => {
+    if (form.formData.skinsEnabled) {
+      form.handleSkinsEnabledChange(false);
+    } else {
+      const accepted = await hasAcceptedSkinsDisclaimer();
+      if (accepted) {
+        setShowSkinsConfigSheet(true);
+      } else {
+        setShowSkinsDisclaimer(true);
+      }
+    }
+  }, [form]);
+
+  const handleSkinsDisclaimerAccept = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+    setShowSkinsConfigSheet(true);
+  }, []);
+
+  const handleSkinsDisclaimerCancel = useCallback(() => {
+    setShowSkinsDisclaimer(false);
+  }, []);
+
+  const handleSkinsConfigSave = useCallback(
+    (config: SkinsConfig) => {
+      form.handleSkinsConfigChange(config);
+      form.handleSkinsEnabledChange(true);
+      setShowSkinsConfigSheet(false);
+    },
+    [form]
+  );
+
+  const handleSkinsConfigDismiss = useCallback(() => {
+    setShowSkinsConfigSheet(false);
+  }, []);
+
+  const handleSkinsEditPress = useCallback(() => {
+    setShowSkinsConfigSheet(true);
+  }, []);
+
+  // ===== Wolf handlers =====
+  const handleWolfTogglePress = useCallback(async () => {
+    if (form.formData.wolfEnabled) {
+      form.handleWolfEnabledChange(false);
+    } else {
+      const accepted = await hasAcceptedWolfDisclaimer();
+      if (accepted) {
+        setShowWolfConfigSheet(true);
+      } else {
+        setShowWolfDisclaimer(true);
+      }
+    }
+  }, [form]);
+
+  const handleWolfDisclaimerAccept = useCallback(() => {
+    setShowWolfDisclaimer(false);
+    setShowWolfConfigSheet(true);
+  }, []);
+
+  const handleWolfDisclaimerCancel = useCallback(() => {
+    setShowWolfDisclaimer(false);
+  }, []);
+
+  const handleWolfConfigSave = useCallback(
+    (config: WolfConfig) => {
+      form.handleWolfConfigChange(config);
+      form.handleWolfEnabledChange(true);
+      setShowWolfConfigSheet(false);
+    },
+    [form]
+  );
+
+  const handleWolfConfigDismiss = useCallback(() => {
+    setShowWolfConfigSheet(false);
+  }, []);
+
+  const handleWolfEditPress = useCallback(() => {
+    setShowWolfConfigSheet(true);
+  }, []);
+
+  // Validate current step before proceeding
+  const canProceed = (() => {
+    if (currentStep === 1) {
+      return !!form.formData.courseId && !!form.formData.date;
+    }
+    if (currentStep === 2) {
+      if (form.formData.isTeamRound && !form.formData.teamFormat) {
+        return false;
+      }
+      return true;
+    }
+    return true;
+  })();
+
+  // Render step indicator
+  const renderStepIndicator = () => (
+    <View style={styles.stepIndicator}>
+      {([1, 2, 3] as Step[]).map((step, index) => (
+        <React.Fragment key={step}>
+          <View
+            style={[
+              styles.stepDot,
+              { backgroundColor: colors.gray300 },
+              currentStep === step && {
+                backgroundColor: colors.primary,
+                width: 10,
+                height: 10,
+              },
+              currentStep > step && {
+                backgroundColor: colors.primary,
+              },
+            ]}
+          />
+          {index < TOTAL_STEPS - 1 && (
+            <View
+              style={[
+                styles.stepLine,
+                { backgroundColor: currentStep > step ? colors.primary : colors.gray200 },
+              ]}
+            />
+          )}
+        </React.Fragment>
+      ))}
+    </View>
+  );
+
+  // Render current step content
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <CourseScheduleStep
+            formData={form.formData}
+            errors={form.errors}
+            disabled={form.isPending}
+            onOpenCourseModal={() => setShowCourseModal(true)}
+            onTeeSelect={form.handleTeeSelect}
+            onDateChange={form.handleDateChange}
+            onTimeChange={form.handleTimeChange}
+            onClearTime={form.clearTeeTime}
+            getSelectedDate={form.getSelectedDate}
+            getSelectedTime={form.getSelectedTime}
+          />
+        );
+      case 2:
+        return (
+          <GameFormatStep
+            gameType={form.formData.gameType}
+            isTeamRound={form.formData.isTeamRound}
+            teamFormat={form.formData.teamFormat}
+            teams={teams}
+            supportsTeams={form.supportsTeams}
+            teamFormatError={form.errors.teamFormat}
+            disabled={form.isPending}
+            allowedGameTypes={limits?.allowedGameTypes}
+            onGameTypeChange={form.handleGameTypeChange}
+            onTeamRoundToggle={form.handleTeamRoundToggle}
+            onTeamFormatChange={form.handleTeamFormatChange}
+            onUpgradePress={() => navigation.navigate('Subscription')}
+          />
+        );
+      case 3:
+        return (
+          <OptionsStep
+            isPremium={isPremium}
+            scoringPairsRequired={form.formData.scoringPairsRequired}
+            isTeamMatchPlay={form.isTeamMatchPlay}
+            onScoringPairsToggle={form.handleScoringPairsToggle}
+            skinsEnabled={form.formData.skinsEnabled}
+            skinsConfig={form.formData.skinsConfig}
+            onSkinsTogglePress={handleSkinsTogglePress}
+            onSkinsEditPress={handleSkinsEditPress}
+            poolSource={form.formData.skinsPoolSource}
+            canEnableSkins={form.canEnableSkins}
+            skinsDisabledReason={form.skinsDisabledReason}
+            wolfEnabled={form.formData.wolfEnabled}
+            wolfConfig={form.formData.wolfConfig}
+            isTeamRound={form.formData.isTeamRound}
+            onWolfTogglePress={handleWolfTogglePress}
+            onWolfEditPress={handleWolfEditPress}
+            canEnableWolf={form.canEnableWolf}
+            wolfDisabledReason={form.wolfDisabledReason}
+            disabled={form.isPending}
+            supportsTeams={form.supportsTeams}
+            competitionPlayerCount={form.competitionPlayerCount}
+            onUpgradePress={() => navigation.navigate('Subscription')}
+          />
+        );
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -111,162 +334,52 @@ export default function AddRoundScreen({ navigation, route }: Props) {
       <View
         style={[
           styles.header,
-          { paddingTop: insets.top, backgroundColor: colors.white, borderBottomColor: colors.gray200 },
+          {
+            paddingTop: insets.top,
+            backgroundColor: colors.white,
+            borderBottomColor: colors.gray200,
+          },
         ]}
       >
         <TouchableOpacity
           style={styles.headerButton}
           onPress={handleBack}
           activeOpacity={0.7}
-          accessibilityLabel="Close"
+          accessibilityLabel={currentStep > 1 ? 'Go back' : 'Close'}
           accessibilityRole="button"
         >
-          <Icon source="close" size={24} color={colors.textPrimary} />
+          <Icon
+            source={currentStep > 1 ? 'chevron-left' : 'close'}
+            size={24}
+            color={colors.textPrimary}
+          />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add Round</Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            {STEP_TITLES[currentStep]}
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+            Step {currentStep} of {TOTAL_STEPS}
+          </Text>
+        </View>
         <View style={styles.headerSpacer} />
       </View>
+
+      {/* Step Indicator */}
+      {renderStepIndicator()}
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + spacing.lg },
+          { paddingBottom: insets.bottom + spacing.lg + 80 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Description */}
-        <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Add a new round to your competition. Select a course and date to get started.
-        </Text>
-
         {/* Form Section */}
         <View style={[styles.formSection, { backgroundColor: colors.white }]}>
-          {/* Course Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Course *</Text>
-            <TouchableOpacity
-              onPress={() => setShowCourseModal(true)}
-              activeOpacity={0.7}
-              accessibilityLabel="Select course"
-              accessibilityHint={form.formData.courseName ? `Currently selected: ${form.formData.courseName}` : 'Opens course selection'}
-              accessibilityRole="button"
-            >
-              <TextInput
-                mode="outlined"
-                value={form.formData.courseName}
-                placeholder="Select a course"
-                editable={false}
-                pointerEvents="none"
-                error={!!form.errors.course}
-                style={[styles.input, { backgroundColor: colors.white }]}
-                outlineColor={form.errors.course ? colors.error : colors.gray300}
-                activeOutlineColor={form.errors.course ? colors.error : colors.primary}
-                right={
-                  <TextInput.Icon
-                    icon="chevron-down"
-                    onPress={() => setShowCourseModal(true)}
-                    color={colors.gray400}
-                  />
-                }
-              />
-            </TouchableOpacity>
-            {form.errors.course && (
-              <Text style={[styles.errorText, { color: colors.error }]}>{form.errors.course}</Text>
-            )}
-          </View>
-
-          {/* Tee Selection - Only show when course has tees */}
-          {form.formData.courseId && form.formData.courseTees.length > 0 && (
-            <View style={styles.fieldContainer}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Tee Box</Text>
-              <TeeSelector
-                tees={form.formData.courseTees}
-                selectedTee={form.formData.selectedTee}
-                onSelectTee={form.handleTeeSelect}
-                variant="cards"
-                disabled={form.isPending}
-              />
-              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                Select a tee for daily handicap calculation
-              </Text>
-            </View>
-          )}
-
-          {/* Date and Time Fields */}
-          <DateTimeFields
-            date={form.formData.date}
-            teeTime={form.formData.teeTime}
-            dateError={form.errors.date}
-            onDateChange={form.handleDateChange}
-            onTimeChange={form.handleTimeChange}
-            onClearTime={form.clearTeeTime}
-            getSelectedDate={form.getSelectedDate}
-            getSelectedTime={form.getSelectedTime}
-            disabled={form.isPending}
-          />
-
-          {/* Game Type Selection */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Game Type *</Text>
-            <RoundGameTypeSelector
-              value={form.formData.gameType}
-              onChange={form.handleGameTypeChange}
-              disabled={form.isPending}
-              allowedGameTypes={limits?.allowedGameTypes}
-              onUpgradePress={() => navigation.navigate('Subscription')}
-            />
-          </View>
-
-          {/* Team Round Section - Only shown if competition supports teams */}
-          {form.supportsTeams && (
-            <TeamRoundSection
-              isTeamRound={form.formData.isTeamRound}
-              teamFormat={form.formData.teamFormat}
-              teams={teams}
-              teamFormatError={form.errors.teamFormat}
-              onTeamRoundToggle={form.handleTeamRoundToggle}
-              onTeamFormatChange={form.handleTeamFormatChange}
-              disabled={form.isPending}
-            />
-          )}
-
-          {/* Scoring Pairs Section */}
-          <ScoringPairsSection
-            isPremium={isPremium}
-            scoringPairsRequired={form.formData.scoringPairsRequired}
-            isTeamMatchPlay={form.isTeamMatchPlay}
-            onToggle={form.handleScoringPairsToggle}
-            onUpgradePress={() => navigation.navigate('Subscription')}
-            disabled={form.isPending}
-          />
-
-          {/* Skins Game Section */}
-          <SkinsSection
-            isPremium={isPremium}
-            skinsEnabled={form.formData.skinsEnabled}
-            skinsConfig={form.formData.skinsConfig}
-            onSkinsEnabledChange={form.handleSkinsEnabledChange}
-            onSkinsConfigChange={form.handleSkinsConfigChange}
-            onUpgradePress={() => navigation.navigate('Subscription')}
-            disabled={form.isPending}
-            // Pool source props (Phase 2: Prize Pool integration)
-            poolData={form.poolData}
-            poolSource={form.formData.skinsPoolSource}
-            onPoolSourceChange={form.handlePoolSourceChange}
-          />
-
-          {/* Info box for non-team competitions */}
-          {!form.supportsTeams && (
-            <View style={[styles.infoBox, { backgroundColor: colors.gray100 }]}>
-              <Icon source="information-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                Team rounds are not available for this competition. Enable team mode in competition
-                settings to use team formats.
-              </Text>
-            </View>
-          )}
+          {renderStepContent()}
         </View>
       </ScrollView>
 
@@ -274,46 +387,73 @@ export default function AddRoundScreen({ navigation, route }: Props) {
       <View
         style={[
           styles.footer,
-          { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.white, borderTopColor: colors.gray200 },
+          {
+            paddingBottom: insets.bottom + spacing.md,
+            backgroundColor: colors.white,
+            borderTopColor: colors.gray200,
+          },
         ]}
       >
-        <TouchableOpacity
-          onPress={handleBack}
-          disabled={form.isPending}
-          style={[
-            styles.cancelButton,
-            { borderColor: colors.gray300 },
-            form.isPending && { opacity: 0.5 },
-          ]}
-          activeOpacity={0.7}
-          accessibilityLabel="Cancel"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: form.isPending }}
-        >
-          <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={form.handleSubmit}
-          disabled={form.isPending}
-          style={[
-            styles.saveButton,
-            { backgroundColor: form.isPending ? colors.gray300 : colors.primary },
-          ]}
-          activeOpacity={0.7}
-          accessibilityLabel="Add Round"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: form.isPending, busy: form.isPending }}
-        >
-          {form.isPending ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text style={[styles.saveButtonText, { color: colors.white }]}>
-              Add Round
-            </Text>
-          )}
-        </TouchableOpacity>
+        {currentStep < TOTAL_STEPS ? (
+          // Next button
+          <TouchableOpacity
+            onPress={handleNext}
+            disabled={!canProceed || form.isPending}
+            style={[
+              styles.nextButton,
+              {
+                backgroundColor:
+                  !canProceed || form.isPending ? colors.gray300 : colors.primary,
+              },
+            ]}
+            activeOpacity={0.7}
+            accessibilityLabel="Next step"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canProceed || form.isPending }}
+          >
+            <Text style={[styles.buttonText, { color: colors.white }]}>Next</Text>
+            <Icon source="chevron-right" size={20} color={colors.white} />
+          </TouchableOpacity>
+        ) : (
+          // Final step: Cancel and Add Round buttons
+          <View style={styles.footerButtons}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              disabled={form.isPending}
+              style={[
+                styles.cancelButton,
+                { borderColor: colors.gray300 },
+                form.isPending && { opacity: 0.5 },
+              ]}
+              activeOpacity={0.7}
+              accessibilityLabel="Cancel"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: form.isPending }}
+            >
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={form.handleSubmit}
+              disabled={form.isPending}
+              style={[
+                styles.saveButton,
+                { backgroundColor: form.isPending ? colors.gray300 : colors.primary },
+              ]}
+              activeOpacity={0.7}
+              accessibilityLabel="Add Round"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: form.isPending, busy: form.isPending }}
+            >
+              {form.isPending ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={[styles.buttonText, { color: colors.white }]}>Add Round</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Course Selection Modal */}
@@ -337,6 +477,33 @@ export default function AddRoundScreen({ navigation, route }: Props) {
 
       {/* Confirmation Dialog - Error messages */}
       <ConfirmationDialog {...form.dialogConfig} onCancel={form.dismissDialog} />
+
+      {/* Skins Bottom Sheet & Disclaimer - rendered at root for proper z-index */}
+      <SkinsConfigBottomSheet
+        visible={showSkinsConfigSheet}
+        onDismiss={handleSkinsConfigDismiss}
+        initialConfig={form.formData.skinsConfig}
+        onSave={handleSkinsConfigSave}
+      />
+      <SkinsDisclaimerModal
+        visible={showSkinsDisclaimer}
+        onAccept={handleSkinsDisclaimerAccept}
+        onCancel={handleSkinsDisclaimerCancel}
+      />
+
+      {/* Wolf Bottom Sheet & Disclaimer - rendered at root for proper z-index */}
+      <WolfConfigBottomSheet
+        visible={showWolfConfigSheet}
+        onDismiss={handleWolfConfigDismiss}
+        initialConfig={form.formData.wolfConfig}
+        onSave={handleWolfConfigSave}
+        participants={[]}
+      />
+      <WolfDisclaimerModal
+        visible={showWolfDisclaimer}
+        onAccept={handleWolfDisclaimerAccept}
+        onCancel={handleWolfDisclaimerCancel}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -358,13 +525,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
     ...typography.h3,
-    flex: 1,
-    textAlign: 'center',
+  },
+  headerSubtitle: {
+    ...typography.caption,
   },
   headerSpacer: {
     width: 44,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: borderRadius.sm,
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
   },
   scrollView: {
     flex: 1,
@@ -372,47 +560,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
   },
-  description: {
-    ...typography.body,
-    marginBottom: spacing.lg,
-  },
   formSection: {
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  fieldContainer: {
-    marginBottom: spacing.lg,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
-  },
-  input: {},
-  errorText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  hintText: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  infoText: {
-    ...typography.small,
-    flex: 1,
   },
   footer: {
-    flexDirection: 'row',
     padding: spacing.lg,
-    gap: spacing.md,
     borderTopWidth: 1,
     ...Platform.select({
       ios: {
@@ -425,6 +578,18 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   cancelButton: {
     flex: 1,
@@ -444,7 +609,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  saveButtonText: {
+  buttonText: {
     ...typography.bodyBold,
   },
 });

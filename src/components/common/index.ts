@@ -62,8 +62,8 @@ export type {
 
 // === Selection Components ===
 // Modal and inline selection patterns
-export { SelectionModal, SelectionItemRow } from './SelectionModal';
-export type { SelectionModalProps, SelectionItemRowProps } from './SelectionModal';
+// Note: SelectionModal is not exported as only specialized variants are used externally
+// (CourseSelectionModal, AvatarSelectionModal, etc.)
 export { FriendSelector, SelectedPlayerChip, FriendListItem } from './FriendSelector';
 export type {
   FriendSelectorProps,
@@ -85,6 +85,11 @@ export { AvatarSelectionModal } from './AvatarSelectionModal';
 export type { AvatarSelectionModalProps } from './AvatarSelectionModal';
 export { ConfirmationDialog } from './ConfirmationDialog';
 export type { ConfirmationDialogProps } from './ConfirmationDialog';
+
+// === Typography Components ===
+// Text components with accessibility support
+export { ScaledText } from './ScaledText';
+export type { ScaledTextProps, ScaledTextCategory } from './ScaledText';
 
 // === Display Components ===
 // Static display elements, badges, pills, and status indicators

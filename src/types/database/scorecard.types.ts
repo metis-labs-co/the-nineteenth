@@ -26,6 +26,7 @@ export interface Scorecard {
   total_gross: number; // Sum of all strokes
   total_net: number; // Gross - handicap adjustments
   total_points: number; // Stableford points
+  total_par_score?: number; // Par game score (+1/0/-1 per hole)
 
   // Per-ball totals for multi-ball rounds (null for single-ball)
   // Format: { "1": { gross, net, points }, "2": {...}, ... }

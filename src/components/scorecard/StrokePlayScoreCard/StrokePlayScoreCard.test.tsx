@@ -92,6 +92,14 @@ jest.mock('@/utils/scoring', () => ({
     if (diff === 3) return 'Triple Bogey';
     return `+${diff}`;
   }),
+  calculateParScore: jest.fn((strokes: number, par: number, strokesReceived: number) => {
+    // Mock par game scoring: +1 win, 0 square, -1 loss
+    const netStrokes = strokes - strokesReceived;
+    const relativeToPar = netStrokes - par;
+    if (relativeToPar <= -1) return 1; // Win
+    if (relativeToPar === 0) return 0; // Square
+    return -1; // Loss
+  }),
 }));
 
 // Mock isSingleBallScore
@@ -1048,6 +1056,257 @@ describe('StrokePlayScoreCard', () => {
       // Bogey on Par 5 = 6 strokes
       fireEvent.press(screen.getByText('BOG'));
       expect(onScoreSelect).toHaveBeenCalledWith(6);
+    });
+  });
+
+  // ===========================================================================
+  // PAR DISPLAY MODE TESTS
+  // ===========================================================================
+
+  describe('Par Display Mode (displayMode="par")', () => {
+    describe('Header Display', () => {
+      it('renders "SCORE" header when displayMode="par"', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+            runningParScore={2}
+          />
+        );
+
+        expect(screen.getByText('SCORE')).toBeTruthy();
+        // Should NOT show GROSS/NET in par mode
+        expect(screen.queryByText('GROSS')).toBeNull();
+        expect(screen.queryByText('NET')).toBeNull();
+      });
+
+      it('renders "GROSS" and "NET" headers when displayMode="stroke" (default)', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="stroke"
+            runningGross={36}
+            runningNet={2}
+          />
+        );
+
+        expect(screen.getByText('GROSS')).toBeTruthy();
+        expect(screen.getByText('NET')).toBeTruthy();
+        // Should NOT show SCORE in stroke mode
+        expect(screen.queryByText('SCORE')).toBeNull();
+      });
+
+      it('defaults to stroke mode when displayMode not specified', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            runningGross={36}
+            runningNet={2}
+          />
+        );
+
+        expect(screen.getByText('GROSS')).toBeTruthy();
+        expect(screen.getByText('NET')).toBeTruthy();
+      });
+
+      it('displays running par score with correct format', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+            runningParScore={3}
+          />
+        );
+
+        // +3 should be displayed
+        expect(screen.getByText('+3')).toBeTruthy();
+      });
+
+      it('displays "E" for even running par score', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+            runningParScore={0}
+          />
+        );
+
+        // Should show E for even
+        const eElements = screen.getAllByText('E');
+        expect(eElements.length).toBeGreaterThanOrEqual(1);
+      });
+
+      it('displays negative running par score correctly', () => {
+        const player = createMockPlayer();
+        const hole = createMockHole();
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={undefined}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+            runningParScore={-2}
+          />
+        );
+
+        expect(screen.getByText('-2')).toBeTruthy();
+      });
+    });
+
+    describe('Current Score Display in Par Mode', () => {
+      it('shows "+1 (Win)" preview for net birdie in par mode', () => {
+        const player = createMockPlayer({ handicap: 0 });
+        const hole = createMockHole({ par: 4, strokeIndex: 18 });
+        // Birdie: 3 strokes on par 4 with 0 strokes received = win
+        const score = createMockHoleScore({ strokes: 3 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+          />
+        );
+
+        expect(screen.getByText(/\+1/)).toBeTruthy();
+        expect(screen.getByText(/Win/)).toBeTruthy();
+      });
+
+      it('shows "0 (Square)" preview for net par in par mode', () => {
+        const player = createMockPlayer({ handicap: 0 });
+        const hole = createMockHole({ par: 4, strokeIndex: 18 });
+        // Par: 4 strokes on par 4 with 0 strokes received = square
+        const score = createMockHoleScore({ strokes: 4 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+          />
+        );
+
+        // Should show E for even (0) and Square
+        expect(screen.getByText(/Square/)).toBeTruthy();
+      });
+
+      it('shows "-1 (Loss)" preview for net bogey in par mode', () => {
+        const player = createMockPlayer({ handicap: 0 });
+        const hole = createMockHole({ par: 4, strokeIndex: 18 });
+        // Bogey: 5 strokes on par 4 with 0 strokes received = loss
+        const score = createMockHoleScore({ strokes: 5 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+          />
+        );
+
+        expect(screen.getByText(/-1/)).toBeTruthy();
+        expect(screen.getByText(/Loss/)).toBeTruthy();
+      });
+
+      it('shows stroke play format in default stroke mode', () => {
+        const player = createMockPlayer({ handicap: 0 });
+        const hole = createMockHole({ par: 4, strokeIndex: 18 });
+        const score = createMockHoleScore({ strokes: 5 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="stroke"
+          />
+        );
+
+        // Should show Bogey description, not Win/Square/Loss
+        expect(screen.getByText(/Bogey/)).toBeTruthy();
+        expect(screen.queryByText(/Win/)).toBeNull();
+        expect(screen.queryByText(/Square/)).toBeNull();
+        expect(screen.queryByText(/Loss/)).toBeNull();
+      });
+    });
+
+    describe('Par Mode with Strokes Received', () => {
+      it('converts gross bogey to net par (Square) with strokes received', () => {
+        const player = createMockPlayer({ handicap: 18 });
+        const hole = createMockHole({ par: 4, strokeIndex: 10 }); // Will receive 1 stroke
+        // Bogey: 5 strokes - 1 stroke received = net 4 = par = Square
+        const score = createMockHoleScore({ strokes: 5 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+          />
+        );
+
+        expect(screen.getByText(/Square/)).toBeTruthy();
+      });
+
+      it('converts gross par to net birdie (Win) with strokes received', () => {
+        const player = createMockPlayer({ handicap: 18 });
+        const hole = createMockHole({ par: 4, strokeIndex: 10 }); // Will receive 1 stroke
+        // Par: 4 strokes - 1 stroke received = net 3 = birdie = Win
+        const score = createMockHoleScore({ strokes: 4 });
+
+        render(
+          <StrokePlayScoreCard
+            player={player}
+            currentHole={hole}
+            currentScore={score}
+            onScoreSelect={defaultOnScoreSelect}
+            displayMode="par"
+          />
+        );
+
+        expect(screen.getByText(/Win/)).toBeTruthy();
+      });
     });
   });
 });

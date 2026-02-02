@@ -53,6 +53,7 @@ Detailed implementation guides for specific topics:
 - **[DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)** - CI/CD, EAS builds, app store deployments, monitoring
 - **[SCORING_PAIRS.md](docs/guides/SCORING_PAIRS.md)** - Designated scoring pairs for competitive rounds
 - **[SKINS_GAME.md](docs/guides/SKINS_GAME.md)** - Skins gambling side-game configuration and settlement
+- **[WOLF_GAME.md](docs/guides/WOLF_GAME.md)** - Wolf strategic partner selection side-game
 - **[SUBSCRIPTION_TIERS.md](docs/guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system, limits, grandfathering, admin management
 - **[PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture, setup, testing, troubleshooting
 
@@ -165,6 +166,9 @@ See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete impl
 18. **CompetitionPrizePool** - Prize pool funding for competitions (allocations for skins, winner, other prizes)
 19. **PoolTransaction** - Audit trail of pool transactions (draws, returns, payouts)
 20. **SkinsPlayerStatistics** - Aggregate skins statistics per player (games, holes, winnings, streaks)
+21. **WolfGame** - Wolf strategic partner selection side-game configuration (scoring type, pot, wolf order)
+22. **WolfHoleDecision** - Hole-by-hole Wolf decisions and results (wolf, partner, outcome, points)
+23. **WolfPayout** - Final Wolf settlement summary for each participant (points, winnings, net result)
 
 ### Subscription Tiers
 
@@ -672,6 +676,7 @@ eas update --branch production --message "Fix scorecard sync bug"
 | **Deployment** | docs/guides/DEPLOYMENT.md | CI/CD and app deployment |
 | **Scoring Pairs** | docs/guides/SCORING_PAIRS.md | Designated scoring pairs feature |
 | **Skins Game** | docs/guides/SKINS_GAME.md | Skins gambling side-game feature |
+| **Wolf Game** | docs/guides/WOLF_GAME.md | Wolf partner selection side-game |
 | **Subscriptions** | docs/guides/SUBSCRIPTION_TIERS.md | Tier system and feature limits |
 | **Push Notifications** | docs/guides/PUSH_NOTIFICATIONS.md | Push notification architecture |
 | **Database** | docs/database/DATABASE_SCHEMA.md | SQL + TypeScript schemas |

@@ -21,7 +21,8 @@ import { IconAlertTriangle } from '@tabler/icons-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
+import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useAuth } from '@/hooks/useAuth';
 import { LeaderboardTable } from '@/components/leaderboard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -37,12 +38,21 @@ export default function LeaderboardScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
 
   const {
-    data: leaderboard,
+    data: competitionLeaderboard,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useLeaderboard(competitionId);
+  } = useCompetitionLeaderboard(competitionId, { filter: 'individuals' });
+
+  // Transform to legacy LeaderboardEntry format for LeaderboardTable
+  const leaderboard: LeaderboardEntry[] | undefined = competitionLeaderboard?.map((entry) => ({
+    playerId: entry.participantId,
+    playerName: entry.participantName,
+    handicap: entry.handicap ?? 0,
+    totalPoints: entry.totalPoints,
+    roundsPlayed: entry.roundsPlayed,
+  }));
 
   const handleRefresh = useCallback(() => {
     refetch();

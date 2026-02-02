@@ -24,7 +24,8 @@ import {
 } from '@/services/offline/database';
 import { queueScorecardSync, subscribeSyncState, getIsOnline } from '@/services/offline/sync';
 import { saveScoreEntry } from '@/services/scoreMismatch';
-import { calculateStablefordPoints, calculateNetScore } from '@/utils/scoring';
+import { calculateStablefordPoints, calculateNetScore, calculateParScore, getStrokesOnHole } from '@/utils/scoring';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import { storeLogger, logScorecardSummary } from '@/utils/debugLogger';
 
 interface ScorecardState {
@@ -385,6 +386,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
       updatedScorecard.totalGross = totals.gross;
       updatedScorecard.totalNet = totals.net;
+      updatedScorecard.total_par_score = totals.parScore;
 
       // Update state
       const newScorecards = new Map(groupScorecards);
@@ -475,6 +477,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
       updatedScorecard.totalGross = totals.gross;
       updatedScorecard.totalNet = totals.net;
+      updatedScorecard.total_par_score = totals.parScore;
 
       // Update state
       const newScorecards = new Map(groupScorecards);
@@ -533,6 +536,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
       updatedScorecard.totalGross = totals.gross;
       updatedScorecard.totalNet = totals.net;
+      updatedScorecard.total_par_score = totals.parScore;
 
       // Update state
       const newScorecards = new Map(groupScorecards);
@@ -567,7 +571,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const scorecard = groupScorecards.get(playerId);
 
       if (!scorecard) {
-        return { gross: 0, net: 0, points: 0 };
+        return { gross: 0, net: 0, points: 0, parScore: 0 };
       }
 
       return calculatePlayerTotals(scorecard, holes, gameType);
@@ -977,6 +981,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
       updatedScorecard.totalGross = totals.gross;
       updatedScorecard.totalNet = totals.net;
+      updatedScorecard.total_par_score = totals.parScore;
 
       // Update state
       const newScorecards = new Map(groupScorecards);
@@ -1009,12 +1014,13 @@ function calculatePlayerTotals(
   scorecard: Scorecard,
   holes: Hole[],
   gameType: GameType
-): { gross: number; net: number; points: number } {
+): { gross: number; net: number; points: number; parScore: number } {
   const playerHandicap = scorecard.player?.handicap || 0;
 
   let totalGross = 0;
   let totalNet = 0;
   let totalPoints = 0;
+  let totalParScore = 0;
 
   for (const hole of holes) {
     const rawHoleScore = scorecard.scores[hole.number];
@@ -1025,7 +1031,7 @@ function calculatePlayerTotals(
       ? rawHoleScore.strokes
       : rawHoleScore.balls?.[0]?.strokes; // Use first ball for multi-ball
 
-    if (!strokes) continue;
+    if (!strokes || strokes <= 0 || strokes === PICKUP_SCORE) continue;
 
     totalGross += strokes;
 
@@ -1034,8 +1040,12 @@ function calculatePlayerTotals(
       totalNet = totalPoints; // For stableford, net = points
     } else if (gameType === 'stroke') {
       totalNet += calculateNetScore(strokes, playerHandicap, hole);
+    } else if (gameType === 'par') {
+      const strokesReceived = getStrokesOnHole(playerHandicap, hole);
+      totalParScore += calculateParScore(strokes, hole.par, strokesReceived);
+      totalNet += calculateNetScore(strokes, playerHandicap, hole);
     }
   }
 
-  return { gross: totalGross, net: totalNet, points: totalPoints };
+  return { gross: totalGross, net: totalNet, points: totalPoints, parScore: totalParScore };
 }

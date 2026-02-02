@@ -4,7 +4,7 @@
  * Shared type definitions for the scorecard table components.
  */
 
-import type { Hole, TeeBox } from '@/types/database.types';
+import type { Hole, TeeBox, GameType } from '@/types/database.types';
 import type { PlayerGender } from '@/types/database/player.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
@@ -56,6 +56,8 @@ export interface ScorecardTableProps {
   showGIR?: boolean;
   /** Selected tee data with slope/course ratings for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
+  /** Game type - affects score display (par shows +1/0/-1 instead of strokes) */
+  gameType?: GameType;
 }
 
 /**

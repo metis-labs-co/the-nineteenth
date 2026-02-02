@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, RadioButton, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
+import { GameTypeInfoBottomSheet } from './GameTypeInfoBottomSheet';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import type { GameType } from '@/types/database.types';
 import type { SubscriptionTier } from '@/types/subscription.types';
 
@@ -23,9 +25,8 @@ interface GameTypeOption {
 
 /**
  * Individual game types available for rounds
- * Team formats are handled separately via TeamFormatSelector
  */
-const ROUND_GAME_TYPE_OPTIONS: GameTypeOption[] = [
+const INDIVIDUAL_GAME_TYPE_OPTIONS: GameTypeOption[] = [
   {
     value: 'stableford',
     label: 'Stableford',
@@ -41,10 +42,44 @@ const ROUND_GAME_TYPE_OPTIONS: GameTypeOption[] = [
     requiredTier: 'social',
   },
   {
+    value: 'par',
+    label: 'Par',
+    description: 'Win/lose each hole (+1, 0, -1 scoring)',
+    icon: 'plus-minus',
+    requiredTier: 'social',
+  },
+  {
     value: 'match-play',
     label: 'Match Play',
     description: 'Hole-by-hole head-to-head competition',
     icon: 'sword-cross',
+    requiredTier: 'premium',
+  },
+];
+
+/**
+ * Team format game types (shown when showTeamFormats is true)
+ */
+const TEAM_GAME_TYPE_OPTIONS: GameTypeOption[] = [
+  {
+    value: 'best-ball',
+    label: 'Best Ball',
+    description: 'Team format - best score counts',
+    icon: 'account-group',
+    requiredTier: 'premium',
+  },
+  {
+    value: 'scramble',
+    label: 'Scramble',
+    description: 'Team format - everyone plays from best shot',
+    icon: 'account-group-outline',
+    requiredTier: 'premium',
+  },
+  {
+    value: 'shamble',
+    label: 'Shamble',
+    description: 'Best drive, then individual play',
+    icon: 'golf-tee',
     requiredTier: 'premium',
   },
 ];
@@ -66,6 +101,7 @@ const TIER_BENEFITS: Record<SubscriptionTier, string[]> = {
   free: [],
   social: [
     'Stroke Play game type',
+    'Par game type',
     'Up to 5 competitions',
     'Up to 16 players per competition',
   ],
@@ -104,6 +140,11 @@ export interface RoundGameTypeSelectorProps {
    * If not provided, upgrade prompt will be shown but no navigation
    */
   onUpgradePress?: () => void;
+  /**
+   * Whether to show team format options (Best Ball, Scramble, Shamble)
+   * @default false
+   */
+  showTeamFormats?: boolean;
 }
 
 /**
@@ -131,6 +172,7 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
   disabled = false,
   allowedGameTypes: propAllowedGameTypes,
   onUpgradePress,
+  showTeamFormats = false,
 }: RoundGameTypeSelectorProps) {
   const colors = useThemeColors();
   const { limits } = useSubscription();
@@ -139,8 +181,18 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [upgradeConfig, setUpgradeConfig] = useState<UpgradePromptConfig | null>(null);
 
+  // State for game type info bottom sheet
+  const [infoGameType, setInfoGameType] = useState<GameType | null>(null);
+
   // Use prop allowedGameTypes if provided, otherwise use subscription limits
   const allowedGameTypes = propAllowedGameTypes ?? limits?.allowedGameTypes ?? ['stableford'];
+
+  // Combine game type options based on showTeamFormats
+  const gameTypeOptions = useMemo(() => {
+    return showTeamFormats
+      ? [...INDIVIDUAL_GAME_TYPE_OPTIONS, ...TEAM_GAME_TYPE_OPTIONS]
+      : INDIVIDUAL_GAME_TYPE_OPTIONS;
+  }, [showTeamFormats]);
 
   // Memoize allowedGameTypes array to ensure stable reference
   // eslint-disable-next-line react-hooks/exhaustive-deps -- using JSON.stringify for deep comparison
@@ -181,6 +233,14 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
     setUpgradeConfig(null);
   }, []);
 
+  const handleInfoPress = useCallback((gameType: GameType) => {
+    setInfoGameType(gameType);
+  }, []);
+
+  const handleInfoClose = useCallback(() => {
+    setInfoGameType(null);
+  }, []);
+
   const renderGameTypeOption = (option: GameTypeOption) => {
     const isSelected = value === option.value;
     const isAllowed = isGameTypeAllowed(option.value);
@@ -213,23 +273,6 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
         }}
       >
         <View style={styles.optionContent}>
-          <View style={styles.radioContainer}>
-            {isAllowed ? (
-              <RadioButton
-                value={option.value}
-                status={isSelected ? 'checked' : 'unchecked'}
-                onPress={() => handlePress(option)}
-                disabled={disabled}
-                color={colors.primary}
-                uncheckedColor={disabled ? colors.gray400 : colors.gray500}
-              />
-            ) : (
-              <View style={[styles.lockIconWrapper, { backgroundColor: colors.gray200 }]}>
-                <Icon source="lock" size={18} color={colors.gray500} />
-              </View>
-            )}
-          </View>
-
           <View
             style={[
               styles.iconContainer,
@@ -285,6 +328,24 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
             </Text>
           </View>
 
+          {/* Info icon */}
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleInfoPress(option.value);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={`View ${option.label} rules`}
+            accessibilityRole="button"
+          >
+            <Icon
+              source="information-outline"
+              size={20}
+              color={!isAllowed ? colors.gray400 : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
           {isSelected && isAllowed && (
             <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
               <Icon source="check" size={14} color={colors.white} />
@@ -292,7 +353,9 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
           )}
 
           {!isAllowed && (
-            <Icon source="chevron-right" size={20} color={colors.gray400} />
+            <View style={[styles.lockBadge, { backgroundColor: colors.gray200 }]}>
+              <Icon source="lock" size={14} color={colors.gray500} />
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -301,12 +364,7 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
 
   return (
     <View style={styles.container}>
-      <RadioButton.Group onValueChange={(v) => {
-        const option = ROUND_GAME_TYPE_OPTIONS.find(opt => opt.value === v);
-        if (option) handlePress(option);
-      }} value={value}>
-        {ROUND_GAME_TYPE_OPTIONS.map((option) => renderGameTypeOption(option))}
-      </RadioButton.Group>
+      {gameTypeOptions.map((option) => renderGameTypeOption(option))}
 
       {/* Upgrade Prompt Modal */}
       {upgradeConfig && (
@@ -317,6 +375,13 @@ export const RoundGameTypeSelector = React.memo(function RoundGameTypeSelector({
           onDismiss={handleDismiss}
         />
       )}
+
+      {/* Game Type Info Bottom Sheet */}
+      <GameTypeInfoBottomSheet
+        visible={infoGameType !== null}
+        onClose={handleInfoClose}
+        gameType={infoGameType ? GAME_TYPE_DESCRIPTIONS[infoGameType] : null}
+      />
     </View>
   );
 });
@@ -344,18 +409,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
     minHeight: 72,
-  },
-  radioContainer: {
-    marginLeft: -spacing.sm,
-  },
-  lockIconWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.xs,
-    marginRight: spacing.xs,
   },
   iconContainer: {
     width: 36,
@@ -388,6 +441,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  lockBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoButton: {
+    padding: spacing.xs,
+    marginRight: spacing.xs,
   },
   tierBadge: {
     paddingHorizontal: spacing.sm,

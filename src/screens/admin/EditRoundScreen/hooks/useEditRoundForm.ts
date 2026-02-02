@@ -4,7 +4,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { GameType, TeeBox, Course, SkinsConfig, SkinsPoolSource } from '@/types/database.types';
-import type { RoundFormData, RoundWithCourse, SkinsEditState, PoolSourceData } from '../types';
+import type { WolfConfig } from '@/types/database/wolf.types';
+import type { RoundFormData, RoundWithCourse, SkinsEditState, PoolSourceData, WolfEditState } from '../types';
 import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
 import {
   parseISODate,
@@ -26,6 +27,16 @@ interface UseEditRoundFormOptions {
     scoring_type: 'gross' | 'net';
     pool_source?: 'direct' | 'prize_pool';
   } | null;
+  /** Existing Wolf game for this round (if any) */
+  existingWolfGame?: {
+    id: string;
+    scoring_type: 'gross' | 'net';
+    blind_wolf_enabled: boolean;
+    pot_enabled: boolean;
+    pot_value_per_point: number | null;
+    currency: string;
+    wolf_order: string[];
+  } | null;
 }
 
 interface UseEditRoundFormReturn {
@@ -34,6 +45,7 @@ interface UseEditRoundFormReturn {
   isDirty: boolean;
   availableTees: TeeBox[];
   skinsEditState: SkinsEditState;
+  wolfEditState: WolfEditState;
 
   // Form field handlers
   setDate: (date: string) => void;
@@ -49,6 +61,10 @@ interface UseEditRoundFormReturn {
   setSkinsConfig: (config: SkinsConfig) => void;
   // Pool source handlers (Phase 2)
   setPoolSource: (source: SkinsPoolSource) => void;
+
+  // Wolf handlers
+  setWolfEnabled: (enabled: boolean) => void;
+  setWolfConfig: (config: WolfConfig) => void;
 
   // Pool data (Phase 2)
   poolData: PoolSourceData | undefined;
@@ -66,6 +82,7 @@ export function useEditRoundForm({
   round,
   competitionId,
   existingSkinsGame,
+  existingWolfGame,
 }: UseEditRoundFormOptions): UseEditRoundFormReturn {
   // Form state
   const [formData, setFormData] = useState<RoundFormData>({
@@ -79,6 +96,8 @@ export function useEditRoundForm({
     skinsEnabled: false,
     skinsConfig: null,
     skinsPoolSource: 'direct',
+    wolfEnabled: false,
+    wolfConfig: null,
   });
 
   // Original values for dirty check
@@ -116,6 +135,18 @@ export function useEditRoundForm({
           }
         : null;
 
+      // Build Wolf config from existing game (if any)
+      const wolfConfig: WolfConfig | null = existingWolfGame
+        ? {
+            scoring_type: existingWolfGame.scoring_type,
+            blind_wolf_enabled: existingWolfGame.blind_wolf_enabled,
+            pot_enabled: existingWolfGame.pot_enabled,
+            pot_value_per_point: existingWolfGame.pot_value_per_point ?? undefined,
+            currency: existingWolfGame.currency ?? undefined,
+            wolf_order: existingWolfGame.wolf_order,
+          }
+        : null;
+
       const data: RoundFormData = {
         date: parsedDate ? formatDateAustralian(parsedDate) : '',
         teeTime: round.tee_time || '',
@@ -127,11 +158,13 @@ export function useEditRoundForm({
         skinsEnabled: !!existingSkinsGame,
         skinsConfig,
         skinsPoolSource: existingSkinsGame?.pool_source ?? 'direct',
+        wolfEnabled: !!existingWolfGame,
+        wolfConfig,
       };
       setFormData(data);
       setOriginalData(data);
     }
-  }, [round, existingSkinsGame]);
+  }, [round, existingSkinsGame, existingWolfGame]);
 
   // Calculate skins edit state based on round status
   const skinsEditState = useMemo((): SkinsEditState => {
@@ -150,6 +183,23 @@ export function useEditRoundForm({
     };
   }, [round?.status, existingSkinsGame]);
 
+  // Calculate Wolf edit state based on round status
+  const wolfEditState = useMemo((): WolfEditState => {
+    const roundStatus = round?.status;
+    const hasStarted = roundStatus === 'in-progress' || roundStatus === 'completed';
+
+    return {
+      hasExistingWolf: !!existingWolfGame,
+      existingWolfGameId: existingWolfGame?.id ?? null,
+      canEditWolf: !hasStarted,
+      lockedReason: hasStarted
+        ? roundStatus === 'completed'
+          ? 'Wolf configuration cannot be changed after round is completed'
+          : 'Wolf configuration cannot be changed after round has started'
+        : null,
+    };
+  }, [round?.status, existingWolfGame]);
+
   // Check if form is dirty
   const isDirty = useMemo(() => {
     if (!originalData) return false;
@@ -162,6 +212,14 @@ export function useEditRoundForm({
       formData.skinsConfig?.scoring_type !== originalData.skinsConfig?.scoring_type ||
       formData.skinsPoolSource !== originalData.skinsPoolSource;
 
+    // Check Wolf config changes
+    const wolfChanged =
+      formData.wolfEnabled !== originalData.wolfEnabled ||
+      formData.wolfConfig?.scoring_type !== originalData.wolfConfig?.scoring_type ||
+      formData.wolfConfig?.blind_wolf_enabled !== originalData.wolfConfig?.blind_wolf_enabled ||
+      formData.wolfConfig?.pot_enabled !== originalData.wolfConfig?.pot_enabled ||
+      formData.wolfConfig?.pot_value_per_point !== originalData.wolfConfig?.pot_value_per_point;
+
     return (
       formData.date !== originalData.date ||
       formData.teeTime !== originalData.teeTime ||
@@ -169,7 +227,8 @@ export function useEditRoundForm({
       formData.selectedTee?.name !== originalData.selectedTee?.name ||
       formData.scoringPairsRequired !== originalData.scoringPairsRequired ||
       formData.courseId !== originalData.courseId ||
-      skinsChanged
+      skinsChanged ||
+      wolfChanged
     );
   }, [formData, originalData]);
 
@@ -236,6 +295,24 @@ export function useEditRoundForm({
     setFormData((prev) => ({ ...prev, skinsPoolSource: source }));
   }, []);
 
+  // Wolf handlers
+  const setWolfEnabled = useCallback((enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      wolfEnabled: enabled,
+      // Reset config when disabling
+      wolfConfig: enabled ? prev.wolfConfig : null,
+    }));
+  }, []);
+
+  const setWolfConfig = useCallback((config: WolfConfig) => {
+    setFormData((prev) => ({
+      ...prev,
+      wolfConfig: config,
+      wolfEnabled: true, // Enable Wolf when config is set
+    }));
+  }, []);
+
   // Date/time picker helpers
   const getSelectedDate = useCallback(() => {
     if (formData.date) {
@@ -257,6 +334,7 @@ export function useEditRoundForm({
     isDirty,
     availableTees,
     skinsEditState,
+    wolfEditState,
     setDate,
     setTeeTime,
     clearTeeTime,
@@ -267,6 +345,8 @@ export function useEditRoundForm({
     setSkinsEnabled,
     setSkinsConfig,
     setPoolSource,
+    setWolfEnabled,
+    setWolfConfig,
     poolData,
     isLoadingPool,
     getSelectedDate,

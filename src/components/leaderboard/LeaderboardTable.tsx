@@ -12,13 +12,12 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ScaledText } from '@/components/common';
 import { IconTrophy, IconChartBar, IconChevronRight } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
+import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
 export interface LeaderboardTableProps {
   /** Leaderboard entries to display */
@@ -111,8 +110,8 @@ export function LeaderboardTable({
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.surfaceVariant }]}>
             <IconChartBar size={48} color={colors.textDisabled} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No scores yet</Text>
-          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
+          <ScaledText category="body" style={[styles.emptyTitle, { color: colors.textPrimary }]}>No scores yet</ScaledText>
+          <ScaledText category="body" style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</ScaledText>
         </View>
       </View>
     );
@@ -122,10 +121,10 @@ export function LeaderboardTable({
     <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>#</Text>
-        <Text style={[styles.tableHeaderCell, styles.playerCol, { color: colors.textSecondary }]}>Player</Text>
-        <Text style={[styles.tableHeaderCell, styles.handicapCol, { color: colors.textSecondary }]}>HC</Text>
-        <Text style={[styles.tableHeaderCell, styles.pointsCol, { color: colors.textSecondary }]}>Pts</Text>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>#</ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.playerCol, { color: colors.textSecondary }]}>Player</ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.handicapCol, { color: colors.textSecondary }]}>HC</ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.pointsCol, { color: colors.textSecondary }]}>Pts</ScaledText>
       </View>
 
       {/* Table Rows */}
@@ -141,7 +140,8 @@ export function LeaderboardTable({
               {isFirstPlace ? (
                 <IconTrophy size={20} color={colors.warning} />
               ) : (
-                <Text
+                <ScaledText
+                  category="caption"
                   style={[
                     styles.positionText,
                     { color: colors.textSecondary },
@@ -150,15 +150,16 @@ export function LeaderboardTable({
                 >
                   {entry.position}
                   {entry.isTied && showTiedIndicator && (
-                    <Text style={[styles.tiedIndicator, { color: colors.textDisabled }]}>T</Text>
+                    <ScaledText category="caption" style={[styles.tiedIndicator, { color: colors.textDisabled }]}>T</ScaledText>
                   )}
-                </Text>
+                </ScaledText>
               )}
             </View>
 
             {/* Player Name */}
             <View style={[styles.tableCell, styles.playerCol]}>
-              <Text
+              <ScaledText
+                category="body"
                 style={[
                   styles.playerName,
                   { color: colors.textPrimary },
@@ -167,17 +168,18 @@ export function LeaderboardTable({
                 numberOfLines={1}
               >
                 {isCurrentUser ? 'You' : entry.playerName}
-              </Text>
+              </ScaledText>
               {showRoundsPlayed && entry.roundsPlayed > 0 && (
-                <Text style={[styles.roundsPlayedText, { color: colors.textSecondary }]}>
+                <ScaledText category="caption" style={[styles.roundsPlayedText, { color: colors.textSecondary }]}>
                   {entry.roundsPlayed} round{entry.roundsPlayed !== 1 ? 's' : ''}
-                </Text>
+                </ScaledText>
               )}
             </View>
 
             {/* Handicap */}
             <View style={[styles.tableCell, styles.handicapCol]}>
-              <Text
+              <ScaledText
+                category="caption"
                 style={[
                   styles.handicapText,
                   { color: colors.textSecondary },
@@ -185,12 +187,13 @@ export function LeaderboardTable({
                 ]}
               >
                 {entry.handicap}
-              </Text>
+              </ScaledText>
             </View>
 
             {/* Points */}
             <View style={[styles.tableCell, styles.pointsCol]}>
-              <Text
+              <ScaledText
+                category="caption"
                 style={[
                   styles.pointsText,
                   { color: colors.textPrimary },
@@ -199,7 +202,7 @@ export function LeaderboardTable({
                 ]}
               >
                 {entry.totalPoints}
-              </Text>
+              </ScaledText>
             </View>
 
             {/* Chevron indicator when pressable */}
@@ -291,9 +294,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Column widths
+  // Column widths (minWidth for text scaling flexibility)
   positionCol: {
-    width: 40,
+    minWidth: 40,
     alignItems: 'center',
   },
   playerCol: {
@@ -301,11 +304,11 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   handicapCol: {
-    width: 40,
+    minWidth: 40,
     alignItems: 'center',
   },
   pointsCol: {
-    width: 50,
+    minWidth: 50,
     alignItems: 'flex-end',
   },
   chevronCol: {

@@ -28,6 +28,18 @@ import type { Player, TeamWithMembers, TeamMember } from '@/types/database.types
 /** Filter options for leaderboard display */
 export type LeaderboardFilter = 'all' | 'individuals' | 'teams';
 
+/**
+ * Legacy leaderboard entry format (individual players only)
+ * Used by LeaderboardTable component for backward compatibility
+ */
+export interface LeaderboardEntry {
+  playerId: string;
+  playerName: string;
+  handicap: number;
+  totalPoints: number;
+  roundsPlayed: number;
+}
+
 /** Team member info for display */
 export interface TeamMemberInfo {
   playerId: string;

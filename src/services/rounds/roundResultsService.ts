@@ -407,6 +407,10 @@ function calculateStandardResults(
         rawScore = sc.total_net;
         resultData = { gross_score: sc.total_gross, net_score: sc.total_net };
         break;
+      case 'par':
+        rawScore = sc.total_par_score ?? 0;
+        resultData = { par_score: sc.total_par_score, gross_score: sc.total_gross, net_score: sc.total_net };
+        break;
       case 'best-ball':
       case 'scramble':
       case 'shamble':

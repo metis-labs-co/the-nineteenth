@@ -90,6 +90,9 @@ export interface RoundResultData {
   gross_score?: number;
   net_score?: number;
 
+  // For Par Game
+  par_score?: number;
+
   // For Match Play
   opponent_id?: string; // player_id or team_id of opponent
   match_result?: 'win' | 'loss' | 'halved';

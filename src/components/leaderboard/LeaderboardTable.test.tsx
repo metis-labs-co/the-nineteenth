@@ -14,7 +14,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { LeaderboardTable } from './LeaderboardTable';
-import type { LeaderboardEntry } from '@/hooks/useLeaderboard';
+import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
 // =====================================================
 // MOCKS

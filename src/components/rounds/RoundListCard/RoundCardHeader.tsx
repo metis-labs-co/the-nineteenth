@@ -3,10 +3,14 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { IconDog } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, skinsColor } from '@/constants/theme';
 import { StatusBadge, Pill } from '@/components/common';
 import { RoundListCardData, getStatusVariant, formatUserScore } from './types';
+
+/** Gray color for wolf feature */
+const WOLF_COLOR = '#6B7280';
 
 interface RoundCardHeaderProps {
   round: RoundListCardData;
@@ -45,21 +49,32 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
         )}
       </View>
 
-      {/* Title: Skins Match, Competition Name, or Practice Round */}
+      {/* Title: Game type indicators + Name */}
       <View style={styles.titleRow}>
+        {/* Skins indicator */}
         {round.hasSkins && (
-          <View style={[styles.skinsIndicator, { backgroundColor: `${skinsColor}15` }]}>
+          <View style={[styles.gameIndicator, { backgroundColor: `${skinsColor}15` }]}>
             <Icon source="dice-multiple" size={14} color={skinsColor} />
           </View>
         )}
+        {/* Wolf indicator */}
+        {round.hasWolf && (
+          <View style={[styles.gameIndicator, { backgroundColor: `${WOLF_COLOR}15` }]}>
+            <IconDog size={14} color={WOLF_COLOR} />
+          </View>
+        )}
         <Text style={[styles.competitionName, { color: colors.textPrimary }]}>
-          {round.hasSkins
-            ? 'Skins Match'
-            : round.isStandalone
-              ? round.players && round.players.length > 1
-                ? 'Match'
-                : 'Practice Round'
-              : round.competition?.name || 'Competition'}
+          {round.hasSkins && round.hasWolf
+            ? 'Skins & Wolf'
+            : round.hasSkins
+              ? 'Skins Match'
+              : round.hasWolf
+                ? 'Wolf Game'
+                : round.isStandalone
+                  ? round.players && round.players.length > 1
+                    ? 'Match'
+                    : 'Practice Round'
+                  : round.competition?.name || 'Competition'}
         </Text>
       </View>
     </>
@@ -85,7 +100,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.xs,
   },
-  skinsIndicator: {
+  gameIndicator: {
     width: 22,
     height: 22,
     borderRadius: 11,

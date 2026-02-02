@@ -115,6 +115,10 @@ export const styles = StyleSheet.create({
   stablefordText: {
     ...typography.bodyBold,
   },
+  parScoreText: {
+    ...typography.bodyBold,
+    textAlign: 'center',
+  },
 });
 
 export default styles;

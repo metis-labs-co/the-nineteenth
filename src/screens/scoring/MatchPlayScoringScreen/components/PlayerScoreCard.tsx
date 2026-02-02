@@ -11,9 +11,10 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { ScaledText } from '@/components/common/ScaledText';
 import type { MatchPlayer, PlayerMatchStatus } from '../types';
 
 interface PlayerScoreCardProps {
@@ -83,20 +84,20 @@ export function PlayerScoreCard({
           accessibilityLabel={`View ${player.name}'s scorecard`}
           accessibilityRole="button"
         >
-          <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+          <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
             {player.name}
-          </Text>
-          <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {player.handicap}</Text>
+          </ScaledText>
+          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {player.handicap}</ScaledText>
         </TouchableOpacity>
 
         {/* Stats Display - matches Stableford PlayerScoreCard */}
         <View style={styles.statsContainer}>
           {/* Shots received on this hole */}
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+            <ScaledText category="critical" style={[styles.statValue, { color: colors.textPrimary }]}>
               {strokesReceived > 0 ? `+${strokesReceived}` : '-'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</Text>
+            </ScaledText>
+            <ScaledText category="caption" style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</ScaledText>
           </View>
 
           {/* Match Status Display */}
@@ -105,33 +106,33 @@ export function PlayerScoreCard({
               {matchStatus.type === 'up' && (
                 <>
                   <Icon source="arrow-up-bold" size={16} color={colors.white} />
-                  <Text style={[styles.statusBadgeNumber, { color: colors.white }]}>
+                  <ScaledText category="critical" style={[styles.statusBadgeNumber, { color: colors.white }]}>
                     {matchStatus.holesUpDown}
-                  </Text>
+                  </ScaledText>
                 </>
               )}
               {matchStatus.type === 'down' && (
                 <>
                   <Icon source="arrow-down-bold" size={16} color={colors.white} />
-                  <Text style={[styles.statusBadgeNumber, { color: colors.white }]}>
+                  <ScaledText category="critical" style={[styles.statusBadgeNumber, { color: colors.white }]}>
                     {Math.abs(matchStatus.holesUpDown)}
-                  </Text>
+                  </ScaledText>
                 </>
               )}
               {(matchStatus.type === 'square' || matchStatus.type === 'halved') && (
                 <>
                   <Icon source="equal" size={16} color={colors.white} />
-                  <Text style={[styles.statusBadgeText, { color: colors.white }]}>AS</Text>
+                  <ScaledText category="critical" style={[styles.statusBadgeText, { color: colors.white }]}>AS</ScaledText>
                 </>
               )}
               {matchStatus.type === 'win' && (
                 <>
                   <Icon source="trophy" size={16} color={colors.white} />
-                  <Text style={[styles.statusBadgeText, { color: colors.white }]}>WIN</Text>
+                  <ScaledText category="critical" style={[styles.statusBadgeText, { color: colors.white }]}>WIN</ScaledText>
                 </>
               )}
               {matchStatus.type === 'loss' && (
-                <Text style={[styles.statusBadgeText, { color: colors.white }]}>LOSS</Text>
+                <ScaledText category="critical" style={[styles.statusBadgeText, { color: colors.white }]}>LOSS</ScaledText>
               )}
             </View>
           )}
@@ -156,7 +157,8 @@ export function PlayerScoreCard({
             accessibilityLabel="Pick up ball"
             accessibilityHint="Marks that you picked up your ball on this hole"
           >
-            <Text
+            <ScaledText
+              category="critical"
               style={[
                 styles.quickActionText,
                 { color: colors.textPrimary },
@@ -164,9 +166,9 @@ export function PlayerScoreCard({
               ]}
             >
               P
-            </Text>
+            </ScaledText>
           </TouchableOpacity>
-          <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PICK UP</Text>
+          <ScaledText category="caption" style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PICK UP</ScaledText>
         </View>
 
         {/* Score Stepper */}
@@ -184,14 +186,14 @@ export function PlayerScoreCard({
             accessibilityLabel={`Decrease ${player.name} score`}
             accessibilityRole="button"
           >
-            <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</Text>
+            <ScaledText category="critical" style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</ScaledText>
           </TouchableOpacity>
 
           {/* Current Score Display */}
           <View style={styles.scoreDisplay}>
-            <Text style={[styles.scoreDisplayText, { color: isPickedUp ? colors.textSecondary : getScoreColor(currentScore) }]}>
+            <ScaledText category="critical" style={[styles.scoreDisplayText, { color: isPickedUp ? colors.textSecondary : getScoreColor(currentScore) }]}>
               {isPickedUp ? 'P' : (currentScore ?? '-')}
-            </Text>
+            </ScaledText>
           </View>
 
           {/* Plus Button */}
@@ -207,7 +209,7 @@ export function PlayerScoreCard({
             accessibilityLabel={`Increase ${player.name} score`}
             accessibilityRole="button"
           >
-            <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>+</Text>
+            <ScaledText category="critical" style={[styles.stepperButtonText, { color: colors.textPrimary }]}>+</ScaledText>
           </TouchableOpacity>
         </View>
 
@@ -223,7 +225,8 @@ export function PlayerScoreCard({
             activeOpacity={0.7}
             accessibilityLabel={`Set ${player.name} score to par ${par}`}
           >
-            <Text
+            <ScaledText
+              category="critical"
               style={[
                 styles.quickActionText,
                 { color: colors.textPrimary },
@@ -231,9 +234,9 @@ export function PlayerScoreCard({
               ]}
             >
               {par}
-            </Text>
+            </ScaledText>
           </TouchableOpacity>
-          <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PAR</Text>
+          <ScaledText category="caption" style={[styles.quickActionLabel, { color: colors.textSecondary }]}>PAR</ScaledText>
         </View>
       </View>
     </View>

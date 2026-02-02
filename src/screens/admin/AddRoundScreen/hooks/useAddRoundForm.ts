@@ -18,10 +18,11 @@ import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
-import { skinsKeys, roundKeys } from '@/hooks/queryKeys';
+import { skinsKeys, roundKeys, wolfKeys } from '@/hooks/queryKeys';
 import type { GameType, TeamFormat, Competition, SkinsPoolSource, TeeBox } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
+import type { WolfConfig } from '@/types/database/wolf.types';
 import type { PoolSourceData } from '@/components/skins';
 import type { RoundFormData, FormErrors } from '../types';
 import { INITIAL_FORM_DATA } from '../types';
@@ -51,6 +52,9 @@ async function fetchCompetition(competitionId: string): Promise<Competition> {
 
 /**
  * Create a new round in the database
+ *
+ * For competition rounds, skins config is stored on the round and the actual
+ * skins_games record is created later when pairings are assigned (so we know participants).
  */
 async function createRound(
   competitionId: string,
@@ -61,6 +65,16 @@ async function createRound(
   if (!parsedDate) {
     throw new Error('Invalid date format');
   }
+
+  // Build skins config if enabled (stored on round, skins_games created when pairings assigned)
+  const skinsConfig = data.skinsEnabled && data.skinsConfig
+    ? {
+        pot_type: data.skinsConfig.pot_type,
+        pot_value: data.skinsConfig.pot_value,
+        scoring_type: data.skinsConfig.scoring_type,
+        currency: data.skinsConfig.currency ?? 'AUD',
+      }
+    : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
   const { data: insertedRound, error } = await (supabase as any)
@@ -77,6 +91,10 @@ async function createRound(
       scoring_pairs_required: data.scoringPairsRequired,
       selected_tee: data.selectedTee, // TeeBox with slope/course ratings for daily handicap
       status: 'upcoming',
+      // Skins config stored on round - actual skins_games created when pairings assigned
+      skins_enabled: data.skinsEnabled,
+      skins_config: skinsConfig,
+      skins_pool_source: data.skinsPoolSource ?? 'direct',
     })
     .select('id')
     .single();
@@ -114,77 +132,40 @@ async function getNextRoundNumber(competitionId: string): Promise<number> {
 const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
 
 /**
- * Create a skins game for a round
- * Note: For competition rounds, participants are determined when pairings are created
- * This creates a placeholder that will be activated when round starts
+ * Create a Wolf game for a round
+ * Wolf is a strategic partner selection side-game requiring 3-4 players
  *
  * @param roundId - Round UUID
- * @param skinsConfig - Skins game configuration
+ * @param wolfConfig - Wolf game configuration
  * @param userId - User creating the game
- * @param poolSource - Source of the pot funds ('direct' or 'prize_pool')
- * @param poolId - Prize pool ID when using pool source (optional)
- * @param isTeamRound - Whether this is a team round
- * @param teamFormat - The team format (best-ball, scramble, shamble, etc.)
  */
-async function createSkinsGame(
+async function createWolfGame(
   roundId: string,
-  skinsConfig: SkinsConfig,
-  userId: string,
-  poolSource: SkinsPoolSource = 'direct',
-  poolId?: string,
-  isTeamRound?: boolean,
-  teamFormat?: TeamFormat | null
+  wolfConfig: WolfConfig,
+  userId: string
 ): Promise<string> {
-  // Calculate pool draw amount if using prize pool
-  const poolDrawAmount = poolSource === 'prize_pool'
-    ? (skinsConfig.pot_type === 'per_hole' ? skinsConfig.pot_value * 18 : skinsConfig.pot_value)
-    : 0;
-
-  // Determine if this is a team skins game
-  const isTeamSkins = isTeamRound && teamFormat && TEAM_GAME_TYPES.includes(teamFormat);
-
-  // For competition rounds, we create the skins game with organizer as participant
-  // Actual participants will be set when pairings/round starts
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
   const { data: insertedGame, error } = await (supabase as any)
-    .from('skins_games')
+    .from('wolf_games')
     .insert({
       round_id: roundId,
-      pairing_id: null,
-      participant_ids: [userId], // Placeholder - updated when round starts
-      pot_type: skinsConfig.pot_type,
-      pot_value: skinsConfig.pot_value,
-      currency: skinsConfig.currency ?? 'AUD',
-      scoring_type: skinsConfig.scoring_type,
-      pool_source: poolSource,
-      pool_draw_amount: poolDrawAmount,
+      scoring_type: wolfConfig.scoring_type,
+      blind_wolf_enabled: wolfConfig.blind_wolf_enabled,
+      pot_enabled: wolfConfig.pot_enabled,
+      pot_value_per_point: wolfConfig.pot_value_per_point ?? 0,
+      currency: wolfConfig.currency ?? 'AUD',
+      wolf_order: wolfConfig.wolf_order ?? [],
       status: 'active',
+      current_hole: 1,
       disclaimer_accepted_at: new Date().toISOString(),
       disclaimer_accepted_by: userId,
       created_by: userId,
-      // Team skins fields - team IDs will be populated when round starts
-      is_team_skins: isTeamSkins ?? false,
-      participant_team_ids: null, // Will be populated when teams are formed
     })
     .select('id')
     .single();
 
   if (error) {
-    throw new Error(`Failed to create skins game: ${error.message}`);
-  }
-
-  // If using prize pool, draw from pool
-  if (poolSource === 'prize_pool' && poolId && poolDrawAmount > 0) {
-    try {
-      await supabase.rpc('draw_from_pool' as never, {
-        p_pool_id: poolId,
-        p_round_id: roundId,
-        p_amount: poolDrawAmount,
-      } as never);
-    } catch (drawError) {
-      console.error('[createSkinsGame] Failed to draw from pool:', drawError);
-      // Don't fail the skins creation, just log the error
-    }
+    throw new Error(`Failed to create Wolf game: ${error.message}`);
   }
 
   const game = insertedGame as { id: string };
@@ -207,6 +188,13 @@ interface UseAddRoundFormReturn {
   supportsTeams: boolean;
   isTeamMatchPlay: boolean;
 
+  // Player count validation for skins/wolf
+  competitionPlayerCount: number;
+  canEnableSkins: boolean;
+  skinsDisabledReason: string | null;
+  canEnableWolf: boolean;
+  wolfDisabledReason: string | null;
+
   // Setters
   updateField: (field: keyof RoundFormData, value: string) => void;
   handleCourseSelect: (course: CourseWithFavorite) => void;
@@ -227,6 +215,10 @@ interface UseAddRoundFormReturn {
   // Pool data (Phase 2)
   poolData: PoolSourceData | undefined;
   isLoadingPool: boolean;
+
+  // Wolf handlers
+  handleWolfEnabledChange: (enabled: boolean) => void;
+  handleWolfConfigChange: (config: WolfConfig) => void;
 
   // Actions
   handleSubmit: () => void;
@@ -251,14 +243,36 @@ export function useAddRoundForm({
   const { user } = useAuth();
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
-  // Form state
-  const [formData, setFormData] = useState<RoundFormData>(INITIAL_FORM_DATA);
+  // Form state - initialize with today's date
+  const [formData, setFormData] = useState<RoundFormData>(() => ({
+    ...INITIAL_FORM_DATA,
+    date: formatDateAustralian(new Date()),
+  }));
   const [errors, setErrors] = useState<FormErrors>({});
 
   // Fetch competition to get team_mode
   const { data: competition, isLoading: isLoadingCompetition } = useQuery({
     queryKey: ['competition', competitionId],
     queryFn: () => fetchCompetition(competitionId),
+    enabled: !!competitionId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch competition player count for skins/wolf validation
+  const { data: competitionPlayerCount = 0 } = useQuery({
+    queryKey: ['competition', competitionId, 'playerCount'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('competition_players')
+        .select('*', { count: 'exact', head: true })
+        .eq('competition_id', competitionId);
+
+      if (error) {
+        console.error('[useAddRoundForm] Failed to fetch player count:', error);
+        return 0;
+      }
+      return count ?? 0;
+    },
     enabled: !!competitionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -284,28 +298,52 @@ export function useAddRoundForm({
   const supportsTeams = competition?.team_mode !== 'none';
   const isTeamMatchPlay = formData.isTeamRound && formData.teamFormat === 'match-play-team';
 
+  // Skins requires 2-4 players
+  const canEnableSkins = competitionPlayerCount >= 2;
+  const skinsDisabledReason = competitionPlayerCount === 0
+    ? 'Add players to the competition to enable skins'
+    : competitionPlayerCount === 1
+      ? 'Skins requires at least 2 players in the competition'
+      : null;
+
+  // Wolf requires exactly 3-4 players
+  const canEnableWolf = competitionPlayerCount >= 3 && competitionPlayerCount <= 4;
+  const wolfDisabledReason = competitionPlayerCount === 0
+    ? 'Add players to the competition to enable Wolf'
+    : competitionPlayerCount < 3
+      ? `Wolf requires 3-4 players (${competitionPlayerCount} in competition)`
+      : competitionPlayerCount > 4
+        ? `Wolf is limited to 4 players (${competitionPlayerCount} in competition)`
+        : null;
+
   // Create round mutation
   const createMutation = useMutation({
     mutationFn: async () => {
       const nextRoundNumber = await getNextRoundNumber(competitionId);
       const roundId = await createRound(competitionId, formData, nextRoundNumber);
 
-      // Create skins game if enabled
-      if (formData.skinsEnabled && formData.skinsConfig && user?.id) {
+      // Note: Skins config is stored on the round itself (skins_enabled, skins_config, skins_pool_source)
+      // The actual skins_games record will be created when pairings are assigned,
+      // because we need to know the participants (players/teams) for the skins game.
+      if (formData.skinsEnabled) {
+        console.log('[AddRound] Skins config saved to round (skins_games created when pairings assigned):', {
+          poolSource: formData.skinsPoolSource,
+          isTeamSkins: formData.isTeamRound && formData.teamFormat && TEAM_GAME_TYPES.includes(formData.teamFormat),
+        });
+      }
+
+      // Create Wolf game if enabled
+      if (formData.wolfEnabled && formData.wolfConfig && user?.id) {
         try {
-          const skinsGameId = await createSkinsGame(
+          const wolfGameId = await createWolfGame(
             roundId,
-            formData.skinsConfig,
-            user.id,
-            formData.skinsPoolSource,
-            formData.skinsPoolSource === 'prize_pool' ? prizePool?.id : undefined,
-            formData.isTeamRound,
-            formData.teamFormat
+            formData.wolfConfig,
+            user.id
           );
-          console.log('[AddRound] Skins game created:', skinsGameId, 'pool source:', formData.skinsPoolSource, 'is_team_skins:', formData.isTeamRound && formData.teamFormat && TEAM_GAME_TYPES.includes(formData.teamFormat));
-        } catch (skinsError) {
+          console.log('[AddRound] Wolf game created:', wolfGameId);
+        } catch (wolfError) {
           // Log error but don't fail the round creation
-          console.error('[AddRound] Failed to create skins game:', skinsError);
+          console.error('[AddRound] Failed to create Wolf game:', wolfError);
         }
       }
 
@@ -315,6 +353,7 @@ export function useAddRoundForm({
       queryClient.invalidateQueries({ queryKey: ['competition', competitionId, 'details'] });
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['skins'] });
+      queryClient.invalidateQueries({ queryKey: wolfKeys.all });
 
       // Trigger redistribution for auto-split skins (non-blocking)
       // Only if prize pool has auto_split_skins enabled and user didn't manually configure skins
@@ -463,6 +502,21 @@ export function useAddRoundForm({
     setFormData((prev) => ({ ...prev, skinsPoolSource: source }));
   }, []);
 
+  // Handle Wolf enabled toggle
+  const handleWolfEnabledChange = useCallback((enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      wolfEnabled: enabled,
+      // Reset config when disabled
+      wolfConfig: enabled ? prev.wolfConfig : null,
+    }));
+  }, []);
+
+  // Handle Wolf config change
+  const handleWolfConfigChange = useCallback((config: WolfConfig) => {
+    setFormData((prev) => ({ ...prev, wolfConfig: config }));
+  }, []);
+
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -519,6 +573,13 @@ export function useAddRoundForm({
     isLoadingCompetition,
     supportsTeams,
     isTeamMatchPlay,
+    // Player count validation for skins/wolf
+    competitionPlayerCount,
+    canEnableSkins,
+    skinsDisabledReason,
+    canEnableWolf,
+    wolfDisabledReason,
+    // Setters
     updateField,
     handleCourseSelect,
     handleTeeSelect,
@@ -534,6 +595,8 @@ export function useAddRoundForm({
     handlePoolSourceChange,
     poolData,
     isLoadingPool,
+    handleWolfEnabledChange,
+    handleWolfConfigChange,
     handleSubmit,
     isPending: createMutation.isPending,
     getSelectedDate,

@@ -15,6 +15,7 @@ import { Text, Icon } from 'react-native-paper';
 import { ConfirmationDialog } from '@/components/common';
 import { PageHeader, OfflineIndicator } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
+import { WolfIndicator } from '@/components/wolf';
 import { DistanceToPin } from '@/components/scorecard/HoleHeader/DistanceToPin';
 import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -135,6 +136,9 @@ export function ScorecardHeader({
 
       {/* Skins Indicator - shows when skins game is active (minimal variant = no background) */}
       <SkinsIndicator roundId={roundId} size="sm" variant="minimal" />
+
+      {/* Wolf Indicator - shows when Wolf game is active */}
+      <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
 
       {/* Delete button for standalone rounds - matches other header icons */}
       {isStandaloneRound && onDeletePress && (

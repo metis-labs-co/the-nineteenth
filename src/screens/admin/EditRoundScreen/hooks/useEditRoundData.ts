@@ -3,21 +3,9 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { teeToTeeBox } from '@/utils/teeTransformers';
 import type { GameType, TeeBox, Tee } from '@/types/database.types';
 import type { RoundWithCourse } from '../types';
-
-/**
- * Transform Tee (from tees table) to TeeBox (legacy JSONB format)
- */
-function teeToTeeBox(tee: Tee): TeeBox {
-  return {
-    name: tee.name,
-    color: tee.color ?? tee.name.toLowerCase(),
-    totalYardage: tee.total_length ?? null,
-    courseRating: tee.course_rating ?? undefined,
-    slopeRating: tee.slope ?? undefined,
-  };
-}
 
 /**
  * Fetch round with course data including tees from normalized table

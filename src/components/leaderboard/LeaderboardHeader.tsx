@@ -10,9 +10,9 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { IconUsers } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 import { DateTimeDisplay } from '@/components/common/DateTimeDisplay';
 import { Pill } from '@/components/common/Pill';
 import type { GameType } from '@/types';
@@ -44,9 +44,9 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
-        <Text style={[styles.roundTitle, { color: colors.textPrimary }]}>
+        <ScaledText category="title" style={[styles.roundTitle, { color: colors.textPrimary }]}>
           Round {roundNumber}
-        </Text>
+        </ScaledText>
         <View style={styles.badgeRow}>
           <Pill
             label={getGameTypeLabel(gameType)}
@@ -56,9 +56,9 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
           {isTeamRound && (
             <View style={[styles.teamBadge, { backgroundColor: colors.gray200 }]}>
               <IconUsers size={12} color={colors.textSecondary} />
-              <Text style={[styles.teamBadgeText, { color: colors.textSecondary }]}>
+              <ScaledText category="caption" style={[styles.teamBadgeText, { color: colors.textSecondary }]}>
                 Teams
-              </Text>
+              </ScaledText>
             </View>
           )}
         </View>
@@ -66,12 +66,13 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
       <View style={styles.headerMeta}>
         {date && <DateTimeDisplay date={date} size="sm" />}
         {courseName && (
-          <Text
+          <ScaledText
+            category="caption"
             style={[styles.courseName, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
             {courseName}
-          </Text>
+          </ScaledText>
         )}
       </View>
     </View>

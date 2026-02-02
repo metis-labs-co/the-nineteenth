@@ -36,6 +36,7 @@ import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionCont
 import { useAuth } from '@/hooks/useAuth';
 import { roundKeys } from '@/hooks/queryKeys';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
+import { useWolfGameByRound } from '@/hooks/wolf';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import { supabase } from '@/services/supabase/client';
 
@@ -54,6 +55,7 @@ import {
 } from './components';
 import { CourseSelectionModal } from '../AddRoundScreen/components';
 import { SkinsSection } from '@/components/skins';
+import { WolfSection } from '@/components/wolf';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditRound'>;
 
@@ -86,6 +88,9 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   // Fetch existing skins game for this round
   const { data: activeSkinsGame, isLoading: isLoadingSkins } = useActiveSkinsGameForRound(roundId);
 
+  // Fetch existing Wolf game for this round
+  const { data: activeWolfGame, isLoading: isLoadingWolf } = useWolfGameByRound(roundId);
+
   // Prepare existing skins game data for the form
   const existingSkinsGame = useMemo(() => {
     if (!activeSkinsGame) return null;
@@ -98,6 +103,20 @@ export default function EditRoundScreen({ navigation, route }: Props) {
       pool_source: activeSkinsGame.pool_source,
     };
   }, [activeSkinsGame]);
+
+  // Prepare existing Wolf game data for the form
+  const existingWolfGame = useMemo(() => {
+    if (!activeWolfGame) return null;
+    return {
+      id: activeWolfGame.id,
+      scoring_type: activeWolfGame.scoring_type,
+      blind_wolf_enabled: activeWolfGame.blind_wolf_enabled,
+      pot_enabled: activeWolfGame.pot_enabled,
+      pot_value_per_point: activeWolfGame.pot_value_per_point,
+      currency: activeWolfGame.currency,
+      wolf_order: activeWolfGame.wolf_order ?? [],
+    };
+  }, [activeWolfGame]);
 
   // Fetch competition players for skins participant IDs
   const { data: competitionPlayers } = useQuery({
@@ -124,6 +143,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     isDirty,
     availableTees,
     skinsEditState,
+    wolfEditState,
     setDate,
     setTeeTime,
     clearTeeTime,
@@ -134,10 +154,12 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     setSkinsEnabled,
     setSkinsConfig,
     setPoolSource,
+    setWolfEnabled,
+    setWolfConfig,
     poolData,
     getSelectedDate,
     getSelectedTime,
-  } = useEditRoundForm({ round, competitionId, existingSkinsGame });
+  } = useEditRoundForm({ round, competitionId, existingSkinsGame, existingWolfGame });
 
   // Submission handling
   const {
@@ -152,6 +174,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     competitionId,
     formData,
     skinsEditState,
+    wolfEditState,
     userId: user?.id,
     participantIds: competitionPlayers ?? [],
     poolId: poolData?.pool?.id,
@@ -192,7 +215,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   );
 
   // Loading state
-  if (isLoading || isLoadingSkins) {
+  if (isLoading || isLoadingSkins || isLoadingWolf) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
         <LoadingSpinner size="lg" message="Loading round..." />
@@ -336,6 +359,21 @@ export default function EditRoundScreen({ navigation, route }: Props) {
               poolSource={formData.skinsPoolSource}
               onPoolSourceChange={setPoolSource}
             />
+
+            {/* Wolf Game Section (3-4 players only, not team rounds) */}
+            {!round?.is_team_round && (
+              <WolfSection
+                isPremium={isPremium}
+                wolfEnabled={formData.wolfEnabled}
+                wolfConfig={formData.wolfConfig}
+                editState={wolfEditState}
+                onWolfEnabledChange={setWolfEnabled}
+                onWolfConfigChange={setWolfConfig}
+                onUpgradePress={handleUpgradePress}
+                disabled={isSubmitting}
+                participantCount={competitionPlayers?.length ?? 0}
+              />
+            )}
           </View>
         )}
       </ScrollView>

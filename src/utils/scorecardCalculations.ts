@@ -9,7 +9,7 @@ import type { Hole, HoleScore, TeeBox } from '@/types/database.types';
 import type { MultiBallHoleScore } from '@/types/database/base';
 import type { PlayerGender } from '@/types/database/player.types';
 import { isSingleBallScore } from '@/types/database/base';
-import { getStrokesReceived, calculateStablefordPointsNet } from './scoring';
+import { getStrokesReceived, calculateStablefordPointsNet, calculateParScore } from './scoring';
 import { calculateGADailyHandicap } from './dailyHandicap';
 
 // =====================================================
@@ -44,9 +44,12 @@ export interface PlayerStats {
   back9Gross: number;
   front9Stableford: number;
   back9Stableford: number;
+  front9ParScore: number; // Par game: sum of +1/0/-1 for front 9
+  back9ParScore: number; // Par game: sum of +1/0/-1 for back 9
   totalGross: number;
   totalNet: number;
   totalStableford: number;
+  totalParScore: number; // Par game: sum of all hole results
   hasScores: boolean;
 }
 
@@ -112,6 +115,8 @@ export function calculatePlayerStats(
     let back9Gross = 0;
     let front9Stableford = 0;
     let back9Stableford = 0;
+    let front9ParScore = 0;
+    let back9ParScore = 0;
     let hasScores = false;
 
     holes.forEach((hole) => {
@@ -123,13 +128,18 @@ export function calculatePlayerStats(
       const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
       const stablefordPoints =
         strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
+      // Calculate par score (+1, 0, -1) for this hole
+      const parScore =
+        strokes > 0 ? calculateParScore(strokes, hole.par, strokesReceived) : 0;
 
       if (hole.number <= 9) {
         front9Gross += strokes;
         front9Stableford += stablefordPoints;
+        front9ParScore += parScore;
       } else {
         back9Gross += strokes;
         back9Stableford += stablefordPoints;
+        back9ParScore += parScore;
       }
     });
 
@@ -137,6 +147,7 @@ export function calculatePlayerStats(
     // Use daily handicap for net score calculation
     const totalNet = totalGross - dailyHandicap;
     const totalStableford = front9Stableford + back9Stableford;
+    const totalParScore = front9ParScore + back9ParScore;
 
     return {
       playerId: playerData.id,
@@ -147,9 +158,12 @@ export function calculatePlayerStats(
       back9Gross,
       front9Stableford,
       back9Stableford,
+      front9ParScore,
+      back9ParScore,
       totalGross,
       totalNet,
       totalStableford,
+      totalParScore,
       hasScores,
     };
   });

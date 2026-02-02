@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconArrowLeft, IconX } from '@tabler/icons-react-native';
-import { spacing, shadows } from '@/constants/theme';
+import { spacing, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from './ScaledText';
 
 /**
  * PageHeader - Consistent header component for all screens
@@ -168,7 +169,7 @@ export function PageHeader({
       style={[
         styles.container,
         {
-          height: totalHeight,
+          minHeight: totalHeight,
           paddingTop: insets.top,
           backgroundColor: bgColor,
           borderBottomColor: colors.border,
@@ -188,7 +189,8 @@ export function PageHeader({
 
             {/* Center section - title and subtitle */}
             <View style={styles.centeredTitleSection}>
-              <Text
+              <ScaledText
+                category="title"
                 style={[styles.title, styles.centeredTitle, { color: txtColor }]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -196,16 +198,17 @@ export function PageHeader({
                 accessibilityLabel={`Page title: ${title}`}
               >
                 {title}
-              </Text>
+              </ScaledText>
               {subtitle && (
                 typeof subtitle === 'string' ? (
-                  <Text
+                  <ScaledText
+                    category="caption"
                     style={[styles.subtitle, styles.centeredTitle, { color: colors.textSecondary }]}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
                     {subtitle}
-                  </Text>
+                  </ScaledText>
                 ) : (
                   <View style={styles.subtitleWrapper}>{subtitle}</View>
                 )
@@ -223,7 +226,8 @@ export function PageHeader({
             <View style={styles.leftSection}>
               {BackButton}
               <View style={styles.titleContainer}>
-                <Text
+                <ScaledText
+                  category="title"
                   style={[styles.title, { color: txtColor }]}
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -231,16 +235,17 @@ export function PageHeader({
                   accessibilityLabel={`Page title: ${title}`}
                 >
                   {title}
-                </Text>
+                </ScaledText>
                 {subtitle && (
                   typeof subtitle === 'string' ? (
-                    <Text
+                    <ScaledText
+                      category="caption"
                       style={[styles.subtitle, { color: colors.textSecondary }]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
                       {subtitle}
-                    </Text>
+                    </ScaledText>
                   ) : (
                     <View style={styles.subtitleWrapper}>{subtitle}</View>
                   )
@@ -302,15 +307,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 24,
+    ...typography.h3,
     flexShrink: 1,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '400',
-    lineHeight: 16,
+    ...typography.caption,
     marginTop: 2,
     flexShrink: 1,
   },

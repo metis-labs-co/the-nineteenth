@@ -21,6 +21,8 @@ export function getGameTypeLabel(gameType: GameType): string {
       return 'Stableford';
     case 'stroke':
       return 'Stroke Play';
+    case 'par':
+      return 'Par';
     case 'match-play':
       return 'Match Play';
     case 'best-ball':
@@ -44,6 +46,7 @@ export function getGameTypeVariant(
     case 'stableford':
       return 'primary';
     case 'stroke':
+    case 'par':
       return 'info';
     case 'match-play':
       return 'warning';

@@ -369,7 +369,41 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 6. Fetch winner for completed rounds
+      // 6. Fetch wolf games for all rounds to set hasWolf flag
+      if (allRoundIds.length > 0) {
+        try {
+          interface WolfGameRow {
+            round_id: string;
+          }
+
+          const { data: wolfGamesData, error: wolfGamesError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('wolf_games') as any)
+            .select('round_id')
+            .in('round_id', allRoundIds)
+            .in('status', ['active', 'completed']);
+
+          if (wolfGamesError) {
+            if (wolfGamesError.code !== 'PGRST205') {
+              console.error('Error fetching wolf games:', wolfGamesError);
+            }
+          } else if (wolfGamesData) {
+            // Create a set of round IDs that have wolf games
+            const roundsWithWolf = new Set(
+              (wolfGamesData as WolfGameRow[]).map(wg => wg.round_id)
+            );
+
+            // Update hasWolf flag on rounds
+            for (const round of allRounds) {
+              round.hasWolf = roundsWithWolf.has(round.id);
+            }
+          }
+        } catch (err) {
+          console.log('wolf_games fetch skipped (table may not exist yet)');
+        }
+      }
+
+      // 7. Fetch winner for completed rounds
       // Get all scorecards for completed rounds to determine winner
       if (completedRoundIds.length > 0) {
         try {

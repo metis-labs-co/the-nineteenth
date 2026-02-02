@@ -32,13 +32,25 @@ import {
   SkinsDisclaimerModal,
   hasAcceptedSkinsDisclaimer,
 } from '@/components/skins';
+import {
+  WolfConfigBottomSheet,
+  WolfDisclaimerModal,
+  hasAcceptedWolfDisclaimer,
+} from '@/components/wolf';
+import { IconDog, IconAlertCircle } from '@tabler/icons-react-native';
+import { Switch, Divider } from 'react-native-paper';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
+import type { WolfConfig, WolfParticipant } from '@/types/database/wolf.types';
 import type { SelectedCourse, PlayingPartner, ScrambleTeam } from '../types';
 import { MATCH_TYPES } from '../types';
+import { useAuth } from '@/hooks/useAuth';
 
 /** Amber/gold color for skins feature */
 const SKINS_AMBER = '#f59e0b';
+
+/** Gray color for wolf feature */
+const WOLF_COLOR = '#6B7280';
 
 /** Team game types that require splitIntoTeams for skins */
 const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
@@ -82,6 +94,11 @@ interface ScoringSetupStepProps {
   skinsConfig: SkinsConfig | null;
   onSkinsEnabledChange: (enabled: boolean) => void;
   onSkinsConfigChange: (config: SkinsConfig) => void;
+  // Wolf game
+  wolfEnabled: boolean;
+  wolfConfig: WolfConfig | null;
+  onWolfEnabledChange: (enabled: boolean) => void;
+  onWolfConfigChange: (config: WolfConfig) => void;
   // Actions
   onStartScoring: () => void;
 }
@@ -105,13 +122,22 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   skinsConfig,
   onSkinsEnabledChange,
   onSkinsConfigChange,
+  wolfEnabled,
+  wolfConfig,
+  onWolfEnabledChange,
+  onWolfConfigChange,
   onStartScoring,
 }: ScoringSetupStepProps) {
   const colors = useThemeColors();
+  const { player, user } = useAuth();
 
   // Local state for skins modals
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
   const [showSkinsDisclaimer, setShowSkinsDisclaimer] = useState(false);
+
+  // Local state for wolf modals
+  const [showWolfConfigSheet, setShowWolfConfigSheet] = useState(false);
+  const [showWolfDisclaimer, setShowWolfDisclaimer] = useState(false);
 
   // Skins is only available for 2+ players (current user + at least 1 partner)
   const hasEnoughPlayers = selectedPartners.length >= 1;
@@ -122,6 +148,98 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   const skinsDisabledReason = !hasEnoughPlayers
     ? 'Skins requires at least 2 players'
     : skinsGameTypeValidation.reason;
+
+  // Wolf requires exactly 3-4 players (including current user)
+  // Total players = current user + selectedPartners
+  const totalPlayers = selectedPartners.length + 1;
+
+  // Build Wolf participants list for the config sheet
+  const wolfParticipants: WolfParticipant[] = React.useMemo(() => {
+    const currentUserParticipant: WolfParticipant = {
+      id: player?.id ?? user?.id ?? 'current-user',
+      name: player?.name ?? user?.email?.split('@')[0] ?? 'You',
+      handicap: player?.handicap ?? null,
+    };
+
+    return [
+      currentUserParticipant,
+      ...selectedPartners.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap ?? null,
+      })),
+    ];
+  }, [player, user, selectedPartners]);
+
+  // Wolf validation - requires 3-4 players
+  const hasValidWolfPlayerCount = totalPlayers >= 3 && totalPlayers <= 4;
+  const wolfPlayerError = totalPlayers < 3
+    ? 'Wolf requires at least 3 players'
+    : totalPlayers > 4
+      ? 'Wolf is limited to 4 players maximum'
+      : null;
+
+  /**
+   * Handle wolf toggle press
+   * Shows disclaimer on first use, then opens config sheet
+   */
+  const handleWolfToggle = useCallback(async () => {
+    if (wolfEnabled) {
+      // Disable wolf
+      onWolfEnabledChange(false);
+    } else {
+      // Check if disclaimer has been accepted
+      const accepted = await hasAcceptedWolfDisclaimer();
+      if (accepted) {
+        // Show config sheet directly
+        setShowWolfConfigSheet(true);
+      } else {
+        // Show disclaimer first
+        setShowWolfDisclaimer(true);
+      }
+    }
+  }, [wolfEnabled, onWolfEnabledChange]);
+
+  /**
+   * Handle wolf disclaimer acceptance
+   */
+  const handleWolfDisclaimerAccept = useCallback(() => {
+    setShowWolfDisclaimer(false);
+    setShowWolfConfigSheet(true);
+  }, []);
+
+  /**
+   * Handle wolf disclaimer cancel
+   */
+  const handleWolfDisclaimerCancel = useCallback(() => {
+    setShowWolfDisclaimer(false);
+  }, []);
+
+  /**
+   * Handle wolf config save
+   */
+  const handleWolfConfigSave = useCallback(
+    (config: WolfConfig) => {
+      onWolfConfigChange(config);
+      onWolfEnabledChange(true);
+      setShowWolfConfigSheet(false);
+    },
+    [onWolfConfigChange, onWolfEnabledChange]
+  );
+
+  /**
+   * Handle wolf config sheet dismiss
+   */
+  const handleWolfConfigDismiss = useCallback(() => {
+    setShowWolfConfigSheet(false);
+  }, []);
+
+  /**
+   * Open wolf config sheet for editing
+   */
+  const handleEditWolfConfig = useCallback(() => {
+    setShowWolfConfigSheet(true);
+  }, []);
 
   /**
    * Handle skins toggle press
@@ -560,6 +678,160 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             )}
           </>
         )}
+
+        {/* Wolf Game Section - Premium feature, requires 3-4 players */}
+        <Divider style={[styles.wolfDivider, { backgroundColor: colors.gray200 }]} />
+
+        {isPremium ? (
+          <>
+            {/* Wolf Toggle - Disabled if wrong player count */}
+            {!hasValidWolfPlayerCount ? (
+              <View
+                style={[
+                  styles.wolfToggle,
+                  styles.wolfToggleLocked,
+                  { backgroundColor: colors.gray100, borderColor: colors.gray200 },
+                ]}
+              >
+                <View style={styles.wolfToggleContent}>
+                  <View style={[styles.wolfIconContainer, { backgroundColor: colors.gray200 }]}>
+                    <IconDog size={20} color={colors.gray400} />
+                  </View>
+                  <View style={styles.wolfToggleText}>
+                    <Text style={[styles.wolfToggleLabel, { color: colors.textSecondary }]}>
+                      Add Wolf Game
+                    </Text>
+                    <Text style={[styles.wolfToggleDescription, { color: colors.textTertiary }]}>
+                      {wolfPlayerError}. Current: {totalPlayers} players
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.wolfToggle,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: wolfEnabled ? WOLF_COLOR : colors.border,
+                  },
+                ]}
+                onPress={handleWolfToggle}
+                activeOpacity={0.7}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: wolfEnabled }}
+                accessibilityLabel={wolfEnabled ? 'Wolf game enabled' : 'Enable wolf game'}
+                accessibilityHint="Strategic partner selection side-game"
+              >
+                <View style={styles.wolfToggleContent}>
+                  <View
+                    style={[
+                      styles.wolfIconContainer,
+                      { backgroundColor: wolfEnabled ? `${WOLF_COLOR}20` : colors.gray100 },
+                    ]}
+                  >
+                    <IconDog
+                      size={20}
+                      color={wolfEnabled ? WOLF_COLOR : colors.gray400}
+                    />
+                  </View>
+                  <View style={styles.wolfToggleText}>
+                    <Text style={[styles.wolfToggleLabel, { color: colors.textPrimary }]}>
+                      Add Wolf Game
+                    </Text>
+                    <Text style={[styles.wolfToggleDescription, { color: colors.textSecondary }]}>
+                      Strategic partner selection side-game
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      backgroundColor: wolfEnabled ? WOLF_COLOR : colors.surface,
+                      borderColor: wolfEnabled ? WOLF_COLOR : colors.gray300,
+                    },
+                  ]}
+                >
+                  {wolfEnabled && <IconCheck size={14} color={colors.white} />}
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Wolf Config Summary (when enabled) */}
+            {wolfEnabled && wolfConfig && (
+              <TouchableOpacity
+                style={[styles.wolfConfigSummary, { backgroundColor: `${WOLF_COLOR}10`, borderColor: `${WOLF_COLOR}40` }]}
+                onPress={handleEditWolfConfig}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Edit wolf configuration"
+              >
+                <View style={styles.wolfConfigSummaryContent}>
+                  <View style={styles.wolfConfigRow}>
+                    <Text style={[styles.wolfConfigLabel, { color: colors.textSecondary }]}>
+                      Scoring:
+                    </Text>
+                    <Text style={[styles.wolfConfigValue, { color: colors.textPrimary }]}>
+                      {wolfConfig.scoring_type === 'gross' ? 'Gross' : 'Net (with handicap)'}
+                    </Text>
+                  </View>
+                  <View style={styles.wolfConfigRow}>
+                    <Text style={[styles.wolfConfigLabel, { color: colors.textSecondary }]}>
+                      Blind Wolf:
+                    </Text>
+                    <Text style={[styles.wolfConfigValue, { color: colors.textPrimary }]}>
+                      {wolfConfig.blind_wolf_enabled ? 'Enabled' : 'Disabled'}
+                    </Text>
+                  </View>
+                  {wolfConfig.pot_enabled && (
+                    <View style={styles.wolfConfigRow}>
+                      <Text style={[styles.wolfConfigLabel, { color: colors.textSecondary }]}>
+                        Pot:
+                      </Text>
+                      <Text style={[styles.wolfConfigValue, { color: colors.textPrimary }]}>
+                        ${wolfConfig.pot_value_per_point}/point
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.wolfConfigTapHint, { color: WOLF_COLOR }]}>
+                  Tap to edit
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          /* Locked state for non-premium users */
+          <View
+            style={[
+              styles.wolfToggle,
+              styles.wolfToggleLocked,
+              { backgroundColor: colors.gray100, borderColor: colors.gray200 },
+            ]}
+          >
+            <View style={styles.wolfToggleContent}>
+              <View style={[styles.wolfIconContainer, { backgroundColor: colors.gray200 }]}>
+                <IconLock size={20} color={colors.gray500} />
+              </View>
+              <View style={styles.wolfToggleText}>
+                <View style={styles.wolfLabelRow}>
+                  <Text style={[styles.wolfToggleLabel, { color: colors.textSecondary }]}>
+                    Add Wolf Game
+                  </Text>
+                  <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                    <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
+                      Premium
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.wolfToggleDescription, { color: colors.textTertiary }]}>
+                  Upgrade to Premium for Wolf side-game
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
       </ScrollView>
 
@@ -603,6 +875,23 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
         visible={showSkinsDisclaimer}
         onAccept={handleDisclaimerAccept}
         onCancel={handleDisclaimerCancel}
+      />
+
+      {/* Wolf Config Bottom Sheet - rendered at root to stack above everything */}
+      <WolfConfigBottomSheet
+        visible={showWolfConfigSheet}
+        onDismiss={handleWolfConfigDismiss}
+        initialConfig={wolfConfig}
+        onSave={handleWolfConfigSave}
+        participants={wolfParticipants}
+        showBackdrop={false}
+      />
+
+      {/* Wolf Disclaimer Modal */}
+      <WolfDisclaimerModal
+        visible={showWolfDisclaimer}
+        onAccept={handleWolfDisclaimerAccept}
+        onCancel={handleWolfDisclaimerCancel}
       />
     </>
   );
@@ -854,6 +1143,78 @@ const styles = StyleSheet.create({
     ...typography.smallBold,
   },
   skinsConfigTapHint: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  // Wolf styles
+  wolfDivider: {
+    height: 1,
+    marginVertical: spacing.lg,
+  },
+  wolfToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  wolfToggleLocked: {
+    opacity: 0.8,
+  },
+  wolfToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.md,
+  },
+  wolfIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wolfToggleText: {
+    flex: 1,
+  },
+  wolfToggleLabel: {
+    ...typography.bodyBold,
+  },
+  wolfLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  wolfToggleDescription: {
+    ...typography.small,
+    marginTop: 2,
+  },
+  wolfConfigSummary: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  wolfConfigSummaryContent: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  wolfConfigRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  wolfConfigLabel: {
+    ...typography.small,
+  },
+  wolfConfigValue: {
+    ...typography.smallBold,
+  },
+  wolfConfigTapHint: {
     ...typography.caption,
     fontWeight: '600',
   },

@@ -13,8 +13,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { Text } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ScaledText } from '@/components/common';
 import { IconTrophy, IconChartBar, IconChevronDown, IconChevronUp, IconUser } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
@@ -168,8 +167,8 @@ export function TeamLeaderboardTable({
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.surfaceVariant }]}>
             <IconChartBar size={48} color={colors.textDisabled} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No team standings yet</Text>
-          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</Text>
+          <ScaledText category="body" style={[styles.emptyTitle, { color: colors.textPrimary }]}>No team standings yet</ScaledText>
+          <ScaledText category="body" style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</ScaledText>
         </View>
       </View>
     );
@@ -179,18 +178,18 @@ export function TeamLeaderboardTable({
     <View style={[styles.card, { backgroundColor: colors.surface }]} testID={testID}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.positionCol, { color: colors.textSecondary }]}>
           #
-        </Text>
-        <Text style={[styles.tableHeaderCell, styles.teamCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.teamCol, { color: colors.textSecondary }]}>
           Team
-        </Text>
-        <Text style={[styles.tableHeaderCell, styles.handicapCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.handicapCol, { color: colors.textSecondary }]}>
           Avg HC
-        </Text>
-        <Text style={[styles.tableHeaderCell, styles.pointsCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.tableHeaderCell, styles.pointsCol, { color: colors.textSecondary }]}>
           Pts
-        </Text>
+        </ScaledText>
         <View style={styles.expandCol} />
       </View>
 
@@ -223,7 +222,8 @@ export function TeamLeaderboardTable({
                 {isFirstPlace ? (
                   <IconTrophy size={20} color={colors.warning} />
                 ) : (
-                  <Text
+                  <ScaledText
+                    category="caption"
                     style={[
                       styles.positionText,
                       { color: colors.textSecondary },
@@ -232,15 +232,16 @@ export function TeamLeaderboardTable({
                   >
                     {entry.position}
                     {entry.isTied && showTiedIndicator && (
-                      <Text style={[styles.tiedIndicator, { color: colors.textDisabled }]}>T</Text>
+                      <ScaledText category="caption" style={[styles.tiedIndicator, { color: colors.textDisabled }]}>T</ScaledText>
                     )}
-                  </Text>
+                  </ScaledText>
                 )}
               </View>
 
               {/* Team Name */}
               <View style={[styles.tableCell, styles.teamCol]}>
-                <Text
+                <ScaledText
+                  category="body"
                   style={[
                     styles.teamName,
                     { color: colors.textPrimary },
@@ -249,15 +250,16 @@ export function TeamLeaderboardTable({
                   numberOfLines={1}
                 >
                   {entry.teamName}
-                </Text>
-                <Text style={[styles.memberCount, { color: colors.textTertiary }]}>
+                </ScaledText>
+                <ScaledText category="caption" style={[styles.memberCount, { color: colors.textTertiary }]}>
                   {entry.members.length} member{entry.members.length !== 1 ? 's' : ''}
-                </Text>
+                </ScaledText>
               </View>
 
               {/* Average Handicap */}
               <View style={[styles.tableCell, styles.handicapCol]}>
-                <Text
+                <ScaledText
+                  category="caption"
                   style={[
                     styles.handicapText,
                     { color: colors.textSecondary },
@@ -265,12 +267,13 @@ export function TeamLeaderboardTable({
                   ]}
                 >
                   {entry.avgHandicap.toFixed(1)}
-                </Text>
+                </ScaledText>
               </View>
 
               {/* Points */}
               <View style={[styles.tableCell, styles.pointsCol]}>
-                <Text
+                <ScaledText
+                  category="caption"
                   style={[
                     styles.pointsText,
                     { color: colors.textPrimary },
@@ -279,7 +282,7 @@ export function TeamLeaderboardTable({
                   ]}
                 >
                   {entry.totalPoints}
-                </Text>
+                </ScaledText>
               </View>
 
               {/* Expand/Collapse Icon */}
@@ -318,7 +321,8 @@ export function TeamLeaderboardTable({
 
                       {/* Member Name */}
                       <View style={[styles.memberNameCol, hideMemberPoints && styles.memberNameColExpanded]}>
-                        <Text
+                        <ScaledText
+                          category="body"
                           style={[
                             styles.memberName,
                             { color: colors.textPrimary },
@@ -327,20 +331,21 @@ export function TeamLeaderboardTable({
                           numberOfLines={1}
                         >
                           {isCurrentUserMember ? 'You' : member.playerName}
-                        </Text>
+                        </ScaledText>
                       </View>
 
                       {/* Member Handicap */}
                       <View style={styles.memberHandicapCol}>
-                        <Text style={[styles.memberStat, { color: colors.textSecondary }]}>
+                        <ScaledText category="caption" style={[styles.memberStat, { color: colors.textSecondary }]}>
                           HC: {member.handicap}
-                        </Text>
+                        </ScaledText>
                       </View>
 
                       {/* Member Points - hidden for scramble format */}
                       {!hideMemberPoints && (
                         <View style={styles.memberPointsCol}>
-                          <Text
+                          <ScaledText
+                            category="caption"
                             style={[
                               styles.memberPoints,
                               { color: colors.textPrimary },
@@ -348,7 +353,7 @@ export function TeamLeaderboardTable({
                             ]}
                           >
                             {member.points} pts
-                          </Text>
+                          </ScaledText>
                         </View>
                       )}
                     </View>
@@ -407,9 +412,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Column widths
+  // Column widths (minWidth for text scaling flexibility)
   positionCol: {
-    width: 36,
+    minWidth: 36,
     alignItems: 'center',
   },
   teamCol: {
@@ -417,11 +422,11 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   handicapCol: {
-    width: 50,
+    minWidth: 50,
     alignItems: 'center',
   },
   pointsCol: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'flex-end',
   },
   expandCol: {

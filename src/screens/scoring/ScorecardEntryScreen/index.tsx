@@ -14,7 +14,7 @@
  * - Super admin hole editing (par, SI, yardage)
  */
 
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -30,7 +30,15 @@ import {
   SwipeableHoleNavigator,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet } from '@/components/courses';
+import { WolfDecisionModal } from '@/components/wolf';
 import { useUpdateCourseHoles, useProcessSkinsIfNeeded } from '@/hooks';
+import {
+  useWolfGameByRound,
+  useWolfCurrentHoleDecision,
+  useSubmitWolfDecision,
+  useRecordWolfHoleResult,
+} from '@/hooks/wolf';
+import { determineWolfForHole } from '@/utils/wolfCalculations';
 import { scoringLogger } from '@/utils/debugLogger';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -101,6 +109,36 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   // Skins processing hook
   const { processSkinsHole } = useProcessSkinsIfNeeded();
+
+  // Wolf game state and hooks
+  const [showWolfDecisionModal, setShowWolfDecisionModal] = useState(false);
+  const { data: wolfGame } = useWolfGameByRound(roundId);
+  const { data: wolfDecision, refetch: refetchWolfDecision } = useWolfCurrentHoleDecision(
+    wolfGame?.id,
+    currentHole
+  );
+  const submitWolfDecision = useSubmitWolfDecision();
+  const recordWolfHoleResult = useRecordWolfHoleResult();
+
+  // Determine Wolf for current hole
+  const currentWolfId = wolfGame?.wolf_order
+    ? determineWolfForHole(wolfGame.wolf_order, currentHole)
+    : null;
+  const currentWolfPlayer = wolfGame?.participants.find((p) => p.id === currentWolfId);
+  const otherWolfPlayers = wolfGame?.participants.filter((p) => p.id !== currentWolfId) ?? [];
+
+  // Check if blind wolf can still be selected (no scores entered on this hole)
+  const canSelectBlindWolf = useMemo(() => {
+    if (!wolfGame || !currentPlayers.length) return true;
+    // Check if any player has a score for current hole
+    for (const player of currentPlayers) {
+      const score = getPlayerScore(player.id, currentHole);
+      if (score && typeof score === 'object' && 'strokes' in score && score.strokes > 0) {
+        return false;
+      }
+    }
+    return true;
+  }, [wolfGame, currentPlayers, currentHole, getPlayerScore]);
 
   // Stats visibility (respects Premium tier)
   const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
@@ -308,6 +346,76 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     [navigation, roundId]
   );
 
+  // Wolf decision handler
+  const handleWolfSelectPartner = useCallback(
+    async (partnerId: string | null, isBlindWolf: boolean) => {
+      if (!wolfGame) return;
+
+      try {
+        await submitWolfDecision.mutateAsync({
+          wolf_game_id: wolfGame.id,
+          hole_number: currentHole,
+          is_blind_wolf: isBlindWolf,
+          partner_id: partnerId,
+        });
+        setShowWolfDecisionModal(false);
+        refetchWolfDecision();
+        scoringLogger.info('WOLF: Decision submitted', {
+          hole: currentHole,
+          isBlindWolf,
+          partnerId: partnerId?.substring(0, 8) ?? 'lone',
+        });
+      } catch (error) {
+        scoringLogger.error('WOLF: Failed to submit decision', { error });
+      }
+    },
+    [wolfGame, currentHole, submitWolfDecision, refetchWolfDecision]
+  );
+
+  // Wolf result processing - called after scores are complete
+  const processWolfHoleResult = useCallback(async () => {
+    if (!wolfGame || !wolfDecision?.decided_at || wolfDecision.calculated_at) return;
+
+    // Check if all players have scores for this hole
+    const allHaveScores = wolfGame.participant_ids.every((playerId) => {
+      const score = getPlayerScore(playerId, currentHole);
+      return score && typeof score === 'object' && 'strokes' in score && score.strokes > 0;
+    });
+
+    if (!allHaveScores) return;
+
+    // Build hole scores map
+    const holeScores: Record<string, number> = {};
+    for (const playerId of wolfGame.participant_ids) {
+      const score = getPlayerScore(playerId, currentHole);
+      if (score && typeof score === 'object' && 'strokes' in score) {
+        holeScores[playerId] = score.strokes;
+      }
+    }
+
+    try {
+      await recordWolfHoleResult.mutateAsync({
+        wolf_game_id: wolfGame.id,
+        hole_number: currentHole,
+        hole_scores: holeScores,
+      });
+      refetchWolfDecision();
+      scoringLogger.info('WOLF: Hole result calculated', {
+        hole: currentHole,
+        scores: holeScores,
+      });
+    } catch (error) {
+      scoringLogger.error('WOLF: Failed to calculate result', { error });
+    }
+  }, [wolfGame, wolfDecision, currentHole, getPlayerScore, recordWolfHoleResult, refetchWolfDecision]);
+
+  // Process Wolf result when scores are complete
+  useEffect(() => {
+    if (wolfGame && wolfDecision?.decided_at && !wolfDecision.calculated_at) {
+      processWolfHoleResult();
+    }
+  }, [wolfGame, wolfDecision, processWolfHoleResult]);
+
   const handleViewScorecard = useCallback(() => {
     if (currentPlayers.length === 1) {
       navigation.navigate('PlayerScorecard', {
@@ -440,6 +548,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               // Stats visibility (Premium-only)
               showFIR={showFairwayHit}
               showGIR={showGreenInRegulation}
+              // Wolf game props
+              wolfGame={wolfGame}
+              wolfDecision={wolfDecision}
+              onWolfChoosePartner={() => setShowWolfDecisionModal(true)}
+              isWolfProcessing={submitWolfDecision.isPending || recordWolfHoleResult.isPending}
             />
 
             {/* Quick Scorecard View - only show for individual scoring */}
@@ -500,6 +613,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       playersToRender,
       isHoleComplete,
       nav.handleHolePress,
+      // Wolf dependencies
+      wolfGame,
+      wolfDecision,
+      submitWolfDecision.isPending,
+      recordWolfHoleResult.isPending,
     ]
   );
 
@@ -611,6 +729,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           selectedTee={selectedTee}
           onSave={handleSaveHole}
           loading={updateCourseHolesMutation.isPending}
+        />
+      )}
+
+      {/* Wolf Decision Modal */}
+      {wolfGame && currentWolfPlayer && (
+        <WolfDecisionModal
+          visible={showWolfDecisionModal}
+          onDismiss={() => setShowWolfDecisionModal(false)}
+          wolfGame={wolfGame}
+          currentHole={currentHole}
+          wolfId={currentWolfPlayer.id}
+          wolfName={currentWolfPlayer.name}
+          otherPlayers={otherWolfPlayers}
+          blindWolfEnabled={wolfGame.blind_wolf_enabled}
+          canSelectBlindWolf={canSelectBlindWolf}
+          onSelectPartner={handleWolfSelectPartner}
         />
       )}
 

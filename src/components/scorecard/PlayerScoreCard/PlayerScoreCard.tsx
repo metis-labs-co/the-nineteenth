@@ -15,7 +15,6 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -23,6 +22,7 @@ import {
   shadows,
 } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 import { useStatsVisibility } from '@/store/settingsStore';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -147,12 +147,15 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
       {/* Scoring Label - shows "Your Score" or "Partner's Score" when scoring pairs enabled */}
       {isOwnScore !== undefined && (
         <View style={styles.scoringLabelContainer}>
-          <Text style={[
-            styles.scoringLabel,
-            { color: isOwnScore ? colors.primary : colors.textSecondary }
-          ]}>
+          <ScaledText
+            category="caption"
+            style={[
+              styles.scoringLabel,
+              { color: isOwnScore ? colors.primary : colors.textSecondary }
+            ]}
+          >
             {isOwnScore ? 'Your Score' : "Partner's Score"}
-          </Text>
+          </ScaledText>
         </View>
       )}
 
@@ -170,25 +173,25 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           accessibilityRole="button"
           accessibilityHint="Opens the player's detailed scorecard"
         >
-          <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+          <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
             {player.name}
-          </Text>
-          <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {handicap}</Text>
+          </ScaledText>
+          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {handicap}</ScaledText>
         </TouchableOpacity>
 
         {/* Stats Display */}
         <View style={styles.statsContainer}>
           {/* Shots received on this hole */}
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{strokesOnHole > 0 ? `+${strokesOnHole}` : '-'}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</Text>
+            <ScaledText category="critical" style={[styles.statValue, { color: colors.textPrimary }]}>{strokesOnHole > 0 ? `+${strokesOnHole}` : '-'}</ScaledText>
+            <ScaledText category="caption" style={[styles.statLabel, { color: colors.textSecondary }]}>SHOTS</ScaledText>
           </View>
           {/* Running total or current hole points */}
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+            <ScaledText category="critical" style={[styles.statValue, { color: colors.textPrimary }]}>
               {runningTotalPoints !== undefined ? runningTotalPoints + stablefordPoints : stablefordPoints}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>PTS</Text>
+            </ScaledText>
+            <ScaledText category="caption" style={[styles.statLabel, { color: colors.textSecondary }]}>PTS</ScaledText>
           </View>
         </View>
       </View>
@@ -233,17 +236,18 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
       {/* Points Preview - Show what points the current score would earn */}
       {showPointsPreview && selectedScore && !isPickedUp && (
         <View style={styles.pointsPreviewContainer}>
-          <Text style={[styles.pointsPreviewLabel, { color: colors.textSecondary }]}>
+          <ScaledText category="body" style={[styles.pointsPreviewLabel, { color: colors.textSecondary }]}>
             Points for this score:{' '}
-          </Text>
-          <Text
+          </ScaledText>
+          <ScaledText
+            category="body"
             style={[
               styles.pointsPreviewValue,
               { color: getPointsColor(stablefordPoints, colors) },
             ]}
           >
             {stablefordPoints} ({getPointsDescription(stablefordPoints)})
-          </Text>
+          </ScaledText>
         </View>
       )}
 

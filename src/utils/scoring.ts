@@ -1,6 +1,6 @@
 import { Hole, GameType, Scorecard } from '@/types';
 import { isSingleBallScore } from '@/types/database/base';
-import { STABLEFORD_POINTS, PICKUP_SCORE, STANDARD_SLOPE_RATING } from '@/constants/scoring';
+import { STABLEFORD_POINTS, PAR_GAME_POINTS, PICKUP_SCORE, STANDARD_SLOPE_RATING } from '@/constants/scoring';
 import { colors } from '@/constants/theme';
 
 /**
@@ -107,6 +107,28 @@ export function calculateStablefordPointsNet(
   if (relativeToPar === 0) return STABLEFORD_POINTS.PAR;
   if (relativeToPar === 1) return STABLEFORD_POINTS.BOGEY;
   return STABLEFORD_POINTS.DOUBLE_OR_WORSE;
+}
+
+/**
+ * Calculate Par game score for a hole
+ * Par game scoring awards +1 (win), 0 (square), or -1 (loss) based on net score vs par.
+ *
+ * @param strokes - Gross strokes on the hole
+ * @param par - Par for the hole
+ * @param strokesReceived - Strokes received on this hole (from handicap)
+ * @returns Par game score (+1, 0, or -1)
+ */
+export function calculateParScore(
+  strokes: number,
+  par: number,
+  strokesReceived: number
+): number {
+  const netStrokes = strokes - strokesReceived;
+  const relativeToPar = netStrokes - par;
+
+  if (relativeToPar <= -1) return PAR_GAME_POINTS.WIN;
+  if (relativeToPar === 0) return PAR_GAME_POINTS.SQUARE;
+  return PAR_GAME_POINTS.LOSS;
 }
 
 /**

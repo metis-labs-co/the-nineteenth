@@ -11,6 +11,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
+import type { WolfConfig } from '@/types/database/wolf.types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +24,7 @@ import type {
   PlayingPartner,
   ScoringPairsConfig,
   StandaloneSkinsConfig,
+  StandaloneWolfConfig,
   InitialCourse,
   ScrambleTeam,
   TeamConfig,
@@ -64,7 +66,8 @@ interface UseCreateRoundWizardOptions {
     scoringPairs?: ScoringPairsConfig,
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
-    teamConfig?: TeamConfig
+    teamConfig?: TeamConfig,
+    wolfConfig?: StandaloneWolfConfig
   ) => void;
   onClose: () => void;
 }
@@ -99,6 +102,10 @@ interface UseCreateRoundWizardReturn {
   // Skins game
   setSkinsEnabled: (enabled: boolean) => void;
   handleSkinsConfigChange: (config: SkinsConfig) => void;
+
+  // Wolf game
+  setWolfEnabled: (enabled: boolean) => void;
+  handleWolfConfigChange: (config: WolfConfig) => void;
 
   // Teams (scramble format)
   shuffleTeams: () => void;
@@ -136,6 +143,8 @@ const initialData: WizardData = {
   teams: [],
   teamsLocked: false,
   splitIntoTeams: false,
+  wolfEnabled: false,
+  wolfConfig: null,
 };
 
 export function useCreateRoundWizard({
@@ -398,6 +407,23 @@ export function useCreateRoundWizard({
     }));
   }, []);
 
+  // Wolf game handlers
+  const setWolfEnabled = useCallback((enabled: boolean) => {
+    setData((prev) => ({
+      ...prev,
+      wolfEnabled: enabled,
+      // Reset wolf config when disabling
+      wolfConfig: enabled ? prev.wolfConfig : null,
+    }));
+  }, []);
+
+  const handleWolfConfigChange = useCallback((config: WolfConfig) => {
+    setData((prev) => ({
+      ...prev,
+      wolfConfig: config,
+    }));
+  }, []);
+
   // Team generation for scramble format
   const generateTeams = useCallback(
     (players: PlayingPartner[]): ScrambleTeam[] => {
@@ -634,12 +660,30 @@ export function useCreateRoundWizard({
             }
           : undefined;
 
+      // Build Wolf config if enabled and config exists
+      const standaloneWolfConfig: StandaloneWolfConfig | undefined =
+        data.wolfEnabled && data.wolfConfig
+          ? {
+              enabled: true,
+              config: data.wolfConfig,
+            }
+          : undefined;
+
       // DEBUG: Log skins configuration being passed to round creation
       console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
         skinsEnabled: data.skinsEnabled,
         hasSkinsConfig: !!data.skinsConfig,
         skinsConfig: data.skinsConfig,
         standaloneSkinsConfig,
+        partnersCount: data.selectedPartners.length,
+      });
+
+      // DEBUG: Log Wolf configuration being passed to round creation
+      console.log('[CreateRoundWizard] handleStartScoring - Wolf config:', {
+        wolfEnabled: data.wolfEnabled,
+        hasWolfConfig: !!data.wolfConfig,
+        wolfConfig: data.wolfConfig,
+        standaloneWolfConfig,
         partnersCount: data.selectedPartners.length,
       });
 
@@ -652,7 +696,8 @@ export function useCreateRoundWizard({
         scoringPairsConfig,
         undefined, // ballCount is only for solo rounds
         standaloneSkinsConfig,
-        teamConfig
+        teamConfig,
+        standaloneWolfConfig
       );
 
       resetState();
@@ -681,6 +726,8 @@ export function useCreateRoundWizard({
     handleScoringPairsChange,
     setSkinsEnabled,
     handleSkinsConfigChange,
+    setWolfEnabled,
+    handleWolfConfigChange,
     shuffleTeams,
     setSplitIntoTeams,
     handleSelectBallCount,

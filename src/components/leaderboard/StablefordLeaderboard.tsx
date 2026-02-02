@@ -10,11 +10,12 @@
 
 import React from 'react';
 import { View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 import {
   type RoundLeaderboardEntry,
   isStablefordScore,
+  isParScore,
   isTeamScore,
 } from '@/hooks/useRoundLeaderboard';
 import { LeaderboardRow } from './LeaderboardRow';
@@ -25,11 +26,20 @@ export interface StablefordLeaderboardProps {
   entries: RoundLeaderboardEntry[];
   /** Current user ID for highlighting */
   currentUserId?: string;
+  /** Column header for score (default: "Pts") */
+  scoreColumnHeader?: string;
+  /** Score label for accessibility (default: "points") */
+  scoreLabel?: string;
+  /** Custom score formatter (default: raw value) */
+  formatScore?: (value: number) => string;
 }
 
 export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
   entries,
   currentUserId,
+  scoreColumnHeader,
+  scoreLabel,
+  formatScore,
 }: StablefordLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -39,21 +49,21 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
     <View style={styles.table}>
       {/* Table Header */}
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerCell, styles.positionCol, { color: colors.textSecondary }]}>
+        <ScaledText category="caption" style={[styles.headerCell, styles.positionCol, { color: colors.textSecondary }]}>
           #
-        </Text>
-        <Text style={[styles.headerCell, styles.nameCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.nameCol, { color: colors.textSecondary }]}>
           {isTeamLeaderboard ? 'Team' : 'Player'}
-        </Text>
-        <Text style={[styles.headerCell, styles.handicapCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.handicapCol, { color: colors.textSecondary }]}>
           HC
-        </Text>
-        <Text style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
-          Pts
-        </Text>
-        <Text style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
+          {scoreColumnHeader ?? 'Pts'}
+        </ScaledText>
+        <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
           CP
-        </Text>
+        </ScaledText>
       </View>
 
       {/* Table Rows */}
@@ -62,11 +72,17 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
 
         // Get score display
         let scoreDisplay = '-';
+        let rawScore = 0;
+
         if (isStablefordScore(entry.scoreData)) {
-          scoreDisplay = String(entry.scoreData.totalPoints);
+          rawScore = entry.scoreData.totalPoints;
+        } else if (isParScore(entry.scoreData)) {
+          rawScore = entry.scoreData.parScore;
         } else if (isTeamScore(entry.scoreData)) {
-          scoreDisplay = String(entry.scoreData.teamScore);
+          rawScore = entry.scoreData.teamScore;
         }
+
+        scoreDisplay = formatScore ? formatScore(rawScore) : String(rawScore);
 
         // Use proper type narrowing for key
         const key = entry.isTeamResult ? entry.teamId : entry.playerId;
@@ -78,7 +94,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
             currentUserId={currentUserId}
             isTied={isTied}
             scoreDisplay={scoreDisplay}
-            scoreLabel="points"
+            scoreLabel={scoreLabel ?? 'points'}
             showCompetitionPoints
           />
         );

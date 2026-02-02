@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, RadioButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { GameTypeInfoBottomSheet } from './GameTypeInfoBottomSheet';
+import { TEAM_FORMAT_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
 import type { TeamFormat } from '@/types/database.types';
 
 /**
@@ -90,11 +92,22 @@ export const TeamFormatSelector = React.memo(function TeamFormatSelector({
   const colors = useThemeColors();
   const isDark = useIsDark();
 
+  // State for team format info bottom sheet
+  const [infoFormat, setInfoFormat] = useState<TeamFormat | null>(null);
+
   const handlePress = (format: TeamFormat) => {
     if (!disabled) {
       onChange(format);
     }
   };
+
+  const handleInfoPress = useCallback((format: TeamFormat) => {
+    setInfoFormat(format);
+  }, []);
+
+  const handleInfoClose = useCallback(() => {
+    setInfoFormat(null);
+  }, []);
 
   const renderFormatOption = (option: TeamFormatOption) => {
     const isSelected = value === option.value;
@@ -175,6 +188,24 @@ export const TeamFormatSelector = React.memo(function TeamFormatSelector({
             </Text>
           </View>
 
+          {/* Info icon */}
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleInfoPress(option.value);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={`View ${option.label} rules`}
+            accessibilityRole="button"
+          >
+            <Icon
+              source="information-outline"
+              size={20}
+              color={disabled ? colors.gray400 : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
           {isSelected && (
             <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
               <Icon source="check" size={14} color={colors.white} />
@@ -196,6 +227,13 @@ export const TeamFormatSelector = React.memo(function TeamFormatSelector({
       {error && (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       )}
+
+      {/* Team Format Info Bottom Sheet */}
+      <GameTypeInfoBottomSheet
+        visible={infoFormat !== null}
+        onClose={handleInfoClose}
+        gameType={infoFormat ? TEAM_FORMAT_DESCRIPTIONS[infoFormat] : null}
+      />
     </View>
   );
 });
@@ -250,6 +288,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  infoButton: {
+    padding: spacing.xs,
+    marginRight: spacing.xs,
   },
   errorText: {
     ...typography.caption,

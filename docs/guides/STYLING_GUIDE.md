@@ -513,6 +513,238 @@ const { isDark } = useTheme();
 
 ---
 
+## Text Scaling & Accessibility
+
+The app supports iOS Dynamic Type and Android font scaling with controlled maximums to prevent layout breakage.
+
+### ScaledText Component
+
+Use `ScaledText` instead of `Text` for all user-facing text. It wraps React Native Paper's `Text` component and applies `maxFontSizeMultiplier` based on category.
+
+```typescript
+import { ScaledText } from '@/components/common';
+
+// Body text - scales up to 1.5x (default)
+<ScaledText>Description text here</ScaledText>
+
+// Title text - scales up to 1.35x
+<ScaledText category="title">Page Title</ScaledText>
+
+// Critical UI text (score buttons, fixed containers) - scales up to 1.2x
+<ScaledText category="critical">7</ScaledText>
+
+// Caption text - scales up to 1.35x
+<ScaledText category="caption">Par 4 | 385m</ScaledText>
+
+// Display numbers - scales up to 1.35x
+<ScaledText category="display">+12</ScaledText>
+```
+
+### Categories & Scale Limits
+
+| Category | Max Scale | Use For |
+|----------|-----------|---------|
+| `body` | 1.5x | Descriptions, paragraphs (default) |
+| `title` | 1.35x | Headers, page titles |
+| `caption` | 1.35x | Small labels, metadata, table headers |
+| `display` | 1.35x | Large display numbers |
+| `critical` | 1.2x | Text in fixed-size containers (score buttons, badges) |
+
+### When to Use Each Category
+
+**`body` (default)** - Most generous scaling for readability
+```typescript
+// Player descriptions, instructions, help text
+<ScaledText>Enter scores for your group below</ScaledText>
+```
+
+**`title`** - Headers that need to remain readable but not break layout
+```typescript
+// Page headers, section titles
+<ScaledText category="title" style={[styles.title, { color: colors.textPrimary }]}>
+  Leaderboard
+</ScaledText>
+```
+
+**`caption`** - Small labels in dense layouts like tables
+```typescript
+// Table headers, metadata, timestamps
+<ScaledText category="caption" style={[styles.label, { color: colors.textSecondary }]}>
+  HC
+</ScaledText>
+```
+
+**`display`** - Large numbers that are important but not in fixed containers
+```typescript
+// Handicap display, total points
+<ScaledText category="display" style={styles.handicapNumber}>
+  +12.4
+</ScaledText>
+```
+
+**`critical`** - Text that MUST fit within fixed dimensions
+```typescript
+// Score entry buttons (64x64), badges, status indicators
+<ScaledText category="critical" style={styles.scoreButtonText}>
+  7
+</ScaledText>
+```
+
+### Layout Patterns for Scaled Text
+
+**Use `minWidth` instead of `width` for narrow columns:**
+```typescript
+// ✅ Good - allows column to expand with scaled text
+positionCol: {
+  minWidth: 36,
+  alignItems: 'center',
+},
+
+// ❌ Bad - fixed width may clip scaled text
+positionCol: {
+  width: 36,
+  alignItems: 'center',
+},
+```
+
+**Use `minHeight` instead of `height` for headers:**
+```typescript
+// ✅ Good - header expands if text scales larger
+container: {
+  minHeight: totalHeight,
+  paddingTop: insets.top,
+},
+
+// ❌ Bad - fixed height may clip scaled text
+container: {
+  height: totalHeight,
+  paddingTop: insets.top,
+},
+```
+
+**Keep button dimensions fixed, but use `critical` category:**
+```typescript
+// Button stays 64x64 for touch target, but text scales minimally
+<TouchableOpacity style={styles.scoreButton}>
+  <ScaledText category="critical" style={styles.scoreText}>
+    {score}
+  </ScaledText>
+</TouchableOpacity>
+
+const styles = StyleSheet.create({
+  scoreButton: {
+    width: 64,  // Fixed for touch target
+    height: 64,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoreText: {
+    fontSize: 28,
+    fontWeight: '600',
+  },
+});
+```
+
+### Complete Example with ScaledText
+
+```typescript
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScaledText } from '@/components/common';
+import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+
+export function LeaderboardRow({ player, score, position }) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={[styles.row, { borderBottomColor: colors.border }]}>
+      {/* Position - caption for small text in narrow column */}
+      <View style={styles.positionCol}>
+        <ScaledText
+          category="caption"
+          style={[styles.position, { color: colors.textSecondary }]}
+        >
+          {position}
+        </ScaledText>
+      </View>
+
+      {/* Player name - body for main content */}
+      <View style={styles.nameCol}>
+        <ScaledText
+          category="body"
+          style={[styles.name, { color: colors.textPrimary }]}
+          numberOfLines={1}
+        >
+          {player.name}
+        </ScaledText>
+      </View>
+
+      {/* Score - caption for numbers in narrow column */}
+      <View style={styles.scoreCol}>
+        <ScaledText
+          category="caption"
+          style={[styles.score, { color: colors.textPrimary }]}
+        >
+          {score}
+        </ScaledText>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  positionCol: {
+    minWidth: 36,  // minWidth allows expansion
+    alignItems: 'center',
+  },
+  nameCol: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  scoreCol: {
+    minWidth: 44,  // minWidth allows expansion
+    alignItems: 'flex-end',
+  },
+  position: {
+    ...typography.bodyBold,
+  },
+  name: {
+    ...typography.body,
+  },
+  score: {
+    ...typography.h4,
+  },
+});
+```
+
+### Testing Text Scaling
+
+To test how your UI handles text scaling:
+
+**iOS Simulator:**
+1. Settings → Accessibility → Display & Text Size → Larger Text
+2. Enable "Larger Accessibility Sizes"
+3. Move slider to maximum
+
+**Android Emulator:**
+1. Settings → Accessibility → Font size
+2. Set to "Largest"
+
+**What to check:**
+- Text is readable at all sizes
+- No text clipping or overflow
+- Layouts don't break
+- Touch targets remain accessible (44pt minimum)
+
+---
+
 ## Platform-Specific Styling
 
 ### Using Platform.select()

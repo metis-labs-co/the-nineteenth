@@ -17,7 +17,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { useConfirmationDialog } from '@/hooks';
+import { useConfirmationDialog, useCompetitionInfo } from '@/hooks';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,7 +27,11 @@ import { competitionKeys, roundKeys } from '@/hooks/queryKeys';
 import { supabase } from '@/services/supabase/client';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { RootStackParamList } from '@/navigation/types';
+import { IconDog } from '@tabler/icons-react-native';
 import { spacing, borderRadius, shadows, typography, skinsColor } from '@/constants/theme';
+
+/** Gray color for wolf feature */
+const WOLF_COLOR = '#6B7280';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -37,6 +41,7 @@ import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import {
   RoundDetailsTab,
+  RoundGameSetupTab,
   RoundScorecardTab,
   // Commented out for trial - keeping for potential future use
   // RoundPlayersTab,
@@ -48,10 +53,14 @@ import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderbo
 import { MatchPlayScorecardTable } from '@/components/scorecard/MatchPlayScorecardTable';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
 import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults, useSkinsGame } from '@/hooks/useSkins';
+import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
+import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard } from '@/components/wolf';
 import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
 import { SkinsResultsCard } from '@/components/skins';
 import { ContributionLeaderboard, ScrambleTeamSelector, ScrambleScorecardTable, ScrambleTeamLeaderboard } from '@/components/scorecard';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
+import { Pill } from '@/components/common/Pill';
+import { COMPETITION_TYPE_LABELS } from '@/components/rounds/ViewRound/RoundDetailsTab/constants';
 import type { SkinsConfig } from '@/types/database/skins.types';
 import type { HoleScore, MultiBallHoleScore, Player, Hole } from '@/types';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
@@ -62,48 +71,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 // TYPES & CONSTANTS
 // =====================================================
 
-type TabKey = 'details' | 'scorecard' | 'match' | 'skins' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
+type TabKey = 'details' | 'gameSetup' | 'scorecard' | 'match' | 'skins' | 'wolf' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
 // Commented out for trial - keeping for potential future use
 // type TabKey = 'details' | 'players' | 'leaderboard';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'details', label: 'Details' },
+  { key: 'gameSetup', label: 'Game Setup' },
   { key: 'scorecard', label: 'Scorecard' },
   // Commented out for trial - keeping for potential future use
   // { key: 'players', label: 'Players' },
   // { key: 'leaderboard', label: 'Leaderboard' },
 ];
-
-// =====================================================
-// HOOKS
-// =====================================================
-
-interface CompetitionInfo {
-  name: string;
-  organizer_id: string;
-}
-
-/**
- * Fetch competition info for display in header and organizer check
- */
-function useCompetitionInfo(competitionId: string | undefined) {
-  return useQuery({
-    queryKey: [...competitionKeys.detail(competitionId || ''), 'info'],
-    queryFn: async (): Promise<CompetitionInfo | null> => {
-      if (!competitionId) return null;
-      const { data, error } = await supabase
-        .from('competitions')
-        .select('name, organizer_id')
-        .eq('id', competitionId)
-        .single();
-
-      if (error) throw error;
-      return data as CompetitionInfo | null;
-    },
-    enabled: !!competitionId,
-    staleTime: 5 * 60 * 1000,
-  });
-}
 
 // =====================================================
 // MAIN COMPONENT
@@ -225,6 +204,18 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     return skinsGames.some((g) => g.status === 'active' || g.status === 'completed');
   }, [skinsGames]);
 
+  // Fetch wolf game for this round
+  const { data: wolfGame } = useWolfGameByRound(roundId);
+
+  // Check if this round has an active or completed wolf game
+  const hasWolfGame = useMemo(() => {
+    if (!wolfGame) return false;
+    return wolfGame.status === 'active' || wolfGame.status === 'completed';
+  }, [wolfGame]);
+
+  // Fetch Wolf game summary for the tab (only when there's an active/completed game)
+  const { data: wolfSummary, refetch: refetchWolfSummary, isRefetching: isRefetchingWolf } = useWolfSummary(hasWolfGame ? wolfGame?.id : undefined);
+
   // Get the active or completed skins game for displaying results
   const activeSkinsGame = useMemo(() => {
     if (!skinsGames || skinsGames.length === 0) return null;
@@ -323,42 +314,8 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     }, [hasSkinsGame, activeSkinsGame?.id, refetchSkinsResults, refetchSkinsGame])
   );
 
-  // Build tabs dynamically based on game type and features
-  const tabs = useMemo<TabItem<TabKey>[]>(() => {
-    // For scramble rounds, skip the standard scorecard tab (covered by Team Score tab)
-    const baseTabs = isScrambleRound
-      ? BASE_TABS.filter((tab) => tab.key !== 'scorecard')
-      : [...BASE_TABS];
-
-    const result: TabItem<TabKey>[] = baseTabs;
-
-    if (isMatchPlayRound || isTeamMatchPlayRound) {
-      result.push({ key: 'match' as const, label: 'Match' });
-    }
-
-    if (isShambleRound) {
-      result.push({ key: 'teamScores' as const, label: 'Team Scores' });
-    }
-
-    if (isScrambleRound) {
-      result.push({ key: 'scrambleTeamScore' as const, label: 'Scorecard' });
-      result.push({ key: 'scrambleLeaderboard' as const, label: 'Leaderboard' });
-      result.push({ key: 'scrambleContributions' as const, label: 'Contributions' });
-    }
-
-    if (isStrokePlayRound) {
-      result.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
-    }
-
-    if (hasSkinsGame) {
-      result.push({ key: 'skins' as const, label: 'Skins' });
-    }
-
-    return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame]);
-
   const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers || ((isMatchPlayRound || isTeamMatchPlayRound) && isLoadingMatchPlay);
-  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults;
+  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults || isRefetchingWolf;
 
   // Check if current user is playing in this round
   // For standalone rounds, the user who created it is always playing
@@ -394,6 +351,51 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
     return false;
   }, [user?.id, isStandalone, round?.user_id, competitionInfo?.organizer_id]);
+
+  // Build tabs dynamically based on game type and features
+  const tabs = useMemo<TabItem<TabKey>[]>(() => {
+    // For scramble rounds, skip the standard scorecard tab (covered by Team Score tab)
+    let baseTabs = isScrambleRound
+      ? BASE_TABS.filter((tab) => tab.key !== 'scorecard')
+      : [...BASE_TABS];
+
+    // Only show Game Setup tab if organizer OR if any game features are configured
+    const hasScoringPairs = round?.scoring_pairs_required;
+    const showGameSetupTab = isOrganizer || hasScoringPairs || hasSkinsGame || hasWolfGame;
+    if (!showGameSetupTab) {
+      baseTabs = baseTabs.filter((tab) => tab.key !== 'gameSetup');
+    }
+
+    const result: TabItem<TabKey>[] = baseTabs;
+
+    if (isMatchPlayRound || isTeamMatchPlayRound) {
+      result.push({ key: 'match' as const, label: 'Match' });
+    }
+
+    if (isShambleRound) {
+      result.push({ key: 'teamScores' as const, label: 'Team Scores' });
+    }
+
+    if (isScrambleRound) {
+      result.push({ key: 'scrambleTeamScore' as const, label: 'Scorecard' });
+      result.push({ key: 'scrambleLeaderboard' as const, label: 'Leaderboard' });
+      result.push({ key: 'scrambleContributions' as const, label: 'Contributions' });
+    }
+
+    if (isStrokePlayRound) {
+      result.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+    }
+
+    if (hasSkinsGame) {
+      result.push({ key: 'skins' as const, label: 'Skins' });
+    }
+
+    if (hasWolfGame) {
+      result.push({ key: 'wolf' as const, label: 'Wolf' });
+    }
+
+    return result;
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, isOrganizer, round?.scoring_pairs_required]);
 
   // Check if user can delete this round
   // - Practice rounds: Only the creator can delete
@@ -927,6 +929,13 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     });
   }, [navigation, roundId]);
 
+  // Navigate to competition
+  const handleCompetitionPress = useCallback(() => {
+    if (round?.competition?.id) {
+      navigation.navigate('CompetitionDetail', { id: round.competition.id });
+    }
+  }, [navigation, round?.competition?.id]);
+
   // Delete handlers
   const handleDeletePress = useCallback(() => {
     setShowDeleteDialog(true);
@@ -964,18 +973,45 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       refetchSkinsResults();
       refetchSkinsGame();
     }
-  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults, refetchSkinsGame]);
+    if (hasWolfGame) {
+      refetchWolfSummary();
+    }
+  }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults, refetchSkinsGame, hasWolfGame, refetchWolfSummary]);
 
   // Get header title
   const getHeaderTitle = (): string | React.ReactNode => {
     if (isStandalone) {
-      // Show "Skins Match" with icon if this standalone round has a skins game
+      // Show appropriate title based on active side-games
+      if (hasSkinsGame && hasWolfGame) {
+        // Both Skins and Wolf active
+        return (
+          <View style={styles.skinsHeaderTitle}>
+            <Icon source="dice-multiple" size={20} color={skinsColor} />
+            <IconDog size={20} color={WOLF_COLOR} />
+            <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
+              Skins & Wolf
+            </Text>
+          </View>
+        );
+      }
       if (hasSkinsGame) {
+        // Only Skins active
         return (
           <View style={styles.skinsHeaderTitle}>
             <Icon source="dice-multiple" size={20} color={skinsColor} />
             <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
               Skins Match
+            </Text>
+          </View>
+        );
+      }
+      if (hasWolfGame) {
+        // Only Wolf active
+        return (
+          <View style={styles.skinsHeaderTitle}>
+            <IconDog size={20} color={WOLF_COLOR} />
+            <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
+              Wolf Game
             </Text>
           </View>
         );
@@ -1070,6 +1106,35 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Competition Card - Show above tabs for competition rounds */}
+      {round.competition && (
+        <TouchableOpacity
+          style={[styles.competitionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={handleCompetitionPress}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.competitionIconContainer, { backgroundColor: colors.primaryLighter }]}>
+            <Icon source="trophy" size={24} color={colors.primary} />
+          </View>
+          <View style={styles.competitionInfo}>
+            <Text style={[styles.competitionLabel, { color: colors.textSecondary }]}>
+              Competition
+            </Text>
+            <Text style={[styles.competitionName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {round.competition.name}
+            </Text>
+          </View>
+          <View style={styles.competitionRight}>
+            <Pill
+              label={COMPETITION_TYPE_LABELS[round.competition.competition_type]}
+              variant="primary"
+              size="sm"
+            />
+            <Icon source="chevron-right" size={24} color={colors.gray400} />
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Tab Bar */}
       <Tabs<TabKey>
         tabs={tabs}
@@ -1096,12 +1161,19 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           <RoundDetailsTab
             round={round}
             isOrganizer={isOrganizer}
-            isPremium={isPremium}
             onEditPress={handleEditRound}
             onCourseSelectPress={handleCourseSelectPress}
+          />
+        )}
+        {activeTab === 'gameSetup' && (
+          <RoundGameSetupTab
+            round={round}
+            isOrganizer={isOrganizer}
+            isPremium={isPremium}
+            players={(roundPlayers || []).map((rp) => rp.player).filter(Boolean) as Player[]}
             onScoringPairsEditPress={handleScoringPairsEditPress}
             onSkinsEditPress={handleSkinsEditPress}
-            competitionId={competitionId}
+            // TODO: Add Wolf config sheet handling when needed
           />
         )}
         {activeTab === 'scorecard' && (
@@ -1170,6 +1242,63 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
                 )
               }
             />
+          </View>
+        )}
+        {activeTab === 'wolf' && hasWolfGame && wolfSummary && (
+          <View style={styles.wolfTabContent}>
+            {/* Wolf Results Table - Hole by hole breakdown */}
+            <WolfResultsCard
+              wolfGame={wolfSummary.game}
+              decisions={wolfSummary.decisions}
+              testID="wolf-results-card"
+            />
+
+            {/* Wolf Standings Card */}
+            {wolfSummary.standings.length > 0 && (
+              <WolfStandingsCard
+                standings={wolfSummary.standings}
+                potEnabled={wolfSummary.game.pot_enabled}
+                testID="wolf-standings-card"
+              />
+            )}
+
+            {/* Settlement Card (show when game is complete and pot is enabled) */}
+            {wolfSummary.game.pot_enabled &&
+              (wolfSummary.game.status === 'completed' || wolfSummary.payouts.length > 0) &&
+              wolfSummary.game.pot_value_per_point && (
+                <WolfSettlementCard
+                  payouts={wolfSummary.payouts}
+                  potValue={wolfSummary.game.pot_value_per_point}
+                  currency={wolfSummary.game.currency}
+                  testID="wolf-settlement-card"
+                />
+              )}
+
+            {/* In-Progress Info */}
+            {wolfSummary.game.status === 'active' && wolfSummary.holes_completed < 18 && (
+              <View style={[styles.wolfInProgressCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.wolfInProgressHeader}>
+                  <IconDog size={20} color={WOLF_COLOR} />
+                  <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+                    Game In Progress
+                  </Text>
+                </View>
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                  {wolfSummary.holes_completed} of 18 holes completed
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+        {activeTab === 'wolf' && hasWolfGame && !wolfSummary && (
+          <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
+            <IconDog size={48} color={colors.textTertiary} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              No Wolf Results Yet
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              Wolf results will appear here as you complete each hole.
+            </Text>
           </View>
         )}
         {activeTab === 'leaderboard' && isStrokePlayRound && (
@@ -1358,6 +1487,42 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
   },
 
+  // Competition Card (above tabs)
+  competitionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    ...shadows.sm,
+  },
+  competitionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  competitionInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  competitionLabel: {
+    ...typography.caption,
+  },
+  competitionName: {
+    ...typography.bodyBold,
+    marginTop: 2,
+  },
+  competitionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
   // Tabs
   tabs: {
     marginHorizontal: spacing.lg,
@@ -1379,6 +1544,18 @@ const styles = StyleSheet.create({
   },
   skinsTabContent: {
     gap: spacing.md,
+  },
+  wolfTabContent: {
+    gap: spacing.md,
+  },
+  wolfInProgressCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  wolfInProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   teamScoresTabContent: {
     gap: spacing.md,

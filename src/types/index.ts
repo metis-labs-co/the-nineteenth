@@ -103,6 +103,26 @@ export type {
   HandicapSummary,
 } from './handicap.types';
 
+// Re-export pairing types (player groupings with tee times)
+export type {
+  TeeTimeSlotConfig,
+  PairingGroup,
+  PairingFormData,
+  PairingWithPlayers,
+  PairingPlayer,
+  GeneratePairingsOptions,
+  GeneratePairingsResult,
+  CreatePairingsInput,
+  UpdatePairingInput,
+  TeeTimeInterval,
+} from './pairing.types';
+
+export {
+  toPairingPlayer,
+  DEFAULT_TEE_TIME_CONFIG,
+  TEE_TIME_INTERVALS,
+} from './pairing.types';
+
 // Re-export player gender type
 export type { PlayerGender } from './database/player.types';
 
@@ -132,6 +152,21 @@ export type {
   SkinsConfig,
   SkinsPoolSource,
   SkinsPoolSourceConfig,
+  // Wolf types
+  WolfConfig,
+  WolfScoringType,
+  WolfGameStatus,
+  WolfGame,
+  WolfHoleDecision,
+  WolfPayout,
+  WolfGameWithParticipants,
+  WolfDecisionWithDetails,
+  WolfPayoutWithPlayer,
+  CreateWolfGameInput,
+  SubmitWolfDecisionInput,
+  RecordWolfHoleResultInput,
+  WolfStandingEntry,
+  WolfGameSummary,
   // Prize Pool types
   PoolFundingType,
   PoolStatus,

@@ -15,7 +15,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-import type { ScoringPairsConfig, StandaloneSkinsConfig, TeamConfig } from '../../CreateRoundBottomSheet';
+import type { ScoringPairsConfig, StandaloneSkinsConfig, StandaloneWolfConfig, TeamConfig } from '../../CreateRoundBottomSheet';
 import type { PlayingPartner } from '../types';
 
 // Default holes (used when course has no hole data)
@@ -38,7 +38,8 @@ export interface UseStartNewRoundReturn {
     scoringPairsConfig?: ScoringPairsConfig,
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
-    teamConfig?: TeamConfig
+    teamConfig?: TeamConfig,
+    wolfConfig?: StandaloneWolfConfig
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
@@ -65,7 +66,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
       scoringPairsConfig?: ScoringPairsConfig,
       ballCount: BallCount = 1,
       skinsConfig?: StandaloneSkinsConfig,
-      teamConfig?: TeamConfig
+      teamConfig?: TeamConfig,
+      wolfConfig?: StandaloneWolfConfig
     ) => {
       if (isStartingRound) return;
 
@@ -249,6 +251,67 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
           } catch (skinsGameError) {
             // Log but don't fail - skins is a side feature
             console.error('[RoundsScreen] Error creating skins game:', skinsGameError);
+          }
+        }
+
+        // Create Wolf game if enabled (non-blocking - don't fail round creation)
+        // Wolf requires 3-4 players
+        console.log('[useStartNewRound] Wolf creation check:', {
+          wolfConfigReceived: !!wolfConfig,
+          wolfEnabled: wolfConfig?.enabled,
+          hasConfig: !!wolfConfig?.config,
+          partnersCount: partners.length,
+          totalPlayers: partners.length + 1,
+          hasUserId: !!user?.id,
+          willCreateWolf: !!(wolfConfig?.enabled && wolfConfig.config && partners.length >= 2 && partners.length <= 3 && user?.id),
+          wolfConfig: wolfConfig,
+        });
+
+        if (wolfConfig?.enabled && wolfConfig.config && partners.length >= 2 && partners.length <= 3 && user?.id) {
+          try {
+            // Build participant IDs array (current user + partners)
+            const participantIds = [user.id, ...partners.map(p => p.id)];
+
+            // Use wolf_order from config if provided, otherwise use participant order
+            const wolfOrder = wolfConfig.config.wolf_order?.length === participantIds.length
+              ? wolfConfig.config.wolf_order
+              : participantIds;
+
+            const { error: wolfError } = await (supabase
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+              .from('wolf_games') as any)
+              .insert({
+                round_id: roundId,
+                participant_ids: participantIds,
+                wolf_order: wolfOrder,
+                scoring_type: wolfConfig.config.scoring_type,
+                blind_wolf_enabled: wolfConfig.config.blind_wolf_enabled ?? true,
+                pot_enabled: wolfConfig.config.pot_enabled ?? false,
+                // Database column is 'pot_value', TypeScript type uses 'pot_value_per_point'
+                pot_value: wolfConfig.config.pot_enabled ? wolfConfig.config.pot_value_per_point : null,
+                currency: wolfConfig.config.currency ?? 'AUD',
+                status: 'active',
+                disclaimer_accepted_at: wolfConfig.config.pot_enabled ? new Date().toISOString() : null,
+                disclaimer_accepted_by: wolfConfig.config.pot_enabled ? user.id : null,
+                created_by: user.id,
+              });
+
+            if (wolfError) {
+              console.error('[RoundsScreen] Error creating wolf game:', wolfError);
+            } else {
+              console.log('[RoundsScreen] Created wolf game for round:', {
+                roundId,
+                participantCount: participantIds.length,
+                wolfOrder,
+                scoringType: wolfConfig.config.scoring_type,
+                blindWolfEnabled: wolfConfig.config.blind_wolf_enabled,
+                potEnabled: wolfConfig.config.pot_enabled,
+                potValuePerPoint: wolfConfig.config.pot_value_per_point,
+              });
+            }
+          } catch (wolfGameError) {
+            // Log but don't fail - wolf is a side feature
+            console.error('[RoundsScreen] Error creating wolf game:', wolfGameError);
           }
         }
 

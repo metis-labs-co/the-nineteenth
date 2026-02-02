@@ -29,11 +29,13 @@ import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable, Contribut
 import { PageHeader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
+import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard, WOLF_COLOR } from '@/components/wolf';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import { MismatchResolutionModal } from '@/components/scoring';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
+import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
 import { useAuth } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs } from '@/hooks/scorecard';
@@ -55,7 +57,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 // TAB TYPES
 // =====================================================
 
-type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins';
+type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins' | 'wolf';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'scorecard', label: 'Scorecard' },
@@ -191,6 +193,138 @@ function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: 
 }
 
 // =====================================================
+// WOLF TAB CONTENT COMPONENT
+// =====================================================
+
+interface WolfTabContentProps {
+  wolfGameId: string;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  bottomInset: number;
+}
+
+function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: WolfTabContentProps) {
+  const colors = useThemeColors();
+  const {
+    data: summary,
+    isLoading: isSummaryLoading,
+    refetch: refetchSummary,
+  } = useWolfSummary(wolfGameId);
+
+  const handleRefresh = useCallback(async () => {
+    await refetchSummary();
+    onRefresh();
+  }, [refetchSummary, onRefresh]);
+
+  // Loading state
+  if (isSummaryLoading || !summary) {
+    return (
+      <View style={styles.wolfLoadingContainer}>
+        <ActivityIndicator size="large" color={WOLF_COLOR} />
+        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
+          Loading Wolf results...
+        </Text>
+      </View>
+    );
+  }
+
+  const { game, decisions, payouts, standings, holes_completed } = summary;
+
+  // Empty state - no decisions yet
+  if (decisions.length === 0) {
+    return (
+      <ScrollView
+        contentContainerStyle={[styles.wolfEmptyContainer, { paddingBottom: bottomInset + 100 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.textPrimary}
+          />
+        }
+      >
+        <View style={[styles.wolfEmptyCard, { backgroundColor: colors.surface }]}>
+          <Icon source="dog-side" size={48} color={WOLF_COLOR} />
+          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.md }]}>
+            No Wolf Results Yet
+          </Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+            Wolf results will appear here as you complete each hole.
+            {'\n'}The Wolf player must decide and scores must be recorded!
+          </Text>
+          <View style={[styles.wolfEmptyConfig, { backgroundColor: colors.surfaceVariant }]}>
+            <Text style={[typography.small, { color: colors.textSecondary }]}>
+              {game.scoring_type === 'gross' ? 'Gross' : 'Net'} scoring • {game.participants.length} players
+              {game.pot_enabled && game.pot_value_per_point ? ` • $${game.pot_value_per_point}/pt` : ''}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={[styles.wolfScrollContent, { paddingBottom: bottomInset + 100 }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          tintColor={colors.textPrimary}
+        />
+      }
+      showsVerticalScrollIndicator={true}
+    >
+      {/* Wolf Results Table - Hole by hole breakdown */}
+      <WolfResultsCard
+        wolfGame={game}
+        decisions={decisions}
+        testID="wolf-results-card"
+      />
+
+      {/* Wolf Standings Card */}
+      {standings.length > 0 && (
+        <View style={styles.wolfSectionContainer}>
+          <WolfStandingsCard
+            standings={standings}
+            potEnabled={game.pot_enabled}
+            testID="wolf-standings-card"
+          />
+        </View>
+      )}
+
+      {/* Settlement Card (show when game is complete and pot is enabled) */}
+      {game.pot_enabled && (game.status === 'completed' || payouts.length > 0) && game.pot_value_per_point && (
+        <View style={styles.wolfSectionContainer}>
+          <WolfSettlementCard
+            payouts={payouts}
+            potValue={game.pot_value_per_point}
+            currency={game.currency}
+            testID="wolf-settlement-card"
+          />
+        </View>
+      )}
+
+      {/* In-Progress Info */}
+      {game.status === 'active' && holes_completed < 18 && (
+        <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
+          <View style={styles.inProgressHeader}>
+            <Icon source="dog-side" size={20} color={WOLF_COLOR} />
+            <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+              Game In Progress
+            </Text>
+          </View>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+            {holes_completed} of 18 holes completed
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+// =====================================================
 // LEADERBOARD TAB CONTENT COMPONENT
 // =====================================================
 
@@ -301,6 +435,10 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Check for active skins game
   const { data: skinsGame } = useActiveSkinsGameForRound(roundId || undefined);
   const hasSkinsGame = !!skinsGame;
+
+  // Check for active Wolf game
+  const { data: wolfGame } = useWolfGameByRound(roundId || undefined);
+  const hasWolfGame = !!wolfGame && wolfGame.status !== 'cancelled';
 
   // Check if this is a stroke play round (for leaderboard tab)
   // Use roundDetails as fallback since store's gameType may not be preserved when loading from offline
@@ -422,11 +560,16 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       tabList.push({ key: 'skins' as const, label: 'Skins' });
     }
 
+    // Add wolf tab if wolf game exists
+    if (hasWolfGame) {
+      tabList.push({ key: 'wolf' as const, label: 'Wolf' });
+    }
+
     return tabList;
-  }, [hasSkinsGame, isStrokePlay, isScramble, isShamble]);
+  }, [hasSkinsGame, hasWolfGame, isStrokePlay, isScramble, isShamble]);
 
   // Determine if we need to show tabs (more than just scorecard)
-  const showTabs = isStrokePlay || hasSkinsGame || isScramble || isShamble;
+  const showTabs = isStrokePlay || hasSkinsGame || hasWolfGame || isScramble || isShamble;
 
   // Submission and sync logic
   const {
@@ -597,6 +740,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
               holes={holes}
               screenWidth={screenWidth}
               onHolePress={handleHolePress}
+              gameType={effectiveGameType}
             />
           )}
         </ScrollView>
@@ -681,6 +825,16 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         /* Skins Content */
         <SkinsTabContent
           skinsGameId={skinsGame.id}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
+      )}
+
+      {activeTab === 'wolf' && wolfGame && (
+        /* Wolf Content */
+        <WolfTabContent
+          wolfGameId={wolfGame.id}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
@@ -786,5 +940,40 @@ const styles = StyleSheet.create({
   // Leaderboard tab styles
   leaderboardScrollContent: {
     flexGrow: 1,
+  },
+  // Wolf tab styles
+  wolfLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+  },
+  wolfScrollContent: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  wolfEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl,
+  },
+  wolfEmptyCard: {
+    padding: spacing.xl,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+  },
+  wolfEmptyConfig: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  wolfSectionContainer: {
+    marginTop: spacing.md,
   },
 });

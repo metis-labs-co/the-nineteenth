@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
 import {
   spacing,
   borderRadius,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { ScaledText } from '@/components/common/ScaledText';
 
 interface ScoreInputStepperProps {
   score: number | undefined;
@@ -53,14 +53,14 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
         accessibilityLabel="Decrease score"
         accessibilityRole="button"
       >
-        <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</Text>
+        <ScaledText category="critical" style={[styles.stepperButtonText, { color: colors.textPrimary }]}>−</ScaledText>
       </TouchableOpacity>
 
       {/* Current Score Display */}
       <View style={styles.scoreDisplay}>
-        <Text style={[styles.scoreDisplayText, { color: colors.textPrimary }]}>
+        <ScaledText category="critical" style={[styles.scoreDisplayText, { color: colors.textPrimary }]}>
           {isPickedUp ? 'P' : (score ?? '-')}
-        </Text>
+        </ScaledText>
       </View>
 
       {/* Plus Button */}
@@ -76,7 +76,8 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
         accessibilityLabel="Increase score"
         accessibilityRole="button"
       >
-        <Text
+        <ScaledText
+          category="critical"
           style={[
             styles.stepperButtonText,
             { color: colors.textPrimary },
@@ -84,7 +85,7 @@ export const ScoreInputStepper = React.memo(function ScoreInputStepper({
           ]}
         >
           +
-        </Text>
+        </ScaledText>
       </TouchableOpacity>
     </View>
   );

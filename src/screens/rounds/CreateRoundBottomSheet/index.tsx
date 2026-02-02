@@ -47,6 +47,7 @@ export type {
   ScoringPairsConfig,
   PlayingPartner,
   StandaloneSkinsConfig,
+  StandaloneWolfConfig,
   TeamConfig,
 } from './types';
 
@@ -289,6 +290,10 @@ export default function CreateRoundBottomSheet({
             skinsConfig={wizard.data.skinsConfig}
             onSkinsEnabledChange={wizard.setSkinsEnabled}
             onSkinsConfigChange={wizard.handleSkinsConfigChange}
+            wolfEnabled={wizard.data.wolfEnabled}
+            wolfConfig={wizard.data.wolfConfig}
+            onWolfEnabledChange={wizard.setWolfEnabled}
+            onWolfConfigChange={wizard.handleWolfConfigChange}
             onStartScoring={wizard.handleStartScoring}
           />
         )}

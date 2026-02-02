@@ -12,10 +12,10 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { IconSwords, IconTrophy, IconClock, IconCheck } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { ScaledText } from '@/components/common/ScaledText';
 import {
   type RoundLeaderboardEntry,
   type PlayerLeaderboardEntry,
@@ -124,13 +124,14 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
         <View style={[localStyles.teamHeader, { backgroundColor: colors.surface }]}>
           <View style={localStyles.teamHeaderTop}>
             <IconTrophy size={16} color={colors.primary} />
-            <Text style={[localStyles.teamHeaderLabel, { color: colors.textSecondary }]}>
+            <ScaledText category="caption" style={[localStyles.teamHeaderLabel, { color: colors.textSecondary }]}>
               TEAM MATCH
-            </Text>
+            </ScaledText>
           </View>
           <View style={localStyles.teamScoreRow}>
             <View style={localStyles.teamSide}>
-              <Text
+              <ScaledText
+                category="body"
                 style={[
                   localStyles.teamName,
                   { color: colors.textPrimary },
@@ -139,20 +140,21 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                 numberOfLines={1}
               >
                 {teamAggregate.team1Name}
-              </Text>
+              </ScaledText>
             </View>
             <View style={localStyles.teamScoreCenter}>
-              <Text style={[localStyles.teamScore, { color: colors.textPrimary }]}>
+              <ScaledText category="display" style={[localStyles.teamScore, { color: colors.textPrimary }]}>
                 {teamAggregate.team1Wins} - {teamAggregate.team2Wins}
-              </Text>
+              </ScaledText>
               {teamAggregate.halvedMatches > 0 && (
-                <Text style={[localStyles.halvedText, { color: colors.textSecondary }]}>
+                <ScaledText category="caption" style={[localStyles.halvedText, { color: colors.textSecondary }]}>
                   ({teamAggregate.halvedMatches} halved)
-                </Text>
+                </ScaledText>
               )}
             </View>
             <View style={[localStyles.teamSide, { alignItems: 'flex-end' }]}>
-              <Text
+              <ScaledText
+                category="body"
                 style={[
                   localStyles.teamName,
                   { color: colors.textPrimary },
@@ -161,23 +163,23 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                 numberOfLines={1}
               >
                 {teamAggregate.team2Name}
-              </Text>
+              </ScaledText>
             </View>
           </View>
           <View style={[localStyles.teamStatusRow, { borderTopColor: colors.borderLight }]}>
             {teamAggregate.isComplete ? (
               <View style={[localStyles.statusBadge, { backgroundColor: `${colors.success}15` }]}>
                 <IconCheck size={12} color={colors.success} />
-                <Text style={[localStyles.statusText, { color: colors.success }]}>
+                <ScaledText category="caption" style={[localStyles.statusText, { color: colors.success }]}>
                   Match Complete
-                </Text>
+                </ScaledText>
               </View>
             ) : (
               <View style={[localStyles.statusBadge, { backgroundColor: `${colors.warning}15` }]}>
                 <IconClock size={12} color={colors.warning} />
-                <Text style={[localStyles.statusText, { color: colors.warning }]}>
+                <ScaledText category="caption" style={[localStyles.statusText, { color: colors.warning }]}>
                   In Progress{teamAggregate.matchesInProgress > 0 && ` - ${teamAggregate.matchesInProgress} remaining`}
-                </Text>
+                </ScaledText>
               </View>
             )}
           </View>
@@ -222,9 +224,9 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
             <View style={[styles.matchHeader, localStyles.matchHeaderWithStatus]}>
               <View style={localStyles.matchHeaderLeft}>
                 <IconSwords size={16} color={colors.textSecondary} />
-                <Text style={[styles.matchLabel, { color: colors.textSecondary }]}>
+                <ScaledText category="caption" style={[styles.matchLabel, { color: colors.textSecondary }]}>
                   Match
-                </Text>
+                </ScaledText>
               </View>
               <View
                 style={[
@@ -241,14 +243,15 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                 ) : (
                   <IconClock size={10} color={colors.warning} />
                 )}
-                <Text
+                <ScaledText
+                  category="caption"
                   style={[
                     localStyles.statusTextSmall,
                     { color: isComplete ? colors.success : colors.warning },
                   ]}
                 >
                   {isComplete ? 'Complete' : 'In Progress'}
-                </Text>
+                </ScaledText>
               </View>
             </View>
 
@@ -256,7 +259,8 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
             <View style={styles.matchContent}>
               {/* Player/Team */}
               <View style={styles.matchPlayer}>
-                <Text
+                <ScaledText
+                  category="body"
                   style={[
                     styles.matchPlayerName,
                     { color: colors.textPrimary },
@@ -266,14 +270,15 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                   numberOfLines={1}
                 >
                   {isCurrentUser ? 'You' : name}
-                </Text>
+                </ScaledText>
                 {isTeamEntry(entry) && (
-                  <Text
+                  <ScaledText
+                    category="caption"
                     style={[styles.matchPlayerMembers, { color: colors.textTertiary }]}
                     numberOfLines={1}
                   >
                     {entry.members.map((m) => m.playerName).join(', ')}
-                  </Text>
+                  </ScaledText>
                 )}
               </View>
 
@@ -284,20 +289,22 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                   { backgroundColor: getResultBackgroundColor() },
                 ]}
               >
-                <Text
+                <ScaledText
+                  category="caption"
                   style={[
                     styles.matchResultText,
                     { color: getResultTextColor() },
                   ]}
                 >
                   {isInProgress ? statusText : formatMatchResult(scoreData)}
-                </Text>
+                </ScaledText>
               </View>
 
               {/* Opponent */}
               <View style={styles.matchOpponent}>
-                <Text style={[styles.vsText, { color: colors.textTertiary }]}>vs</Text>
-                <Text
+                <ScaledText category="caption" style={[styles.vsText, { color: colors.textTertiary }]}>vs</ScaledText>
+                <ScaledText
+                  category="body"
                   style={[
                     styles.matchOpponentName,
                     { color: colors.textPrimary },
@@ -306,15 +313,15 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
                   numberOfLines={1}
                 >
                   {scoreData.opponentName}
-                </Text>
+                </ScaledText>
               </View>
             </View>
 
             {/* Score Details */}
             <View style={[styles.matchFooter, { borderTopColor: colors.borderLight }]}>
-              <Text style={[styles.matchStats, { color: colors.textSecondary }]}>
+              <ScaledText category="caption" style={[styles.matchStats, { color: colors.textSecondary }]}>
                 {scoreData.holesWon}W - {scoreData.holesLost}L - {scoreData.holesHalved}H
-              </Text>
+              </ScaledText>
             </View>
           </View>
         );
