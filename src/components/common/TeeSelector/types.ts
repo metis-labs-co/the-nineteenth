@@ -5,6 +5,7 @@
  */
 
 import type { TeeBox, Venue } from '@/types/database.types';
+import type { PlayerGender } from '@/types/database/player.types';
 
 // ===========================================================================
 // VARIANT TYPE
@@ -19,6 +20,16 @@ export type TeeSelectorVariant = 'pills' | 'cards' | 'list';
 export interface TeeSelectorCourseInfo {
   courseName: string;
   venue?: Venue | null;
+}
+
+/**
+ * Player info for daily handicap preview in tee selection
+ */
+export interface TeePreviewPlayer {
+  id: string;
+  name: string;
+  handicap?: number | null;
+  gender?: PlayerGender | null;
 }
 
 // ===========================================================================
@@ -79,6 +90,10 @@ export interface TeeSelectorListProps {
   courseInfo?: TeeSelectorCourseInfo;
   onSkip?: () => void;
   testID?: string;
+  /** Players for daily handicap preview (optional) */
+  players?: TeePreviewPlayer[];
+  /** Course par for daily handicap calculation (optional) */
+  coursePar?: number;
 }
 
 // ===========================================================================

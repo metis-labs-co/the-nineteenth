@@ -15,6 +15,7 @@ import type { RoundStatus, GameType } from '@/types/database.types';
 const GAME_TYPE_LABELS: Record<GameType, string> = {
   stroke: 'Stroke Play',
   stableford: 'Stableford',
+  par: 'Par',
   'match-play': 'Match Play',
   'best-ball': 'Best Ball',
   scramble: 'Scramble',

@@ -19,7 +19,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { useRoundDetailsForm } from './hooks/useRoundDetailsForm';
 import { RoundCard } from './components/RoundCard';
-import { MatchTypeModal } from './components/MatchTypeModal';
+import { GameTypeModal } from './components/GameTypeModal';
 import { CourseSelectionModal } from './components/CourseSelectionModal';
 import { TeeSelectionModal } from './components/TeeSelectionModal';
 import type { RoundDetailsStepProps } from './types';
@@ -143,9 +143,9 @@ export default function RoundDetailsStep({
       </View>
 
       {/* Modals */}
-      <MatchTypeModal
+      <GameTypeModal
         visible={form.showMatchTypeModal}
-        selectedMatchType={
+        selectedGameType={
           form.editingMatchTypeRoundIndex !== null
             ? form.rounds[form.editingMatchTypeRoundIndex]?.matchType || 'stableford'
             : 'stableford'

@@ -60,6 +60,11 @@ export type {
   TeeSelectorListProps,
 } from './TeeSelector';
 
+// === Info Components ===
+// Informational sheets and modals
+export { HandicapInfoSheet } from './HandicapInfoSheet';
+export type { HandicapInfoSheetProps } from './HandicapInfoSheet';
+
 // === Selection Components ===
 // Modal and inline selection patterns
 // Note: SelectionModal is not exported as only specialized variants are used externally

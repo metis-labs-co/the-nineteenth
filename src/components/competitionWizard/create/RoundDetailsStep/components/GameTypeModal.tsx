@@ -1,39 +1,61 @@
 /**
- * MatchTypeModal - Modal for selecting match type (game format)
+ * GameTypeModal - Modal for selecting game type (scoring format)
+ *
+ * Displays a list of available game types with subscription tier awareness.
+ * Use showTeamFormats prop (via getFilteredGameTypes) to filter out team formats
+ * for individual competitions.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { MatchTypeModalProps } from '../types';
+import type { GameTypeModalProps, GameTypeOption } from '../types';
+import { INDIVIDUAL_GAME_TYPES, TEAM_GAME_TYPES } from '../types';
 
-export const MatchTypeModal = React.memo(function MatchTypeModal({
+export const GameTypeModal = React.memo(function GameTypeModal({
   visible,
-  selectedMatchType,
+  selectedGameType,
   availableGameTypes,
   onSelect,
   onClose,
-}: MatchTypeModalProps) {
+  showTeamFormats = true,
+}: GameTypeModalProps) {
   const colors = useThemeColors();
+
+  // Filter game types based on showTeamFormats prop
+  const filteredGameTypes = useMemo(() => {
+    if (showTeamFormats) {
+      return availableGameTypes;
+    }
+    // Filter out team formats
+    const teamFormatValues = TEAM_GAME_TYPES.map((t) => t.value);
+    return availableGameTypes.filter((gt) => !teamFormatValues.includes(gt.value));
+  }, [availableGameTypes, showTeamFormats]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: colors.overlay }]} onPress={onClose} activeOpacity={1}>
-        <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: colors.surface },
-          ]}
-        >
+      <TouchableOpacity
+        style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+        onPress={onClose}
+        activeOpacity={1}
+      >
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Match Type</Text>
-            <IconButton icon="close" onPress={onClose} iconColor={colors.textPrimary} size={20} />
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              Select Game Type
+            </Text>
+            <IconButton
+              icon="close"
+              onPress={onClose}
+              iconColor={colors.textPrimary}
+              size={20}
+            />
           </View>
-          <View style={styles.matchTypeList}>
-            {availableGameTypes.map((type) => {
-              const isSelected = selectedMatchType === type.value;
+          <View style={styles.gameTypeList}>
+            {filteredGameTypes.map((type) => {
+              const isSelected = selectedGameType === type.value;
               const isDisabled = type.disabled;
               return (
                 <TouchableOpacity
@@ -41,18 +63,18 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
                   onPress={() => !isDisabled && onSelect(type.value)}
                   disabled={isDisabled}
                   style={[
-                    styles.matchTypeItem,
+                    styles.gameTypeItem,
                     { borderBottomColor: colors.gray200 },
                     isSelected && { backgroundColor: colors.primaryLighter },
                     isDisabled && { opacity: 0.5 },
                   ]}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.matchTypeInfo}>
-                    <View style={styles.matchTypeLabelRow}>
+                  <View style={styles.gameTypeInfo}>
+                    <View style={styles.gameTypeLabelRow}>
                       <Text
                         style={[
-                          styles.matchTypeLabel,
+                          styles.gameTypeLabel,
                           { color: colors.textPrimary },
                           isSelected && { color: colors.primary },
                           isDisabled && { color: colors.gray400 },
@@ -62,7 +84,10 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
                       </Text>
                       {isDisabled && (
                         <View
-                          style={[styles.upgradeBadge, { backgroundColor: colors.warningBackground }]}
+                          style={[
+                            styles.upgradeBadge,
+                            { backgroundColor: colors.warningBackground },
+                          ]}
                         >
                           <Icon source="lock" size={12} color={colors.warningDark} />
                           <Text style={[styles.upgradeBadgeText, { color: colors.warningDark }]}>
@@ -71,7 +96,7 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.matchTypeDescription, { color: colors.textSecondary }]}>
+                    <Text style={[styles.gameTypeDescription, { color: colors.textSecondary }]}>
                       {type.description}
                     </Text>
                   </View>
@@ -87,6 +112,9 @@ export const MatchTypeModal = React.memo(function MatchTypeModal({
     </Modal>
   );
 });
+
+/** @deprecated Use GameTypeModal instead */
+export const MatchTypeModal = GameTypeModal;
 
 const styles = StyleSheet.create({
   modalOverlay: {
@@ -113,8 +141,8 @@ const styles = StyleSheet.create({
   modalTitle: {
     ...typography.h4,
   },
-  matchTypeList: {},
-  matchTypeItem: {
+  gameTypeList: {},
+  gameTypeItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -122,18 +150,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
-  matchTypeInfo: {
+  gameTypeInfo: {
     flex: 1,
   },
-  matchTypeLabelRow: {
+  gameTypeLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  matchTypeLabel: {
+  gameTypeLabel: {
     ...typography.bodyBold,
   },
-  matchTypeDescription: {
+  gameTypeDescription: {
     ...typography.small,
     marginTop: spacing.xs,
   },

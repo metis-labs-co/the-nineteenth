@@ -5,7 +5,7 @@
  * selection button. Consistent design across round and competition flows.
  */
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Divider } from 'react-native-paper';
 import { IconCheck, IconPlus } from '@tabler/icons-react-native';
@@ -13,6 +13,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { FriendListItemProps } from './FriendSelector.types';
 
 export const FriendListItem = memo(function FriendListItem({
@@ -22,9 +23,30 @@ export const FriendListItem = memo(function FriendListItem({
   onToggle,
   showDivider = false,
   showPendingBadge = false,
+  selectedTee,
+  coursePar,
 }: FriendListItemProps) {
   const colors = useThemeColors();
   const isPending = showPendingBadge && friend.friendship_status === 'pending';
+
+  // Calculate daily handicap when tee info is available
+  const dailyHandicap = useMemo(() => {
+    if (!selectedTee || !coursePar) return null;
+
+    // Use handicap_index (Social) with handicap (GA) as fallback
+    const baseHandicap = friend.handicap_index ?? friend.handicap;
+    if (baseHandicap === null || baseHandicap === undefined) return null;
+
+    const result = calculateGADailyHandicap({
+      gaHandicap: baseHandicap,
+      slopeRating: selectedTee.slope_rating ?? 113,
+      courseRating: selectedTee.course_rating ?? coursePar,
+      par: coursePar,
+      gender: friend.gender ?? 'male',
+    });
+
+    return result.dailyHandicap;
+  }, [friend, selectedTee, coursePar]);
 
   return (
     <>
@@ -79,7 +101,7 @@ export const FriendListItem = memo(function FriendListItem({
                 {friend.email}
               </Text>
             )}
-            {friend.handicap !== null && friend.handicap !== undefined && (
+            {(friend.handicap != null || friend.handicap_index != null) && (
               <Text
                 style={[
                   styles.handicap,
@@ -87,7 +109,9 @@ export const FriendListItem = memo(function FriendListItem({
                   isDisabled && { color: colors.textDisabled },
                 ]}
               >
-                HC: {friend.handicap}
+                {dailyHandicap != null
+                  ? `DHC: ${dailyHandicap}`
+                  : `HC: ${friend.handicap_index ?? friend.handicap}`}
               </Text>
             )}
           </View>

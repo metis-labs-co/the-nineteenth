@@ -12,7 +12,7 @@ import { BottomSheet } from '@/components/common/BottomSheet';
 import { DatePicker } from '@/components/common/DatePicker';
 import type { SimplifiedRoundFormData, GameType } from '@/schemas/competition';
 import { CourseSelectionModal } from './CourseSelectionModal';
-import { MatchTypeModal } from './MatchTypeModal';
+import { GameTypeModal } from './GameTypeModal';
 import { TeeSelectionModal } from './TeeSelectionModal';
 import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
 import type { TeeBox, Club } from '@/types/database.types';
@@ -45,7 +45,7 @@ export function EditRoundBottomSheet({
   // Course search state
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showCourseModal, setShowCourseModal] = useState(false);
-  const [showMatchTypeModal, setShowMatchTypeModal] = useState(false);
+  const [showGameTypeModal, setShowGameTypeModal] = useState(false);
   const [showTeeModal, setShowTeeModal] = useState(false);
   const [availableTees, setAvailableTees] = useState<TeeBox[]>([]);
 
@@ -114,14 +114,14 @@ export function EditRoundBottomSheet({
     []
   );
 
-  // Handle match type selection
-  const handleMatchTypeSelect = useCallback((matchType: GameType) => {
+  // Handle game type selection
+  const handleGameTypeSelect = useCallback((gameType: GameType) => {
     setLocalRound((prev) => ({
       ...prev,
-      matchType,
+      matchType: gameType,
       isConfigured: true,
     }));
-    setShowMatchTypeModal(false);
+    setShowGameTypeModal(false);
   }, []);
 
   // Handle tee selection
@@ -290,10 +290,10 @@ export function EditRoundBottomSheet({
             showClear={!!localRound.teeTime}
           />
 
-          {/* Match Type Selection */}
+          {/* Game Type Selection */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Game Type</Text>
-            <TouchableOpacity onPress={() => setShowMatchTypeModal(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => setShowGameTypeModal(true)} activeOpacity={0.7}>
               <TextInput
                 value={GAME_TYPE_LABELS[(localRound.matchType as GameType) || 'stableford']}
                 mode="outlined"
@@ -306,7 +306,7 @@ export function EditRoundBottomSheet({
                 right={
                   <TextInput.Icon
                     icon="chevron-down"
-                    onPress={() => setShowMatchTypeModal(true)}
+                    onPress={() => setShowGameTypeModal(true)}
                     color={colors.primary}
                   />
                 }
@@ -440,13 +440,13 @@ export function EditRoundBottomSheet({
         onClose={() => setShowCourseModal(false)}
       />
 
-      {/* Match Type Modal */}
-      <MatchTypeModal
-        visible={showMatchTypeModal}
-        selectedMatchType={(localRound.matchType as GameType) || 'stableford'}
+      {/* Game Type Modal */}
+      <GameTypeModal
+        visible={showGameTypeModal}
+        selectedGameType={(localRound.matchType as GameType) || 'stableford'}
         availableGameTypes={availableGameTypes}
-        onSelect={handleMatchTypeSelect}
-        onClose={() => setShowMatchTypeModal(false)}
+        onSelect={handleGameTypeSelect}
+        onClose={() => setShowGameTypeModal(false)}
       />
 
       {/* Tee Selection Modal */}

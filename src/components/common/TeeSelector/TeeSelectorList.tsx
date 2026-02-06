@@ -5,14 +5,16 @@
  * Includes optional course banner and skip button.
  */
 
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { IconGolf, IconCheck } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useTeeSelector } from './hooks/useTeeSelector';
-import type { TeeSelectorListProps } from './types';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { getFirstName } from '@/utils/displayHelpers';
+import type { TeeSelectorListProps, TeePreviewPlayer } from './types';
 import type { TeeBox } from '@/types/database.types';
 
 // ===========================================================================
@@ -27,6 +29,8 @@ export const TeeSelectorList = memo(function TeeSelectorList({
   courseInfo,
   onSkip,
   testID,
+  players,
+  coursePar,
 }: TeeSelectorListProps) {
   const colors = useThemeColors();
   const {
@@ -36,6 +40,35 @@ export const TeeSelectorList = memo(function TeeSelectorList({
     getTeeColor,
     getListAccessibilityLabel,
   } = useTeeSelector({ selectedTee, onSelectTee });
+
+  // Calculate daily handicap previews for all players when a tee is selected
+  const handicapPreviews = useMemo(() => {
+    if (!players || !coursePar || players.length === 0) return null;
+
+    // Find the actual selected tee object
+    const selectedTeeObj = typeof selectedTee === 'string'
+      ? tees.find(t => t.name === selectedTee)
+      : selectedTee;
+
+    if (!selectedTeeObj?.slopeRating || !selectedTeeObj?.courseRating) return null;
+
+    return players.map(player => {
+      const baseHC = player.handicap ?? 0;
+      const result = calculateGADailyHandicap({
+        gaHandicap: baseHC,
+        slopeRating: selectedTeeObj.slopeRating!,
+        courseRating: selectedTeeObj.courseRating!,
+        par: coursePar,
+        gender: player.gender,
+      });
+      return {
+        id: player.id,
+        name: getFirstName(player.name),
+        baseHC,
+        dailyHC: result.dailyHandicap,
+      };
+    });
+  }, [players, coursePar, selectedTee, tees]);
 
   // Render individual tee item
   const renderTeeItem = useCallback(
@@ -147,6 +180,37 @@ export const TeeSelectorList = memo(function TeeSelectorList({
         />
       </View>
 
+      {/* Daily Handicap Preview */}
+      {handicapPreviews && handicapPreviews.length > 0 && (
+        <View style={[styles.previewContainer, { backgroundColor: colors.surfaceVariant, borderTopColor: colors.border }]}>
+          <View style={styles.previewHeader}>
+            <Icon source="golf" size={16} color={colors.primary} />
+            <Text style={[styles.previewTitle, { color: colors.textPrimary }]}>
+              Daily Handicaps
+            </Text>
+          </View>
+          <View style={styles.previewList}>
+            {handicapPreviews.slice(0, 6).map((preview) => (
+              <View key={preview.id} style={styles.previewItem}>
+                <Text style={[styles.previewName, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {preview.name}
+                </Text>
+                <Text style={[styles.previewValue, { color: colors.textPrimary }]}>
+                  <Text style={{ color: colors.textTertiary }}>HC {preview.baseHC}</Text>
+                  <Text style={{ color: colors.textTertiary }}> → </Text>
+                  <Text style={[styles.previewDHC, { color: colors.primary }]}>DHC {preview.dailyHC}</Text>
+                </Text>
+              </View>
+            ))}
+            {handicapPreviews.length > 6 && (
+              <Text style={[styles.previewMore, { color: colors.textTertiary }]}>
+                +{handicapPreviews.length - 6} more players
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* Skip Button */}
       {onSkip && (
         <View style={[styles.skipContainer, { borderTopColor: colors.border }]}>
@@ -241,6 +305,47 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Preview
+  previewContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderTopWidth: 1,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  previewTitle: {
+    ...typography.smallBold,
+  },
+  previewList: {
+    gap: spacing.xs,
+  },
+  previewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewName: {
+    ...typography.small,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  previewValue: {
+    ...typography.small,
+  },
+  previewDHC: {
+    ...typography.smallBold,
+  },
+  previewMore: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   // Skip
   skipContainer: {

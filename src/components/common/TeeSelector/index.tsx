@@ -24,6 +24,7 @@ export type {
   TeeSelectorCardsProps,
   TeeSelectorListProps,
   TeeItemProps,
+  TeePreviewPlayer,
 } from './types';
 
 // Re-export utility function for external use

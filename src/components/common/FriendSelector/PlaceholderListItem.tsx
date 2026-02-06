@@ -6,7 +6,7 @@
  * placeholder players.
  */
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Divider } from 'react-native-paper';
 import { IconCheck, IconPlus } from '@tabler/icons-react-native';
@@ -14,7 +14,8 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
-import type { PlaceholderPlayerWithStats } from '@/types/database.types';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import type { PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
 
 export interface PlaceholderListItemProps {
   placeholder: PlaceholderPlayerWithStats;
@@ -22,6 +23,10 @@ export interface PlaceholderListItemProps {
   isDisabled?: boolean;
   onToggle: () => void;
   showDivider?: boolean;
+  /** Selected tee for daily handicap calculation */
+  selectedTee?: TeeBox | null;
+  /** Course par for daily handicap calculation */
+  coursePar?: number;
 }
 
 export const PlaceholderListItem = memo(function PlaceholderListItem({
@@ -30,8 +35,26 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
   isDisabled = false,
   onToggle,
   showDivider = false,
+  selectedTee,
+  coursePar,
 }: PlaceholderListItemProps) {
   const colors = useThemeColors();
+
+  // Calculate daily handicap when tee info is available
+  const dailyHandicap = useMemo(() => {
+    if (!selectedTee || !coursePar) return null;
+    if (placeholder.handicap === null || placeholder.handicap === undefined) return null;
+
+    const result = calculateGADailyHandicap({
+      gaHandicap: placeholder.handicap,
+      slopeRating: selectedTee.slope_rating ?? 113,
+      courseRating: selectedTee.course_rating ?? coursePar,
+      par: coursePar,
+      gender: 'male', // Default for placeholder players
+    });
+
+    return result.dailyHandicap;
+  }, [placeholder.handicap, selectedTee, coursePar]);
 
   return (
     <>
@@ -72,7 +95,7 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
                 backgroundColor={colors.surfaceVariant}
               />
             </View>
-            {placeholder.handicap !== null && placeholder.handicap !== undefined && (
+            {placeholder.handicap != null && (
               <Text
                 style={[
                   styles.handicap,
@@ -80,7 +103,9 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
                   isDisabled && { color: colors.textDisabled },
                 ]}
               >
-                HC: {placeholder.handicap}
+                {dailyHandicap != null
+                  ? `DHC: ${dailyHandicap}`
+                  : `HC: ${placeholder.handicap}`}
               </Text>
             )}
           </View>

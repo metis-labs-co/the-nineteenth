@@ -19,6 +19,8 @@ interface AddPlayersStepProps {
   initialData?: PlayerFormData[];
   onComplete: (data: PlayerFormData[]) => void;
   onBack: () => void;
+  /** Called when user skips the players step */
+  onSkip?: () => void;
   /** Maximum players per competition based on subscription tier */
   maxPlayersPerCompetition?: number;
 }
@@ -37,6 +39,7 @@ export default function AddPlayersStep({
   initialData,
   onComplete,
   onBack,
+  onSkip,
   maxPlayersPerCompetition,
 }: AddPlayersStepProps) {
   const insets = useSafeAreaInsets();
@@ -214,6 +217,7 @@ export default function AddPlayersStep({
         {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
           Select players for your competition. You are automatically included.
+          {onSkip && ' You can skip this step and add players later.'}
         </Text>
 
         {/* Friend Selector */}
@@ -303,17 +307,30 @@ export default function AddPlayersStep({
         >
           Back
         </Button>
-        <Button
-          mode="contained"
-          onPress={handleNext}
-          style={styles.nextButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
-          disabled={selectedPlayers.length < 2}
-        >
-          Next: Review
-        </Button>
+        {onSkip && selectedPlayers.length < 2 ? (
+          <Button
+            mode="outlined"
+            onPress={onSkip}
+            style={[styles.skipButton, { borderColor: colors.gray300 }]}
+            contentStyle={styles.buttonContent}
+            textColor={colors.textSecondary}
+            theme={{ colors: { outline: colors.gray300 } }}
+          >
+            Skip for Now
+          </Button>
+        ) : (
+          <Button
+            mode="contained"
+            onPress={handleNext}
+            style={styles.nextButton}
+            contentStyle={styles.buttonContent}
+            buttonColor={colors.primary}
+            textColor={colors.white}
+            disabled={selectedPlayers.length < 2}
+          >
+            Next ({selectedPlayers.length} players)
+          </Button>
+        )}
       </View>
     </View>
   );
@@ -354,6 +371,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1,
+    borderRadius: borderRadius.md,
+  },
+  skipButton: {
+    flex: 2,
     borderRadius: borderRadius.md,
   },
   nextButton: {

@@ -32,19 +32,32 @@ export const TEE_COLORS: Record<string, string> = {
 export const GAME_TYPE_LABELS: Record<GameType, string> = {
   stableford: 'Stableford',
   stroke: 'Stroke Play',
+  par: 'Par',
   'match-play': 'Match Play',
   'best-ball': 'Best Ball',
   scramble: 'Scramble',
   shamble: 'Shamble',
 };
 
-export const GAME_TYPES: GameTypeOption[] = [
+/** Individual game types (non-team formats) */
+export const INDIVIDUAL_GAME_TYPES: GameTypeOption[] = [
   { value: 'stableford', label: 'Stableford', description: 'Points-based scoring (most popular)' },
   { value: 'stroke', label: 'Stroke Play', description: 'Count total strokes' },
+  { value: 'par', label: 'Par', description: 'Win/lose each hole (+1, 0, -1 scoring)' },
   { value: 'match-play', label: 'Match Play', description: 'Hole-by-hole competition' },
+];
+
+/** Team format game types */
+export const TEAM_GAME_TYPES: GameTypeOption[] = [
   { value: 'best-ball', label: 'Best Ball', description: 'Best score from team counts' },
   { value: 'scramble', label: 'Scramble', description: 'Team picks best shot each time' },
   { value: 'shamble', label: 'Shamble', description: 'Best drive, then individual play' },
+];
+
+/** All game types (individual + team) */
+export const GAME_TYPES: GameTypeOption[] = [
+  ...INDIVIDUAL_GAME_TYPES,
+  ...TEAM_GAME_TYPES,
 ];
 
 // =====================================================
@@ -95,13 +108,18 @@ export interface CourseSelectionModalProps {
   onClose: () => void;
 }
 
-export interface MatchTypeModalProps {
+export interface GameTypeModalProps {
   visible: boolean;
-  selectedMatchType: GameType;
+  selectedGameType: GameType;
   availableGameTypes: GameTypeOption[];
-  onSelect: (matchType: GameType) => void;
+  onSelect: (gameType: GameType) => void;
   onClose: () => void;
+  /** Whether to show team format options (Best Ball, Scramble, Shamble). Default: true */
+  showTeamFormats?: boolean;
 }
+
+/** @deprecated Use GameTypeModalProps instead */
+export type MatchTypeModalProps = GameTypeModalProps;
 
 export interface TeeSelectionModalProps {
   visible: boolean;
@@ -126,11 +144,21 @@ export function createEmptyRound(defaultDate?: string): RoundDetailsFormData {
   };
 }
 
-export function getFilteredGameTypes(allowedGameTypes?: GameType[]): GameTypeOption[] {
+/**
+ * Get filtered game types based on subscription tier and team format visibility
+ * @param allowedGameTypes - Game types allowed by subscription tier
+ * @param showTeamFormats - Whether to include team formats (default: true)
+ */
+export function getFilteredGameTypes(
+  allowedGameTypes?: GameType[],
+  showTeamFormats: boolean = true
+): GameTypeOption[] {
+  const baseTypes = showTeamFormats ? GAME_TYPES : INDIVIDUAL_GAME_TYPES;
+
   if (!allowedGameTypes || allowedGameTypes.length === 0) {
-    return GAME_TYPES.map((gt) => ({ ...gt, disabled: false, upgradeRequired: false }));
+    return baseTypes.map((gt) => ({ ...gt, disabled: false, upgradeRequired: false }));
   }
-  return GAME_TYPES.map((gt) => ({
+  return baseTypes.map((gt) => ({
     ...gt,
     disabled: !allowedGameTypes.includes(gt.value),
     upgradeRequired: !allowedGameTypes.includes(gt.value),

@@ -17,7 +17,8 @@ export interface PlayerCardData {
   id: string;
   name: string;
   email?: string | null;
-  handicap?: number | null;
+  handicap?: number | null; // GA Handicap (profile)
+  handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   photo_url?: string | null;
 }
 
@@ -176,10 +177,16 @@ export const PlayerCard = React.memo(function PlayerCard({
             {player.email}
           </Text>
         )}
-        {showHandicap && player.handicap !== null && player.handicap !== undefined && (
-          <Text style={[styles.handicap, { color: handicapColor || colors.textSecondary }]}>
-            HC: {player.handicap}
-          </Text>
+        {showHandicap && (player.handicap != null || player.handicap_index != null) && (
+          <View style={styles.handicapRow}>
+            <Text style={[styles.handicap, { color: handicapColor || colors.textSecondary }]}>
+              GA: {player.handicap != null ? player.handicap : '-'}
+            </Text>
+            <Text style={[styles.handicapSeparator, { color: colors.textTertiary }]}>|</Text>
+            <Text style={[styles.handicap, { color: colors.primary }]}>
+              Social: {player.handicap_index != null ? player.handicap_index.toFixed(1) : '-'}
+            </Text>
+          </View>
         )}
       </View>
 
@@ -254,9 +261,17 @@ const styles = StyleSheet.create({
     ...typography.small,
     marginTop: spacing.xs,
   },
+  handicapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
   handicap: {
     ...typography.small,
-    marginTop: spacing.xs,
+  },
+  handicapSeparator: {
+    ...typography.small,
   },
   rightAction: {
     marginLeft: spacing.sm,

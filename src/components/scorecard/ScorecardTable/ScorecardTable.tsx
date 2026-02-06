@@ -12,8 +12,8 @@
  * Used by ReviewScorecardScreen and RoundScorecardTab.
  */
 
-import React, { useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, ScrollView, TouchableOpacity, StyleSheet as RNStyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { getScoreColor, calculateParScore, getStrokesReceived } from '@/utils/scoring';
@@ -29,6 +29,8 @@ import {
 import { getFirstName } from '@/utils/displayHelpers';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { ScoreIndicator } from '../ScoreIndicator';
+import { HandicapInfoSheet } from '@/components/common';
+import { spacing } from '@/constants/theme';
 import { styles } from './styles';
 import type { ScorecardTableProps, ScorecardTablePlayer } from './types';
 import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
@@ -62,6 +64,7 @@ interface ScrollableHeaderCellsProps {
   players: ScorecardTablePlayer[];
   playerCellWidth: number;
   onPlayerPress?: (playerId: string) => void;
+  onHandicapInfoPress?: () => void;
   selectedTeeData?: TeeBox | null;
   coursePar: number;
 }
@@ -70,6 +73,7 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
   players,
   playerCellWidth,
   onPlayerPress,
+  onHandicapInfoPress,
   selectedTeeData,
   coursePar,
 }: ScrollableHeaderCellsProps) {
@@ -77,7 +81,7 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
 
   return (
     <>
-      {players.map((playerData) => {
+      {players.map((playerData, index) => {
         // Calculate daily handicap if tee data is available
         const rawHandicap = playerData.player?.handicap ?? 0;
         let displayHandicap = rawHandicap;
@@ -100,9 +104,21 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
             <Text style={[styles.headerText, { color: colors.textPrimary }]} numberOfLines={1}>
               {getFirstName(playerData.player?.name)}
             </Text>
-            <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
-              {handicapLabel}: {displayHandicap}
-            </Text>
+            <View style={headerLocalStyles.handicapRow}>
+              <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
+                {handicapLabel}: {displayHandicap}
+              </Text>
+              {/* Show info icon only on first player to avoid clutter */}
+              {index === 0 && onHandicapInfoPress && (
+                <TouchableOpacity
+                  onPress={onHandicapInfoPress}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={headerLocalStyles.infoButton}
+                >
+                  <Icon source="information-outline" size={12} color={colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
           </>
         );
 
@@ -130,6 +146,17 @@ const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
       })}
     </>
   );
+});
+
+const headerLocalStyles = RNStyleSheet.create({
+  handicapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  infoButton: {
+    padding: 2,
+  },
 });
 
 interface FixedHoleCellsProps {
@@ -782,6 +809,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   gameType,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
+  const [showHandicapInfo, setShowHandicapInfo] = useState(false);
 
   // Only show stats columns for solo rounds (1 player)
   const isSoloRound = players.length === 1;
@@ -868,7 +896,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             <View>
               {/* Header */}
               <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} selectedTeeData={selectedTeeData} coursePar={coursePar} />
+                <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} onHandicapInfoPress={() => setShowHandicapInfo(true)} selectedTeeData={selectedTeeData} coursePar={coursePar} />
                 {showSoloStats && (
                   <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -929,6 +957,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             </View>
           </ScrollView>
         </View>
+        <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
       </View>
     );
   }
@@ -939,7 +968,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Header */}
       <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         <FixedHeaderCells />
-        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} selectedTeeData={selectedTeeData} coursePar={coursePar} />
+        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} onHandicapInfoPress={() => setShowHandicapInfo(true)} selectedTeeData={selectedTeeData} coursePar={coursePar} />
         {showSoloStats && (
           <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -1011,6 +1040,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
           <SoloStatsStablefordEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
       </View>
+
+      <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
     </View>
   );
 });

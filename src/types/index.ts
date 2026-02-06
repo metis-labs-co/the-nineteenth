@@ -309,7 +309,8 @@ export interface Player {
   name: string;
   email: string;
   phone?: string | null;
-  handicap?: number | null; // Nullable to match database type
+  handicap?: number | null; // GA Handicap (profile), nullable to match database type
+  handicapIndex?: number | null; // Social Handicap Index (calculated from app rounds)
   gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
   photoUrl?: string | null;
   // Optional since most components don't need these

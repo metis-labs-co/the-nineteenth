@@ -21,6 +21,7 @@ import type {
   CompetitionType,
   PrizePoolConfigFormData,
 } from '@/schemas/competition';
+import type { WizardPlayerData } from '@/store/competitionWizardStore';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
@@ -46,6 +47,7 @@ const competitionTypeLabels: Record<CompetitionType, string> = {
 export interface SimplifiedReviewStepProps {
   competitionData: CompetitionDetailsFormData;
   roundsData: SimplifiedRoundFormData[];
+  playersData?: WizardPlayerData[];
   prizePoolData?: PrizePoolConfigFormData;
   onSubmit: () => void;
   onBack: () => void;
@@ -55,6 +57,7 @@ export interface SimplifiedReviewStepProps {
 export default function SimplifiedReviewStep({
   competitionData,
   roundsData,
+  playersData,
   prizePoolData,
   onSubmit,
   onBack,
@@ -65,6 +68,7 @@ export default function SimplifiedReviewStep({
 
   // Calculate prize pool values for display
   const hasPrizePool = !!prizePoolData;
+  const hasPlayers = playersData && playersData.length > 0;
   const fundingLabel =
     prizePoolData?.fundingType === 'per_player' ? 'Per Player' : 'Fixed Total';
 
@@ -105,8 +109,10 @@ export default function SimplifiedReviewStep({
       <ScrollView contentContainerStyle={styles.content}>
         {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Review all details before creating your competition. You can add players and configure
-          rounds after creation.
+          Review all details before creating your competition.
+          {hasPlayers
+            ? ' You can add more players and configure rounds after creation.'
+            : ' You can add players and configure rounds after creation.'}
         </Text>
 
         {/* Competition Details */}
@@ -249,6 +255,66 @@ export default function SimplifiedReviewStep({
           </View>
         </View>
 
+        {/* Players Details */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Players ({hasPlayers ? playersData.length : 0})
+            </Text>
+            {!hasPlayers && (
+              <View style={[styles.statusBadge, { backgroundColor: colors.gray100 }]}>
+                <Icon source="clock-outline" size={12} color={colors.gray500} />
+                <Text style={[styles.statusText, { color: colors.gray500 }]}>
+                  Add later
+                </Text>
+              </View>
+            )}
+          </View>
+          <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+
+          <View style={styles.itemsContainer}>
+            {hasPlayers ? (
+              <View style={styles.playersContainer}>
+                {playersData.map((player, index) => (
+                  <View key={player.id} style={styles.playerRow}>
+                    <View style={styles.playerInfo}>
+                      <Text style={[styles.playerName, { color: colors.textPrimary }]}>
+                        {player.name}
+                      </Text>
+                      {player.handicap !== null && player.handicap !== undefined && (
+                        <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
+                          HC {player.handicap}
+                        </Text>
+                      )}
+                    </View>
+                    {player.is_placeholder && (
+                      <Chip
+                        mode="flat"
+                        style={[styles.guestBadge, { backgroundColor: colors.gray100 }]}
+                        textStyle={[styles.guestBadgeText, { color: colors.gray600 }]}
+                      >
+                        Guest
+                      </Chip>
+                    )}
+                    {index < playersData.length - 1 && (
+                      <Divider
+                        style={[styles.playerDivider, { backgroundColor: colors.gray100 }]}
+                      />
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={[styles.notConfiguredBox, { backgroundColor: colors.gray50 }]}>
+                <Icon source="account-plus-outline" size={16} color={colors.textSecondary} />
+                <Text style={[styles.notConfiguredText, { color: colors.textSecondary }]}>
+                  Players will be added from the competition details screen after creation
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Prize Pool Details (if configured) */}
         {hasPrizePool && prizePoolData && (
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
@@ -347,9 +413,16 @@ export default function SimplifiedReviewStep({
           <View style={styles.infoContent}>
             <Text style={[styles.infoTitle, { color: colors.info }]}>After creation:</Text>
             <View style={styles.infoList}>
-              <Text style={[styles.infoText, { color: colors.info }]}>
-                • Add players from the competition details screen
-              </Text>
+              {!hasPlayers && (
+                <Text style={[styles.infoText, { color: colors.info }]}>
+                  • Add players from the competition details screen
+                </Text>
+              )}
+              {hasPlayers && (
+                <Text style={[styles.infoText, { color: colors.info }]}>
+                  • Add more players from the competition details screen
+                </Text>
+              )}
               <Text style={[styles.infoText, { color: colors.info }]}>
                 • Configure any unconfigured rounds
               </Text>
@@ -650,6 +723,40 @@ const styles = StyleSheet.create({
   autoSplitNoteText: {
     ...typography.caption,
     flex: 1,
+  },
+  // Players styles
+  playersContainer: {
+    gap: spacing.xs,
+  },
+  playerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  playerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  playerName: {
+    ...typography.body,
+  },
+  playerHandicap: {
+    ...typography.caption,
+  },
+  playerDivider: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  guestBadge: {
+    height: 24,
+  },
+  guestBadgeText: {
+    ...typography.caption,
   },
 });
 

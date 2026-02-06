@@ -19,9 +19,10 @@ import { useCompetitionCount } from '@/hooks/useSubscription';
 import { UpgradePrompt, UpgradePromptConfig } from '@/components/subscription/UpgradePrompt';
 import { useCompetitionWizardStore, clearWizardDraft } from '@/store/competitionWizardStore';
 
-// Step components - simplified 3-step wizard (4-step with prize pool)
+// Step components - simplified 4-step wizard (5-step with prize pool)
 import CompetitionDetailsStep from '@/components/competitionWizard/create/CompetitionDetailsStep';
 import SimplifiedRoundDetailsStep from '@/components/competitionWizard/create/RoundDetailsStep/SimplifiedRoundDetailsStep';
+import AddPlayersStep from '@/components/competitionWizard/create/AddPlayersStep';
 import { PrizePoolSetupStep } from '@/components/competitionWizard/create/PrizePoolSetupStep';
 import { SimplifiedReviewStep } from '@/components/competitionWizard/create/SimplifiedReviewStep';
 import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
@@ -31,6 +32,7 @@ import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
   PrizePoolConfigFormData,
+  PlayerFormData,
 } from '@/schemas/competition';
 
 // Parse DD/MM/YYYY string to Date object
@@ -43,10 +45,11 @@ const parseAustralianDate = (dateString: string): Date => {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, 'CreateCompetition'>;
 
-// Wizard state - simplified 3-step flow (4-step with prize pool)
+// Wizard state - simplified 4-step flow (5-step with prize pool)
 export interface WizardState {
   step1?: CompetitionDetailsFormData; // Competition details + team toggle + prize pool toggle
   step2?: SimplifiedRoundFormData[]; // Simplified rounds (can be blank)
+  players?: PlayerFormData[]; // Players (optional, skippable)
   prizePoolConfig?: PrizePoolConfigFormData; // Prize pool config (when enabled)
 }
 
@@ -54,11 +57,12 @@ export interface WizardState {
 const BASE_STEPS = [
   { number: 1, title: 'Details', description: 'Name, dates, team toggle' },
   { number: 2, title: 'Rounds', description: 'Configure rounds' },
-  { number: 3, title: 'Review', description: 'Review and create' },
+  { number: 3, title: 'Players', description: 'Add players (optional)' },
+  { number: 4, title: 'Review', description: 'Review and create' },
 ];
 
-// Prize pool step (inserted between Rounds and Review when enabled)
-const PRIZE_POOL_STEP = { number: 3, title: 'Prize Pool', description: 'Configure prize pool' };
+// Prize pool step (inserted between Players and Review when enabled)
+const PRIZE_POOL_STEP = { number: 4, title: 'Prize Pool', description: 'Configure prize pool' };
 
 export default function CreateCompetitionScreen() {
   const colors = useThemeColors();
@@ -135,6 +139,7 @@ export default function CreateCompetitionScreen() {
     setCurrentStep,
     setStep1,
     setStep2,
+    setPlayers,
     setPrizePoolConfig,
     initializeFromRouteParams,
     hasDraft,
@@ -156,8 +161,9 @@ export default function CreateCompetitionScreen() {
       return [
         BASE_STEPS[0], // Details
         BASE_STEPS[1], // Rounds
+        BASE_STEPS[2], // Players
         PRIZE_POOL_STEP, // Prize Pool (inserted)
-        { ...BASE_STEPS[2], number: 4 }, // Review (renumbered)
+        { ...BASE_STEPS[3], number: 5 }, // Review (renumbered)
       ];
     }
     return BASE_STEPS;
@@ -167,7 +173,7 @@ export default function CreateCompetitionScreen() {
   const totalSteps = STEPS.length;
 
   // Get the review step number (last step)
-  const reviewStepNumber = hasPrizePool ? 4 : 3;
+  const reviewStepNumber = hasPrizePool ? 5 : 4;
 
   // Handle step completion - dynamic step flow
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
@@ -177,19 +183,39 @@ export default function CreateCompetitionScreen() {
 
   const handleStep2Complete = (data: SimplifiedRoundFormData[]) => {
     setStep2(data);
+    // Go to Players step (step 3)
+    setCurrentStep(3);
+  };
+
+  const handlePlayersComplete = (data: PlayerFormData[]) => {
+    // Convert PlayerFormData to WizardPlayerData
+    const wizardPlayers = data.map((p) => ({
+      id: p.id || '',
+      name: p.name,
+      email: p.email || null,
+      handicap: p.handicap ? parseFloat(p.handicap) : null,
+      photo_url: null,
+      is_placeholder: false,
+    }));
+    setPlayers(wizardPlayers);
     // If prize pool enabled, go to prize pool step, otherwise go to review
-    // Note: We need to check the incoming data since hasPrizePool uses wizardData.step1
-    // which may have just been updated in step 1
     const prizePoolEnabled = wizardData.step1?.enablePrizePool ?? false;
-    setCurrentStep(prizePoolEnabled ? 3 : 3);
+    setCurrentStep(prizePoolEnabled ? 4 : 4);
     // Note: Step numbers are now:
-    // - With prize pool: 1=Details, 2=Rounds, 3=PrizePool, 4=Review
-    // - Without prize pool: 1=Details, 2=Rounds, 3=Review
+    // - With prize pool: 1=Details, 2=Rounds, 3=Players, 4=PrizePool, 5=Review
+    // - Without prize pool: 1=Details, 2=Rounds, 3=Players, 4=Review
+  };
+
+  const handlePlayersSkip = () => {
+    // Clear any previously selected players and proceed
+    setPlayers([]);
+    const prizePoolEnabled = wizardData.step1?.enablePrizePool ?? false;
+    setCurrentStep(prizePoolEnabled ? 4 : 4);
   };
 
   const handlePrizePoolComplete = (data: PrizePoolConfigFormData) => {
     setPrizePoolConfig(data);
-    setCurrentStep(4); // Go to review (step 4 when prize pool is enabled)
+    setCurrentStep(5); // Go to review (step 5 when prize pool is enabled)
   };
 
   // Handle final submission - dynamic step flow with prize pool
@@ -236,8 +262,13 @@ export default function CreateCompetitionScreen() {
           scoringPairsRequired: round.scoringPairsRequired ?? false,
         })),
 
-        // No players in wizard - added via details screen after creation
-        players: [],
+        // Step 3: Players (optional - may be empty if skipped)
+        players: (wizardData.players || []).map((player) => ({
+          id: player.id || undefined,
+          name: player.name,
+          email: player.email || '',
+          handicap: player.handicap ?? undefined,
+        })),
       });
 
       // If prize pool is enabled, create it after competition creation
@@ -317,12 +348,12 @@ export default function CreateCompetitionScreen() {
   const handleBack = () => {
     if (currentStep === 1) {
       navigation.goBack();
-    } else if (hasPrizePool && currentStep === 4) {
+    } else if (hasPrizePool && currentStep === 5) {
       // From review step with prize pool, go back to prize pool step
+      setCurrentStep(4);
+    } else if (!hasPrizePool && currentStep === 4) {
+      // From review step without prize pool, go back to players step
       setCurrentStep(3);
-    } else if (!hasPrizePool && currentStep === 3) {
-      // From review step without prize pool, go back to rounds step
-      setCurrentStep(2);
     } else {
       setCurrentStep(currentStep - 1);
     }
@@ -378,14 +409,37 @@ export default function CreateCompetitionScreen() {
       );
     }
 
-    // Step 3: Either Prize Pool (if enabled) or Review (if not enabled)
+    // Step 3: Players (skippable)
     if (currentStep === 3) {
+      // Convert wizard player data to PlayerFormData format for initial data
+      const initialPlayersData = wizardData.players?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email || '',
+        phone: '',
+        handicap: p.handicap?.toString() || '',
+        golf_id: '',
+      }));
+
+      return (
+        <AddPlayersStep
+          initialData={initialPlayersData}
+          onComplete={handlePlayersComplete}
+          onBack={handleBack}
+          onSkip={handlePlayersSkip}
+          maxPlayersPerCompetition={limits?.maxPlayersPerCompetition}
+        />
+      );
+    }
+
+    // Step 4: Either Prize Pool (if enabled) or Review (if not enabled)
+    if (currentStep === 4) {
       if (hasPrizePool) {
         // Prize Pool Setup Step
         return (
           <PrizePoolSetupStep
             initialData={wizardData.prizePoolConfig}
-            playerCount={0} // No players added in wizard
+            playerCount={wizardData.players?.length ?? 0}
             roundCount={wizardData.step2?.length ?? 1}
             onComplete={handlePrizePoolComplete}
             onBack={handleBack}
@@ -397,6 +451,7 @@ export default function CreateCompetitionScreen() {
           <SimplifiedReviewStep
             competitionData={wizardData.step1!}
             roundsData={wizardData.step2!}
+            playersData={wizardData.players}
             onSubmit={handleSubmit}
             onBack={handleBack}
             isSubmitting={createCompetition.isPending || createPrizePool.isPending}
@@ -405,12 +460,13 @@ export default function CreateCompetitionScreen() {
       }
     }
 
-    // Step 4: Review (only when prize pool is enabled)
-    if (currentStep === 4 && hasPrizePool) {
+    // Step 5: Review (only when prize pool is enabled)
+    if (currentStep === 5 && hasPrizePool) {
       return (
         <SimplifiedReviewStep
           competitionData={wizardData.step1!}
           roundsData={wizardData.step2!}
+          playersData={wizardData.players}
           prizePoolData={wizardData.prizePoolConfig}
           onSubmit={handleSubmit}
           onBack={handleBack}

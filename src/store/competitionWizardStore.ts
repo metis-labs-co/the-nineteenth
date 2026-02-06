@@ -20,11 +20,24 @@ import type {
 } from '@/schemas/competition';
 
 /**
+ * Player data for wizard (simplified from PlayerFormData)
+ */
+export interface WizardPlayerData {
+  id: string;
+  name: string;
+  email?: string | null;
+  handicap?: number | null;
+  photo_url?: string | null;
+  is_placeholder?: boolean;
+}
+
+/**
  * Wizard data structure matching CreateCompetitionScreen's WizardState
  */
 export interface WizardData {
   step1?: CompetitionDetailsFormData;
   step2?: SimplifiedRoundFormData[];
+  players?: WizardPlayerData[];
   prizePoolConfig?: PrizePoolConfigFormData;
 }
 
@@ -38,6 +51,7 @@ interface CompetitionWizardState {
   // Actions
   setStep1: (data: CompetitionDetailsFormData) => void;
   setStep2: (data: SimplifiedRoundFormData[]) => void;
+  setPlayers: (data: WizardPlayerData[]) => void;
   setPrizePoolConfig: (data: PrizePoolConfigFormData) => void;
   setCurrentStep: (step: number) => void;
   clearDraft: () => void;
@@ -70,6 +84,13 @@ export const useCompetitionWizardStore = create<CompetitionWizardState>((set, ge
       lastModified: Date.now(),
     }),
 
+  setPlayers: (data) =>
+    set({
+      wizardData: { ...get().wizardData, players: data },
+      hasDraft: true,
+      lastModified: Date.now(),
+    }),
+
   setPrizePoolConfig: (data) =>
     set({
       wizardData: { ...get().wizardData, prizePoolConfig: data },
@@ -90,11 +111,15 @@ export const useCompetitionWizardStore = create<CompetitionWizardState>((set, ge
     // Only initialize if store is empty and initialState is provided
     if (initialState && !get().hasDraft) {
       // Calculate initial step based on what's provided
+      // Steps: 1=Details, 2=Rounds, 3=Players, 4=PrizePool(optional)/Review, 5=Review(with prize pool)
       let startStep = 1;
-      if (initialState.step1 && initialState.step2) {
-        // Both steps provided - go to review
+      if (initialState.step1 && initialState.step2 && initialState.players) {
+        // All steps provided - go to review
         const hasPrizePool = initialState.step1?.enablePrizePool;
-        startStep = hasPrizePool ? 4 : 3;
+        startStep = hasPrizePool ? 5 : 4;
+      } else if (initialState.step1 && initialState.step2) {
+        // Details and rounds provided - go to players
+        startStep = 3;
       } else if (initialState.step1) {
         startStep = 2;
       }
@@ -139,6 +164,13 @@ export function useWizardStep1Data(): CompetitionDetailsFormData | undefined {
  */
 export function useWizardStep2Data(): SimplifiedRoundFormData[] | undefined {
   return useCompetitionWizardStore((state) => state.wizardData.step2);
+}
+
+/**
+ * Get players data
+ */
+export function useWizardPlayersData(): WizardPlayerData[] | undefined {
+  return useCompetitionWizardStore((state) => state.wizardData.players);
 }
 
 /**

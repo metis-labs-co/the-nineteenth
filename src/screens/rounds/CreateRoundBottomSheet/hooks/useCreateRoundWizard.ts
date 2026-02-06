@@ -172,6 +172,8 @@ export function useCreateRoundWizard({
         id: player.id,
         name: player.name || user?.email?.split('@')[0] || 'You',
         handicap: player.handicap ?? undefined,
+        handicapIndex: player.handicap_index ?? undefined,
+        gender: player.gender ?? undefined,
       };
     }
     if (user) {
@@ -179,6 +181,8 @@ export function useCreateRoundWizard({
         id: user.id,
         name: user.email?.split('@')[0] || 'You',
         handicap: undefined,
+        handicapIndex: undefined,
+        gender: undefined,
       };
     }
     return null;
@@ -349,6 +353,8 @@ export function useCreateRoundWizard({
             id: friend.id,
             name: friend.name,
             handicap: friend.handicap ?? undefined,
+            handicapIndex: friend.handicap_index ?? undefined,
+            gender: friend.gender ?? undefined,
           },
         ],
       };
@@ -425,6 +431,7 @@ export function useCreateRoundWizard({
   }, []);
 
   // Team generation for scramble format
+  // Creates teams of 2, with any odd remaining player as their own team (2v1)
   const generateTeams = useCallback(
     (players: PlayingPartner[]): ScrambleTeam[] => {
       if (!currentUserAsPartner) return [];
@@ -436,10 +443,6 @@ export function useCreateRoundWizard({
         const members = [allPlayers[i]];
         if (i + 1 < allPlayers.length) {
           members.push(allPlayers[i + 1]);
-        } else if (teams.length > 0) {
-          // Odd player: add to last team as 3rd member
-          teams[teams.length - 1].members.push(allPlayers[i]);
-          continue;
         }
         teams.push({
           id: generateUUID(),
@@ -465,16 +468,12 @@ export function useCreateRoundWizard({
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    // Re-generate teams from shuffled players
+    // Re-generate teams from shuffled players (odd player gets own team for 2v1)
     const teams: ScrambleTeam[] = [];
     for (let i = 0; i < shuffled.length; i += 2) {
       const members = [shuffled[i]];
       if (i + 1 < shuffled.length) {
         members.push(shuffled[i + 1]);
-      } else if (teams.length > 0) {
-        // Odd player: add to last team as 3rd member
-        teams[teams.length - 1].members.push(shuffled[i]);
-        continue;
       }
       teams.push({
         id: generateUUID(),
@@ -492,7 +491,15 @@ export function useCreateRoundWizard({
       if (enabled && currentUserAsPartner) {
         // Generate teams when toggle is turned on
         const teams = generateTeams(data.selectedPartners);
-        setData((prev) => ({ ...prev, splitIntoTeams: true, teams }));
+        // Auto-disable skins if fewer than 2 teams (no opponent to bet against)
+        const shouldDisableSkins = teams.length < 2;
+        setData((prev) => ({
+          ...prev,
+          splitIntoTeams: true,
+          teams,
+          skinsEnabled: shouldDisableSkins ? false : prev.skinsEnabled,
+          skinsConfig: shouldDisableSkins ? null : prev.skinsConfig,
+        }));
       } else {
         // Clear teams when toggle is turned off
         // Also disable skins if this is a team game type (skins requires teams for team formats)

@@ -8,6 +8,7 @@
 import type { Hole, HoleScore, TeeBox } from '@/types/database.types';
 import type { MultiBallHoleScore } from '@/types/database/base';
 import type { PlayerGender } from '@/types/database/player.types';
+import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import { getStrokesReceived, calculateStablefordPointsNet, calculateParScore } from './scoring';
 import { calculateGADailyHandicap } from './dailyHandicap';
@@ -28,7 +29,8 @@ export type ScoresRecord = Record<string, HoleScore | MultiBallHoleScore>;
 export interface ScorecardPlayerInfo {
   id: string;
   name: string;
-  handicap?: number | null;
+  handicap?: number | null; // GA Handicap (profile)
+  handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   gender?: PlayerGender | null; // For daily handicap calculation
 }
 
@@ -78,17 +80,45 @@ export interface ScorecardPlayerData {
 // =====================================================
 
 /**
+ * Get the base handicap value based on the handicap source
+ *
+ * @param player Player info with handicap values
+ * @param handicapSource Which handicap value to use
+ * @returns The base handicap value (before daily calculation)
+ */
+export function getBaseHandicap(
+  player: ScorecardPlayerInfo | null,
+  handicapSource: HandicapSource = 'profile'
+): number {
+  if (!player) return 0;
+
+  switch (handicapSource) {
+    case 'none':
+      return 0;
+    case 'calculated':
+      // Use Social Handicap Index, fallback to GA handicap if not available
+      return player.handicap_index ?? player.handicap ?? 0;
+    case 'profile':
+    default:
+      // Use GA Handicap (profile)
+      return player.handicap ?? 0;
+  }
+}
+
+/**
  * Calculate statistics for all players in a scorecard display
  *
  * @param players Array of player data with scores
  * @param holes Array of hole data
  * @param selectedTee Optional tee data with slope/course ratings for daily handicap calculation
+ * @param handicapSource Which handicap value to use ('profile' = GA, 'calculated' = Social Index, 'none' = no handicap)
  * @returns Array of player statistics
  */
 export function calculatePlayerStats(
   players: ScorecardPlayerData[],
   holes: Hole[],
-  selectedTee?: TeeBox | null
+  selectedTee?: TeeBox | null,
+  handicapSource: HandicapSource = 'profile'
 ): PlayerStats[] {
   // Calculate course par once for daily handicap calculations
   const coursePar = holes.reduce((sum, hole) => sum + hole.par, 0);
@@ -96,11 +126,13 @@ export function calculatePlayerStats(
   return players.map((playerData) => {
     const player = playerData.player;
     const scores = playerData.scores;
-    const handicap = player?.handicap || 0;
 
-    // Calculate daily handicap if tee data is available
+    // Get base handicap based on source (profile, calculated, or none)
+    const handicap = getBaseHandicap(player, handicapSource);
+
+    // Calculate daily handicap if tee data is available and not using 'none'
     let dailyHandicap = handicap;
-    if (selectedTee?.slopeRating && selectedTee?.courseRating && coursePar > 0) {
+    if (handicapSource !== 'none' && selectedTee?.slopeRating && selectedTee?.courseRating && coursePar > 0) {
       const result = calculateGADailyHandicap({
         gaHandicap: handicap,
         slopeRating: selectedTee.slopeRating,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, ScrollView, LayoutAnimation, UIManager, TouchableOpacity } from 'react-native';
-import { Button, Text, SegmentedButtons, Icon } from 'react-native-paper';
+import { Button, Text, Icon } from 'react-native-paper';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,10 +9,11 @@ import {
   competitionDetailsSchema,
   type CompetitionDetailsFormData,
   type CompetitionType,
+  type HandicapSource,
 } from '@/schemas/competition';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { DatePicker, FormInput } from '@/components/common';
+import { DatePicker, FormInput, SegmentedButton } from '@/components/common';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { IconTrophy, IconLock } from '@tabler/icons-react-native';
 
@@ -62,7 +63,8 @@ export default function CompetitionDetailsStep({
       competitionType: 'event',
       startDate: '',
       endDate: '',
-      handicapSystem: 'honor',
+      handicapSystem: 'golf-australia', // Always GA - no toggle exposed
+      handicapSource: 'calculated', // Default to Social Index
       inviteCode: '',
       enableTeams: false,
       enablePrizePool: false,
@@ -75,6 +77,9 @@ export default function CompetitionDetailsStep({
   // Watch start date for end date minimum
   const startDateValue = useWatch({ control, name: 'startDate' });
   const startDateParsed = parseAustralianDate(startDateValue);
+
+  // Watch handicap source for hint text
+  const handicapSource = useWatch({ control, name: 'handicapSource' });
 
   const handleCompetitionTypeChange = (value: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -139,24 +144,14 @@ export default function CompetitionDetailsStep({
               control={control}
               name="competitionType"
               render={({ field: { value } }) => (
-                <SegmentedButtons
+                <SegmentedButton
                   value={value}
                   onValueChange={handleCompetitionTypeChange}
                   buttons={[
-                    {
-                      value: 'event',
-                      label: 'Event',
-                      icon: 'calendar-star',
-                      checkedColor: colors.primary,
-                    },
-                    {
-                      value: 'league',
-                      label: 'League',
-                      icon: 'trophy-outline',
-                      checkedColor: colors.primary,
-                    },
+                    { value: 'event', label: 'Event', icon: 'calendar-star' },
+                    { value: 'league', label: 'League', icon: 'trophy-outline' },
                   ]}
-                  style={styles.segmentedButtons}
+                  size="large"
                 />
               )}
             />
@@ -227,53 +222,49 @@ export default function CompetitionDetailsStep({
 
           {/* Team Toggle */}
           <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Teams</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Format</Text>
             <Controller
               control={control}
               name="enableTeams"
               render={({ field: { value, onChange } }) => (
-                <TouchableOpacity
-                  onPress={() => onChange(!value)}
-                  style={[
-                    styles.teamToggle,
-                    {
-                      backgroundColor: value ? colors.primaryLighter : colors.surface,
-                      borderColor: value ? colors.primary : colors.gray300,
-                    },
+                <SegmentedButton
+                  value={value ? 'team' : 'individual'}
+                  onValueChange={(newValue) => onChange(newValue === 'team')}
+                  buttons={[
+                    { value: 'individual', label: 'Individual', icon: 'account' },
+                    { value: 'team', label: 'Team', icon: 'account-group' },
                   ]}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.teamToggleContent}>
-                    <Icon
-                      source={value ? 'account-group' : 'account'}
-                      size={24}
-                      color={value ? colors.primary : colors.gray500}
-                    />
-                    <View style={styles.teamToggleText}>
-                      <Text style={[styles.teamToggleLabel, { color: colors.textPrimary }]}>
-                        {value ? 'Team Competition' : 'Individual Competition'}
-                      </Text>
-                      <Text style={[styles.teamToggleDescription, { color: colors.textSecondary }]}>
-                        {value ? 'Players compete in teams of 2' : 'Players compete individually'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.checkbox,
-                      {
-                        backgroundColor: value ? colors.primary : colors.surface,
-                        borderColor: value ? colors.primary : colors.gray300,
-                      },
-                    ]}
-                  >
-                    {value && <Icon source="check" size={14} color={colors.white} />}
-                  </View>
-                </TouchableOpacity>
+                  size="large"
+                />
               )}
             />
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
               Team format can be configured in competition settings after creation
+            </Text>
+          </View>
+
+          {/* Handicap Source */}
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Handicap Source</Text>
+            <Controller
+              control={control}
+              name="handicapSource"
+              render={({ field: { value, onChange } }) => (
+                <SegmentedButton
+                  value={value || 'calculated'}
+                  onValueChange={(newValue) => onChange(newValue as HandicapSource)}
+                  buttons={[
+                    { value: 'calculated', label: 'Social Index', icon: 'calculator' },
+                    { value: 'profile', label: 'GA Handicap', icon: 'card-account-details' },
+                  ]}
+                  size="large"
+                />
+              )}
+            />
+            <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
+              {(handicapSource || 'calculated') === 'calculated'
+                ? "Uses Social Handicap Index (calculated from app rounds) with GA Handicap fallback"
+                : "Uses player's official GA Handicap (manually entered in profile)"}
             </Text>
           </View>
 
@@ -438,9 +429,6 @@ const styles = StyleSheet.create({
   },
   fieldHint: {
     ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  segmentedButtons: {
     marginTop: spacing.xs,
   },
   footer: {

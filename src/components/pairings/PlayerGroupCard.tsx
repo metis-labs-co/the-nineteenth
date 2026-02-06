@@ -7,14 +7,16 @@
  * - Add/remove player actions
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatTeeTimeForDisplay } from '@/utils';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { PairingPlayer } from '@/types';
+import type { TeeBox } from '@/types/database.types';
 
 export interface PlayerGroupCardProps {
   /**
@@ -33,6 +35,14 @@ export interface PlayerGroupCardProps {
    * Maximum players allowed in group
    */
   maxPlayers?: number;
+  /**
+   * Selected tee box for daily handicap calculation
+   */
+  selectedTee?: TeeBox | null;
+  /**
+   * Course par for daily handicap calculation
+   */
+  coursePar?: number;
   /**
    * Callback when add player button is pressed
    */
@@ -64,6 +74,8 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
   teeTime,
   players,
   maxPlayers = 4,
+  selectedTee,
+  coursePar,
   onAddPlayer,
   onRemovePlayer,
   editable = false,
@@ -75,6 +87,34 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
 
   const canAddPlayer = players.length < maxPlayers && editable;
   const showWarning = players.length < 2;
+
+  // Calculate daily handicaps for all players when tee info is available
+  const playerDailyHandicaps = useMemo(() => {
+    if (!selectedTee || !coursePar) return new Map<string, number | null>();
+
+    const dailyHandicaps = new Map<string, number | null>();
+
+    players.forEach((player) => {
+      // Use handicapIndex (Social) with handicap (GA) as fallback
+      const baseHandicap = player.handicapIndex ?? player.handicap;
+      if (baseHandicap === null || baseHandicap === undefined) {
+        dailyHandicaps.set(player.id, null);
+        return;
+      }
+
+      const result = calculateGADailyHandicap({
+        gaHandicap: baseHandicap,
+        slopeRating: selectedTee.slope_rating ?? 113,
+        courseRating: selectedTee.course_rating ?? coursePar,
+        par: coursePar,
+        gender: player.gender ?? 'male',
+      });
+
+      dailyHandicaps.set(player.id, result.dailyHandicap);
+    });
+
+    return dailyHandicaps;
+  }, [players, selectedTee, coursePar]);
 
   return (
     <View
@@ -167,48 +207,55 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
               </Text>
             </View>
           ) : (
-            players.map((player) => (
-              <View
-                key={player.id}
-                style={[
-                  styles.playerRow,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <PlayerAvatar
-                  photoUrl={player.photoUrl}
-                  name={player.name}
-                  size={40}
-                />
-                <View style={styles.playerInfo}>
-                  <Text
-                    style={[styles.playerName, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {player.name}
-                  </Text>
-                  {player.handicap !== null && player.handicap !== undefined && (
+            players.map((player) => {
+              const dailyHandicap = playerDailyHandicaps.get(player.id);
+              const hasHandicap = player.handicap != null || player.handicapIndex != null;
+
+              return (
+                <View
+                  key={player.id}
+                  style={[
+                    styles.playerRow,
+                    { borderBottomColor: colors.border },
+                  ]}
+                >
+                  <PlayerAvatar
+                    photoUrl={player.photoUrl}
+                    name={player.name}
+                    size={40}
+                  />
+                  <View style={styles.playerInfo}>
                     <Text
-                      style={[styles.handicapText, { color: colors.textSecondary }]}
+                      style={[styles.playerName, { color: colors.textPrimary }]}
+                      numberOfLines={1}
                     >
-                      HC: {player.handicap}
+                      {player.name}
                     </Text>
+                    {hasHandicap && (
+                      <Text
+                        style={[styles.handicapText, { color: colors.textSecondary }]}
+                      >
+                        {dailyHandicap != null
+                          ? `DHC: ${dailyHandicap}`
+                          : `HC: ${player.handicapIndex ?? player.handicap}`}
+                      </Text>
+                    )}
+                  </View>
+                  {editable && onRemovePlayer && (
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => onRemovePlayer(player.id)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${player.name} from group`}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon source="close" size={20} color={colors.error} />
+                    </TouchableOpacity>
                   )}
                 </View>
-                {editable && onRemovePlayer && (
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => onRemovePlayer(player.id)}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${player.name} from group`}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Icon source="close" size={20} color={colors.error} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))
+              );
+            })
           )}
 
           {/* Add Player Button */}

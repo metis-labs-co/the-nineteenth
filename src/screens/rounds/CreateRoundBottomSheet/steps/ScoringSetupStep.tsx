@@ -57,16 +57,23 @@ const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
 
 /**
  * Check if skins can be enabled for the given game configuration
- * Team formats require splitIntoTeams=true to use skins
+ * Team formats require splitIntoTeams=true with at least 2 teams to use skins
  */
 function canEnableSkinsForGameType(
   gameType: GameType,
-  splitIntoTeams: boolean
+  splitIntoTeams: boolean,
+  teamCount: number
 ): { canEnable: boolean; reason: string | null } {
   if (TEAM_GAME_TYPES.includes(gameType) && !splitIntoTeams) {
     return {
       canEnable: false,
       reason: 'Skins requires team mode for team formats. Enable "Split into Teams" above to use skins.',
+    };
+  }
+  if (TEAM_GAME_TYPES.includes(gameType) && splitIntoTeams && teamCount < 2) {
+    return {
+      canEnable: false,
+      reason: 'Skins requires at least 2 teams.',
     };
   }
   return { canEnable: true, reason: null };
@@ -142,8 +149,8 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   // Skins is only available for 2+ players (current user + at least 1 partner)
   const hasEnoughPlayers = selectedPartners.length >= 1;
 
-  // Check if skins is allowed for this game type
-  const skinsGameTypeValidation = canEnableSkinsForGameType(selectedMatchType, splitIntoTeams);
+  // Check if skins is allowed for this game type and team count
+  const skinsGameTypeValidation = canEnableSkinsForGameType(selectedMatchType, splitIntoTeams, teams.length);
   const canUseSkins = hasEnoughPlayers && skinsGameTypeValidation.canEnable;
   const skinsDisabledReason = !hasEnoughPlayers
     ? 'Skins requires at least 2 players'
@@ -500,7 +507,9 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
                   </Text>
                   <Text style={[styles.teamsToggleDescription, { color: colors.textSecondary }]}>
                     {splitIntoTeams
-                      ? 'Players divided into 2-player teams'
+                      ? teams.length > 0
+                        ? `${teams.map((t) => t.members.length).join(' vs ')} split`
+                        : 'Players divided into teams'
                       : selectedMatchType === 'match-play'
                         ? 'Individual match play (no teams)'
                         : 'All players as one team (default)'}

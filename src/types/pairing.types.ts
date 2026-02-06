@@ -60,6 +60,8 @@ export interface PairingWithPlayers {
     id: string;
     name: string;
     handicap: number | null;
+    handicapIndex?: number | null;
+    gender?: 'male' | 'female' | null;
     photoUrl: string | null;
   }>;
 }
@@ -71,6 +73,10 @@ export interface PairingPlayer {
   id: string;
   name: string;
   handicap: number | null;
+  /** Social Handicap Index (calculated from app rounds) */
+  handicapIndex?: number | null;
+  /** Player gender for GA daily handicap consistency factor */
+  gender?: 'male' | 'female' | null;
   photoUrl?: string | null;
 }
 
@@ -130,6 +136,8 @@ export function toPairingPlayer(player: Player): PairingPlayer {
     id: player.id,
     name: player.name,
     handicap: player.handicap ?? null,
+    handicapIndex: player.handicapIndex ?? null,
+    gender: player.gender ?? null,
     photoUrl: player.photoUrl ?? null,
   };
 }

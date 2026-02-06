@@ -102,6 +102,7 @@ export const FriendCard = React.memo(function FriendCard({
           name: friend.name,
           email: friend.email,
           handicap: friend.handicap,
+          handicap_index: friend.handicap_index,
           photo_url: friend.photo_url,
         }}
         onPress={handlePress}

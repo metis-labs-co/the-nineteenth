@@ -49,6 +49,9 @@ export const FriendSelector = memo(function FriendSelector({
   onAddPlaceholderPress,
   addPlaceholderLabel = 'Add Guest',
   disableInternalScroll = false,
+  // Daily handicap props
+  selectedTee,
+  coursePar,
 }: FriendSelectorProps) {
   const colors = useThemeColors();
 
@@ -305,6 +308,8 @@ export const FriendSelector = memo(function FriendSelector({
                             isDisabled={disabled}
                             onToggle={() => handlePlaceholderToggle(placeholder)}
                             showDivider={index < filteredPlaceholders.length - 1}
+                            selectedTee={selectedTee}
+                            coursePar={coursePar}
                           />
                         );
                       })}
@@ -334,6 +339,8 @@ export const FriendSelector = memo(function FriendSelector({
                             onToggle={() => handleToggle(friend)}
                             showDivider={index < filteredFriends.length - 1}
                             showPendingBadge={showPendingBadge}
+                            selectedTee={selectedTee}
+                            coursePar={coursePar}
                           />
                         );
                       })}
@@ -403,6 +410,8 @@ export const FriendSelector = memo(function FriendSelector({
                             isDisabled={disabled}
                             onToggle={() => handlePlaceholderToggle(placeholder)}
                             showDivider={index < filteredPlaceholders.length - 1}
+                            selectedTee={selectedTee}
+                            coursePar={coursePar}
                           />
                         );
                       })}
@@ -432,6 +441,8 @@ export const FriendSelector = memo(function FriendSelector({
                             onToggle={() => handleToggle(friend)}
                             showDivider={index < filteredFriends.length - 1}
                             showPendingBadge={showPendingBadge}
+                            selectedTee={selectedTee}
+                            coursePar={coursePar}
                           />
                         );
                       })}

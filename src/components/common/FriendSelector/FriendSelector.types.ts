@@ -5,7 +5,7 @@
  * round creation (PartnersStep) and competition creation (AddPlayersStep).
  */
 
-import type { Friend, PlaceholderPlayerWithStats } from '@/types/database.types';
+import type { Friend, PlaceholderPlayerWithStats, TeeBox } from '@/types/database.types';
 
 /**
  * Unified type for selected players (works with both Friend and Player types)
@@ -117,6 +117,14 @@ export interface FriendSelectorProps {
 
   /** When true, disables internal ScrollView - use when parent handles scrolling */
   disableInternalScroll?: boolean;
+
+  // --- Daily Handicap props ---
+
+  /** Selected tee for daily handicap calculation */
+  selectedTee?: TeeBox | null;
+
+  /** Course par for daily handicap calculation */
+  coursePar?: number;
 }
 
 /**
@@ -140,4 +148,8 @@ export interface FriendListItemProps {
   showDivider?: boolean;
   /** Whether to show "Pending" badge for pending friendships */
   showPendingBadge?: boolean;
+  /** Selected tee for daily handicap calculation */
+  selectedTee?: TeeBox | null;
+  /** Course par for daily handicap calculation */
+  coursePar?: number;
 }

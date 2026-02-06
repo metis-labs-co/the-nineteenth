@@ -172,6 +172,12 @@ export const PartnersStep = memo(function PartnersStep({
     [friends]
   );
 
+  // Calculate course par from tee holes for daily handicap calculation
+  const coursePar = useMemo(() => {
+    if (!selectedTee?.holes) return undefined;
+    return selectedTee.holes.reduce((sum, hole) => sum + (hole.par || 0), 0);
+  }, [selectedTee]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -224,6 +230,8 @@ export const PartnersStep = memo(function PartnersStep({
           onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
           addPlaceholderLabel="Add Guest"
           disableInternalScroll={true}
+          selectedTee={selectedTee}
+          coursePar={coursePar}
         />
       </ScrollView>
 

@@ -25,10 +25,11 @@ import {
   Switch,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Icon, Divider, SegmentedButtons } from 'react-native-paper';
-import { IconDice, IconLock, IconAlertCircle, IconTrophy, IconCurrencyDollar } from '@tabler/icons-react-native';
+import { Text, Icon, Divider } from 'react-native-paper';
+import { IconDice, IconLock, IconAlertCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { SegmentedButton } from '@/components/common';
 import {
   SkinsConfigBottomSheet,
   SkinsDisclaimerModal,
@@ -310,24 +311,24 @@ export const SkinsSection = memo(function SkinsSection({
               <Text style={[styles.poolSourceLabel, { color: colors.textPrimary }]}>
                 Pot Source
               </Text>
-              <SegmentedButtons
+              <SegmentedButton
                 value={poolSource}
                 onValueChange={(value) => onPoolSourceChange(value as SkinsPoolSource)}
                 buttons={[
                   {
                     value: 'direct',
                     label: 'Direct Pot',
-                    icon: () => <IconCurrencyDollar size={16} color={poolSource === 'direct' ? colors.primary : colors.textSecondary} />,
+                    icon: 'currency-usd',
                     disabled: isDisabled,
                   },
                   {
                     value: 'prize_pool',
                     label: 'From Pool',
-                    icon: () => <IconTrophy size={16} color={poolSource === 'prize_pool' ? colors.primary : colors.textSecondary} />,
+                    icon: 'trophy',
                     disabled: isDisabled || skinsRemaining <= 0,
                   },
                 ]}
-                style={styles.poolSourceButtons}
+                size="large"
               />
 
               {/* Pool budget exhausted warning */}
@@ -668,9 +669,6 @@ const styles = StyleSheet.create({
   },
   poolSourceLabel: {
     ...typography.smallBold,
-  },
-  poolSourceButtons: {
-    marginTop: spacing.xs,
   },
   poolBudgetInfo: {
     marginTop: spacing.sm,

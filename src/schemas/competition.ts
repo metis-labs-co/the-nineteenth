@@ -14,6 +14,10 @@ export type CompetitionType = (typeof competitionTypes)[number];
 export const teamModes = ['none', 'fixed', 'per-round'] as const;
 export type TeamMode = (typeof teamModes)[number];
 
+// Handicap source options (matches database.types.ts)
+export const handicapSources = ['profile', 'calculated', 'none'] as const;
+export type HandicapSource = (typeof handicapSources)[number];
+
 // Team formats (matches database.types.ts)
 export const teamFormats = ['best-ball', 'scramble', 'aggregate', 'match-play-team', 'shamble'] as const;
 export type TeamFormat = (typeof teamFormats)[number];
@@ -91,6 +95,7 @@ const competitionDetailsBaseSchema = z.object({
   handicapSystem: z.enum(['honor', 'golf-australia', 'gross-only'], {
     required_error: 'Please select a handicap system',
   }),
+  handicapSource: z.enum(handicapSources).default('profile'),
   inviteCode: z
     .union([
       z.literal(''),
@@ -166,7 +171,7 @@ export const teamSettingsSchema = z.object({
 export type TeamSettingsFormData = z.infer<typeof teamSettingsSchema>;
 
 // Game types for rounds (matches database.types.ts)
-export const gameTypes = ['stroke', 'stableford', 'match-play', 'best-ball', 'scramble', 'shamble'] as const;
+export const gameTypes = ['stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble'] as const;
 export type GameType = (typeof gameTypes)[number];
 
 /**
@@ -455,6 +460,7 @@ export const createCompetitionSchema = z.object({
   startDate: competitionDetailsBaseSchema.shape.startDate,
   endDate: competitionDetailsBaseSchema.shape.endDate,
   handicapSystem: competitionDetailsBaseSchema.shape.handicapSystem,
+  handicapSource: competitionDetailsBaseSchema.shape.handicapSource,
   inviteCode: competitionDetailsBaseSchema.shape.inviteCode,
 
   // Step 2 - Now supports multiple rounds
@@ -477,6 +483,7 @@ export function formatCompetitionPayload(data: CreateCompetitionFormData) {
       description: data.description || '',
       startDate,
       handicapSystem: data.handicapSystem,
+      handicapSource: data.handicapSource || 'profile',
       inviteCode: data.inviteCode || undefined,
       visibility: 'private' as const, // MVP: private only
     },
