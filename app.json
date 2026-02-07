@@ -17,9 +17,9 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "golf.thenineteenth",
-      "buildNumber": "31",
-      "appleTeamId": "9D3K8VW249",
+      "bundleIdentifier": "com.the.nineteenth.golf",
+      "buildNumber": "5",
+      "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
         "applinks:thenineteenth.golf",
         "applinks:www.thenineteenth.golf"
@@ -50,7 +50,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1f2937"
       },
-      "package": "golf.thenineteenth",
+      "package": "com.the.nineteenth.golf",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
@@ -119,17 +119,14 @@
       "expo-sqlite",
       "expo-font"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "9168db7d-0580-4f85-be5a-5edc7fb673e7"
-      }
-    },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/9168db7d-0580-4f85-be5a-5edc7fb673e7"
-    },
-    "owner": "samcodexdev"
+    "owner": "sam-metislabs",
+    "extra": {
+      "eas": {
+        "projectId": "12e43c05-e41f-4f10-bbd7-65789519c1a9"
+      }
+    }
   }
 }

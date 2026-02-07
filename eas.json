@@ -33,9 +33,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "samueladdisonkay@gmail.com",
-        "ascAppId": "6756858242",
-        "appleTeamId": "9D3K8VW249"
+        "appleId": "hello@metislabs.co",
+        "ascAppId": "6758835344",
+        "appleTeamId": "TMB3988D5Z"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
