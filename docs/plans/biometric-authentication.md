@@ -35,7 +35,7 @@ This is a UI-level lock only — the Supabase session in AsyncStorage remains th
 ## Phase 1: Setup & Dependencies
 
 ### Step 1.1: Install Dependencies
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Command
 
 **Prompt:**
@@ -47,15 +47,15 @@ pnpm add expo-local-authentication expo-secure-store
 > **Note:** Biometric APIs require a dev client build (`eas build --profile development`). They will NOT work in Expo Go. Plan your testing accordingly — you'll need a dev build from Step 1.2 onward.
 
 **Deliverables:**
-- [ ] `package.json` updated with both dependencies
-- [ ] `pnpm-lock.yaml` updated
+- [x] `package.json` updated with both dependencies
+- [x] `pnpm-lock.yaml` updated
 
 **Dependencies:** None
 
 ---
 
 ### Step 1.2: Update app.json Permissions
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -80,9 +80,9 @@ Changes to `app.json`:
    ```
 
 **Deliverables:**
-- [ ] Face ID usage description added to iOS infoPlist
-- [ ] Biometric permissions added to Android
-- [ ] Both plugins registered
+- [x] Face ID usage description added to iOS infoPlist
+- [x] Biometric permissions added to Android
+- [x] Both plugins registered
 
 **Dependencies:** Step 1.1
 
@@ -91,7 +91,7 @@ Changes to `app.json`:
 ## Phase 2: Core Service & State
 
 ### Step 2.1: Create Biometric Service
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -163,17 +163,17 @@ export type { BiometricAvailability, BiometricAuthResult, BiometricType } from '
 ```
 
 **Deliverables:**
-- [ ] `src/services/biometric/biometricService.ts` created
-- [ ] `src/services/biometric/index.ts` barrel export created
-- [ ] All functions wrapped in try/catch with graceful error handling
-- [ ] Follows pushService singleton pattern exactly
+- [x] `src/services/biometric/biometricService.ts` created
+- [x] `src/services/biometric/index.ts` barrel export created
+- [x] All functions wrapped in try/catch with graceful error handling
+- [x] Follows pushService singleton pattern exactly
 
 **Dependencies:** Step 1.1
 
 ---
 
 ### Step 2.2: Add Biometric Setting to Zustand Store
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -212,10 +212,10 @@ Changes:
    ```
 
 **Deliverables:**
-- [ ] `biometricEnabled` state added with `false` default
-- [ ] `setBiometricEnabled` action added
-- [ ] `resetToDefaults` preserves `biometricEnabled`
-- [ ] `useBiometricSetting()` convenience hook exported
+- [x] `biometricEnabled` state added with `false` default
+- [x] `setBiometricEnabled` action added
+- [x] `resetToDefaults` preserves `biometricEnabled`
+- [x] `useBiometricSetting()` convenience hook exported
 
 **Dependencies:** None
 
@@ -224,7 +224,7 @@ Changes:
 ## Phase 3: Lock Screen & Integration
 
 ### Step 3.1: Create useBiometricLock Hook
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -273,17 +273,17 @@ export interface UseBiometricLockReturn {
 5. **Fail open**: If `checkAvailability()` returns `isAvailable: false` (user removed biometrics from device), skip locking entirely — don't lock the user out.
 
 **Deliverables:**
-- [ ] `src/hooks/useBiometricLock.ts` created
-- [ ] Cold start and warm resume lock detection working
-- [ ] Auto-trigger biometric prompt on lock
-- [ ] Graceful handling of cancel, failure, and unavailable biometrics
+- [x] `src/hooks/useBiometricLock.ts` created
+- [x] Cold start and warm resume lock detection working
+- [x] Auto-trigger biometric prompt on lock
+- [x] Graceful handling of cancel, failure, and unavailable biometrics
 
 **Dependencies:** Steps 2.1, 2.2
 
 ---
 
 ### Step 3.2: Create BiometricLockScreen Component
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -328,18 +328,18 @@ export { default as BiometricLockScreen } from './BiometricLockScreen';
 ```
 
 **Deliverables:**
-- [ ] `src/components/biometric/BiometricLockScreen.tsx` created
-- [ ] `src/components/biometric/index.ts` barrel export created
-- [ ] Uses existing common components (LogoHorizontal, GolfBallLoader, Icon)
-- [ ] Follows project styling patterns (useThemeColors, spacing, typography)
-- [ ] "Use password" fallback triggers full sign-out
+- [x] `src/components/biometric/BiometricLockScreen.tsx` created
+- [x] `src/components/biometric/index.ts` barrel export created
+- [x] Uses existing common components (LogoHorizontal, GolfBallLoader, Icon)
+- [x] Follows project styling patterns (useThemeColors, spacing, typography)
+- [x] "Use password" fallback triggers full sign-out
 
 **Dependencies:** Step 2.1
 
 ---
 
 ### Step 3.3: Integrate Lock into RootNavigator
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -381,10 +381,10 @@ Changes:
 This renders the lock screen INSTEAD of the entire navigation tree, so no app content is visible.
 
 **Deliverables:**
-- [ ] `useBiometricLock` hook integrated
-- [ ] `handleSignOut` callback passed as prop (keeps supabase import out of lock screen component)
-- [ ] Lock screen renders when `isAuthenticated && isLocked`
-- [ ] Lock screen renders before NavigationContainer (no app content visible)
+- [x] `useBiometricLock` hook integrated
+- [x] `handleSignOut` callback passed as prop (keeps supabase import out of lock screen component)
+- [x] Lock screen renders when `isAuthenticated && isLocked`
+- [x] Lock screen renders before NavigationContainer (no app content visible)
 
 **Dependencies:** Steps 3.1, 3.2
 
@@ -393,7 +393,7 @@ This renders the lock screen INSTEAD of the entire navigation tree, so no app co
 ## Phase 4: Auth Flow Sync & Settings UI
 
 ### Step 4.1: Sync SecureStore in AuthContext
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -442,17 +442,17 @@ Changes:
 All SecureStore operations are non-blocking (fire-and-forget with catch) to avoid disrupting the auth flow, matching the existing push token registration pattern.
 
 **Deliverables:**
-- [ ] Refresh token stored in SecureStore on SIGNED_IN (if biometric enabled)
-- [ ] Refresh token updated on TOKEN_REFRESHED (if biometric enabled)
-- [ ] Refresh token cleared on SIGNED_OUT (always)
-- [ ] All operations non-blocking with error logging
+- [x] Refresh token stored in SecureStore on SIGNED_IN (if biometric enabled)
+- [x] Refresh token updated on TOKEN_REFRESHED (if biometric enabled)
+- [x] Refresh token cleared on SIGNED_OUT (always)
+- [x] All operations non-blocking with error logging
 
 **Dependencies:** Step 2.1
 
 ---
 
 ### Step 4.2: Add Security Section to Settings Screen
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Type:** Custom
 
 **Prompt:**
@@ -539,12 +539,12 @@ Changes:
 The existing `SettingRow` component (already defined in this file) is reused as-is. The existing `styles.section`, `styles.sectionTitle`, `styles.sectionDescription`, `styles.settingsGroup`, and `styles.divider` are all reused — no new styles needed.
 
 **Deliverables:**
-- [ ] Security section added between Scoring Entry and Reset sections
-- [ ] Uses existing SettingRow component
-- [ ] Section hidden on devices without biometric hardware
-- [ ] Toggle requires biometric confirmation to enable
-- [ ] Disabling clears SecureStore credentials
-- [ ] No new styles needed
+- [x] Security section added between Scoring Entry and Reset sections
+- [x] Uses existing SettingRow component
+- [x] Section hidden on devices without biometric hardware
+- [x] Toggle requires biometric confirmation to enable
+- [x] Disabling clears SecureStore credentials
+- [x] No new styles needed
 
 **Dependencies:** Steps 2.1, 2.2
 

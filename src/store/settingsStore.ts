@@ -26,6 +26,9 @@ interface SettingsState {
   // GPS distance-to-pin feature
   showGpsDistance: boolean;
 
+  // Security
+  biometricEnabled: boolean;
+
   // Developer settings
   debugModeEnabled: boolean;
 
@@ -35,6 +38,7 @@ interface SettingsState {
   setShowFairwayHit: (show: boolean) => void;
   setShowGreenInRegulation: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
+  setBiometricEnabled: (enabled: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -45,6 +49,7 @@ const DEFAULT_SETTINGS = {
   showFairwayHit: false,
   showGreenInRegulation: false,
   showGpsDistance: true, // GPS distance-to-pin enabled by default
+  biometricEnabled: false,
   debugModeEnabled: false,
 };
 
@@ -65,9 +70,11 @@ export const useSettingsStore = create<SettingsState>()(
 
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
 
+      setBiometricEnabled: (enabled) => set({ biometricEnabled: enabled }),
+
       setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
 
-      resetToDefaults: () => set(DEFAULT_SETTINGS),
+      resetToDefaults: () => set((state) => ({ ...DEFAULT_SETTINGS, biometricEnabled: state.biometricEnabled })),
     }),
     {
       name: 'settings-storage',
@@ -133,6 +140,15 @@ export function useStatsVisibilityWithTier() {
     showFairwayHit: isPremium && showFairwayHit,
     showGreenInRegulation: isPremium && showGreenInRegulation,
   };
+}
+
+/**
+ * Hook to get biometric lock setting
+ */
+export function useBiometricSetting() {
+  const biometricEnabled = useSettingsStore((state) => state.biometricEnabled);
+  const setBiometricEnabled = useSettingsStore((state) => state.setBiometricEnabled);
+  return { biometricEnabled, setBiometricEnabled };
 }
 
 /**

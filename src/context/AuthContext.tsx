@@ -21,6 +21,8 @@ import {
   logoutFromRevenueCat,
 } from '@/services/subscription';
 import { pushService } from '@/services/notifications/pushService';
+import { biometricService } from '@/services/biometric';
+import { useSettingsStore } from '@/store/settingsStore';
 import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
 import type { AuthEvent } from '@/types/auth';
@@ -278,6 +280,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.warn('[AuthProvider] Failed to clear push registration status:', err);
           });
 
+          // Clear biometric credentials on sign out
+          biometricService.clearStoredRefreshToken().catch((err) => {
+            console.warn('[AuthProvider] Failed to clear biometric refresh token:', err);
+          });
+
           // Clear push queries
           queryClient.removeQueries({ queryKey: pushKeys.all });
         }
@@ -297,6 +304,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.error('[AuthProvider] Failed to login to RevenueCat:', err);
           });
 
+          // Store refresh token for biometric unlock (non-blocking)
+          const biometricEnabled = useSettingsStore.getState().biometricEnabled;
+          if (biometricEnabled && newSession?.refresh_token) {
+            biometricService.storeRefreshToken(newSession.refresh_token).catch((err) => {
+              console.warn('[AuthProvider] Failed to store biometric refresh token:', err);
+            });
+          }
+
           // Register push notification token (non-blocking)
           attemptPushTokenRegistration(userId)
             .then((success) => {
@@ -309,6 +324,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // This should never throw, but catch just in case
               console.error('[AuthProvider] Unexpected error registering push token:', err);
             });
+        }
+
+        // Update biometric refresh token when session refreshes
+        if (event === 'TOKEN_REFRESHED' && newSession?.refresh_token) {
+          const biometricEnabledNow = useSettingsStore.getState().biometricEnabled;
+          if (biometricEnabledNow) {
+            biometricService.storeRefreshToken(newSession.refresh_token).catch((err) => {
+              console.warn('[AuthProvider] Failed to update biometric refresh token:', err);
+            });
+          }
         }
       }
     );

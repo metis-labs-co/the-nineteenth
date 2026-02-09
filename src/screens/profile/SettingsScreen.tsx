@@ -10,7 +10,7 @@
  * - These settings affect leaderboards, stats, and scorecard entry
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Switch, Icon, Divider } from 'react-native-paper';
 import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
@@ -23,10 +23,14 @@ import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, ThemeMode } from '@/constants/theme';
 import { useTheme, useThemeColors } from '@/context/ThemeContext';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useBiometricSetting } from '@/store/settingsStore';
 import { clearSyncQueue } from '@/services/offline/sync';
 import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureLock } from '@/components/subscription/FeatureLock';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/hooks/useAuth';
+import { biometricService } from '@/services/biometric';
+import type { BiometricAvailability } from '@/services/biometric';
 
 import type { ColorPalette } from '@/constants/theme';
 
@@ -147,6 +151,42 @@ export default function SettingsScreen() {
   const setShowGreenInRegulation = useSettingsStore((state) => state.setShowGreenInRegulation);
   const setShowGpsDistance = useSettingsStore((state) => state.setShowGpsDistance);
   const resetToDefaults = useSettingsStore((state) => state.resetToDefaults);
+
+  // Biometric settings
+  const { biometricEnabled, setBiometricEnabled } = useBiometricSetting();
+  const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
+  const { session } = useAuth();
+
+  useEffect(() => {
+    biometricService.checkAvailability().then(setBiometricAvailability);
+  }, []);
+
+  const handleBiometricToggle = useCallback(async (value: boolean) => {
+    if (isToggling) return;
+    setIsToggling(true);
+    try {
+      if (value) {
+        // Verify biometric works before enabling
+        const result = await biometricService.authenticate(
+          'Confirm your identity to enable biometric lock'
+        );
+        if (result.success) {
+          // Store current refresh token for session recovery
+          if (session?.refresh_token) {
+            await biometricService.storeRefreshToken(session.refresh_token);
+          }
+          setBiometricEnabled(true);
+        }
+        // If cancelled or failed, toggle stays off (no action needed)
+      } else {
+        await biometricService.clearStoredRefreshToken();
+        setBiometricEnabled(false);
+      }
+    } finally {
+      setIsToggling(false);
+    }
+  }, [session, setBiometricEnabled, isToggling]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -315,6 +355,31 @@ export default function SettingsScreen() {
             </FeatureLock>
           </View>
         </View>
+
+        {biometricAvailability?.isAvailable && (
+          <>
+            <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Security</Text>
+              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+                Protect access to your account
+              </Text>
+              <View
+                style={[styles.settingsGroup, { backgroundColor: colors.surface }]}
+                pointerEvents={isToggling ? 'none' : 'auto'}
+              >
+                <SettingRow
+                  icon={biometricAvailability.biometricType === 'facial' ? 'face-recognition' : 'fingerprint'}
+                  label={biometricAvailability.biometricType === 'facial' ? 'Face ID' : 'Fingerprint Lock'}
+                  description="Require biometric authentication to open the app"
+                  value={biometricEnabled}
+                  onValueChange={handleBiometricToggle}
+                  colors={colors}
+                />
+              </View>
+            </View>
+          </>
+        )}
 
         <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 

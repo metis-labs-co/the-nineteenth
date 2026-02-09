@@ -7,7 +7,7 @@
  * - Detail Screens (Competition, Scorecard, etc.)
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { NavigationContainer, Theme } from '@react-navigation/native';
@@ -17,6 +17,9 @@ import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { useBiometricLock } from '@/hooks/useBiometricLock';
+import { BiometricLockScreen } from '@/components/biometric';
+import { supabase } from '@/services/supabase/client';
 
 // Auth Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -90,6 +93,11 @@ interface RootNavigatorProps {
 export default function RootNavigator({ theme }: RootNavigatorProps) {
   const { isAuthenticated, isInitializing, isLoading, player } = useAuth();
   const colors = useThemeColors();
+  const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
+
+  const handleSignOut = useCallback(() => {
+    supabase.auth.signOut();
+  }, []);
 
   // Check if onboarding is needed (user hasn't set handicap yet)
   // Only check when player data is loaded (player is not null/undefined)
@@ -120,6 +128,19 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <LoadingSpinner size="lg" />
       </View>
+    );
+  }
+
+  // Show biometric lock screen when app is locked
+  if (isAuthenticated && isLocked) {
+    return (
+      <BiometricLockScreen
+        onUnlock={unlock}
+        onSignOut={handleSignOut}
+        isAuthenticating={isBioAuthenticating}
+        error={bioError}
+        biometricType={biometricType}
+      />
     );
   }
 

@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
         "applinks:thenineteenth.golf",
@@ -28,6 +28,7 @@
         "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",
         "NSPhotoLibraryUsageDescription": "Allow The Nineteenth to access your photos for your profile picture.",
         "NSPhotoLibraryAddUsageDescription": "Allow The Nineteenth to save photos to your library.",
+        "NSFaceIDUsageDescription": "Allow The Nineteenth to unlock the app with Face ID for quick and secure access.",
         "NSLocationWhenInUseUsageDescription": "Allow The Nineteenth to find nearby golf courses.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
@@ -60,7 +61,9 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.RECORD_AUDIO",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ],
       "intentFilters": [
         {
@@ -117,7 +120,9 @@
         }
       ],
       "expo-sqlite",
-      "expo-font"
+      "expo-font",
+      "expo-local-authentication",
+      "expo-secure-store"
     ],
     "runtimeVersion": {
       "policy": "appVersion"
