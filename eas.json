@@ -18,6 +18,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_GOLFAPI_IO_KEY": "d7687382-3e9a-473a-a799-c81ab7454092"
       }
     },
     "production": {
@@ -27,6 +30,9 @@
       },
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_GOLFAPI_IO_KEY": "d7687382-3e9a-473a-a799-c81ab7454092"
       }
     }
   },
