@@ -517,7 +517,7 @@ npx expo start --android
 
 # Supabase
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 
 # Golf Course API (GolfAPI.io)
 EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1

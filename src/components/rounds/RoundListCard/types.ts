@@ -1,6 +1,6 @@
 // src/components/rounds/RoundListCard/types.ts
 
-import type { StatusVariant, WinnerInfo } from '@/components/common';
+import type { WinnerInfo } from '@/components/common';
 
 /**
  * Player information for the round
@@ -127,21 +127,6 @@ export interface RoundListCardProps<T extends RoundListCardData = RoundListCardD
 // =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
-
-/**
- * Maps round status to StatusBadge variant
- */
-export const getStatusVariant = (status: string): StatusVariant => {
-  switch (status) {
-    case 'in-progress':
-      return 'in-progress';
-    case 'completed':
-      return 'completed';
-    case 'scheduled':
-    default:
-      return 'upcoming';
-  }
-};
 
 /**
  * Formats user score for display based on game type

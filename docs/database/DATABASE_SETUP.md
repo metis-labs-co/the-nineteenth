@@ -50,7 +50,7 @@ This guide will help you set up the Supabase database for The Nineteenth golf ap
 2. Copy the following to your `.env` file:
    ```bash
    EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    ```
 
 **Step 5: Test Connection**
@@ -61,9 +61,9 @@ import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database.types';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey);
 
 // Test query
 const { data, error } = await supabase.from('courses').select('*');
@@ -99,8 +99,8 @@ This will output:
 API URL: http://localhost:54321
 DB URL: postgresql://postgres:postgres@localhost:54322/postgres
 Studio URL: http://localhost:54323
-anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+publishable key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+secret key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 **Step 4: Apply Migration**
@@ -119,7 +119,7 @@ Open http://localhost:54323 to access Supabase Studio locally.
 ```bash
 # .env.development
 EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon-key-from-supabase-start>
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key-from-supabase-start>
 ```
 
 ---
@@ -211,7 +211,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 **Solution:**
 - Make sure you're authenticated (signed in)
 - Check that user ID matches policy conditions
-- Use Supabase service role key for admin operations (backend only)
+- Use Supabase secret key for admin operations (backend only)
 
 ### Issue: Local Supabase won't start
 
@@ -245,7 +245,7 @@ Your `.env` file should have:
 ```bash
 # Supabase
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Environment
 NODE_ENV=development

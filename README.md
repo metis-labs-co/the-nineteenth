@@ -90,7 +90,7 @@ Create a `.env` file with the following:
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
 ## License

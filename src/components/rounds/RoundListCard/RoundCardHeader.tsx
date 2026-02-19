@@ -6,8 +6,9 @@ import { Text, Icon } from 'react-native-paper';
 import { IconDog } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, skinsColor } from '@/constants/theme';
-import { StatusBadge, Pill } from '@/components/common';
-import { RoundListCardData, getStatusVariant, formatUserScore } from './types';
+import { Pill, StatusBadge } from '@/components/common';
+import { getGameTypeLabel } from '@/constants/statusConfig';
+import { RoundListCardData, formatUserScore } from './types';
 
 /** Gray color for wolf feature */
 const WOLF_COLOR = '#6B7280';
@@ -17,7 +18,7 @@ interface RoundCardHeaderProps {
 }
 
 /**
- * RoundCardHeader - Status badge, round pill, user score (for completed), and title
+ * RoundCardHeader - Game type pill, round pill, stale indicator, user score, and title
  */
 export const RoundCardHeader = React.memo(function RoundCardHeader({
   round,
@@ -30,16 +31,31 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
     return formatUserScore(round.gameType, round.userScore);
   }, [round.status, round.gameType, round.userScore]);
 
+  // Detect stale rounds: in-progress but date has passed
+  const isStale = useMemo(() => {
+    if (round.status !== 'in-progress' || !round.date) return false;
+    const roundDate = new Date(round.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    roundDate.setHours(0, 0, 0, 0);
+    return roundDate < today;
+  }, [round.status, round.date]);
+
   return (
     <>
-      {/* Top Row: Status Badge + Round Pill + Score (for completed) */}
+      {/* Top Row: Game Type Pill + Round Pill + Stale Indicator + Score (for completed) */}
       <View style={styles.topRow}>
         <View style={styles.leftSection}>
-          <StatusBadge status={getStatusVariant(round.status)} />
+          <Pill label={getGameTypeLabel(round.gameType)} size="sm" />
 
           {/* Round Pill - only show for competition rounds */}
           {!round.isStandalone && round.totalRounds > 1 && (
-            <Pill label={`Round ${round.roundNumber} of ${round.totalRounds}`} size="md" />
+            <Pill label={`Round ${round.roundNumber} of ${round.totalRounds}`} size="sm" />
+          )}
+
+          {/* Stale indicator - in-progress rounds past their date */}
+          {isStale && (
+            <StatusBadge status="in-progress" label="Not Completed" size="sm" />
           )}
         </View>
 

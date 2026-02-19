@@ -7,12 +7,10 @@ import { IconMapPin, IconUsers } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
 import {
-  StatusBadge,
   DateTimeDisplay,
   ProgressBar,
   WinnerRow,
 } from '@/components/common';
-import { getGameTypeLabel } from '@/constants/statusConfig';
 import { RoundListCardData } from './types';
 
 interface RoundCardMetaProps {
@@ -72,18 +70,12 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
         </Text>
       </View>
 
-      {/* Date and Game Type */}
-      <View style={styles.detailsRow}>
-        {round.date && (
+      {/* Date */}
+      {round.date && (
+        <View style={styles.detailsRow}>
           <DateTimeDisplay date={round.date} time={round.teeTime} size="md" />
-        )}
-        <StatusBadge
-          status="custom"
-          label={getGameTypeLabel(round.gameType)}
-          size="sm"
-          backgroundColor={colors.gray100}
-        />
-      </View>
+        </View>
+      )}
 
       {/* Progress (if in progress) */}
       {round.status === 'in-progress' && (

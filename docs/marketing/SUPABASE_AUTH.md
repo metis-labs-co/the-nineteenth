@@ -61,7 +61,7 @@ pnpm add @supabase/supabase-js @supabase/ssr
 
 # Supabase (same credentials as mobile app)
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 
 # Site URL (for OAuth redirects, email links)
 SITE_URL=https://thenineteenth.app
@@ -99,7 +99,7 @@ export function createSupabaseServerClient(request: Request) {
 
   const supabase = createServerClient<Database>(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         // Get cookies from request
@@ -218,7 +218,7 @@ export function getSupabaseBrowserClient() {
 
   browserClient = createBrowserClient<Database>(
     window.ENV.SUPABASE_URL,
-    window.ENV.SUPABASE_ANON_KEY
+    window.ENV.SUPABASE_PUBLISHABLE_KEY
   );
 
   return browserClient;
@@ -247,7 +247,7 @@ export async function refreshSession(request: Request) {
 
   const supabase = createServerClient<Database>(
     process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll() {
@@ -288,7 +288,7 @@ declare global {
   interface Window {
     ENV: {
       SUPABASE_URL: string;
-      SUPABASE_ANON_KEY: string;
+      SUPABASE_PUBLISHABLE_KEY: string;
     };
   }
 }
@@ -300,7 +300,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     {
       ENV: {
         SUPABASE_URL: process.env.SUPABASE_URL!,
-        SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY!,
+        SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY!,
       },
       user: session?.user ?? null,
     },

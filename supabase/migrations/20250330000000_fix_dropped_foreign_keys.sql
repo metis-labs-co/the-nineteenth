@@ -133,16 +133,22 @@ ALTER TABLE push_tokens
 
 -- =====================================================
 -- USER_PREFERENCES TABLE
+-- (conditionally applied - table may not exist yet on fresh DBs)
 -- =====================================================
 
-ALTER TABLE user_preferences
-  DROP CONSTRAINT IF EXISTS user_preferences_user_id_fkey;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_preferences') THEN
+    ALTER TABLE user_preferences
+      DROP CONSTRAINT IF EXISTS user_preferences_user_id_fkey;
 
-ALTER TABLE user_preferences
-  ADD CONSTRAINT user_preferences_user_id_fkey
-  FOREIGN KEY (user_id)
-  REFERENCES players(id)
-  ON DELETE CASCADE;
+    ALTER TABLE user_preferences
+      ADD CONSTRAINT user_preferences_user_id_fkey
+      FOREIGN KEY (user_id)
+      REFERENCES players(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- =====================================================
 -- FAVORITE_COURSES TABLE

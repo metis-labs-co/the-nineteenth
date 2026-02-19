@@ -15,13 +15,13 @@ import type { Database } from '@/types/database.types';
 
 // Environment variables (from .env)
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 // Validate environment variables
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   throw new Error(
     'Missing Supabase environment variables. Please check your .env file.\n' +
-    'Required: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY'
+    'Required: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
   );
 }
 
@@ -34,7 +34,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
  * - Auto-refresh tokens before expiry
  * - Automatic retry on network errors
  */
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     // Use AsyncStorage for session persistence
     storage: AsyncStorage,

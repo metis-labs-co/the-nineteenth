@@ -5,7 +5,6 @@ export {
   RoundListCard,
   RoundCardHeader,
   RoundCardMeta,
-  getStatusVariant,
 } from './RoundListCard/index';
 
 export type {

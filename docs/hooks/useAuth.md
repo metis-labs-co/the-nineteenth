@@ -449,7 +449,7 @@ Required environment variables in `.env`:
 
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 ```
 
 ## TypeScript Support

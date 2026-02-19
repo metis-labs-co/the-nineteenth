@@ -9,8 +9,8 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1f2937"
+      "resizeMode": "cover",
+      "backgroundColor": "#2f3428"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
         "applinks:thenineteenth.golf",

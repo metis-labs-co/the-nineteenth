@@ -10,4 +10,3 @@ export type {
   RoundCourse,
   RoundCompetition,
 } from './types';
-export { getStatusVariant } from './types';

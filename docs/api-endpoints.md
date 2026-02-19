@@ -32,9 +32,9 @@ import { createClient } from '@supabase/supabase-js';
 import { Database } from '@types/supabase'; // Generated types
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey, {
   auth: {
     storage: AsyncStorage, // Persist auth state
     autoRefreshToken: true,
@@ -871,7 +871,7 @@ function CompetitionScreen({ competitionId }) {
 ```bash
 # .env
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 ```
 
 **Important:** Use `EXPO_PUBLIC_` prefix for variables accessible in React Native code.
@@ -882,7 +882,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 
 1. Set up Supabase project at https://supabase.com
 2. Run migrations from [database-schema.sql](./database-schema.sql)
-3. Copy project URL and anon key to `.env`
+3. Copy project URL and publishable key to `.env`
 4. Generate TypeScript types: `npx supabase gen types`
 5. Create TanStack Query hooks for each resource
 6. Implement offline sync logic (Expo SQLite + queue)

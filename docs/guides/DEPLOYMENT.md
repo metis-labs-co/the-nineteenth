@@ -400,18 +400,18 @@ supabase db push
 
 **Supabase Dashboard:**
 1. Go to Project Settings → API
-2. Copy Project URL and anon key
+2. Copy Project URL and publishable key
 3. Update `.env` files for each environment
 
 **Environment Files:**
 ```bash
 # .env.development
 EXPO_PUBLIC_SUPABASE_URL=https://dev-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=dev_anon_key
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=dev_publishable_key
 
 # .env.production
 EXPO_PUBLIC_SUPABASE_URL=https://prod-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=prod_anon_key
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=prod_publishable_key
 ```
 
 ---

@@ -54,7 +54,7 @@ All authentication components are fully implemented and ready to use!
 - **Status:** Configured
 - **Variables:**
   - ✅ `EXPO_PUBLIC_SUPABASE_URL`
-  - ✅ `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+  - ✅ `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
 ## Quick Start Guide
 
@@ -288,7 +288,7 @@ If you apply this trigger, you can simplify the `signupMutation` in `useAuth.ts`
 ## Common Issues & Solutions
 
 ### Issue: "Missing Supabase environment variables"
-**Solution:** Check `.env` file has `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` with correct values.
+**Solution:** Check `.env` file has `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` with correct values.
 
 ### Issue: "Error fetching player profile"
 **Solution:**

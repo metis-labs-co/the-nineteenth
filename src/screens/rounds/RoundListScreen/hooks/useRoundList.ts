@@ -10,6 +10,8 @@ import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { RoundItem, RoundListData, RoundPlayerInfo, UseRoundListReturn } from '../types';
 import type { UserScoreData } from '@/components/rounds/RoundListCard/types';
 import type { WinnerInfo } from '@/components/common';
+import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
+import { isSingleBallScore } from '@/types/database/base';
 
 export function useRoundList(): UseRoundListReturn {
   const { user } = useAuth();
@@ -71,6 +73,7 @@ export function useRoundList(): UseRoundListReturn {
         courses: {
           id: string;
           name: string;
+          holes: unknown[] | null;
           club: {
             name: string;
             city: string | null;
@@ -94,6 +97,7 @@ export function useRoundList(): UseRoundListReturn {
           courses!course_id(
             id,
             name,
+            holes,
             club:clubs(
               name,
               city,
@@ -132,7 +136,7 @@ export function useRoundList(): UseRoundListReturn {
               state: round.courses?.club?.state ?? undefined,
             },
             holesCompleted: 0,
-            totalHoles: 18,
+            totalHoles: Array.isArray(round.courses?.holes) ? round.courses.holes.length : 18,
             players: [], // Will be populated below
           });
         }
@@ -162,6 +166,7 @@ export function useRoundList(): UseRoundListReturn {
               courses!course_id(
                 id,
                 name,
+                holes,
                 club:clubs(
                   name,
                   city,
@@ -206,7 +211,7 @@ export function useRoundList(): UseRoundListReturn {
                 state: round.courses?.club?.state ?? undefined,
               },
               holesCompleted: 0,
-              totalHoles: 18,
+              totalHoles: Array.isArray(round.courses?.holes) ? round.courses.holes.length : 18,
               players: [], // Will be populated below
             });
           }
@@ -272,7 +277,63 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 4. Fetch user's scorecards for completed rounds
+      // 4. Fetch progress for in-progress rounds (count scored holes)
+      const inProgressRoundIds = allRounds
+        .filter(r => r.status === 'in-progress')
+        .map(r => r.id);
+
+      if (inProgressRoundIds.length > 0) {
+        try {
+          interface ProgressScorecardRow {
+            round_id: string;
+            scores: Record<string, unknown> | null;
+          }
+
+          const { data: progressData, error: progressError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+            .from('scorecards') as any)
+            .select('round_id, scores')
+            .eq('player_id', user.id)
+            .in('round_id', inProgressRoundIds);
+
+          if (progressError) {
+            console.error('Error fetching in-progress scorecards:', progressError);
+          } else if (progressData) {
+            // Map holes completed per round
+            const progressByRound = new Map<string, number>();
+            for (const sc of progressData as ProgressScorecardRow[]) {
+              if (!sc.scores || typeof sc.scores !== 'object') continue;
+              // Count holes with valid scores
+              const holesScored = Object.values(sc.scores).filter(score => {
+                if (!score || typeof score !== 'object') return false;
+                const s = score as HoleScore | MultiBallHoleScore;
+                if (isSingleBallScore(s)) {
+                  return s.strokes != null && s.strokes > 0;
+                }
+                // MultiBallHoleScore - check if any ball has strokes
+                const balls = (s as MultiBallHoleScore).balls;
+                return Array.isArray(balls) && balls.some(b => b.strokes != null && b.strokes > 0);
+              }).length;
+              // Use the max holes scored across scorecards for this round
+              const existing = progressByRound.get(sc.round_id) ?? 0;
+              if (holesScored > existing) {
+                progressByRound.set(sc.round_id, holesScored);
+              }
+            }
+
+            // Update rounds with progress data
+            for (const round of allRounds) {
+              if (round.status === 'in-progress' && progressByRound.has(round.id)) {
+                round.holesCompleted = progressByRound.get(round.id)!;
+              }
+            }
+          }
+        } catch (err) {
+          console.log('in-progress scorecard progress fetch skipped');
+        }
+      }
+
+      // 5. Fetch user's scorecards for completed rounds
       const completedRoundIds = allRounds
         .filter(r => r.status === 'completed')
         .map(r => r.id);
@@ -334,7 +395,7 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 5. Fetch skins games for all rounds to set hasSkins flag
+      // 6. Fetch skins games for all rounds to set hasSkins flag
       const allRoundIds = allRounds.map(r => r.id);
       if (allRoundIds.length > 0) {
         try {
@@ -369,7 +430,7 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 6. Fetch wolf games for all rounds to set hasWolf flag
+      // 7. Fetch wolf games for all rounds to set hasWolf flag
       if (allRoundIds.length > 0) {
         try {
           interface WolfGameRow {
@@ -403,7 +464,7 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 7. Fetch winner for completed rounds
+      // 8. Fetch winner for completed rounds
       // Get all scorecards for completed rounds to determine winner
       if (completedRoundIds.length > 0) {
         try {
