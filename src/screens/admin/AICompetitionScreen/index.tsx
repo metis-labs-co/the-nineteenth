@@ -11,6 +11,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { GeneratedPreview } from '@/components/ai';
 import { ConfirmationDialog } from '@/components/common';
+import { FeatureLock } from '@/components/subscription';
 
 // Local components and hooks
 import {
@@ -93,7 +94,9 @@ export default function AICompetitionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AICompetitionHeader screenState={screenState} onBack={handleBack} />
-      <View style={styles.content}>{renderContent()}</View>
+      <FeatureLock feature="ai_competition">
+        <View style={styles.content}>{renderContent()}</View>
+      </FeatureLock>
 
       {/* Confirmation Dialog */}
       <ConfirmationDialog

@@ -26,7 +26,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useBiometricSetting } from '@/store/settingsStore';
 import { clearSyncQueue } from '@/services/offline/sync';
 import { PageHeader } from '@/components/common/PageHeader';
-import { FeatureLock } from '@/components/subscription/FeatureLock';
+import { FeatureLockToggle } from '@/components/subscription/FeatureLockToggle';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import { biometricService } from '@/services/biometric';
@@ -323,18 +323,22 @@ export default function SettingsScreen() {
               onValueChange={setShowPutts}
               colors={colors}
             />
-            <SettingRow
-              icon="crosshairs-gps"
-              label="GPS Distance to Pin"
-              description="Show live distance to the green during scoring"
-              value={showGpsDistance}
-              onValueChange={setShowGpsDistance}
-              colors={colors}
-            />
-            <FeatureLock
+            <FeatureLockToggle
+              feature="gps_distance"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
+              <SettingRow
+                icon="crosshairs-gps"
+                label="GPS Distance to Pin"
+                description="Show live distance to the green during scoring"
+                value={showGpsDistance}
+                onValueChange={setShowGpsDistance}
+                colors={colors}
+              />
+            </FeatureLockToggle>
+            <FeatureLockToggle
               feature="fir_gir_tracking"
               onUpgradePress={() => navigation.navigate('Subscription')}
-              lockedMessage="FIR/GIR tracking requires Premium"
             >
               <SettingRow
                 icon="arrow-right-bold"
@@ -344,6 +348,11 @@ export default function SettingsScreen() {
                 onValueChange={setShowFairwayHit}
                 colors={colors}
               />
+            </FeatureLockToggle>
+            <FeatureLockToggle
+              feature="fir_gir_tracking"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
               <SettingRow
                 icon="flag-checkered"
                 label="Greens in Regulation (GIR)"
@@ -352,7 +361,7 @@ export default function SettingsScreen() {
                 onValueChange={setShowGreenInRegulation}
                 colors={colors}
               />
-            </FeatureLock>
+            </FeatureLockToggle>
           </View>
         </View>
 

@@ -47,6 +47,7 @@ import {
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import type {
@@ -95,8 +96,6 @@ export interface PrizePoolSectionProps {
   roundCount: number;
   /** Callback when pool config changes */
   onPoolChange: (config: PrizePoolConfig | null) => void;
-  /** Whether to show premium-only features */
-  isPremium: boolean;
   /** Handler for upgrade prompt */
   onUpgradePress: () => void;
   /** Whether the entire section is disabled */
@@ -137,13 +136,14 @@ export const PrizePoolSection = memo(function PrizePoolSection({
   playerCount,
   roundCount,
   onPoolChange,
-  isPremium,
   onUpgradePress,
   disabled,
   editState,
   hideToggle,
 }: PrizePoolSectionProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('prize_pool').allowed;
 
   // Determine mode and lock state
   const isEditMode = editState !== undefined;

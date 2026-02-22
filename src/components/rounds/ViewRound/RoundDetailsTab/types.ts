@@ -22,7 +22,6 @@ export interface HoleTableProps {
 export interface ScoringPairsSectionProps {
   roundId: string;
   scoringPairsRequired: boolean;
-  isPremium: boolean;
   cardBackground: string;
   roundStatus: RoundStatus;
   onEditPress?: () => void;

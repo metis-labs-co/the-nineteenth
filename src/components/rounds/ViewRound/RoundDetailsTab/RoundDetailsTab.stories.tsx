@@ -7,7 +7,6 @@
  * - With/without course data
  * - With/without competition
  * - Organizer vs player views
- * - Premium vs free features
  */
 
 import React from 'react';
@@ -131,10 +130,6 @@ const meta: Meta<typeof RoundDetailsTab> = {
       control: 'boolean',
       description: 'Whether the current user is the organizer',
     },
-    isPremium: {
-      control: 'boolean',
-      description: 'Whether the user has premium access',
-    },
     onEditPress: {
       action: 'editPressed',
       description: 'Callback when edit button is pressed',
@@ -153,7 +148,6 @@ export const Default: Story = {
   args: {
     round: createRound(),
     isOrganizer: false,
-    isPremium: false,
   },
 };
 
@@ -161,7 +155,6 @@ export const OrganizerView: Story = {
   args: {
     round: createRound(),
     isOrganizer: true,
-    isPremium: true,
     onEditPress: () => console.log('Edit pressed'),
   },
 };
@@ -170,7 +163,6 @@ export const PlayerView: Story = {
   args: {
     round: createRound(),
     isOrganizer: false,
-    isPremium: false,
   },
 };
 
@@ -381,7 +373,6 @@ export const StandaloneRound: Story = {
 export const ScoringPairsRequired: Story = {
   args: {
     round: createRound({ scoring_pairs_required: true }),
-    isPremium: true,
   },
 };
 
@@ -394,7 +385,6 @@ export const ScoringPairsNotRequired: Story = {
 export const ScoringPairsPremiumLocked: Story = {
   args: {
     round: createRound({ scoring_pairs_required: true }),
-    isPremium: false,
   },
 };
 
@@ -464,7 +454,6 @@ export const PremiumUserView: Story = {
   args: {
     round: createRound({ scoring_pairs_required: true }),
     isOrganizer: true,
-    isPremium: true,
     onEditPress: () => console.log('Edit pressed'),
   },
 };
@@ -473,7 +462,6 @@ export const FreeUserView: Story = {
   args: {
     round: createRound(),
     isOrganizer: false,
-    isPremium: false,
   },
 };
 
@@ -492,7 +480,6 @@ export const TournamentRound: Story = {
       }),
       scoring_pairs_required: true,
     }),
-    isPremium: true,
   },
 };
 

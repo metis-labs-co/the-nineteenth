@@ -19,6 +19,7 @@ import {
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import type { SkinsConfig, SkinsPoolSource } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { PoolSourceData } from '@/components/skins';
@@ -28,7 +29,6 @@ const WOLF_COLOR = '#6B7280';
 
 interface OptionsStepProps {
   // Scoring pairs
-  isPremium: boolean;
   scoringPairsRequired: boolean;
   isTeamMatchPlay: boolean;
   onScoringPairsToggle: (value: boolean) => void;
@@ -59,7 +59,6 @@ interface OptionsStepProps {
 }
 
 export const OptionsStep = memo(function OptionsStep({
-  isPremium,
   scoringPairsRequired,
   isTeamMatchPlay,
   onScoringPairsToggle,
@@ -83,6 +82,10 @@ export const OptionsStep = memo(function OptionsStep({
   onUpgradePress,
 }: OptionsStepProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('scoring_pairs').allowed;
+  const isPremiumSkins = checkFeature('skins_game').allowed;
+  const isPremiumWolf = checkFeature('wolf_game').allowed;
 
   return (
     <View style={styles.container}>
@@ -184,7 +187,7 @@ export const OptionsStep = memo(function OptionsStep({
 
       {/* ===== Skins Game Toggle ===== */}
       {/* Locked: Not enough players */}
-      {!canEnableSkins ? (
+      {!canEnableSkins && isPremiumSkins ? (
         <View
           style={[
             styles.toggleCard,
@@ -206,7 +209,7 @@ export const OptionsStep = memo(function OptionsStep({
             </View>
           </View>
         </View>
-      ) : isPremium ? (
+      ) : isPremiumSkins ? (
         <TouchableOpacity
           style={[
             styles.toggleCard,
@@ -326,7 +329,7 @@ export const OptionsStep = memo(function OptionsStep({
           <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Locked: Not enough players or too many players */}
-          {!canEnableWolf ? (
+          {!canEnableWolf && isPremiumWolf ? (
             <View
               style={[
                 styles.toggleCard,
@@ -348,7 +351,7 @@ export const OptionsStep = memo(function OptionsStep({
                 </View>
               </View>
             </View>
-          ) : isPremium ? (
+          ) : isPremiumWolf ? (
             <TouchableOpacity
               style={[
                 styles.toggleCard,

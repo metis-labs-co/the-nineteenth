@@ -55,7 +55,6 @@ const meta: Meta<typeof ScoringPairsSection> = {
   args: {
     roundId: 'round-1',
     scoringPairsRequired: false,
-    isPremium: true,
     cardBackground: '#ffffff',
   },
 };
@@ -112,7 +111,7 @@ function createMockScoringPair(overrides: Partial<ScoringPairWithPlayers> = {}):
 
 export const LockedNonPremium: Story = {
   args: {
-    isPremium: false,
+
     scoringPairsRequired: false,
   },
   parameters: {
@@ -126,7 +125,7 @@ export const LockedNonPremium: Story = {
 
 export const LockedWithRequiredEnabled: Story = {
   args: {
-    isPremium: false,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -144,7 +143,7 @@ export const LockedWithRequiredEnabled: Story = {
 
 export const DisabledState: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: false,
   },
   parameters: {
@@ -158,7 +157,7 @@ export const DisabledState: Story = {
 
 export const DisabledWithManageButton: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: false,
     onManagePress: () => console.log('Manage pressed'),
   },
@@ -177,7 +176,7 @@ export const DisabledWithManageButton: Story = {
 
 export const EnabledEmpty: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -191,7 +190,7 @@ export const EnabledEmpty: Story = {
 
 export const EnabledEmptyWithManageButton: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
     onManagePress: () => console.log('Manage pressed'),
   },
@@ -210,7 +209,7 @@ export const EnabledEmptyWithManageButton: Story = {
 
 export const Loading: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -231,7 +230,7 @@ export const Loading: Story = {
 
 export const ReciprocalPairsTwoPairs: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -279,7 +278,7 @@ export const ReciprocalPairsTwoPairs: Story = {
 
 export const ReciprocalPairsThreePairs: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -330,7 +329,7 @@ export const ReciprocalPairsThreePairs: Story = {
 
 export const ReciprocalPairsWithManage: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
     onManagePress: () => console.log('Manage pressed'),
   },
@@ -349,7 +348,7 @@ export const ReciprocalPairsWithManage: Story = {
 
 export const CircularChainThreePlayers: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -382,7 +381,7 @@ export const CircularChainThreePlayers: Story = {
 
 export const CircularChainFivePlayers: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -425,7 +424,7 @@ export const CircularChainFivePlayers: Story = {
 
 export const CircularChainWithManage: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
     onManagePress: () => console.log('Manage pressed'),
   },
@@ -444,7 +443,7 @@ export const CircularChainWithManage: Story = {
 
 export const SinglePair: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -471,7 +470,7 @@ export const SinglePair: Story = {
 
 export const WithAvatarImages: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -515,7 +514,7 @@ export const WithAvatarImages: Story = {
 
 export const WithMixedAvatars: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -559,7 +558,7 @@ export const WithMixedAvatars: Story = {
 
 export const WithInitialsOnly: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -591,7 +590,7 @@ export const WithInitialsOnly: Story = {
 
 export const LongPlayerNames: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -619,7 +618,7 @@ export const LongPlayerNames: Story = {
 
 export const SpecialCharactersInNames: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -657,7 +656,7 @@ export const SpecialCharactersInNames: Story = {
 
 export const SingleWordNames: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -685,7 +684,7 @@ export const SingleWordNames: Story = {
 
 export const MissingPlayerData: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -717,7 +716,7 @@ export const MissingPlayerData: Story = {
 
 export const DarkModeLockedState: Story = {
   args: {
-    isPremium: false,
+
     cardBackground: '#1e1e1e',
   },
   parameters: {
@@ -732,7 +731,7 @@ export const DarkModeLockedState: Story = {
 
 export const DarkModeDisabled: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: false,
     cardBackground: '#1e1e1e',
   },
@@ -748,7 +747,7 @@ export const DarkModeDisabled: Story = {
 
 export const DarkModeEnabled: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
     cardBackground: '#1e1e1e',
   },
@@ -768,7 +767,7 @@ export const DarkModeEnabled: Story = {
 
 export const LargeGroupReciprocalPairs: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {
@@ -807,7 +806,7 @@ export const LargeGroupReciprocalPairs: Story = {
 
 export const LargeGroupCircularChain: Story = {
   args: {
-    isPremium: true,
+
     scoringPairsRequired: true,
   },
   parameters: {

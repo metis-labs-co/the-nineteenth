@@ -17,7 +17,6 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconChevronLeft } from '@tabler/icons-react-native';
 import { spacing, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium } from '@/context/SubscriptionContext';
 import { useFriends } from '@/hooks/useFriends';
 import {
   useSearchClubs,
@@ -58,7 +57,6 @@ export default function CreateRoundBottomSheet({
   initialCourse,
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
-  const isPremium = useIsPremium();
 
   // Wizard state
   const wizard = useCreateRoundWizard({
@@ -276,7 +274,6 @@ export default function CreateRoundBottomSheet({
             selectedTee={wizard.data.selectedTee}
             selectedMatchType={wizard.data.selectedMatchType}
             selectedPartners={wizard.data.selectedPartners}
-            isPremium={isPremium}
             scoringPairsEnabled={wizard.data.scoringPairsEnabled}
             scoringPairs={wizard.data.scoringPairs}
             onScoringPairsEnabledChange={wizard.setScoringPairsEnabled}

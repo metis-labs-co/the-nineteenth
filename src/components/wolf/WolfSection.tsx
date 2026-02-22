@@ -28,6 +28,7 @@ import { Text, Icon, Divider } from 'react-native-paper';
 import { IconDog, IconLock, IconAlertCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import { WolfConfigBottomSheet } from './WolfConfigBottomSheet';
 import { WolfDisclaimerModal, hasAcceptedWolfDisclaimer } from './WolfDisclaimerModal';
 import type { WolfConfig, WolfParticipant } from '@/types/database/wolf.types';
@@ -50,8 +51,6 @@ export interface WolfEditState {
 }
 
 export interface WolfSectionProps {
-  /** Whether the user has Premium access */
-  isPremium: boolean;
   /** Whether Wolf game is enabled */
   wolfEnabled: boolean;
   /** Current Wolf configuration */
@@ -73,7 +72,6 @@ export interface WolfSectionProps {
 }
 
 export const WolfSection = memo(function WolfSection({
-  isPremium,
   wolfEnabled,
   wolfConfig,
   onWolfEnabledChange,
@@ -85,6 +83,8 @@ export const WolfSection = memo(function WolfSection({
   participants = [],
 }: WolfSectionProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('wolf_game').allowed;
 
   // Local state for modals
   const [showWolfConfigSheet, setShowWolfConfigSheet] = useState(false);

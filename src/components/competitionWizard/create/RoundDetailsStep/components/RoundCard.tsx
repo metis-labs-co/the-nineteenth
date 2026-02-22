@@ -7,6 +7,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { TextInput, Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
 import { DatePicker } from '@/components/common/DatePicker';
 import { TEE_COLORS, GAME_TYPE_LABELS, type RoundCardProps } from '../types';
 
@@ -16,7 +17,6 @@ export const RoundCard = React.memo(function RoundCard({
   errors,
   isRemovable,
   availableTees,
-  isPremium,
   onUpdate,
   onRemove,
   onOpenCourseModal,
@@ -24,6 +24,7 @@ export const RoundCard = React.memo(function RoundCard({
   onOpenMatchTypeModal,
 }: RoundCardProps) {
   const colors = useThemeColors();
+  const isPremium = useIsPremium();
 
   return (
     <View

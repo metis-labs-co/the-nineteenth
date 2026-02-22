@@ -29,6 +29,7 @@ import { Text, Icon, Divider } from 'react-native-paper';
 import { IconDice, IconLock, IconAlertCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import { SegmentedButton } from '@/components/common';
 import {
   SkinsConfigBottomSheet,
@@ -79,7 +80,6 @@ export interface PoolSourceData {
 }
 
 export interface SkinsSectionProps {
-  isPremium: boolean;
   skinsEnabled: boolean;
   skinsConfig: SkinsConfig | null;
   onSkinsEnabledChange: (enabled: boolean) => void;
@@ -103,7 +103,6 @@ export interface SkinsSectionProps {
 }
 
 export const SkinsSection = memo(function SkinsSection({
-  isPremium,
   skinsEnabled,
   skinsConfig,
   onSkinsEnabledChange,
@@ -119,6 +118,8 @@ export const SkinsSection = memo(function SkinsSection({
   teams,
 }: SkinsSectionProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('skins_game').allowed;
 
   // Local state for modals
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);

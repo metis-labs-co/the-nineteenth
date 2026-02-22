@@ -23,7 +23,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useTeams } from '@/hooks/useTeams';
 import { ConfirmationDialog } from '@/components/common';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
@@ -60,7 +60,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
   const { competitionId } = route.params;
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
 
   // Step state
@@ -298,7 +297,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
       case 3:
         return (
           <OptionsStep
-            isPremium={isPremium}
             scoringPairsRequired={form.formData.scoringPairsRequired}
             isTeamMatchPlay={form.isTeamMatchPlay}
             onScoringPairsToggle={form.handleScoringPairsToggle}

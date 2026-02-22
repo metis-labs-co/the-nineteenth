@@ -9,9 +9,9 @@ import {
 import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { FormInput, LogoHorizontal } from '@/components/common';
+import { FormInput, AppIcon, LogoHorizontal } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -38,6 +38,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 export default function LoginScreen({ navigation }: Props) {
   // Theme colors
   const colors = useThemeColors();
+  const isDark = useIsDark();
 
   // Auth hook
   const { login, sendOtp, verifyOtp, isAuthenticating } = useAuth();
@@ -244,15 +245,8 @@ export default function LoginScreen({ navigation }: Props) {
           <View style={styles.container}>
             {/* Logo */}
             <View style={styles.logoContainer}>
-              <LogoHorizontal width={240} />
-            </View>
-
-            {/* Header Section */}
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome Back</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Sign in to continue to The Nineteenth
-              </Text>
+              <AppIcon size={190} />
+              <LogoHorizontal width={240} variant={isDark ? 'light' : 'dark'} />
             </View>
 
             {/* Error Message */}

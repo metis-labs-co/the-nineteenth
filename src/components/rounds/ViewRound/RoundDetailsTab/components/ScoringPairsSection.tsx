@@ -9,6 +9,7 @@ import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { Pill } from '@/components/common/Pill';
 import { useScoringPairs } from '@/hooks/useScoringPairs';
@@ -34,12 +35,12 @@ function _getInitials(name: string): string {
 export function ScoringPairsSection({
   roundId,
   scoringPairsRequired,
-  isPremium,
   cardBackground,
   roundStatus,
   onEditPress,
 }: ScoringPairsSectionProps) {
   const colors = useThemeColors();
+  const isPremium = useIsPremium();
   const navigation = useNavigation<NavigationProp>();
 
   // Card is only editable when round is upcoming (scheduled)

@@ -16,7 +16,6 @@ import { Button, Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium } from '@/context/SubscriptionContext';
 import { useRoundDetailsForm } from './hooks/useRoundDetailsForm';
 import { RoundCard } from './components/RoundCard';
 import { GameTypeModal } from './components/GameTypeModal';
@@ -33,7 +32,6 @@ export default function RoundDetailsStep({
   competitionStartDate,
 }: RoundDetailsStepProps) {
   const colors = useThemeColors();
-  const isPremium = useIsPremium();
   const insets = useSafeAreaInsets();
 
   const form = useRoundDetailsForm({
@@ -61,7 +59,6 @@ export default function RoundDetailsStep({
             errors={form.errors[index] || {}}
             isRemovable={form.rounds.length > 1}
             availableTees={form.getAvailableTeesForRound(round)}
-            isPremium={isPremium}
             onUpdate={(updates) => form.updateRound(index, updates)}
             onRemove={() => form.removeRound(index)}
             onOpenCourseModal={() => form.openCourseModal(index)}

@@ -39,20 +39,28 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | Stroke Play | ❌ | ✅ | ✅ | ✅ |
 | Match Play | ❌ | ✅ | ✅ | ✅ |
 | Ambrose/Best Ball/Scramble | ❌ | ❌ | ✅ | ✅ |
-| Team formats | ❌ | ✅ | ✅ | ✅ |
+| Team formats | ❌ | ❌ | ✅ | ✅ |
 | **Scoring Features** | | | | |
 | Basic scoring | ✅ | ✅ | ✅ | ✅ |
 | Scoring pairs (designated markers) | ❌ | ❌ | ✅ | ✅ |
-| Skins (gambling side-game) | ❌ | ❌ | ✅ | ✅ |
+| Skins side-game | ❌ | ❌ | ✅ | ✅ |
+| Wolf side-game | ❌ | ❌ | ✅ | ✅ |
 | Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
+| GPS distance to pin | ❌ | ✅ | ✅ | ✅ |
 | **Social Features** | | | | |
 | Friends limit | 10 | 25 | Unlimited | Unlimited |
 | View player profiles | ✅ | ✅ | ✅ | ✅ |
 | Compare stats with friends | ❌ | ✅ | ✅ | ✅ |
+| Guest player management | ❌ | ✅ | ✅ | ✅ |
 | **Statistics & Analytics** | | | | |
 | Basic stats (rounds, points) | ✅ | ✅ | ✅ | ✅ |
+| Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ | ✅ |
 | Score distribution | ❌ | ✅ | ✅ | ✅ |
+| Handicap history | ❌ | ✅ | ✅ | ✅ |
+| Achievement leaderboard | ❌ | ✅ | ✅ | ✅ |
 | Advanced analytics & trends | ❌ | ❌ | ✅ | ✅ |
+| **AI Features** | | | | |
+| AI competition creation | ❌ | ✅ | ✅ | ✅ |
 | **Data & Export** | | | | |
 | API course search | ✅ | ✅ | ✅ | ✅ |
 | **Admin Features** | | | | |
@@ -460,14 +468,24 @@ type FeatureId =
   | 'game_type'
   | 'team_formats'
   | 'scoring_pairs'
-  | 'skins'
-  | 'prize_pool'
   | 'add_friend'
   | 'compare_stats'
   | 'basic_stats'
   | 'score_distribution'
   | 'advanced_stats'
-  | 'admin_tools';
+  | 'fir_gir_tracking'
+  | 'admin_tools'
+  // Social tier features
+  | 'detailed_stats'          // Par type, putting, short game
+  | 'handicap_history'        // Handicap history screen
+  | 'achievement_leaderboard' // Achievement leaderboard
+  | 'ai_competition'          // AI competition creation
+  | 'manage_guests'           // Guest player management
+  | 'gps_distance'            // GPS distance to pin
+  // Premium tier features (side-games)
+  | 'skins_game'              // Skins side-game
+  | 'wolf_game'               // Wolf side-game
+  | 'prize_pool';             // Prize pool funding
 ```
 
 ### Permission Check Result

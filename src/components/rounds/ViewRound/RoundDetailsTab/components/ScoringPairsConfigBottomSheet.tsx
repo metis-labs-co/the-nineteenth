@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { GolfBallLoader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys } from '@/hooks/queryKeys';
@@ -33,8 +34,6 @@ export interface ScoringPairsConfigBottomSheetProps {
   competitionId?: string;
   /** Current scoring pairs required value */
   scoringPairsRequired: boolean;
-  /** Whether the user is premium */
-  isPremium: boolean;
 }
 
 // ============================================================================
@@ -47,9 +46,9 @@ export function ScoringPairsConfigBottomSheet({
   roundId,
   competitionId,
   scoringPairsRequired: initialValue,
-  isPremium,
 }: ScoringPairsConfigBottomSheetProps) {
   const colors = useThemeColors();
+  const isPremium = useIsPremium();
   const queryClient = useQueryClient();
 
   // Local state for toggle

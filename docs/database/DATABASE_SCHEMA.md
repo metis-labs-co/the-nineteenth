@@ -511,6 +511,17 @@ interface TierLimits {
   canViewScoreDistribution: boolean;
   canViewAdvancedStats: boolean;
   canCompareStats: boolean;
+  // Feature access - Social tier
+  canViewDetailedStats: boolean;
+  canViewHandicapHistory: boolean;
+  canViewAchievementLeaderboard: boolean;
+  canUseAiCompetition: boolean;
+  canManageGuests: boolean;
+  canUseGpsDistance: boolean;
+  // Feature access - Premium tier (side-games)
+  canUseSkinsGame: boolean;
+  canUseWolfGame: boolean;
+  canUsePrizePool: boolean;
   // Feature access - Admin
   canAccessAdminTools: boolean;
   // Billing & Lifecycle
@@ -2516,7 +2527,15 @@ Configuration table defining limits and feature access for each subscription tie
 | `can_view_advanced_stats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can view advanced stats (GIR, fairways) |
 | `can_compare_stats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can compare stats with others |
 | `can_access_admin_tools` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to admin tools |
-| `can_use_skins` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to skins gambling feature |
+| `can_view_detailed_stats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Detailed stats (par type, putting, short game) |
+| `can_view_handicap_history` | BOOLEAN | NOT NULL, DEFAULT FALSE | Handicap history screen |
+| `can_view_achievement_leaderboard` | BOOLEAN | NOT NULL, DEFAULT FALSE | Achievement leaderboard |
+| `can_use_ai_competition` | BOOLEAN | NOT NULL, DEFAULT FALSE | AI competition creation |
+| `can_manage_guests` | BOOLEAN | NOT NULL, DEFAULT FALSE | Guest player management |
+| `can_use_gps_distance` | BOOLEAN | NOT NULL, DEFAULT FALSE | GPS distance to pin |
+| `can_use_skins_game` | BOOLEAN | NOT NULL, DEFAULT FALSE | Skins side-game (replaces old can_use_skins) |
+| `can_use_wolf_game` | BOOLEAN | NOT NULL, DEFAULT FALSE | Wolf side-game |
+| `can_use_prize_pool` | BOOLEAN | NOT NULL, DEFAULT FALSE | Prize pool funding |
 | `requires_payment` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether tier requires payment |
 | `can_expire` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether subscriptions can expire |
 | `display_name` | TEXT | NOT NULL | Human-readable tier name |
@@ -2541,7 +2560,15 @@ Configuration table defining limits and feature access for each subscription tie
 | can_view_advanced_stats | ❌ | ❌ | ✅ | ✅ |
 | can_compare_stats | ❌ | ✅ | ✅ | ✅ |
 | can_access_admin_tools | ❌ | ❌ | ❌ | ✅ |
-| can_use_skins | ❌ | ❌ | ✅ | ✅ |
+| can_view_detailed_stats | ❌ | ✅ | ✅ | ✅ |
+| can_view_handicap_history | ❌ | ✅ | ✅ | ✅ |
+| can_view_achievement_leaderboard | ❌ | ✅ | ✅ | ✅ |
+| can_use_ai_competition | ❌ | ✅ | ✅ | ✅ |
+| can_manage_guests | ❌ | ✅ | ✅ | ✅ |
+| can_use_gps_distance | ❌ | ✅ | ✅ | ✅ |
+| can_use_skins_game | ❌ | ❌ | ✅ | ✅ |
+| can_use_wolf_game | ❌ | ❌ | ✅ | ✅ |
+| can_use_prize_pool | ❌ | ❌ | ✅ | ✅ |
 | requires_payment | ❌ | ✅ | ✅ | ❌ |
 | can_expire | ✅ | ✅ | ✅ | ❌ |
 | badge_color | #6b7280 (gray) | #3b82f6 (blue) | #f59e0b (amber) | #dc2626 (red) |

@@ -9,7 +9,6 @@ import React from 'react';
 import { ScoringPairsToggle } from '@/components/scoring';
 
 interface ScoringPairsSectionProps {
-  isPremium: boolean;
   scoringPairsRequired: boolean;
   onToggle: (value: boolean) => void;
   onShuffle: () => void;
@@ -19,7 +18,6 @@ interface ScoringPairsSectionProps {
 }
 
 export function ScoringPairsSection({
-  isPremium,
   scoringPairsRequired,
   onToggle,
   onShuffle,
@@ -29,7 +27,6 @@ export function ScoringPairsSection({
 }: ScoringPairsSectionProps) {
   return (
     <ScoringPairsToggle
-      isPremium={isPremium}
       scoringPairsRequired={scoringPairsRequired}
       onToggle={onToggle}
       onShuffle={onShuffle}

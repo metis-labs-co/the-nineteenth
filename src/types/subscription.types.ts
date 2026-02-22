@@ -89,6 +89,17 @@ export type FeatureId =
   | 'advanced_stats'
   | 'fir_gir_tracking'
   | 'export_data'
+  | 'detailed_stats'
+  | 'handicap_history'
+  | 'achievement_leaderboard'
+  // Side-game features (Premium)
+  | 'skins_game'
+  | 'wolf_game'
+  | 'prize_pool'
+  // Social features
+  | 'ai_competition'
+  | 'manage_guests'
+  | 'gps_distance'
   // Admin features
   | 'admin_tools';
 
@@ -153,6 +164,19 @@ export interface TierLimits {
   canViewScoreDistribution: boolean;
   canViewAdvancedStats: boolean;
   canCompareStats: boolean;
+
+  // Feature access - Social tier
+  canViewDetailedStats: boolean;
+  canViewHandicapHistory: boolean;
+  canViewAchievementLeaderboard: boolean;
+  canUseAiCompetition: boolean;
+  canManageGuests: boolean;
+  canUseGpsDistance: boolean;
+
+  // Feature access - Premium tier (side-games)
+  canUseSkinsGame: boolean;
+  canUseWolfGame: boolean;
+  canUsePrizePool: boolean;
 
   // Feature access - Admin
   canAccessAdminTools: boolean;
@@ -254,6 +278,15 @@ export function isFeatureId(value: string): value is FeatureId {
     'advanced_stats',
     'fir_gir_tracking',
     'export_data',
+    'detailed_stats',
+    'handicap_history',
+    'achievement_leaderboard',
+    'skins_game',
+    'wolf_game',
+    'prize_pool',
+    'ai_competition',
+    'manage_guests',
+    'gps_distance',
     'admin_tools',
   ];
   return validFeatures.includes(value as FeatureId);
@@ -345,6 +378,15 @@ export function mapDBTierLimits(db: DBTierLimits): TierLimits {
     canViewScoreDistribution: db.can_view_score_distribution,
     canViewAdvancedStats: db.can_view_advanced_stats,
     canCompareStats: db.can_compare_stats,
+    canViewDetailedStats: db.can_view_detailed_stats ?? true,
+    canViewHandicapHistory: db.can_view_handicap_history ?? true,
+    canViewAchievementLeaderboard: db.can_view_achievement_leaderboard ?? true,
+    canUseAiCompetition: db.can_use_ai_competition ?? true,
+    canManageGuests: db.can_manage_guests ?? true,
+    canUseGpsDistance: db.can_use_gps_distance ?? true,
+    canUseSkinsGame: db.can_use_skins_game ?? true,
+    canUseWolfGame: db.can_use_wolf_game ?? true,
+    canUsePrizePool: db.can_use_prize_pool ?? true,
     canAccessAdminTools: db.can_access_admin_tools,
     requiresPayment: db.requires_payment,
     canExpire: db.can_expire,

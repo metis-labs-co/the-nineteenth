@@ -906,13 +906,12 @@ describe('RoundDetailsStep', () => {
       );
     });
 
-    it('passes isPremium to RoundCard components', () => {
-      mockIsPremium.mockReturnValue(true);
-      mockUseRoundDetailsForm.mockReturnValue(createDefaultFormReturn());
-
+    it('passes onComplete to useRoundDetailsForm hook via props', () => {
       render(<RoundDetailsStep {...defaultProps} />);
-      // Since we're mocking RoundCard, verify isPremium is being used
-      expect(mockIsPremium).toHaveBeenCalled();
+      // Verify hook receives onComplete
+      expect(mockUseRoundDetailsForm).toHaveBeenCalledWith(
+        expect.objectContaining({ onComplete: defaultProps.onComplete })
+      );
     });
   });
 
@@ -945,21 +944,12 @@ describe('RoundDetailsStep', () => {
   // ===========================================================================
 
   describe('Premium Features', () => {
-    it('uses isPremium from subscription context', () => {
-      mockIsPremium.mockReturnValue(true);
-      render(<RoundDetailsStep {...defaultProps} />);
-
-      expect(mockIsPremium).toHaveBeenCalled();
-    });
-
-    it('passes premium status to round cards', () => {
-      mockIsPremium.mockReturnValue(true);
+    it('renders round cards that check premium status internally', () => {
       mockUseRoundDetailsForm.mockReturnValue(createDefaultFormReturn());
 
       render(<RoundDetailsStep {...defaultProps} />);
-      // The mock RoundCard receives isPremium but doesn't display it
-      // We verify the hook was called with the correct context
-      expect(mockIsPremium).toHaveBeenCalled();
+      // RoundCard now checks premium status internally via useIsPremium
+      expect(screen.getByTestId('round-card-0')).toBeTruthy();
     });
   });
 

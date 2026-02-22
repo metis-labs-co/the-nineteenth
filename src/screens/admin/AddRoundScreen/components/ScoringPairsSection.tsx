@@ -9,7 +9,6 @@ import React, { memo } from 'react';
 import { ScoringPairsToggle } from '@/components/scoring';
 
 interface ScoringPairsSectionProps {
-  isPremium: boolean;
   scoringPairsRequired: boolean;
   isTeamMatchPlay: boolean;
   onToggle: (value: boolean) => void;
@@ -18,7 +17,6 @@ interface ScoringPairsSectionProps {
 }
 
 export const ScoringPairsSection = memo(function ScoringPairsSection({
-  isPremium,
   scoringPairsRequired,
   isTeamMatchPlay,
   onToggle,
@@ -27,7 +25,6 @@ export const ScoringPairsSection = memo(function ScoringPairsSection({
 }: ScoringPairsSectionProps) {
   return (
     <ScoringPairsToggle
-      isPremium={isPremium}
       scoringPairsRequired={scoringPairsRequired}
       onToggle={onToggle}
       onUpgradePress={onUpgradePress}

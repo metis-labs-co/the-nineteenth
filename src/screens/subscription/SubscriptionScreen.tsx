@@ -128,6 +128,15 @@ function buildPlanFeatures(tierLimits: {
   canViewScoreDistribution: boolean;
   canViewAdvancedStats: boolean;
   canCompareStats: boolean;
+  canViewDetailedStats?: boolean;
+  canViewHandicapHistory?: boolean;
+  canViewAchievementLeaderboard?: boolean;
+  canUseAiCompetition?: boolean;
+  canManageGuests?: boolean;
+  canUseGpsDistance?: boolean;
+  canUseSkinsGame?: boolean;
+  canUseWolfGame?: boolean;
+  canUsePrizePool?: boolean;
 }, tier: SubscriptionTier): PlanFeature[] {
   return [
     { label: 'Competitions', value: formatLimitValue(tierLimits.maxCompetitionsOwned) },
@@ -137,10 +146,19 @@ function buildPlanFeatures(tierLimits: {
     { label: 'Friends', value: formatLimitValue(tierLimits.maxFriends) },
     { label: 'Game types', value: formatGameTypes(tierLimits.allowedGameTypes) },
     { label: 'Team formats', value: tierLimits.canUseTeamFormats },
-    { label: 'Scoring pairs', value: tierLimits.canUseScoringPairs },
+    { label: 'Detailed stats', value: tierLimits.canViewDetailedStats ?? false },
     { label: 'Score distribution', value: tierLimits.canViewScoreDistribution },
-    { label: 'Advanced analytics', value: tierLimits.canViewAdvancedStats },
+    { label: 'Handicap history', value: tierLimits.canViewHandicapHistory ?? false },
+    { label: 'Achievement leaderboard', value: tierLimits.canViewAchievementLeaderboard ?? false },
     { label: 'Compare stats', value: tierLimits.canCompareStats },
+    { label: 'Advanced analytics', value: tierLimits.canViewAdvancedStats },
+    { label: 'AI competition creation', value: tierLimits.canUseAiCompetition ?? false },
+    { label: 'Guest management', value: tierLimits.canManageGuests ?? false },
+    { label: 'GPS distance to pin', value: tierLimits.canUseGpsDistance ?? false },
+    { label: 'Scoring pairs', value: tierLimits.canUseScoringPairs },
+    { label: 'Skins side-game', value: tierLimits.canUseSkinsGame ?? false },
+    { label: 'Wolf side-game', value: tierLimits.canUseWolfGame ?? false },
+    { label: 'Prize pools', value: tierLimits.canUsePrizePool ?? false },
   ];
 }
 
@@ -283,19 +301,21 @@ export default function SubscriptionScreen({ navigation }: Props) {
 
     if (selectedUpgradeTier === 'social') {
       benefits.push(
-        'Up to 5 competitions',
+        'Up to 8 competitions',
         'Up to 16 players per competition',
         'Unlimited social rounds',
-        'Stroke play format',
-        'Score distribution analytics'
+        'Stroke Play & Match Play formats',
+        'Detailed stats, handicap history & achievements',
+        'AI competition creation & GPS distance'
       );
     } else if (selectedUpgradeTier === 'premium') {
       benefits.push(
         'Unlimited competitions',
         'Up to 40 players per competition',
         'All game types including team formats',
-        'Advanced analytics',
-        'Scoring pairs for tournaments'
+        'Advanced analytics & trends',
+        'Skins, Wolf & Prize pools',
+        'Scoring pairs for competitive rounds'
       );
     }
 

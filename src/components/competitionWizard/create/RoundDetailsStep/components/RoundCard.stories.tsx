@@ -58,7 +58,6 @@ const meta: Meta<typeof RoundCard> = {
   argTypes: {
     index: { control: { type: 'number', min: 0, max: 9 } },
     isRemovable: { control: 'boolean' },
-    isPremium: { control: 'boolean' },
   },
 };
 
@@ -136,7 +135,7 @@ export const Default: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -152,7 +151,7 @@ export const Round1: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -168,7 +167,7 @@ export const Round2: Story = {
       errors={{}}
       isRemovable={true}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -184,7 +183,7 @@ export const Round3: Story = {
       errors={{}}
       isRemovable={true}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -207,7 +206,7 @@ export const WithCourseSelected: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -226,7 +225,7 @@ export const WithLongCourseName: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -242,7 +241,7 @@ export const WithCourseError: Story = {
       errors={{ course: 'Please select a course' }}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -265,7 +264,7 @@ export const WithTeesAvailable: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -289,7 +288,7 @@ export const WithBlueTeeSelected: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -313,7 +312,7 @@ export const WithWhiteTeeSelected: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -337,7 +336,7 @@ export const WithRedTeeSelected: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -361,7 +360,7 @@ export const WithBlackTeeSelected: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -383,7 +382,7 @@ export const WithDateSet: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -402,7 +401,7 @@ export const WithDateAndTeeTime: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -418,7 +417,7 @@ export const WithDateError: Story = {
       errors={{ date: 'Date is required' }}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -438,7 +437,7 @@ export const MatchTypeStableford: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -454,7 +453,7 @@ export const MatchTypeStrokePlay: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -470,7 +469,7 @@ export const MatchTypeMatchPlay: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -486,7 +485,7 @@ export const MatchTypeScramble: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -502,7 +501,7 @@ export const MatchTypeBestBall: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -518,7 +517,7 @@ export const MatchTypeScramble: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -538,7 +537,7 @@ export const PremiumUser: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={true}
+
     />
   ),
 };
@@ -554,7 +553,7 @@ export const PremiumWithScoringPairs: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={true}
+
     />
   ),
 };
@@ -570,7 +569,7 @@ export const FreeUserLocked: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -590,7 +589,7 @@ export const NotRemovable: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -606,7 +605,7 @@ export const Removable: Story = {
       errors={{}}
       isRemovable={true}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -629,7 +628,7 @@ export const MultipleErrors: Story = {
       }}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -649,7 +648,7 @@ export const AllFieldsError: Story = {
       }}
       isRemovable={false}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -681,7 +680,7 @@ export const FullyPopulatedFreeUser: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -709,7 +708,7 @@ export const FullyPopulatedPremiumUser: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={true}
+
     />
   ),
 };
@@ -735,7 +734,7 @@ export const MultipleRounds: Story = {
         errors={{}}
         isRemovable={false}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -753,7 +752,7 @@ export const MultipleRounds: Story = {
         errors={{}}
         isRemovable={true}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -771,7 +770,7 @@ export const MultipleRounds: Story = {
         errors={{}}
         isRemovable={true}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -813,7 +812,7 @@ export const UseCaseWeekendCompetition: Story = {
         errors={{}}
         isRemovable={false}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -852,7 +851,7 @@ export const UseCaseCorporateEvent: Story = {
         errors={{}}
         isRemovable={false}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -891,7 +890,7 @@ export const UseCaseMatchPlayChampionship: Story = {
         errors={{}}
         isRemovable={false}
         availableTees={mockTees}
-        isPremium={true}
+  
         onUpdate={() => {}}
         onRemove={() => {}}
         onOpenCourseModal={() => {}}
@@ -917,7 +916,7 @@ export const LargeRoundNumber: Story = {
       errors={{}}
       isRemovable={true}
       availableTees={[]}
-      isPremium={false}
+
     />
   ),
 };
@@ -941,7 +940,7 @@ export const TeeWithoutYardage: Story = {
       errors={{}}
       isRemovable={false}
       availableTees={mockTees}
-      isPremium={false}
+
     />
   ),
 };
@@ -971,7 +970,7 @@ export const AllTeeColors: Story = {
             errors={{}}
             isRemovable={idx > 0}
             availableTees={mockTees}
-            isPremium={true}
+      
             onUpdate={() => {}}
             onRemove={() => {}}
             onOpenCourseModal={() => {}}

@@ -28,7 +28,6 @@ import {
   useUpdatePrizePool,
   useDeletePrizePool,
 } from '@/hooks/usePrizePool';
-import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import type { CompetitionPrizePool } from '@/types';
 import {
@@ -114,8 +113,6 @@ export function EditPrizePoolBottomSheet({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { isPremium } = useSubscription();
-
   // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
@@ -404,7 +401,6 @@ export function EditPrizePoolBottomSheet({
                 playerCount={playerCount}
                 roundCount={roundCount}
                 onPoolChange={handleConfigChange}
-                isPremium={isPremium}
                 onUpgradePress={handleUpgradePress}
                 editState={componentEditState}
               />

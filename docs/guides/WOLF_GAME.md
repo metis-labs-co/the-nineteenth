@@ -145,10 +145,12 @@ Points awarded depend on the Wolf's decision and outcome:
 
 ## Premium Tier Gating
 
-Wolf is a **Premium tier feature**. Users on Free or Social tiers:
+Wolf is a **Premium tier feature** gated by `FeatureId: 'wolf_game'`. Users on Free or Social tiers:
 - See the Wolf option in the UI (graceful degradation)
 - Cannot enable Wolf (shows upgrade prompt)
 - Can view results for Wolf games they're part of
+
+The `WolfSection` component checks access internally using `useCheckFeature('wolf_game')` — no `isPremium` prop is needed from parent components.
 
 ### Tier Access
 

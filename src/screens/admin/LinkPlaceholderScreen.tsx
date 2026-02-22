@@ -26,6 +26,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner, SearchBar, BottomSheet, EmptyState, ErrorState, Pill } from '@/components/common';
+import { FeatureLock } from '@/components/subscription';
 // SearchResultCard removed - using custom LinkSearchResultCard below
 import {
   usePlaceholderPlayers,
@@ -357,25 +358,27 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
         onBack={() => navigation.goBack()}
       />
 
-      <FlatList
-        data={placeholders || []}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPlaceholder}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: insets.bottom + spacing.lg },
-          (!placeholders || placeholders.length === 0) && styles.emptyListContent,
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={colors.primary}
-          />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
+      <FeatureLock feature="manage_guests" onUpgradePress={() => navigation.navigate('Subscription')}>
+        <FlatList
+          data={placeholders || []}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPlaceholder}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + spacing.lg },
+            (!placeholders || placeholders.length === 0) && styles.emptyListContent,
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        />
+      </FeatureLock>
 
       {/* Friend Search Modal */}
       <BottomSheet

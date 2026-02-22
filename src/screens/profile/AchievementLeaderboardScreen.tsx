@@ -27,6 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAchievementLeaderboard } from '@/hooks/achievements';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState } from '@/components/common/EmptyState';
+import { FeatureLock } from '@/components/subscription';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
 import { ProfileFrame } from '@/components/cosmetics/ProfileFrame';
 import type {
@@ -395,61 +396,63 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
         onBack={handleGoBack}
       />
 
-      <FlatList
-        data={leaderboard}
-        keyExtractor={keyExtractor}
-        renderItem={renderLeaderboardItem}
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingBottom:
-              !isCurrentUserVisible && currentUserEntry
-                ? 80 + insets.bottom
-                : insets.bottom + spacing.xl,
-          },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        ListHeaderComponent={
-          /* Scope Tabs */
-          <View style={styles.scopeTabsContainer}>
-            {scopeTabs.map((tab) => (
-              <ScopeTabItem
-                key={tab.key}
-                tab={tab}
-                isActive={selectedScope === tab.key}
-                onPress={() => handleScopeChange(tab.key)}
-              />
-            ))}
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="No rankings yet"
-            message={
-              selectedScope === 'friends'
-                ? 'Add friends to see how you compare!'
-                : selectedScope === 'competition'
-                  ? 'No players have earned achievements in this competition yet.'
-                  : 'Be the first to earn achievements!'
-            }
-            icon="trophy-outline"
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-      />
+      <FeatureLock feature="achievement_leaderboard" onUpgradePress={() => navigation.navigate('Subscription')}>
+        <FlatList
+          data={leaderboard}
+          keyExtractor={keyExtractor}
+          renderItem={renderLeaderboardItem}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingBottom:
+                !isCurrentUserVisible && currentUserEntry
+                  ? 80 + insets.bottom
+                  : insets.bottom + spacing.xl,
+            },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          ListHeaderComponent={
+            /* Scope Tabs */
+            <View style={styles.scopeTabsContainer}>
+              {scopeTabs.map((tab) => (
+                <ScopeTabItem
+                  key={tab.key}
+                  tab={tab}
+                  isActive={selectedScope === tab.key}
+                  onPress={() => handleScopeChange(tab.key)}
+                />
+              ))}
+            </View>
+          }
+          ListEmptyComponent={
+            <EmptyState
+              title="No rankings yet"
+              message={
+                selectedScope === 'friends'
+                  ? 'Add friends to see how you compare!'
+                  : selectedScope === 'competition'
+                    ? 'No players have earned achievements in this competition yet.'
+                    : 'Be the first to earn achievements!'
+              }
+              icon="trophy-outline"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+        />
 
-      {/* Floating current user rank */}
-      {!isCurrentUserVisible && currentUserEntry && (
-        <CurrentUserFloatingRank entry={currentUserEntry} />
-      )}
+        {/* Floating current user rank */}
+        {!isCurrentUserVisible && currentUserEntry && (
+          <CurrentUserFloatingRank entry={currentUserEntry} />
+        )}
+      </FeatureLock>
     </View>
   );
 }

@@ -20,7 +20,7 @@ import { useStatsVisibility } from '@/store/settingsStore';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
-import { UpgradePrompt } from '@/components/subscription';
+import { UpgradePrompt, FeatureLock } from '@/components/subscription';
 import {
   ParTypeStatsSection,
   ShortGameSection,
@@ -154,21 +154,27 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         />
 
         {/* Section 2: Par Type Stats - Social+ tier */}
-        <ParTypeStatsSection
-          par3Stats={stats.par3Stats}
-          par4Stats={stats.par4Stats}
-          par5Stats={stats.par5Stats}
-        />
+        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
+          <ParTypeStatsSection
+            par3Stats={stats.par3Stats}
+            par4Stats={stats.par4Stats}
+            par5Stats={stats.par5Stats}
+          />
+        </FeatureLock>
 
         {/* Section 3: Short Game - Social+ tier */}
-        <ShortGameSection shortGame={stats.shortGame} />
+        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
+          <ShortGameSection shortGame={stats.shortGame} />
+        </FeatureLock>
 
         {/* Section 4: Putting Analysis - Social+ tier */}
-        <PuttingAnalysisSection
-          puttingDepth={stats.puttingDepth}
-          averagePuttsPerHole={stats.averagePuttsPerHole}
-          totalPuttsPerRound={stats.averagePuttsPerRound}
-        />
+        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
+          <PuttingAnalysisSection
+            puttingDepth={stats.puttingDepth}
+            averagePuttsPerHole={stats.averagePuttsPerHole}
+            totalPuttsPerRound={stats.averagePuttsPerRound}
+          />
+        </FeatureLock>
 
         {/* Section 5: Score Distribution - Social+ tier */}
         <ScoreDistributionSection

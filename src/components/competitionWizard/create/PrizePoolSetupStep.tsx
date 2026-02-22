@@ -153,7 +153,6 @@ export function PrizePoolSetupStep({
             playerCount={playerCount}
             roundCount={roundCount}
             onPoolChange={handlePoolChange}
-            isPremium={true} // Already gated at step 1
             onUpgradePress={() => {}} // Not needed - already premium
             hideToggle={true} // User already opted in at step 1
           />

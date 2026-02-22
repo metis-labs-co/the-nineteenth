@@ -252,6 +252,33 @@ export function validateFeatureAccess(
     case 'admin_tools':
       return checkBooleanFeature(limits.canAccessAdminTools, 'Admin tools', 'super_admin');
 
+    case 'detailed_stats':
+      return checkBooleanFeature(limits.canViewDetailedStats, 'Detailed statistics', 'social');
+
+    case 'handicap_history':
+      return checkBooleanFeature(limits.canViewHandicapHistory, 'Handicap history', 'social');
+
+    case 'achievement_leaderboard':
+      return checkBooleanFeature(limits.canViewAchievementLeaderboard, 'Achievement leaderboard', 'social');
+
+    case 'skins_game':
+      return checkBooleanFeature(limits.canUseSkinsGame, 'Skins game', 'premium');
+
+    case 'wolf_game':
+      return checkBooleanFeature(limits.canUseWolfGame, 'Wolf game', 'premium');
+
+    case 'prize_pool':
+      return checkBooleanFeature(limits.canUsePrizePool, 'Prize pools', 'premium');
+
+    case 'ai_competition':
+      return checkBooleanFeature(limits.canUseAiCompetition, 'AI competition', 'social');
+
+    case 'manage_guests':
+      return checkBooleanFeature(limits.canManageGuests, 'Guest management', 'social');
+
+    case 'gps_distance':
+      return checkBooleanFeature(limits.canUseGpsDistance, 'GPS distance', 'social');
+
     default:
       return createUnknownFeatureAccess(featureId);
   }

@@ -27,6 +27,23 @@
         "EXPO_PUBLIC_GOLFAPI_IO_KEY": "d7687382-3e9a-473a-a799-c81ab7454092"
       }
     },
+    "staging": {
+      "distribution": "store",
+      "channel": "staging",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://uoqofjwtdgdzhpwfzklo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_QwCPKDBBRSUCThqxt6yIlQ_-OyuV-jw",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_NAnUuRZUiyoQcOxCBiQkvTjzwxY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "test_EUzwJGhjDCnDbhKcDTUiEreNPFT",
+        "EXPO_PUBLIC_GOLFAPI_IO_KEY": "d7687382-3e9a-473a-a799-c81ab7454092"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "ios": {
@@ -45,6 +62,17 @@
     }
   },
   "submit": {
+    "staging": {
+      "ios": {
+        "appleId": "hello@metislabs.co",
+        "ascAppId": "6758835344",
+        "appleTeamId": "TMB3988D5Z"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    },
     "production": {
       "ios": {
         "appleId": "hello@metislabs.co",

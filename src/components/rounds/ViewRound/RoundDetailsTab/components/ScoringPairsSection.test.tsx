@@ -231,7 +231,6 @@ const mockUseScoringPairs = useScoringPairs as jest.MockedFunction<typeof useSco
 const defaultProps = {
   roundId: 'round-1',
   scoringPairsRequired: false,
-  isPremium: true,
   cardBackground: '#ffffff',
 };
 
@@ -271,7 +270,6 @@ describe('ScoringPairsSection', () => {
         <ScoringPairsSection
           roundId="round-1"
           scoringPairsRequired={false}
-          isPremium={true}
           cardBackground="#fff"
         />
       );
@@ -285,14 +283,14 @@ describe('ScoringPairsSection', () => {
 
   describe('Locked State (Non-Premium)', () => {
     it('shows locked card when not premium', () => {
-      render(<ScoringPairsSection {...defaultProps} isPremium={false} />);
+      render(<ScoringPairsSection {...defaultProps} />);
 
       expect(screen.getByText('Premium')).toBeTruthy();
       expect(screen.getByText('Upgrade to designate who scores each player')).toBeTruthy();
     });
 
     it('displays lock icon in locked state', () => {
-      render(<ScoringPairsSection {...defaultProps} isPremium={false} />);
+      render(<ScoringPairsSection {...defaultProps} />);
 
       // The icon source "lock" is passed to the Icon component
       // We can check for the presence of the locked card content
@@ -301,7 +299,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('navigates to Subscription screen when locked card pressed', () => {
-      render(<ScoringPairsSection {...defaultProps} isPremium={false} />);
+      render(<ScoringPairsSection {...defaultProps} />);
 
       const lockedCard = screen.getByText('Premium');
       fireEvent.press(lockedCard);
@@ -310,7 +308,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('does not fetch scoring pairs when not premium', () => {
-      render(<ScoringPairsSection {...defaultProps} isPremium={false} />);
+      render(<ScoringPairsSection {...defaultProps} />);
 
       // The component should render without errors
       // but the pairs data should not be displayed
@@ -323,7 +321,6 @@ describe('ScoringPairsSection', () => {
       render(
         <ScoringPairsSection
           {...defaultProps}
-          isPremium={false}
           onManagePress={onManagePress}
         />
       );
@@ -769,17 +766,6 @@ describe('ScoringPairsSection', () => {
       expect(screen.getByText('Enabled')).toBeTruthy();
     });
 
-    it('handles switching between premium and non-premium', () => {
-      const { rerender } = render(
-        <ScoringPairsSection {...defaultProps} isPremium={true} />
-      );
-
-      expect(screen.queryByText('Premium')).toBeNull();
-
-      rerender(<ScoringPairsSection {...defaultProps} isPremium={false} />);
-
-      expect(screen.getByText('Premium')).toBeTruthy();
-    });
   });
 
   // ===========================================================================
@@ -800,7 +786,6 @@ describe('ScoringPairsSection', () => {
         <ScoringPairsSection
           roundId="round-1"
           scoringPairsRequired={true}
-          isPremium={true}
           cardBackground="#ffffff"
           onManagePress={onManagePress}
         />
@@ -817,7 +802,6 @@ describe('ScoringPairsSection', () => {
         <ScoringPairsSection
           roundId="round-1"
           scoringPairsRequired={false}
-          isPremium={true}
           cardBackground="#ffffff"
         />
       );
@@ -825,28 +809,6 @@ describe('ScoringPairsSection', () => {
       expect(screen.getByText('Scoring Pairs')).toBeTruthy();
       expect(screen.getByText('Disabled')).toBeTruthy();
       expect(screen.queryByText('Manage')).toBeNull();
-    });
-
-    it('prioritizes locked state over enabled state', () => {
-      mockUseScoringPairs.mockReturnValue({
-        data: createReciprocalPairs(),
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      } as any);
-
-      render(
-        <ScoringPairsSection
-          {...defaultProps}
-          scoringPairsRequired={true}
-          isPremium={false}
-        />
-      );
-
-      // Should show locked state, not enabled with pairs
-      expect(screen.getByText('Premium')).toBeTruthy();
-      expect(screen.queryByText('Enabled')).toBeNull();
-      expect(screen.queryByText('Reciprocal Pairs')).toBeNull();
     });
   });
 
@@ -945,7 +907,7 @@ describe('ScoringPairsSection', () => {
   describe('Snapshots', () => {
     it('matches snapshot for locked state', () => {
       const { toJSON } = render(
-        <ScoringPairsSection {...defaultProps} isPremium={false} />
+        <ScoringPairsSection {...defaultProps} />
       );
 
       expect(toJSON()).toMatchSnapshot();

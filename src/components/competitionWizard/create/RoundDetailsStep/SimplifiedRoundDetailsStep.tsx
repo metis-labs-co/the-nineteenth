@@ -14,7 +14,6 @@ import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium } from '@/context/SubscriptionContext';
 import { createBlankRound } from '@/schemas/competition';
 import type { SimplifiedRoundFormData } from '@/schemas/competition';
 import type { SimplifiedRoundDetailsStepProps } from './types';
@@ -29,11 +28,8 @@ export function SimplifiedRoundDetailsStep({
   allowedGameTypes,
   maxRoundsPerCompetition,
   competitionStartDate,
-  isPremium: isPremiumProp,
 }: SimplifiedRoundDetailsStepProps) {
   const colors = useThemeColors();
-  const isPremiumFromContext = useIsPremium();
-  const isPremium = isPremiumProp ?? isPremiumFromContext;
   const insets = useSafeAreaInsets();
 
   // Calculate effective max rounds
@@ -180,7 +176,6 @@ export function SimplifiedRoundDetailsStep({
         onClose={() => setEditingRoundIndex(null)}
         onSave={handleSaveRound}
         allowedGameTypes={allowedGameTypes}
-        isPremium={isPremium}
       />
     </View>
   );

@@ -8,6 +8,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon, TextInput, Button } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { DatePicker } from '@/components/common/DatePicker';
 import type { SimplifiedRoundFormData, GameType } from '@/schemas/competition';
@@ -27,7 +28,6 @@ export interface EditRoundBottomSheetProps {
   onClose: () => void;
   onSave: (round: SimplifiedRoundFormData) => void;
   allowedGameTypes?: GameType[];
-  isPremium?: boolean;
 }
 
 export function EditRoundBottomSheet({
@@ -37,9 +37,9 @@ export function EditRoundBottomSheet({
   onClose,
   onSave,
   allowedGameTypes,
-  isPremium = false,
 }: EditRoundBottomSheetProps) {
   const colors = useThemeColors();
+  const isPremium = useIsPremium();
   const [localRound, setLocalRound] = useState<SimplifiedRoundFormData>(round);
 
   // Course search state

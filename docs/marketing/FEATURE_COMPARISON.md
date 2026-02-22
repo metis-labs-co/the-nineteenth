@@ -76,6 +76,22 @@ If you're organizing competitions for your regular group, mates league, or work 
 | Friends list | 10 | 25 | Unlimited |
 | Compare stats with friends | ❌ | ✅ | ✅ |
 | Advanced analytics | ❌ | ❌ | ✅ |
+| | | | |
+| **STATISTICS & ANALYTICS** | | | |
+| Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ |
+| Handicap history | ❌ | ✅ | ✅ |
+| Achievement leaderboard | ❌ | ✅ | ✅ |
+| Advanced analytics | ❌ | ❌ | ✅ |
+| | | | |
+| **TOOLS & AI** | | | |
+| AI competition creation | ❌ | ✅ | ✅ |
+| Guest player management | ❌ | ✅ | ✅ |
+| GPS distance to pin | ❌ | ✅ | ✅ |
+| | | | |
+| **SIDE-GAMES** | | | |
+| Skins | ❌ | ❌ | ✅ |
+| Wolf | ❌ | ❌ | ✅ |
+| Prize pools | ❌ | ❌ | ✅ |
 | Designated scoring pairs | ❌ | ❌ | ✅ |
 | | | | |
 | **SUPPORT** | | | |
@@ -119,8 +135,22 @@ If you're organizing competitions for your regular group, mates league, or work 
 | Round leaderboard | Per-round standings | ✅ | ✅ | ✅ |
 | Personal stats | Your scoring history | ✅ | ✅ | ✅ |
 | Friend comparison | Compare stats with friends | ❌ | ✅ | ✅ |
+| Detailed stats | Par type, putting, short game breakdowns | ❌ | ✅ | ✅ |
+| Handicap history | Track handicap changes over time | ❌ | ✅ | ✅ |
+| Achievement leaderboard | Compete with friends on achievements | ❌ | ✅ | ✅ |
 | Advanced analytics | Trends, insights, detailed breakdowns | ❌ | ❌ | ✅ |
-| Handicap trends | Track handicap over time | ❌ | ❌ | ✅ |
+| Handicap trends | Track handicap over time | ❌ | ✅ | ✅ |
+
+### Side-Games & Competitive Features
+
+| Feature | Description | Free | Social | Premium |
+|---------|-------------|------|--------|---------|
+| Skins | Hole-by-hole gambling side-game | ❌ | ❌ | ✅ |
+| Wolf | Strategic partner selection side-game | ❌ | ❌ | ✅ |
+| Prize pools | Competition funding and payouts | ❌ | ❌ | ✅ |
+| GPS distance | Distance to pin overlay | ❌ | ✅ | ✅ |
+| AI competition | AI-assisted competition creation | ❌ | ✅ | ✅ |
+| Guest management | Manage guest/placeholder players | ❌ | ✅ | ✅ |
 
 ---
 
@@ -146,8 +176,8 @@ If you're organizing competitions for your regular group, mates league, or work 
 
 | From | To | What You Gain |
 |------|-----|---------------|
-| Free → Social | Social | +5 comps, +8 players/comp, +3 rounds/comp, Stroke Play, Match Play, Friend comparison |
-| Social → Premium | Premium | Unlimited comps, +24 players/comp, +5 rounds/comp, Team formats, Analytics, Priority support |
+| Free → Social | Social | +5 comps, +8 players/comp, +3 rounds/comp, Stroke Play, Match Play, Friend comparison, Detailed stats, Handicap history, Achievement leaderboard, AI competition, Guest management, GPS distance |
+| Social → Premium | Premium | Unlimited comps, +24 players/comp, +5 rounds/comp, Team formats, Analytics, Priority support, Skins, Wolf, Prize pools |
 
 ### Downgrading
 

@@ -16,6 +16,7 @@ import { useHandicapHistory } from '@/hooks/useHandicapHistory';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
+import { FeatureLock } from '@/components/subscription';
 import type { HandicapRound } from '@/types';
 
 import {
@@ -143,22 +144,24 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
         ]}
       />
 
-      <FlatList
-        data={summary.rounds}
-        renderItem={renderRound}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={handleRefresh}
-            tintColor={colors.textPrimary}
-            colors={[colors.textPrimary]}
-          />
-        }
-      />
+      <FeatureLock feature="handicap_history" onUpgradePress={() => navigation.navigate('Subscription')}>
+        <FlatList
+          data={summary.rounds}
+          renderItem={renderRound}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={handleRefresh}
+              tintColor={colors.textPrimary}
+              colors={[colors.textPrimary]}
+            />
+          }
+        />
+      </FeatureLock>
     </View>
   );
 }

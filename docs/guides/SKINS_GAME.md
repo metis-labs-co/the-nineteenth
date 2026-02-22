@@ -124,10 +124,12 @@ Hole 18: $5 base + $15 carryover = $20 pot value
 
 ## Premium Tier Gating
 
-Skins is a **Premium tier feature**. Users on Free or Social tiers:
+Skins is a **Premium tier feature** gated by `FeatureId: 'skins_game'`. Users on Free or Social tiers:
 - See the skins option in the UI (graceful degradation)
 - Cannot enable skins (shows upgrade prompt)
 - Can view results for skins games they're part of
+
+The `SkinsSection` component checks access internally using `useCheckFeature('skins_game')` — no `isPremium` prop is needed from parent components.
 
 ### Tier Access
 

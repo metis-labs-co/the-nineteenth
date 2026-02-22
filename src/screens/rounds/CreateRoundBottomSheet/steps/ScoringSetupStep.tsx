@@ -45,6 +45,7 @@ import type { WolfConfig, WolfParticipant } from '@/types/database/wolf.types';
 import type { SelectedCourse, PlayingPartner, ScrambleTeam } from '../types';
 import { MATCH_TYPES } from '../types';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 
 /** Amber/gold color for skins feature */
 const SKINS_AMBER = '#f59e0b';
@@ -84,7 +85,6 @@ interface ScoringSetupStepProps {
   selectedTee: TeeBox | null;
   selectedMatchType: GameType;
   selectedPartners: PlayingPartner[];
-  isPremium: boolean;
   // Scoring pairs
   scoringPairsEnabled: boolean;
   scoringPairs: ScoringPairCreateInput[];
@@ -115,7 +115,6 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   selectedTee,
   selectedMatchType,
   selectedPartners,
-  isPremium,
   scoringPairsEnabled,
   scoringPairs,
   onScoringPairsEnabledChange,
@@ -137,6 +136,10 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
 }: ScoringSetupStepProps) {
   const colors = useThemeColors();
   const { player, user } = useAuth();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('scoring_pairs').allowed;
+  const isPremiumSkins = checkFeature('skins_game').allowed;
+  const isPremiumWolf = checkFeature('wolf_game').allowed;
 
   // Local state for skins modals
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
@@ -549,7 +552,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             <View style={[styles.skinsDivider, { backgroundColor: colors.border }]} />
 
             {/* Skins Toggle - Disabled for team formats without team mode */}
-            {!canUseSkins && skinsDisabledReason && isPremium ? (
+            {!canUseSkins && skinsDisabledReason && isPremiumSkins ? (
               <View
                 style={[
                   styles.skinsToggle,
@@ -571,7 +574,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
                   </View>
                 </View>
               </View>
-            ) : isPremium ? (
+            ) : isPremiumSkins ? (
               <TouchableOpacity
                 style={[
                   styles.skinsToggle,
@@ -691,7 +694,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
         {/* Wolf Game Section - Premium feature, requires 3-4 players */}
         <Divider style={[styles.wolfDivider, { backgroundColor: colors.gray200 }]} />
 
-        {isPremium ? (
+        {isPremiumWolf ? (
           <>
             {/* Wolf Toggle - Disabled if wrong player count */}
             {!hasValidWolfPlayerCount ? (

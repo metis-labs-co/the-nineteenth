@@ -82,7 +82,6 @@ describe('RoundCard', () => {
     errors: {},
     isRemovable: false,
     availableTees: [],
-    isPremium: false,
     onUpdate: jest.fn(),
     onRemove: jest.fn(),
     onOpenCourseModal: jest.fn(),
@@ -454,33 +453,33 @@ describe('RoundCard', () => {
 
   describe('Scoring Pairs - Premium User', () => {
     it('renders scoring pairs toggle for premium users', () => {
-      render(<RoundCard {...defaultProps} isPremium={true} />);
+      render(<RoundCard {...defaultProps} />);
       expect(screen.getByText('Require Scoring Pairs')).toBeTruthy();
     });
 
     it('renders toggle description', () => {
-      render(<RoundCard {...defaultProps} isPremium={true} />);
+      render(<RoundCard {...defaultProps} />);
       expect(screen.getByText('Assign designated markers for this round')).toBeTruthy();
     });
 
     it('shows unchecked state when scoring pairs not required', () => {
       const round = createMockRound({ scoringPairsRequired: false });
-      render(<RoundCard {...defaultProps} round={round} isPremium={true} />);
+      render(<RoundCard {...defaultProps} round={round} />);
       // Checkbox should not have check icon
       expect(screen.getByText('Require Scoring Pairs')).toBeTruthy();
     });
 
     it('shows checked state when scoring pairs required', () => {
       const round = createMockRound({ scoringPairsRequired: true });
-      render(<RoundCard {...defaultProps} round={round} isPremium={true} />);
+      render(<RoundCard {...defaultProps} round={round} />);
       // Component should be in checked state
       expect(screen.getByText('Require Scoring Pairs')).toBeTruthy();
     });
 
-    it('toggles scoring pairs when pressed by premium user', () => {
+    it('toggles scoring pairs when pressed', () => {
       const onUpdate = jest.fn();
       const round = createMockRound({ scoringPairsRequired: false });
-      render(<RoundCard {...defaultProps} round={round} isPremium={true} onUpdate={onUpdate} />);
+      render(<RoundCard {...defaultProps} round={round} onUpdate={onUpdate} />);
 
       const toggleLabel = screen.getByText('Require Scoring Pairs');
       fireEvent.press(toggleLabel.parent?.parent?.parent!);
@@ -490,7 +489,7 @@ describe('RoundCard', () => {
     it('un-toggles scoring pairs when already enabled', () => {
       const onUpdate = jest.fn();
       const round = createMockRound({ scoringPairsRequired: true });
-      render(<RoundCard {...defaultProps} round={round} isPremium={true} onUpdate={onUpdate} />);
+      render(<RoundCard {...defaultProps} round={round} onUpdate={onUpdate} />);
 
       const toggleLabel = screen.getByText('Require Scoring Pairs');
       fireEvent.press(toggleLabel.parent?.parent?.parent!);
@@ -498,7 +497,7 @@ describe('RoundCard', () => {
     });
 
     it('renders scoring pairs hint', () => {
-      render(<RoundCard {...defaultProps} isPremium={true} />);
+      render(<RoundCard {...defaultProps} />);
       expect(
         screen.getByText(
           'When enabled, you can configure who scores whom after creating the competition'
@@ -512,28 +511,13 @@ describe('RoundCard', () => {
   // ===========================================================================
 
   describe('Scoring Pairs - Free User', () => {
-    it('renders locked state for free users', () => {
-      render(<RoundCard {...defaultProps} isPremium={false} />);
-      expect(screen.getByText('Premium')).toBeTruthy();
-    });
-
-    it('displays upgrade message for free users', () => {
-      render(<RoundCard {...defaultProps} isPremium={false} />);
-      expect(screen.getByText('Upgrade to Premium to use this feature')).toBeTruthy();
-    });
-
-    it('does not toggle when pressed by free user', () => {
-      const onUpdate = jest.fn();
-      render(<RoundCard {...defaultProps} isPremium={false} onUpdate={onUpdate} />);
-
-      // The locked toggle should not have onPress handler
-      const label = screen.getByText('Require Scoring Pairs');
-      expect(label).toBeTruthy();
-      // Component should still render without crashing
+    it('renders scoring pairs section for free users', () => {
+      render(<RoundCard {...defaultProps} />);
+      expect(screen.getByText('Scoring Pairs')).toBeTruthy();
     });
 
     it('renders scoring pairs hint for free users', () => {
-      render(<RoundCard {...defaultProps} isPremium={false} />);
+      render(<RoundCard {...defaultProps} />);
       expect(
         screen.getByText(
           'When enabled, you can configure who scores whom after creating the competition'
@@ -632,7 +616,6 @@ describe('RoundCard', () => {
           {...defaultProps}
           round={round}
           availableTees={tees}
-          isPremium={true}
           isRemovable={true}
           index={2}
         />

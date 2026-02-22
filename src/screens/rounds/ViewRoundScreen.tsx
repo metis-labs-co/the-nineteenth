@@ -33,7 +33,6 @@ import { spacing, borderRadius, shadows, typography, skinsColor } from '@/consta
 /** Gray color for wolf feature */
 const WOLF_COLOR = '#6B7280';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium } from '@/context/SubscriptionContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorState } from '@/components/common/ErrorState';
@@ -98,7 +97,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
   const { user } = useAuth();
   const colors = useThemeColors();
-  const isPremium = useIsPremium();
   const queryClient = useQueryClient();
 
   // Dialog state
@@ -1169,7 +1167,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           <RoundGameSetupTab
             round={round}
             isOrganizer={isOrganizer}
-            isPremium={isPremium}
             players={(roundPlayers || []).map((rp) => rp.player).filter(Boolean) as Player[]}
             onScoringPairsEditPress={handleScoringPairsEditPress}
             onSkinsEditPress={handleSkinsEditPress}
@@ -1435,7 +1432,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         roundId={roundId}
         competitionId={competitionId}
         scoringPairsRequired={round?.scoring_pairs_required ?? false}
-        isPremium={isPremium}
       />
 
       <SkinsConfigBottomSheet

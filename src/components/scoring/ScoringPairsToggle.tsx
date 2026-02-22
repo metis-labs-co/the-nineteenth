@@ -36,11 +36,10 @@ import React, { memo } from 'react';
 import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 
 export interface ScoringPairsToggleProps {
-  /** Whether user has premium subscription */
-  isPremium: boolean;
   /** Current value of scoring pairs toggle */
   scoringPairsRequired: boolean;
   /** Callback when toggle value changes */
@@ -62,7 +61,6 @@ export interface ScoringPairsToggleProps {
 }
 
 export const ScoringPairsToggle = memo(function ScoringPairsToggle({
-  isPremium,
   scoringPairsRequired,
   onToggle,
   onUpgradePress,
@@ -74,6 +72,8 @@ export const ScoringPairsToggle = memo(function ScoringPairsToggle({
   containerStyle = 'inline',
 }: ScoringPairsToggleProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('scoring_pairs').allowed;
 
   const content = (
     <>

@@ -29,7 +29,6 @@ import type { Player } from '@/types';
 export interface RoundGameSetupTabProps {
   round: RoundWithCourse;
   isOrganizer: boolean;
-  isPremium: boolean;
   /** Players available for grouping */
   players?: Player[];
   onScoringPairsEditPress?: () => void;
@@ -40,7 +39,6 @@ export interface RoundGameSetupTabProps {
 export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   round,
   isOrganizer,
-  isPremium,
   players = [],
   onScoringPairsEditPress,
   onSkinsEditPress,
@@ -72,7 +70,6 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
       <ScoringPairsSection
         roundId={round.id}
         scoringPairsRequired={round.scoring_pairs_required}
-        isPremium={isPremium}
         cardBackground={colors.surface}
         roundStatus={round.status as RoundStatus}
         onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}

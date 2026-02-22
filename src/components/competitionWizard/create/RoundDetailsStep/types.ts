@@ -88,7 +88,6 @@ export interface RoundCardProps {
   errors: Record<string, string>;
   isRemovable: boolean;
   availableTees: TeeBox[];
-  isPremium: boolean;
   onUpdate: (updates: Partial<RoundDetailsFormData>) => void;
   onRemove: () => void;
   onOpenCourseModal: () => void;
@@ -174,7 +173,6 @@ export interface SimplifiedRoundDetailsStepProps {
   maxRoundsPerCompetition?: number;
   /** Competition start date from step 1 (DD/MM/YYYY format) - used as default for new rounds */
   competitionStartDate?: string;
-  isPremium?: boolean;
 }
 
 // Re-export types from schemas for convenience

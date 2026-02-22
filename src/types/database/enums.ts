@@ -58,7 +58,16 @@ export type TierFeature =
   | 'advanced_stats'
   | 'compare_stats'
   | 'admin_tools'
-  | 'skins';
+  | 'skins'
+  | 'skins_game'
+  | 'wolf_game'
+  | 'prize_pool'
+  | 'detailed_stats'
+  | 'handicap_history'
+  | 'achievement_leaderboard'
+  | 'ai_competition'
+  | 'manage_guests'
+  | 'gps_distance';
 
 // Skins enums (re-exported from skins.types.ts for consistency)
 export type {

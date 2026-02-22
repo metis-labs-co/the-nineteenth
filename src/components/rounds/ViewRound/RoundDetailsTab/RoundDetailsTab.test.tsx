@@ -68,19 +68,16 @@ jest.mock('./components', () => {
     ScoringPairsSection: ({
       roundId,
       scoringPairsRequired,
-      isPremium,
       onManagePress,
     }: {
       roundId: string;
       scoringPairsRequired: boolean;
-      isPremium: boolean;
       cardBackground: string;
       onManagePress?: () => void;
     }) => (
       <View testID="scoring-pairs-section">
         <Text testID="scoring-pairs-round-id">{roundId}</Text>
         <Text testID="scoring-pairs-required">{String(scoringPairsRequired)}</Text>
-        <Text testID="scoring-pairs-premium">{String(isPremium)}</Text>
         {onManagePress && (
           <Text testID="scoring-pairs-manage-button" onPress={onManagePress}>
             Manage
@@ -609,14 +606,6 @@ describe('RoundDetailsTab', () => {
       expect(screen.getByTestId('scoring-pairs-required').children[0]).toBe('true');
     });
 
-    it('passes premium flag', () => {
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} isPremium={true} />);
-
-      expect(screen.getByTestId('scoring-pairs-premium').children[0]).toBe('true');
-    });
-
     it('passes manage callback for organizers', () => {
       const onEditPress = jest.fn();
       const round = createRoundWithCourse();
@@ -818,7 +807,7 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} />);
 
-      // Should render with isOrganizer=false, isPremium=false
+      // Should render with isOrganizer=false
       expect(screen.queryByLabelText('Edit round details')).toBeNull();
     });
 
@@ -918,13 +907,11 @@ describe('RoundDetailsTab', () => {
         <RoundDetailsTab
           round={round}
           isOrganizer={true}
-          isPremium={true}
           onEditPress={onEditPress}
         />
       );
 
       expect(screen.getByLabelText('Edit round details')).toBeTruthy();
-      expect(screen.getByTestId('scoring-pairs-premium').children[0]).toBe('true');
       expect(screen.getByTestId('scoring-pairs-required').children[0]).toBe('true');
     });
 
@@ -936,13 +923,11 @@ describe('RoundDetailsTab', () => {
         <RoundDetailsTab
           round={round}
           isOrganizer={true}
-          isPremium={false}
           onEditPress={onEditPress}
         />
       );
 
       expect(screen.getByLabelText('Edit round details')).toBeTruthy();
-      expect(screen.getByTestId('scoring-pairs-premium').children[0]).toBe('false');
     });
   });
 
@@ -958,7 +943,6 @@ describe('RoundDetailsTab', () => {
         <RoundDetailsTab
           round={round}
           isOrganizer={true}
-          isPremium={true}
           onEditPress={jest.fn()}
         />
       );
@@ -981,7 +965,7 @@ describe('RoundDetailsTab', () => {
       const round = createRoundWithCourse();
 
       const { toJSON } = render(
-        <RoundDetailsTab round={round} isOrganizer={false} isPremium={false} />
+        <RoundDetailsTab round={round} isOrganizer={false} />
       );
 
       expect(toJSON()).toMatchSnapshot();

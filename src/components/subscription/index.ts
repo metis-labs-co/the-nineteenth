@@ -7,6 +7,7 @@
 export { TierBadge } from './TierBadge';
 export { FeatureLock } from './FeatureLock';
 export { FeatureLockButton } from './FeatureLockButton';
+export { FeatureLockToggle } from './FeatureLockToggle';
 export { UpgradePrompt } from './UpgradePrompt';
 export type { UpgradePromptConfig } from './UpgradePrompt';
 export { LimitIndicator } from './LimitIndicator';

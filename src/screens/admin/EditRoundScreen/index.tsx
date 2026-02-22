@@ -32,7 +32,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium, useSubscriptionContext } from '@/context/SubscriptionContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useAuth } from '@/hooks/useAuth';
 import { roundKeys } from '@/hooks/queryKeys';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
@@ -63,7 +63,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const { roundId, competitionId } = route.params;
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const isPremium = useIsPremium();
   const { limits } = useSubscriptionContext();
   const { user } = useAuth();
 
@@ -328,7 +327,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
 
         {/* Scoring Pairs Section */}
         <ScoringPairsSection
-          isPremium={isPremium}
           scoringPairsRequired={formData.scoringPairsRequired}
           onToggle={setScoringPairsRequired}
           onShuffle={handleShuffleScoringPairs}
@@ -346,7 +344,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
             ]}
           >
             <SkinsSection
-              isPremium={isPremium}
               skinsEnabled={formData.skinsEnabled}
               skinsConfig={formData.skinsConfig}
               editState={skinsEditState}
@@ -363,7 +360,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
             {/* Wolf Game Section (3-4 players only, not team rounds) */}
             {!round?.is_team_round && (
               <WolfSection
-                isPremium={isPremium}
                 wolfEnabled={formData.wolfEnabled}
                 wolfConfig={formData.wolfConfig}
                 editState={wolfEditState}

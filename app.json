@@ -18,9 +18,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "7",
+      "buildNumber": "9",
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
+        "applinks:thenineteenth.golf",
+        "applinks:www.thenineteenth.golf",
         "applinks:thenineteenth.golf",
         "applinks:www.thenineteenth.golf"
       ],
@@ -32,11 +34,18 @@
         "NSLocationWhenInUseUsageDescription": "Allow The Nineteenth to find nearby golf courses.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
             "NSPrivacyAccessedAPITypeReasons": [
@@ -63,9 +72,39 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ],
       "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "thenineteenth.golf",
+              "pathPrefix": "/app/auth"
+            },
+            {
+              "scheme": "https",
+              "host": "www.thenineteenth.golf",
+              "pathPrefix": "/app/auth"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -132,6 +171,9 @@
       "eas": {
         "projectId": "12e43c05-e41f-4f10-bbd7-65789519c1a9"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/12e43c05-e41f-4f10-bbd7-65789519c1a9"
     }
   }
 }

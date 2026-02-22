@@ -68,6 +68,19 @@ export interface TierLimits {
   can_view_advanced_stats: boolean;
   can_compare_stats: boolean;
 
+  // Feature access - Social tier
+  can_view_detailed_stats?: boolean;
+  can_view_handicap_history?: boolean;
+  can_view_achievement_leaderboard?: boolean;
+  can_use_ai_competition?: boolean;
+  can_manage_guests?: boolean;
+  can_use_gps_distance?: boolean;
+
+  // Feature access - Premium tier (side-games)
+  can_use_skins_game?: boolean;
+  can_use_wolf_game?: boolean;
+  can_use_prize_pool?: boolean;
+
   // Feature access - Admin
   can_access_admin_tools: boolean;
 
