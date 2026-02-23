@@ -7,10 +7,12 @@
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { MenuItemRow } from './MenuItemRow';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import type { FeatureId } from '@/types/subscription.types';
 
 interface ProfileMenuSectionProps {
   /** Achievement points for badge display */
@@ -47,6 +49,27 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onSignOut,
 }: ProfileMenuSectionProps) {
   const colors = useThemeColors();
+  const checkFeature = useCheckFeature();
+
+  // Check which features are locked for current tier
+  const isHandicapHistoryLocked = !checkFeature('handicap_history').allowed;
+  const isManageGuestsLocked = !checkFeature('manage_guests').allowed;
+  const isDetailedStatsLocked = !checkFeature('detailed_stats').allowed;
+
+  // Lock badge component for gated menu items
+  const renderLockBadge = (feature: FeatureId) => {
+    const access = checkFeature(feature);
+    if (access.allowed) return undefined;
+    const tierLabel = access.requiredTier === 'premium' ? 'Premium' : 'Social';
+    return (
+      <View style={[styles.lockBadge, { backgroundColor: colors.primaryBackground }]}>
+        <Icon source="lock-outline" size={12} color={colors.primary} />
+        <Text style={[styles.lockBadgeText, { color: colors.primary }]}>
+          {tierLabel}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <>
@@ -65,13 +88,15 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
           <MenuItemRow
             icon="chart-bar"
             title="My Statistics"
-            onPress={onMyStatistics}
+            onPress={isDetailedStatsLocked ? onSubscription : onMyStatistics}
+            rightContent={isDetailedStatsLocked ? renderLockBadge('detailed_stats') : undefined}
             testID="menu-statistics"
           />
           <MenuItemRow
             icon="chart-timeline-variant"
             title="Handicap History"
-            onPress={onHandicapHistory}
+            onPress={isHandicapHistoryLocked ? onSubscription : onHandicapHistory}
+            rightContent={isHandicapHistoryLocked ? renderLockBadge('handicap_history') : undefined}
             testID="menu-handicap-history"
           />
           <MenuItemRow
@@ -104,15 +129,17 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
           <MenuItemRow
             icon="account-multiple-outline"
             title="Manage Guest Players"
-            onPress={onGuestPlayers}
+            onPress={isManageGuestsLocked ? onSubscription : onGuestPlayers}
             rightContent={
-              placeholderPlayersCount > 0 ? (
-                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.badgeText, { color: colors.white }]}>
-                    {placeholderPlayersCount > 99 ? '99+' : placeholderPlayersCount}
-                  </Text>
-                </View>
-              ) : undefined
+              isManageGuestsLocked
+                ? renderLockBadge('manage_guests')
+                : placeholderPlayersCount > 0 ? (
+                    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                      <Text style={[styles.badgeText, { color: colors.white }]}>
+                        {placeholderPlayersCount > 99 ? '99+' : placeholderPlayersCount}
+                      </Text>
+                    </View>
+                  ) : undefined
             }
             testID="menu-guest-players"
           />
@@ -191,6 +218,18 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
     fontSize: 11,
+  },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  lockBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 

@@ -324,19 +324,6 @@ export default function SettingsScreen() {
               colors={colors}
             />
             <FeatureLockToggle
-              feature="gps_distance"
-              onUpgradePress={() => navigation.navigate('Subscription')}
-            >
-              <SettingRow
-                icon="crosshairs-gps"
-                label="GPS Distance to Pin"
-                description="Show live distance to the green during scoring"
-                value={showGpsDistance}
-                onValueChange={setShowGpsDistance}
-                colors={colors}
-              />
-            </FeatureLockToggle>
-            <FeatureLockToggle
               feature="fir_gir_tracking"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >

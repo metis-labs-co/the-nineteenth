@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS = {
   showPutts: true,
   showFairwayHit: false,
   showGreenInRegulation: false,
-  showGpsDistance: true, // GPS distance-to-pin enabled by default
+  showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
   biometricEnabled: false,
   debugModeEnabled: false,
 };
