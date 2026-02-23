@@ -7,8 +7,17 @@ export type GameType =
   | 'stroke'
   | 'stableford'
   | 'match-play'
+  | 'par'
   | 'best-ball'
   | 'scramble'
+  | 'shamble';
+
+// Team format enum for team round structure
+export type TeamFormat =
+  | 'best-ball'
+  | 'scramble'
+  | 'aggregate'
+  | 'match-play-team'
   | 'shamble';
 
 // Team mode enum
@@ -104,6 +113,10 @@ export interface GeneratedRound {
   teeTime: string | null; // HH:MM format
   gameType: GameType;
   courseNotFound?: boolean;
+  teamFormat?: TeamFormat;
+  isTeamRound?: boolean;
+  scoringPairsRequired?: boolean;
+  ballCount?: number; // 1-4, defaults to 1
 }
 
 /**
@@ -136,6 +149,8 @@ export interface GeneratedCompetition {
   handicapSystem: HandicapSystem;
   teamMode: TeamMode;
   teamSize: number | null;
+  visibility?: 'private' | 'public' | 'unlisted';
+  handicapSource?: 'profile' | 'calculated' | 'none';
   rounds: GeneratedRound[];
   players: GeneratedPlayer[];
   teams?: GeneratedTeam[];

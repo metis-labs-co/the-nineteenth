@@ -9,8 +9,17 @@ const gameTypeSchema = z.enum([
   'stroke',
   'stableford',
   'match-play',
+  'par',
   'best-ball',
   'scramble',
+  'shamble',
+]);
+
+const teamFormatSchema = z.enum([
+  'best-ball',
+  'scramble',
+  'aggregate',
+  'match-play-team',
   'shamble',
 ]);
 
@@ -41,6 +50,10 @@ export const generatedRoundSchema = z.object({
     .nullable(),
   gameType: gameTypeSchema,
   courseNotFound: z.boolean().optional(),
+  teamFormat: teamFormatSchema.optional(),
+  isTeamRound: z.boolean().optional(),
+  scoringPairsRequired: z.boolean().optional(),
+  ballCount: z.number().int().min(1).max(4).optional(),
 });
 
 /**
@@ -78,6 +91,8 @@ export const generatedCompetitionSchema = z.object({
   handicapSystem: handicapSystemSchema,
   teamMode: teamModeSchema,
   teamSize: z.number().int().min(2).max(4).nullable(),
+  visibility: z.enum(['private', 'public', 'unlisted']).optional(),
+  handicapSource: z.enum(['profile', 'calculated', 'none']).optional(),
   rounds: z.array(generatedRoundSchema).min(1),
   players: z.array(generatedPlayerSchema).min(2),
   teams: z.array(generatedTeamSchema).optional(),

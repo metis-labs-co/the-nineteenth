@@ -2,20 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/services/api/client';
 import { competitionKeys } from '@/hooks/queryKeys';
 import type { CompetitionCreateInput, PlayerCreateInput } from '@/types';
-
-interface RoundInput {
-  courseName?: string; // Optional - allows blank/placeholder rounds
-  courseId?: string;
-  date: Date;
-  teeTime?: string;
-  matchType?: string;
-  scoringPairsRequired?: boolean;
-}
+import type { RoundCreateInput } from '@/services/api/types';
 
 interface CreateCompetitionInput extends CompetitionCreateInput {
   // Support both single round and multiple rounds for backwards compatibility
-  round?: RoundInput;
-  rounds?: RoundInput[];
+  round?: RoundCreateInput;
+  rounds?: RoundCreateInput[];
   players: PlayerCreateInput[];
 }
 

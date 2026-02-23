@@ -16,6 +16,7 @@ import {
   type GeneratedCompetition,
 } from '@/hooks/useGenerateAICompetition';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
+import type { TeamFormat } from '@/types/database.types';
 import { useCreatePlaceholderPlayer } from '@/hooks/usePlaceholderPlayers';
 import {
   aiOutputToWizardState,
@@ -218,7 +219,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
           ? parseAustralianDate(generatedCompetition.endDate)
           : undefined,
         handicapSystem: generatedCompetition.handicapSystem,
-        visibility: 'private',
+        visibility: generatedCompetition.visibility || 'private',
 
         // Team settings
         teamMode: generatedCompetition.teamMode,
@@ -226,14 +227,14 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
 
         // Rounds - set team properties based on competition team mode and game type
         rounds: generatedCompetition.rounds.map((round) => {
-          // Determine if this round should be a team round based on competition settings and game type
+          // Determine if this round should be a team round based on AI output or inference
           const isTeamGameType = ['best-ball', 'scramble', 'shamble'].includes(round.gameType);
           const hasTeams = generatedCompetition.teamMode !== 'none';
-          const isTeamRound = hasTeams && isTeamGameType;
+          const isTeamRound = round.isTeamRound ?? (hasTeams && isTeamGameType);
 
-          // Map game type to team format when applicable
-          const teamFormat = isTeamRound
-            ? (round.gameType as 'best-ball' | 'scramble' | 'shamble')
+          // Use AI-provided teamFormat with fallback to inference
+          const teamFormat = hasTeams
+            ? ((round.teamFormat || (isTeamGameType ? round.gameType : undefined)) as TeamFormat | undefined)
             : undefined;
 
           return {
@@ -244,6 +245,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
             matchType: round.gameType,
             isTeamRound,
             teamFormat,
+            scoringPairsRequired: round.scoringPairsRequired || false,
           };
         }),
 

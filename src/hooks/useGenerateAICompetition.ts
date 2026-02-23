@@ -56,6 +56,10 @@ export interface GeneratedRound {
   teeTime: string | null; // HH:MM format
   gameType: GameType;
   courseNotFound?: boolean;
+  teamFormat?: string;
+  isTeamRound?: boolean;
+  scoringPairsRequired?: boolean;
+  ballCount?: number;
 }
 
 /**
@@ -88,6 +92,8 @@ export interface GeneratedCompetition {
   handicapSystem: 'honor' | 'golf-australia' | 'gross-only';
   teamMode: 'none' | 'fixed' | 'per-round';
   teamSize: number | null;
+  visibility?: 'private' | 'public' | 'unlisted';
+  handicapSource?: 'profile' | 'calculated' | 'none';
   rounds: GeneratedRound[];
   players: GeneratedPlayer[];
   teams?: GeneratedTeam[];

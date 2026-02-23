@@ -133,7 +133,6 @@ function buildPlanFeatures(tierLimits: {
   canViewAchievementLeaderboard?: boolean;
   canUseAiCompetition?: boolean;
   canManageGuests?: boolean;
-  canUseGpsDistance?: boolean;
   canUseSkinsGame?: boolean;
   canUseWolfGame?: boolean;
   canUsePrizePool?: boolean;
@@ -154,7 +153,6 @@ function buildPlanFeatures(tierLimits: {
     { label: 'Advanced analytics', value: tierLimits.canViewAdvancedStats },
     { label: 'AI competition creation', value: tierLimits.canUseAiCompetition ?? false },
     { label: 'Guest management', value: tierLimits.canManageGuests ?? false },
-    { label: 'GPS distance to pin', value: tierLimits.canUseGpsDistance ?? false },
     { label: 'Scoring pairs', value: tierLimits.canUseScoringPairs },
     { label: 'Skins side-game', value: tierLimits.canUseSkinsGame ?? false },
     { label: 'Wolf side-game', value: tierLimits.canUseWolfGame ?? false },
@@ -306,7 +304,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
         'Unlimited social rounds',
         'Stroke Play & Match Play formats',
         'Detailed stats, handicap history & achievements',
-        'AI competition creation & GPS distance'
+        'AI competition creation & guest management'
       );
     } else if (selectedUpgradeTier === 'premium') {
       benefits.push(

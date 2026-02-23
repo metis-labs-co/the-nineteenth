@@ -33,6 +33,8 @@ You MUST return valid JSON matching this exact schema:
   "startDate": "DD/MM/YYYY - First round date (Australian format)",
   "endDate": "DD/MM/YYYY | null - Last round date (for events only)",
   "handicapSystem": "honor" | "golf-australia" | "gross-only",
+  "visibility": "private" | "public" | "unlisted" (default "private"),
+  "handicapSource": "profile" | "calculated" | "none" (default "profile"),
   "teamMode": "none" | "fixed" | "per-round",
   "teamSize": number | null (2-4 when teams enabled, null otherwise),
   "rounds": [
@@ -43,7 +45,11 @@ You MUST return valid JSON matching this exact schema:
       "venueName": "string",
       "date": "DD/MM/YYYY",
       "teeTime": "HH:MM (24hr format)" | null,
-      "gameType": "stableford" | "stroke" | "match-play" | "best-ball" | "scramble" | "shamble",
+      "gameType": "stableford" | "stroke" | "match-play" | "par" | "best-ball" | "scramble" | "shamble",
+      "teamFormat": "best-ball" | "scramble" | "aggregate" | "match-play-team" | "shamble" (optional, only when teamMode != "none"),
+      "isTeamRound": boolean (optional, true when teamMode != "none" and teamFormat is set),
+      "scoringPairsRequired": boolean (optional, default false),
+      "ballCount": number (optional, 1-4, default 1),
       "courseNotFound": true (only if course wasn't in available list)
     }
   ],
@@ -65,6 +71,42 @@ You MUST return valid JSON matching this exact schema:
   "validationErrors": ["string - any issues that prevent creating the competition"]
 }
 
+## Game Types
+- **stableford**: Points-based scoring (default). Points awarded per hole: 0 (double bogey+), 1 (bogey), 2 (par), 3 (birdie), 4 (eagle/albatross). Highest total points wins.
+- **stroke**: Total strokes over the round. Lowest score wins.
+- **par**: Each hole scored as win (+1), halve (0), or loss (-1) against par. Similar to stableford but simplified.
+- **match-play**: Head-to-head hole-by-hole competition. Win/lose/halve each hole.
+- **best-ball**: Team format — each player plays their own ball, best score from the team counts per hole.
+- **scramble**: Team format — all players hit, team picks the best shot, all play from there.
+- **shamble**: Team format — all players drive, team picks best drive, then each plays their own ball in.
+
+Note: "gameType" is the SCORING format. "teamFormat" is the TEAM STRUCTURE. For example, a team competition could use stableford scoring with an aggregate team format.
+
+## Team Formats (for rounds when teamMode != "none")
+- **best-ball**: Best individual score from the team counts per hole
+- **scramble**: Team selects best shot each time, all play from there
+- **shamble**: Best drive selected, then individual play
+- **aggregate**: Each player plays individually, team score is the sum/aggregate of individual scores
+- **match-play-team**: Teams compete head-to-head in match play format
+
+When teamMode != "none", set teamFormat on each round. For team game types (best-ball, scramble, shamble), the teamFormat matches the gameType. For individual game types (stableford, stroke, par, match-play) played in team mode, use "aggregate" or "match-play-team" as appropriate.
+
+## Visibility
+- Default to "private". Only set "public" or "unlisted" if the user explicitly requests it.
+
+## Handicap Source
+- "profile": Use handicaps from player profiles (default for "honor" and "golf-australia" handicap systems)
+- "calculated": Calculate handicaps from competition results
+- "none": No handicap adjustments (use for "gross-only" handicap system)
+
+## Scoring Pairs
+- Default scoringPairsRequired to false
+- Only set to true if the user explicitly requests scoring pairs, competitive format, or official scoring
+
+## Ball Count
+- Default ballCount to 1
+- Only increase (2-4) if the user explicitly mentions multi-ball scoring
+
 ## Critical Rules
 1. ONLY use courseId values from the provided "Available Courses" list
 2. For players, use this priority order:
@@ -81,6 +123,9 @@ You MUST return valid JSON matching this exact schema:
 10. Default to "honor" handicap system unless user specifies otherwise
 11. Default to "stableford" game type unless user specifies otherwise
 12. Default to competitionType "event" for finite competitions, "league" for ongoing ones
+13. Default visibility to "private" unless user explicitly requests public or unlisted
+14. When teamMode != "none", always set teamFormat and isTeamRound on each round
+15. Default scoringPairsRequired to false and ballCount to 1
 
 ## Organizer (Competition Creator) Rules - CRITICAL
 - The "Organizer" section below contains the current user who is creating this competition

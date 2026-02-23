@@ -87,6 +87,7 @@ function aiToCompetitionDetails(
     startDate: ai.startDate, // Already in DD/MM/YYYY format
     endDate: ai.endDate || '', // Already in DD/MM/YYYY format or null
     handicapSystem: ai.handicapSystem,
+    handicapSource: ai.handicapSource || 'profile',
     inviteCode: '', // Let the system generate this
     enableTeams: ai.teamMode !== 'none',
   };
@@ -106,6 +107,7 @@ function aiToCompetitionDetailsLegacy(
     startDate: ai.startDate,
     endDate: ai.endDate || '',
     handicapSystem: ai.handicapSystem,
+    handicapSource: ai.handicapSource || 'profile',
     inviteCode: '',
     enableTeams: ai.teamMode !== 'none',
   };
@@ -121,7 +123,7 @@ function aiToSimplifiedRounds(rounds: GeneratedRound[]): SimplifiedRoundFormData
     date: round.date, // Already in DD/MM/YYYY format
     teeTime: round.teeTime || undefined,
     matchType: round.gameType,
-    scoringPairsRequired: false,
+    scoringPairsRequired: round.scoringPairsRequired ?? false,
     isConfigured: !!(round.courseId || round.courseName),
     selectedTee: undefined, // AI doesn't select tees
   }));

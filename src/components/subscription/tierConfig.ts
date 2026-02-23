@@ -67,7 +67,6 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
       'Achievement leaderboard',
       'AI competition creation',
       'Guest player management',
-      'GPS distance to pin',
     ],
   },
   premium: {
