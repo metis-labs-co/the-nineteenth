@@ -78,10 +78,10 @@ interface WebhookResult {
 // =====================================================
 
 const PRODUCT_ID_TO_TIER: Record<string, SubscriptionTier> = {
-  'com.thenineteenth.social.monthly': 'social',
-  'com.thenineteenth.social.yearly': 'social',
-  'com.thenineteenth.premium.monthly': 'premium',
-  'com.thenineteenth.premium.yearly': 'premium',
+  'the.nineteenth.social.monthly': 'social',
+  'the.nineteenth.social.yearly': 'social',
+  'the.nineteenth.premium.monthly': 'premium',
+  'the.nineteenth.premium.yearly': 'premium',
 };
 
 function mapProductToTier(productId: string): SubscriptionTier {

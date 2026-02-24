@@ -23,7 +23,7 @@ import type { SubscriptionTier } from '@/types/subscription.types';
  * Note: Using 'com.thenineteenth' for product IDs even though app uses 'golf.thenineteenth'
  * This is because App Store product IDs were registered with this prefix
  */
-export const BUNDLE_ID = 'com.thenineteenth';
+export const BUNDLE_ID = 'the.nineteenth';
 
 /**
  * Product IDs for iOS App Store

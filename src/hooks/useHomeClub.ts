@@ -39,11 +39,13 @@ export type HomeVenueWithCourses = HomeClubWithCourses;
  */
 export function useHomeClub() {
   const { user, player } = useAuth();
+  const homeClubId = player?.home_club_id;
 
   return useQuery({
-    queryKey: clubKeys.homeClub(user?.id ?? ''),
+    // Include homeClubId in key so the query refetches when the player's home club changes
+    queryKey: [...clubKeys.homeClub(user?.id ?? ''), homeClubId],
     queryFn: async (): Promise<HomeClubWithCourses | null> => {
-      if (!player?.home_club_id) return null;
+      if (!homeClubId) return null;
 
       const { data, error } = await supabase
         .from('clubs')
@@ -51,7 +53,7 @@ export function useHomeClub() {
           *,
           courses (*)
         `)
-        .eq('id', player.home_club_id)
+        .eq('id', homeClubId)
         .single();
 
       if (error) {
@@ -62,7 +64,7 @@ export function useHomeClub() {
 
       return data as HomeClubWithCourses;
     },
-    enabled: !!user?.id && !!player?.home_club_id,
+    enabled: !!user?.id && !!homeClubId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
