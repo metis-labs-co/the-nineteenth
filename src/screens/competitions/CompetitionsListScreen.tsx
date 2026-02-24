@@ -15,6 +15,7 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { ConfirmationDialog, FeatureButton } from '@/components/common';
+import { FeatureLockCompact } from '@/components/subscription';
 import { Text } from 'react-native-paper';
 import { IconPlus, IconSparkles } from '@tabler/icons-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -131,19 +132,24 @@ export default function CompetitionsListScreen() {
       </View>
 
       <View style={styles.featureButtonWrapper}>
-        <FeatureButton
-          title="AI Create"
-          subtitle="Describe in English"
-          icon={
-            <IconSparkles size={20} color={colors.white} strokeWidth={2.5} />
-          }
-          onPress={canCreateCompetition ? handleCreateWithAI : handleUpgrade}
-          backgroundColor={colors.accent}
-          disabled={false}
-          accessibilityLabel="Create competition with AI"
-          variant="compact"
-          showChevron={false}
-        />
+        <FeatureLockCompact
+          feature="ai_competition"
+          onUpgradePress={handleUpgrade}
+        >
+          <FeatureButton
+            title="AI Create"
+            subtitle="Describe in English"
+            icon={
+              <IconSparkles size={20} color={colors.white} strokeWidth={2.5} />
+            }
+            onPress={canCreateCompetition ? handleCreateWithAI : handleUpgrade}
+            backgroundColor={colors.accent}
+            disabled={false}
+            accessibilityLabel="Create competition with AI"
+            variant="compact"
+            showChevron={false}
+          />
+        </FeatureLockCompact>
       </View>
     </View>
   );

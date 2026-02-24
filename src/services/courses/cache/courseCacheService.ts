@@ -40,9 +40,14 @@ class CourseCacheService {
   async cacheCourse(courseData: CourseInsert): Promise<Course> {
     try {
       // Check if course already exists by golfapi_course_id
-      const existingCourse = courseData.golfapi_course_id
+      let existingCourse = courseData.golfapi_course_id
         ? await this.getCachedCourseByGolfApiId(courseData.golfapi_course_id)
         : null;
+
+      // Fallback: check by (club_id, name) to avoid unique constraint violation
+      if (!existingCourse && courseData.club_id && courseData.name) {
+        existingCourse = await this.getCachedCourseByClubAndName(courseData.club_id, courseData.name);
+      }
 
       const now = new Date().toISOString();
 
@@ -143,6 +148,37 @@ class CourseCacheService {
       return data as Course;
     } catch (error) {
       console.error('[CourseCacheService] Exception fetching course by GolfAPI ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get cached course by club ID and course name
+   * Used as fallback to avoid unique constraint violations on (club_id, name)
+   *
+   * @param clubId - The club ID
+   * @param name - The course name
+   * @returns Cached course or null if not found
+   */
+  async getCachedCourseByClubAndName(clubId: string, name: string): Promise<Course | null> {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('club_id', clubId)
+        .eq('name', name)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') {
+          console.error('[CourseCacheService] Error fetching course by club+name:', error.message);
+        }
+        return null;
+      }
+
+      return data as Course;
+    } catch (error) {
+      console.error('[CourseCacheService] Exception fetching course by club+name:', error);
       return null;
     }
   }
