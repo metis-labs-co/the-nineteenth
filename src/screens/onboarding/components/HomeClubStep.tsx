@@ -20,7 +20,6 @@ import { ClubCard } from '@/components/courses/ClubCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useSetHomeClub } from '@/hooks/useHomeClub';
 import {
   useClubsWithCourses,
   useSearchClubs,
@@ -48,7 +47,6 @@ export function HomeClubStep({
   } | null>(null);
 
   // Hooks
-  const setHomeClub = useSetHomeClub();
   const { data: allClubs = [], isLoading: isLoadingClubs } = useClubsWithCourses();
   const { data: searchResults = [], isLoading: isSearching } = useSearchClubs(searchQuery);
 
@@ -139,16 +137,11 @@ export function HomeClubStep({
   }, [displayItems]);
 
   const handleGetStarted = async () => {
-    if (isSubmitting || setHomeClub.isPending) return;
+    if (isSubmitting) return;
 
     try {
-      // Set home club if one was selected
-      if (selectedClub) {
-        await setHomeClub.mutateAsync(selectedClub.id);
-      }
-
-      // Complete onboarding
-      await onComplete(false);
+      // Complete onboarding, passing home club ID to save in single update
+      await onComplete(false, selectedClub?.id);
     } catch (error) {
       console.error('[HomeClubStep] Error completing:', error);
     }
@@ -172,7 +165,7 @@ export function HomeClubStep({
     [handleCourseSelect, handleClubPress]
   );
 
-  const isProcessing = isSubmitting || setHomeClub.isPending;
+  const isProcessing = isSubmitting;
 
   return (
     <>

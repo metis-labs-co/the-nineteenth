@@ -11,17 +11,18 @@ import { Text, Icon } from 'react-native-paper';
 import { LogoHorizontal } from '@/components/common';
 import { OnboardingCard } from './OnboardingCard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import type { StepProps } from '../OnboardingScreen';
 
 export function WelcomeStep({ onNext }: StepProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
 
   return (
     <OnboardingCard
       illustration={
         <View style={styles.logoContainer}>
-          <LogoHorizontal width={260} />
+          <LogoHorizontal width={260} variant={isDark ? 'light' : 'dark'} />
         </View>
       }
       title="Welcome to The Nineteenth"

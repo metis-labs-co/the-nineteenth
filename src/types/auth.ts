@@ -106,6 +106,7 @@ export interface ProfileUpdateInput {
   handicap_updated_at?: string; // ISO timestamp
   photoUrl?: string;
   gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
+  home_club_id?: string | null;
 }
 
 // =====================================================

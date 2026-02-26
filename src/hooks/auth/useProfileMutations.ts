@@ -8,7 +8,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { authKeys } from '../queryKeys';
+import { authKeys, clubKeys } from '../queryKeys';
 import type { User } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
 import type { ProfileUpdateInput } from '@/types/auth';
@@ -55,6 +55,9 @@ export function useProfileMutations(user: User | null) {
       if (updates.golf_id !== undefined) {
         updateData.golf_id = updates.golf_id || null;
       }
+      if (updates.home_club_id !== undefined) {
+        updateData.home_club_id = updates.home_club_id;
+      }
 
       if (Object.keys(updateData).length === 0) {
         throw new Error('No fields to update');
@@ -96,9 +99,13 @@ export function useProfileMutations(user: User | null) {
 
       return data as Player;
     },
-    onSuccess: (updatedPlayer) => {
+    onSuccess: (updatedPlayer, updates) => {
       if (user?.id) {
         queryClient.setQueryData(authKeys.player(user.id), updatedPlayer);
+        // Invalidate home club cache when home_club_id changes
+        if (updates.home_club_id !== undefined) {
+          queryClient.invalidateQueries({ queryKey: clubKeys.homeClub(user.id) });
+        }
       }
     },
     onError: (err) => {

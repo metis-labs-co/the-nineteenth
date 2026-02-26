@@ -2,16 +2,15 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 7 steps: Welcome -> Create Competitions -> Notifications -> Location -> Biometric -> Handicap Capture -> Home Venue
+ * 6 steps: Welcome -> Create Competitions -> Notifications -> Biometric -> Handicap Capture -> Home Club
  *
  * Features:
  * - Swipeable cards (FlatList with pagingEnabled)
  * - Skip button (always visible)
  * - Progress dots
  * - Push notification permission request
- * - GPS location permission request
  * - Handicap input with validation (0-54)
- * - Home venue selection (optional)
+ * - Home club selection (optional)
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -33,7 +32,6 @@ import { useThemeColors } from '@/context/ThemeContext';
 import WelcomeStep from './components/WelcomeStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
-import LocationStep from './components/LocationStep';
 import BiometricStep from './components/BiometricStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import HomeClubStep from './components/HomeClubStep';
@@ -48,7 +46,7 @@ interface StepItem {
 
 export interface StepProps {
   onNext: () => void;
-  onComplete: (skipHandicap?: boolean) => Promise<void>;
+  onComplete: (skipHandicap?: boolean, homeClubId?: string) => Promise<void>;
   onSkip: () => void;
   isLastStep: boolean;
   handicap: string;
@@ -60,7 +58,6 @@ const STEPS: StepItem[] = [
   { key: 'welcome', component: WelcomeStep },
   { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
-  { key: 'location', component: LocationStep },
   { key: 'biometric', component: BiometricStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },
@@ -102,8 +99,8 @@ export default function OnboardingScreen() {
 
   // Complete onboarding (with or without handicap)
   const handleComplete = useCallback(
-    async (skipHandicap = false) => {
-      console.log('[OnboardingScreen] handleComplete called, skipHandicap:', skipHandicap, 'handicap:', handicap);
+    async (skipHandicap = false, homeClubId?: string) => {
+      console.log('[OnboardingScreen] handleComplete called, skipHandicap:', skipHandicap, 'handicap:', handicap, 'homeClubId:', homeClubId);
 
       if (isSubmitting) {
         console.log('[OnboardingScreen] Already submitting, ignoring');
@@ -117,9 +114,15 @@ export default function OnboardingScreen() {
 
         console.log('[OnboardingScreen] Updating profile with handicap:', handicapValue);
 
-        await updateProfile({
+        // Save handicap and home club in a single update to avoid race conditions
+        const profileUpdate: { handicap: number; home_club_id?: string } = {
           handicap: handicapValue,
-        });
+        };
+        if (homeClubId) {
+          profileUpdate.home_club_id = homeClubId;
+        }
+
+        await updateProfile(profileUpdate);
 
         console.log('[OnboardingScreen] Profile updated successfully');
         // Navigation handled automatically by RootNavigator
