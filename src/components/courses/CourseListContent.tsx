@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { StyleSheet, View, FlatList, RefreshControl, Keyboard, Pressable } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -98,7 +98,7 @@ export function CourseListContent({
       ? 'No favourite courses'
       : isSearchActive
         ? 'No clubs found'
-        : 'Search for a club or course';
+        : 'No courses in this state';
 
     // Determine message based on context and permissions
     const getMessage = () => {
@@ -108,7 +108,7 @@ export function CourseListContent({
       if (isSearchActive) {
         return `No clubs match "${searchQuery}". Try a different search.`;
       }
-      return 'Type a club name above to search';
+      return 'Try a different state or search for a specific club above';
     };
 
     const icon = showFavoritesOnly ? 'star-outline' : 'magnify';
@@ -137,18 +137,32 @@ export function CourseListContent({
     />
   );
 
-  // Footer component showing API search progress
+  // Footer component showing API search progress or "search for more" prompt
   const renderListFooter = () => {
-    if (!isSearchingApi) return null;
+    if (isSearchingApi) {
+      return (
+        <View style={styles.apiSearchingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.apiSearchingText, { color: colors.textSecondary }]}>
+            Searching more courses...
+          </Text>
+        </View>
+      );
+    }
 
-    return (
-      <View style={styles.apiSearchingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.apiSearchingText, { color: colors.textSecondary }]}>
-          Searching more courses...
-        </Text>
-      </View>
-    );
+    // Show "search for more" on default featured view
+    if (!isSearchActive && !showFavoritesOnly && displayItems.length > 0) {
+      return (
+        <View style={styles.searchPromptContainer}>
+          <Icon source="magnify" size={20} color={colors.textSecondary} />
+          <Text style={[styles.searchPromptText, { color: colors.textSecondary }]}>
+            Can't find your course? Search above
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -200,6 +214,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   apiSearchingText: {
+    ...typography.small,
+  },
+  searchPromptContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  searchPromptText: {
     ...typography.small,
   },
 });

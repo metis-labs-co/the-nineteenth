@@ -67,7 +67,7 @@ export default function CourseListScreen() {
     error: allError,
     refetch: refetchAll,
     isRefetching: isRefetchingAll,
-  } = useClubsWithCourses(selectedState);
+  } = useClubsWithCourses(selectedState, true);
 
   const {
     data: searchResults,
@@ -156,6 +156,7 @@ export default function CourseListScreen() {
             longitude: item.longitude ?? null,
             location: item.location,
             total_holes: item.total_holes,
+            is_featured: ('is_featured' in item ? item.is_featured : false) as boolean,
             last_synced: item.last_synced,
             created_at: item.created_at,
             updated_at: item.updated_at,
@@ -178,6 +179,7 @@ export default function CourseListScreen() {
             longitude: item.longitude ?? null,
             location: item.location,
             total_holes: item.total_holes,
+            is_featured: ('is_featured' in item ? item.is_featured : false) as boolean,
             last_synced: item.last_synced,
             created_at: item.created_at,
             updated_at: item.updated_at,

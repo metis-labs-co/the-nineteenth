@@ -24,6 +24,8 @@ export function useProfileMutations(user: User | null) {
 
   /**
    * Mutation: Update player profile
+   * Uses upsert to handle edge case where player record doesn't exist
+   * (e.g., if the handle_new_user trigger failed during signup)
    */
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: ProfileUpdateInput): Promise<Player> => {
@@ -50,11 +52,15 @@ export function useProfileMutations(user: User | null) {
       if (updates.gender !== undefined) {
         updateData.gender = updates.gender;
       }
+      if (updates.golf_id !== undefined) {
+        updateData.golf_id = updates.golf_id || null;
+      }
 
       if (Object.keys(updateData).length === 0) {
         throw new Error('No fields to update');
       }
 
+      // Try update first (normal case)
       const { data, error } = await supabase
         .from('players')
         .update(updateData as unknown as never)
@@ -63,6 +69,28 @@ export function useProfileMutations(user: User | null) {
         .single();
 
       if (error) {
+        // If no player record found, create one via upsert (trigger may have failed)
+        if (error.code === 'PGRST116') {
+          console.warn('[useProfileMutations] No player record found, creating via upsert');
+          const { data: upsertData, error: upsertError } = await supabase
+            .from('players')
+            .upsert({
+              id: user.id,
+              email: user.email || '',
+              name: updateData.name || user.user_metadata?.name || 'Player',
+              ...updateData,
+            } as unknown as never, { onConflict: 'id' })
+            .select()
+            .single();
+
+          if (upsertError) {
+            console.error('[useProfileMutations] Upsert failed:', upsertError);
+            throw upsertError;
+          }
+          return upsertData as Player;
+        }
+
+        console.error('[useProfileMutations] Update failed:', error);
         throw error;
       }
 

@@ -40,12 +40,12 @@ import type {
  * Fetch all clubs with their courses
  * Returns data structured for hybrid list display
  */
-export function useClubsWithCourses(state?: AustralianState) {
+export function useClubsWithCourses(state?: AustralianState, featuredOnly?: boolean) {
   const { user } = useAuth();
   const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
   const query = useQuery({
-    queryKey: clubKeys.withCoursesFiltered({ state }),
+    queryKey: clubKeys.withCoursesFiltered({ state, featured: featuredOnly }),
     queryFn: async (): Promise<{
       clubs: SupabaseClubWithCourses[];
       homeClubId: string | null;
@@ -67,6 +67,10 @@ export function useClubsWithCourses(state?: AustralianState) {
 
       if (state) {
         clubQuery = clubQuery.eq('state', state);
+      }
+
+      if (featuredOnly) {
+        clubQuery = clubQuery.eq('is_featured', true);
       }
 
       const { data: clubs, error: clubsError } = await clubQuery;
@@ -335,6 +339,7 @@ export function useClubCourseDisplayItems(state?: AustralianState) {
       longitude: club.longitude,
       location: club.location,
       total_holes: club.total_holes,
+      is_featured: club.is_featured,
       last_synced: club.last_synced,
       created_at: club.created_at,
       updated_at: club.updated_at,

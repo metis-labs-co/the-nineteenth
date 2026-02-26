@@ -99,9 +99,11 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
     supabase.auth.signOut();
   }, []);
 
-  // Check if onboarding is needed (user hasn't set handicap yet)
-  // Only check when player data is loaded (player is not null/undefined)
-  const needsOnboarding = isAuthenticated && player && player.handicap_updated_at === null;
+  // Check if onboarding is needed:
+  // 1. Player record doesn't exist (trigger failed to create it)
+  // 2. Player exists but hasn't completed onboarding (handicap_updated_at is null)
+  // Only check after loading completes (isLoading is handled above)
+  const needsOnboarding = isAuthenticated && (!player || player.handicap_updated_at === null);
 
   // Debug logging for onboarding flow (only in development)
   if (__DEV__) {

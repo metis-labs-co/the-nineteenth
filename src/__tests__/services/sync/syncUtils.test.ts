@@ -57,6 +57,7 @@ function createMockClub(overrides?: Partial<Club>): Club {
     longitude: 145.0059,
     location: { type: 'Point', coordinates: [145.0059, -37.9201] },
     total_holes: 36,
+    is_featured: false,
     last_synced: new Date().toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

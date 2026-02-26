@@ -85,6 +85,7 @@ export function useClubDetails(clubId: string) {
         longitude: clubData.longitude as number | null,
         location: clubData.location as Club['location'],
         total_holes: clubData.total_holes as number | null,
+        is_featured: (clubData.is_featured as boolean) ?? false,
         last_synced: clubData.last_synced as string | null,
         created_at: clubData.created_at as string,
         updated_at: clubData.updated_at as string,

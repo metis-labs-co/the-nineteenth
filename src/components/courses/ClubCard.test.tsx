@@ -73,6 +73,7 @@ const createTestClub = (overrides: Partial<Club> = {}): Club => ({
   longitude: null,
   location: null,
   total_holes: 18,
+  is_featured: false,
   last_synced: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),

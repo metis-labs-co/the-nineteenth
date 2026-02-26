@@ -37,12 +37,27 @@ import { formatAvatarUrl } from '@/constants/avatars';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+// Helper to split a full name into first/last parts
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  const spaceIndex = trimmed.indexOf(' ');
+  if (spaceIndex === -1) return { firstName: trimmed, lastName: '' };
+  return {
+    firstName: trimmed.substring(0, spaceIndex),
+    lastName: trimmed.substring(spaceIndex + 1).trim(),
+  };
+}
+
 // Form validation schema
 const editProfileSchema = z.object({
-  name: z
+  firstName: z
     .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be less than 100 characters'),
+    .min(1, 'First name is required')
+    .max(50, 'First name must be less than 50 characters'),
+  lastName: z
+    .string()
+    .min(1, 'Last name is required')
+    .max(50, 'Last name must be less than 50 characters'),
   phone: z
     .string()
     .optional()
@@ -92,6 +107,9 @@ export default function EditProfileScreen() {
   const [selectedGender, setSelectedGender] = useState<PlayerGender | null>(player?.gender ?? null);
   const [genderChanged, setGenderChanged] = useState(false);
 
+  // Split player name into first/last for form
+  const { firstName: defaultFirstName, lastName: defaultLastName } = splitName(player?.name || '');
+
   // Form setup with default values from current player data
   const {
     control,
@@ -101,7 +119,8 @@ export default function EditProfileScreen() {
   } = useForm<EditProfileFormData>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
-      name: player?.name || '',
+      firstName: defaultFirstName,
+      lastName: defaultLastName,
       phone: player?.phone || '',
       handicap: player?.handicap?.toString() || '',
       golf_id: player?.golf_id || '',
@@ -121,8 +140,10 @@ export default function EditProfileScreen() {
   // Update form when player data loads
   useEffect(() => {
     if (player) {
+      const { firstName, lastName } = splitName(player.name || '');
       reset({
-        name: player.name || '',
+        firstName,
+        lastName,
         phone: player.phone || '',
         handicap: player.handicap?.toString() || '',
         golf_id: player.golf_id || '',
@@ -148,6 +169,9 @@ export default function EditProfileScreen() {
   const onSubmit = async (data: EditProfileFormData) => {
     setIsSubmitting(true);
     try {
+      // Concatenate first + last name for the single `name` column
+      const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
+
       // Check if handicap changed to update handicap_updated_at
       const handicapChanged = data.handicap !== (player?.handicap?.toString() || '');
       const newHandicap = data.handicap ? parseFloat(data.handicap) : player?.handicap ?? 0;
@@ -159,7 +183,7 @@ export default function EditProfileScreen() {
 
       // Pass all form fields - empty strings will be converted to null by the hook
       await updateProfile({
-        name: data.name,
+        name: fullName,
         phone: data.phone, // Empty string will be stored as null
         handicap: newHandicap,
         golf_id: data.golf_id || undefined,
@@ -323,20 +347,38 @@ export default function EditProfileScreen() {
 
         {/* Form Fields */}
         <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
-          {/* Name Field */}
+          {/* First Name Field */}
           <Controller
             control={control}
-            name="name"
+            name="firstName"
             render={({ field: { onChange, onBlur, value } }) => (
               <FormInput
-                label="Name"
+                label="First Name"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                placeholder="Enter your name"
-                error={errors.name?.message}
+                placeholder="Enter your first name"
+                error={errors.firstName?.message}
                 required
-                accessibilityHint="Enter your display name"
+                accessibilityHint="Enter your first name"
+              />
+            )}
+          />
+
+          {/* Last Name Field */}
+          <Controller
+            control={control}
+            name="lastName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormInput
+                label="Last Name"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                placeholder="Enter your last name"
+                error={errors.lastName?.message}
+                required
+                accessibilityHint="Enter your last name"
               />
             )}
           />

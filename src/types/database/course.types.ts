@@ -51,6 +51,7 @@ export interface Club {
 
   // Club Details
   total_holes: number | null; // 18, 27, 36, etc.
+  is_featured: boolean; // Featured clubs appear in default course list
 
   // Metadata
   last_synced: string | null; // ISO timestamp

@@ -83,6 +83,7 @@ export function EditRoundBottomSheet({
         longitude: club.longitude ?? null,
         location: club.location,
         total_holes: club.total_holes,
+        is_featured: ('is_featured' in club ? club.is_featured : false) as boolean,
         last_synced: club.last_synced,
         created_at: club.created_at,
         updated_at: club.updated_at,

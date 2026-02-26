@@ -59,6 +59,7 @@ const createMockClub = (id: string, name: string): Club => ({
   longitude: null,
   location: null,
   total_holes: 18,
+  is_featured: false,
   golfapi_club_id: null,
   source: 'manual',
   last_synced: null,
