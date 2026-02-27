@@ -5,6 +5,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +17,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/constants/app';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 
@@ -435,8 +438,21 @@ export default function SignupScreen({ navigation }: Props) {
             {/* Terms & Privacy Notice */}
             <View style={styles.termsContainer}>
               <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                By signing up, you agree to our Terms of Service and Privacy Policy
+                By signing up, you agree to our{' '}
               </Text>
+              <View style={styles.termsLinksRow}>
+                <TouchableOpacity onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}>
+                  <Text style={[styles.termsLink, { color: colors.primary }]}>
+                    Terms of Service
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.termsText, { color: colors.textSecondary }]}> and </Text>
+                <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+                  <Text style={[styles.termsLink, { color: colors.primary }]}>
+                    Privacy Policy
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -525,6 +541,16 @@ const styles = StyleSheet.create({
   termsText: {
     ...typography.caption,
     textAlign: 'center',
+    lineHeight: 18,
+  },
+  termsLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  termsLink: {
+    ...typography.caption,
+    textDecorationLine: 'underline',
     lineHeight: 18,
   },
   // Email confirmation styles

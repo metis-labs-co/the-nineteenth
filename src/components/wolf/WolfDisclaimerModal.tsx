@@ -1,7 +1,7 @@
 /**
- * WolfDisclaimerModal - Gambling disclaimer acknowledgment for Wolf game
+ * WolfDisclaimerModal - Side game notice acknowledgment for Wolf game
  *
- * Modal that displays legal disclaimer for the Wolf gambling feature.
+ * Modal that displays notice for the Wolf side game feature.
  * Users must acknowledge the terms before using the feature.
  * Stores acknowledgment in AsyncStorage to prevent repeated prompts.
  *
@@ -59,12 +59,10 @@ const WARNING_COLOR = '#f59e0b';
 
 /** Disclaimer bullet points */
 const DISCLAIMER_POINTS = [
-  'Wolf is a strategic betting game with monetary stakes',
-  'All players must be of legal gambling age in your jurisdiction',
-  'The app does not process real money or payments',
-  'Settlement of bets is handled between players',
-  'Players can win or lose based on hole outcomes',
-  'Please check local laws regarding gambling activities',
+  'This feature tracks Wolf game scores and decisions',
+  'The app does not process, hold, or transfer any money',
+  'Any settlements are arranged privately between players',
+  'The Nineteenth is not responsible for any arrangements between players',
 ];
 
 // ============================================================================
@@ -167,7 +165,7 @@ export function WolfDisclaimerModal({
 
       // Announce for accessibility
       AccessibilityInfo.announceForAccessibility(
-        'Wolf Game Notice. Please read and accept the terms to continue.'
+        'Side Game Notice. Please read and accept the terms to continue.'
       );
     } else {
       // Reset animations
@@ -228,7 +226,7 @@ export function WolfDisclaimerModal({
             shadows.xl,
           ]}
           accessibilityRole="alert"
-          accessibilityLabel="Wolf Game Notice"
+          accessibilityLabel="Side Game Notice"
         >
           {/* Wolf Icon Header */}
           <View
@@ -246,12 +244,12 @@ export function WolfDisclaimerModal({
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Wolf Game Notice
+            Side Game Notice
           </Text>
 
           {/* Message */}
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            Wolf is a strategic betting game where players compete hole-by-hole.
+            Wolf is a strategic side game where players compete hole-by-hole with partner selection.
             Please be aware:
           </Text>
 
@@ -297,7 +295,7 @@ export function WolfDisclaimerModal({
             <Text style={[styles.rulesText, { color: colors.textSecondary }]}>
               Each hole, a rotating "Wolf" chooses to partner with another player
               or go alone against the pack. Points are awarded based on the best
-              ball outcome. Going "Lone Wolf" risks higher stakes for bigger rewards.
+              ball outcome. Going "Lone Wolf" earns more points but is harder to win.
             </Text>
           </View>
 

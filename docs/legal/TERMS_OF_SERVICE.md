@@ -1,8 +1,8 @@
 # Terms of Service
 
 **The Nineteenth**
-**Effective Date: December 2025**
-**Last Updated: December 2025**
+**Effective Date: February 2026**
+**Last Updated: February 2026**
 
 ---
 
@@ -111,9 +111,11 @@ While we provide tools for score entry and calculation:
 - We do not verify or guarantee score accuracy
 - Official handicaps should be obtained from Golf Australia or relevant governing bodies
 
-### 6.3 No Gambling
+### 6.3 Skins, Wolf, and Monetary Tracking
 
-The App is not intended for gambling purposes. Users agree not to use the App to facilitate gambling with real money. Social competitions with non-monetary prizes are permitted.
+The App includes optional side-game features (such as Skins and Wolf) that allow users to track monetary amounts associated with competition outcomes. These features are provided for informational and record-keeping purposes only. The App does not process, hold, transfer, or facilitate the exchange of any money or funds between users. Any settlement of tracked amounts is conducted entirely between players outside of the App and at their sole discretion.
+
+Users are solely responsible for ensuring that their use of these features complies with all applicable local, state, and national laws regarding gambling and wagering in their jurisdiction. The Nineteenth makes no representations regarding the legality of any activities facilitated by these features in any particular jurisdiction.
 
 ---
 
@@ -152,7 +154,7 @@ The App may contain links to third-party websites or services. We are not respon
 
 ## 9. Privacy
 
-Your use of the App is also governed by our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy at https://www.thenineteenth.app/privacy.
+Your use of the App is also governed by our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy at https://thenineteenth.golf/privacy.
 
 ---
 
@@ -165,6 +167,8 @@ THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, E
 - FITNESS FOR A PARTICULAR PURPOSE
 - NON-INFRINGEMENT
 - ACCURACY OR RELIABILITY
+
+Nothing in this section affects your statutory rights as a consumer under applicable consumer protection laws, including the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010), the UK Consumer Rights Act 2015, or EU consumer protection legislation.
 
 ### 10.2 No Guarantee
 
@@ -198,7 +202,17 @@ TO THE MAXIMUM EXTENT PERMITTED BY LAW, WE SHALL NOT BE LIABLE FOR:
 
 OUR TOTAL LIABILITY FOR ANY CLAIMS ARISING FROM THESE TERMS OR YOUR USE OF THE APP SHALL NOT EXCEED THE AMOUNT YOU PAID US IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM, OR AUD $100, WHICHEVER IS GREATER.
 
-### 11.3 Jurisdictional Limitations
+This limitation does not apply to liability that cannot be limited or excluded under applicable consumer protection laws, including under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010), the UK Consumer Rights Act 2015, or EU consumer protection legislation.
+
+### 11.3 EU/UK Consumer Rights
+
+Nothing in these Terms affects your statutory rights under:
+- The **UK Consumer Rights Act 2015**
+- The **EU Consumer Rights Directive 2011/83/EU**
+
+These rights cannot be excluded or limited by contract. Under these laws, digital content must be of satisfactory quality, fit for purpose, and as described.
+
+### 11.4 Jurisdictional Limitations
 
 Some jurisdictions do not allow the exclusion of certain warranties or limitation of liability. In such jurisdictions, our liability shall be limited to the maximum extent permitted by law.
 
@@ -240,7 +254,7 @@ Continued use of the App after changes constitutes acceptance of the revised Ter
 
 ### 15.1 By You
 
-You may stop using the App at any time. To delete your account, go to Profile > Settings > Delete Account.
+You may stop using the App at any time. To delete your account, go to Profile > Privacy & Data > Delete Account.
 
 ### 15.2 By Us
 
@@ -271,7 +285,15 @@ You agree to submit to the exclusive jurisdiction of the courts of Victoria, Aus
 
 ### 16.3 Informal Resolution
 
-Before initiating any formal proceedings, you agree to first contact us at support@thenineteenth.app and attempt to resolve the dispute informally for at least 30 days.
+Before initiating any formal proceedings, you agree to first contact us at support@thenineteenth.golf and attempt to resolve the dispute informally for at least 30 days.
+
+### 16.4 EU/UK Consumers
+
+If you are a consumer residing in the European Union, you may bring proceedings in the courts of your country of residence. EU consumers may also use the European Online Dispute Resolution (ODR) platform to resolve disputes: https://ec.europa.eu/consumers/odr.
+
+If you are a consumer residing in the United Kingdom, you may bring proceedings in the courts of your country of residence. UK consumers may also contact Citizens Advice (https://www.citizensadvice.org.uk) for guidance on resolving disputes.
+
+Nothing in this section limits the right of EU or UK consumers to bring proceedings in any court of competent jurisdiction as permitted by applicable law.
 
 ---
 
@@ -304,10 +326,9 @@ Nothing in these Terms creates any agency, partnership, or joint venture between
 If you have any questions about these Terms, please contact us:
 
 **The Nineteenth**
-Email: legal@thenineteenth.app
-Support: support@thenineteenth.app
-Website: https://www.thenineteenth.app
+Email: support@thenineteenth.golf
+Website: https://thenineteenth.golf
 
 ---
 
-*These Terms of Service were last updated in December 2025.*
+*These Terms of Service were last updated in February 2026.*

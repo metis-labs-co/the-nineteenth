@@ -557,6 +557,27 @@ export const STATE_NAME_TO_CODE: Record<string, string> = {
   TAS: 'TAS',
   NT: 'NT',
   ACT: 'ACT',
+  // US states
+  California: 'CA',
+  Florida: 'FL',
+  Texas: 'TX',
+  Arizona: 'AZ',
+  'South Carolina': 'SC',
+  Georgia: 'GA',
+  Hawaii: 'HI',
+  'North Carolina': 'NC',
+  Nevada: 'NV',
+  'New York': 'NY',
+  CA: 'CA',
+  FL: 'FL',
+  TX: 'TX',
+  AZ: 'AZ',
+  SC: 'SC',
+  GA: 'GA',
+  HI: 'HI',
+  NC: 'NC',
+  NV: 'NV',
+  NY: 'NY',
 };
 
 // =====================================================

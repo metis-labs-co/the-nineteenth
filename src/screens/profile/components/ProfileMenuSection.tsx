@@ -19,6 +19,8 @@ interface ProfileMenuSectionProps {
   achievementPoints: number;
   /** Number of placeholder players for badge display */
   placeholderPlayersCount: number;
+  /** Current country name for display (e.g. 'Australia' or 'Auto') */
+  currentCountryLabel: string;
   /** Navigation callbacks */
   onEditProfile: () => void;
   onMyStatistics: () => void;
@@ -27,7 +29,9 @@ interface ProfileMenuSectionProps {
   onCustomizeProfile: () => void;
   onSubscription: () => void;
   onGuestPlayers: () => void;
+  onPrivacyData: () => void;
   onSettings: () => void;
+  onCountryRegion: () => void;
   onNotifications: () => void;
   onHelpAndSupport: () => void;
   onSignOut: () => void;
@@ -36,6 +40,7 @@ interface ProfileMenuSectionProps {
 export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   achievementPoints,
   placeholderPlayersCount,
+  currentCountryLabel,
   onEditProfile,
   onMyStatistics,
   onHandicapHistory,
@@ -43,7 +48,9 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onCustomizeProfile,
   onSubscription,
   onGuestPlayers,
+  onPrivacyData,
   onSettings,
+  onCountryRegion,
   onNotifications,
   onHelpAndSupport,
   onSignOut,
@@ -143,6 +150,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             }
             testID="menu-guest-players"
           />
+          <MenuItemRow
+            icon="shield-account"
+            title="Privacy & Data"
+            onPress={onPrivacyData}
+            testID="menu-privacy-data"
+          />
         </View>
       </View>
 
@@ -157,6 +170,17 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="Settings"
             onPress={onSettings}
             testID="menu-settings"
+          />
+          <MenuItemRow
+            icon="earth"
+            title="Country / Region"
+            onPress={onCountryRegion}
+            rightContent={
+              <Text style={[styles.countryLabel, { color: colors.textSecondary }]}>
+                {currentCountryLabel}
+              </Text>
+            }
+            testID="menu-country-region"
           />
           <MenuItemRow
             icon="bell-outline"
@@ -230,6 +254,9 @@ const styles = StyleSheet.create({
   lockBadgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  countryLabel: {
+    ...typography.small,
   },
 });
 

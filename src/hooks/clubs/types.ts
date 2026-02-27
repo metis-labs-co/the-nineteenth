@@ -4,7 +4,7 @@
  * Types for club and course data structures.
  */
 
-import type { Club, Course, Tee, AustralianState } from '@/types/database.types';
+import type { Club, Course, Tee, RegionFilter } from '@/types/database.types';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 
 // =====================================================
@@ -79,7 +79,7 @@ export interface ClubCourseDisplayItem {
  */
 export interface CreateClubInput {
   name: string;
-  state?: AustralianState | null;
+  state?: RegionFilter | null;
   city?: string | null;
   address?: string | null;
   total_holes?: number | null;

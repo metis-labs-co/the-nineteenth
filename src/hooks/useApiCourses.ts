@@ -12,7 +12,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { courseKeys } from './queryKeys';
 import { courseService, type CourseSearchResult } from '@/services/courses/courseService';
-import type { Course, LegacyCourse, AustralianState } from '@/types/database.types';
+import type { Course, LegacyCourse, RegionFilter } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -47,7 +47,7 @@ export interface UseImportCourseOptions {
  */
 export function useApiCourseSearch(
   query: string,
-  state?: AustralianState,
+  state?: RegionFilter,
   options: UseApiCourseSearchOptions = {}
 ) {
   const { enabled = true, staleTime = 2 * 60 * 1000, searchApi = false } = options;
@@ -213,7 +213,7 @@ export function useRefreshStaleCourses() {
  */
 export function useCombinedCourseSearch(
   query: string,
-  state?: AustralianState,
+  state?: RegionFilter,
   enableApiSearch: boolean = false
 ) {
   const searchResult = useApiCourseSearch(query, state, {

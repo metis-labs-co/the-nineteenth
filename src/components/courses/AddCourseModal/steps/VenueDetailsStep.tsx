@@ -9,20 +9,21 @@
  * Uses FormInput for consistent text input styling.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { Text, Chip } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FormInput } from '@/components/common/FormInput';
-import type { AustralianState } from '@/types/database.types';
-import { AUSTRALIAN_STATES, type Step1Data } from '../types';
+import { getRegionsForCountry } from '@/constants/countries';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import type { Step1Data } from '../types';
 
 interface VenueDetailsStepProps {
   data: Step1Data;
   onVenueNameChange: (text: string) => void;
   onCityChange: (text: string) => void;
-  onStateChange: (state: AustralianState | null) => void;
+  onStateChange: (state: string | null) => void;
 }
 
 export const VenueDetailsStep = React.memo(function VenueDetailsStep({
@@ -32,6 +33,12 @@ export const VenueDetailsStep = React.memo(function VenueDetailsStep({
   onStateChange,
 }: VenueDetailsStepProps) {
   const colors = useThemeColors();
+  const { country } = useUserCountry();
+
+  const regions = useMemo(
+    () => getRegionsForCountry(country),
+    [country]
+  );
 
   return (
     <ScrollView
@@ -42,7 +49,7 @@ export const VenueDetailsStep = React.memo(function VenueDetailsStep({
       {/* Venue Name Input */}
       <FormInput
         label="Venue Name"
-        value={data.venueName}
+        value={data.venueName ?? ''}
         onChangeText={onVenueNameChange}
         placeholder="e.g., Royal Melbourne Golf Club"
         autoCapitalize="words"
@@ -64,35 +71,37 @@ export const VenueDetailsStep = React.memo(function VenueDetailsStep({
         accessibilityLabel="City"
       />
 
-      {/* State Selection */}
-      <View style={styles.inputGroup}>
-        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>State</Text>
-        <View style={styles.chipsContainer}>
-          {AUSTRALIAN_STATES.map((state) => (
-            <Chip
-              key={state.value}
-              mode={data.state === state.value ? 'flat' : 'outlined'}
-              selected={data.state === state.value}
-              onPress={() => onStateChange(data.state === state.value ? null : state.value)}
-              style={[
-                styles.chip,
-                { backgroundColor: colors.surface, borderColor: colors.gray300 },
-                data.state === state.value && {
-                  backgroundColor: colors.primary,
-                  borderColor: colors.primary,
-                },
-              ]}
-              textStyle={[
-                styles.chipText,
-                { color: colors.textSecondary },
-                data.state === state.value && { color: colors.white },
-              ]}
-            >
-              {state.label}
-            </Chip>
-          ))}
+      {/* Region Selection — only shown for countries with regions */}
+      {regions.length > 0 && (
+        <View style={styles.inputGroup}>
+          <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Region</Text>
+          <View style={styles.chipsContainer}>
+            {regions.map((region) => (
+              <Chip
+                key={region.value}
+                mode={data.state === region.value ? 'flat' : 'outlined'}
+                selected={data.state === region.value}
+                onPress={() => onStateChange(data.state === region.value ? null : region.value)}
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.surface, borderColor: colors.gray300 },
+                  data.state === region.value && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                ]}
+                textStyle={[
+                  styles.chipText,
+                  { color: colors.textSecondary },
+                  data.state === region.value && { color: colors.white },
+                ]}
+              >
+                {region.label}
+              </Chip>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 });

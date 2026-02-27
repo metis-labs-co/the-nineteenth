@@ -20,7 +20,7 @@ import { useGolfApiSearch } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
 import { mergeTees } from './helpers';
-import type { Club, AustralianState } from '@/types/database.types';
+import type { Club } from '@/types/database.types';
 import type {
   SupabaseCourseWithTees,
   SupabaseClubWithCourses,
@@ -40,12 +40,18 @@ import type {
  * Fetch all clubs with their courses
  * Returns data structured for hybrid list display
  */
-export function useClubsWithCourses(state?: AustralianState, featuredOnly?: boolean) {
+export function useClubsWithCourses(options?: {
+  country?: string;
+  region?: string;
+  featuredOnly?: boolean;
+  enabled?: boolean;
+}) {
+  const { country, region, featuredOnly, enabled = true } = options ?? {};
   const { user } = useAuth();
   const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
   const query = useQuery({
-    queryKey: clubKeys.withCoursesFiltered({ state, featured: featuredOnly }),
+    queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly }),
     queryFn: async (): Promise<{
       clubs: SupabaseClubWithCourses[];
       homeClubId: string | null;
@@ -65,8 +71,12 @@ export function useClubsWithCourses(state?: AustralianState, featuredOnly?: bool
         )
         .order('name', { ascending: true });
 
-      if (state) {
-        clubQuery = clubQuery.eq('state', state);
+      if (country) {
+        clubQuery = clubQuery.eq('country', country);
+      }
+
+      if (region) {
+        clubQuery = clubQuery.eq('state', region);
       }
 
       if (featuredOnly) {
@@ -94,6 +104,7 @@ export function useClubsWithCourses(state?: AustralianState, featuredOnly?: bool
         homeClubId,
       };
     },
+    enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -129,7 +140,7 @@ export function useClubsWithCourses(state?: AustralianState, featuredOnly?: bool
  * When local results are < 3, automatically searches GolfAPI.io
  * and merges results seamlessly.
  */
-export function useSearchClubs(searchQuery: string, state?: AustralianState) {
+export function useSearchClubs(searchQuery: string, state?: string) {
   const { user } = useAuth();
   const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
@@ -317,8 +328,8 @@ export function useSearchClubs(searchQuery: string, state?: AustralianState) {
  * }));
  * ```
  */
-export function useClubCourseDisplayItems(state?: AustralianState) {
-  const { data: clubs, ...rest } = useClubsWithCourses(state);
+export function useClubCourseDisplayItems(state?: string) {
+  const { data: clubs, ...rest } = useClubsWithCourses({ region: state });
 
   const displayItems: ClubCourseDisplayItem[] = (clubs ?? []).map((club) => {
     const clubData: Club = {

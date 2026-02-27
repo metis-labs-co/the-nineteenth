@@ -5,7 +5,7 @@
  */
 
 import type { Club, Course } from '@/types/database.types';
-import type { AustralianState } from '@/types/database/enums';
+import type { RegionFilter } from '@/types/database/enums';
 import type { Database } from '@/types/supabase';
 
 // =====================================================
@@ -48,7 +48,7 @@ export type CourseUpdateDb = CoursesTable['Update'];
  */
 export interface CacheSearchParams {
   query?: string;
-  state?: AustralianState;
+  state?: RegionFilter;
   city?: string;
   limit?: number;
   offset?: number;

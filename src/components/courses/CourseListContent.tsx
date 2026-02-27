@@ -45,6 +45,8 @@ interface CourseListContentProps {
   isSearchingApi?: boolean;
   /** GolfAPI club ID currently being imported (shows loading on that card) */
   importingClubId?: string | null;
+  /** Whether a supported country was detected (AU/NZ) */
+  hasCountry?: boolean;
 }
 
 export function CourseListContent({
@@ -61,6 +63,7 @@ export function CourseListContent({
   togglingFavoriteId,
   isSearchingApi = false,
   importingClubId = null,
+  hasCountry = true,
 }: CourseListContentProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -98,7 +101,9 @@ export function CourseListContent({
       ? 'No favourite courses'
       : isSearchActive
         ? 'No clubs found'
-        : 'No courses in this state';
+        : !hasCountry
+          ? 'Search for a course'
+          : 'No courses in this region';
 
     // Determine message based on context and permissions
     const getMessage = () => {
@@ -108,7 +113,10 @@ export function CourseListContent({
       if (isSearchActive) {
         return `No clubs match "${searchQuery}". Try a different search.`;
       }
-      return 'Try a different state or search for a specific club above';
+      if (!hasCountry) {
+        return 'Search for a course above to get started';
+      }
+      return 'Try a different region or search for a specific club above';
     };
 
     const icon = showFavoritesOnly ? 'star-outline' : 'magnify';

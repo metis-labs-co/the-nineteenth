@@ -1,89 +1,138 @@
 # Privacy Policy
 
-**Last Updated:** [DATE]
+**Last Updated:** February 2026
 
 **The Nineteenth** ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application.
 
-## Information We Collect
+---
 
-### Information You Provide
-- **Account Information:** Email address, name, and profile photo when you create an account
-- **Golf Profile:** Handicap, Golf Australia ID (optional), home club (optional)
-- **Competition Data:** Scores, rounds, and competition participation
-- **Social Connections:** Friends list and player comparisons
+## What We Collect
 
-### Information Collected Automatically
-- **Device Information:** Device type, operating system, unique device identifiers
-- **Usage Data:** Features used, screens viewed, interactions with the app
-- **Location Data:** Only when you grant permission, to find nearby golf courses
+**Information you provide:**
+- Account information: email address, name, profile photo
+- Golf profile: handicap, Golf Australia ID (optional), home club (optional)
+- Competition data: scores, rounds, competition participation
+- Social connections: friends list and player comparisons
 
-### Information from Third Parties
-- **Authentication:** If you sign in with a third-party service, we receive basic profile information
+**Information collected automatically:**
+- Device information: device type, operating system, unique device identifiers
+- Usage data: features used, screens viewed, interactions with the app
+- Location data: only when you grant permission, to find nearby golf courses. Location data is processed locally on your device and is not stored on our servers.
+
+---
 
 ## How We Use Your Information
 
-We use the information we collect to:
-- Provide and maintain our services
-- Create and manage your account
-- Process and display golf scores and statistics
-- Connect you with friends and other players
+- Provide and maintain our services (account management, competitions, scoring, leaderboards)
+- Calculate scores and handicap adjustments
 - Send notifications about competitions and rounds
-- Improve our app and develop new features
+- Improve our app, fix bugs, and develop new features
 - Respond to your requests and support needs
+- Detect and prevent fraud or abuse
+
+---
+
+## Legal Bases for Processing (GDPR/UK GDPR)
+
+Where the EU or UK GDPR applies, we process your data under these lawful bases:
+
+| Lawful Basis | Processing Activities |
+|---|---|
+| **Contract Performance** (Art. 6(1)(b)) | Account creation, competition features, score calculations, offline data sync |
+| **Legitimate Interest** (Art. 6(1)(f)) | App improvement, security monitoring, anonymised analytics, bug fixing |
+| **Consent** (Art. 6(1)(a)) | Push notifications, location access, marketing communications |
+
+You may withdraw consent at any time via your device settings or by contacting us. Withdrawal does not affect the lawfulness of prior processing.
+
+---
+
+## Service Providers
+
+We do **not** sell your personal information. We share data with these service providers:
+
+| Provider | Purpose | Data Shared |
+|----------|---------|-------------|
+| **Supabase** | Database hosting, authentication | Account data, competition data |
+| **Expo/EAS** | App updates, crash reporting | Device info, error logs |
+| **RevenueCat** | Subscription management | User ID, purchase history |
+
+All providers are contractually obligated to protect your information and use it only for the purposes we specify.
+
+We may also share data with other players in your competitions (scores, handicaps, display name -- never your email), when required by law, in connection with business transfers, or with your consent.
+
+---
+
+## International Data Transfers
+
+Your data is primarily stored in **Australia** by Supabase (AWS Sydney). Some processing occurs in the **United States** by Expo/EAS and RevenueCat.
+
+- **EU/EEA transfers:** Australia has been recognised by the European Commission as providing adequate data protection. For US transfers, we rely on Standard Contractual Clauses (SCCs).
+- **UK transfers:** Australia is recognised as providing adequate data protection under UK law. For US transfers, we rely on the UK International Data Transfer Agreement (IDTA) or the UK Addendum to the EU SCCs.
+
+---
 
 ## Data Storage and Security
 
-- Your data is stored securely using Supabase (hosted on AWS)
-- We use industry-standard encryption for data in transit and at rest
-- Scorecard data is stored locally on your device for offline access
-- Local data syncs to our servers when you're online
+- Data is stored on secure servers with encryption in transit (TLS/SSL) and at rest
+- Scorecard data is stored locally on your device for offline access and syncs when online
+- We employ access controls, secure authentication, and regular security assessments
 
-## Data Sharing
-
-We do **not** sell your personal information. We may share data:
-- With other players in your competitions (scores, handicaps)
-- With service providers who help us operate our app
-- If required by law or to protect our rights
-- With your consent
-
-## Your Rights
-
-You have the right to:
-- Access your personal data
-- Correct inaccurate data
-- Delete your account and data
-- Export your data
-- Opt out of marketing communications
-
-To exercise these rights, contact us at [SUPPORT_EMAIL].
+---
 
 ## Data Retention
 
 - We retain your data while your account is active
 - Deleted accounts are permanently removed within 30 days
-- Some data may be retained for legal or business purposes
+- Historical scores may be retained in anonymised form for competition records
+- Some data may be retained where required by law
+
+---
+
+## Your Rights
+
+### All Users
+
+You have the right to access, correct, export, and delete your personal data. You can opt out of push notifications, email communications, and location access at any time.
+
+To exercise your rights or delete your account: Profile > Privacy & Data > Delete Account in the app, or contact support@thenineteenth.golf.
+
+### Australian Users
+
+Under the Privacy Act 1988 (Cth) and the Australian Privacy Principles, you may request access to and correction of your personal information, and lodge complaints about privacy breaches. Complaints may also be directed to the Office of the Australian Information Commissioner (OAIC): https://www.oaic.gov.au
+
+### EU/EEA Users
+
+Under the GDPR, you have the right of access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20), and objection (Art. 21). You may lodge a complaint with your local supervisory authority. Contact: support@thenineteenth.golf
+
+### UK Users
+
+Under the UK GDPR and Data Protection Act 2018, you have equivalent rights to EU users. You may lodge a complaint with the Information Commissioner's Office (ICO): https://ico.org.uk. Contact: support@thenineteenth.golf
+
+### US Users (California and Other States)
+
+California residents have rights under the CCPA/CPRA: right to know, delete, correct, and opt out of sale/sharing of personal information. We do not sell or share your personal information. To exercise your rights, contact support@thenineteenth.golf or use Profile > Privacy & Data in the app. Residents of Virginia, Colorado, Connecticut, and other states with consumer privacy laws have similar rights.
+
+---
 
 ## Children's Privacy
 
-Our app is not intended for children under 13. We do not knowingly collect information from children under 13.
+Our app is not intended for children under 13. We do not knowingly collect information from children under 13. If you believe we have inadvertently collected such information, please contact us immediately.
+
+---
 
 ## Changes to This Policy
 
-We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy in the app and updating the "Last Updated" date.
+We may update this Privacy Policy from time to time. We will notify you of changes by posting the new policy in the app and updating the "Last Updated" date.
+
+---
 
 ## Contact Us
 
 If you have questions about this Privacy Policy, contact us at:
 
-**Email:** [SUPPORT_EMAIL]
-**Website:** [WEBSITE_URL]
+**Email:** support@thenineteenth.golf
+**Website:** https://thenineteenth.golf
 
 ---
 
-## Australian Privacy Act Compliance
-
-For Australian users, we comply with the Privacy Act 1988 (Cth) and the Australian Privacy Principles. You may lodge a complaint with the Office of the Australian Information Commissioner (OAIC) if you believe we have breached your privacy.
-
----
-
-*This privacy policy template should be reviewed by a legal professional before publication.*
+*This privacy policy should be reviewed by a legal professional before publication.*

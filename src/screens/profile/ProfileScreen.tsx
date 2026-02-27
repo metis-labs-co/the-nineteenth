@@ -24,6 +24,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { NotificationBell } from './components';
 import { APP_NAME, APP_VERSION } from '@/constants/app';
 import type { Club } from '@/types/database.types';
+import { useSettingsStore } from '@/store/settingsStore';
 
 // Local components and hooks
 import { useProfileData } from './hooks';
@@ -57,6 +58,10 @@ export default function ProfileScreen() {
     handleUnequipCosmetic,
     logout,
   } = useProfileData();
+
+  // Country label for menu display
+  const countryOverride = useSettingsStore((state) => state.countryOverride);
+  const currentCountryLabel = countryOverride ?? 'Auto';
 
   // Modal states
   const [showClubModal, setShowClubModal] = useState(false);
@@ -216,6 +221,7 @@ export default function ProfileScreen() {
         <ProfileMenuSection
           achievementPoints={achievementPoints}
           placeholderPlayersCount={placeholderPlayers?.length ?? 0}
+          currentCountryLabel={currentCountryLabel}
           onEditProfile={() => navigation.navigate('EditProfile')}
           onMyStatistics={() => navigation.navigate('MyStatistics')}
           onHandicapHistory={() => navigation.navigate('HandicapHistory')}
@@ -223,7 +229,9 @@ export default function ProfileScreen() {
           onCustomizeProfile={() => setShowCustomizeSheet(true)}
           onSubscription={() => navigation.navigate('Subscription')}
           onGuestPlayers={() => navigation.navigate('LinkPlaceholder')}
+          onPrivacyData={() => navigation.navigate('PrivacyData')}
           onSettings={() => navigation.navigate('Settings')}
+          onCountryRegion={() => navigation.navigate('CountryRegion')}
           onNotifications={() => navigation.navigate('NotificationSettings')}
           onHelpAndSupport={() => navigation.navigate('HelpAndSupport')}
           onSignOut={handleSignOut}

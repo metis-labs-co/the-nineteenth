@@ -119,6 +119,12 @@ export type RootStackParamList = {
   // Help & Support
   HelpAndSupport: undefined;
 
+  // Privacy & Data
+  PrivacyData: undefined;
+
+  // Country / Region
+  CountryRegion: undefined;
+
   // Admin - Placeholder Players
   LinkPlaceholder: undefined;
 

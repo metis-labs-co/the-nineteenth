@@ -10,7 +10,7 @@
  * - Pull-to-refresh
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,8 +34,11 @@ import {
   type ClubCourseDisplayItem,
 } from '@/hooks/useClubs';
 import { useImportClub } from '@/hooks/useImportClub';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { useCountryMismatchPrompt } from '@/hooks/useCountryMismatchPrompt';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
-import type { AustralianState, Course, Club } from '@/types/database.types';
+import { getRegionsForCountry } from '@/constants/countries';
+import type { Course, Club } from '@/types/database.types';
 
 /**
  * Type guard to check if item is from GolfAPI.io (not yet imported)
@@ -53,12 +56,29 @@ export default function CourseListScreen() {
   // Dialog state
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
 
+  // Country detection
+  const { country, isLoading: isLoadingCountry } = useUserCountry();
+
+  // Country mismatch prompt (GPS vs effective country)
+  const {
+    showPrompt: showMismatchPrompt,
+    gpsCountry,
+    effectiveCountry: mismatchEffectiveCountry,
+    handleSwitch: handleMismatchSwitch,
+    handleKeep: handleMismatchKeep,
+  } = useCountryMismatchPrompt(country, isLoadingCountry);
+
   // State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedState, setSelectedState] = useState<AustralianState | undefined>();
+  const [selectedState, setSelectedState] = useState<string | undefined>();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
   const [importingClubId, setImportingClubId] = useState<string | null>(null);
+
+  // Clear region filter when country changes (e.g., AU states don't apply to NZ)
+  useEffect(() => {
+    setSelectedState(undefined);
+  }, [country]);
 
   // Data fetching - clubs with courses for hybrid display
   const {
@@ -67,14 +87,20 @@ export default function CourseListScreen() {
     error: allError,
     refetch: refetchAll,
     isRefetching: isRefetchingAll,
-  } = useClubsWithCourses(selectedState, true);
+  } = useClubsWithCourses({
+    country: country ?? undefined,
+    region: selectedState,
+    featuredOnly: true,
+    enabled: !isLoadingCountry,
+  });
 
   const {
     data: searchResults,
     isLoading: isSearching,
     isSearchingApi,
     error: searchError,
-  } = useSearchClubs(searchQuery, selectedState);
+  // Only pass region to search when the country has regions defined
+  } = useSearchClubs(searchQuery, getRegionsForCountry(country).length > 0 ? selectedState : undefined);
 
   // Import hook for API results
   const importClub = useImportClub();
@@ -92,7 +118,7 @@ export default function CourseListScreen() {
 
   // Computed values
   const isSearchActive = searchQuery.length >= 2;
-  const isLoading = isLoadingAll || isLoadingFavorites;
+  const isLoading = isLoadingCountry || isLoadingAll || isLoadingFavorites;
   const isRefreshing = isRefetchingAll || isRefetchingFavorites;
   const error = allError || searchError;
 
@@ -315,10 +341,12 @@ export default function CourseListScreen() {
         onFavoritesToggle={() => setShowFavoritesOnly(!showFavoritesOnly)}
         showClearButton={isSearchActive || showFavoritesOnly}
         onClear={handleClearFilters}
+        country={country}
       />
 
       {/* Course List Content */}
       <CourseListContent
+        hasCountry={!!country}
         displayItems={displayItems}
         isSearching={isSearching}
         isRefreshing={isRefreshing}
@@ -336,6 +364,18 @@ export default function CourseListScreen() {
 
       {/* Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      {/* Country Mismatch Prompt */}
+      <ConfirmationDialog
+        visible={showMismatchPrompt && !dialogConfig.visible && !!gpsCountry && !!mismatchEffectiveCountry}
+        title="Different Country Detected"
+        message={`It looks like you're in ${gpsCountry}. Would you like to browse ${gpsCountry} courses?`}
+        confirmLabel="Switch Now"
+        cancelLabel="Keep Current"
+        icon="earth"
+        onConfirm={handleMismatchSwitch}
+        onCancel={handleMismatchKeep}
+      />
     </View>
   );
 }

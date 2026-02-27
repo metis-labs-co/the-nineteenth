@@ -11,7 +11,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsPremium } from '@/context/SubscriptionContext';
-
 export type DistanceUnit = 'yards' | 'metres';
 
 interface SettingsState {
@@ -26,6 +25,9 @@ interface SettingsState {
   // GPS distance-to-pin feature
   showGpsDistance: boolean;
 
+  // Country override (null = auto-detect)
+  countryOverride: string | null;
+
   // Security
   biometricEnabled: boolean;
 
@@ -38,6 +40,7 @@ interface SettingsState {
   setShowFairwayHit: (show: boolean) => void;
   setShowGreenInRegulation: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
+  setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
@@ -49,6 +52,7 @@ const DEFAULT_SETTINGS = {
   showFairwayHit: false,
   showGreenInRegulation: false,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
+  countryOverride: null as string | null,
   biometricEnabled: false,
   debugModeEnabled: false,
 };
@@ -69,6 +73,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowGreenInRegulation: (show) => set({ showGreenInRegulation: show }),
 
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
+
+      setCountryOverride: (country) => set({ countryOverride: country }),
 
       setBiometricEnabled: (enabled) => set({ biometricEnabled: enabled }),
 

@@ -61,6 +61,8 @@ import HandicapHistoryScreen from '@/screens/profile/HandicapHistoryScreen';
 import SettingsScreen from '@/screens/profile/SettingsScreen';
 import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
 import HelpAndSupportScreen from '@/screens/profile/HelpAndSupportScreen';
+import PrivacyDataScreen from '@/screens/profile/PrivacyDataScreen';
+import CountryRegionScreen from '@/screens/profile/CountryRegionScreen';
 
 // Onboarding Screen
 import OnboardingScreen from '@/screens/onboarding/OnboardingScreen';
@@ -417,6 +419,24 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={HelpAndSupportScreen}
               options={{
                 title: 'Help & Support',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="PrivacyData"
+              component={PrivacyDataScreen}
+              options={{
+                title: 'Privacy & Data',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="CountryRegion"
+              component={CountryRegionScreen}
+              options={{
+                title: 'Country / Region',
                 headerShown: false,
               }}
             />

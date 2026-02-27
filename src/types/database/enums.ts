@@ -27,6 +27,11 @@ export type ScorecardStatus = 'not-started' | 'in-progress' | 'completed' | 'con
 
 // Location enums
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'SA' | 'WA' | 'TAS' | 'NT' | 'ACT';
+export type NewZealandRegion = 'Auckland' | 'Waikato' | 'Bay of Plenty' | 'Canterbury' | 'Wellington' | 'Otago';
+export type UKRegion = 'England' | 'Scotland' | 'Wales' | 'Northern Ireland';
+export type USState = 'CA' | 'FL' | 'TX' | 'AZ' | 'SC' | 'GA' | 'HI' | 'NC' | 'NV' | 'NY';
+export type SupportedCountry = string;
+export type RegionFilter = string;
 export type CourseSource = 'api' | 'manual' | 'legacy';
 export type PoiType = 'tee_front' | 'tee_back' | 'green_front' | 'green_center' | 'green_back';
 export type MeasureUnit = 'm' | 'y'; // meters or yards

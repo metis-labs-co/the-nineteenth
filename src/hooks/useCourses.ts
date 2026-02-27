@@ -18,7 +18,7 @@ import {
   useRemoveFavorite,
   type CourseWithFavorite,
 } from '@/hooks/useFavoriteCourses';
-import type { Course, AustralianState } from '@/types/database.types';
+import type { Course, RegionFilter } from '@/types/database.types';
 
 // Re-export types and mutations for backward compatibility
 export type { CourseWithFavorite };
@@ -26,7 +26,7 @@ export { useAddFavorite, useRemoveFavorite };
 
 export interface CreateCourseInput {
   name: string;
-  state?: AustralianState | null;
+  state?: RegionFilter | null;
   city?: string | null;
   address?: string | null;
 }
@@ -71,7 +71,7 @@ export function useCourses() {
 /**
  * Search courses by name and optionally filter by state
  */
-export function useSearchCourses(searchQuery: string, state?: AustralianState) {
+export function useSearchCourses(searchQuery: string, state?: RegionFilter) {
   const { enrichCourses, isLoading: favoritesLoading } = useFavoriteEnrichment();
 
   const query = useQuery({

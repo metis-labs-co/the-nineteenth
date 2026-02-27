@@ -1,7 +1,7 @@
 /**
- * SkinsDisclaimerModal - Gambling disclaimer acknowledgment
+ * SkinsDisclaimerModal - Side game notice acknowledgment
  *
- * Modal that displays legal disclaimer for the skins gambling feature.
+ * Modal that displays notice for the skins side game feature.
  * Users must acknowledge the terms before using the feature.
  * Stores acknowledgment in AsyncStorage to prevent repeated prompts.
  *
@@ -56,11 +56,10 @@ const WARNING_COLOR = '#f59e0b';
 
 /** Disclaimer bullet points */
 const DISCLAIMER_POINTS = [
-  'This feature is for social entertainment only',
-  'All players must be of legal gambling age in your jurisdiction',
-  'The app does not process real money or payments',
-  'Settlement of bets is handled between players',
-  'Please check local laws regarding gambling activities',
+  'This feature tracks side game scores for social entertainment',
+  'The app does not process, hold, or transfer any money',
+  'Any settlements are arranged privately between players',
+  'The Nineteenth is not responsible for any arrangements between players',
 ];
 
 // ============================================================================
@@ -163,7 +162,7 @@ export function SkinsDisclaimerModal({
 
       // Announce for accessibility
       AccessibilityInfo.announceForAccessibility(
-        'Gambling Feature Notice. Please read and accept the terms to continue.'
+        'Side Game Notice. Please read and accept the terms to continue.'
       );
     } else {
       // Reset animations
@@ -224,7 +223,7 @@ export function SkinsDisclaimerModal({
             shadows.xl,
           ]}
           accessibilityRole="alert"
-          accessibilityLabel="Gambling Feature Notice"
+          accessibilityLabel="Side Game Notice"
         >
           {/* Warning Icon Header */}
           <View
@@ -242,12 +241,12 @@ export function SkinsDisclaimerModal({
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Gambling Feature Notice
+            Side Game Notice
           </Text>
 
           {/* Message */}
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            Skins is a betting feature for friendly wagers between players.
+            Skins is a social side game that tracks friendly competitions between players.
             Please be aware:
           </Text>
 

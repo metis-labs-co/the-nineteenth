@@ -36,7 +36,7 @@ import type {
   CourseWithClub,
   ClubWithCourses,
 } from '@/types/database.types';
-import type { AustralianState } from '@/types/database/enums';
+import type { RegionFilter } from '@/types/database/enums';
 import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
 
 // =====================================================
@@ -48,7 +48,7 @@ import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
  */
 export interface CourseSearchParams {
   query?: string;
-  state?: AustralianState;
+  state?: RegionFilter;
   city?: string;
   limit?: number;
   offset?: number;

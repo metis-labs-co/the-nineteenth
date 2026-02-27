@@ -13,6 +13,7 @@ export const APP_TAGLINE = 'Made with \u26f3 in Australia';
 // Support Emails
 export const SUPPORT_EMAIL = 'support@thenineteenth.golf';
 export const CONTACT_EMAIL = 'contact@thenineteenth.golf';
+export const PRIVACY_EMAIL = 'support@thenineteenth.golf';
 export const SUPPORT_URL = 'https://thenineteenth.golf/support';
 
 // External Links
@@ -29,7 +30,7 @@ export interface FAQItem {
   id: string;
   question: string;
   answer: string;
-  category?: 'getting-started' | 'scoring' | 'account' | 'subscription';
+  category?: 'getting-started' | 'scoring' | 'account' | 'subscription' | 'privacy';
 }
 
 export const FAQ_DATA: FAQItem[] = [
@@ -88,6 +89,27 @@ export const FAQ_DATA: FAQItem[] = [
     answer:
       'We offer Free, Social, and Premium tiers. Free users can create up to 3 competitions with basic features. Social and Premium tiers offer more competitions, players per competition, additional game types, and advanced statistics. Check the Subscription screen for full details.',
     category: 'subscription',
+  },
+  {
+    id: '9',
+    question: 'How do I delete my account?',
+    answer:
+      'Go to Profile > Privacy & Data > Delete Account. You\'ll be asked to confirm twice, including typing "DELETE" to proceed. This permanently removes your account and personal data. Historical scores are anonymised to preserve competition records.',
+    category: 'privacy',
+  },
+  {
+    id: '10',
+    question: 'How do I download my data?',
+    answer:
+      'Go to Profile > Privacy & Data > Download My Data. This exports all your personal data as a JSON file, which you can save or share. This is your right under data protection laws (GDPR Article 20).',
+    category: 'privacy',
+  },
+  {
+    id: '11',
+    question: 'What happens to my data if I delete my account?',
+    answer:
+      'When you delete your account, all personal data (profile, friends, notifications, subscriptions) is permanently deleted. Historical scores in competitions are anonymised — they remain for competition integrity but are no longer linked to your identity. This process is completed within 30 days.',
+    category: 'privacy',
   },
 ];
 

@@ -2,22 +2,11 @@
  * Types and constants for AddCourseModal wizard
  */
 
-import type { AustralianState, Course, Club } from '@/types/database.types';
+import type { Course, Club } from '@/types/database.types';
 
 // =====================================================
 // CONSTANTS
 // =====================================================
-
-export const AUSTRALIAN_STATES: { value: AustralianState; label: string }[] = [
-  { value: 'NSW', label: 'NSW' },
-  { value: 'VIC', label: 'VIC' },
-  { value: 'QLD', label: 'QLD' },
-  { value: 'SA', label: 'SA' },
-  { value: 'WA', label: 'WA' },
-  { value: 'TAS', label: 'TAS' },
-  { value: 'NT', label: 'NT' },
-  { value: 'ACT', label: 'ACT' },
-];
 
 export const TEE_COLORS = [
   { value: 'black', label: 'Black', hex: '#000000' },
@@ -64,7 +53,7 @@ export interface Step1Data {
   /** @deprecated Use clubName instead */
   venueName?: string;
   city: string;
-  state: AustralianState | null;
+  state: string | null;
 }
 
 export interface Step2Data {

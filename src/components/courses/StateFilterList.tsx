@@ -1,40 +1,32 @@
 /**
- * StateFilterList - Horizontal scrollable filter for Australian states
+ * StateFilterList - Horizontal scrollable region filter
  *
  * Features:
  * - Favourites toggle filter
- * - Australian state filters (NSW, VIC, QLD, etc.)
+ * - Australian state filters (NSW, VIC, QLD, etc.) for AU users
+ * - New Zealand region filters (Auckland, Canterbury, etc.) for NZ users
+ * - Favourites-only for users outside AU/NZ
  * - Clear filters button when filters are active
  * - Dark mode support
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FilterPill } from '@/components/common/FilterPill';
-import type { AustralianState } from '@/types/database.types';
-
-// Australian states for filter
-const AUSTRALIAN_STATES: { value: AustralianState; label: string }[] = [
-  { value: 'NSW', label: 'NSW' },
-  { value: 'VIC', label: 'VIC' },
-  { value: 'QLD', label: 'QLD' },
-  { value: 'SA', label: 'SA' },
-  { value: 'WA', label: 'WA' },
-  { value: 'TAS', label: 'TAS' },
-  { value: 'NT', label: 'NT' },
-  { value: 'ACT', label: 'ACT' },
-];
+import { getRegionsForCountry } from '@/constants/countries';
 
 interface StateFilterListProps {
-  selectedState: AustralianState | undefined;
-  onStateChange: (state: AustralianState | undefined) => void;
+  selectedState: string | undefined;
+  onStateChange: (state: string | undefined) => void;
   showFavoritesOnly: boolean;
   onFavoritesToggle: () => void;
   showClearButton: boolean;
   onClear: () => void;
+  /** Detected user country — determines which region pills to show */
+  country?: string | null;
 }
 
 export function StateFilterList({
@@ -44,8 +36,15 @@ export function StateFilterList({
   onFavoritesToggle,
   showClearButton,
   onClear,
+  country,
 }: StateFilterListProps) {
   const colors = useThemeColors();
+
+  // Data-driven region pills from country config
+  const regionPills = useMemo(
+    () => getRegionsForCountry(country).map((r) => ({ value: r.value, label: r.label })),
+    [country]
+  );
 
   return (
     <View
@@ -67,16 +66,16 @@ export function StateFilterList({
           accessibilityLabel="Show favourites only"
         />
 
-        {/* State filters */}
-        {AUSTRALIAN_STATES.map((state) => (
+        {/* Region filters */}
+        {regionPills.map((region) => (
           <FilterPill
-            key={state.value}
-            label={state.label}
-            selected={selectedState === state.value}
+            key={region.value}
+            label={region.label}
+            selected={selectedState === region.value}
             onPress={() =>
-              onStateChange(selectedState === state.value ? undefined : state.value)
+              onStateChange(selectedState === region.value ? undefined : region.value)
             }
-            accessibilityLabel={`Filter by ${state.label}`}
+            accessibilityLabel={`Filter by ${region.label}`}
           />
         ))}
       </ScrollView>

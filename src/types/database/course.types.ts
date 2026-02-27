@@ -9,7 +9,7 @@
  * - Updated Course with new GolfAPI.io fields
  */
 
-import type { AustralianState, CourseSource, PoiType, MeasureUnit } from './enums';
+import type { RegionFilter, CourseSource, PoiType, MeasureUnit } from './enums';
 import type { GeoPoint, Hole, TeeBox } from './base';
 
 // =====================================================
@@ -33,7 +33,7 @@ export interface Club {
   address: string | null;
   city: string | null;
   postal_code: string | null; // From GolfAPI.io
-  state: AustralianState | null;
+  state: RegionFilter | null;
   country: string; // Defaults to 'Australia'
   continent: string | null; // From GolfAPI.io
 
@@ -303,7 +303,7 @@ export interface LegacyCourse {
   source: CourseSource;
   api_id: string | null;
   name: string;
-  state: AustralianState | null;
+  state: RegionFilter | null;
   city: string | null;
   address: string | null;
   phone: string | null;

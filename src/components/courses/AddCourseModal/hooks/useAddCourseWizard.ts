@@ -11,7 +11,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useCreateClubWithCourse } from '@/hooks/useClubs';
 import type { Course, Club, Hole, TeeBox } from '@/types/database.types';
-import type { AustralianState } from '@/types/database.types';
+import type { RegionFilter } from '@/types/database.types';
 import {
   type WizardState,
   type HoleFormData,
@@ -48,7 +48,7 @@ interface UseAddCourseWizardReturn {
   // Step 1 handlers
   handleClubNameChange: (text: string) => void;
   handleCityChange: (text: string) => void;
-  handleStateChange: (state: AustralianState | null) => void;
+  handleStateChange: (state: RegionFilter | null) => void;
 
   // Step 2 handlers
   handleCourseNameChange: (text: string) => void;
@@ -172,7 +172,7 @@ export function useAddCourseWizard({
     }));
   }, []);
 
-  const handleStateChange = useCallback((state: AustralianState | null) => {
+  const handleStateChange = useCallback((state: RegionFilter | null) => {
     setWizardData((prev) => ({
       ...prev,
       step1: { ...prev.step1, state },

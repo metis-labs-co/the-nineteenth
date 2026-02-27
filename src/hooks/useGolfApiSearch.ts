@@ -8,7 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { golfApiClient } from '@/services/api/golfApiClient';
 import type { GolfApiClubSearchResult } from '@/services/api/golfApiTypes';
-import type { AustralianState } from '@/types/database.types';
+import type { RegionFilter } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -22,8 +22,8 @@ export interface GolfApiSearchResultItem {
   id: string;
   /** Club name */
   name: string;
-  /** Australian state code */
-  state: AustralianState | null;
+  /** Region/state code */
+  state: string | null;
   /** City */
   city: string | null;
   /** Marker to identify as API result */
@@ -53,7 +53,7 @@ export interface GolfApiSearchResultItem {
  */
 function transformApiResult(result: GolfApiClubSearchResult): GolfApiSearchResultItem {
   // Parse state - GolfAPI might return full name or abbreviation
-  const state = result.state as AustralianState | undefined;
+  const state = result.state as string | undefined;
 
   // Parse latitude/longitude (stored as strings in API response)
   const latitude = result.latitude ? parseFloat(result.latitude) : null;
@@ -92,7 +92,7 @@ function transformApiResult(result: GolfApiClubSearchResult): GolfApiSearchResul
  */
 export function useGolfApiSearch(
   searchQuery: string,
-  state?: AustralianState,
+  state?: RegionFilter,
   enabled: boolean = true
 ) {
   return useQuery({

@@ -1,8 +1,8 @@
 # Privacy Policy
 
 **The Nineteenth**
-**Effective Date: December 2025**
-**Last Updated: December 2025**
+**Effective Date: February 2026**
+**Last Updated: February 2026**
 
 ---
 
@@ -50,6 +50,18 @@ Location data is processed locally on your device and is **not** stored on our s
 We may receive information about you from:
 - **Competition Organisers**: If you're added to a competition by an organiser
 - **Other Players**: When they score your round or add you to a group
+
+### 2.5 Legal Bases for Processing
+
+Where the EU General Data Protection Regulation (GDPR) or UK GDPR applies, we rely on the following lawful bases under Article 6 for processing your personal data:
+
+| Lawful Basis | Processing Activities |
+|---|---|
+| **Contract Performance** (Art. 6(1)(b)) | Account creation and management; providing competition features (joining, pairings, leaderboards); score calculations and handicap adjustments; offline data storage and synchronisation |
+| **Legitimate Interest** (Art. 6(1)(f)) | App improvement and feature development; security monitoring, fraud detection, and abuse prevention; aggregated and anonymised usage analytics; bug fixing and performance optimisation |
+| **Consent** (Art. 6(1)(a)) | Push notifications; location access for nearby course search; marketing communications |
+
+Where we rely on consent, you may withdraw your consent at any time by adjusting your device settings (for push notifications and location) or by contacting us at support@thenineteenth.golf. Withdrawal of consent does not affect the lawfulness of processing carried out before the withdrawal.
 
 ---
 
@@ -101,7 +113,7 @@ We may share your information with third-party service providers who perform ser
 |----------|---------|-------------|
 | **Supabase** | Database hosting, authentication | Account data, competition data |
 | **Expo/EAS** | App updates, crash reporting | Device info, error logs |
-| **Analytics Provider** | Usage analytics | Anonymised usage data |
+| **RevenueCat** | Subscription management | User ID, purchase history |
 
 All service providers are contractually obligated to protect your information and use it only for the purposes we specify.
 
@@ -165,8 +177,8 @@ You can update or correct your personal information at any time through the App'
 ### 6.3 Deletion
 
 You have the right to delete your account and personal information. You can do this:
-- Through the App's settings (Profile > Delete Account)
-- By contacting us at privacy@thenineteenth.app
+- Through the App (Profile > Privacy & Data > Delete Account)
+- By contacting us at support@thenineteenth.golf
 
 **Note**: Deleting your account will remove you from all competitions. Historical scores may be retained in anonymised form for competition records.
 
@@ -184,21 +196,91 @@ If you are a resident of Australia, you have rights under the Privacy Act 1988 (
 - Request correction of inaccurate information
 - Make a complaint about a breach of the Australian Privacy Principles
 
+### 6.6 EU/EEA Privacy Rights
+
+If you are located in the European Union or European Economic Area, you have the following rights under the General Data Protection Regulation (GDPR):
+
+- **Right of Access** (Article 15): You have the right to obtain confirmation as to whether your personal data is being processed and, if so, to access that data along with information about the processing.
+- **Right to Rectification** (Article 16): You have the right to have inaccurate personal data corrected and incomplete data completed.
+- **Right to Erasure** (Article 17): You have the right to request the deletion of your personal data where it is no longer necessary for the purpose it was collected, or where you withdraw consent.
+- **Right to Restriction of Processing** (Article 18): You have the right to request that we restrict the processing of your personal data in certain circumstances, such as when you contest the accuracy of the data.
+- **Right to Data Portability** (Article 20): You have the right to receive your personal data in a structured, commonly used, and machine-readable format, and to transmit that data to another controller.
+- **Right to Object** (Article 21): You have the right to object to the processing of your personal data where processing is based on legitimate interests, including profiling.
+- **Right to Lodge a Complaint**: You have the right to lodge a complaint with a supervisory authority in the EU/EEA Member State of your habitual residence, place of work, or place of the alleged infringement.
+
+To exercise any of these rights, please contact us at support@thenineteenth.golf. We will respond to your request within 30 days.
+
+### 6.7 UK Privacy Rights
+
+If you are located in the United Kingdom, you have equivalent rights under the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018:
+
+- **Right of Access**: Obtain confirmation and access to your personal data and processing information.
+- **Right to Rectification**: Have inaccurate personal data corrected and incomplete data completed.
+- **Right to Erasure**: Request deletion of your personal data where it is no longer necessary or where you withdraw consent.
+- **Right to Restriction of Processing**: Request restriction of processing in certain circumstances.
+- **Right to Data Portability**: Receive your personal data in a structured, commonly used, and machine-readable format.
+- **Right to Object**: Object to processing based on legitimate interests, including profiling.
+- **Right to Lodge a Complaint**: You have the right to lodge a complaint with the Information Commissioner's Office (ICO), the UK's supervisory authority for data protection.
+  - Website: https://ico.org.uk
+  - Helpline: 0303 123 1113
+
+To exercise any of these rights, please contact us at support@thenineteenth.golf. We will respond to your request within 30 days.
+
+### 6.8 US Privacy Rights
+
+#### California Residents (CCPA/CPRA)
+
+If you are a California resident, you have rights under the California Consumer Privacy Act (CCPA) as amended by the California Privacy Rights Act (CPRA):
+
+- **Right to Know**: You have the right to know what personal information we collect, use, disclose, and sell or share.
+- **Right to Delete**: You have the right to request that we delete your personal information, subject to certain exceptions.
+- **Right to Correct**: You have the right to request correction of inaccurate personal information.
+- **Right to Opt-Out of Sale/Sharing**: We do **not** sell or share your personal information for cross-context behavioural advertising. No opt-out is necessary.
+- **Right to Non-Discrimination**: We will not discriminate against you for exercising your privacy rights.
+
+**Categories of Personal Information Collected** (as defined by the CCPA):
+- Identifiers (name, email address, unique device identifiers)
+- Internet/electronic network activity (usage data, features used)
+- Geolocation data (approximate, only when permitted)
+
+We do not sell personal information. We do not use sensitive personal information for purposes other than providing our services.
+
+To exercise your rights, contact us at support@thenineteenth.golf or use the in-app features (Profile > Privacy & Data). We will verify your identity and respond within 45 days.
+
+#### Other US States
+
+Residents of Virginia, Colorado, Connecticut, Utah, Texas, Oregon, Montana, and other states with consumer privacy laws may have similar rights to access, delete, and correct their personal information. To exercise these rights, contact us at support@thenineteenth.golf.
+
 ---
 
 ## 7. Children's Privacy
 
 The App is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected personal information from a child under 13, we will take steps to delete that information promptly.
 
-If you believe we have inadvertently collected information from a child under 13, please contact us immediately at privacy@thenineteenth.app.
+If you believe we have inadvertently collected information from a child under 13, please contact us immediately at support@thenineteenth.golf.
 
 ---
 
 ## 8. International Data Transfers
 
-If you are accessing the App from outside Australia, please be aware that your information may be transferred to, stored, and processed in Australia where our servers are located.
+Your personal data is primarily stored and processed in **Australia** by Supabase, which is hosted on Amazon Web Services (AWS) in the Sydney (ap-southeast-2) region.
 
-By using the App, you consent to the transfer of your information to Australia and the processing of your information in accordance with this Privacy Policy.
+Some of your data may also be processed in the **United States** by the following service providers in connection with their services:
+
+- **Expo/EAS** (React Native OTA updates, build services, crash reporting)
+- **RevenueCat** (subscription and purchase management)
+
+### 8.1 Transfers from the EU/EEA
+
+Australia has been recognised by the European Commission as providing an adequate level of data protection (Commission Decision 2001/497/EC). For transfers to the United States, we rely on Standard Contractual Clauses (SCCs) approved by the European Commission (Commission Implementing Decision (EU) 2021/914) to ensure your data receives an equivalent level of protection.
+
+### 8.2 Transfers from the United Kingdom
+
+For transfers of personal data from the United Kingdom to Australia, the UK recognises Australia as providing adequate data protection. For transfers to the United States, we rely on the UK International Data Transfer Agreement (IDTA) or the UK Addendum to the EU Standard Contractual Clauses, as approved by the UK Secretary of State and the Information Commissioner's Office.
+
+### 8.3 Safeguards
+
+Regardless of where your data is processed, we ensure that appropriate safeguards are in place, including contractual obligations on our service providers to protect your personal data in accordance with applicable data protection laws.
 
 ---
 
@@ -224,9 +306,8 @@ We will notify you of any material changes by:
 If you have questions or comments about this Privacy Policy, or if you wish to exercise your privacy rights, please contact us at:
 
 **The Nineteenth**
-Email: privacy@thenineteenth.app
-Support: support@thenineteenth.app
-Website: https://www.thenineteenth.app/privacy
+Email: support@thenineteenth.golf
+Website: https://thenineteenth.golf/privacy
 
 For complaints regarding the handling of your personal information, you may also contact the Office of the Australian Information Commissioner (OAIC):
 - Website: https://www.oaic.gov.au
@@ -248,4 +329,4 @@ For complaints regarding the handling of your personal information, you may also
 
 ---
 
-*This Privacy Policy was last updated in December 2025.*
+*This Privacy Policy was last updated in February 2026.*
