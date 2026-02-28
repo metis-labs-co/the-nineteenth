@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { golfApiClient } from '@/services/api/golfApiClient';
 import type { GolfApiClubSearchResult } from '@/services/api/golfApiTypes';
 import type { RegionFilter } from '@/types/database.types';
+import { useUserCountry } from '@/hooks/useUserCountry';
 
 // =====================================================
 // TYPES
@@ -86,7 +87,7 @@ function transformApiResult(result: GolfApiClubSearchResult): GolfApiSearchResul
  * Search GolfAPI.io for clubs
  *
  * @param searchQuery - Search text (min 3 characters)
- * @param state - Optional Australian state filter
+ * @param state - Optional region/state filter
  * @param enabled - Whether to run the query
  * @returns Query result with transformed API results
  */
@@ -95,8 +96,10 @@ export function useGolfApiSearch(
   state?: RegionFilter,
   enabled: boolean = true
 ) {
+  const { country } = useUserCountry();
+
   return useQuery({
-    queryKey: ['golfapi', 'search', searchQuery, state],
+    queryKey: ['golfapi', 'search', searchQuery, state, country],
     queryFn: async (): Promise<GolfApiSearchResultItem[]> => {
       // Check if API is available
       if (!golfApiClient.isAvailable()) {
@@ -113,7 +116,7 @@ export function useGolfApiSearch(
       try {
         const results = await golfApiClient.searchClubs({
           query: searchQuery,
-          // country defaults to 'Australia' in golfApiClient
+          country: country ?? undefined,
           state: state,
         });
 

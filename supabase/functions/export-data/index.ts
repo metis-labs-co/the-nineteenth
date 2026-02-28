@@ -74,11 +74,21 @@ serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Helper to safely query a table (returns empty array if table doesn't exist)
+    const safeQuery = async (query: Promise<{ data: unknown; error: unknown }>) => {
+      const result = await query;
+      if (result.error) {
+        console.warn('[export-data] Query error (table may not exist):', result.error);
+        return { data: null, error: result.error };
+      }
+      return result;
+    };
+
     // Query all user data in parallel
     const [
       playerResult,
       scorecardsResult,
-      holeScoresResult,
+      scoreEntriesResult,
       competitionPlayersResult,
       friendshipsResult,
       subscriptionResult,
@@ -90,19 +100,19 @@ serve(async (req: Request) => {
       handicapDifferentialsResult,
       preferencesResult,
     ] = await Promise.all([
-      supabaseAdmin.from('players').select('*').eq('id', userId).single(),
-      supabaseAdmin.from('scorecards').select('*, hole_scores(*)').eq('player_id', userId),
-      supabaseAdmin.from('hole_scores').select('*').eq('player_id', userId),
-      supabaseAdmin.from('competition_players').select('*, competitions(name, status)').eq('player_id', userId),
-      supabaseAdmin.from('friendships').select('*').or(`user_id.eq.${userId},friend_id.eq.${userId}`),
-      supabaseAdmin.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle(),
-      supabaseAdmin.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
-      supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('user_id', userId),
-      supabaseAdmin.from('player_achievements').select('*, achievements(name, description)').eq('player_id', userId),
-      supabaseAdmin.from('skins_payouts').select('*').eq('player_id', userId),
-      supabaseAdmin.from('wolf_payouts').select('*').eq('player_id', userId),
-      supabaseAdmin.from('handicap_differentials').select('*').eq('player_id', userId),
-      supabaseAdmin.from('user_preferences').select('*').eq('user_id', userId).maybeSingle(),
+      safeQuery(supabaseAdmin.from('players').select('*').eq('id', userId).single()),
+      safeQuery(supabaseAdmin.from('scorecards').select('*').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('score_entries').select('*').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('competition_players').select('*, competitions(name, status)').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('friendships').select('*').or(`user_id.eq.${userId},friend_id.eq.${userId}`)),
+      safeQuery(supabaseAdmin.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()),
+      safeQuery(supabaseAdmin.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100)),
+      safeQuery(supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('user_id', userId)),
+      safeQuery(supabaseAdmin.from('player_achievements').select('*, achievements(name, description)').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('skins_payouts').select('*').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('wolf_payouts').select('*').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('handicap_differentials').select('*').eq('player_id', userId)),
+      safeQuery(supabaseAdmin.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()),
     ]);
 
     const exportData = {
@@ -111,7 +121,7 @@ serve(async (req: Request) => {
       email: user.email,
       profile: playerResult.data,
       scorecards: scorecardsResult.data ?? [],
-      hole_scores: holeScoresResult.data ?? [],
+      score_entries: scoreEntriesResult.data ?? [],
       competitions: competitionPlayersResult.data ?? [],
       friendships: friendshipsResult.data ?? [],
       subscription: subscriptionResult.data,

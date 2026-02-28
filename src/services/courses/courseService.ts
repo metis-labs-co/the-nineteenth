@@ -50,6 +50,8 @@ export interface CourseSearchParams {
   query?: string;
   state?: RegionFilter;
   city?: string;
+  /** Country for API search (e.g. 'United Kingdom', 'Australia') */
+  country?: string;
   limit?: number;
   offset?: number;
   /** Whether to search external API in addition to cache */
@@ -134,6 +136,7 @@ class CourseService {
       query,
       state,
       city,
+      country,
       limit = 20,
       offset = 0,
       searchApi = false,
@@ -167,7 +170,7 @@ class CourseService {
       const apiParams: GolfApiSearchParams = {
         query,
         state,
-        // country defaults to 'Australia' in golfApiClient
+        country,
       };
 
       const apiResults = await golfApiClient.searchClubs(apiParams);
