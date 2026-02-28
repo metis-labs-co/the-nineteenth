@@ -25,7 +25,8 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== 'GET') {
+  // Accept both GET and POST (supabase.functions.invoke defaults to POST)
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -74,14 +75,19 @@ serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Helper to safely query a table (returns empty array if table doesn't exist)
-    const safeQuery = async (query: Promise<{ data: unknown; error: unknown }>) => {
-      const result = await query;
-      if (result.error) {
-        console.warn('[export-data] Query error (table may not exist):', result.error);
-        return { data: null, error: result.error };
+    // Helper to safely query a table (returns empty data if table doesn't exist or query fails)
+    const safeQuery = async (queryFn: () => PromiseLike<{ data: unknown; error: unknown }>) => {
+      try {
+        const result = await queryFn();
+        if (result.error) {
+          console.warn('[export-data] Query error (table may not exist):', result.error);
+          return { data: null, error: result.error };
+        }
+        return result;
+      } catch (err) {
+        console.warn('[export-data] Query threw:', err);
+        return { data: null, error: err };
       }
-      return result;
     };
 
     // Query all user data in parallel
@@ -97,22 +103,20 @@ serve(async (req: Request) => {
       achievementsResult,
       skinsPayoutsResult,
       wolfPayoutsResult,
-      handicapDifferentialsResult,
       preferencesResult,
     ] = await Promise.all([
-      safeQuery(supabaseAdmin.from('players').select('*').eq('id', userId).single()),
-      safeQuery(supabaseAdmin.from('scorecards').select('*').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('score_entries').select('*').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('competition_players').select('*, competitions(name, status)').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('friendships').select('*').or(`user_id.eq.${userId},friend_id.eq.${userId}`)),
-      safeQuery(supabaseAdmin.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()),
-      safeQuery(supabaseAdmin.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100)),
-      safeQuery(supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('user_id', userId)),
-      safeQuery(supabaseAdmin.from('player_achievements').select('*, achievements(name, description)').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('skins_payouts').select('*').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('wolf_payouts').select('*').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('handicap_differentials').select('*').eq('player_id', userId)),
-      safeQuery(supabaseAdmin.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()),
+      safeQuery(() => supabaseAdmin.from('players').select('*').eq('id', userId).single()),
+      safeQuery(() => supabaseAdmin.from('scorecards').select('*').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('score_entries').select('*').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('competition_players').select('*, competitions(name, status)').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('friendships').select('*').or(`user_id.eq.${userId},friend_id.eq.${userId}`)),
+      safeQuery(() => supabaseAdmin.from('user_subscriptions').select('*').eq('user_id', userId).maybeSingle()),
+      safeQuery(() => supabaseAdmin.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100)),
+      safeQuery(() => supabaseAdmin.from('favorite_courses').select('*, courses(name)').eq('user_id', userId)),
+      safeQuery(() => supabaseAdmin.from('player_achievements').select('*').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('skins_payouts').select('*').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('wolf_payouts').select('*').eq('player_id', userId)),
+      safeQuery(() => supabaseAdmin.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()),
     ]);
 
     const exportData = {
@@ -130,7 +134,6 @@ serve(async (req: Request) => {
       achievements: achievementsResult.data ?? [],
       skins_payouts: skinsPayoutsResult.data ?? [],
       wolf_payouts: wolfPayoutsResult.data ?? [],
-      handicap_differentials: handicapDifferentialsResult.data ?? [],
       preferences: preferencesResult.data,
     };
 
