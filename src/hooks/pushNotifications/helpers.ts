@@ -39,6 +39,7 @@ export function extractPreferencesFromPlayer(player: Player): PushPreferences {
     pushCompetitionUpdates: player.push_competition_updates,
     pushFriendRequests: player.push_friend_requests,
     pushScorecardUpdates: player.push_scorecard_updates,
+    pushLeagueUpdates: player.push_league_updates ?? true,
   };
 }
 

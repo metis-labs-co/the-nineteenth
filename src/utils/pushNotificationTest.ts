@@ -69,6 +69,28 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
     roundId: 'test-round-789',
     playerId: 'test-player-456',
   },
+  league_player_joined: {
+    leagueId: 'test-league-123',
+    playerId: 'test-player-456',
+  },
+  league_player_left: {
+    leagueId: 'test-league-123',
+    playerId: 'test-player-456',
+  },
+  league_player_removed: {
+    leagueId: 'test-league-123',
+  },
+  league_round_tagged: {
+    leagueId: 'test-league-123',
+    playerId: 'test-player-456',
+  },
+  league_leaderboard_changed: {
+    leagueId: 'test-league-123',
+  },
+  round_completed: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
 };
 
 /**
@@ -83,6 +105,12 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   friend_request_accepted: 'Friend Request Accepted',
   scorecard_submitted: 'Scorecard Submitted',
   social_round_invitation: 'Round Invitation',
+  league_player_joined: 'Player Joined League',
+  league_player_left: 'Player Left League',
+  league_player_removed: 'Removed from League',
+  league_round_tagged: 'Round Tagged',
+  league_leaderboard_changed: 'Ranking Changed',
+  round_completed: 'Round Complete',
 };
 
 /**
@@ -97,6 +125,12 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   friend_request_accepted: 'Test Player accepted your friend request',
   scorecard_submitted: 'Test Player submitted their scorecard for Round 1',
   social_round_invitation: 'Test Player invited you to join a round',
+  league_player_joined: 'Test Player joined Test League',
+  league_player_left: 'Test Player left Test League',
+  league_player_removed: 'You were removed from Test League',
+  league_round_tagged: 'Test Player tagged a round to Test League (18.5)',
+  league_leaderboard_changed: 'You moved up to #2 in Test League',
+  round_completed: 'All scorecards submitted for Round 1 of Test Competition',
 };
 
 // =====================================================

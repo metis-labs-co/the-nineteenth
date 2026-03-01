@@ -175,6 +175,13 @@ export const PushNotificationSettings = React.memo(function PushNotificationSett
     [updatePreferences]
   );
 
+  const handleLeagueUpdatesChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushLeagueUpdates: enabled });
+    },
+    [updatePreferences]
+  );
+
   // Get permission status text and icon
   const getPermissionStatusInfo = () => {
     if (!isPhysicalDevice) {
@@ -318,6 +325,16 @@ export const PushNotificationSettings = React.memo(function PushNotificationSett
             disabled={isUpdatingPreferences}
             accessibilityLabel="Scorecard updates notifications toggle"
             testID={testID ? `${testID}-scorecard-toggle` : undefined}
+          />
+
+          <SettingRow
+            label="League Updates"
+            description="When players join, tag rounds, or rankings change"
+            value={preferences?.pushLeagueUpdates ?? true}
+            onValueChange={handleLeagueUpdatesChange}
+            disabled={isUpdatingPreferences}
+            accessibilityLabel="League updates notifications toggle"
+            testID={testID ? `${testID}-league-toggle` : undefined}
           />
         </View>
       )}

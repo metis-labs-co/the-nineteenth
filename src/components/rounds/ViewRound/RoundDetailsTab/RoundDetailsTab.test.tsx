@@ -399,14 +399,14 @@ describe('RoundDetailsTab', () => {
       expect(screen.getByTestId('pill-event')).toBeTruthy();
     });
 
-    it('displays league type for league competition', () => {
+    it('displays knockout type for knockout competition', () => {
       const round = createRoundWithCourse({
-        competition: createCompetitionSummary({ competition_type: 'league' }),
+        competition: createCompetitionSummary({ competition_type: 'knockout' }),
       });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByTestId('pill-league')).toBeTruthy();
+      expect(screen.getByTestId('pill-knockout')).toBeTruthy();
     });
 
     it('navigates to competition when card pressed', () => {

@@ -458,4 +458,4 @@ When importing a course, ensure tee data is captured for daily handicap calculat
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: February 2026*

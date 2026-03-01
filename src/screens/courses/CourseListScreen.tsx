@@ -17,7 +17,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { LoadingSpinner, SearchBar, PageHeader, ConfirmationDialog } from '@/components/common';
+import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useConfirmationDialog } from '@/hooks';
+import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
   StateFilterList,
@@ -52,6 +54,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function CourseListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+
+  // Welcome modal
+  const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } = useScreenWelcome('courses');
 
   // Dialog state
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
@@ -298,10 +303,14 @@ export default function CourseListScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Courses"  />
+        <PageHeader
+          title="Courses"
+          rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
+        />
         <View style={[styles.centerContent, { flex: 1 }]}>
           <LoadingSpinner size="lg" />
         </View>
+        <ScreenWelcomeModal visible={isModalVisible} content={welcomeContent} onDismiss={dismissModal} testID="courses-welcome-modal" />
       </View>
     );
   }
@@ -310,7 +319,10 @@ export default function CourseListScreen() {
   if (error && !displayItems.length) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Courses"  />
+        <PageHeader
+          title="Courses"
+          rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
+        />
         <ErrorState
           error={error}
           onRetry={handleRefresh}
@@ -323,7 +335,10 @@ export default function CourseListScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <PageHeader title="Courses"  />
+      <PageHeader
+        title="Courses"
+        rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
+      />
 
       {/* Search Bar */}
       <SearchBar
@@ -375,6 +390,14 @@ export default function CourseListScreen() {
         icon="earth"
         onConfirm={handleMismatchSwitch}
         onCancel={handleMismatchKeep}
+      />
+
+      {/* Welcome Info Modal */}
+      <ScreenWelcomeModal
+        visible={isModalVisible}
+        content={welcomeContent}
+        onDismiss={dismissModal}
+        testID="courses-welcome-modal"
       />
     </View>
   );

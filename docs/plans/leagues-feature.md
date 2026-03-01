@@ -18,7 +18,7 @@ Users want to compete with friends internationally - each player plays any cours
 
 ---
 
-## Phase 1: Move Friends Tab to Profile Menu
+## Phase 1: Move Friends Tab to Profile Menu ✅
 
 ### 1.1 Remove Friends from bottom tabs
 
@@ -54,7 +54,7 @@ Users want to compete with friends internationally - each player plays any cours
 
 ---
 
-## Phase 2: Database Schema
+## Phase 2: Database Schema ✅
 
 Create migration: `supabase/migrations/YYYYMMDD000000_leagues.sql`
 
@@ -299,7 +299,7 @@ UPDATE tier_limits SET max_leagues_owned = -2, can_create_league = TRUE WHERE ti
 
 ---
 
-## Phase 3: TypeScript Types & Query Keys
+## Phase 3: TypeScript Types & Query Keys ✅
 
 ### 3.1 New types file: `src/types/database/league.types.ts`
 - `League`, `LeaguePlayer`, `LeagueRound`, `LeagueLeaderboardEntry`
@@ -324,7 +324,7 @@ TagRoundToLeague: { leagueId: string };
 
 ---
 
-## Phase 4: League Screens
+## Phase 4: League Screens ✅
 
 ### 4.1 Screen structure
 ```
@@ -378,7 +378,7 @@ src/screens/leagues/
 
 ---
 
-## Phase 5: API Services & Hooks
+## Phase 5: API Services & Hooks ✅
 
 ### 5.1 Service: `src/services/api/leagues.ts`
 - `getLeagues()` — fetch user's leagues (created + joined)
@@ -400,7 +400,7 @@ src/screens/leagues/
 
 ---
 
-## Phase 6: Scoring Integration
+## Phase 6: Scoring Integration ✅
 
 ### 6.1 Tag round to league (post-submission prompt)
 
@@ -418,7 +418,7 @@ Add notification type: `league_invitation`
 
 ---
 
-## Phase 7: Root Navigator & Polish
+## Phase 7: Root Navigator & Polish ✅
 
 - Add all new screens to `RootNavigator.tsx` (flat `Stack.Screen` entries with `headerShown: false`)
 - Subscription gating enforcement via `useCheckFeature('create_league')` + `UpgradePrompt`

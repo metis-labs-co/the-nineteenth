@@ -31,6 +31,8 @@ const createFreeTierLimits = (): TierLimits => ({
   maxPlayersPerCompetition: 8,
   maxFriends: 10,
   maxRoundsPlayed: 20,
+  maxLeaguesOwned: 0,
+  canJoinLeague: false,
   allowedGameTypes: ['stableford'] as GameType[],
   canUseTeamFormats: false,
   canUseScoringPairs: false,
@@ -49,6 +51,7 @@ const createFreeTierLimits = (): TierLimits => ({
   canUseSkinsGame: false,
   canUseWolfGame: false,
   canUsePrizePool: false,
+  canCreateLeague: false,
   canAccessAdminTools: false,
   requiresPayment: false,
   canExpire: true,
@@ -64,6 +67,8 @@ const createPremiumTierLimits = (): TierLimits => ({
   maxPlayersPerCompetition: 40,
   maxFriends: 100,
   maxRoundsPlayed: -1,
+  maxLeaguesOwned: -1, // Unlimited
+  canJoinLeague: true,
   allowedGameTypes: ['stableford', 'stroke', 'match-play', 'shamble', 'best-ball', 'scramble'] as GameType[],
   canUseTeamFormats: true,
   canUseScoringPairs: true,
@@ -82,12 +87,49 @@ const createPremiumTierLimits = (): TierLimits => ({
   canUseSkinsGame: true,
   canUseWolfGame: true,
   canUsePrizePool: true,
+  canCreateLeague: true,
   canAccessAdminTools: false,
   requiresPayment: true,
   canExpire: true,
   displayName: 'Premium',
   description: 'Full-featured experience for serious competition organisers',
   badgeColor: '#f59e0b',
+});
+
+const createSocialTierLimits = (): TierLimits => ({
+  tier: 'social',
+  maxCompetitionsOwned: 8,
+  maxRoundsPerCompetition: 5,
+  maxPlayersPerCompetition: 16,
+  maxFriends: 30,
+  maxRoundsPlayed: -1,
+  maxLeaguesOwned: 3,
+  canJoinLeague: true,
+  allowedGameTypes: ['stableford', 'stroke', 'match-play'] as GameType[],
+  canUseTeamFormats: false,
+  canUseScoringPairs: false,
+  canExportData: true,
+  canUseApiCourseSearch: true,
+  canViewBasicStats: true,
+  canViewAdvancedStats: false,
+  canViewScoreDistribution: true,
+  canCompareStats: true,
+  canViewDetailedStats: true,
+  canViewHandicapHistory: true,
+  canViewAchievementLeaderboard: true,
+  canUseAiCompetition: true,
+  canManageGuests: true,
+  canUseGpsDistance: true,
+  canUseSkinsGame: false,
+  canUseWolfGame: false,
+  canUsePrizePool: false,
+  canCreateLeague: true,
+  canAccessAdminTools: false,
+  requiresPayment: true,
+  canExpire: true,
+  displayName: 'Social',
+  description: 'Perfect for casual golfers and social groups',
+  badgeColor: '#3b82f6',
 });
 
 const createDefaultContext = (overrides: Partial<FeatureCheckContext> = {}): FeatureCheckContext => ({
@@ -307,6 +349,71 @@ describe('validateFeatureAccess - other features', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('Unknown feature');
+  });
+
+  describe('create_league', () => {
+    it('should deny on free tier (maxLeaguesOwned = 0)', () => {
+      const result = validateFeatureAccess(
+        'create_league',
+        createFreeTierLimits(),
+        'free',
+        { currentCount: 0 }
+      );
+      expect(result.allowed).toBe(false);
+      expect(result.upgradeRequired).toBe(true);
+    });
+
+    it('should allow on social tier within limit', () => {
+      const result = validateFeatureAccess(
+        'create_league',
+        createSocialTierLimits(),
+        'social',
+        { currentCount: 1 }
+      );
+      expect(result.allowed).toBe(true);
+    });
+
+    it('should deny on social tier at limit', () => {
+      const result = validateFeatureAccess(
+        'create_league',
+        createSocialTierLimits(),
+        'social',
+        { currentCount: 3 }
+      );
+      expect(result.allowed).toBe(false);
+    });
+
+    it('should allow on premium tier (unlimited)', () => {
+      const result = validateFeatureAccess(
+        'create_league',
+        createPremiumTierLimits(),
+        'premium',
+        { currentCount: 100 }
+      );
+      expect(result.allowed).toBe(true);
+    });
+  });
+
+  describe('join_league', () => {
+    it('should deny on free tier', () => {
+      const result = validateFeatureAccess(
+        'join_league',
+        createFreeTierLimits(),
+        'free',
+        {}
+      );
+      expect(result.allowed).toBe(false);
+    });
+
+    it('should allow on social tier', () => {
+      const result = validateFeatureAccess(
+        'join_league',
+        createSocialTierLimits(),
+        'social',
+        {}
+      );
+      expect(result.allowed).toBe(true);
+    });
   });
 });
 

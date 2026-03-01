@@ -93,10 +93,16 @@ const NOTIFICATION_CATEGORY_MAP: Record<string, string> = {
   competition_player_joined: 'COMPETITION',
   new_round_created: 'COMPETITION',
   competition_status_changed: 'COMPETITION',
+  round_completed: 'COMPETITION',
   friend_request_received: 'FRIEND_REQUEST',
   friend_request_accepted: 'FRIEND_REQUEST',
   scorecard_submitted: 'SCORECARD',
   social_round_invitation: 'COMPETITION',
+  league_player_joined: 'LEAGUE',
+  league_player_left: 'LEAGUE',
+  league_player_removed: 'LEAGUE',
+  league_round_tagged: 'LEAGUE',
+  league_leaderboard_changed: 'LEAGUE',
 };
 
 // Android notification channels
@@ -105,10 +111,16 @@ const ANDROID_CHANNEL_MAP: Record<string, string> = {
   competition_player_joined: 'competition-updates',
   new_round_created: 'competition-updates',
   competition_status_changed: 'competition-updates',
+  round_completed: 'competition-updates',
   friend_request_received: 'friend-requests',
   friend_request_accepted: 'friend-requests',
   scorecard_submitted: 'scorecard-updates',
   social_round_invitation: 'competition-updates',
+  league_player_joined: 'league-updates',
+  league_player_left: 'league-updates',
+  league_player_removed: 'league-updates',
+  league_round_tagged: 'league-updates',
+  league_leaderboard_changed: 'league-updates',
 };
 
 // =====================================================

@@ -42,7 +42,7 @@ const linkingConfig = {
           RoundsTab: 'rounds',
           CompetitionsTab: 'competitions',
           CoursesTab: 'courses',
-          FriendsTab: 'friends',
+          LeaguesTab: 'leagues',
           ProfileTab: 'profile',
         },
       },

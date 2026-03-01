@@ -40,7 +40,7 @@ This app bridges that gap by providing a lightweight, social way to organize cas
 
 ### Main Documentation
 - **CLAUDE.md** (this file) - Project overview and quick reference
-- **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - Complete setup and configuration guide
+- **[PROJECT_SETUP.md](docs/PROJECT_SETUP.md)** - Complete setup and configuration guide
 - **[docs/README.md](docs/README.md)** - Quick start and day-to-day commands
 
 ### Developer Guides
@@ -56,20 +56,19 @@ Detailed implementation guides for specific topics:
 - **[WOLF_GAME.md](docs/guides/WOLF_GAME.md)** - Wolf strategic partner selection side-game
 - **[SUBSCRIPTION_TIERS.md](docs/guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system, limits, grandfathering, admin management
 - **[PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture, setup, testing, troubleshooting
+- **[LEAGUES.md](docs/guides/LEAGUES.md)** - Leagues feature: cross-course competition, WHS differentials, leaderboards
 
 ### Database
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete schema with SQL tables and TypeScript types
 
 ### Features & Specifications
 - **[MVP-PHASE-1.md](docs/MVP-PHASE-1.md)** - MVP feature specifications (Phase 1)
-- **[MVP-PHASE-2.md](docs/MVP-PHASE-2.md)** - Deferred features (Phase 2+)
-- **[MVP-PHASE-1-PROGRESS.md](docs/MVP-PHASE-1-PROGRESS.md)** - Current progress tracking
 
 ---
 
 ## Tech Stack
 
-**All tech stack decisions finalized.** See [PROJECT_SETUP.md](PROJECT_SETUP.md) for installation instructions.
+**All tech stack decisions finalized.** See [PROJECT_SETUP.md](docs/PROJECT_SETUP.md) for installation instructions.
 
 ### Frontend
 - **Expo** (SDK 50+) - React Native development framework
@@ -169,6 +168,9 @@ See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete impl
 21. **WolfGame** - Wolf strategic partner selection side-game configuration (scoring type, pot, wolf order)
 22. **WolfHoleDecision** - Hole-by-hole Wolf decisions and results (wolf, partner, outcome, points)
 23. **WolfPayout** - Final Wolf settlement summary for each participant (points, winnings, net result)
+24. **League** - Cross-course league competition using WHS handicap differentials
+25. **LeaguePlayer** - Join table linking players to leagues
+26. **LeagueRound** - Scorecards tagged to a league with handicap differential for leaderboard
 
 ### Subscription Tiers
 
@@ -176,9 +178,9 @@ The app uses a **tiered subscription model** to control feature access:
 
 | Tier | Description | Key Limits |
 |------|-------------|------------|
-| **Free** | Default for all users | 3 competitions, 2 rounds, 10 friends, Stableford only |
-| **Social** | Casual golfers | 8 competitions, 5 rounds, 16 players, +Stroke Play, Match Play, Team formats, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
-| **Premium** | Serious organizers | Unlimited competitions, 10 rounds, 40 players, all game types, skins, wolf, prize pools |
+| **Free** | Default for all users | 3 competitions, 0 leagues, 2 rounds, 10 friends, Stableford only |
+| **Social** | Casual golfers | 8 competitions, 3 leagues, 5 rounds, 16 players, +Stroke Play, Match Play, Team formats, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
+| **Premium** | Serious organizers | Unlimited competitions/leagues, 10 rounds, 40 players, all game types, skins, wolf, prize pools |
 | **Super Admin** | Internal team only | No limits, admin tools, never expires |
 
 **Key Behaviors:**
@@ -241,59 +243,43 @@ The app uses a **tiered subscription model** to control feature access:
 
 ---
 
-## MVP Feature Prioritization
+## Feature Implementation Status
 
-> **Detailed Specs:** See [MVP-PHASE-1.md](docs/MVP-PHASE-1.md) and [MVP-PHASE-2.md](docs/MVP-PHASE-2.md)
+### Phase 1 (MVP) - Complete
+All core MVP features have been implemented:
+- Authentication (email + password, magic links, password reset)
+- Competition creation wizard (4-step setup)
+- Multi-round competitions with multiple game types
+- Player joining via invite codes
+- Competition dashboard with live leaderboards
+- Hole-by-hole scorecard entry with offline support
+- Scorecard review and submission
+- Leaderboard with real-time updates
 
-### Phase 1 (MVP) - Current Phase
+See [MVP-PHASE-1.md](docs/MVP-PHASE-1.md) for original specifications.
 
-**Goal**: Validate core concept with minimum viable feature set
-
-**Core Features**:
-- Admin: Create competition (name, dates, handicap system)
-- Admin: Add single round (manual course entry, Stableford only)
-- Admin: Add players manually (name + handicap)
-- Admin: Generate invite code
-- Player: Join via invite code
-- Player: View competition dashboard
-- Player: Enter scores for entire group (18 holes)
-- Player: Submit scorecard
-- Basic leaderboard (Stableford points, pull-to-refresh)
-- Offline scorecard entry (Expo SQLite)
-- Manual sync on submit
-
-**Critical Limitations**:
-- Single round only (no multi-round competitions)
-- Stableford scoring only
-- Manual course entry (no API integration)
-- Manual pairings (no auto-generation)
-- No real-time updates (pull-to-refresh)
-- No background sync
-- No notifications
-
-See [MVP-PHASE-1.md](docs/MVP-PHASE-1.md) for complete specifications.
-
-### Phase 2 - Deferred Features
-
-**Add based on user feedback from Phase 1**:
+### Phase 2 - Complete
+All Phase 2 features have been implemented:
 - Multi-round competitions
 - Auto-pairing algorithm
-- Multiple game types (Stroke Play, Match Play)
-- Course search API integration
+- Multiple game types (Stroke Play, Match Play, Team formats)
+- Course search API integration (GolfAPI.io)
 - Real-time leaderboard updates
-- Email/SMS notifications
+- Push notifications
 - Background sync & auto-retry
 - Detailed statistics (putts, fairways, GIR)
 
-See [MVP-PHASE-2.md](docs/MVP-PHASE-2.md) for full details.
+### Phase 3 - Implemented
+- Team formats (Ambrose, Best Ball, Scramble, Shamble)
+- Social features (friends, player comparison)
+- Player statistics dashboard
+- Achievements and cosmetics system
 
-### Phase 3 - Future
-
-- Team formats (Ambrose, Best Ball)
-- Social features (comments, photos)
-- Advanced analytics dashboard
-- GPS shot tracking
-- Expand to New Zealand
+### Current Development
+- Leagues (cross-course competition using WHS handicap differentials)
+- Skins and Wolf side-games with prize pools
+- Multi-country support (Australia, UK/EU, USA)
+- Subscription tier system (Free, Social, Premium, Super Admin)
 
 ---
 
@@ -490,7 +476,7 @@ npx expo --version
 
 ```bash
 # Navigate to project
-cd GolfApp
+cd the-nineteenth
 
 # Install dependencies
 pnpm install
@@ -508,7 +494,7 @@ npx expo start --ios
 npx expo start --android
 ```
 
-**Complete setup guide**: See [PROJECT_SETUP.md](PROJECT_SETUP.md) for detailed installation and configuration.
+**Complete setup guide**: See [PROJECT_SETUP.md](docs/PROJECT_SETUP.md) for detailed installation and configuration.
 
 ### Environment Variables
 
@@ -679,9 +665,9 @@ eas update --branch production --message "Fix scorecard sync bug"
 | **Wolf Game** | docs/guides/WOLF_GAME.md | Wolf partner selection side-game |
 | **Subscriptions** | docs/guides/SUBSCRIPTION_TIERS.md | Tier system and feature limits |
 | **Push Notifications** | docs/guides/PUSH_NOTIFICATIONS.md | Push notification architecture |
+| **Leagues** | docs/guides/LEAGUES.md | Cross-course league competitions |
 | **Database** | docs/database/DATABASE_SCHEMA.md | SQL + TypeScript schemas |
 | **MVP Phase 1** | docs/MVP-PHASE-1.md | MVP specifications |
-| **MVP Phase 2** | docs/MVP-PHASE-2.md | Deferred features |
 
 ### Tech Stack Quick Reference
 
@@ -720,11 +706,11 @@ eas update --branch production  # OTA update
 ```
 
 ### Project Status
-- ✅ Configuration complete
-- ✅ Dependencies installed
-- ✅ Documentation optimized and structured
-- 📝 Ready for MVP Phase 1 implementation
+- ✅ Phase 1 (MVP) complete
+- ✅ Phase 2 features complete
+- ✅ Phase 3 features complete
+- 🔄 Leagues feature (in development)
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: February 2026*

@@ -833,7 +833,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
 
   // Calculate course par for daily handicap
   const coursePar = useMemo(
-    () => holes.reduce((sum, hole) => sum + hole.par, 0),
+    () => (Array.isArray(holes) ? holes : []).reduce((sum, hole) => sum + hole.par, 0),
     [holes]
   );
 

@@ -86,6 +86,14 @@ import SubscriptionScreen from '@/screens/subscription/SubscriptionScreen';
 import AchievementsScreen from '@/screens/profile/AchievementsScreen';
 import AchievementLeaderboardScreen from '@/screens/profile/AchievementLeaderboardScreen';
 
+// League Screens
+import LeagueDetailScreen from '@/screens/leagues/LeagueDetailScreen';
+import CreateLeagueScreen from '@/screens/leagues/CreateLeagueScreen';
+import JoinLeagueScreen from '@/screens/leagues/JoinLeagueScreen';
+import LeagueSettingsScreen from '@/screens/leagues/LeagueSettingsScreen';
+import TagRoundToLeagueScreen from '@/screens/leagues/TagRoundToLeagueScreen';
+import ChallengeDetailScreen from '@/screens/leagues/ChallengeDetailScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 interface RootNavigatorProps {
@@ -533,6 +541,62 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={AchievementLeaderboardScreen}
               options={{
                 title: 'Achievement Leaders',
+                headerShown: false,
+              }}
+            />
+
+            {/* League Screens */}
+            <Stack.Screen
+              name="LeagueDetail"
+              component={LeagueDetailScreen}
+              options={{
+                title: 'League',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="CreateLeague"
+              component={CreateLeagueScreen}
+              options={{
+                title: 'Create League',
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="JoinLeague"
+              component={JoinLeagueScreen}
+              options={{
+                title: 'Join League',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="LeagueSettings"
+              component={LeagueSettingsScreen}
+              options={{
+                title: 'League Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="TagRoundToLeague"
+              component={TagRoundToLeagueScreen}
+              options={{
+                title: 'Tag Round',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="ChallengeDetail"
+              component={ChallengeDetailScreen}
+              options={{
+                title: 'Challenge',
                 headerShown: false,
               }}
             />

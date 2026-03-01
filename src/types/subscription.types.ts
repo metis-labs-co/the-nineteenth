@@ -100,6 +100,10 @@ export type FeatureId =
   | 'ai_competition'
   | 'manage_guests'
   | 'gps_distance'
+  // League features
+  | 'create_league'
+  | 'create_premium_league' // Ladder/Eclectic (Premium-only creation)
+  | 'join_league'
   // Admin features
   | 'admin_tools';
 
@@ -177,6 +181,11 @@ export interface TierLimits {
   canUseSkinsGame: boolean;
   canUseWolfGame: boolean;
   canUsePrizePool: boolean;
+
+  // Feature access - Leagues
+  maxLeaguesOwned: number;
+  canCreateLeague: boolean;
+  canJoinLeague: boolean;
 
   // Feature access - Admin
   canAccessAdminTools: boolean;
@@ -287,6 +296,8 @@ export function isFeatureId(value: string): value is FeatureId {
     'ai_competition',
     'manage_guests',
     'gps_distance',
+    'create_league',
+    'join_league',
     'admin_tools',
   ];
   return validFeatures.includes(value as FeatureId);
@@ -387,6 +398,9 @@ export function mapDBTierLimits(db: DBTierLimits): TierLimits {
     canUseSkinsGame: db.can_use_skins_game ?? true,
     canUseWolfGame: db.can_use_wolf_game ?? true,
     canUsePrizePool: db.can_use_prize_pool ?? true,
+    maxLeaguesOwned: db.max_leagues_owned ?? 0,
+    canCreateLeague: db.can_create_league ?? false,
+    canJoinLeague: db.can_join_league ?? false,
     canAccessAdminTools: db.can_access_admin_tools,
     requiresPayment: db.requires_payment,
     canExpire: db.can_expire,

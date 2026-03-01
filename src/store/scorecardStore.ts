@@ -621,7 +621,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       }
 
       // Calculate course par from holes for handicap differential calculation
-      const coursePar = holes.reduce((sum, h) => sum + (h.par || 0), 0);
+      const safeHoles = Array.isArray(holes) ? holes : [];
+      const coursePar = safeHoles.reduce((sum, h) => sum + (h.par || 0), 0);
 
       const now = new Date();
       const newScorecards = new Map(groupScorecards);

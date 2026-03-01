@@ -30,6 +30,9 @@ export type {
   SubscriptionSource,
   NotificationType,
   TierFeature,
+  BracketType,
+  KnockoutMatchStatus,
+  SeedingMethod,
 } from './enums';
 
 // Skins types
@@ -278,6 +281,38 @@ export {
   COSMETIC_TYPE_ICONS,
   FRAME_STYLES,
 } from './cosmetic.types';
+
+// Knockout types
+export type {
+  KnockoutConfig,
+  ValidPlayerCount,
+  KnockoutMatch,
+  KnockoutMatchWithPlayers,
+  BracketStage,
+  BracketData,
+} from './knockout.types';
+
+// League types
+export type {
+  LeagueStatus,
+  LeagueType,
+  LeaguePlayerStatus,
+  LadderChallengeStatus,
+  LadderSeeding,
+  EclecticScoring,
+  League,
+  LeaguePlayer,
+  LeagueRound,
+  LeagueLeaderboardEntry,
+  LeagueRoundDetail,
+  LeagueWithPlayerCount,
+  LeagueWithUserRank,
+  LadderChallenge,
+  LadderStandingsEntry,
+  LadderChallengeWithPlayers,
+  EclecticBestScore,
+  EclecticLeaderboardEntry,
+} from './league.types';
 
 // Schema type
 export type { Database } from './schema';

@@ -249,12 +249,12 @@ describe('DetailsTab', () => {
       expect(screen.getByText(/16\/1\/2025/)).toBeTruthy();
     });
 
-    it('renders single date for league without end date', () => {
-      const league = createTestCompetition({
-        competition_type: 'league',
+    it('renders single date for knockout without end date', () => {
+      const knockout = createTestCompetition({
+        competition_type: 'knockout',
         end_date: null,
       });
-      render(<DetailsTab {...defaultProps} competition={league} />);
+      render(<DetailsTab {...defaultProps} competition={knockout} />);
       expect(screen.getByText('15/1/2025')).toBeTruthy();
     });
   });
@@ -419,10 +419,10 @@ describe('DetailsTab', () => {
       expect(screen.getAllByText('Event').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('displays league type correctly', () => {
-      const league = createTestCompetition({ competition_type: 'league' });
-      render(<DetailsTab {...defaultProps} competition={league} />);
-      expect(screen.getAllByText('League').length).toBeGreaterThanOrEqual(1);
+    it('displays knockout type correctly', () => {
+      const knockout = createTestCompetition({ competition_type: 'knockout' });
+      render(<DetailsTab {...defaultProps} competition={knockout} />);
+      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
     });
 
     it('displays handicap system - Honor System', () => {
@@ -579,10 +579,10 @@ describe('DetailsTab', () => {
       expect(pills.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('shows League badge for league competitions', () => {
-      const league = createTestCompetition({ competition_type: 'league' });
-      render(<DetailsTab {...defaultProps} competition={league} />);
-      expect(screen.getAllByText('League').length).toBeGreaterThanOrEqual(1);
+    it('shows Knockout badge for knockout competitions', () => {
+      const knockout = createTestCompetition({ competition_type: 'knockout' });
+      render(<DetailsTab {...defaultProps} competition={knockout} />);
+      expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
     });
   });
 

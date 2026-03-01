@@ -14,7 +14,7 @@ import {
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { DatePicker, FormInput, SegmentedButton } from '@/components/common';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsPremium, useCheckFeature } from '@/context/SubscriptionContext';
 import { IconTrophy, IconLock } from '@tabler/icons-react-native';
 
 // Enable LayoutAnimation on Android
@@ -48,6 +48,9 @@ export default function CompetitionDetailsStep({
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const isPremium = useIsPremium();
+  const checkFeature = useCheckFeature();
+  const teamFormatsAccess = checkFeature('team_formats');
+  const canUseTeams = teamFormatsAccess.allowed;
 
   const {
     control,
@@ -84,8 +87,8 @@ export default function CompetitionDetailsStep({
   const handleCompetitionTypeChange = (value: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setValue('competitionType', value as CompetitionType);
-    // Clear end date when switching to league
-    if (value === 'league') {
+    // Clear end date when switching to knockout
+    if (value === 'knockout') {
       setValue('endDate', '');
     }
   };
@@ -149,7 +152,7 @@ export default function CompetitionDetailsStep({
                   onValueChange={handleCompetitionTypeChange}
                   buttons={[
                     { value: 'event', label: 'Event', icon: 'calendar-star' },
-                    { value: 'league', label: 'League', icon: 'trophy-outline' },
+                    { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
                   ]}
                   size="large"
                 />
@@ -158,7 +161,7 @@ export default function CompetitionDetailsStep({
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
               {competitionType === 'event'
                 ? 'A fixed-term competition with a set end date'
-                : 'An ongoing competition with no fixed end date'}
+                : 'A bracket-style elimination competition'}
             </Text>
           </View>
 
@@ -223,23 +226,66 @@ export default function CompetitionDetailsStep({
           {/* Team Toggle */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Format</Text>
-            <Controller
-              control={control}
-              name="enableTeams"
-              render={({ field: { value, onChange } }) => (
-                <SegmentedButton
-                  value={value ? 'team' : 'individual'}
-                  onValueChange={(newValue) => onChange(newValue === 'team')}
-                  buttons={[
-                    { value: 'individual', label: 'Individual', icon: 'account' },
-                    { value: 'team', label: 'Team', icon: 'account-group' },
-                  ]}
-                  size="large"
-                />
-              )}
-            />
+            {canUseTeams ? (
+              <Controller
+                control={control}
+                name="enableTeams"
+                render={({ field: { value, onChange } }) => (
+                  <SegmentedButton
+                    value={value ? 'team' : 'individual'}
+                    onValueChange={(newValue) => onChange(newValue === 'team')}
+                    buttons={[
+                      { value: 'individual', label: 'Individual', icon: 'account' },
+                      { value: 'team', label: 'Team', icon: 'account-group' },
+                    ]}
+                    size="large"
+                  />
+                )}
+              />
+            ) : (
+              <TouchableOpacity
+                onPress={onUpgradePress}
+                style={[
+                  styles.teamToggle,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.gray300,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <View style={styles.teamToggleContent}>
+                  <View
+                    style={[
+                      styles.prizePoolIconContainer,
+                      { backgroundColor: colors.gray200 },
+                    ]}
+                  >
+                    <IconLock size={20} color={colors.gray500} />
+                  </View>
+                  <View style={styles.teamToggleText}>
+                    <View style={styles.prizePoolLabelRow}>
+                      <Text style={[styles.teamToggleLabel, { color: colors.textSecondary }]}>
+                        Team Format
+                      </Text>
+                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
+                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
+                          {teamFormatsAccess.requiredTier === 'premium' ? 'Premium' : 'Social'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.teamToggleDescription, { color: colors.textTertiary }]}>
+                      Upgrade to use team competitions
+                    </Text>
+                  </View>
+                </View>
+                <Icon source="chevron-right" size={24} color={colors.gray400} />
+              </TouchableOpacity>
+            )}
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              Team format can be configured in competition settings after creation
+              {canUseTeams
+                ? 'Team format can be configured in competition settings after creation'
+                : 'Individual format only on your current plan'}
             </Text>
           </View>
 

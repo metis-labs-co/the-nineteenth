@@ -1,4 +1,9 @@
--- The Nineteenth - Supabase Database Schema
+-- ⚠️ DEPRECATED: This file is the original MVP Phase 1 schema from January 2025.
+-- The authoritative schema is defined by the migration files in supabase/migrations/
+-- and documented in docs/database/DATABASE_SCHEMA.md.
+-- This file is kept for historical reference only.
+--
+-- The Nineteenth - Supabase Database Schema (MVP Phase 1 - HISTORICAL)
 -- PostgreSQL 15+ with Row-Level Security (RLS)
 -- Last Updated: January 2025
 

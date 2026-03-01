@@ -20,6 +20,8 @@ interface RoundListHeaderProps {
   hasUnlimitedRounds: boolean;
   roundsPlayedCount: number;
   maxRoundsPlayed: number;
+  showInfoIcon?: boolean;
+  onInfoPress?: () => void;
 }
 
 export function RoundListHeader({
@@ -31,12 +33,17 @@ export function RoundListHeader({
   hasUnlimitedRounds,
   roundsPlayedCount,
   maxRoundsPlayed,
+  showInfoIcon,
+  onInfoPress,
 }: RoundListHeaderProps) {
   const colors = useThemeColors();
 
   return (
     <>
-      <PageHeader title="Rounds" />
+      <PageHeader
+        title="Rounds"
+        rightActions={showInfoIcon && onInfoPress ? [{ icon: 'information-outline', onPress: onInfoPress, accessibilityLabel: 'Rounds info' }] : []}
+      />
 
       <View style={styles.stickyHeader}>
         {/* Score New Round Button */}

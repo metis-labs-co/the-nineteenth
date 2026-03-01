@@ -14,7 +14,7 @@
  * 7. Trial days remaining (if on trial)
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -53,6 +53,9 @@ import type { SubscriptionTier } from '@/types/subscription.types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // ============================================================================
 // TYPES
@@ -118,6 +121,7 @@ function getTrialDaysRemaining(trialEndsAt: Date | null): number | null {
  */
 function buildPlanFeatures(tierLimits: {
   maxCompetitionsOwned: number;
+  maxLeaguesOwned?: number;
   maxRoundsPlayed?: number;
   maxRoundsPerCompetition: number;
   maxPlayersPerCompetition: number;
@@ -139,6 +143,7 @@ function buildPlanFeatures(tierLimits: {
 }, tier: SubscriptionTier): PlanFeature[] {
   return [
     { label: 'Competitions', value: formatLimitValue(tierLimits.maxCompetitionsOwned) },
+    { label: 'Leagues', value: formatLimitValue(tierLimits.maxLeaguesOwned ?? 0) },
     { label: 'Social rounds', value: formatLimitValue(tierLimits.maxRoundsPlayed ?? (tier === 'free' ? 20 : -1)) },
     { label: 'Rounds per competition', value: formatLimitValue(tierLimits.maxRoundsPerCompetition) },
     { label: 'Players per competition', value: formatLimitValue(tierLimits.maxPlayersPerCompetition) },
@@ -202,6 +207,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
         queryClient.invalidateQueries({ queryKey: ['competitions', 'count', user.id] });
         queryClient.invalidateQueries({ queryKey: ['friends', 'count', user.id] });
         queryClient.invalidateQueries({ queryKey: ['standaloneRoundsPlayedCount', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['leagues', 'count', user.id] });
       }
     }, [refresh, queryClient, user?.id])
   );
@@ -245,6 +251,26 @@ export default function SubscriptionScreen({ navigation }: Props) {
     enabled: !!user?.id,
   });
 
+  // Fetch leagues count for usage display
+  const { data: leaguesCount = 0 } = useQuery({
+    queryKey: ['leagues', 'count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error: countError } = await supabase
+        .from('leagues')
+        .select('*', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .eq('status', 'active');
+
+      if (countError) {
+        console.error('Error fetching leagues count:', countError);
+        return 0;
+      }
+      return count ?? 0;
+    },
+    enabled: !!user?.id,
+  });
+
   // Check if user has unlimited rounds
   const maxRoundsPlayed = limits?.maxRoundsPlayed ?? 20;
   const hasUnlimitedRounds = isUnlimited(maxRoundsPlayed) || isNoLimit(maxRoundsPlayed);
@@ -281,9 +307,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
   // Build usage items for UsageSection
   const usageItems: UsageItem[] = useMemo(() => [
     { current: competitionCount, max: limits?.maxCompetitionsOwned ?? 1, label: 'Competitions', testID: 'competitions-limit' },
+    { current: leaguesCount, max: limits?.maxLeaguesOwned ?? 0, label: 'Leagues', testID: 'leagues-limit' },
     { current: friendsCount, max: limits?.maxFriends ?? 10, label: 'Friends', testID: 'friends-limit' },
     { current: roundsPlayedCount, max: maxRoundsPlayed, label: 'Social Rounds', testID: 'social-rounds-limit' },
-  ], [competitionCount, friendsCount, roundsPlayedCount, limits, maxRoundsPlayed]);
+  ], [competitionCount, leaguesCount, friendsCount, roundsPlayedCount, limits, maxRoundsPlayed]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -327,17 +354,58 @@ export default function SubscriptionScreen({ navigation }: Props) {
   }, [selectedUpgradeTier, allTierLimits]);
 
   // Handle upgrade press
+  // Dev-only: simulate tier switch by updating Supabase directly (staging DB only)
+  const devSwitchingRef = useRef(false);
+  const isDevSimulationMode = __DEV__ && isExpoGo;
+
+  const handleDevTierSwitch = useCallback(async (selectedTier: SubscriptionTier) => {
+    if (!user?.id || selectedTier === tier || devSwitchingRef.current) {
+      return;
+    }
+
+    devSwitchingRef.current = true;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: rpcError } = await (supabase.rpc as any)('set_own_subscription_tier', {
+        p_tier: selectedTier,
+      });
+
+      if (rpcError) {
+        showAlert('Error', `Failed to switch tier: ${rpcError.message}`);
+        return;
+      }
+
+      await refresh();
+    } catch (err) {
+      showAlert('Error', err instanceof Error ? err.message : 'Failed to switch tier');
+    } finally {
+      devSwitchingRef.current = false;
+    }
+  }, [user?.id, tier, refresh, showAlert]);
+
   const handleUpgradePress = useCallback(() => {
-    setSelectedUpgradeTier(tier === 'free' ? 'social' : 'premium');
+    const targetTier = tier === 'free' ? 'social' : 'premium';
+    // Dev mode: directly switch tier via Supabase (staging only)
+    if (isDevSimulationMode) {
+      handleDevTierSwitch(targetTier);
+      return;
+    }
+    setSelectedUpgradeTier(targetTier);
     if (purchasesEnabled) {
       setShowPaywall(true);
     } else {
       setShowUpgradePrompt(true);
     }
-  }, [purchasesEnabled, tier]);
+  }, [purchasesEnabled, tier, isDevSimulationMode, handleDevTierSwitch]);
 
   // Handle plan card press
   const handlePlanCardPress = useCallback((selectedTier: SubscriptionTier) => {
+    // Dev mode: directly switch tier via Supabase (staging only)
+    if (isDevSimulationMode) {
+      handleDevTierSwitch(selectedTier);
+      return;
+    }
+
     const tierOrder: Record<SubscriptionTier, number> = {
       free: 0,
       social: 1,
@@ -367,11 +435,16 @@ export default function SubscriptionScreen({ navigation }: Props) {
     // Downgrade flow
     setDowngradeTier(selectedTier);
     setShowDowngradeModal(true);
-  }, [tier, purchasesEnabled]);
+  }, [tier, purchasesEnabled, isDevSimulationMode, handleDevTierSwitch]);
 
   // Handle upgrade action from prompt
   const handleUpgrade = useCallback(() => {
     setShowUpgradePrompt(false);
+    // Dev mode: directly switch tier via Supabase (staging only)
+    if (isDevSimulationMode) {
+      handleDevTierSwitch(selectedUpgradeTier);
+      return;
+    }
     if (purchasesEnabled) {
       setShowPaywall(true);
     } else {
@@ -387,12 +460,11 @@ export default function SubscriptionScreen({ navigation }: Props) {
         `If you're in TestFlight and this persists, please contact support.${debugInfo}`
       );
     }
-  }, [purchasesEnabled, showAlert]);
+  }, [purchasesEnabled, showAlert, isDevSimulationMode, handleDevTierSwitch, selectedUpgradeTier]);
 
   // Handle successful purchase
   const handlePurchaseSuccess = useCallback((newTier: SubscriptionTier) => {
     refresh();
-    console.log(`[SubscriptionScreen] Purchase successful, new tier: ${newTier}`);
   }, [refresh]);
 
   // Handle downgrade confirmation
@@ -529,13 +601,18 @@ export default function SubscriptionScreen({ navigation }: Props) {
         />
 
         {/* All Plans Section */}
-        {!isSuperAdmin && (
+        {(!isSuperAdmin || isDevSimulationMode) && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: spacing.lg }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: isDevSimulationMode ? spacing.xs : spacing.lg }]}>
               All Plans
             </Text>
+            {isDevSimulationMode && (
+              <Text style={[styles.devHint, { color: colors.warning }]}>
+                DEV MODE: Tap any plan to switch tier instantly (staging DB)
+              </Text>
+            )}
 
-            {COMPARISON_TIERS.map((comparisonTier) => {
+            {(isDevSimulationMode ? (['free', 'social', 'premium', 'super_admin'] as SubscriptionTier[]) : COMPARISON_TIERS).map((comparisonTier) => {
               const tierLimits = allTierLimits?.[comparisonTier];
               if (!tierLimits) return null;
 
@@ -560,8 +637,8 @@ export default function SubscriptionScreen({ navigation }: Props) {
                   badgeColor={tierColor}
                   features={buildPlanFeatures(tierLimits, comparisonTier)}
                   isCurrentPlan={isCurrentTier}
-                  isUpgradeOption={isUpgradeOption}
-                  isDowngradeOption={isDowngradeOption}
+                  isUpgradeOption={isDevSimulationMode ? !isCurrentTier : isUpgradeOption}
+                  isDowngradeOption={isDevSimulationMode ? false : isDowngradeOption}
                   onPress={() => handlePlanCardPress(comparisonTier)}
                 />
               );
@@ -704,6 +781,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  devHint: {
+    ...typography.caption,
+    fontWeight: '600',
+    marginBottom: spacing.md,
   },
   debugSection: {
     marginTop: spacing.lg,

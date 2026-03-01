@@ -30,6 +30,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: 10,
     maxFriends: 10,
     maxRoundsPlayed: 20, // 20 rounds for free tier
+    maxLeaguesOwned: 0,
     allowedGameTypes: ['stableford'],
     canUseTeamFormats: false,
     canUseScoringPairs: false,
@@ -48,6 +49,8 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canUseSkinsGame: false,
     canUseWolfGame: false,
     canUsePrizePool: false,
+    canCreateLeague: false,
+    canJoinLeague: false,
     canAccessAdminTools: false,
     requiresPayment: false,
     canExpire: true,
@@ -62,6 +65,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: 16,
     maxFriends: 50,
     maxRoundsPlayed: -1, // unlimited
+    maxLeaguesOwned: 3,
     allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble'],
     canUseTeamFormats: false,
     canUseScoringPairs: false,
@@ -80,6 +84,8 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canUseSkinsGame: false,
     canUseWolfGame: false,
     canUsePrizePool: false,
+    canCreateLeague: true,
+    canJoinLeague: true,
     canAccessAdminTools: false,
     requiresPayment: true,
     canExpire: true,
@@ -94,6 +100,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: 40,
     maxFriends: -1, // unlimited
     maxRoundsPlayed: -1, // unlimited
+    maxLeaguesOwned: -1, // unlimited
     allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
     canUseTeamFormats: true,
     canUseScoringPairs: true,
@@ -112,6 +119,8 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canUseSkinsGame: true,
     canUseWolfGame: true,
     canUsePrizePool: true,
+    canCreateLeague: true,
+    canJoinLeague: true,
     canAccessAdminTools: false,
     requiresPayment: true,
     canExpire: true,
@@ -126,6 +135,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     maxPlayersPerCompetition: -2,
     maxFriends: -1,
     maxRoundsPlayed: -2, // no system limit
+    maxLeaguesOwned: -2, // no system limit
     allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
     canUseTeamFormats: true,
     canUseScoringPairs: true,
@@ -144,6 +154,8 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canUseSkinsGame: true,
     canUseWolfGame: true,
     canUsePrizePool: true,
+    canCreateLeague: true,
+    canJoinLeague: true,
     canAccessAdminTools: true,
     requiresPayment: false,
     canExpire: false,
@@ -207,6 +219,8 @@ export function createMockSubscriptionContext(tier: MockTier = 'premium') {
         skins_game: limits.canUseSkinsGame,
         wolf_game: limits.canUseWolfGame,
         prize_pool: limits.canUsePrizePool,
+        create_league: limits.canCreateLeague,
+        join_league: limits.canJoinLeague,
       };
       const featureAllowed = featureMap[featureId] ?? true;
       return {

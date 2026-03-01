@@ -3,3 +3,4 @@
 -- This allows adding new countries/regions without needing database migrations
 
 ALTER TABLE clubs DROP CONSTRAINT IF EXISTS clubs_state_check;
+ALTER TABLE clubs DROP CONSTRAINT IF EXISTS venues_state_check;

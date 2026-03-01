@@ -27,7 +27,7 @@ const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
 
 const handicapSystemSchema = z.enum(['honor', 'golf-australia', 'gross-only']);
 
-const competitionTypeSchema = z.enum(['league', 'event']);
+const competitionTypeSchema = z.enum(['knockout', 'event']);
 
 // Date format: DD/MM/YYYY
 const dateFormatRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;

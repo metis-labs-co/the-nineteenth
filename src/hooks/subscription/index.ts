@@ -18,6 +18,7 @@
 export { useSubscriptionStatus } from './useSubscriptionStatus';
 export { useSubscriptionLimits } from './useSubscriptionLimits';
 export { useFeatureGate } from './useFeatureGate';
+export { useFeatureAccess } from './useFeatureAccess';
 
 // Validators (pure functions)
 export {

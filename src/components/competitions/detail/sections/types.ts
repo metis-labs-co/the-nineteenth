@@ -71,12 +71,12 @@ export interface EditableDetailRowProps {
 // =====================================================
 
 export const competitionTypeLabels: Record<CompetitionType, string> = {
-  'league': 'League',
+  'knockout': 'Knockout',
   'event': 'Event',
 };
 
 export const competitionTypeDescriptions: Record<CompetitionType, string> = {
-  'league': 'Ongoing competition with no fixed end date',
+  'knockout': 'A bracket-style elimination competition',
   'event': 'Fixed-term competition with an end date',
 };
 

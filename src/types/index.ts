@@ -182,7 +182,7 @@ export type {
 } from './database.types';
 
 // App-specific type (not in database schema)
-export type CompetitionType = 'league' | 'event';
+export type CompetitionType = 'knockout' | 'event';
 
 // Internal type aliases for use in this file
 type AustralianState = DBStateType;
@@ -210,7 +210,7 @@ export interface Competition {
   description?: string;
   competitionType: CompetitionType;
   startDate: Date;
-  endDate?: Date; // Required for 'event' type, optional for 'league'
+  endDate?: Date; // Required for 'event' type, optional for 'knockout'
   handicapSystem: HandicapSystem;
   visibility: CompetitionVisibility;
   inviteCode: string;

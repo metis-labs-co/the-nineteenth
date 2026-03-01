@@ -25,6 +25,7 @@ import {
 import { getScoringPartner } from '@/services/scoringPairs';
 import { finalizeRound } from '@/services/rounds/roundResultsService';
 import { submitLogger } from '@/utils/debugLogger';
+import { useLeagues } from '@/hooks/useLeagues';
 import type { Scorecard, GameType, PointSystemConfig } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -114,6 +115,9 @@ export function useScoreSubmission({
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
+
+  // Prefetch leagues data so it's available synchronously at submission time
+  const { data: leaguesData } = useLeagues();
 
   // Check bypass availability on mount and periodically
   useEffect(() => {
@@ -434,17 +438,49 @@ export function useScoreSubmission({
           });
         } else {
           submitLogger.info('Online submission successful');
-          showDialog({
-            title: 'Success',
-            message: 'All scores have been submitted successfully!',
-            confirmLabel: 'View Round',
-            cancelLabel: '',
-            icon: 'check-circle-outline',
-            onConfirm: () => {
-              dismissDialog();
-              navigateAfterSubmit(roundId);
-            },
-          });
+
+          // Check if user has active leagues for tagging prompt (uses prefetched data)
+          const hasLeagues = (leaguesData ?? []).some((l) => l.status === 'active');
+
+          if (hasLeagues) {
+            showDialog({
+              title: 'Scores Submitted!',
+              message: 'All scores have been submitted successfully. Would you like to tag this round to a league?',
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'check-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+              showSecondaryAction: true,
+              secondaryActionLabel: 'Tag to League',
+              onSecondaryAction: () => {
+                dismissDialog();
+                resetRound();
+                // Navigate to Leagues tab where user can pick a league and tag
+                navigation.reset({
+                  index: 0,
+                  routes: [{
+                    name: 'MainTabs',
+                    params: { screen: 'LeaguesTab' },
+                  }],
+                });
+              },
+            });
+          } else {
+            showDialog({
+              title: 'Success',
+              message: 'All scores have been submitted successfully!',
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'check-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+            });
+          }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -496,6 +532,7 @@ export function useScoreSubmission({
     bypassAvailable,
     bypassAvailableAt,
     refreshPartnerStatus,
+    leaguesData,
     showDialog,
     showAlert,
     dismissDialog,

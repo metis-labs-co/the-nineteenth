@@ -15,7 +15,7 @@ import React, { useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconGolf, IconTrophy, IconUser, IconUsers, IconMap } from '@tabler/icons-react-native';
+import { IconGolf, IconTrophy, IconUser, IconTournament, IconMap } from '@tabler/icons-react-native';
 import { spacing, typography, shadows, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
@@ -24,7 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
  */
 export interface NavigationTab {
   /** Unique identifier for the tab */
-  key: 'rounds' | 'competitions' | 'courses' | 'friends' | 'profile';
+  key: 'rounds' | 'competitions' | 'courses' | 'leagues' | 'profile';
   /** Display label */
   label: string;
   /** Route name for navigation */
@@ -74,10 +74,10 @@ const NAVIGATION_TABS: NavigationTab[] = [
     accessibilityLabel: 'Navigate to courses list',
   },
   {
-    key: 'friends',
-    label: 'Friends',
-    route: 'FriendsTab',
-    accessibilityLabel: 'Navigate to friends list',
+    key: 'leagues',
+    label: 'Leagues',
+    route: 'LeaguesTab',
+    accessibilityLabel: 'Navigate to leagues',
   },
   {
     key: 'profile',
@@ -105,8 +105,8 @@ const getTabIcon = (
       return <IconTrophy size={iconSize} color={iconColor} />;
     case 'courses':
       return <IconMap size={iconSize} color={iconColor} />;
-    case 'friends':
-      return <IconUsers size={iconSize} color={iconColor} />;
+    case 'leagues':
+      return <IconTournament size={iconSize} color={iconColor} />;
     case 'profile':
       return <IconUser size={iconSize} color={iconColor} />;
     default:

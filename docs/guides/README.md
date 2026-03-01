@@ -121,7 +121,6 @@ Topics covered:
 
 ### Features
 - **[MVP-PHASE-1.md](../MVP-PHASE-1.md)** - MVP feature specifications
-- **[MVP-PHASE-2.md](../MVP-PHASE-2.md)** - Phase 2 features
 
 ---
 
@@ -158,4 +157,4 @@ Update these guides when:
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: February 2026*

@@ -55,6 +55,8 @@ import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults, useSkinsGame
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
 import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard } from '@/components/wolf';
 import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
+import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
+import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
 import { SkinsResultsCard } from '@/components/skins';
 import { ContributionLeaderboard, ScrambleTeamSelector, ScrambleScorecardTable, ScrambleTeamLeaderboard } from '@/components/scorecard';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
@@ -95,6 +97,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showScoringPairsSheet, setShowScoringPairsSheet] = useState(false);
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
+  const [showTagLeagueSheet, setShowTagLeagueSheet] = useState(false);
   const { user } = useAuth();
   const colors = useThemeColors();
   const queryClient = useQueryClient();
@@ -414,6 +417,27 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
     return false;
   }, [user?.id, round, isStandalone, competitionInfo?.organizer_id]);
+
+  // Find current user's scorecard ID and check if eligible for league tagging
+  const userScorecardId = useMemo(() => {
+    if (!user?.id || !scorecards) return undefined;
+    return scorecards.find((sc) => sc.player_id === user.id)?.id;
+  }, [user?.id, scorecards]);
+
+  const canTagToLeague = useMemo(() => {
+    if (!user?.id || !scorecards || !round) return false;
+    const userScorecard = scorecards.find((sc) => sc.player_id === user.id);
+    if (!userScorecard) return false;
+    if (userScorecard.status !== 'completed' && userScorecard.status !== 'confirmed') return false;
+    if (userScorecard.handicap_differential == null) return false;
+    // Check 18 scored holes
+    const scores = userScorecard.scores;
+    if (!scores) return false;
+    const scoredHoles = Object.values(scores).filter(
+      (s) => s && 'strokes' in s && s.strokes != null && s.strokes > 0
+    );
+    return scoredHoles.length >= 18;
+  }, [user?.id, scorecards, round]);
 
   // Get match play players for individual match play rounds
   // For match play, we need exactly 2 players
@@ -1104,6 +1128,29 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Tag to League Button */}
+      {canTagToLeague && round.status === 'completed' && (
+        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
+          <FeatureLockCompact
+            feature="join_league"
+            onUpgradePress={() => navigation.navigate('Subscription')}
+          >
+            <TouchableOpacity
+              style={[styles.tagLeagueButton, { borderColor: colors.primary }]}
+              onPress={() => setShowTagLeagueSheet(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="Tag to league"
+              accessibilityRole="button"
+            >
+              <Icon source="trophy-outline" size={20} color={colors.primary} />
+              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
+                Tag to League
+              </Text>
+            </TouchableOpacity>
+          </FeatureLockCompact>
+        </View>
+      )}
+
       {/* Competition Card - Show above tabs for competition rounds */}
       {round.competition && (
         <TouchableOpacity
@@ -1233,10 +1280,12 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
               isTeamSkins={isTeamSkins}
               teams={skinsTeams}
               parValues={
-                round.course?.holes?.reduce(
-                  (acc, hole) => ({ ...acc, [hole.number]: hole.par }),
-                  {} as Record<number, number>
-                )
+                Array.isArray(round.course?.holes)
+                  ? round.course.holes.reduce(
+                      (acc, hole) => ({ ...acc, [hole.number]: hole.par }),
+                      {} as Record<number, number>
+                    )
+                  : {}
               }
             />
           </View>
@@ -1450,6 +1499,15 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
         onSave={handleSkinsConfigSave}
       />
 
+      {/* Tag to League Bottom Sheet */}
+      {userScorecardId && (
+        <TagToLeagueBottomSheet
+          visible={showTagLeagueSheet}
+          onClose={() => setShowTagLeagueSheet(false)}
+          scorecardId={userScorecardId}
+        />
+      )}
+
       {/* Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
@@ -1478,6 +1536,15 @@ const styles = StyleSheet.create({
     height: 48,
     gap: spacing.sm,
     ...shadows.sm,
+  },
+  tagLeagueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.lg,
+    height: 48,
+    gap: spacing.sm,
+    borderWidth: 1.5,
   },
   scoreButtonText: {
     ...typography.bodyBold,

@@ -41,15 +41,15 @@ BEGIN
     -- Create notification for the organizer
     PERFORM create_notification(
       v_organizer_id,                             -- p_user_id: the organizer receives notification
-      'competition_player_joined',                -- p_type
+      'competition_player_joined'::TEXT,           -- p_type
       jsonb_build_object(
         'competition_name', v_competition_name,
         'player_name', v_player_name
       ),                                          -- p_data
       NEW.competition_id,                         -- p_competition_id
-      NULL,                                       -- p_round_id
+      NULL::UUID,                                 -- p_round_id
       NEW.player_id,                              -- p_player_id: the player who joined
-      NULL                                        -- p_friendship_id
+      NULL::UUID                                  -- p_friendship_id
     );
   END IF;
 

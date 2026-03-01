@@ -7,7 +7,7 @@ import { parse, isValid, startOfDay, isAfter, isEqual } from 'date-fns';
  */
 
 // Competition types (matches database.types.ts)
-export const competitionTypes = ['league', 'event'] as const;
+export const competitionTypes = ['knockout', 'event'] as const;
 export type CompetitionType = (typeof competitionTypes)[number];
 
 // Team modes (matches database.types.ts)

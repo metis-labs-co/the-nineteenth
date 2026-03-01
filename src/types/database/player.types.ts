@@ -47,6 +47,7 @@ export interface Player {
   push_competition_updates: boolean; // Competition-related notifications
   push_friend_requests: boolean; // Friend request notifications
   push_scorecard_updates: boolean; // Scorecard notifications
+  push_league_updates: boolean; // League-related notifications
   // Equipped cosmetics (achievement rewards)
   equipped_badge_id: string | null; // UUID, reference to cosmetic_definitions
   equipped_frame_id: string | null; // UUID, reference to cosmetic_definitions
@@ -63,6 +64,7 @@ export interface PushPreferences {
   push_competition_updates: boolean;
   push_friend_requests: boolean;
   push_scorecard_updates: boolean;
+  push_league_updates: boolean;
 }
 
 /**

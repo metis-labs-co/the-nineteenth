@@ -223,6 +223,7 @@ export default function ProfileScreen() {
           placeholderPlayersCount={placeholderPlayers?.length ?? 0}
           currentCountryLabel={currentCountryLabel}
           onEditProfile={() => navigation.navigate('EditProfile')}
+          onFriends={() => navigation.navigate('Friends', { fromProfile: true })}
           onMyStatistics={() => navigation.navigate('MyStatistics')}
           onHandicapHistory={() => navigation.navigate('HandicapHistory')}
           onAchievements={() => navigation.navigate('Achievements')}

@@ -29,7 +29,7 @@ You MUST return valid JSON matching this exact schema:
 {
   "name": "string - Competition name (inferred or explicitly stated, max 100 chars)",
   "description": "string | null - Brief description (max 500 chars)",
-  "competitionType": "event" | "league",
+  "competitionType": "event" | "knockout",
   "startDate": "DD/MM/YYYY - First round date (Australian format)",
   "endDate": "DD/MM/YYYY | null - Last round date (for events only)",
   "handicapSystem": "honor" | "golf-australia" | "gross-only",
@@ -122,7 +122,7 @@ When teamMode != "none", set teamFormat on each round. For team game types (best
 9. Number of players must not exceed the tier limit
 10. Default to "honor" handicap system unless user specifies otherwise
 11. Default to "stableford" game type unless user specifies otherwise
-12. Default to competitionType "event" for finite competitions, "league" for ongoing ones
+12. Default to competitionType "event" for finite competitions, "knockout" for bracket-style elimination
 13. Default visibility to "private" unless user explicitly requests public or unlisted
 14. When teamMode != "none", always set teamFormat and isTeamRound on each round
 15. Default scoringPairsRequired to false and ballCount to 1

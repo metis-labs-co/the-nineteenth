@@ -34,6 +34,7 @@ interface ProfileMenuSectionProps {
   onCountryRegion: () => void;
   onNotifications: () => void;
   onHelpAndSupport: () => void;
+  onFriends: () => void;
   onSignOut: () => void;
 }
 
@@ -52,6 +53,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onSettings,
   onCountryRegion,
   onNotifications,
+  onFriends,
   onHelpAndSupport,
   onSignOut,
 }: ProfileMenuSectionProps) {
@@ -91,6 +93,12 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             title="Edit Profile"
             onPress={onEditProfile}
             testID="menu-edit-profile"
+          />
+          <MenuItemRow
+            icon="account-group-outline"
+            title="Friends"
+            onPress={onFriends}
+            testID="menu-friends"
           />
           <MenuItemRow
             icon="chart-bar"

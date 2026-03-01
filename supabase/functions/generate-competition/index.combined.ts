@@ -35,7 +35,7 @@ type TeamMode = 'none' | 'fixed' | 'per-round';
 type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
 
 // Competition type enum
-type CompetitionType = 'league' | 'event';
+type CompetitionType = 'knockout' | 'event';
 
 /**
  * Friend data passed from mobile app
@@ -206,7 +206,7 @@ const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
 
 const handicapSystemSchema = z.enum(['honor', 'golf-australia', 'gross-only']);
 
-const competitionTypeSchema = z.enum(['league', 'event']);
+const competitionTypeSchema = z.enum(['knockout', 'event']);
 
 // Date format: DD/MM/YYYY
 const dateFormatRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
@@ -347,7 +347,7 @@ You MUST return valid JSON matching this exact schema:
 {
   "name": "string - Competition name (inferred or explicitly stated, max 100 chars)",
   "description": "string | null - Brief description (max 500 chars)",
-  "competitionType": "event" | "league",
+  "competitionType": "event" | "knockout",
   "startDate": "DD/MM/YYYY - First round date (Australian format)",
   "endDate": "DD/MM/YYYY | null - Last round date (for events only)",
   "handicapSystem": "honor" | "golf-australia" | "gross-only",
@@ -398,7 +398,7 @@ You MUST return valid JSON matching this exact schema:
 9. Number of players must not exceed the tier limit
 10. Default to "honor" handicap system unless user specifies otherwise
 11. Default to "stableford" game type unless user specifies otherwise
-12. Default to competitionType "event" for finite competitions, "league" for ongoing ones
+12. Default to competitionType "event" for finite competitions, "knockout" for bracket-style elimination
 
 ## Organizer (Competition Creator) Rules - CRITICAL
 - The "Organizer" section below contains the current user who is creating this competition

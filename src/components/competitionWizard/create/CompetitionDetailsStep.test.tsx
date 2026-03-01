@@ -453,14 +453,14 @@ describe('CompetitionDetailsStep', () => {
       });
     });
 
-    it('allows submission for league type without end date', async () => {
-      const leagueData = {
+    it('allows submission for knockout type without end date', async () => {
+      const knockoutData = {
         ...validFormData,
-        competitionType: 'league' as const,
+        competitionType: 'knockout' as const,
         endDate: '',
       };
 
-      render(<CompetitionDetailsStep {...defaultProps} initialData={leagueData} />);
+      render(<CompetitionDetailsStep {...defaultProps} initialData={knockoutData} />);
 
       fireEvent.press(screen.getByText('Next: Team Settings'));
 
@@ -819,17 +819,17 @@ describe('CompetitionDetailsStep', () => {
       });
     });
 
-    it('handles league type form flow', async () => {
+    it('handles knockout type form flow', async () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Fill competition name
       const nameInput = screen.getByTestId('input-competition-name');
-      fireEvent.changeText(nameInput, 'League Competition');
+      fireEvent.changeText(nameInput, 'Knockout Competition');
 
-      // Switch to league type
-      fireEvent.press(screen.getByTestId('segment-league'));
+      // Switch to knockout type
+      fireEvent.press(screen.getByTestId('segment-knockout'));
 
-      // Fill start date only (no end date needed for league)
+      // Fill start date only (no end date needed for knockout)
       const startDateInput = screen.getByTestId('date-input-start-date');
       fireEvent.changeText(startDateInput, '01/01/2026');
 
@@ -839,8 +839,8 @@ describe('CompetitionDetailsStep', () => {
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
         const calledWith = mockOnComplete.mock.calls[0][0];
-        expect(calledWith.name).toBe('League Competition');
-        expect(calledWith.competitionType).toBe('league');
+        expect(calledWith.name).toBe('Knockout Competition');
+        expect(calledWith.competitionType).toBe('knockout');
         expect(calledWith.startDate).toBe('01/01/2026');
       });
     });

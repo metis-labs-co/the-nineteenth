@@ -495,6 +495,7 @@ export function hasCoordinateData(
  * Get total par for course from holes
  */
 export function calculateTotalPar(holes: Hole[]): number {
+  if (!Array.isArray(holes)) return 0;
   return holes.reduce((sum, hole) => sum + hole.par, 0);
 }
 

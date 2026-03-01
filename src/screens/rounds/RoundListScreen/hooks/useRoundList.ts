@@ -511,7 +511,7 @@ export function useRoundList(): UseRoundListReturn {
               if (round.status !== 'completed') continue;
 
               const scorecards = scorecardsByRound.get(round.id);
-              if (!scorecards || scorecards.length === 0) continue;
+              if (!scorecards || scorecards.length <= 1) continue;
 
               const winner = determineWinner(scorecards, round.gameType);
               if (winner) {

@@ -18,6 +18,7 @@ import {
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import type { TeamFormat } from '@/types/database.types';
 import { useCreatePlaceholderPlayer } from '@/hooks/usePlaceholderPlayers';
+import { useCheckFeature } from '@/context/SubscriptionContext';
 import {
   aiOutputToWizardState,
   getRoundsWithMissingCourses,
@@ -34,6 +35,7 @@ export type DialogType =
   | 'prompt_too_short'
   | 'creation_failed'
   | 'team_config_issue'
+  | 'game_type_unavailable'
   | 'courses_not_found'
   | 'guest_players_warning'
   | null;
@@ -108,6 +110,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   const generateAI = useGenerateAICompetition();
   const createCompetition = useCreateCompetition();
   const createPlaceholder = useCreatePlaceholderPlayer();
+  const checkFeature = useCheckFeature();
 
   // Dismiss dialog helper
   const dismissDialog = useCallback(() => {
@@ -285,6 +288,44 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
   const handleCreateCompetition = useCallback(async () => {
     if (!generatedCompetition) return;
 
+    // Check subscription: team formats
+    if (generatedCompetition.teamMode !== 'none') {
+      const teamAccess = checkFeature('team_formats');
+      if (!teamAccess.allowed) {
+        showDialog({
+          type: 'team_config_issue',
+          title: 'Team Format Unavailable',
+          message: `Team competitions require a ${teamAccess.requiredTier ?? 'premium'} subscription. You can edit manually to switch to individual format, or upgrade your plan.`,
+          confirmLabel: 'Edit Manually',
+          cancelLabel: 'Cancel',
+          onConfirm: () => {
+            dismissDialog();
+            handleEditManually();
+          },
+        });
+        return;
+      }
+    }
+
+    // Check subscription: game types in rounds
+    for (const round of generatedCompetition.rounds) {
+      const gameTypeAccess = checkFeature('game_type', { gameType: round.gameType });
+      if (!gameTypeAccess.allowed) {
+        showDialog({
+          type: 'game_type_unavailable',
+          title: 'Game Type Unavailable',
+          message: gameTypeAccess.reason ?? `${round.gameType} requires a higher subscription tier. Edit manually to choose an available game type.`,
+          confirmLabel: 'Edit Manually',
+          cancelLabel: 'Cancel',
+          onConfirm: () => {
+            dismissDialog();
+            handleEditManually();
+          },
+        });
+        return;
+      }
+    }
+
     // Validate team formation
     const teamValidation = validateTeamFormation(generatedCompetition);
     if (!teamValidation.isValid) {
@@ -353,7 +394,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
     }
 
     doCreateCompetition();
-  }, [generatedCompetition, handleEditManually, doCreateCompetition, showDialog, dismissDialog]);
+  }, [generatedCompetition, handleEditManually, doCreateCompetition, showDialog, dismissDialog, checkFeature]);
 
   // Handle back
   const handleBack = useCallback(() => {

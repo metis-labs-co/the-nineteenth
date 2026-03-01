@@ -612,4 +612,4 @@ eas update --branch production --message "Rollback to v1.1.0" --republish
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: February 2026*

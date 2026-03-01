@@ -346,7 +346,7 @@ export const WithIcons: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar-star' },
-            { value: 'league', label: 'League', icon: 'trophy-outline' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
         />
       </Section>
@@ -416,7 +416,7 @@ export const CompetitionTypeSelector: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar-star' },
-            { value: 'league', label: 'League', icon: 'trophy-outline' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
         />
       </Section>
@@ -640,7 +640,7 @@ export const SizeWithIcons: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar' },
-            { value: 'league', label: 'League', icon: 'trophy' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
           size="small"
         />
@@ -650,7 +650,7 @@ export const SizeWithIcons: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar' },
-            { value: 'league', label: 'League', icon: 'trophy' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
           size="medium"
         />
@@ -660,7 +660,7 @@ export const SizeWithIcons: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar' },
-            { value: 'league', label: 'League', icon: 'trophy' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
           size="large"
         />
@@ -681,7 +681,7 @@ export const GolfAppExamples: Story = {
           initialValue="event"
           buttons={[
             { value: 'event', label: 'Event', icon: 'calendar-star' },
-            { value: 'league', label: 'League', icon: 'trophy-outline' },
+            { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
           ]}
         />
       </Section>

@@ -535,7 +535,7 @@ describe('SegmentedButton', () => {
     it('renders buttons with icons', () => {
       const buttonsWithIcons: SegmentOption<string>[] = [
         { value: 'event', label: 'Event', icon: 'calendar-star' },
-        { value: 'league', label: 'League', icon: 'trophy-outline' },
+        { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
       ];
 
       render(
@@ -547,7 +547,7 @@ describe('SegmentedButton', () => {
       );
 
       expect(screen.getByTestId('icon-calendar-star')).toBeTruthy();
-      expect(screen.getByTestId('icon-trophy-outline')).toBeTruthy();
+      expect(screen.getByTestId('icon-sword-cross')).toBeTruthy();
     });
 
     it('renders mix of buttons with and without icons', () => {
@@ -880,7 +880,7 @@ describe('SegmentedButton', () => {
     it('renders competition type selector', () => {
       const typeButtons: SegmentOption<string>[] = [
         { value: 'event', label: 'Event', icon: 'calendar-star' },
-        { value: 'league', label: 'League', icon: 'trophy-outline' },
+        { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
       ];
 
       render(
@@ -892,7 +892,7 @@ describe('SegmentedButton', () => {
       );
 
       expect(screen.getByText('Event')).toBeTruthy();
-      expect(screen.getByText('League')).toBeTruthy();
+      expect(screen.getByText('Knockout')).toBeTruthy();
     });
 
     it('renders game type selector', () => {

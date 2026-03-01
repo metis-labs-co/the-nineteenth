@@ -47,6 +47,9 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | Wolf side-game | ❌ | ❌ | ✅ | ✅ |
 | Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
 | GPS distance to pin | ❌ | ✅ | ✅ | ✅ |
+| **Leagues** | | | | |
+| Create leagues | ❌ | 3 | Unlimited | No limit |
+| Join leagues | ❌ | ✅ | ✅ | ✅ |
 | **Social Features** | | | | |
 | Friends limit | 10 | 25 | Unlimited | Unlimited |
 | View player profiles | ✅ | ✅ | ✅ | ✅ |
@@ -704,4 +707,4 @@ ON CONFLICT (user_id) DO NOTHING;
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: February 2026*

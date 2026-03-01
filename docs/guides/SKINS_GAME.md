@@ -638,4 +638,4 @@ const { data: rank } = useSkinsRank(playerId, 1);
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: February 2026*

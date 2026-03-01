@@ -12,7 +12,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { RoundListScreen } from '@/screens/rounds';
 import CompetitionsListScreen from '@/screens/competitions/CompetitionsListScreen';
 import CourseListScreen from '@/screens/courses/CourseListScreen';
-import FriendsScreen from '@/screens/social/FriendsScreen';
+import LeagueListScreen from '@/screens/leagues/LeagueListScreen';
 import ProfileScreen from '@/screens/profile/ProfileScreen';
 
 import { BottomNavigation } from '@/components/layout';
@@ -29,7 +29,7 @@ const routeToTabKey: Record<string, NavigationTab['key']> = {
   RoundsTab: 'rounds',
   CompetitionsTab: 'competitions',
   CoursesTab: 'courses',
-  FriendsTab: 'friends',
+  LeaguesTab: 'leagues',
   ProfileTab: 'profile',
 };
 
@@ -109,10 +109,10 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="FriendsTab"
-        component={FriendsScreen}
+        name="LeaguesTab"
+        component={LeagueListScreen}
         options={{
-          title: 'Friends',
+          title: 'Leagues',
         }}
       />
       <Tab.Screen

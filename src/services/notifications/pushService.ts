@@ -376,6 +376,7 @@ export const NotificationCategories = {
   COMPETITION: 'COMPETITION',
   FRIEND_REQUEST: 'FRIEND_REQUEST',
   SCORECARD: 'SCORECARD',
+  LEAGUE: 'LEAGUE',
 } as const;
 
 export type NotificationCategory = (typeof NotificationCategories)[keyof typeof NotificationCategories];
@@ -436,6 +437,17 @@ async function configureNotificationCategories(): Promise<void> {
 
   // SCORECARD category - View action
   await Notifications.setNotificationCategoryAsync(NotificationCategories.SCORECARD, [
+    {
+      identifier: NotificationActions.VIEW,
+      buttonTitle: 'View',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
+  ]);
+
+  // LEAGUE category - View action
+  await Notifications.setNotificationCategoryAsync(NotificationCategories.LEAGUE, [
     {
       identifier: NotificationActions.VIEW,
       buttonTitle: 'View',
@@ -508,6 +520,15 @@ async function setupAndroidNotificationChannel(): Promise<void> {
     name: 'Social',
     description: 'Friend requests and social updates',
     importance: Notifications.AndroidImportance.DEFAULT,
+  });
+
+  // League updates channel
+  await Notifications.setNotificationChannelAsync('league-updates', {
+    name: 'League Updates',
+    description: 'League joins, round tags, and ranking changes',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#1B5E20',
   });
 
   console.log('[PushService] Android notification channels configured');

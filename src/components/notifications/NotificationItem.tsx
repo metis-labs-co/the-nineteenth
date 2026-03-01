@@ -92,6 +92,44 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `${data.inviter_name || 'Someone'} invited you to play${data.venue_name ? ` at ${data.venue_name}` : ''}`,
   },
+  league_player_joined: {
+    icon: 'account-group-outline',
+    getTitle: (_data) => 'Player Joined League',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} joined ${data.league_name || 'your league'}`,
+  },
+  league_player_left: {
+    icon: 'account-remove-outline',
+    getTitle: (_data) => 'Player Left League',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} left ${data.league_name || 'your league'}`,
+  },
+  league_player_removed: {
+    icon: 'account-off-outline',
+    getTitle: (_data) => 'Removed from League',
+    getMessage: (data) =>
+      `You were removed from ${data.league_name || 'a league'}`,
+  },
+  league_round_tagged: {
+    icon: 'tag-plus-outline',
+    getTitle: (_data) => 'Round Tagged',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} tagged a round to ${data.league_name || 'a league'}${data.handicap_differential ? ` (${data.handicap_differential})` : ''}`,
+  },
+  league_leaderboard_changed: {
+    icon: 'podium',
+    getTitle: (_data) => 'Ranking Changed',
+    getMessage: (data) => {
+      const direction = data.direction === 'up' ? 'up' : 'down';
+      return `You moved ${direction} to #${data.new_rank || '?'} in ${data.league_name || 'a league'}`;
+    },
+  },
+  round_completed: {
+    icon: 'check-circle-outline',
+    getTitle: (_data) => 'Round Complete',
+    getMessage: (data) =>
+      `All scorecards submitted for Round ${data.round_number || ''} of ${data.competition_name || 'a competition'}`,
+  },
 };
 
 /**

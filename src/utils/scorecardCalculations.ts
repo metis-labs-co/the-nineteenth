@@ -120,8 +120,11 @@ export function calculatePlayerStats(
   selectedTee?: TeeBox | null,
   handicapSource: HandicapSource = 'profile'
 ): PlayerStats[] {
+  // Guard against non-array holes data
+  const safeHoles = Array.isArray(holes) ? holes : [];
+
   // Calculate course par once for daily handicap calculations
-  const coursePar = holes.reduce((sum, hole) => sum + hole.par, 0);
+  const coursePar = safeHoles.reduce((sum, hole) => sum + hole.par, 0);
 
   return players.map((playerData) => {
     const player = playerData.player;
@@ -151,7 +154,7 @@ export function calculatePlayerStats(
     let back9ParScore = 0;
     let hasScores = false;
 
-    holes.forEach((hole) => {
+    safeHoles.forEach((hole) => {
       const score = scores?.[String(hole.number)];
       // Only process single-ball scores (for multi-ball, we'd use ball_totals)
       const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
@@ -208,10 +211,11 @@ export function calculatePlayerStats(
  * @returns Par totals object
  */
 export function calculateParTotals(holes: Hole[]): ParTotals {
+  const safeHoles = Array.isArray(holes) ? holes : [];
   let front9 = 0;
   let back9 = 0;
 
-  holes.forEach((hole) => {
+  safeHoles.forEach((hole) => {
     if (hole.number <= 9) {
       front9 += hole.par;
     } else {
@@ -232,9 +236,10 @@ export function splitHolesByNine(holes: Hole[]): {
   front9: Hole[];
   back9: Hole[];
 } {
+  const safeHoles = Array.isArray(holes) ? holes : [];
   return {
-    front9: holes.filter((h) => h.number <= 9),
-    back9: holes.filter((h) => h.number > 9),
+    front9: safeHoles.filter((h) => h.number <= 9),
+    back9: safeHoles.filter((h) => h.number > 9),
   };
 }
 

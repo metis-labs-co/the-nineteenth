@@ -73,10 +73,10 @@ const defaultCompetitionData: CompetitionDetailsFormData = {
   enableTeams: false,
 };
 
-const leagueCompetitionData: CompetitionDetailsFormData = {
-  name: 'Weekly League',
+const knockoutCompetitionData: CompetitionDetailsFormData = {
+  name: 'Weekly Knockout',
   description: '',
-  competitionType: 'league',
+  competitionType: 'knockout',
   startDate: '01/02/2025',
   handicapSystem: 'golf-australia',
   enableTeams: false,
@@ -281,7 +281,7 @@ describe('ReviewStep', () => {
       render(
         <ReviewStep
           {...defaultProps}
-          competitionData={leagueCompetitionData}
+          competitionData={knockoutCompetitionData}
         />
       );
 
@@ -299,11 +299,11 @@ describe('ReviewStep', () => {
       render(
         <ReviewStep
           {...defaultProps}
-          competitionData={leagueCompetitionData}
+          competitionData={knockoutCompetitionData}
         />
       );
 
-      expect(screen.getByText('League')).toBeTruthy();
+      expect(screen.getByText('Knockout')).toBeTruthy();
     });
 
     it('displays start date in Australian format', () => {
@@ -323,11 +323,11 @@ describe('ReviewStep', () => {
       render(
         <ReviewStep
           {...defaultProps}
-          competitionData={leagueCompetitionData}
+          competitionData={knockoutCompetitionData}
         />
       );
 
-      // League has no end date
+      // Knockout has no end date
       expect(screen.queryByText('End Date')).toBeNull();
     });
 
@@ -341,7 +341,7 @@ describe('ReviewStep', () => {
       render(
         <ReviewStep
           {...defaultProps}
-          competitionData={leagueCompetitionData}
+          competitionData={knockoutCompetitionData}
         />
       );
 
@@ -369,7 +369,7 @@ describe('ReviewStep', () => {
       render(
         <ReviewStep
           {...defaultProps}
-          competitionData={leagueCompetitionData}
+          competitionData={knockoutCompetitionData}
         />
       );
 

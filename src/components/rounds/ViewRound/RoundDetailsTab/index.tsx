@@ -45,7 +45,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const navigation = useNavigation<NavigationProp>();
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const useMetres = distanceUnit === 'metres';
-  const holes = round.course?.holes || [];
+  const holes = Array.isArray(round.course?.holes) ? round.course.holes : [];
 
   // Check if round has an active skins game
   const { data: skinsGames } = useSkinsGamesByRound(round.id);
@@ -57,7 +57,8 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
 
   // Get selected tee from round, or fall back to course default/first available
   const { totalPar, selectedTeeName } = useMemo(() => {
-    const courseHoles = round.course?.holes || [];
+    const rawHoles = round.course?.holes;
+    const courseHoles = Array.isArray(rawHoles) ? rawHoles : [];
 
     // Priority: round.selected_tee > first course tee > first yardage key
     let teeName: string | null = null;

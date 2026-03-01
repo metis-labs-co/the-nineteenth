@@ -69,6 +69,8 @@ export interface PushPreferences {
   pushFriendRequests: boolean;
   /** Notifications about scorecard updates (submitted by others in your round) */
   pushScorecardUpdates: boolean;
+  /** Notifications about league updates (joins, round tags, leaderboard changes) */
+  pushLeagueUpdates: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   pushCompetitionUpdates: true,
   pushFriendRequests: true,
   pushScorecardUpdates: true,
+  pushLeagueUpdates: true,
 };
 
 // =====================================================
@@ -106,6 +109,8 @@ export interface PushNotificationData {
   playerId?: string;
   /** Related friendship ID (for friend-related notifications) */
   friendshipId?: string;
+  /** Related league ID (for league-related notifications) */
+  leagueId?: string;
 }
 
 /**
@@ -281,8 +286,23 @@ export function getEnabledNotificationTypes(
     types.push('scorecard_submitted');
   }
 
+  if (preferences.pushLeagueUpdates) {
+    types.push(
+      'league_player_joined',
+      'league_player_left',
+      'league_player_removed',
+      'league_round_tagged',
+      'league_leaderboard_changed'
+    );
+  }
+
   // Social round invitation is always enabled if push is enabled
   types.push('social_round_invitation');
+
+  // Round completed follows competition updates
+  if (preferences.pushCompetitionUpdates) {
+    types.push('round_completed');
+  }
 
   return types;
 }

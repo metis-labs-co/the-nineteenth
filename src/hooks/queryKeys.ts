@@ -396,6 +396,46 @@ export const scoreMismatchKeys = {
 } as const;
 
 // =====================================================
+// KNOCKOUT
+// =====================================================
+
+export const knockoutKeys = {
+  all: ['knockout'] as const,
+  bracket: (competitionId: string) => [...knockoutKeys.all, 'bracket', competitionId] as const,
+  match: (matchId: string) => [...knockoutKeys.all, 'match', matchId] as const,
+} as const;
+
+// =====================================================
+// LEAGUES
+// =====================================================
+
+export const leagueKeys = {
+  all: ['leagues'] as const,
+  lists: () => [...leagueKeys.all, 'list'] as const,
+  list: (filters?: { status?: string }) => [...leagueKeys.lists(), filters] as const,
+  details: () => [...leagueKeys.all, 'detail'] as const,
+  detail: (id: string) => [...leagueKeys.details(), id] as const,
+  leaderboard: (leagueId: string) => [...leagueKeys.all, 'leaderboard', leagueId] as const,
+  players: (leagueId: string) => [...leagueKeys.all, 'players', leagueId] as const,
+  rounds: (leagueId: string) => [...leagueKeys.all, 'rounds', leagueId] as const,
+  eligibleScorecards: (leagueId: string) => [...leagueKeys.all, 'eligible', leagueId] as const,
+  playerRounds: (leagueId: string, playerId: string) =>
+    [...leagueKeys.all, 'playerRounds', leagueId, playerId] as const,
+  scorecardTags: (scorecardId: string) =>
+    [...leagueKeys.all, 'scorecardTags', scorecardId] as const,
+  // Ladder
+  ladderStandings: (leagueId: string) => [...leagueKeys.all, 'ladder', leagueId] as const,
+  challenges: (leagueId: string) => [...leagueKeys.all, 'challenges', leagueId] as const,
+  myChallenges: (leagueId: string) => [...leagueKeys.all, 'myChallenges', leagueId] as const,
+  challenge: (challengeId: string) => [...leagueKeys.all, 'challenge', challengeId] as const,
+  // Eclectic
+  eclecticLeaderboard: (leagueId: string) => [...leagueKeys.all, 'eclecticLb', leagueId] as const,
+  eclecticBestScores: (leagueId: string, playerId?: string) =>
+    [...leagueKeys.all, 'eclecticScores', leagueId, playerId] as const,
+  tagCount: (leagueId: string) => [...leagueKeys.all, 'tagCount', leagueId] as const,
+} as const;
+
+// =====================================================
 // HELPER TYPES
 // =====================================================
 
@@ -439,4 +479,6 @@ export const allQueryKeys = [
   skinsKeys.all,
   wolfKeys.all,
   scoreMismatchKeys.all,
+  knockoutKeys.all,
+  leagueKeys.all,
 ] as const;

@@ -99,7 +99,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    ...typography.body,
+    fontSize: typography.body.fontSize,
+    fontWeight: typography.body.fontWeight,
     marginLeft: spacing.sm,
     paddingVertical: 0,
   },

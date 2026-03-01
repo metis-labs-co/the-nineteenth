@@ -385,7 +385,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
 
   // Default to standard 18 holes if no course data
   const courseHoles = useMemo(() => {
-    if (holes && holes.length > 0) return holes;
+    if (Array.isArray(holes) && holes.length > 0) return holes;
     return generateDefaultHoles();
   }, [holes]);
 

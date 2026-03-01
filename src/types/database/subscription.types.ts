@@ -81,6 +81,11 @@ export interface TierLimits {
   can_use_wolf_game?: boolean;
   can_use_prize_pool?: boolean;
 
+  // Feature access - Leagues
+  max_leagues_owned?: number; // -1 = unlimited, -2 = no system limit
+  can_create_league?: boolean;
+  can_join_league?: boolean;
+
   // Feature access - Admin
   can_access_admin_tools: boolean;
 

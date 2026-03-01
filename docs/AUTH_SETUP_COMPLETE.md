@@ -62,7 +62,7 @@ All authentication components are fully implemented and ready to use!
 
 ```bash
 # Option A: Via Supabase CLI (recommended)
-cd /Users/samkay/Documents/GolfApp
+cd the-nineteenth
 supabase db push
 
 # Option B: Via Supabase Dashboard

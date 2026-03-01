@@ -44,7 +44,7 @@ interface CourseCardProps {
  * Calculate total par from holes array
  */
 function calculateTotalPar(holes: Hole[] | null | undefined): number | null {
-  if (!holes || holes.length === 0) return null;
+  if (!Array.isArray(holes) || holes.length === 0) return null;
   return holes.reduce((sum, hole) => sum + hole.par, 0);
 }
 

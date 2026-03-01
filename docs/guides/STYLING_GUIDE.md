@@ -1264,4 +1264,4 @@ const styles = StyleSheet.create({
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: February 2026*

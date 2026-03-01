@@ -78,8 +78,8 @@ INSERT INTO competitions (id, name, description, competition_type, start_date, e
 VALUES (
   'd0000001-0000-0000-0000-000000000001',
   'Summer Series 2025',
-  'A multi-round league competition featuring different formats each week. Stableford, Stroke Play, and Best Ball!',
-  'league',
+  'A multi-round knockout competition featuring different formats each week. Stableford, Stroke Play, and Best Ball!',
+  'knockout',
   '2025-11-01',
   '2025-12-15',
   'honor',

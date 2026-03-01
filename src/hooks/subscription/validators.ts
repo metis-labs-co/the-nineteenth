@@ -279,6 +279,30 @@ export function validateFeatureAccess(
     case 'gps_distance':
       return checkBooleanFeature(limits.canUseGpsDistance, 'GPS distance', 'social');
 
+    case 'create_league':
+      return checkLimitFeature(
+        context.currentCount ?? 0,
+        limits.maxLeaguesOwned,
+        'leagues',
+        'social',
+        tier
+      );
+
+    case 'create_premium_league':
+      // Ladder and Eclectic league types require Premium tier
+      return checkBooleanFeature(
+        tier === 'premium' || tier === 'super_admin',
+        'Ladder and Eclectic leagues',
+        'premium'
+      );
+
+    case 'join_league':
+      return checkBooleanFeature(
+        limits.canJoinLeague,
+        'joining leagues',
+        'social'
+      );
+
     default:
       return createUnknownFeatureAccess(featureId);
   }

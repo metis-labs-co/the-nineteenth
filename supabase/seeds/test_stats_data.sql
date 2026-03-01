@@ -178,7 +178,7 @@ INSERT INTO competitions (
   'eeee0001-0001-0001-0001-000000000001',
   'Stats Test Competition',
   'Competition for testing statistics features',
-  'league',
+  'knockout',
   '2025-01-01',
   'honor',
   'ca7c2924-39e8-4b66-bbb8-d9699adb3d65',

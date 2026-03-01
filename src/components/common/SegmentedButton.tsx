@@ -47,7 +47,7 @@ interface SegmentedButtonProps<T extends string = string> {
  *   onValueChange={setSelectedType}
  *   buttons={[
  *     { value: 'event', label: 'Event', icon: 'calendar-star' },
- *     { value: 'league', label: 'League', icon: 'trophy-outline' },
+ *     { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
  *   ]}
  * />
  * ```

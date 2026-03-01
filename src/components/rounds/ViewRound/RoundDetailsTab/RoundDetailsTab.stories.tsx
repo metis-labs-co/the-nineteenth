@@ -340,12 +340,12 @@ export const WithEventCompetition: Story = {
   },
 };
 
-export const WithLeagueCompetition: Story = {
+export const WithKnockoutCompetition: Story = {
   args: {
     round: createRound({
       competition: createCompetition({
-        competition_type: 'league',
-        name: 'Winter Golf League',
+        competition_type: 'knockout',
+        name: 'Winter Golf Knockout',
       }),
     }),
   },
@@ -495,14 +495,14 @@ export const CasualRound: Story = {
   },
 };
 
-export const LeagueMatchDay: Story = {
+export const KnockoutMatchDay: Story = {
   args: {
     round: createRound({
       game_type: 'match-play',
       status: 'in-progress',
       competition: createCompetition({
-        name: 'Summer Match Play League',
-        competition_type: 'league',
+        name: 'Summer Match Play Knockout',
+        competition_type: 'knockout',
       }),
     }),
   },

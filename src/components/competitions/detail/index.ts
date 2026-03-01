@@ -20,6 +20,10 @@ export type { TeamsTabProps } from './TeamsTab';
 export { LeaderboardTab } from '@/components/leaderboard';
 export type { LeaderboardTabProps } from '@/components/leaderboard';
 
+// Note: BracketTab lives in @/components/knockout
+export { BracketTab } from '@/components/knockout';
+export type { BracketTabProps } from '@/components/knockout';
+
 // Re-export types
 export type {
   RoundWithCourse,

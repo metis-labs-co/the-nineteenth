@@ -26,6 +26,7 @@ type PushPrefsRow = {
   push_competition_updates: boolean;
   push_friend_requests: boolean;
   push_scorecard_updates: boolean;
+  push_league_updates: boolean;
 };
 
 // =====================================================
@@ -55,25 +56,26 @@ export function usePushPermissionStatus() {
 export function usePushPreferences(userId: string) {
   const { data: preferences, isLoading } = useQuery({
     queryKey: pushKeys.preferences(userId),
-    queryFn: async (): Promise<PushPreferences | undefined> => {
-      if (!userId) return undefined;
+    queryFn: async (): Promise<PushPreferences | null> => {
+      if (!userId) return null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = (await (supabase as any)
         .from('user_preferences')
         .select(
-          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates'
+          'push_enabled, push_competition_updates, push_friend_requests, push_scorecard_updates, push_league_updates'
         )
         .eq('user_id', userId)
-        .single()) as { data: PushPrefsRow | null; error: Error | null };
+        .maybeSingle()) as { data: PushPrefsRow | null; error: Error | null };
 
-      if (error || !data) return undefined;
+      if (error || !data) return null;
 
       return {
         pushEnabled: data.push_enabled,
         pushCompetitionUpdates: data.push_competition_updates,
         pushFriendRequests: data.push_friend_requests,
         pushScorecardUpdates: data.push_scorecard_updates,
+        pushLeagueUpdates: data.push_league_updates,
       };
     },
     enabled: !!userId,

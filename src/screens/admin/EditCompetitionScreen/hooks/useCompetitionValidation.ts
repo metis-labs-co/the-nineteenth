@@ -19,7 +19,7 @@ export const editCompetitionSchema = z
       .max(500, 'Description must be less than 500 characters')
       .optional()
       .nullable(),
-    competitionType: z.enum(['league', 'event']),
+    competitionType: z.enum(['knockout', 'event']),
     teamMode: z.enum(['none', 'fixed', 'per-round']),
     startDate: z.string().min(1, 'Start date is required'),
     endDate: z.string().optional().nullable(),

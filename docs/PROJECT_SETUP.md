@@ -1,6 +1,6 @@
 # The Nineteenth - Project Setup Guide
 
-> **Note**: For a quick start guide and day-to-day commands, see [docs/README.md](docs/README.md)
+> **Note**: For a quick start guide and day-to-day commands, see [docs/README.md](README.md)
 
 ## Tech Stack Decisions
 
@@ -29,7 +29,7 @@ npx create-expo-app the-nineteenth --template expo-template-blank-typescript
 cd the-nineteenth
 ```
 
-**Note**: Our project is currently in `/Users/samkay/Documents/GolfApp` but uses `the-nineteenth` as the package name.
+**Note**: The project directory is `the-nineteenth` and uses `the-nineteenth` as the package name.
 
 ### 2. Install Core Dependencies
 
@@ -93,7 +93,7 @@ npx expo install expo-location
 ## Project Structure
 
 ```
-GolfApp/
+the-nineteenth/
 ├── src/
 │   ├── components/              # Reusable components
 │   │   ├── common/             # Common UI components
@@ -295,10 +295,13 @@ module.exports = {
 ### .env.example
 
 ```bash
-# API Configuration
-API_BASE_URL=http://localhost:3000/api
-AUSTRALIA_GOLF_API_KEY=your_api_key_here
-AUSTRALIA_GOLF_API_URL=https://zylalabs.com/api/3176
+# Supabase
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
+
+# Golf Course API (GolfAPI.io)
+EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
+EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
 
 # Environment
 NODE_ENV=development
@@ -421,7 +424,7 @@ All configuration files have been created and are ready to use:
 | **Commands** | `npx expo` | Modern Expo standard |
 | **Styling** | React Native StyleSheet | Native approach with design tokens |
 
-For day-to-day development, refer to [docs/README.md](docs/README.md).
+For day-to-day development, refer to [docs/README.md](README.md).
 
 ---
 
@@ -435,5 +438,11 @@ Detailed implementation guides for specific topics:
 - **[API_INTEGRATION.md](docs/guides/API_INTEGRATION.md)** - Golf course API integration and caching strategies
 - **[DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)** - CI/CD, EAS builds, app store submissions, and monitoring
 - **[DATABASE_SCHEMA.md](docs/database/DATABASE_SCHEMA.md)** - Complete database schema with SQL and TypeScript types
+- **[SCORING_PAIRS.md](guides/SCORING_PAIRS.md)** - Designated scoring pairs
+- **[SKINS_GAME.md](guides/SKINS_GAME.md)** - Skins gambling side-game
+- **[WOLF_GAME.md](guides/WOLF_GAME.md)** - Wolf partner selection side-game
+- **[SUBSCRIPTION_TIERS.md](guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system
+- **[PUSH_NOTIFICATIONS.md](guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture
+- **[LEAGUES.md](guides/LEAGUES.md)** - Cross-course league competitions
 
 See [CLAUDE.md](../CLAUDE.md) for project overview and complete documentation map.

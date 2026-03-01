@@ -8,7 +8,7 @@ export type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
 export type HandicapSource = 'profile' | 'calculated' | 'none';
 export type CompetitionVisibility = 'private' | 'public' | 'unlisted';
 export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
-export type CompetitionType = 'league' | 'event';
+export type CompetitionType = 'knockout' | 'event';
 
 // Game enums
 export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
@@ -50,7 +50,13 @@ export type NotificationType =
   | 'scorecard_submitted'
   | 'friend_request_received'
   | 'friend_request_accepted'
-  | 'social_round_invitation';
+  | 'social_round_invitation'
+  | 'league_player_joined'
+  | 'league_player_left'
+  | 'league_player_removed'
+  | 'league_round_tagged'
+  | 'league_leaderboard_changed'
+  | 'round_completed';
 
 // Feature enums
 export type TierFeature =
@@ -73,6 +79,13 @@ export type TierFeature =
   | 'ai_competition'
   | 'manage_guests'
   | 'gps_distance';
+
+// Knockout enums (re-exported from knockout.types.ts for consistency)
+export type {
+  BracketType,
+  KnockoutMatchStatus,
+  SeedingMethod,
+} from './knockout.types';
 
 // Skins enums (re-exported from skins.types.ts for consistency)
 export type {

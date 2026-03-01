@@ -2,7 +2,7 @@
 
 A mobile-first React Native application for creating and managing social golf competitions in Australia.
 
-> **Note**: For detailed configuration and setup instructions, see [PROJECT_SETUP.md](../PROJECT_SETUP.md)
+> **Note**: For detailed configuration and setup instructions, see [PROJECT_SETUP.md](PROJECT_SETUP.md)
 
 ## 📱 Features
 
@@ -21,7 +21,7 @@ A mobile-first React Native application for creating and managing social golf co
 - **React Hook Form** - Form management
 - **React Query** - API state & caching
 - **Expo SQLite** - Offline database
-- **NativeBase** - UI components (chosen for easy setup)
+- **React Native Paper** - UI components (Material Design 3)
 
 ## 🚀 Quick Start
 
@@ -45,7 +45,7 @@ xcode-select --install
 
 ```bash
 # Navigate to the project directory
-cd GolfApp
+cd the-nineteenth
 
 # Install dependencies
 pnpm install
@@ -76,7 +76,7 @@ npx expo start --android
 ## 📁 Project Structure
 
 ```
-GolfApp/
+the-nineteenth/
 ├── src/
 │   ├── components/       # Reusable components
 │   ├── screens/          # Screen components
@@ -129,17 +129,20 @@ Full scorecard screen showing:
 Create a `.env` file:
 
 ```bash
-# API Configuration
-API_BASE_URL=http://localhost:3000/api
-AUSTRALIA_GOLF_API_KEY=your_key_here
-AUSTRALIA_GOLF_API_URL=https://zylalabs.com/api/3176
+# Supabase
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
+
+# Golf Course API (GolfAPI.io)
+EXPO_PUBLIC_GOLFAPI_IO_URL=https://api.golfapi.io/v1
+EXPO_PUBLIC_GOLFAPI_IO_KEY=your_golfapi_key_here
 
 # Environment
 NODE_ENV=development
 
 # Feature Flags
-ENABLE_OFFLINE_MODE=true
-ENABLE_BACKGROUND_SYNC=true
+EXPO_PUBLIC_ENABLE_OFFLINE_MODE=true
+EXPO_PUBLIC_ENABLE_BACKGROUND_SYNC=true
 ```
 
 ### Path Aliases
@@ -147,9 +150,9 @@ ENABLE_BACKGROUND_SYNC=true
 The project uses path aliases for cleaner imports:
 
 ```typescript
-import { Competition } from '@types/index';
-import { useScorecardStore } from '@store/scorecardStore';
-import { calculateNetScore } from '@utils/scoring';
+import { Competition } from '@/types/index';
+import { useScorecardStore } from '@/store/scorecardStore';
+import { calculateNetScore } from '@/utils/scoring';
 ```
 
 Configured in:
@@ -204,14 +207,14 @@ const styles = StyleSheet.create({
 });
 ```
 
-For UI components, we're using **NativeBase** (already installed):
+For UI components, we're using **React Native Paper** (Material Design 3):
 
 ```bash
 # Already included in dependencies
-# native-base and react-native-svg
+# react-native-paper and react-native-vector-icons
 ```
 
-**Why NativeBase?** Chosen for the easiest setup and extensive pre-built components for rapid development.
+**Why React Native Paper?** Chosen for excellent TypeScript support, comprehensive component library, and Material Design 3 theming with dark mode.
 
 ## 🧪 Testing
 
@@ -262,56 +265,21 @@ eas build --platform ios
 eas build --platform android
 ```
 
-## 🔐 Authentication (To Be Implemented)
+## Authentication
 
-Currently using mock authentication. Future implementation will use:
-- Email + invite codes (no password for MVP)
+Implemented using Supabase Auth:
+- Email + password signup and login
 - Magic links for passwordless login
-- Optional social login (Google, Apple)
+- Password reset via email
+- Biometric app lock (Face ID / fingerprint)
 
-## 🌐 API Integration (To Be Implemented)
+## API Integration
 
-### Backend Endpoints
+### Backend
+All API calls go through **Supabase** (PostgreSQL + Auth + Storage + Real-time). No custom backend server.
 
-Expected API structure:
-
-```typescript
-// Competitions
-POST   /api/competitions
-GET    /api/competitions/:id
-PUT    /api/competitions/:id
-GET    /api/competitions/:id/leaderboard
-
-// Rounds
-POST   /api/rounds
-GET    /api/rounds/:id
-
-// Scorecards
-POST   /api/scorecards
-GET    /api/scorecards/:id
-GET    /api/rounds/:id/scorecards
-
-// Courses
-GET    /api/courses/search
-GET    /api/courses/:id
-```
-
-### API Client Setup
-
-```typescript
-// src/services/api/client.ts
-import axios from 'axios';
-
-const apiClient = axios.create({
-  baseURL: process.env.API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add interceptors for auth, error handling, etc.
-```
+### Golf Course API
+Course data provided by **GolfAPI.io** with 42,000+ courses globally. See [API_INTEGRATION.md](guides/API_INTEGRATION.md).
 
 ## 📱 Offline Support
 
@@ -386,7 +354,7 @@ All configuration files are included in the project root:
 - **app.json** - Expo app configuration
 - **.env.example** - Environment variables template
 
-For detailed configuration explanations, see [PROJECT_SETUP.md](../PROJECT_SETUP.md).
+For detailed configuration explanations, see [PROJECT_SETUP.md](PROJECT_SETUP.md).
 
 ## 📚 Developer Guides
 
@@ -398,13 +366,19 @@ Detailed implementation guides for specific topics:
 - **[API_INTEGRATION.md](guides/API_INTEGRATION.md)** - Golf course API integration
 - **[DEPLOYMENT.md](guides/DEPLOYMENT.md)** - CI/CD and deployment
 - **[DATABASE_SCHEMA.md](database/DATABASE_SCHEMA.md)** - Database schema
+- **[SCORING_PAIRS.md](guides/SCORING_PAIRS.md)** - Designated scoring pairs
+- **[SKINS_GAME.md](guides/SKINS_GAME.md)** - Skins gambling side-game
+- **[WOLF_GAME.md](guides/WOLF_GAME.md)** - Wolf partner selection side-game
+- **[SUBSCRIPTION_TIERS.md](guides/SUBSCRIPTION_TIERS.md)** - Subscription tier system
+- **[PUSH_NOTIFICATIONS.md](guides/PUSH_NOTIFICATIONS.md)** - Push notification architecture
+- **[LEAGUES.md](guides/LEAGUES.md)** - Cross-course league competitions
 
 ## 📚 Resources
 
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Navigation](https://reactnavigation.org/)
 - [Zustand](https://zustand-demo.pmnd.rs/)
-- [NativeBase](https://nativebase.io/)
+- [React Native Paper](https://reactnativepaper.com/)
 - [React Hook Form](https://react-hook-form.com/)
 
 ## 🤝 Contributing
@@ -424,31 +398,34 @@ This project is private and proprietary.
 
 ---
 
-## 🚧 TODO / Roadmap
+## Roadmap Status
 
-### MVP (Phase 1)
-- [ ] Complete authentication flow
-- [ ] Backend API integration
-- [ ] Course search and selection
-- [ ] Competition creation wizard
-- [ ] Player invitation system
-- [ ] Full scorecard implementation
-- [ ] Leaderboard display
-- [ ] Offline sync
+### MVP (Phase 1) - Complete
+- [x] Authentication flow
+- [x] Backend API integration (Supabase)
+- [x] Course search and selection (GolfAPI.io)
+- [x] Competition creation wizard
+- [x] Player invitation system
+- [x] Full scorecard implementation
+- [x] Leaderboard display
+- [x] Offline sync
 
-### Phase 2
-- [ ] Multi-round competitions
-- [ ] Auto-pairing algorithm
-- [ ] Multiple game types (Match Play, etc.)
-- [ ] Email/SMS notifications
-- [ ] Statistics dashboard
+### Phase 2 - Complete
+- [x] Multi-round competitions
+- [x] Auto-pairing algorithm
+- [x] Multiple game types (Match Play, Team formats)
+- [x] Push notifications
+- [x] Statistics dashboard
 
-### Phase 3
-- [ ] Team formats (Ambrose, Best Ball)
-- [ ] Social features (comments, photos)
-- [ ] Advanced analytics
-- [ ] Export results (PDF, CSV)
+### Phase 3 - Complete
+- [x] Team formats (Ambrose, Best Ball, Scramble, Shamble)
+- [x] Social features (friends, player comparison)
+- [x] Achievements and cosmetics
+- [x] Leagues (cross-course competition)
+
+### In Progress
+- [ ] Skins and Wolf side-games with prize pools
 
 ---
 
-**Last Updated**: November 2024
+**Last Updated**: February 2026

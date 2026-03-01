@@ -41,7 +41,7 @@ const gameTypeLabels: Record<GameType, string> = {
 // Competition type labels for display
 const competitionTypeLabels: Record<CompetitionType, string> = {
   event: 'Event',
-  league: 'League',
+  knockout: 'Knockout',
 };
 
 export interface SimplifiedReviewStepProps {

@@ -35,6 +35,7 @@ export interface NotificationData {
   roundId?: string;
   playerId?: string;
   friendshipId?: string;
+  leagueId?: string;
   /** Additional arbitrary data */
   [key: string]: unknown;
 }
@@ -80,6 +81,16 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
 
   // Social round invitation -> ViewRound (or CompetitionDetail if no roundId)
   social_round_invitation: 'ViewRound',
+
+  // League notifications -> LeagueDetail
+  league_player_joined: 'LeagueDetail',
+  league_player_left: 'LeagueDetail',
+  league_player_removed: 'LeagueDetail',
+  league_round_tagged: 'LeagueDetail',
+  league_leaderboard_changed: 'LeagueDetail',
+
+  // Round completed -> ViewRound
+  round_completed: 'ViewRound',
 };
 
 // =====================================================
@@ -101,6 +112,7 @@ function extractNotificationData(
     roundId: data?.roundId,
     playerId: data?.playerId,
     friendshipId: data?.friendshipId,
+    leagueId: data?.leagueId,
     ...data,
   };
 }
@@ -119,6 +131,7 @@ function extractForegroundNotificationData(
     roundId: data?.roundId,
     playerId: data?.playerId,
     friendshipId: data?.friendshipId,
+    leagueId: data?.leagueId,
     ...data,
   };
 }
@@ -178,6 +191,10 @@ function isOnRelevantScreen(
       // On view round for the same round
       return params?.roundId === data.roundId;
 
+    case 'LeagueDetail':
+      // On league detail for the same league
+      return params?.id === data.leagueId;
+
     case 'Friends':
       // Already on friends screen
       return true;
@@ -221,7 +238,7 @@ export function handleNotificationResponse(
   console.log('[NotificationHandler] Handling notification response');
 
   const data = extractNotificationData(response);
-  const { type, competitionId, roundId } = data;
+  const { type, competitionId, roundId, leagueId } = data;
 
   console.log('[NotificationHandler] Extracted data:', {
     type,
@@ -256,6 +273,15 @@ export function handleNotificationResponse(
         navigation.navigate('CompetitionDetail', { id: competitionId });
       } else {
         console.warn('[NotificationHandler] Round notification without roundId');
+        navigation.navigate('Notifications');
+      }
+      break;
+
+    case 'LeagueDetail':
+      if (leagueId) {
+        navigation.navigate('LeagueDetail', { id: leagueId });
+      } else {
+        console.warn('[NotificationHandler] League notification without leagueId');
         navigation.navigate('Notifications');
       }
       break;
@@ -515,6 +541,7 @@ export function getCategoryForNotificationType(
     case 'competition_player_joined':
     case 'new_round_created':
     case 'competition_status_changed':
+    case 'round_completed':
       return NotificationCategories.COMPETITION;
 
     case 'friend_request_received':
@@ -526,6 +553,13 @@ export function getCategoryForNotificationType(
 
     case 'social_round_invitation':
       return NotificationCategories.COMPETITION;
+
+    case 'league_player_joined':
+    case 'league_player_left':
+    case 'league_player_removed':
+    case 'league_round_tagged':
+    case 'league_leaderboard_changed':
+      return NotificationCategories.LEAGUE;
 
     default:
       return undefined;
@@ -569,6 +603,15 @@ export function buildNavigationParams(
           roundId: data.roundId || '',
           competitionId: data.competitionId,
         },
+      };
+
+    case 'LeagueDetail':
+      if (!data.leagueId) {
+        return { screen: 'Notifications', params: {} };
+      }
+      return {
+        screen: 'LeagueDetail',
+        params: { id: data.leagueId },
       };
 
     case 'Friends':

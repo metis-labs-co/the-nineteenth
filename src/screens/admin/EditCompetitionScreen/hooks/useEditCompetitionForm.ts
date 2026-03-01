@@ -101,8 +101,8 @@ export function useEditCompetitionForm({
   const handleCompetitionTypeChange = useCallback(
     (value: CompetitionType) => {
       setValue('competitionType', value, { shouldDirty: true });
-      // Clear end date when switching to league
-      if (value === 'league') {
+      // Clear end date when switching to knockout
+      if (value === 'knockout') {
         setValue('endDate', '', { shouldDirty: true });
       }
     },

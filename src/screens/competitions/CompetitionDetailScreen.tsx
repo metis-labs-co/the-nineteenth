@@ -40,11 +40,12 @@ import {
   TeamsTab,
   LeaderboardTab,
 } from '@/components/competitions/detail';
+import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal } from '@/components/leaderboard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
 
-type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard';
+type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard' | 'bracket';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -441,7 +442,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           { key: 'rounds', label: 'Rounds' },
           { key: 'players', label: 'Players' },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
-          { key: 'leaderboard', label: 'Leaderboard' },
+          ...(competition.competition_type === 'knockout'
+            ? [{ key: 'bracket' as const, label: 'Bracket' }]
+            : [{ key: 'leaderboard' as const, label: 'Leaderboard' }]),
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
@@ -526,13 +529,23 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'leaderboard' && (
+        {activeTab === 'leaderboard' && competition.competition_type !== 'knockout' && (
           <LeaderboardTab
             competitionId={id}
             teamMode={competition.team_mode}
             rounds={rounds}
             currentUserId={user?.id}
             onEntryPress={handleLeaderboardEntryPress}
+          />
+        )}
+
+        {activeTab === 'bracket' && competition.competition_type === 'knockout' && (
+          <BracketTab
+            competitionId={id}
+            knockoutConfig={competition.knockout_config}
+            playerCount={players.length}
+            currentUserId={user?.id}
+            isOrganizer={isOrganizer}
           />
         )}
       </ScrollView>

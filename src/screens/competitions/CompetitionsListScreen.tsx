@@ -15,13 +15,15 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { ConfirmationDialog, FeatureButton } from '@/components/common';
+import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { FeatureLockCompact } from '@/components/subscription';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { IconPlus, IconSparkles } from '@tabler/icons-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
+import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { useCompetitionsList } from './hooks';
 import {
   CompetitionTabBar,
@@ -33,6 +35,9 @@ import type { CompetitionItem } from './hooks';
 export default function CompetitionsListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation();
+
+  // Welcome modal
+  const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } = useScreenWelcome('competitions');
 
   const {
     // Tab state
@@ -95,9 +100,19 @@ export default function CompetitionsListScreen() {
     handleJoinCompetition
   );
 
-  // Header right content - just Join button
+  // Header right content - info icon + Join button
   const headerRightContent = (
     <View style={styles.headerActions}>
+      {!isFirstVisit && (
+        <TouchableOpacity
+          style={[styles.infoButton, { backgroundColor: colors.surfaceVariant }]}
+          onPress={showModal}
+          accessibilityRole="button"
+          accessibilityLabel="Competitions info"
+        >
+          <Icon source="information-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         style={[
           styles.joinButton,
@@ -205,6 +220,14 @@ export default function CompetitionsListScreen() {
         loading={isDeleting}
         icon="delete"
       />
+
+      {/* Welcome Info Modal */}
+      <ScreenWelcomeModal
+        visible={isModalVisible}
+        content={welcomeContent}
+        onDismiss={dismissModal}
+        testID="competitions-welcome-modal"
+      />
     </View>
   );
 }
@@ -217,6 +240,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  infoButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
   },
   joinButton: {
     paddingHorizontal: spacing.md,

@@ -2,7 +2,7 @@
 
 **Timeline:** 4-6 weeks
 **Goal:** Validate core concept with absolute minimum viable feature set
-**Status:** 🎯 In Planning
+**Status:** ✅ Complete
 
 ---
 
@@ -27,10 +27,10 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 1. Authentication (Week 1)
 **Scope:** Bare minimum to identify users
 
-- [ ] Email + password sign up
-- [ ] Email + password login
-- [ ] Simple profile (name only)
-- [ ] Logout
+- [x] Email + password sign up
+- [x] Email + password login
+- [x] Simple profile (name only)
+- [x] Logout
 
 **Out of Scope:**
 - ❌ Magic links (Phase 2)
@@ -44,29 +44,29 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 2. Admin: Create Competition (Week 1-2)
 
 **Step 1: Competition Details**
-- [ ] Competition name (required)
-- [ ] Description (optional, text area)
-- [ ] Start date (required, date picker)
-- [ ] Handicap system (dropdown: Honor System, Golf Australia, Gross Only)
-- [ ] Private competition (checkbox, default checked)
+- [x] Competition name (required)
+- [x] Description (optional, text area)
+- [x] Start date (required, date picker)
+- [x] Handicap system (dropdown: Honor System, Golf Australia, Gross Only)
+- [x] Private competition (checkbox, default checked)
 
 **Step 2: Add Round (SINGLE ROUND ONLY)**
-- [ ] Course name (text input, manual entry)
-- [ ] Date (date picker)
-- [ ] Game type: **Stableford only** (fixed, not a dropdown)
+- [x] Course name (text input, manual entry)
+- [x] Date (date picker)
+- [x] Game type: **Stableford only** (fixed, not a dropdown)
 
 **Step 3: Add Players**
-- [ ] Manual entry: Name + Handicap
-- [ ] List of added players
-- [ ] Remove player button
-- [ ] Minimum 2 players required
+- [x] Manual entry: Name + Handicap
+- [x] List of added players
+- [x] Remove player button
+- [x] Minimum 2 players required
 
 **Step 4: Review & Create**
-- [ ] Show all details for review
-- [ ] Edit buttons to go back to each step
-- [ ] Generate unique invite code (e.g., COMP-94821)
-- [ ] Create competition in Supabase
-- [ ] Show success screen with invite code
+- [x] Show all details for review
+- [x] Edit buttons to go back to each step
+- [x] Generate unique invite code (e.g., COMP-94821)
+- [x] Create competition in Supabase
+- [x] Show success screen with invite code
 
 **Out of Scope:**
 - ❌ Multiple rounds (Phase 2)
@@ -82,12 +82,12 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 3. Player: Join Competition (Week 2)
 
 **Join Flow:**
-- [ ] Input invite code screen
-- [ ] Validate code with Supabase
-- [ ] Show competition details preview
-- [ ] "Join Competition" button
-- [ ] Add player to competition in database
-- [ ] Navigate to competition dashboard
+- [x] Input invite code screen
+- [x] Validate code with Supabase
+- [x] Show competition details preview
+- [x] "Join Competition" button
+- [x] Add player to competition in database
+- [x] Navigate to competition dashboard
 
 **Out of Scope:**
 - ❌ QR code scanning (Phase 2)
@@ -99,16 +99,16 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 4. Player: Competition Dashboard (Week 2-3)
 
 **Display:**
-- [ ] Competition name and details card
-- [ ] Current standing (position + points)
-- [ ] Round details card:
+- [x] Competition name and details card
+- [x] Current standing (position + points)
+- [x] Round details card:
   - Course name
   - Date
   - Game type (Stableford)
   - Status (Upcoming / In Progress / Completed)
-- [ ] "Start Round" button (if round not completed)
-- [ ] Leaderboard preview (top 3 + current player)
-- [ ] "View Full Leaderboard" button
+- [x] "Start Round" button (if round not completed)
+- [x] Leaderboard preview (top 3 + current player)
+- [x] "View Full Leaderboard" button
 
 **Out of Scope:**
 - ❌ Multiple rounds list (Phase 2)
@@ -124,36 +124,36 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 **Critical Flow - Must Work Offline**
 
 **Header:**
-- [ ] Course name
-- [ ] Progress indicator (Hole X of 18)
-- [ ] Progress bar
+- [x] Course name
+- [x] Progress indicator (Hole X of 18)
+- [x] Progress bar
 
 **Hole Info:**
-- [ ] Hole number (large, centered)
-- [ ] Par (from course data)
-- [ ] Stroke index (for handicap calculation)
+- [x] Hole number (large, centered)
+- [x] Par (from course data)
+- [x] Stroke index (for handicap calculation)
 
 **Score Entry (for each player in group):**
-- [ ] Player name + handicap
-- [ ] Current score display (large number or "-")
-- [ ] Score buttons: 1, 2, 3, 4, 5, 6, 7, 8 (grid layout)
-- [ ] Active state when score selected
-- [ ] Highlight current player's card (border)
+- [x] Player name + handicap
+- [x] Current score display (large number or "-")
+- [x] Score buttons: 1, 2, 3, 4, 5, 6, 7, 8 (grid layout)
+- [x] Active state when score selected
+- [x] Highlight current player's card (border)
 
 **Navigation:**
-- [ ] "Previous Hole" button (disabled on hole 1)
-- [ ] "Next Hole" button (holes 1-17)
-- [ ] "Review & Submit" button (hole 18)
+- [x] "Previous Hole" button (disabled on hole 1)
+- [x] "Next Hole" button (holes 1-17)
+- [x] "Review & Submit" button (hole 18)
 
 **Quick Scorecard View:**
-- [ ] Horizontal scrollable holes (1-18)
-- [ ] Visual indicator: completed (✓), current (blue), incomplete (-)
-- [ ] Tap hole to jump to it
+- [x] Horizontal scrollable holes (1-18)
+- [x] Visual indicator: completed (✓), current (blue), incomplete (-)
+- [x] Tap hole to jump to it
 
 **Offline Support:**
-- [ ] Save all scores to Expo SQLite as they're entered
-- [ ] Work completely offline
-- [ ] Show offline indicator if no network
+- [x] Save all scores to Expo SQLite as they're entered
+- [x] Work completely offline
+- [x] Show offline indicator if no network
 
 **Out of Scope:**
 - ❌ Detailed stats (putts, fairways, GIR) - Phase 2
@@ -167,29 +167,29 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 6. Player: Review & Submit (Week 4)
 
 **Scorecard Review:**
-- [ ] Full scorecard table (all 18 holes, all players)
-- [ ] Hole | Par | Player 1 | Player 2 | Player 3 columns
-- [ ] Front 9 (OUT) subtotal
-- [ ] Back 9 (IN) subtotal (if implemented)
-- [ ] Total scores
+- [x] Full scorecard table (all 18 holes, all players)
+- [x] Hole | Par | Player 1 | Player 2 | Player 3 columns
+- [x] Front 9 (OUT) subtotal
+- [x] Back 9 (IN) subtotal (if implemented)
+- [x] Total scores
 
 **Score Summaries (per player):**
-- [ ] Gross total
-- [ ] Net total (calculated from handicap)
-- [ ] Stableford points total
-- [ ] Position relative to par
+- [x] Gross total
+- [x] Net total (calculated from handicap)
+- [x] Stableford points total
+- [x] Position relative to par
 
 **Actions:**
-- [ ] "Edit Scores" button → back to scorecard
-- [ ] "Submit All Scores" button → send to Supabase
-- [ ] Success confirmation screen
-- [ ] Navigate back to competition dashboard
+- [x] "Edit Scores" button → back to scorecard
+- [x] "Submit All Scores" button → send to Supabase
+- [x] Success confirmation screen
+- [x] Navigate back to competition dashboard
 
 **Sync Logic:**
-- [ ] If online: submit directly to Supabase
-- [ ] If offline: queue for sync, show pending status
-- [ ] On successful submit: clear local SQLite data
-- [ ] Show success message with final score
+- [x] If online: submit directly to Supabase
+- [x] If offline: queue for sync, show pending status
+- [x] On successful submit: clear local SQLite data
+- [x] Show success message with final score
 
 **Out of Scope:**
 - ❌ Playing partner digital signatures (Phase 2)
@@ -202,23 +202,23 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 7. Leaderboard (Week 5)
 
 **Display:**
-- [ ] Competition name header
-- [ ] Game type (Stableford)
-- [ ] Sorted by total points (descending)
-- [ ] Position | Player Name | Handicap | Points
-- [ ] Highlight current player row
-- [ ] Trophy icon for 1st place
+- [x] Competition name header
+- [x] Game type (Stableford)
+- [x] Sorted by total points (descending)
+- [x] Position | Player Name | Handicap | Points
+- [x] Highlight current player row
+- [x] Trophy icon for 1st place
 
 **Refresh:**
-- [ ] Pull-to-refresh to reload from Supabase
-- [ ] Manual refresh button
-- [ ] Loading indicator while fetching
+- [x] Pull-to-refresh to reload from Supabase
+- [x] Manual refresh button
+- [x] Loading indicator while fetching
 
 **Calculation:**
-- [ ] Fetch all scorecards for the round
-- [ ] Calculate Stableford points per player
-- [ ] Sort by total points
-- [ ] Handle ties (same position number)
+- [x] Fetch all scorecards for the round
+- [x] Calculate Stableford points per player
+- [x] Sort by total points
+- [x] Handle ties (same position number)
 
 **Out of Scope:**
 - ❌ Real-time updates (Phase 2)
@@ -240,12 +240,12 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 - ✅ View cached leaderboard (stale data)
 
 **Sync Strategy:**
-- [ ] Save all scorecard data to Expo SQLite
-- [ ] Queue scorecard submission if offline
-- [ ] Show "Pending Sync" indicator
-- [ ] On app open: attempt to sync pending scorecards
-- [ ] Manual "Sync Now" button
-- [ ] Clear local data after successful sync
+- [x] Save all scorecard data to Expo SQLite
+- [x] Queue scorecard submission if offline
+- [x] Show "Pending Sync" indicator
+- [x] On app open: attempt to sync pending scorecards
+- [x] Manual "Sync Now" button
+- [x] Clear local data after successful sync
 
 **Conflict Resolution:**
 - **Simple Rule:** Last write wins (no complex merge logic)
@@ -262,21 +262,21 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 ### 9. Error Handling (Week 5-6)
 
 **Network Errors:**
-- [ ] Show user-friendly error messages
-- [ ] "Retry" button for failed operations
-- [ ] Offline mode indicator (persistent banner)
+- [x] Show user-friendly error messages
+- [x] "Retry" button for failed operations
+- [x] Offline mode indicator (persistent banner)
 
 **Validation Errors:**
-- [ ] Form validation (required fields)
-- [ ] Invalid invite code message
-- [ ] Duplicate player names warning
-- [ ] Scorecard incomplete warning (missing holes)
+- [x] Form validation (required fields)
+- [x] Invalid invite code message
+- [x] Duplicate player names warning
+- [x] Scorecard incomplete warning (missing holes)
 
 **Edge Cases:**
-- [ ] Handle competition not found
-- [ ] Handle player already in competition
-- [ ] Handle scorecard already submitted
-- [ ] Handle deleted competition
+- [x] Handle competition not found
+- [x] Handle player already in competition
+- [x] Handle scorecard already submitted
+- [x] Handle deleted competition
 
 **Out of Scope:**
 - ❌ Sentry error tracking (Phase 2)
@@ -373,22 +373,22 @@ src/
 ## Testing Checklist
 
 ### Manual Testing
-- [ ] Create competition end-to-end
-- [ ] Join competition with code
-- [ ] Score full 18 holes offline
-- [ ] Submit scorecard
-- [ ] View leaderboard
-- [ ] Test on iOS device
-- [ ] Test on Android device
-- [ ] Test with poor network (airplane mode on/off)
-- [ ] Test with multiple players in group
+- [x] Create competition end-to-end
+- [x] Join competition with code
+- [x] Score full 18 holes offline
+- [x] Submit scorecard
+- [x] View leaderboard
+- [x] Test on iOS device
+- [x] Test on Android device
+- [x] Test with poor network (airplane mode on/off)
+- [x] Test with multiple players in group
 
 ### Edge Cases
-- [ ] Invalid invite code
-- [ ] Duplicate player names
-- [ ] Submit incomplete scorecard
-- [ ] Join already-joined competition
-- [ ] Network failure during submit
+- [x] Invalid invite code
+- [x] Duplicate player names
+- [x] Submit incomplete scorecard
+- [x] Join already-joined competition
+- [x] Network failure during submit
 
 ---
 
@@ -440,18 +440,22 @@ For detailed implementation details, see:
 
 ---
 
-## What Comes Next?
+## What Came Next
 
-After Phase 1 is validated with real users, see [MVP-PHASE-2.md](./MVP-PHASE-2.md) for next features:
+Phase 2 and Phase 3 features have been implemented, including:
 - Multi-round competitions
-- Multiple game types
+- Multiple game types (Stroke Play, Match Play, Team formats)
 - Auto-pairing algorithm
-- Course API integration
+- Course search API integration (GolfAPI.io)
 - Real-time leaderboard updates
-- And more...
+- Push notifications
+- Team formats (Ambrose, Best Ball, Scramble, Shamble)
+- Social features (friends, player comparison)
+- Achievements and cosmetics system
+- Leagues (cross-course WHS handicap differential competition)
+- Skins and Wolf side-games with prize pools
+- Subscription tier system
 
 ---
 
-**Remember:** Phase 1 is about learning, not perfection. Ship it, get feedback, iterate.
-
-*Last Updated: January 2025*
+*Last Updated: February 2026*

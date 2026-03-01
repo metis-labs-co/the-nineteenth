@@ -19,7 +19,7 @@ import { spacing, typography } from '@/constants/theme';
 // ============================================================================
 
 const COMPETITION_TYPE_DESCRIPTIONS: Record<CompetitionType, string> = {
-  league: 'Ongoing competition with no fixed end date',
+  knockout: 'A bracket-style elimination competition',
   event: 'Fixed-term competition with an end date',
 };
 
@@ -31,7 +31,7 @@ const TEAM_MODE_DESCRIPTIONS: Record<TeamMode, string> = {
 
 const COMPETITION_TYPE_BUTTONS: SegmentOption<CompetitionType>[] = [
   { value: 'event', label: 'Event', icon: 'calendar-star' },
-  { value: 'league', label: 'League', icon: 'trophy-outline' },
+  { value: 'knockout', label: 'Knockout', icon: 'sword-cross' },
 ];
 
 const TEAM_MODE_BUTTONS: SegmentOption<TeamMode>[] = [

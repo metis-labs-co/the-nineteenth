@@ -20,7 +20,7 @@ jest.mock('@tabler/icons-react-native', () => {
     IconGolf: (props: any) => <View testID="icon-golf" {...props} />,
     IconTrophy: (props: any) => <View testID="icon-trophy" {...props} />,
     IconUser: (props: any) => <View testID="icon-user" {...props} />,
-    IconUsers: (props: any) => <View testID="icon-users" {...props} />,
+    IconTournament: (props: any) => <View testID="icon-tournament" {...props} />,
     IconMap: (props: any) => <View testID="icon-map" {...props} />,
   };
 });
@@ -98,7 +98,7 @@ describe('BottomNavigation', () => {
       expect(screen.getByText('Rounds')).toBeTruthy();
       expect(screen.getByText('Comps')).toBeTruthy();
       expect(screen.getByText('Courses')).toBeTruthy();
-      expect(screen.getByText('Friends')).toBeTruthy();
+      expect(screen.getByText('Leagues')).toBeTruthy();
       expect(screen.getByText('Profile')).toBeTruthy();
     });
 
@@ -108,7 +108,7 @@ describe('BottomNavigation', () => {
       expect(screen.getByTestId('icon-golf')).toBeTruthy();
       expect(screen.getByTestId('icon-trophy')).toBeTruthy();
       expect(screen.getByTestId('icon-map')).toBeTruthy();
-      expect(screen.getByTestId('icon-users')).toBeTruthy();
+      expect(screen.getByTestId('icon-tournament')).toBeTruthy();
       expect(screen.getByTestId('icon-user')).toBeTruthy();
     });
 
@@ -146,11 +146,11 @@ describe('BottomNavigation', () => {
       expect(coursesTab.props.accessibilityState.selected).toBe(true);
     });
 
-    it('highlights friends tab when active', () => {
-      render(<BottomNavigation activeTab="friends" />);
+    it('highlights leagues tab when active', () => {
+      render(<BottomNavigation activeTab="leagues" />);
 
-      const friendsTab = screen.getByLabelText('Navigate to friends list');
-      expect(friendsTab.props.accessibilityState.selected).toBe(true);
+      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      expect(leaguesTab.props.accessibilityState.selected).toBe(true);
     });
 
     it('highlights profile tab when active', () => {
@@ -173,13 +173,13 @@ describe('BottomNavigation', () => {
       const roundsTab = screen.getByLabelText('Navigate to rounds screen');
       const compsTab = screen.getByLabelText('Navigate to competitions list');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
-      const friendsTab = screen.getByLabelText('Navigate to friends list');
+      const leaguesTab = screen.getByLabelText('Navigate to leagues');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       expect(roundsTab.props.accessibilityState.selected).toBe(false);
       expect(compsTab.props.accessibilityState.selected).toBe(true);
       expect(coursesTab.props.accessibilityState.selected).toBe(false);
-      expect(friendsTab.props.accessibilityState.selected).toBe(false);
+      expect(leaguesTab.props.accessibilityState.selected).toBe(false);
       expect(profileTab.props.accessibilityState.selected).toBe(false);
     });
   });
@@ -237,18 +237,18 @@ describe('BottomNavigation', () => {
       );
     });
 
-    it('calls onTabPress when friends tab is pressed', () => {
+    it('calls onTabPress when leagues tab is pressed', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const friendsTab = screen.getByLabelText('Navigate to friends list');
-      fireEvent.press(friendsTab);
+      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      fireEvent.press(leaguesTab);
 
       expect(mockOnTabPress).toHaveBeenCalledTimes(1);
       expect(mockOnTabPress).toHaveBeenCalledWith(
         expect.objectContaining({
-          key: 'friends',
-          label: 'Friends',
-          route: 'FriendsTab',
+          key: 'leagues',
+          label: 'Leagues',
+          route: 'LeaguesTab',
         })
       );
     });
@@ -319,11 +319,11 @@ describe('BottomNavigation', () => {
       expect(screen.getByText('3')).toBeTruthy();
     });
 
-    it('renders badge when provided for friends tab', () => {
+    it('renders badge when provided for leagues tab', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 10 }}
+          badges={{ leagues: 10 }}
         />
       );
 
@@ -334,7 +334,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ rounds: 2, friends: 7 }}
+          badges={{ rounds: 2, leagues: 7 }}
         />
       );
 
@@ -346,7 +346,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 150 }}
+          badges={{ leagues: 150 }}
         />
       );
 
@@ -357,7 +357,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 99 }}
+          badges={{ leagues: 99 }}
         />
       );
 
@@ -368,7 +368,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 100 }}
+          badges={{ leagues: 100 }}
         />
       );
 
@@ -379,7 +379,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 0 }}
+          badges={{ leagues: 0 }}
         />
       );
 
@@ -391,7 +391,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: 'NEW' }}
+          badges={{ leagues: 'NEW' }}
         />
       );
 
@@ -431,7 +431,7 @@ describe('BottomNavigation', () => {
       expect(screen.getByLabelText('Navigate to rounds screen')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to competitions list')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to courses list')).toBeTruthy();
-      expect(screen.getByLabelText('Navigate to friends list')).toBeTruthy();
+      expect(screen.getByLabelText('Navigate to leagues')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to your profile')).toBeTruthy();
     });
 
@@ -508,15 +508,15 @@ describe('BottomNavigation', () => {
       );
     });
 
-    it('passes correct route for friends tab', () => {
+    it('passes correct route for leagues tab', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const friendsTab = screen.getByLabelText('Navigate to friends list');
-      fireEvent.press(friendsTab);
+      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      fireEvent.press(leaguesTab);
 
       expect(mockOnTabPress).toHaveBeenCalledWith(
         expect.objectContaining({
-          route: 'FriendsTab',
+          route: 'LeaguesTab',
         })
       );
     });
@@ -537,14 +537,14 @@ describe('BottomNavigation', () => {
     it('passes complete tab data on press', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const friendsTab = screen.getByLabelText('Navigate to friends list');
-      fireEvent.press(friendsTab);
+      const leaguesTab = screen.getByLabelText('Navigate to leagues');
+      fireEvent.press(leaguesTab);
 
       expect(mockOnTabPress).toHaveBeenCalledWith({
-        key: 'friends',
-        label: 'Friends',
-        route: 'FriendsTab',
-        accessibilityLabel: 'Navigate to friends list',
+        key: 'leagues',
+        label: 'Leagues',
+        route: 'LeaguesTab',
+        accessibilityLabel: 'Navigate to leagues',
       });
     });
   });
@@ -579,7 +579,7 @@ describe('BottomNavigation', () => {
             rounds: 1,
             competitions: 2,
             courses: 3,
-            friends: 4,
+            leagues: 4,
             profile: 5,
           }}
         />
@@ -596,7 +596,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ friends: '!' }}
+          badges={{ leagues: '!' }}
         />
       );
 
@@ -612,7 +612,7 @@ describe('BottomNavigation', () => {
       expect(tabs[0].props.accessibilityLabel).toBe('Navigate to rounds screen');
       expect(tabs[1].props.accessibilityLabel).toBe('Navigate to competitions list');
       expect(tabs[2].props.accessibilityLabel).toBe('Navigate to courses list');
-      expect(tabs[3].props.accessibilityLabel).toBe('Navigate to friends list');
+      expect(tabs[3].props.accessibilityLabel).toBe('Navigate to leagues');
       expect(tabs[4].props.accessibilityLabel).toBe('Navigate to your profile');
     });
   });
@@ -658,13 +658,13 @@ describe('BottomNavigation', () => {
 
     it('updates when badges change', () => {
       const { rerender } = render(
-        <BottomNavigation activeTab="rounds" badges={{ friends: 5 }} />
+        <BottomNavigation activeTab="rounds" badges={{ leagues: 5 }} />
       );
 
       expect(screen.getByText('5')).toBeTruthy();
 
       rerender(
-        <BottomNavigation activeTab="rounds" badges={{ friends: 10 }} />
+        <BottomNavigation activeTab="rounds" badges={{ leagues: 10 }} />
       );
 
       expect(screen.getByText('10')).toBeTruthy();

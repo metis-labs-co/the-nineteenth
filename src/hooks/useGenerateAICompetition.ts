@@ -86,7 +86,7 @@ export interface GeneratedTeam {
 export interface GeneratedCompetition {
   name: string;
   description: string | null;
-  competitionType: 'league' | 'event';
+  competitionType: 'knockout' | 'event';
   startDate: string; // DD/MM/YYYY format
   endDate: string | null; // DD/MM/YYYY format
   handicapSystem: 'honor' | 'golf-australia' | 'gross-only';

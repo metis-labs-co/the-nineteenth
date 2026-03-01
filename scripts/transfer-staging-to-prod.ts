@@ -1,6 +1,11 @@
 /**
  * Transfer featured clubs from staging to prod.
  * Copies clubs, courses, and tees that exist in staging but are missing in prod.
+ *
+ * Usage:
+ *   npx tsx scripts/transfer-staging-to-prod.ts                           # all countries
+ *   npx tsx scripts/transfer-staging-to-prod.ts --country="New Zealand"   # one country
+ *   npx tsx scripts/transfer-staging-to-prod.ts --country="United Kingdom"
  */
 import { config } from 'dotenv';
 import { resolve } from 'path';
@@ -17,9 +22,33 @@ const prod = createClient(
   process.env.SUPABASE_SECRET_KEY_PROD!
 );
 
+// Parse --country flag from CLI args
+function parseCountryFilter(): string | null {
+  const args = process.argv.slice(2);
+  for (const arg of args) {
+    const match = arg.match(/^--country=["']?(.+?)["']?$/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
 async function main() {
-  const { data: stagingClubs } = await staging.from('clubs').select('*').eq('is_featured', true);
-  const { data: prodClubs } = await prod.from('clubs').select('*').eq('is_featured', true);
+  const countryFilter = parseCountryFilter();
+
+  if (countryFilter) {
+    console.log(`Filtering by country: ${countryFilter}\n`);
+  }
+
+  let stagingQuery = staging.from('clubs').select('*').eq('is_featured', true);
+  let prodQuery = prod.from('clubs').select('*').eq('is_featured', true);
+
+  if (countryFilter) {
+    stagingQuery = stagingQuery.eq('country', countryFilter);
+    prodQuery = prodQuery.eq('country', countryFilter);
+  }
+
+  const { data: stagingClubs } = await stagingQuery;
+  const { data: prodClubs } = await prodQuery;
 
   if (!stagingClubs || !prodClubs) {
     console.error('Failed to fetch clubs');

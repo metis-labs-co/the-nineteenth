@@ -75,6 +75,14 @@ export type RootStackParamList = {
 
   // Friends
   Friends: { fromProfile?: boolean } | undefined;
+
+  // Leagues
+  LeagueDetail: { id: string };
+  CreateLeague: undefined;
+  JoinLeague: undefined;
+  LeagueSettings: { leagueId: string };
+  TagRoundToLeague: { leagueId: string };
+  ChallengeDetail: { challengeId: string; leagueId: string };
   FriendProfile: { friendId: string };
 
   // Stats Comparison
@@ -140,7 +148,7 @@ export type TabParamList = {
   RoundsTab: undefined;
   CompetitionsTab: undefined;
   CoursesTab: undefined;
-  FriendsTab: undefined;
+  LeaguesTab: undefined;
   ProfileTab: undefined;
 };
 

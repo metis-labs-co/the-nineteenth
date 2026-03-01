@@ -185,16 +185,16 @@ export const PlayerInFirstPlace: Story = {
 };
 
 /**
- * League competition type
+ * Knockout competition type
  */
-export const LeagueCompetition: Story = {
+export const KnockoutCompetition: Story = {
   args: {
     competition: createCompetition({
-      name: 'Melbourne Golf League 2025',
-      description: 'Season-long league competition running throughout the year',
-      competition_type: 'league',
+      name: 'Melbourne Golf Knockout 2025',
+      description: 'Bracket-style elimination competition',
+      competition_type: 'knockout',
       start_date: '2025-01-01',
-      end_date: null, // Leagues may not have end date
+      end_date: null, // Knockouts may not have end date
       status: 'in-progress',
     }),
     rounds: [

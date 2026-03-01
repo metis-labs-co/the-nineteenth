@@ -223,10 +223,10 @@ describe('GeneratedPreview', () => {
       expect(screen.getByText('Event')).toBeTruthy();
     });
 
-    it('renders competition type correctly for league', () => {
-      const competition = createTestCompetition({ competitionType: 'league' });
+    it('renders competition type correctly for knockout', () => {
+      const competition = createTestCompetition({ competitionType: 'knockout' });
       render(<GeneratedPreview {...defaultProps} competition={competition} />);
-      expect(screen.getByText('League')).toBeTruthy();
+      expect(screen.getByText('Knockout')).toBeTruthy();
     });
 
     it('renders date range when endDate is present', () => {

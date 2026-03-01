@@ -124,12 +124,12 @@ export const NoDescription: Story = {
 // COMPETITION TYPE STORIES
 // ============================================================================
 
-export const LeagueCompetition: Story = {
+export const KnockoutCompetition: Story = {
   args: {
     competition: createCompetition({
-      name: 'Summer Golf League',
-      description: 'Season-long league competition',
-      competitionType: 'league',
+      name: 'Summer Golf Knockout',
+      description: 'Bracket-style elimination competition',
+      competitionType: 'knockout',
       endDate: '15/06/2025',
       rounds: [
         createRound({ roundNumber: 1, date: '15/01/2025' }),
@@ -541,7 +541,7 @@ export const RoundsWithoutTeeTimes: Story = {
 export const ManyRounds: Story = {
   args: {
     competition: createCompetition({
-      name: 'Extended League',
+      name: 'Extended Competition',
       rounds: Array.from({ length: 10 }, (_, i) =>
         createRound({
           roundNumber: i + 1,

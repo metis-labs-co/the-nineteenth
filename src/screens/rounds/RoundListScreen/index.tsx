@@ -20,8 +20,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { ConfirmationDialog } from '@/components/common';
+import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { RoundListCard } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
+import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
@@ -36,6 +38,9 @@ export default function RoundsScreen() {
   const { limits } = useSubscriptionContext();
 
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
+
+  // Welcome modal
+  const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } = useScreenWelcome('rounds');
 
   // Get tier limit for rounds played
   const maxRoundsPlayed = limits?.maxRoundsPlayed ?? 20;
@@ -101,6 +106,8 @@ export default function RoundsScreen() {
         hasUnlimitedRounds={hasUnlimitedRounds}
         roundsPlayedCount={roundsPlayedCount}
         maxRoundsPlayed={maxRoundsPlayed}
+        showInfoIcon={!isFirstVisit}
+        onInfoPress={showModal}
       />
 
       {/* Scrollable Rounds List */}
@@ -149,6 +156,14 @@ export default function RoundsScreen() {
 
       {/* Start Round Error Dialog */}
       <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
+
+      {/* Welcome Info Modal */}
+      <ScreenWelcomeModal
+        visible={isModalVisible}
+        content={welcomeContent}
+        onDismiss={dismissModal}
+        testID="rounds-welcome-modal"
+      />
     </View>
   );
 }

@@ -116,10 +116,10 @@ const eventFormData: CompetitionDetailsFormData = {
   enableTeams: false,
 };
 
-const leagueFormData: CompetitionDetailsFormData = {
-  name: 'Weekend Warriors League',
-  description: 'An ongoing league for weekend golfers. Play at your own pace throughout the year.',
-  competitionType: 'league',
+const knockoutFormData: CompetitionDetailsFormData = {
+  name: 'Weekend Warriors Knockout',
+  description: 'A bracket-style elimination competition for weekend golfers.',
+  competitionType: 'knockout',
   startDate: '01/02/2025',
   endDate: '',
   handicapSystem: 'honor',
@@ -183,13 +183,13 @@ export const WithEventData: Story = {
 };
 
 /**
- * Form with initial league data
+ * Form with initial knockout data
  */
-export const WithLeagueData: Story = {
+export const WithKnockoutData: Story = {
   render: () => (
-    <StoryWrapper title="League Competition" description="Pre-filled with league competition data (no end date)">
+    <StoryWrapper title="Knockout Competition" description="Pre-filled with knockout competition data (no end date)">
       <CompetitionDetailsStep
-        initialData={leagueFormData}
+        initialData={knockoutFormData}
         onComplete={handleComplete}
         onBack={handleBack}
       />
@@ -236,16 +236,16 @@ export const EventTypeSelected: Story = {
 };
 
 /**
- * League type selected
+ * Knockout type selected
  */
-export const LeagueTypeSelected: Story = {
+export const KnockoutTypeSelected: Story = {
   render: () => (
-    <StoryWrapper title="League Type" description="League competitions are ongoing with no end date">
+    <StoryWrapper title="Knockout Type" description="Knockout competitions are bracket-style elimination">
       <CompetitionDetailsStep
         initialData={{
           ...emptyFormData,
-          name: 'Sunday League',
-          competitionType: 'league',
+          name: 'Sunday Knockout',
+          competitionType: 'knockout',
         } as CompetitionDetailsFormData}
         onComplete={handleComplete}
         onBack={handleBack}
@@ -581,21 +581,21 @@ export const UseCaseClubChampionship: Story = {
 };
 
 /**
- * Monthly league
+ * Monthly knockout
  */
-export const UseCaseMonthlyLeague: Story = {
-  name: 'Use Case: Monthly League',
+export const UseCaseMonthlyKnockout: Story = {
+  name: 'Use Case: Monthly Knockout',
   render: () => (
-    <StoryWrapper title="Monthly League" description="Ongoing league format">
+    <StoryWrapper title="Monthly Knockout" description="Bracket-style elimination format">
       <CompetitionDetailsStep
         initialData={{
-          name: 'The Nineteenth Monthly League',
-          description: 'Ongoing monthly competition. Play your round anytime during the month. Points accumulate across the year.',
-          competitionType: 'league',
+          name: 'The Nineteenth Monthly Knockout',
+          description: 'Monthly bracket-style elimination competition. Players are matched up each round.',
+          competitionType: 'knockout',
           startDate: '01/01/2025',
           endDate: '',
           handicapSystem: 'honor',
-          inviteCode: 'T19LEAGUE',
+          inviteCode: 'T19KNOCKOUT',
           enableTeams: false,
         }}
         onComplete={handleComplete}

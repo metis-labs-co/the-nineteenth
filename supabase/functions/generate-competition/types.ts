@@ -27,7 +27,7 @@ export type TeamMode = 'none' | 'fixed' | 'per-round';
 export type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
 
 // Competition type enum
-export type CompetitionType = 'league' | 'event';
+export type CompetitionType = 'knockout' | 'event';
 
 /**
  * Friend data passed from mobile app

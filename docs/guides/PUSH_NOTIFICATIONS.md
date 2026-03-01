@@ -6,15 +6,34 @@ The Nineteenth uses a hybrid notification system that delivers alerts both in-ap
 
 ### Notification Types
 
-| Type | Trigger | Push Message |
-|------|---------|--------------|
-| `competition_player_added` | Admin adds player | "You've been added to {competition}" |
-| `competition_player_joined` | Player joins via code | "{player} joined {competition}" |
-| `new_round_created` | New round added | "Round {n} added to {competition}" |
-| `competition_status_changed` | Competition status update | "{competition} is now {status}" |
-| `scorecard_submitted` | Player submits scorecard | "{player} submitted their scorecard" |
-| `friend_request_received` | Friend request sent | "{player} sent you a friend request" |
-| `friend_request_accepted` | Friend request accepted | "{player} accepted your friend request" |
+#### Competition & Round
+
+| Type | Trigger | Recipients | Push Message |
+|------|---------|------------|--------------|
+| `competition_player_added` | Admin adds player | Added player | "You've been added to {competition}" |
+| `competition_player_joined` | Player joins via code | Organizer | "{player} joined {competition}" |
+| `new_round_created` | New round added | All players (except organizer) | "Round {n} added to {competition}" |
+| `competition_status_changed` | Status update | All players | "{competition} is now {status}" |
+| `scorecard_submitted` | Player submits scorecard | Organizer | "{player} submitted their scorecard" |
+| `round_completed` | All scorecards submitted | All competition players | "All scorecards submitted for Round {n} of {competition}" |
+
+#### Social
+
+| Type | Trigger | Recipients | Push Message |
+|------|---------|------------|--------------|
+| `friend_request_received` | Friend request sent | Addressee | "{player} sent you a friend request" |
+| `friend_request_accepted` | Friend request accepted | Requester | "{player} accepted your friend request" |
+| `social_round_invitation` | Social round invite | Invited player | "{player} invited you to play" |
+
+#### League
+
+| Type | Trigger | Recipients | Push Message |
+|------|---------|------------|--------------|
+| `league_player_joined` | Player joins via invite code | League creator | "{player} joined {league}" |
+| `league_player_left` | Player voluntarily leaves | League creator | "{player} left {league}" |
+| `league_player_removed` | Admin removes player | Removed player | "You were removed from {league}" |
+| `league_round_tagged` | Player tags a round | All other league members | "{player} tagged a round to {league} ({diff})" |
+| `league_leaderboard_changed` | Rank shifts after tagging | Only players whose rank changed | "You moved up/down to #{rank} in {league}" |
 
 ---
 
@@ -73,14 +92,16 @@ The Nineteenth uses a hybrid notification system that delivers alerts both in-ap
 | `supabase/migrations/20250313000000_push_tokens.sql` | Push tokens table + RLS |
 | `supabase/migrations/20250314000000_push_preferences.sql` | Push preferences columns |
 | `supabase/migrations/20250315000000_notification_triggers_push.sql` | Updated triggers with push support |
+| `supabase/migrations/20260301000000_league_notification_triggers.sql` | League + round_completed triggers |
 | `src/types/push.types.ts` | TypeScript type definitions |
 | `src/types/database/push-token.types.ts` | Database push token types |
-| `src/services/notifications/pushService.ts` | Push token management |
-| `src/services/notifications/notificationHandler.ts` | Notification response handling |
+| `src/services/notifications/pushService.ts` | Push token management + categories |
+| `src/services/notifications/notificationHandler.ts` | Notification response handling + deep linking |
 | `src/hooks/usePushNotifications.ts` | React hook for push |
 | `supabase/functions/send-push-notification/index.ts` | Edge Function for sending |
 | `supabase/functions/send-push-notification/config.ts` | Message templates |
 | `src/components/settings/PushNotificationSettings.tsx` | Settings UI |
+| `src/components/notifications/NotificationItem.tsx` | Notification display config |
 | `src/utils/pushNotificationTest.ts` | Development testing utility |
 
 ### Modified Files
@@ -362,7 +383,7 @@ curl -X POST http://localhost:54321/functions/v1/send-push-notification \
 
 Users can control push notifications via Settings screen:
 
-### Preference Columns (on `players` table)
+### Preference Columns (on `user_preferences` table)
 
 | Column | Default | Description |
 |--------|---------|-------------|
@@ -370,6 +391,7 @@ Users can control push notifications via Settings screen:
 | `push_competition_updates` | TRUE | Competition-related notifications |
 | `push_friend_requests` | TRUE | Friend request notifications |
 | `push_scorecard_updates` | TRUE | Scorecard notifications |
+| `push_league_updates` | TRUE | League-related notifications |
 
 ### Category Mapping
 
@@ -379,9 +401,15 @@ Users can control push notifications via Settings screen:
 | `competition_player_joined` | `push_competition_updates` |
 | `new_round_created` | `push_competition_updates` |
 | `competition_status_changed` | `push_competition_updates` |
+| `round_completed` | `push_competition_updates` |
 | `friend_request_received` | `push_friend_requests` |
 | `friend_request_accepted` | `push_friend_requests` |
 | `scorecard_submitted` | `push_scorecard_updates` |
+| `league_player_joined` | `push_league_updates` |
+| `league_player_left` | `push_league_updates` |
+| `league_player_removed` | `push_league_updates` |
+| `league_round_tagged` | `push_league_updates` |
+| `league_leaderboard_changed` | `push_league_updates` |
 
 ### Checking Preferences
 
@@ -443,6 +471,10 @@ const categories = [
   },
   {
     identifier: 'SCORECARD',
+    actions: [{ identifier: 'VIEW', title: 'View' }],
+  },
+  {
+    identifier: 'LEAGUE',
     actions: [{ identifier: 'VIEW', title: 'View' }],
   },
 ];
@@ -635,9 +667,81 @@ should_send_push(p_user_id UUID, p_notification_type TEXT)
   RETURNS BOOLEAN
 
 -- Update preferences
-update_push_preferences(p_user_id, p_push_enabled, p_push_competition_updates, ...)
-  RETURNS TABLE(push_enabled BOOLEAN, ...)
+update_push_preferences(p_user_id, p_push_enabled, p_push_competition_updates, ..., p_push_league_updates)
+  RETURNS TABLE(push_enabled BOOLEAN, ..., push_league_updates BOOLEAN)
+
+-- Create notification (with optional league_id)
+create_notification(p_user_id, p_type, p_data, p_competition_id, p_round_id, p_player_id, p_friendship_id, p_league_id)
+  RETURNS UUID
 ```
+
+---
+
+## League Notifications
+
+League notifications were added in `20260301000000_league_notification_triggers.sql`.
+
+### Trigger Functions
+
+| Function | Table | Event | Description |
+|----------|-------|-------|-------------|
+| `notify_league_player_joined()` | `league_players` | AFTER INSERT | Notifies league creator when a player joins (skips self-join) |
+| `notify_league_player_status_changed()` | `league_players` | AFTER UPDATE (status) | Uses `removed_by` column to distinguish voluntary leave vs admin removal |
+| `notify_league_round_tagged()` | `league_rounds` | AFTER INSERT | Notifies all league members + detects leaderboard rank changes |
+| `notify_round_completed()` | `scorecards` | AFTER UPDATE (status → completed) | Fires when all scorecards for a round are submitted |
+
+### Voluntary Leave vs Admin Removal
+
+The `league_players.removed_by` column distinguishes the two cases:
+
+- **Voluntary leave**: `removed_by = player_id` → sends `league_player_left` to league creator
+- **Admin removal**: `removed_by != player_id` (or `removed_by = admin_id`) → sends `league_player_removed` to the removed player
+
+The API layer sets `removed_by` accordingly:
+- `leaveLeague()` sets `removed_by: currentUser.id` (self)
+- `removePlayer()` sets `removed_by: currentUser.id` (admin)
+
+### Leaderboard Change Detection
+
+When a round is tagged (`notify_league_round_tagged`), the trigger:
+
+1. Computes the "old" leaderboard by running the leaderboard CTE **excluding** the new `league_rounds.id`
+2. Computes the "new" leaderboard via `get_league_leaderboard()` (includes the new round)
+3. Compares ranks for each player
+4. Only sends `league_leaderboard_changed` to players whose rank actually changed
+5. Includes direction (`up` or `down`) and old/new rank in the data payload
+
+This is efficient for typical league sizes (<20 players) and runs inline in the trigger.
+
+### Round Completion Race Condition
+
+When two scorecards complete simultaneously, both `notify_round_completed` triggers could fire. Mitigation:
+
+- `rounds.completion_notified` (BOOLEAN DEFAULT FALSE) acts as an atomic guard
+- The trigger uses `UPDATE rounds SET completion_notified = TRUE WHERE id = ? AND completion_notified = FALSE RETURNING id`
+- Only the first trigger to succeed (gets a row back) sends the notifications
+- The second trigger sees `completion_notified = TRUE` and exits silently
+
+### Deep Linking
+
+League notifications navigate to `LeagueDetail` screen:
+
+| Notification Type | Target Screen | Params |
+|-------------------|---------------|--------|
+| `league_player_joined` | `LeagueDetail` | `{ id: leagueId }` |
+| `league_player_left` | `LeagueDetail` | `{ id: leagueId }` |
+| `league_player_removed` | `LeagueDetail` | `{ id: leagueId }` |
+| `league_round_tagged` | `LeagueDetail` | `{ id: leagueId }` |
+| `league_leaderboard_changed` | `LeagueDetail` | `{ id: leagueId }` |
+| `round_completed` | `ViewRound` | `{ roundId, competitionId }` |
+
+### Android Channel
+
+League notifications use the `league-updates` Android notification channel (HIGH importance).
+
+### Settings UI
+
+The "League Updates" toggle appears in Push Notification Settings under "Notification Types", after "Scorecard Updates". It controls all 5 league notification types via the `push_league_updates` preference column.
 
 ---
 
@@ -650,4 +754,4 @@ update_push_preferences(p_user_id, p_push_enabled, p_push_competition_updates, .
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: February 2026*

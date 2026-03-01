@@ -150,7 +150,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
 
   // Calculate course par for daily handicap calculation
   const coursePar = useMemo(() => {
-    return holes.reduce((sum, hole) => sum + hole.par, 0);
+    return Array.isArray(holes) ? holes.reduce((sum, hole) => sum + hole.par, 0) : 0;
   }, [holes]);
 
   // Calculate daily handicap using GA formula

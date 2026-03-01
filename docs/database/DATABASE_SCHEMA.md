@@ -25,10 +25,11 @@ interface Competition {
   id: string;
   name: string;
   description?: string;
-  competitionType: 'league' | 'event'; // league = ongoing, event = fixed-term with end_date
+  competitionType: 'knockout' | 'event'; // knockout = bracket-style elimination, event = fixed-term with end_date
   startDate: Date;
   endDate?: Date;  // Required for 'event' type, auto-deactivates at midnight
   handicapSystem: 'honor' | 'golf-australia' | 'gross-only';
+  handicapSource: HandicapSource; // Source for daily handicap calculation
   visibility: 'private';  // Future: 'public' | 'unlisted'
   inviteCode: string;     // e.g., 'COMP-94821' (unique among active competitions only)
   organizerId: string;
@@ -37,15 +38,19 @@ interface Competition {
   teamMode: TeamMode;     // 'none' | 'fixed' | 'per-round'
   teamSize?: number;      // 2-4 players per team (required if teamMode != 'none')
   pointSystem: PointSystem; // JSON config for competition points
+  deletedAt?: Date;        // Soft delete timestamp
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Source for daily handicap calculation
+type HandicapSource = 'profile' | 'calculated' | 'none';
 
 // Team mode for competitions
 type TeamMode = 'none' | 'fixed' | 'per-round';
 
 // Team format for team-based rounds
-type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team';
+type TeamFormat = 'best-ball' | 'scramble' | 'shamble' | 'aggregate' | 'match-play-team';
 
 // Point system configuration
 interface PointSystem {
@@ -67,20 +72,37 @@ interface Round {
   courseId?: string;       // Can be NULL for TBD course selection
   date?: Date;
   teeTime?: string;
-  gameType: 'stroke' | 'stableford' | 'match-play' | 'ambrose' | 'best-ball' | 'scramble';
+  gameType: 'stroke' | 'stableford' | 'match-play' | 'ambrose' | 'best-ball' | 'scramble' | 'shamble' | 'par';
   status: 'upcoming' | 'in-progress' | 'completed';
   // Team settings
   isTeamRound: boolean;    // TRUE if round uses team scoring
   teamFormat?: TeamFormat; // Required if isTeamRound is true
+  teamConfig?: TeamConfig; // Ephemeral team config for standalone scramble/shamble rounds
   // Tee selection
   selectedTee?: TeeBox;    // Selected tee box configuration for this round
   // Scoring pairs
   scoringPairsRequired: boolean; // If TRUE, scoring pairs must be set up before round starts
   // Multi-ball scoring (solo rounds)
   ballCount: number;       // 1-4 balls per hole (requires Social tier for > 1)
+  // Timer
+  elapsedTimeSeconds?: number; // Round elapsed time tracking
+  timerEnabled: boolean;       // Whether round timer is enabled
+  // Skins game settings
+  skinsEnabled: boolean;       // Whether this round has a skins game configured
+  skinsConfig?: SkinsConfig;   // Skins game configuration (pot_type, pot_value, scoring_type, currency)
+  skinsPoolSource?: SkinsPoolSource; // Source of skins pot: 'direct' or 'prize_pool'
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;        // Soft delete timestamp
+}
+
+// Ephemeral team configuration for standalone scramble/shamble rounds
+interface TeamConfig {
+  teams: Array<{
+    id: string;       // e.g., 'team-1'
+    name: string;     // e.g., 'Team 1'
+    memberIds: string[];
+  }>;
 }
 
 // Club (physical golf club location) - renamed from Venue in GolfAPI.io migration
@@ -91,9 +113,9 @@ interface Club {
 
   // Basic Info
   name: string;                    // "The Eastern Golf Club"
-  state: 'NSW' | 'VIC' | 'QLD' | 'SA' | 'WA' | 'TAS' | 'NT' | 'ACT';
+  state?: string;                  // State/province code (e.g., 'VIC', 'CA')
   country: string;                 // Defaults to 'Australia'
-  city: string;
+  city?: string;
   address?: string;
   postalCode?: string;             // From GolfAPI.io
   continent?: string;              // From GolfAPI.io
@@ -105,6 +127,7 @@ interface Club {
 
   // Metadata
   totalHoles?: number;             // 18, 27, 36, etc.
+  isFeatured: boolean;             // Whether club is featured in discovery
   lastSynced?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -235,8 +258,11 @@ interface Player {
   email: string;
   phone?: string;
   handicap?: number;
-  handicapUpdatedAt?: Date; // Timestamp when handicap was last updated
+  handicapUpdatedAt?: Date; // Timestamp when GA handicap was last updated
+  handicapIndex?: number;   // Calculated Social Handicap Index from last 20 app rounds (max 54.0)
+  handicapIndexUpdatedAt?: Date; // Timestamp when handicap_index was last calculated
   golfId?: string;          // 10-digit Golf Australia ID
+  gender?: 'male' | 'female'; // For GA Daily Handicap consistency factor (male=0.9986, female=1.0483)
   photoUrl?: string;
   homeClubId?: string;      // Reference to player's home golf club
 
@@ -287,6 +313,7 @@ interface CompetitionPlayer {
   status: 'invited' | 'accepted' | 'declined';
   invitedAt: Date;
   respondedAt?: Date;
+  deletedAt?: Date;        // Soft delete timestamp
 }
 
 // Pairing (who plays with whom in each round)
@@ -295,6 +322,7 @@ interface Pairing {
   roundId: string;
   playerIds: string[];  // Array of 2-4 player IDs
   teeTime?: string;
+  deletedAt?: Date;        // Soft delete timestamp
 }
 
 // Scorecard (one per player per round)
@@ -311,8 +339,15 @@ interface Scorecard {
   submittedAt?: Date;
   submittedBy?: string;     // Player ID who submitted
   bypassed: boolean;        // TRUE if submitted without partner verification (30-minute bypass)
+  // Handicap snapshot at submission time
+  dailyHandicapUsed?: number;    // Strokes received (WHS daily handicap calculation)
+  gaHandicapUsed?: number;       // Player GA handicap input value
+  handicapDifferential?: number; // WHS differential: (113/slope) × (gross - course_rating)
+  courseRatingUsed?: number;     // Course rating snapshot from tee selection
+  slopeRatingUsed?: number;     // Slope rating snapshot from tee selection
   deviceId?: string;        // Device ID for offline sync
   syncedAt?: Date;          // Last sync timestamp
+  deletedAt?: Date;         // Soft delete timestamp
   createdAt: Date;
   updatedAt: Date;
 }
@@ -389,7 +424,13 @@ type NotificationType =
   | 'scorecard_submitted'
   | 'friend_request_received'
   | 'friend_request_accepted'
-  | 'social_round_invitation';
+  | 'social_round_invitation'
+  | 'league_player_joined'
+  | 'league_player_left'
+  | 'league_player_removed'
+  | 'league_round_tagged'
+  | 'league_leaderboard_changed'
+  | 'round_completed';
 
 interface Notification {
   id: string;
@@ -400,6 +441,7 @@ interface Notification {
   roundId?: string;
   playerId?: string;        // Sender/related player
   friendshipId?: string;
+  leagueId?: string;        // League reference (for league notifications)
   isRead: boolean;
   readAt?: Date;
   createdAt: Date;
@@ -420,12 +462,13 @@ interface PushToken {
   updatedAt: Date;
 }
 
-// Push notification preferences (stored on Player)
+// Push notification preferences (stored on user_preferences)
 interface PushPreferences {
   pushEnabled: boolean;              // Global toggle
   pushCompetitionUpdates: boolean;   // Competition-related notifications
   pushFriendRequests: boolean;       // Friend request notifications
   pushScorecardUpdates: boolean;     // Scorecard notifications
+  pushLeagueUpdates: boolean;        // League-related notifications
 }
 
 // Round player (for standalone/social rounds)
@@ -498,8 +541,10 @@ interface TierLimits {
   // Resource limits (-1 = unlimited, -2 = no system limit)
   maxCompetitionsOwned: number;
   maxRoundsPerCompetition: number;
+  maxRoundsPlayed: number;       // Max rounds user can participate in (submit scorecards)
   maxPlayersPerCompetition: number;
   maxFriends: number;
+  maxLeaguesOwned: number;       // Max leagues user can create
   // Feature access - Game Types & Formats
   allowedGameTypes: string[];
   canUseTeamFormats: boolean;
@@ -518,6 +563,9 @@ interface TierLimits {
   canUseAiCompetition: boolean;
   canManageGuests: boolean;
   canUseGpsDistance: boolean;
+  // Feature access - Leagues
+  canCreateLeague: boolean;
+  canJoinLeague: boolean;
   // Feature access - Premium tier (side-games)
   canUseSkinsGame: boolean;
   canUseWolfGame: boolean;
@@ -578,6 +626,11 @@ interface SkinsGame {
   currency: string;
   scoringType: SkinsScoringType;
   poolSource: SkinsPoolSource;
+  poolDrawAmount: number;        // Amount drawn from prize pool (0 if direct pot)
+  carryoverReturned: number;     // Carryover amount returned to pool on completion
+  // Team skins
+  isTeamSkins: boolean;          // TRUE if team-based skins game
+  participantTeamIds?: string[]; // Array of team UUIDs for team skins (2-4 teams)
   status: SkinsGameStatus;
   disclaimerAcceptedAt: Date;
   disclaimerAcceptedBy: string;
@@ -595,6 +648,7 @@ interface SkinsResult {
   skinsGameId: string;
   holeNumber: number;
   winnerId?: string;       // NULL if carryover due to tie
+  teamWinnerId?: string;   // Team that won (for team skins, no FK constraint)
   isCarryover: boolean;
   holeScores: SkinsHoleScores;
   holePotValue: number;
@@ -609,7 +663,10 @@ interface SkinsResult {
 interface SkinsPayout {
   id: string;
   skinsGameId: string;
-  playerId: string;
+  playerId?: string;
+  // Team skins
+  teamId?: string;          // Team ID for team skins (no FK constraint)
+  isTeamPayout: boolean;    // TRUE if team-level payout
   buyIn: number;
   totalWinnings: number;
   netResult: number;       // profit/loss: totalWinnings - buyIn
@@ -824,6 +881,50 @@ interface UserPreferences {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// =====================================================
+// LEAGUES (Cross-course competition via handicap differentials)
+// =====================================================
+
+/**
+ * A league for cross-course competition using WHS handicap differentials.
+ * Scoring: average of best 8 differentials from last 20 tagged rounds.
+ */
+interface League {
+  id: string;
+  name: string;
+  description?: string;
+  createdBy: string;       // Player who created the league
+  inviteCode: string;      // e.g., 'LGE-12345' (unique among active leagues)
+  status: 'active' | 'archived';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * League membership (join table)
+ */
+interface LeaguePlayer {
+  leagueId: string;
+  playerId: string;
+  status: 'invited' | 'accepted' | 'declined' | 'removed';
+  joinedAt: Date;
+  createdAt: Date;
+}
+
+/**
+ * A scorecard tagged to a league with its handicap differential.
+ * Links existing scorecards to leagues for leaderboard calculations.
+ */
+interface LeagueRound {
+  id: string;
+  leagueId: string;
+  scorecardId: string;
+  playerId: string;
+  handicapDifferential: number;  // WHS handicap differential (lower = better)
+  taggedAt: Date;
+  createdAt: Date;
+}
 ```
 
 ---
@@ -981,6 +1082,28 @@ Data isolation is achieved through:
 │ enabled              │
 │ last_used_at         │
 └──────────────────────┘
+
+┌──────────────────────┐
+│ leagues              │ (cross-course competition via handicap differentials)
+├──────────────────────┤
+│ id (PK)              │
+│ name                 │
+│ created_by (FK) ─────┼──► players.id
+│ invite_code          │
+│ status               │
+└────────┬─────────────┘
+         │
+         │ 1:N
+         │
+┌────────▼─────────────┐      ┌──────────────────────┐
+│ league_players        │      │ league_rounds        │
+├───────────────────────┤      ├──────────────────────┤
+│ league_id (PK, FK)    │      │ id (PK)              │
+│ player_id (PK, FK)    │      │ league_id (FK)       │
+│ status                │      │ scorecard_id (FK)    │
+│ joined_at             │      │ player_id (FK)       │
+└───────────────────────┘      │ handicap_differential│
+                               └──────────────────────┘
 ```
 
 ## Table Details
@@ -998,8 +1121,11 @@ Placeholder players (guests) are created without an auth account and can be link
 | `email` | TEXT | NOT NULL, UNIQUE | Contact email (generated for placeholders: `{uuid}@placeholder.local`) |
 | `phone` | TEXT | NULL | Contact phone (optional) |
 | `handicap` | NUMERIC(4,1) | DEFAULT 0 | Golf handicap (e.g., 12.5) |
-| `handicap_updated_at` | TIMESTAMPTZ | NULL | Timestamp when handicap was last updated |
+| `handicap_updated_at` | TIMESTAMPTZ | NULL | Timestamp when GA handicap was last updated |
+| `handicap_index` | NUMERIC(4,1) | NULL | Calculated Social Handicap Index from last 20 app rounds (max 54.0) |
+| `handicap_index_updated_at` | TIMESTAMPTZ | NULL | Timestamp when handicap_index was last calculated |
 | `golf_id` | TEXT | NULL, CHECK (10 digits) | 10-digit Golf Australia ID |
+| `gender` | TEXT | NULL | Player gender for GA Daily Handicap consistency factor ('male' or 'female') |
 | `photo_url` | TEXT | NULL | Profile photo URL |
 | `is_placeholder` | BOOLEAN | NOT NULL DEFAULT FALSE | TRUE for guest/placeholder players |
 | `created_by` | UUID | FK → auth.users(id) | User who created this placeholder (NULL for real players) |
@@ -1080,10 +1206,11 @@ Competition metadata and settings.
 | `id` | UUID | PK | Competition unique identifier |
 | `name` | TEXT | NOT NULL | Competition name |
 | `description` | TEXT | NULL | Optional description |
-| `competition_type` | TEXT | CHECK(enum), DEFAULT 'league' | 'league' (ongoing) or 'event' (fixed-term) |
+| `competition_type` | TEXT | CHECK(enum), DEFAULT 'event' | 'knockout' (bracket elimination) or 'event' (fixed-term) |
 | `start_date` | DATE | NOT NULL | Competition start date |
 | `end_date` | DATE | NULL (required for 'event') | End date - auto-deactivates event competitions at midnight |
 | `handicap_system` | TEXT | CHECK(enum), NOT NULL | 'honor', 'golf-australia', 'gross-only' |
+| `handicap_source` | handicap_source | NOT NULL, DEFAULT 'profile' | Source for daily handicap: 'profile' (GA), 'calculated' (Social HI), 'none' |
 | `visibility` | TEXT | CHECK(enum), DEFAULT 'private' | 'private', 'public', 'unlisted' |
 | `invite_code` | TEXT | UNIQUE (active only), NOT NULL | e.g., "COMP-12345" - unique among active competitions |
 | `organizer_id` | UUID | FK → auth.users(id), NOT NULL | Competition creator |
@@ -1176,7 +1303,7 @@ Physical golf club locations. A club can have one or more playable courses.
 | `source` | TEXT | CHECK('api', 'manual', 'legacy'), NOT NULL | Data source |
 | `golfapi_club_id` | TEXT | NULL | GolfAPI.io club identifier (renamed from api_id) |
 | `name` | TEXT | NOT NULL | Club name (e.g., "The Eastern Golf Club") |
-| `state` | TEXT | CHECK(AU states), NULL | Australian state code |
+| `state` | TEXT | NULL | State/province code (e.g., 'VIC', 'CA') |
 | `country` | TEXT | DEFAULT 'Australia' | Country name |
 | `continent` | TEXT | NULL | Continent name from GolfAPI.io |
 | `city` | TEXT | NULL | City name |
@@ -1189,6 +1316,7 @@ Physical golf club locations. A club can have one or more playable courses.
 | `longitude` | NUMERIC(10,7) | NULL | GPS longitude |
 | `location` | GEOGRAPHY(POINT) | NULL | GPS coordinates (PostGIS) |
 | `total_holes` | INTEGER | NULL | Total holes at club (18, 27, 36, etc.) |
+| `is_featured` | BOOLEAN | NOT NULL, DEFAULT FALSE | Whether club is featured in discovery |
 | `last_synced` | TIMESTAMPTZ | NULL | Last API sync timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
@@ -1530,16 +1658,22 @@ Individual rounds within competitions or standalone (social) rounds.
 | `competition_id` | UUID | FK → competitions(id), NULL | Parent competition (NULL for standalone) |
 | `user_id` | UUID | FK → auth.users(id), NULL | Owner for standalone rounds |
 | `round_number` | INTEGER | DEFAULT 1, CHECK(> 0) | Round sequence |
-| `course_id` | UUID | FK → courses(id), NOT NULL | Course played |
+| `course_id` | UUID | FK → courses(id), NULL | Course played (NULL for TBD course selection) |
 | `date` | DATE | NULL | Round date |
 | `tee_time` | TIME | NULL | Tee time |
-| `game_type` | TEXT | CHECK(enum), DEFAULT 'stableford' | 'stroke', 'stableford', 'match-play', 'ambrose', 'best-ball', 'scramble' |
+| `game_type` | TEXT | CHECK(enum), DEFAULT 'stableford' | 'stroke', 'stableford', 'match-play', 'ambrose', 'best-ball', 'scramble', 'shamble', 'par' |
 | `status` | TEXT | CHECK(enum), DEFAULT 'upcoming' | 'upcoming', 'in-progress', 'completed' |
 | `is_team_round` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if round uses team scoring |
-| `team_format` | team_format | NULL | 'best-ball', 'scramble', 'aggregate', 'match-play-team' |
+| `team_format` | team_format | NULL | 'best-ball', 'scramble', 'shamble', 'aggregate', 'match-play-team' |
+| `team_config` | JSONB | NULL | Ephemeral team config for standalone scramble/shamble rounds |
 | `selected_tee` | JSONB | NULL | Selected tee box configuration |
 | `scoring_pairs_required` | BOOLEAN | DEFAULT FALSE | If TRUE, scoring pairs must be set up |
 | `ball_count` | INTEGER | DEFAULT 1, CHECK(1-4) | Number of balls scored per hole (multi-ball for solo rounds) |
+| `elapsed_time_seconds` | INTEGER | NULL | Round elapsed time tracking |
+| `timer_enabled` | BOOLEAN | DEFAULT FALSE | Whether round timer is enabled |
+| `skins_enabled` | BOOLEAN | NOT NULL, DEFAULT FALSE | Whether this round has a skins game |
+| `skins_config` | JSONB | NULL | Skins game config: {pot_type, pot_value, scoring_type, currency} |
+| `skins_pool_source` | TEXT | DEFAULT 'direct' | Source of skins pot: 'direct' or 'prize_pool' |
 | `deleted_at` | TIMESTAMPTZ | NULL | Soft delete timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
@@ -1615,6 +1749,7 @@ Many-to-many join table linking players to competitions.
 | `status` | TEXT | CHECK(enum), DEFAULT 'accepted' | 'invited', 'accepted', 'declined' |
 | `invited_at` | TIMESTAMPTZ | DEFAULT NOW() | Invitation timestamp |
 | `responded_at` | TIMESTAMPTZ | NULL | Response timestamp |
+| `deleted_at` | TIMESTAMPTZ | NULL | Soft delete timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 
 **Indexes:**
@@ -1659,6 +1794,7 @@ Player groupings for each round.
 | `round_id` | UUID | FK → rounds(id), NOT NULL | Parent round |
 | `player_ids` | UUID[] | NOT NULL, CHECK(size 2-4) | Array of player UUIDs |
 | `tee_time` | TIME | NULL | Tee time for group |
+| `deleted_at` | TIMESTAMPTZ | NULL | Soft delete timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
@@ -1803,8 +1939,14 @@ Player scorecards with hole-by-hole scores.
 | `submitted_at` | TIMESTAMPTZ | NULL | Submission timestamp |
 | `submitted_by` | UUID | FK → players(id), NULL | Submitter (could be partner) |
 | `bypassed` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if submitted without partner verification |
+| `daily_handicap_used` | INTEGER | NULL | Strokes received for this round (WHS daily handicap, snapshot at submission) |
+| `ga_handicap_used` | NUMERIC | NULL | Player GA handicap at time of round (input value for daily handicap) |
+| `handicap_differential` | NUMERIC(4,1) | NULL | WHS differential: (113/slope) × (gross - course_rating) |
+| `course_rating_used` | NUMERIC | NULL | Course rating snapshot from tee selection |
+| `slope_rating_used` | INTEGER | NULL | Slope rating snapshot from tee selection |
 | `device_id` | TEXT | NULL | Device ID for offline sync |
 | `synced_at` | TIMESTAMPTZ | NULL | Last sync timestamp |
+| `deleted_at` | TIMESTAMPTZ | NULL | Soft delete timestamp |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
@@ -2517,6 +2659,8 @@ Configuration table defining limits and feature access for each subscription tie
 | `max_rounds_per_competition` | INTEGER | NOT NULL | Max rounds per competition |
 | `max_players_per_competition` | INTEGER | NOT NULL | Max players per competition |
 | `max_friends` | INTEGER | NOT NULL | Max friends a user can have |
+| `max_rounds_played` | INTEGER | NOT NULL | Max rounds user can participate in (submit scorecards) |
+| `max_leagues_owned` | INTEGER | NOT NULL, DEFAULT 0 | Max leagues user can create |
 | `allowed_game_types` | TEXT[] | NOT NULL | Array of game types tier can use |
 | `can_use_team_formats` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to team formats |
 | `can_use_scoring_pairs` | BOOLEAN | NOT NULL, DEFAULT FALSE | Access to scoring pairs feature |
@@ -2536,6 +2680,8 @@ Configuration table defining limits and feature access for each subscription tie
 | `can_use_skins_game` | BOOLEAN | NOT NULL, DEFAULT FALSE | Skins side-game (replaces old can_use_skins) |
 | `can_use_wolf_game` | BOOLEAN | NOT NULL, DEFAULT FALSE | Wolf side-game |
 | `can_use_prize_pool` | BOOLEAN | NOT NULL, DEFAULT FALSE | Prize pool funding |
+| `can_create_league` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can create leagues |
+| `can_join_league` | BOOLEAN | NOT NULL, DEFAULT FALSE | Can join leagues |
 | `requires_payment` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether tier requires payment |
 | `can_expire` | BOOLEAN | NOT NULL, DEFAULT TRUE | Whether subscriptions can expire |
 | `display_name` | TEXT | NOT NULL | Human-readable tier name |
@@ -2569,6 +2715,9 @@ Configuration table defining limits and feature access for each subscription tie
 | can_use_skins_game | ❌ | ❌ | ✅ | ✅ |
 | can_use_wolf_game | ❌ | ❌ | ✅ | ✅ |
 | can_use_prize_pool | ❌ | ❌ | ✅ | ✅ |
+| max_leagues_owned | 0 | 3 | -1 (unlimited) | -2 (no limit) |
+| can_create_league | ❌ | ✅ | ✅ | ✅ |
+| can_join_league | ❌ | ✅ | ✅ | ✅ |
 | requires_payment | ❌ | ✅ | ✅ | ❌ |
 | can_expire | ✅ | ✅ | ✅ | ❌ |
 | badge_color | #6b7280 (gray) | #3b82f6 (blue) | #f59e0b (amber) | #dc2626 (red) |
@@ -3209,6 +3358,121 @@ const { data: updated } = await supabase.rpc('update_user_preferences', {
 
 ---
 
+### `leagues` (new - February 2026)
+
+Leagues for cross-course competition using WHS handicap differentials. Players compete by tagging their completed scorecards to the league. Leaderboard is ranked by average of best 8 differentials from last 20 tagged rounds.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | League unique identifier |
+| `name` | TEXT | NOT NULL | League name |
+| `description` | TEXT | NULL | Optional description |
+| `created_by` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | League creator |
+| `invite_code` | TEXT | UNIQUE, NOT NULL | e.g., 'LGE-12345' (unique among active leagues) |
+| `status` | TEXT | CHECK('active', 'archived'), DEFAULT 'active' | League status |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_leagues_status` on `status`
+- `idx_leagues_invite_code` on `invite_code` WHERE status = 'active'
+
+**Triggers:**
+- `leagues_generate_invite_code` - Auto-generates unique LGE-XXXXX invite code on INSERT
+- `update_leagues_updated_at` - Auto-updates `updated_at` timestamp
+
+**RLS Policies:**
+- Members and creators can view their leagues
+- Authenticated users can create leagues (tier check in app layer)
+- Only creator can update league settings
+
+**Example:**
+```typescript
+// Create league
+const { data: league } = await supabase
+  .from('leagues')
+  .insert({
+    name: 'Sunday Social League',
+    created_by: userId,
+  })
+  .select()
+  .single();
+
+// Join via invite code
+const { data: league } = await supabase
+  .from('leagues')
+  .select('*')
+  .eq('invite_code', 'LGE-12345')
+  .eq('status', 'active')
+  .single();
+```
+
+---
+
+### `league_players` (new - February 2026)
+
+League membership join table.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `league_id` | UUID | PK, FK → leagues(id) ON DELETE CASCADE | League reference |
+| `player_id` | UUID | PK, FK → players(id) ON DELETE CASCADE | Player reference |
+| `status` | TEXT | CHECK(enum), DEFAULT 'accepted' | 'invited', 'accepted', 'declined', 'removed' |
+| `joined_at` | TIMESTAMPTZ | DEFAULT NOW() | Join timestamp |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+
+**Indexes:**
+- `idx_league_players_player` on `player_id`
+- `idx_league_players_status` on `status`
+
+**RLS Policies:**
+- Members can view other members of their leagues
+- Players can join leagues (insert themselves)
+- Creator can manage members; players can update own status (leave)
+
+---
+
+### `league_rounds` (new - February 2026)
+
+Links existing scorecards to leagues with their WHS handicap differential for leaderboard calculations.
+
+**Columns:**
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PK | Record unique identifier |
+| `league_id` | UUID | FK → leagues(id) ON DELETE CASCADE, NOT NULL | League reference |
+| `scorecard_id` | UUID | FK → scorecards(id) ON DELETE CASCADE, NOT NULL | Tagged scorecard |
+| `player_id` | UUID | FK → players(id) ON DELETE CASCADE, NOT NULL | Player who tagged the round |
+| `handicap_differential` | NUMERIC(4,1) | NOT NULL, CHECK(-10 to 80) | WHS handicap differential (lower = better) |
+| `tagged_at` | TIMESTAMPTZ | DEFAULT NOW() | When the round was tagged |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation timestamp |
+
+**Indexes:**
+- `idx_league_rounds_league` on `league_id`
+- `idx_league_rounds_player` on `player_id`
+- `idx_league_rounds_scorecard` on `scorecard_id`
+
+**Constraints:**
+- `unique_scorecard_per_league` - UNIQUE(league_id, scorecard_id)
+
+**RLS Policies:**
+- Members can view rounds in their leagues
+- Players can tag their own rounds (INSERT)
+- Players can untag their own rounds (DELETE)
+
+**Leaderboard Function:**
+```typescript
+// Get league leaderboard (ranked by avg of best 8 differentials from last 20 rounds)
+const { data: leaderboard } = await supabase.rpc('get_league_leaderboard', {
+  p_league_id: leagueId,
+});
+// Returns: [{ player_id, name, photo_url, rounds_played, rounds_counting, avg_differential, best_differential, rank }]
+```
+
+---
+
 ## Database Functions
 
 ### `soft_delete_competition()`
@@ -3689,6 +3953,70 @@ const { data: canCreate } = await supabase.rpc('user_can_create_competition', {
 if (!canCreate) {
   // Show upgrade prompt
 }
+```
+
+---
+
+### `user_can_create_league()`
+
+Check if a user can create more leagues based on their tier limits.
+
+**Signature:**
+```sql
+user_can_create_league(p_user_id UUID)
+RETURNS BOOLEAN
+```
+
+**Logic:**
+1. Get user's tier limits
+2. If max_leagues_owned = -2 (super admin), return TRUE
+3. If max_leagues_owned = -1 (unlimited), return TRUE
+4. If max_leagues_owned = 0, return FALSE
+5. Count active leagues owned by user
+6. Return TRUE if count < max
+
+**Example:**
+```typescript
+const { data: canCreate } = await supabase.rpc('user_can_create_league', {
+  p_user_id: userId,
+});
+if (!canCreate) {
+  // Show upgrade prompt
+}
+```
+
+---
+
+### `get_league_leaderboard()`
+
+Returns league leaderboard ranked by average of best 8 handicap differentials from last 20 tagged rounds per player.
+
+**Signature:**
+```sql
+get_league_leaderboard(p_league_id UUID)
+RETURNS TABLE (
+  player_id UUID,
+  name TEXT,
+  photo_url TEXT,
+  rounds_played INTEGER,
+  rounds_counting INTEGER,
+  avg_differential NUMERIC(4,1),
+  best_differential NUMERIC(4,1),
+  rank INTEGER
+)
+```
+
+**Logic:**
+1. Get last 20 rounds per player (ordered by tagged_at DESC)
+2. Take best 8 differentials from the window
+3. Calculate average of those best 8
+4. Rank by average differential ASC (lower = better)
+
+**Example:**
+```typescript
+const { data: leaderboard } = await supabase.rpc('get_league_leaderboard', {
+  p_league_id: leagueId,
+});
 ```
 
 ---
@@ -5132,9 +5460,9 @@ const displayItems = clubsWithCourses.map(club => ({
 const { data: leagueComp } = await supabase
   .from('competitions')
   .insert({
-    name: 'Sunday Social League',
-    description: 'Ongoing weekly social golf',
-    competition_type: 'league',  // No end_date required
+    name: 'Sunday Social Knockout',
+    description: 'Bracket-style elimination golf',
+    competition_type: 'knockout',  // No end_date required
     start_date: '2025-02-15',
     handicap_system: 'honor',
     organizer_id: userId,
@@ -5417,12 +5745,16 @@ SELECT * FROM players;
 - [x] Multi-ball scoring for solo rounds
 - [x] Dual score entry with mismatch detection
 
+**Completed in Phase 3:**
+- [x] Leagues (cross-course WHS handicap differential competition)
+- [x] League notification triggers and leaderboard change detection
+- [x] Round completion notifications with race condition guard
+- [x] League push notification preferences
+
 **Planned:**
 - [ ] Auto-pairing algorithm (function to generate optimal pairings)
-- [ ] Real-time updates (Supabase Realtime subscriptions for leaderboards)
 - [ ] Photo uploads (Supabase Storage integration)
 - [ ] Match play bracket tournaments
-- [ ] Handicap history tracking
 
 ---
 
@@ -5435,4 +5767,4 @@ For questions or issues:
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: February 2026*

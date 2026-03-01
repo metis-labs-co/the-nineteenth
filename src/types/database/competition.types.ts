@@ -12,6 +12,7 @@ import type {
   TeamMode,
   InvitationStatus,
 } from './enums';
+import type { KnockoutConfig } from './knockout.types';
 
 /**
  * Point system configuration (stored in Competition.point_system JSONB)
@@ -59,9 +60,9 @@ export interface Competition {
   id: string; // UUID
   name: string;
   description: string | null;
-  competition_type: CompetitionType; // 'league' or 'event'
+  competition_type: CompetitionType; // 'knockout' or 'event'
   start_date: string; // ISO date (YYYY-MM-DD)
-  end_date: string | null; // ISO date - required for 'event', optional for 'league'
+  end_date: string | null; // ISO date - required for 'event', optional for 'knockout'
   handicap_system: HandicapSystem;
   handicap_source: HandicapSource; // 'profile' = GA handicap, 'calculated' = Social Index, 'none' = no adjustments
   visibility: CompetitionVisibility;
@@ -73,6 +74,9 @@ export interface Competition {
   team_mode: TeamMode; // 'none', 'fixed', or 'per-round'
   team_size: number | null; // 2-4, NULL if team_mode is 'none'
   point_system: PointSystemConfig; // Config for converting round results to competition points
+
+  // Knockout settings (null for event competitions)
+  knockout_config: KnockoutConfig | null;
 
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp

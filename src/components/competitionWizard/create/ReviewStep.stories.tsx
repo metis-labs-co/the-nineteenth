@@ -78,13 +78,13 @@ const defaultCompetitionData: CompetitionDetailsFormData = {
   enableTeams: false,
 };
 
-const leagueCompetitionData: CompetitionDetailsFormData = {
-  name: 'Weekly Golf League',
-  description: 'Season-long weekly competition',
-  competitionType: 'league',
+const knockoutCompetitionData: CompetitionDetailsFormData = {
+  name: 'Weekly Golf Knockout',
+  description: 'Bracket-style elimination competition',
+  competitionType: 'knockout',
   startDate: '01/02/2025',
   handicapSystem: 'golf-australia',
-  inviteCode: 'LEAGUE-25',
+  inviteCode: 'KNOCKOUT-25',
   enableTeams: false,
 };
 
@@ -152,7 +152,7 @@ const customPointsData: TeamSettingsFormData = {
   ],
 };
 
-const leaguePointsData: TeamSettingsFormData = {
+const knockoutTeamData: TeamSettingsFormData = {
   teamMode: 'fixed',
   teamSize: 2,
   pointSystem: [
@@ -393,14 +393,14 @@ export const EventCompetition: Story = {
 };
 
 /**
- * League competition type.
+ * Knockout competition type.
  * Shows only start date (no end date).
  */
-export const LeagueCompetition: Story = {
+export const KnockoutCompetition: Story = {
   args: {
     ...defaultCallbacks,
-    competitionData: leagueCompetitionData,
-    teamSettingsData: leaguePointsData,
+    competitionData: knockoutCompetitionData,
+    teamSettingsData: knockoutTeamData,
     roundsData: fiveRounds,
     playersData: sixteenPlayers,
     isSubmitting: false,
@@ -583,8 +583,8 @@ export const ThreeRounds: Story = {
 export const FiveRounds: Story = {
   args: {
     ...defaultCallbacks,
-    competitionData: leagueCompetitionData,
-    teamSettingsData: leaguePointsData,
+    competitionData: knockoutCompetitionData,
+    teamSettingsData: knockoutTeamData,
     roundsData: fiveRounds,
     playersData: eightPlayers,
     isSubmitting: false,
@@ -624,14 +624,14 @@ export const CustomPointSystem: Story = {
 };
 
 /**
- * League point system (12 positions).
+ * Large point system (12 positions).
  * Shows +8 more positions indicator.
  */
-export const LeaguePointSystem: Story = {
+export const LargePointSystem: Story = {
   args: {
     ...defaultCallbacks,
-    competitionData: leagueCompetitionData,
-    teamSettingsData: leaguePointsData,
+    competitionData: knockoutCompetitionData,
+    teamSettingsData: knockoutTeamData,
     roundsData: fiveRounds,
     playersData: sixteenPlayers,
     isSubmitting: false,
@@ -676,8 +676,8 @@ export const EightPlayers: Story = {
 export const SixteenPlayers: Story = {
   args: {
     ...defaultCallbacks,
-    competitionData: leagueCompetitionData,
-    teamSettingsData: leaguePointsData,
+    competitionData: knockoutCompetitionData,
+    teamSettingsData: knockoutTeamData,
     roundsData: fiveRounds,
     playersData: sixteenPlayers,
     isSubmitting: false,
@@ -776,7 +776,7 @@ export const LongTextContent: Story = {
   args: {
     ...defaultCallbacks,
     competitionData: longNameCompetitionData,
-    teamSettingsData: leaguePointsData,
+    teamSettingsData: knockoutTeamData,
     roundsData: threeRounds,
     playersData: eightPlayers,
     isSubmitting: false,
@@ -790,7 +790,7 @@ export const LongTextContent: Story = {
 export const FullConfiguration: Story = {
   args: {
     ...defaultCallbacks,
-    competitionData: leagueCompetitionData,
+    competitionData: knockoutCompetitionData,
     teamSettingsData: perRoundTeamsData,
     roundsData: fiveRounds,
     playersData: sixteenPlayers,

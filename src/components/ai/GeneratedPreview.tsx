@@ -80,7 +80,7 @@ export function GeneratedPreview({
             <DetailItem
               label="Type"
               value={
-                competition.competitionType === 'event' ? 'Event' : 'League'
+                competition.competitionType === 'event' ? 'Event' : 'Knockout'
               }
               colors={colors}
             />

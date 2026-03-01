@@ -87,8 +87,8 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
         />
       )}
 
-      {/* Winner (for completed rounds) */}
-      {round.status === 'completed' && round.winner && (
+      {/* Winner (for completed rounds with multiple players) */}
+      {round.status === 'completed' && round.winner && (round.players?.length ?? 0) > 1 && (
         <View style={styles.winnerRow}>
           <WinnerRow
             winner={round.winner}
