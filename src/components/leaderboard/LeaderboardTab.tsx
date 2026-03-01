@@ -11,8 +11,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
-import { IconChartBar, IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
+import { ErrorState, LoadingSpinner, SectionHeader } from '@/components/common';
+import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import { RoundLeaderboard } from './RoundLeaderboard';
@@ -125,22 +125,6 @@ const ViewToggle = React.memo(function ViewToggle({
           Team
         </Text>
       </TouchableOpacity>
-    </View>
-  );
-});
-
-interface SectionHeaderProps {
-  title: string;
-  icon?: React.ReactNode;
-}
-
-const SectionHeader = React.memo(function SectionHeader({ title, icon }: SectionHeaderProps) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.sectionHeader}>
-      {icon}
-      <Text style={[styles.sectionHeaderText, { color: colors.textPrimary }]}>{title}</Text>
     </View>
   );
 });
@@ -324,25 +308,11 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   // Render error state
   if (error) {
     return (
-      <View style={[styles.errorCard, { backgroundColor: colors.surface }]}>
-        <View style={styles.errorState}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: colors.errorLight }]}>
-            <IconChartBar size={48} color={colors.error} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            Failed to load leaderboard
-          </Text>
-          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-            {error.message || 'An unexpected error occurred'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => refetch()}
-          >
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ErrorState
+        error={error.message || 'An unexpected error occurred'}
+        onRetry={() => refetch()}
+        title="Failed to load leaderboard"
+      />
     );
   }
 
@@ -361,13 +331,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
       {/* Overall Standings Section */}
       <SectionHeader
         title={effectiveView === 'team' ? 'Team Standings' : 'Individual Standings'}
-        icon={
-          effectiveView === 'team' ? (
-            <IconUsers size={20} color={colors.primary} style={styles.sectionHeaderIcon} />
-          ) : (
-            <IconUser size={20} color={colors.primary} style={styles.sectionHeaderIcon} />
-          )
-        }
+        icon={effectiveView === 'team' ? 'account-group-outline' : 'account-outline'}
       />
 
       {/* Standings Content */}
@@ -399,7 +363,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         <View style={styles.roundsSection}>
           <SectionHeader
             title="Round Results"
-            icon={<IconCalendar size={20} color={colors.primary} style={styles.sectionHeaderIcon} />}
+            icon="calendar-outline"
           />
 
           {/* In-Progress Rounds */}
@@ -437,7 +401,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         <View style={styles.roundsSection}>
           <SectionHeader
             title="Round Results"
-            icon={<IconCalendar size={20} color={colors.primary} style={styles.sectionHeaderIcon} />}
+            icon="calendar-outline"
           />
           <EmptyLeaderboardState
             type="rounds"
@@ -451,7 +415,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
         <View style={styles.roundsSection}>
           <SectionHeader
             title="Round Results"
-            icon={<IconCalendar size={20} color={colors.primary} style={styles.sectionHeaderIcon} />}
+            icon="calendar-outline"
           />
           <EmptyLeaderboardState
             type="rounds"
@@ -477,11 +441,6 @@ const styles = StyleSheet.create({
     padding: spacing.xxxl,
     alignItems: 'center',
   },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
-  },
-
   // View Toggle
   toggleContainer: {
     flexDirection: 'row',
@@ -509,20 +468,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
-  },
-  sectionHeaderIcon: {
-    marginRight: spacing.sm,
-  },
-  sectionHeaderText: {
-    ...typography.h4,
-  },
-
   // Empty State
   emptyCard: {
     borderRadius: borderRadius.lg,
@@ -547,25 +492,6 @@ const styles = StyleSheet.create({
   emptyMessage: {
     ...typography.body,
     textAlign: 'center',
-  },
-
-  // Error State
-  errorCard: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-  },
-  errorState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  retryButtonText: {
-    ...typography.bodyBold,
   },
 
   // Rounds Section

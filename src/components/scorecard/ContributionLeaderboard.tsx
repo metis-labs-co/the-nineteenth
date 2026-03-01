@@ -28,6 +28,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { EmptyState } from '@/components/common';
 import type { Player, HoleScore, MultiBallHoleScore, Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 
@@ -542,15 +543,12 @@ export function ContributionLeaderboard({
   if (isEmpty) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-        <Icon source="chart-bar" size={48} color={colors.textTertiary} />
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-          {showOnlyDrives ? 'No Scores Recorded' : 'No Contributions Recorded'}
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          {showOnlyDrives
-            ? 'Team scores and best drives will appear here as you play.'
-            : 'Shot contributions (Drive, Approach, Putt) will appear here when tracked during scoring.'}
-        </Text>
+        <EmptyState
+          title={showOnlyDrives ? "No Contributions Recorded" : "No Scores Recorded"}
+          message={showOnlyDrives ? "Drive contributions will appear here as scores are entered." : "Contribution standings will appear here as scores are entered."}
+          icon="chart-bar"
+          compact
+        />
       </View>
     );
   }
@@ -893,19 +891,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
     ...shadows.sm,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
   },
   categoriesRow: {
     flex: 1,

@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { BottomSheet, ConfirmationDialog } from '@/components/common';
+import { BottomSheet, ConfirmationDialog, FormSection, LoadingSpinner } from '@/components/common';
 import { PrizePoolSection, type PrizePoolConfig } from './PrizePoolSection';
 import {
   useCompetitionPrizePool,
@@ -372,12 +372,7 @@ export function EditPrizePoolBottomSheet({
       testID="edit-prize-pool-bottom-sheet"
     >
       {isLoadingPool ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading prize pool...
-          </Text>
-        </View>
+        <LoadingSpinner size="lg" message="Loading prize pool..." />
       ) : (
         <>
           <ScrollView
@@ -395,7 +390,7 @@ export function EditPrizePoolBottomSheet({
             </Text>
 
             {/* Prize Pool Form */}
-            <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
+            <FormSection>
               <PrizePoolSection
                 pool={displayPool}
                 playerCount={playerCount}
@@ -404,7 +399,7 @@ export function EditPrizePoolBottomSheet({
                 onUpgradePress={handleUpgradePress}
                 editState={componentEditState}
               />
-            </View>
+            </FormSection>
 
             {/* Info Box */}
             {editState.isLocked && (
@@ -469,15 +464,6 @@ export function EditPrizePoolBottomSheet({
 // ============================================================================
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  loadingText: {
-    ...typography.body,
-  },
   scrollView: {
     flex: 1,
   },
@@ -487,12 +473,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  formSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
   },
   infoBox: {
     flexDirection: 'row',

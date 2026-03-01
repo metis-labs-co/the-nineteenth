@@ -23,7 +23,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog, PageHeader } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -530,29 +530,11 @@ export default function SubscriptionScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.surface,
-            paddingTop: insets.top + spacing.md,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Icon source="arrow-left" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          Subscription
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <PageHeader
+        title="Subscription"
+        showBack
+        onBack={handleBack}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -722,26 +704,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.h3,
-  },
-  headerSpacer: {
-    width: 40,
   },
   scrollView: {
     flex: 1,

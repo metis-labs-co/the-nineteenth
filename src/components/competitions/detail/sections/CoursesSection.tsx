@@ -13,6 +13,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
+import { SectionHeader } from '@/components/common';
 import { CourseCard } from '@/components/courses/CourseCard';
 import type { CoursesSectionProps } from './types';
 
@@ -22,7 +23,7 @@ export function CoursesSection({ courses, onViewCourse }: CoursesSectionProps) {
   if (courses.length === 0) {
     return (
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Courses</Text>
+        <SectionHeader title="Courses" />
         <View style={styles.emptyCoursesCard}>
           <Text style={[styles.emptyCoursesText, { color: colors.textSecondary }]}>
             No courses have been added to this competition yet.
@@ -34,9 +35,7 @@ export function CoursesSection({ courses, onViewCourse }: CoursesSectionProps) {
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Courses ({courses.length})
-      </Text>
+      <SectionHeader title={`Courses (${courses.length})`} />
       <View style={styles.coursesContainer}>
         {courses.map((course) => (
           <CourseCard
@@ -56,10 +55,6 @@ export function CoursesSection({ courses, onViewCourse }: CoursesSectionProps) {
 const styles = StyleSheet.create({
   section: {
     marginTop: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.md,
   },
   coursesContainer: {
     gap: spacing.md,

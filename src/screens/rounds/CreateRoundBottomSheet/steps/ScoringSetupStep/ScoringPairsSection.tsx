@@ -14,6 +14,7 @@ import {
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { Pill } from '@/components/common';
 import { ScoringPairFormationInline } from '@/components/scoring';
 import type { ScoringPairCreateInput } from '@/types';
 import type { PlayingPartner } from '../../types';
@@ -102,9 +103,7 @@ export const ScoringPairsSection = memo(function ScoringPairsSection({
                 <Text style={[styles.scoringPairsToggleLabel, { color: colors.textSecondary }]}>
                   Require Scoring Pairs
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.scoringPairsToggleDescription, { color: colors.textTertiary }]}>
                 Upgrade to Premium to assign designated markers
@@ -192,15 +191,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   scoringPairsFormation: {
     marginTop: spacing.lg,

@@ -5,13 +5,12 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { GolfBallLoader, PlayerAvatar } from '@/components/common';
+import { GolfBallLoader, Pill, PlayerAvatar } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { Pill } from '@/components/common/Pill';
 import { useScoringPairs } from '@/hooks/useScoringPairs';
 import type { RootStackParamList } from '@/navigation/types';
 import type { ScoringPairWithPlayers } from '@/types/database.types';
@@ -108,9 +107,7 @@ export function ScoringPairsSection({
                 <Text style={[styles.lockedLabel, { color: colors.textSecondary }]}>
                   Scoring Pairs
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.lockedDescription, { color: colors.textTertiary }]}>
                 Upgrade to designate who scores each player
@@ -321,16 +318,6 @@ const styles = StyleSheet.create({
     ...typography.small,
     marginTop: 2,
   },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-
   // Premium State
   scoringPairsCard: {
     borderRadius: borderRadius.lg,

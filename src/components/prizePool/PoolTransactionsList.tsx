@@ -26,6 +26,7 @@ import {
   type ListRenderItemInfo,
 } from 'react-native';
 import { Text, ActivityIndicator, Icon } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import {
   IconArrowDown,
   IconArrowUp,
@@ -368,10 +369,7 @@ export const PoolTransactionsList = memo(function PoolTransactionsList({
   if (isLoading && transactions.length === 0) {
     return (
       <View style={styles.loadingContainer} testID={testID}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading transactions...
-        </Text>
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -451,13 +449,6 @@ const styles = StyleSheet.create({
   // Loading states
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
-  },
-  loadingText: {
-    ...typography.small,
   },
   loadingFooter: {
     paddingVertical: spacing.lg,

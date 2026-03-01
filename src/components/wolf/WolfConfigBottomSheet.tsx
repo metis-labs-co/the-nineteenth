@@ -232,8 +232,9 @@ export function WolfConfigBottomSheet({
       height={0.85}
       title="Configure Wolf Game"
       showCloseButton
-      showBackdrop={showBackdrop}
+      showBackdrop
       enableSwipeToDismiss={false}
+      useModal
       testID="wolf-config-bottom-sheet"
     >
       <ScrollView

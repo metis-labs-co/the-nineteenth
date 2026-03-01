@@ -117,8 +117,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     error: preferencesError,
   } = useQuery({
     queryKey: pushKeys.preferences(userId),
-    queryFn: async (): Promise<PushPreferences | undefined> => {
-      if (!userId) return undefined;
+    queryFn: async (): Promise<PushPreferences | null> => {
+      if (!userId) return null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = (await (supabase as any)
@@ -134,7 +134,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         throw error;
       }
 
-      if (!data) return undefined;
+      if (!data) return null;
 
       return {
         pushEnabled: data.push_enabled,

@@ -20,6 +20,7 @@ import {
   FormInput,
   BottomSheet,
   ConfirmationDialog,
+  FormSection,
   PlayerAvatar,
   AvatarSelectionModal,
 } from '@/components/common';
@@ -346,7 +347,7 @@ export default function EditProfileScreen() {
         </View>
 
         {/* Form Fields */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
+        <FormSection style={{ marginHorizontal: spacing.lg, marginBottom: 0 }}>
           {/* First Name Field */}
           <Controller
             control={control}
@@ -490,7 +491,7 @@ export default function EditProfileScreen() {
               })}
             </View>
           </View>
-        </View>
+        </FormSection>
 
         {/* Info Section */}
         <View style={[styles.infoSection, { backgroundColor: colors.gray100 }]}>
@@ -603,12 +604,6 @@ const styles = StyleSheet.create({
   },
   avatarHint: {
     ...typography.caption,
-  },
-  formSection: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    ...shadows.sm,
   },
   infoSection: {
     flexDirection: 'row',

@@ -5,14 +5,14 @@
  * Allows submitting a scorecard to an accepted challenge.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, LoadingSpinner } from '@/components/common';
+import { PageHeader, LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { DifferentialBadge } from '@/components/leagues/DifferentialBadge';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -38,6 +38,9 @@ export default function ChallengeDetailScreen() {
   const respondMutation = useRespondToChallenge(leagueId);
   const cancelMutation = useCancelChallenge(leagueId);
 
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
   const isChallenger = challenge?.challenger_id === user?.id;
   const isChallenged = challenge?.challenged_id === user?.id;
 
@@ -49,40 +52,32 @@ export default function ChallengeDetailScreen() {
     }
   }, [respondMutation, challengeId]);
 
-  const handleDecline = useCallback(async () => {
-    Alert.alert('Decline Challenge', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Decline',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await respondMutation.mutateAsync({ challengeId, accept: false });
-            navigation.goBack();
-          } catch (error: any) {
-            Alert.alert('Error', error.message);
-          }
-        },
-      },
-    ]);
+  const handleDecline = useCallback(() => {
+    setShowDeclineDialog(true);
+  }, []);
+
+  const confirmDecline = useCallback(async () => {
+    setShowDeclineDialog(false);
+    try {
+      await respondMutation.mutateAsync({ challengeId, accept: false });
+      navigation.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   }, [respondMutation, challengeId, navigation]);
 
-  const handleCancel = useCallback(async () => {
-    Alert.alert('Cancel Challenge', 'Are you sure?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Cancel Challenge',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await cancelMutation.mutateAsync(challengeId);
-            navigation.goBack();
-          } catch (error: any) {
-            Alert.alert('Error', error.message);
-          }
-        },
-      },
-    ]);
+  const handleCancel = useCallback(() => {
+    setShowCancelDialog(true);
+  }, []);
+
+  const confirmCancel = useCallback(async () => {
+    setShowCancelDialog(false);
+    try {
+      await cancelMutation.mutateAsync(challengeId);
+      navigation.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   }, [cancelMutation, challengeId, navigation]);
 
   const handleSubmitRound = useCallback(() => {
@@ -254,6 +249,25 @@ export default function ChallengeDetailScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <ConfirmationDialog
+        visible={showDeclineDialog}
+        title="Decline Challenge"
+        message="Are you sure you want to decline this challenge?"
+        confirmLabel="Decline"
+        confirmVariant="destructive"
+        onConfirm={confirmDecline}
+        onCancel={() => setShowDeclineDialog(false)}
+      />
+      <ConfirmationDialog
+        visible={showCancelDialog}
+        title="Cancel Challenge"
+        message="Are you sure you want to cancel this challenge?"
+        confirmLabel="Cancel Challenge"
+        confirmVariant="destructive"
+        onConfirm={confirmCancel}
+        onCancel={() => setShowCancelDialog(false)}
+      />
     </View>
   );
 }

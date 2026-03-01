@@ -161,10 +161,11 @@ export function SkinsConfigBottomSheet({
     <BottomSheet
       visible={visible}
       onClose={onDismiss}
-      height={0.7}
+      height={0.85}
       title="Skins Configuration"
       showCloseButton
-      showBackdrop={showBackdrop}
+      showBackdrop
+      useModal
       testID="skins-config-bottom-sheet"
     >
       <ScrollView

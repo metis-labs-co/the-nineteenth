@@ -9,6 +9,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Icon, Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet/BottomSheet';
+import { LoadingSpinner } from '@/components/common';
 import { useLeagues, useScorecardLeagueTags, useTagRoundToLeague } from '@/hooks/useLeagues';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
@@ -107,9 +108,7 @@ export function TagToLeagueBottomSheet({ visible, onClose, scorecardId }: TagToL
       title="Tag to League"
     >
       {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingSpinner size="lg" />
       ) : activeLeagues.length === 0 ? (
         <View style={styles.centered}>
           <Icon source="trophy-outline" size={48} color={colors.gray400} />

@@ -25,6 +25,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skinsCalculations';
@@ -291,9 +292,7 @@ export const SkinsGameHistoryList = React.memo(function SkinsGameHistoryList({
             </View>
           </View>
         )}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={skinsColor} />
-        </View>
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -436,11 +435,6 @@ const styles = StyleSheet.create({
   },
 
   // Loading
-  loadingContainer: {
-    padding: spacing.xxxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   loadingMore: {
     padding: spacing.lg,
     alignItems: 'center',

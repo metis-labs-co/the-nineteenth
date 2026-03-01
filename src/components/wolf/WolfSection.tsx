@@ -29,6 +29,7 @@ import { IconDog, IconLock, IconAlertCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
+import { Pill } from '@/components/common';
 import { WolfConfigBottomSheet } from './WolfConfigBottomSheet';
 import { WolfDisclaimerModal, hasAcceptedWolfDisclaimer } from './WolfDisclaimerModal';
 import type { WolfConfig, WolfParticipant } from '@/types/database/wolf.types';
@@ -350,11 +351,7 @@ export const WolfSection = memo(function WolfSection({
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Enable Wolf Game
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.description, { color: colors.textTertiary }]}>
                 Upgrade to Premium for Wolf side-game
@@ -420,15 +417,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.small,
     marginTop: 2,
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   configSummary: {
     marginTop: spacing.md,

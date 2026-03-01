@@ -4,9 +4,8 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import { spacing, typography } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { spacing } from '@/constants/theme';
+import { FormSection } from '@/components/common';
 import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
 import { TeamRoundSection } from '../components';
 import type { GameType, TeamFormat, TeamWithMembers } from '@/types/database.types';
@@ -41,13 +40,10 @@ export function GameFormatStep({
   onTeamFormatChange,
   onUpgradePress,
 }: GameFormatStepProps) {
-  const colors = useThemeColors();
-
   return (
     <View style={styles.container}>
       {/* Game Type Selection */}
-      <View style={styles.fieldContainer}>
-        <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Game Type *</Text>
+      <FormSection noCard title="Game Type *">
         <RoundGameTypeSelector
           value={gameType}
           onChange={onGameTypeChange}
@@ -56,7 +52,7 @@ export function GameFormatStep({
           onUpgradePress={onUpgradePress}
           showTeamFormats={supportsTeams}
         />
-      </View>
+      </FormSection>
 
       {/* Team Round Section - Only shown if competition supports teams */}
       {supportsTeams && (
@@ -77,11 +73,5 @@ export function GameFormatStep({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
-  },
-  fieldContainer: {
-    gap: spacing.xs,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
   },
 });

@@ -24,7 +24,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, FormInput } from '@/components/common';
+import { PageHeader, FormInput, FormSection } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useCreateLeague } from '@/hooks/useLeagues';
@@ -57,11 +57,7 @@ function SeasonConfig({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.configSection}>
-      <Text style={[styles.configTitle, { color: colors.textPrimary }]}>Season Dates</Text>
-      <Text style={[styles.configDescription, { color: colors.textSecondary }]}>
-        Only rounds played within these dates can be tagged.
-      </Text>
+    <FormSection noCard title="Season Dates" description="Only rounds played within these dates can be tagged.">
       <FormInput
         label="Start Date"
         floatingLabel
@@ -80,7 +76,7 @@ function SeasonConfig({
         keyboardType="default"
         accessibilityHint="Enter end date in DD/MM/YYYY format"
       />
-    </View>
+    </FormSection>
   );
 }
 
@@ -103,11 +99,7 @@ function RoundLimitConfig({
   const roundOptions = [5, 8, 10, 12, 15, 20];
 
   return (
-    <View style={styles.configSection}>
-      <Text style={[styles.configTitle, { color: colors.textPrimary }]}>Total Rounds</Text>
-      <Text style={[styles.configDescription, { color: colors.textSecondary }]}>
-        Maximum rounds each player can tag.
-      </Text>
+    <FormSection noCard title="Total Rounds" description="Maximum rounds each player can tag.">
       <View style={styles.stepperRow}>
         {roundOptions.map((value) => (
           <TouchableOpacity
@@ -184,7 +176,7 @@ function RoundLimitConfig({
           </View>
         </View>
       )}
-    </View>
+    </FormSection>
   );
 }
 
@@ -208,11 +200,7 @@ function LadderConfig({
   ];
 
   return (
-    <View style={styles.configSection}>
-      <Text style={[styles.configTitle, { color: colors.textPrimary }]}>Challenge Range</Text>
-      <Text style={[styles.configDescription, { color: colors.textSecondary }]}>
-        How many positions above can a player challenge?
-      </Text>
+    <FormSection noCard title="Challenge Range" description="How many positions above can a player challenge?">
       <View style={styles.stepperRow}>
         {rangeOptions.map((value) => (
           <TouchableOpacity
@@ -264,7 +252,7 @@ function LadderConfig({
           </TouchableOpacity>
         ))}
       </View>
-    </View>
+    </FormSection>
   );
 }
 
@@ -286,11 +274,7 @@ function EclecticConfig({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.configSection}>
-      <Text style={[styles.configTitle, { color: colors.textPrimary }]}>Course</Text>
-      <Text style={[styles.configDescription, { color: colors.textSecondary }]}>
-        All tagged rounds must be from this course.
-      </Text>
+    <FormSection noCard title="Course" description="All tagged rounds must be from this course.">
       <TouchableOpacity
         onPress={onCoursePress}
         style={[styles.selectorButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -355,7 +339,7 @@ function EclecticConfig({
           </TouchableOpacity>
         </>
       )}
-    </View>
+    </FormSection>
   );
 }
 
@@ -794,9 +778,6 @@ const styles = StyleSheet.create({
   nameSection: {
     marginTop: spacing.lg,
     gap: spacing.md,
-  },
-  configSection: {
-    gap: spacing.sm,
   },
   configTitle: {
     ...typography.bodyBold,

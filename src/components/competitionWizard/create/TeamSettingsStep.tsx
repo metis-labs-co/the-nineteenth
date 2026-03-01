@@ -10,8 +10,9 @@ import {
   type TeamMode,
   DEFAULT_POINT_SYSTEM,
 } from '@/schemas/competition';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { FormSection } from '@/components/common';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -125,12 +126,7 @@ export default function TeamSettingsStep({
         </Text>
 
         {/* Team Mode Section */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Team Format</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Choose how players will be grouped
-          </Text>
-
+        <FormSection title="Team Format" description="Choose how players will be grouped">
           <View style={styles.segmentedContainer}>
             {TEAM_MODES.map((mode) => {
               const isSelected = teamMode === mode.value;
@@ -183,16 +179,11 @@ export default function TeamSettingsStep({
               {errors.teamMode.message}
             </Text>
           )}
-        </View>
+        </FormSection>
 
         {/* Team Size Section - Only show if teams enabled */}
         {teamsEnabled && (
-          <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Team Size</Text>
-            <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-              Number of players per team
-            </Text>
-
+          <FormSection title="Team Size" description="Number of players per team">
             <View style={styles.chipContainer}>
               {TEAM_SIZES.map((size) => {
                 const isSelected = teamSize === size;
@@ -227,16 +218,11 @@ export default function TeamSettingsStep({
                 {errors.teamSize.message}
               </Text>
             )}
-          </View>
+          </FormSection>
         )}
 
         {/* Point System Section */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Point System</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Points awarded based on finishing position
-          </Text>
-
+        <FormSection title="Point System" description="Points awarded based on finishing position">
           {/* Default Points Preview */}
           <View style={styles.pointsPreviewContainer}>
             <View style={styles.pointsPreviewRow}>
@@ -330,7 +316,7 @@ export default function TeamSettingsStep({
                 : 'Invalid point system configuration'}
             </Text>
           )}
-        </View>
+        </FormSection>
 
         {/* Info Box */}
         <View style={[styles.infoBox, { backgroundColor: colors.gray100 }]}>
@@ -392,20 +378,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  formSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    ...typography.small,
-    marginBottom: spacing.md,
   },
   segmentedContainer: {
     flexDirection: 'row',

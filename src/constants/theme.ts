@@ -247,8 +247,8 @@ export const zIndex = {
 // Skins feature color (amber/gold)
 export const skinsColor = '#f59e0b';
 
-// Wolf feature color (gray-500)
-export const wolfColor = '#6B7280';
+// Wolf feature color (blue-purple)
+export const wolfColor = '#7C5CFC';
 
 // Export a theme object with everything
 export const theme = {

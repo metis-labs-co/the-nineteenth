@@ -22,7 +22,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { ConfirmationDialog } from '@/components/common';
+import { ConfirmationDialog, FormSection, PageHeader } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -252,23 +252,13 @@ export default function EditRoundScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top, backgroundColor: colors.surface, borderBottomColor: colors.border },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={handleBack}
-          accessibilityLabel="Close"
-          accessibilityRole="button"
-        >
-          <Icon source="close" size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Round</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <PageHeader
+        title="Edit Round"
+        variant="centered"
+        showBack
+        onBack={handleBack}
+        backIcon="close"
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -292,12 +282,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
         />
 
         {/* Form Section */}
-        <View
-          style={[
-            styles.formSection,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <FormSection style={{ borderWidth: 1, borderColor: colors.border }}>
           <DateTimeSection
             date={formData.date}
             teeTime={formData.teeTime}
@@ -323,7 +308,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
             onSelectTee={setSelectedTee}
             disabled={isSubmitting}
           />
-        </View>
+        </FormSection>
 
         {/* Scoring Pairs Section */}
         <ScoringPairsSection
@@ -337,12 +322,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
 
         {/* Skins Game Section - Only for competition rounds */}
         {competitionId && (
-          <View
-            style={[
-              styles.formSection,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
+          <FormSection style={{ borderWidth: 1, borderColor: colors.border }}>
             <SkinsSection
               skinsEnabled={formData.skinsEnabled}
               skinsConfig={formData.skinsConfig}
@@ -370,7 +350,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
                 participantCount={competitionPlayers?.length ?? 0}
               />
             )}
-          </View>
+          </FormSection>
         )}
       </ScrollView>
 
@@ -459,27 +439,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.h3,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
   scrollView: {
     flex: 1,
   },
@@ -507,13 +466,6 @@ const styles = StyleSheet.create({
   },
   errorBackButtonText: {
     ...typography.bodyBold,
-  },
-  formSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    ...shadows.sm,
   },
   footer: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
+  Modal,
   StyleSheet,
   Animated,
   TouchableOpacity,
@@ -58,6 +59,7 @@ export function BottomSheet({
   containerStyle,
   contentStyle,
   testID,
+  useModal: useModalProp = false,
 }: BottomSheetProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -148,7 +150,7 @@ export function BottomSheet({
     outputRange: [0, BACKDROP_OPACITY],
   });
 
-  return (
+  const sheetContent = (
     <View
       style={StyleSheet.absoluteFill}
       pointerEvents="box-none"
@@ -239,6 +241,22 @@ export function BottomSheet({
       </Animated.View>
     </View>
   );
+
+  if (useModalProp) {
+    return (
+      <Modal
+        visible={isRendered || visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={handleClose}
+      >
+        {sheetContent}
+      </Modal>
+    );
+  }
+
+  return sheetContent;
 }
 
 const styles = StyleSheet.create({

@@ -11,9 +11,9 @@ import {
   type CompetitionType,
   type HandicapSource,
 } from '@/schemas/competition';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { DatePicker, FormInput, SegmentedButton } from '@/components/common';
+import { DatePicker, FormInput, FormSection, Pill, SegmentedButton } from '@/components/common';
 import { useIsPremium, useCheckFeature } from '@/context/SubscriptionContext';
 import { IconTrophy, IconLock } from '@tabler/icons-react-native';
 
@@ -102,7 +102,7 @@ export default function CompetitionDetailsStep({
         </Text>
 
         {/* Form Section */}
-        <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
+        <FormSection>
           {/* Competition Name */}
           <Controller
             control={control}
@@ -268,11 +268,12 @@ export default function CompetitionDetailsStep({
                       <Text style={[styles.teamToggleLabel, { color: colors.textSecondary }]}>
                         Team Format
                       </Text>
-                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                          {teamFormatsAccess.requiredTier === 'premium' ? 'Premium' : 'Social'}
-                        </Text>
-                      </View>
+                      <Pill
+                        label={teamFormatsAccess.requiredTier === 'premium' ? 'Premium' : 'Social'}
+                        variant="warning"
+                        filled
+                        size="sm"
+                      />
                     </View>
                     <Text style={[styles.teamToggleDescription, { color: colors.textTertiary }]}>
                       Upgrade to use team competitions
@@ -396,11 +397,7 @@ export default function CompetitionDetailsStep({
                       <Text style={[styles.teamToggleLabel, { color: colors.textSecondary }]}>
                         Add Prize Pool
                       </Text>
-                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                          Premium
-                        </Text>
-                      </View>
+                      <Pill label="Premium" variant="warning" filled size="sm" />
                     </View>
                     <Text style={[styles.teamToggleDescription, { color: colors.textTertiary }]}>
                       Upgrade to Premium for prize pools
@@ -416,7 +413,7 @@ export default function CompetitionDetailsStep({
               </Text>
             )}
           </View>
-        </View>
+        </FormSection>
       </ScrollView>
 
       {/* Action Buttons - Sticky Footer */}
@@ -459,12 +456,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  formSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
   },
   fieldContainer: {
     marginBottom: spacing.lg,
@@ -548,14 +539,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
 });

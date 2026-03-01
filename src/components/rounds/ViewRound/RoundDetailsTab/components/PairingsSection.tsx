@@ -11,6 +11,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Alert } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import {
@@ -84,6 +85,7 @@ export const PairingsSection = React.memo(function PairingsSection({
   const [showPreview, setShowPreview] = useState(false);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState<number | null>(null);
   const [showPlayerSelection, setShowPlayerSelection] = useState(false);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   // Queries and mutations
   const { data: existingPairings, isLoading, refetch } = usePairings(roundId);
@@ -249,30 +251,22 @@ export const PairingsSection = React.memo(function PairingsSection({
 
   // Handle delete all pairings
   const handleDeleteAll = useCallback(() => {
-    Alert.alert(
-      'Delete All Groups',
-      'Are you sure you want to remove all player groups?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteAll(
-              { roundId },
-              {
-                onSuccess: () => {
-                  setPendingGroups(null);
-                  refetch();
-                },
-                onError: (error) => {
-                  Alert.alert('Error', error.message || 'Failed to delete groups');
-                },
-              }
-            );
-          },
+    setShowDeleteAllDialog(true);
+  }, []);
+
+  const confirmDeleteAll = useCallback(() => {
+    setShowDeleteAllDialog(false);
+    deleteAll(
+      { roundId },
+      {
+        onSuccess: () => {
+          setPendingGroups(null);
+          refetch();
         },
-      ]
+        onError: (error) => {
+          Alert.alert('Error', error.message || 'Failed to delete groups');
+        },
+      }
     );
   }, [roundId, deleteAll, refetch]);
 
@@ -291,12 +285,7 @@ export const PairingsSection = React.memo(function PairingsSection({
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.surface }]}>
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading groups...
-          </Text>
-        </View>
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -504,6 +493,16 @@ export const PairingsSection = React.memo(function PairingsSection({
         onEditManually={handleEditManually}
         regenerating={isGenerating}
       />
+
+      <ConfirmationDialog
+        visible={showDeleteAllDialog}
+        title="Delete All Groups"
+        message="Are you sure you want to remove all player groups?"
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        onConfirm={confirmDeleteAll}
+        onCancel={() => setShowDeleteAllDialog(false)}
+      />
     </View>
   );
 });
@@ -538,14 +537,6 @@ const styles = StyleSheet.create({
   },
   groupsContainer: {
     gap: spacing.md,
-  },
-  loadingState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-    gap: spacing.md,
-  },
-  loadingText: {
-    ...typography.body,
   },
   emptyState: {
     alignItems: 'center',

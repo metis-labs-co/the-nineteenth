@@ -14,12 +14,11 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
-import { BottomSheet } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
+import { BottomSheet, LoadingSpinner, SearchBar } from '@/components/common';
 import { PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -300,31 +299,11 @@ export const PlayerSelectionBottomSheet = React.memo(
           </View>
 
           {/* Search */}
-          <View
-            style={[
-              styles.searchContainer,
-              {
-                backgroundColor: colors.background,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Icon source="magnify" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.textPrimary }]}
-              placeholder="Search players..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Icon source="close-circle" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search players..."
+          />
 
           {/* Selection Count */}
           {selectedIds.size > 0 && (
@@ -343,12 +322,7 @@ export const PlayerSelectionBottomSheet = React.memo(
 
           {/* Player List */}
           {loading ? (
-            <View style={styles.loadingState}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                Loading players...
-              </Text>
-            </View>
+            <LoadingSpinner size="lg" message="Loading players..." />
           ) : (
             <FlatList
               data={availablePlayers}
@@ -422,22 +396,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.body,
-    padding: 0,
   },
   selectionBanner: {
     marginHorizontal: spacing.lg,
@@ -522,14 +480,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginTop: spacing.md,
     textAlign: 'center',
-  },
-  loadingState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-    gap: spacing.md,
-  },
-  loadingText: {
-    ...typography.body,
   },
   footer: {
     paddingHorizontal: spacing.lg,

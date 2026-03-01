@@ -11,6 +11,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { DatePicker } from '@/components/common/DatePicker';
+import { Pill } from '@/components/common';
 import type { SimplifiedRoundFormData, GameType } from '@/schemas/competition';
 import { CourseSelectionModal } from './CourseSelectionModal';
 import { GameTypeModal } from './GameTypeModal';
@@ -362,11 +363,7 @@ export function EditRoundBottomSheet({
                       >
                         Scoring Pairs
                       </Text>
-                      <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                        <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                          Premium
-                        </Text>
-                      </View>
+                      <Pill label="Premium" variant="warning" filled size="sm" />
                     </View>
                     <Text
                       style={[styles.scoringPairsToggleDescription, { color: colors.textTertiary }]}
@@ -533,15 +530,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

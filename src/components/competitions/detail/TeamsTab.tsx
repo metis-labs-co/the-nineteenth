@@ -5,7 +5,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, EmptyState } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { TeamCard } from '@/components/teams/TeamCard';
@@ -64,15 +64,12 @@ export const TeamsTab = React.memo(function TeamsTab({
   // Show empty state if team mode is 'none'
   if (teamMode === 'none') {
     return (
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <View style={styles.emptyState}>
-          <Icon source="account-group-outline" size={48} color={colors.gray300} />
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Team Mode</Text>
-          <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-            This competition doesn&apos;t use teams.
-          </Text>
-        </View>
-      </View>
+      <EmptyState
+        title="No Team Mode"
+        message="This competition doesn't use teams."
+        icon="account-group-outline"
+        compact
+      />
     );
   }
 
@@ -109,17 +106,12 @@ export const TeamsTab = React.memo(function TeamsTab({
 
       {/* Teams List */}
       {teams.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.emptyState}>
-            <Icon source="account-group-outline" size={48} color={colors.gray300} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No teams yet</Text>
-            <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-              {isOrganizer
-                ? 'Create teams to organize players for this competition.'
-                : "Teams haven't been created yet."}
-            </Text>
-          </View>
-        </View>
+        <EmptyState
+          title="No teams yet"
+          message={isOrganizer ? 'Create teams to organize players for this competition.' : "Teams haven't been created yet."}
+          icon="account-group-outline"
+          compact
+        />
       ) : (
         <View style={styles.teamsList}>
           <Text style={[styles.teamsSectionTitle, { color: colors.textSecondary }]}>
@@ -151,11 +143,6 @@ export const TeamsTab = React.memo(function TeamsTab({
 });
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
   teamsList: {
     marginTop: spacing.sm,
   },
@@ -193,19 +180,6 @@ const styles = StyleSheet.create({
   },
   manageTeamsButtonText: {
     ...typography.bodyBold,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyMessage: {
-    ...typography.body,
-    textAlign: 'center',
   },
 });
 

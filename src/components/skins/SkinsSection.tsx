@@ -30,7 +30,7 @@ import { IconDice, IconLock, IconAlertCircle } from '@tabler/icons-react-native'
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
-import { SegmentedButton } from '@/components/common';
+import { Pill, SegmentedButton } from '@/components/common';
 import {
   SkinsConfigBottomSheet,
   SkinsDisclaimerModal,
@@ -523,11 +523,7 @@ export const SkinsSection = memo(function SkinsSection({
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Enable Skins Game
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.description, { color: colors.textTertiary }]}>
                 Upgrade to Premium for skins betting
@@ -594,15 +590,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.small,
     marginTop: 2,
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   configSummary: {
     marginTop: spacing.md,

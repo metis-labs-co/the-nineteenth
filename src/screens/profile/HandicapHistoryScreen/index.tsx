@@ -8,7 +8,7 @@
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import { useHandicapHistory } from '@/hooks/useHandicapHistory';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ErrorState, LoadingSpinner } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
 import type { HandicapRound } from '@/types';
 
@@ -92,9 +93,7 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Handicap History" showBack onBack={handleGoBack} />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -104,17 +103,11 @@ export default function HandicapHistoryScreen({ navigation }: Props) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader title="Handicap History" showBack onBack={handleGoBack} />
-        <View style={styles.centered}>
-          <Text style={[styles.errorText, { color: colors.error }]}>
-            {error?.message || 'Failed to load handicap history'}
-          </Text>
-          <Text
-            style={[styles.retryText, { color: colors.primary }]}
-            onPress={handleRefresh}
-          >
-            Tap to retry
-          </Text>
-        </View>
+        <ErrorState
+          error={error instanceof Error ? error.message : 'Failed to load handicap history'}
+          onRetry={handleRefresh}
+          title="Failed to load handicap history"
+        />
       </View>
     );
   }
@@ -174,12 +167,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
   listContent: {
     padding: spacing.lg,
     paddingBottom: spacing.massive,
@@ -190,14 +177,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: spacing.md,
     marginTop: spacing.sm,
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  retryText: {
-    ...typography.bodyBold,
-    textAlign: 'center',
   },
 });

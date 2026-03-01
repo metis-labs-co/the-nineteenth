@@ -21,7 +21,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, FormInput, Pill } from '@/components/common';
+import { PageHeader, FormInput, Pill, ConfirmationDialog, SectionHeader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -52,6 +52,8 @@ export default function LeagueSettingsScreen() {
   const [name, setName] = useState(league?.name ?? '');
   const [description, setDescription] = useState(league?.description ?? '');
   const [hasChanges, setHasChanges] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [playerToRemove, setPlayerToRemove] = useState<{ id: string; name: string } | null>(null);
 
   const handleNameChange = useCallback((text: string) => {
     setName(text);
@@ -89,46 +91,31 @@ export default function LeagueSettingsScreen() {
   }, [league]);
 
   const handleArchive = useCallback(() => {
-    Alert.alert(
-      'Archive League',
-      'Archived leagues are read-only. No new rounds can be tagged and no players can join. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await archiveMutation.mutateAsync(leagueId);
-              navigation.goBack();
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
-    );
+    setShowArchiveDialog(true);
+  }, []);
+
+  const confirmArchive = useCallback(async () => {
+    setShowArchiveDialog(false);
+    try {
+      await archiveMutation.mutateAsync(leagueId);
+      navigation.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   }, [leagueId, archiveMutation, navigation]);
 
   const handleRemovePlayer = useCallback(
     (playerId: string, playerName: string) => {
-      Alert.alert(
-        'Remove Player',
-        `Remove ${playerName} from this league? Their tagged rounds will also be removed.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => {
-              removePlayerMutation.mutate(playerId);
-            },
-          },
-        ]
-      );
+      setPlayerToRemove({ id: playerId, name: playerName });
     },
-    [removePlayerMutation]
+    []
   );
+
+  const confirmRemovePlayer = useCallback(() => {
+    if (!playerToRemove) return;
+    removePlayerMutation.mutate(playerToRemove.id);
+    setPlayerToRemove(null);
+  }, [playerToRemove, removePlayerMutation]);
 
   const isArchived = league?.status === 'archived';
 
@@ -147,9 +134,7 @@ export default function LeagueSettingsScreen() {
         {/* Edit Details */}
         {!isArchived && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Details
-            </Text>
+            <SectionHeader title="Details" />
 
             <FormInput
               label="League Name"
@@ -209,9 +194,7 @@ export default function LeagueSettingsScreen() {
 
         {/* Invite Code */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Invite Code
-          </Text>
+          <SectionHeader title="Invite Code" />
           <TouchableOpacity
             onPress={handleShare}
             style={[styles.inviteRow, { backgroundColor: colors.surface }]}
@@ -232,9 +215,7 @@ export default function LeagueSettingsScreen() {
 
         {/* Players */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Players ({players?.length ?? 0})
-          </Text>
+          <SectionHeader title={`Players (${players?.length ?? 0})`} />
 
           {players?.map((lp: any) => {
             const isCreator = lp.player_id === league?.created_by;
@@ -295,6 +276,25 @@ export default function LeagueSettingsScreen() {
           </>
         )}
       </ScrollView>
+
+      <ConfirmationDialog
+        visible={showArchiveDialog}
+        title="Archive League"
+        message="Archived leagues are read-only. No new rounds can be tagged and no players can join. This cannot be undone."
+        confirmLabel="Archive"
+        confirmVariant="destructive"
+        onConfirm={confirmArchive}
+        onCancel={() => setShowArchiveDialog(false)}
+      />
+      <ConfirmationDialog
+        visible={playerToRemove !== null}
+        title="Remove Player"
+        message={playerToRemove ? `Remove ${playerToRemove.name} from this league? Their tagged rounds will also be removed.` : ''}
+        confirmLabel="Remove"
+        confirmVariant="destructive"
+        onConfirm={confirmRemovePlayer}
+        onCancel={() => setPlayerToRemove(null)}
+      />
     </View>
   );
 }
@@ -312,10 +312,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.md,
   },
   divider: {
     marginHorizontal: spacing.lg,

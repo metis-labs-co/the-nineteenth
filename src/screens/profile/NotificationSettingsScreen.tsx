@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionHeader } from '@/components/common';
 import { MenuItemRow } from './components';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -174,10 +174,7 @@ export default function NotificationSettingsScreen() {
 
         {/* Master Toggle Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Push Notifications</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Receive alerts when the app is closed
-          </Text>
+          <SectionHeader title="Push Notifications" description="Receive alerts when the app is closed" />
           <View style={[styles.settingsGroup, { backgroundColor: colors.surface }]}>
             <MenuItemRow
               icon="bell-outline"
@@ -205,10 +202,7 @@ export default function NotificationSettingsScreen() {
             <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Notification Types</Text>
-              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-                Choose which notifications you want to receive
-              </Text>
+              <SectionHeader title="Notification Types" description="Choose which notifications you want to receive" />
               <View style={[styles.settingsGroup, { backgroundColor: colors.surface }]}>
                 <MenuItemRow
                   icon="trophy-outline"
@@ -290,14 +284,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    ...typography.small,
-    marginBottom: spacing.md,
   },
   divider: {
     marginVertical: spacing.md,

@@ -12,8 +12,8 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { LoadingSpinner, ScaledText } from '@/components/common';
-import { IconTrophy, IconChartBar, IconChevronRight } from '@tabler/icons-react-native';
+import { EmptyState, LoadingSpinner, ScaledText } from '@/components/common';
+import { IconTrophy, IconChevronRight } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -106,13 +106,12 @@ export function LeaderboardTable({
   if (leaderboardWithPositions.length === 0) {
     return (
       <View style={[styles.emptyCard, { backgroundColor: colors.surface }]} testID={testID ? `${testID}-empty` : undefined}>
-        <View style={styles.emptyState}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: colors.surfaceVariant }]}>
-            <IconChartBar size={48} color={colors.textDisabled} />
-          </View>
-          <ScaledText category="body" style={[styles.emptyTitle, { color: colors.textPrimary }]}>No scores yet</ScaledText>
-          <ScaledText category="body" style={[styles.emptyMessage, { color: colors.textSecondary }]}>{emptyMessage}</ScaledText>
-        </View>
+        <EmptyState
+          title="No scores yet"
+          message={emptyMessage}
+          icon="chart-bar"
+          compact
+        />
       </View>
     );
   }
@@ -360,27 +359,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-    marginBottom: spacing.sm,
-  },
-  emptyMessage: {
-    ...typography.body,
-    textAlign: 'center',
-  },
 });
 
 export default LeaderboardTable;

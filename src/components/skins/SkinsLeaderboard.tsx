@@ -26,6 +26,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, Icon, Avatar, ActivityIndicator } from 'react-native-paper';
+import { EmptyState } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skinsCalculations';
@@ -203,24 +204,6 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
   );
 });
 
-/**
- * Empty state when no entries
- */
-function EmptyState() {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.emptyState}>
-      <Icon source="trophy-outline" size={48} color={colors.textTertiary} />
-      <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-        No Leaderboard Yet
-      </Text>
-      <Text style={[styles.emptyDescription, { color: colors.textTertiary }]}>
-        Complete some skins games to see rankings
-      </Text>
-    </View>
-  );
-}
 
 /**
  * Loading more indicator
@@ -340,7 +323,14 @@ export const SkinsLeaderboard = React.memo(function SkinsLeaderboard({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={ItemSeparator}
-        ListEmptyComponent={EmptyState}
+        ListEmptyComponent={
+          <EmptyState
+            title="No Leaderboard Yet"
+            message="Complete some skins games to see rankings"
+            icon="trophy-outline"
+            compact
+          />
+        }
         ListFooterComponent={ListFooter}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
@@ -462,20 +452,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
 
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xxxl,
-    gap: spacing.md,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-  },
-  emptyDescription: {
-    ...typography.small,
-    textAlign: 'center',
-  },
   emptyContent: {
     flexGrow: 1,
   },

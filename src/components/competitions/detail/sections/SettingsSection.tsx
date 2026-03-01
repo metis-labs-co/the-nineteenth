@@ -13,10 +13,10 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Chip } from 'react-native-paper';
-import { IconSettings } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { Pill } from '@/components/common/Pill';
+import { SectionHeader } from '@/components/common';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import {
   competitionTypeLabels,
@@ -96,23 +96,24 @@ export function SettingsSection({
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderLeft}>
-          <IconSettings size={20} color={colors.textPrimary} />
-          <Text style={[styles.sectionTitle, styles.noMargin, { color: colors.textPrimary }]}>Settings</Text>
-        </View>
-        {isOrganizer && (
-          <TouchableOpacity
-            style={[styles.sectionEditButton, { backgroundColor: colors.gray100 }]}
-            onPress={onEdit}
-            accessibilityLabel="Edit settings"
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <Icon source="pencil" size={16} color={colors.primary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SectionHeader
+        title="Settings"
+        icon="cog-outline"
+        primaryIcon={false}
+        rightContent={
+          isOrganizer ? (
+            <TouchableOpacity
+              style={[styles.sectionEditButton, { backgroundColor: colors.gray100 }]}
+              onPress={onEdit}
+              accessibilityLabel="Edit settings"
+              accessibilityRole="button"
+              activeOpacity={0.7}
+            >
+              <Icon source="pencil" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
         {/* Competition Type */}
@@ -190,26 +191,8 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing.md,
   },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.md,
-  },
-  noMargin: {
-    marginBottom: 0,
-  },
 
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
+  // Section Edit Button
   sectionEditButton: {
     width: 32,
     height: 32,

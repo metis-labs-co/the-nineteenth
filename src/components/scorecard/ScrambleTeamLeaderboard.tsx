@@ -19,6 +19,7 @@ import {
   UIManager,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { EmptyState } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -222,17 +223,13 @@ export function ScrambleTeamLeaderboard({
   // Empty state
   if (teamScores.length === 0) {
     return (
-      <View
-        style={[styles.emptyContainer, { backgroundColor: colors.surface }]}
-        testID={testID ? `${testID}-empty` : undefined}
-      >
-        <Icon source="trophy-outline" size={48} color={colors.textTertiary} />
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-          No Team Scores Yet
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Team standings will appear here as scores are entered.
-        </Text>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]} testID={testID ? `${testID}-empty` : undefined}>
+        <EmptyState
+          title="No Team Scores Yet"
+          message="Team standings will appear here as scores are entered."
+          icon="trophy-outline"
+          compact
+        />
       </View>
     );
   }
@@ -241,17 +238,13 @@ export function ScrambleTeamLeaderboard({
   const hasAnyScores = teamScores.some((t) => t.holesCompleted > 0);
   if (!hasAnyScores) {
     return (
-      <View
-        style={[styles.emptyContainer, { backgroundColor: colors.surface }]}
-        testID={testID ? `${testID}-empty` : undefined}
-      >
-        <Icon source="trophy-outline" size={48} color={colors.textTertiary} />
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-          No Scores Entered
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Team standings will appear here once scores are entered.
-        </Text>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]} testID={testID ? `${testID}-empty` : undefined}>
+        <EmptyState
+          title="No Scores Entered"
+          message="Team standings will appear here once scores are entered."
+          icon="trophy-outline"
+          compact
+        />
       </View>
     );
   }
@@ -566,16 +559,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     ...shadows.sm,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
   },
 });
 

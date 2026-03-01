@@ -11,8 +11,8 @@
 
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Modal } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
-import { PlayerAvatar } from '@/components/common';
+import { Text, Icon } from 'react-native-paper';
+import { PlayerAvatar, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatTeeTimeForDisplay } from '@/utils';
@@ -245,12 +245,7 @@ export const AutoGeneratePreviewModal = React.memo(
             showsVerticalScrollIndicator={false}
           >
             {regenerating ? (
-              <View style={styles.loadingState}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Regenerating groups...
-                </Text>
-              </View>
+              <LoadingSpinner size="lg" />
             ) : (
               groups.map((group, index) => renderGroupPreview(group, index))
             )}
@@ -397,14 +392,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: spacing.md,
-  },
-  loadingState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-    gap: spacing.md,
-  },
-  loadingText: {
-    ...typography.body,
   },
   groupCard: {
     borderRadius: borderRadius.lg,

@@ -9,6 +9,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { DatePicker } from '@/components/common/DatePicker';
+import { Pill } from '@/components/common';
 import { TEE_COLORS, GAME_TYPE_LABELS, type RoundCardProps } from '../types';
 
 export const RoundCard = React.memo(function RoundCard({
@@ -239,9 +240,7 @@ export const RoundCard = React.memo(function RoundCard({
                   <Text style={[styles.scoringPairsToggleLabel, { color: colors.textSecondary }]}>
                     Require Scoring Pairs
                   </Text>
-                  <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                    <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>Premium</Text>
-                  </View>
+                  <Pill label="Premium" variant="warning" filled size="sm" />
                 </View>
                 <Text
                   style={[styles.scoringPairsToggleDescription, { color: colors.textTertiary }]}
@@ -366,14 +365,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
 });

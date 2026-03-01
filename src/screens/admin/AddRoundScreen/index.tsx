@@ -25,7 +25,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useTeams } from '@/hooks/useTeams';
-import { ConfirmationDialog } from '@/components/common';
+import { ConfirmationDialog, PageHeader } from '@/components/common';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
@@ -329,39 +329,14 @@ export default function AddRoundScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top,
-            backgroundColor: colors.white,
-            borderBottomColor: colors.gray200,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-          accessibilityLabel={currentStep > 1 ? 'Go back' : 'Close'}
-          accessibilityRole="button"
-        >
-          <Icon
-            source={currentStep > 1 ? 'chevron-left' : 'close'}
-            size={24}
-            color={colors.textPrimary}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            {STEP_TITLES[currentStep]}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Step {currentStep} of {TOTAL_STEPS}
-          </Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
+      <PageHeader
+        title={STEP_TITLES[currentStep]}
+        subtitle={`Step ${currentStep} of ${TOTAL_STEPS}`}
+        variant="centered"
+        showBack
+        onBack={handleBack}
+        backIcon={currentStep > 1 ? 'arrow' : 'close'}
+      />
 
       {/* Step Indicator */}
       {renderStepIndicator()}
@@ -509,32 +484,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...typography.h3,
-  },
-  headerSubtitle: {
-    ...typography.caption,
-  },
-  headerSpacer: {
-    width: 44,
   },
   stepIndicator: {
     flexDirection: 'row',

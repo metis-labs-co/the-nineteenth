@@ -38,6 +38,7 @@ import { Text, Icon, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { Pill } from '@/components/common';
 
 export interface ScoringPairsToggleProps {
   /** Current value of scoring pairs toggle */
@@ -167,11 +168,7 @@ export const ScoringPairsToggle = memo(function ScoringPairsToggle({
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Require Scoring Pairs
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.description, { color: colors.textTertiary }]}>
                 Upgrade to Premium to assign designated markers
@@ -253,17 +250,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.small,
     marginTop: 2,
-  },
-
-  // Premium badge
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
 
   // Info box (team match play)

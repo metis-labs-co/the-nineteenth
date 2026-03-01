@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { GolfBallLoader } from '@/components/common';
+import { GolfBallLoader, EmptyState } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PlayerCard } from '@/components/social/PlayerCard';
@@ -35,15 +35,12 @@ export const PlayersTab = React.memo(function PlayersTab({
   return (
     <View>
       {players.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.emptyState}>
-            <Icon source="account-group-outline" size={48} color={colors.gray300} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No players yet</Text>
-            <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-              Share the invite code to get players to join.
-            </Text>
-          </View>
-        </View>
+        <EmptyState
+          title="No players yet"
+          message="Share the invite code to get players to join."
+          icon="account-group-outline"
+          compact
+        />
       ) : (
         <View>
           <Text style={[styles.playersSectionTitle, { color: colors.textSecondary }]}>
@@ -131,11 +128,6 @@ export const PlayersTab = React.memo(function PlayersTab({
 });
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
   playersSectionTitle: {
     ...typography.captionBold,
     textTransform: 'uppercase',
@@ -159,19 +151,6 @@ const styles = StyleSheet.create({
   },
   addPlayersButtonText: {
     ...typography.bodyBold,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyMessage: {
-    ...typography.body,
-    textAlign: 'center',
   },
   removeButton: {
     width: 36,

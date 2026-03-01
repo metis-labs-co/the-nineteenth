@@ -16,6 +16,15 @@ import { dbLogger } from '@/utils/debugLogger';
 export async function saveHoles(roundId: string, holes: Hole[]): Promise<void> {
   const database = await getDb();
 
+  if (!Array.isArray(holes)) {
+    dbLogger.warn('saveHoles called with non-array holes data', {
+      roundId: roundId.substring(0, 8) + '...',
+      holesType: typeof holes,
+      holesValue: JSON.stringify(holes)?.substring(0, 200),
+    });
+    return;
+  }
+
   // Validate and filter holes - skip any with missing required fields
   const validHoles = holes.filter((hole) => {
     if (hole.number == null || hole.par == null || hole.strokeIndex == null) {

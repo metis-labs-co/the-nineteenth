@@ -20,6 +20,7 @@ import {
 import { spacing, typography, borderRadius, skinsColor, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
+import { Pill } from '@/components/common';
 import type { SkinsConfig, SkinsPoolSource } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { PoolSourceData } from '@/components/skins';
@@ -155,11 +156,7 @@ export const OptionsStep = memo(function OptionsStep({
                 <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
                   Require Scoring Pairs
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.toggleDescription, { color: colors.textTertiary }]}>
                 Upgrade to Premium to assign designated markers
@@ -269,11 +266,7 @@ export const OptionsStep = memo(function OptionsStep({
                 <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
                   Add Skins Game
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.toggleDescription, { color: colors.textTertiary }]}>
                 Upgrade to Premium for skins betting
@@ -411,11 +404,7 @@ export const OptionsStep = memo(function OptionsStep({
                     <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
                       Add Wolf Game
                     </Text>
-                    <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                      <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                        Premium
-                      </Text>
-                    </View>
+                    <Pill label="Premium" variant="warning" filled size="sm" />
                   </View>
                   <Text style={[styles.toggleDescription, { color: colors.textTertiary }]}>
                     Upgrade to Premium for Wolf side-game
@@ -540,15 +529,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   // Config summary styles
   configSummary: {

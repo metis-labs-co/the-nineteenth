@@ -162,6 +162,13 @@ export interface BottomSheetProps {
    * Test ID for testing
    */
   testID?: string;
+
+  /**
+   * Render inside a React Native Modal for proper positioning
+   * when nested inside another BottomSheet or absolute container.
+   * @default false
+   */
+  useModal?: boolean;
 }
 
 /**

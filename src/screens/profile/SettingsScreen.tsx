@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Switch, Icon, Divider } from 'react-native-paper';
-import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { GolfBallLoader, ConfirmationDialog, SectionHeader } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -242,10 +242,7 @@ export default function SettingsScreen() {
       >
         {/* Appearance Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Appearance</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Choose your preferred theme
-          </Text>
+          <SectionHeader title="Appearance" description="Choose your preferred theme" />
           <View style={styles.themeModeOptions}>
             <ThemeModeOption
               mode="light"
@@ -278,10 +275,7 @@ export default function SettingsScreen() {
 
         {/* Distance Units Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Distance Units</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Choose how distances are displayed throughout the app
-          </Text>
+          <SectionHeader title="Distance Units" description="Choose how distances are displayed throughout the app" />
           <View style={styles.distanceOptions}>
             <View style={styles.distanceOptionWrapper}>
               <RadioButtonOption
@@ -310,10 +304,7 @@ export default function SettingsScreen() {
 
         {/* Scoring Entry Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Scoring Entry</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Choose which additional stats to track when entering scores. These will also appear in leaderboards and statistics.
-          </Text>
+          <SectionHeader title="Scoring Entry" description="Choose which additional stats to track when entering scores. These will also appear in leaderboards and statistics." />
           <View style={[styles.settingsGroup, { backgroundColor: colors.surface }]}>
             <SettingRow
               icon="golf-tee"
@@ -356,10 +347,7 @@ export default function SettingsScreen() {
           <>
             <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Security</Text>
-              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-                Protect access to your account
-              </Text>
+              <SectionHeader title="Security" description="Protect access to your account" />
               <View
                 style={[styles.settingsGroup, { backgroundColor: colors.surface }]}
                 pointerEvents={isToggling ? 'none' : 'auto'}
@@ -402,10 +390,7 @@ export default function SettingsScreen() {
             <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Troubleshooting</Text>
-              <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-                If you&apos;re experiencing sync issues, clearing the sync queue may help.
-              </Text>
+              <SectionHeader title="Troubleshooting" description="If you're experiencing sync issues, clearing the sync queue may help." />
               <TouchableOpacity
                 onPress={handleClearSyncQueue}
                 disabled={isClearing}
@@ -458,14 +443,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    ...typography.small,
-    marginBottom: spacing.md,
   },
   divider: {
     marginVertical: spacing.md,

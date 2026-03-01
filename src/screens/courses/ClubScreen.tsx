@@ -17,7 +17,7 @@ import {
   Linking,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader, ConfirmationDialog, SectionHeader } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -391,9 +391,7 @@ export default function ClubScreen({ route, navigation }: Props) {
       {/* Contact Information */}
       {(club.phone || club.email || club.website) && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Contact Information
-          </Text>
+          <SectionHeader title="Contact Information" />
           <View style={[styles.contactCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
             {club.phone && (
               <ContactItem
@@ -425,16 +423,16 @@ export default function ClubScreen({ route, navigation }: Props) {
 
       {/* Courses Section */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Courses
-          </Text>
-          <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.courseCountText, { color: colors.white }]}>
-              {club.courses.length}
-            </Text>
-          </View>
-        </View>
+        <SectionHeader
+          title="Courses"
+          rightContent={
+            <View style={[styles.courseCountBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.courseCountText, { color: colors.white }]}>
+                {club.courses.length}
+              </Text>
+            </View>
+          }
+        />
 
         {club.courses.length === 0 ? (
           <View style={[styles.emptyCoursesCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
@@ -601,15 +599,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    ...typography.h4,
   },
   courseCountBadge: {
     paddingHorizontal: spacing.sm,

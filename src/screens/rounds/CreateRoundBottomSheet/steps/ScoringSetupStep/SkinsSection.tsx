@@ -11,6 +11,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconCheck, IconLock, IconDice } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { Pill } from '@/components/common';
 import {
   SkinsConfigBottomSheet,
   SkinsDisclaimerModal,
@@ -264,11 +265,7 @@ export const SkinsSection = memo(function SkinsSection({
                 <Text style={[styles.skinsToggleLabel, { color: colors.textSecondary }]}>
                   Add Skins Game
                 </Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.skinsToggleDescription, { color: colors.textTertiary }]}>
                 Upgrade to Premium for skins betting
@@ -382,15 +379,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   skinsConfigSummary: {
     marginTop: spacing.md,

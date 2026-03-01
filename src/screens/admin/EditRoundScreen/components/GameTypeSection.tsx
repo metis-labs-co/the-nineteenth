@@ -3,10 +3,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
+import { FormSection } from '@/components/common';
 import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
 import type { GameType } from '@/types/database.types';
 
@@ -25,11 +23,8 @@ export function GameTypeSection({
   allowedGameTypes,
   onUpgradePress,
 }: GameTypeSectionProps) {
-  const colors = useThemeColors();
-
   return (
-    <View style={styles.fieldContainer}>
-      <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Format *</Text>
+    <FormSection noCard title="Format *" style={{ marginBottom: spacing.lg }}>
       <RoundGameTypeSelector
         value={value}
         onChange={onChange}
@@ -37,16 +32,7 @@ export function GameTypeSection({
         allowedGameTypes={allowedGameTypes}
         onUpgradePress={onUpgradePress}
       />
-    </View>
+    </FormSection>
   );
 }
 
-const styles = StyleSheet.create({
-  fieldContainer: {
-    marginBottom: spacing.lg,
-  },
-  fieldLabel: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
-  },
-});

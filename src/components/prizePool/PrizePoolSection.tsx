@@ -50,6 +50,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
 import { ProgressBar } from '@/components/common/ProgressBar';
+import { Pill } from '@/components/common';
 import type {
   CompetitionPrizePool,
   PoolFundingType,
@@ -595,11 +596,7 @@ export const PrizePoolSection = memo(function PrizePoolSection({
             <View style={styles.textContainer}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Add Prize Pool</Text>
-                <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={[styles.premiumBadgeText, { color: colors.textOnColored }]}>
-                    Premium
-                  </Text>
-                </View>
+                <Pill label="Premium" variant="warning" filled size="sm" />
               </View>
               <Text style={[styles.description, { color: colors.textTertiary }]}>
                 Upgrade to Premium for prize pools
@@ -709,15 +706,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.small,
     marginTop: 2,
-  },
-  premiumBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  premiumBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
   },
   configPanel: {
     marginTop: spacing.md,

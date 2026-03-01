@@ -9,10 +9,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { IconChevronRight } from '@tabler/icons-react-native';
 import { BottomSheet } from '@/components/common/BottomSheet';
+import { EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { DifferentialBadge } from './DifferentialBadge';
@@ -122,19 +123,14 @@ export function LeaguePlayerRoundsModal({
         </Text>
 
         {isLoading ? (
-          <View style={[styles.loadingState, { backgroundColor: colors.surface }]}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading rounds...
-            </Text>
-          </View>
+          <LoadingSpinner />
         ) : !rounds || rounds.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
-            <Icon source="golf" size={32} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No rounds tagged yet
-            </Text>
-          </View>
+          <EmptyState
+            title="No rounds tagged yet"
+            message=""
+            icon="golf"
+            compact
+          />
         ) : (
           <View style={[styles.roundsContainer, { backgroundColor: colors.surface }]}>
             {rounds.map((round, index) => {
@@ -281,26 +277,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginHorizontal: spacing.md,
-  },
-  // Empty State
-  emptyState: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  emptyText: {
-    ...typography.body,
-  },
-  // Loading State
-  loadingState: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    ...typography.body,
   },
   // Info Card
   infoCard: {

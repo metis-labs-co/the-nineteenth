@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { Text, ActivityIndicator, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,6 +26,7 @@ import { usePlayer } from '@/hooks/usePlayer';
 import { useAchievementSummary, useAchievementDefinitions } from '@/hooks/achievements';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState } from '@/components/common/EmptyState';
+import { LoadingSpinner } from '@/components/common';
 import { AchievementCard } from '@/components/achievements/AchievementCard';
 import type {
   AchievementCategory,
@@ -279,12 +280,7 @@ export default function AchievementsScreen() {
           onBack={handleGoBack}
           rightActions={isViewingOther ? undefined : rightActions}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading achievements...
-          </Text>
-        </View>
+        <LoadingSpinner size="lg" />
       </View>
     );
   }
@@ -389,15 +385,6 @@ export default function AchievementsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  loadingText: {
-    ...typography.body,
   },
   listContent: {
     paddingTop: spacing.lg,

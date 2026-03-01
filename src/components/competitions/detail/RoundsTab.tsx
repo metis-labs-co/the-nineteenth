@@ -12,6 +12,7 @@ import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
 import type { GameType } from '@/types';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
+import { EmptyState } from '@/components/common';
 
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
@@ -41,17 +42,12 @@ export const RoundsTab = React.memo(function RoundsTab({
   return (
     <View>
       {rounds.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.emptyState}>
-            <Icon source="golf" size={48} color={colors.gray300} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No rounds yet</Text>
-            <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
-              {isOrganizer
-                ? 'Add a round to get started with your competition.'
-                : "The organiser hasn't added any rounds yet."}
-            </Text>
-          </View>
-        </View>
+        <EmptyState
+          title="No rounds yet"
+          message={isOrganizer ? 'Add a round to get started with your competition.' : "The organiser hasn't added any rounds yet."}
+          icon="golf"
+          compact
+        />
       ) : (
         <View style={styles.roundsList}>
           {rounds.map((round) => (
@@ -89,11 +85,6 @@ export const RoundsTab = React.memo(function RoundsTab({
 });
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
   roundsList: {
     gap: spacing.md,
   },
@@ -111,19 +102,6 @@ const styles = StyleSheet.create({
   },
   addRoundButtonText: {
     ...typography.bodyBold,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.bodyBold,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyMessage: {
-    ...typography.body,
-    textAlign: 'center',
   },
 });
 

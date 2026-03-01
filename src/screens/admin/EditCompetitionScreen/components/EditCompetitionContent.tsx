@@ -16,7 +16,8 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { FormSection } from '@/components/common';
 import type { Control, FieldErrors } from 'react-hook-form';
 import type { CompetitionType, TeamMode } from '@/types/database.types';
 import type { EditCompetitionFormData } from '../hooks/useCompetitionValidation';
@@ -65,7 +66,7 @@ export function EditCompetitionContent({
       </Text>
 
       {/* Form Section */}
-      <View style={[styles.formSection, { backgroundColor: colors.surface }]}>
+      <FormSection>
         <CompetitionBasicInfo control={control} errors={errors} />
         <CompetitionSettings
           control={control}
@@ -78,7 +79,7 @@ export function EditCompetitionContent({
           onStartDateChange={onStartDateChange}
           onEndDateChange={onEndDateChange}
         />
-      </View>
+      </FormSection>
 
       {/* Invite Code Section */}
       <InviteCodeSection inviteCode={inviteCode} />
@@ -104,12 +105,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  formSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
   },
   infoBox: {
     flexDirection: 'row',

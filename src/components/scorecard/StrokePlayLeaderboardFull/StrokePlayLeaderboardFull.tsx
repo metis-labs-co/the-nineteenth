@@ -18,11 +18,11 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { EmptyState } from '@/components/common';
 import {
   spacing,
   typography,
   borderRadius,
-  shadows,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
@@ -201,15 +201,11 @@ export const StrokePlayLeaderboardFull = React.memo(function StrokePlayLeaderboa
   if (maxCompletedHole === 0 || players.length === 0) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: colors.background }]} testID={testID}>
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
-          <Icon source="trophy-outline" size={64} color={colors.primary} />
-          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.md }]}>
-            No Scores Yet
-          </Text>
-          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
-            Leaderboard standings will appear here as you complete each hole.
-          </Text>
-        </View>
+        <EmptyState
+          title="No Scores Yet"
+          message="Leaderboard standings will appear here as you complete each hole."
+          icon="trophy-outline"
+        />
       </View>
     );
   }
@@ -411,14 +407,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
-  },
-  emptyCard: {
-    padding: spacing.xl,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 320,
-    ...shadows.md,
   },
 });
 
