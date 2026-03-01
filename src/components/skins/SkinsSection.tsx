@@ -134,11 +134,11 @@ export const SkinsSection = memo(function SkinsSection({
   // Team formats (best-ball, scramble, shamble) require team mode for skins
   const isTeamFormat = teamFormat && TEAM_GAME_TYPES.includes(teamFormat);
   const needsTeamModeForSkins = isTeamFormat && !isTeamRound;
-  const isTeamSkins = isTeamRound && isTeamFormat;
+  const isTeamSkins = !!(isTeamRound && isTeamFormat);
   const hasValidTeams = teams && teams.length >= 2;
 
   // Combined disabled state
-  const isDisabled = disabled || isLocked || needsTeamModeForSkins;
+  const isDisabled = !!(disabled || isLocked || needsTeamModeForSkins);
 
   // Pool source state
   const hasPool = poolData?.pool !== null;

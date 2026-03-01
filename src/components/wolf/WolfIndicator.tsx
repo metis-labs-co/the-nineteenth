@@ -29,10 +29,9 @@ import {
 } from 'react-native';
 import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { useWolfGameByRound, useWolfStandings, useWolfHoleDecisions } from '@/hooks/wolf';
 import { determineWolfForHole } from '@/utils/wolfCalculations';
-import { WOLF_COLOR } from './WolfSection';
 import type { WolfHoleDecision, WolfGameWithParticipants } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -136,16 +135,6 @@ export const WolfIndicator = React.memo(function WolfIndicator({
     refetch: refetchStandings,
   } = useWolfStandings(wolfGame?.id);
 
-  // DEBUG: Log Wolf indicator state
-  console.log('[WolfIndicator] Debug:', {
-    roundId,
-    isGameLoading,
-    wolfGame: wolfGame ? { id: wolfGame.id, status: wolfGame.status } : null,
-    gameError: gameError?.message ?? null,
-    willRender: !!(wolfGame || isGameLoading),
-    currentHole,
-  });
-
   // Determine current Wolf for this hole
   const currentWolf = useMemo(() => {
     if (!wolfGame?.wolf_order || !currentHole) return null;
@@ -230,7 +219,7 @@ export const WolfIndicator = React.memo(function WolfIndicator({
         ]}
         testID={testID}
       >
-        <ActivityIndicator size="small" color={WOLF_COLOR} />
+        <ActivityIndicator size="small" color={wolfColor} />
       </View>
     );
   }
@@ -250,7 +239,7 @@ export const WolfIndicator = React.memo(function WolfIndicator({
           {
             width: containerSize,
             height: containerSize,
-            backgroundColor: variant === 'default' ? `${WOLF_COLOR}15` : 'transparent',
+            backgroundColor: variant === 'default' ? `${wolfColor}15` : 'transparent',
           },
         ]}
         onPress={handlePress}
@@ -260,14 +249,14 @@ export const WolfIndicator = React.memo(function WolfIndicator({
         accessibilityHint="Tap to view Wolf game summary"
         testID={testID}
       >
-        <Icon source="dog-side" size={iconSize} color={WOLF_COLOR} />
+        <Icon source="dog-side" size={iconSize} color={wolfColor} />
 
         {/* Badge showing decision status or leader */}
         {(hasDecision && isLoneOrBlind) && (
           <View
             style={[
               styles.badge,
-              { backgroundColor: currentDecision?.is_blind_wolf ? colors.warning : WOLF_COLOR },
+              { backgroundColor: currentDecision?.is_blind_wolf ? colors.warning : wolfColor },
             ]}
           >
             <Text style={styles.badgeText}>
@@ -298,7 +287,7 @@ export const WolfIndicator = React.memo(function WolfIndicator({
           >
             {/* Header */}
             <View style={styles.popoverHeader}>
-              <Icon source="dog-side" size={24} color={WOLF_COLOR} />
+              <Icon source="dog-side" size={24} color={wolfColor} />
               <Text style={[styles.popoverTitle, { color: colors.textPrimary }]}>
                 Wolf Game
               </Text>
@@ -357,11 +346,11 @@ export const WolfIndicator = React.memo(function WolfIndicator({
                   <View
                     style={[
                       styles.currentWolfRow,
-                      { backgroundColor: `${WOLF_COLOR}15` },
+                      { backgroundColor: `${wolfColor}15` },
                     ]}
                   >
-                    <Icon source="dog-side" size={16} color={WOLF_COLOR} />
-                    <Text style={[styles.currentWolfText, { color: WOLF_COLOR }]}>
+                    <Icon source="dog-side" size={16} color={wolfColor} />
+                    <Text style={[styles.currentWolfText, { color: wolfColor }]}>
                       Hole {currentHole}: {currentWolf.name} is Wolf
                       {hasDecision && (
                         <>

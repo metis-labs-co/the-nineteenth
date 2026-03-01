@@ -13,7 +13,7 @@ import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
 import type { Meta, StoryObj } from '@storybook/react';
 import { RoundDetailsTab } from './index';
-import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
+import type { RoundWithCourse, CourseWithClub, CompetitionSummary } from '@/hooks/useRoundDetails';
 import type { Hole, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // ===========================================================================
@@ -36,9 +36,9 @@ function create9Holes(): Hole[] {
   return create18Holes().slice(0, 9);
 }
 
-function createVenue(overrides = {}) {
+function createClub(overrides = {}) {
   return {
-    id: 'venue-1',
+    id: 'club-1',
     name: 'Royal Melbourne Golf Club',
     city: 'Melbourne',
     state: 'VIC' as AustralianState,
@@ -47,23 +47,31 @@ function createVenue(overrides = {}) {
   };
 }
 
-function createCourse(overrides: Partial<CourseWithVenue> = {}): CourseWithVenue {
+function createCourse(overrides: Partial<CourseWithClub> = {}): CourseWithClub {
   return {
     id: 'course-1',
-    venue_id: 'venue-1',
+    club_id: 'club-1',
+    golfapi_course_id: null,
+    golfapi_long_course_id: null,
     name: 'Championship Course',
     description: 'A challenging championship course',
+    num_holes: 18,
+    measure_unit: null,
     holes: create18Holes(),
+    holes_women: null,
+    match_play_indexes: null,
     tees: [
       { name: 'Blue', color: 'blue', totalYardage: 6800, courseRating: 72.5, slopeRating: 130 },
       { name: 'White', color: 'white', totalYardage: 6400, courseRating: 70.0, slopeRating: 125 },
       { name: 'Red', color: 'red', totalYardage: 5600, courseRating: 68.5, slopeRating: 115 },
     ],
+    tees_migrated: null,
     slope_rating: 125,
     course_rating: 70.0,
+    golfapi_updated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    venue: createVenue(),
+    club: createClub(),
     ...overrides,
   };
 }
@@ -238,16 +246,6 @@ export const BestBallFormat: Story = {
   },
 };
 
-export const ScrambleFormat: Story = {
-  args: {
-    round: createRound({
-      game_type: 'scramble',
-      is_team_round: true,
-      team_format: 'scramble',
-    }),
-  },
-};
-
 // ===========================================================================
 // COURSE DATA VARIATIONS
 // ===========================================================================
@@ -273,7 +271,7 @@ export const NoCourseData: Story = {
 export const CourseWithoutVenue: Story = {
   args: {
     round: createRound({
-      course: createCourse({ venue: null }),
+      course: createCourse({ club: null }),
     }),
   },
 };
@@ -396,7 +394,7 @@ export const VenueWithFullAddress: Story = {
   args: {
     round: createRound({
       course: createCourse({
-        venue: createVenue({
+        club: createClub({
           city: 'Melbourne',
           state: 'VIC',
           address: '123 Golf Lane, Black Rock',
@@ -410,7 +408,7 @@ export const VenueCityOnly: Story = {
   args: {
     round: createRound({
       course: createCourse({
-        venue: createVenue({
+        club: createClub({
           city: 'Sydney',
           state: '',
         }),
@@ -423,7 +421,7 @@ export const VenueStateOnly: Story = {
   args: {
     round: createRound({
       course: createCourse({
-        venue: createVenue({
+        club: createClub({
           city: '',
           state: 'Queensland',
         }),
@@ -436,7 +434,7 @@ export const VenueNameOnly: Story = {
   args: {
     round: createRound({
       course: createCourse({
-        venue: createVenue({
+        club: createClub({
           name: 'Private Golf Estate',
           city: '',
           state: '',
@@ -551,7 +549,7 @@ export const SpecialCharactersInNames: Story = {
     round: createRound({
       course: createCourse({
         name: "St. Andrew's Links & Golf Resort",
-        venue: createVenue({
+        club: createClub({
           name: "O'Brien's Golf Club",
           city: "St. John's",
           state: 'NSW',

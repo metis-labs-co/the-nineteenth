@@ -9,7 +9,12 @@
  * - helpers.ts: Shared helper functions
  * - queries.ts: Query hooks for fetching data
  * - mutations.ts: Mutation hooks for modifying data
- * - utilities.ts: Utility hooks (feature checks, processing, auto-split)
+ * - teamSkinsProcessor.ts: Pure async team skins processing
+ * - useCanUseSkins.ts: Subscription feature check hook
+ * - useActiveSkinsGameForRound.ts: Active skins game query hook
+ * - useProcessSkinsIfNeeded.ts: Hole completion processing hook
+ * - useFinalizeSkinsForRound.ts: Round finalization hook
+ * - useAutoSplitSkinsForCompetition.ts: Auto-split management hook
  * - statistics.ts: Statistics and leaderboard hooks
  *
  * @example
@@ -61,14 +66,15 @@ export {
 } from './mutations';
 export type { CreateSkinsGameWithPoolInput } from './mutations';
 
+// Re-export team skins processor
+export { processTeamSkins } from './teamSkinsProcessor';
+
 // Re-export utility hooks
-export {
-  useCanUseSkins,
-  useActiveSkinsGameForRound,
-  useProcessSkinsIfNeeded,
-  useFinalizeSkinsForRound,
-  useAutoSplitSkinsForCompetition,
-} from './utilities';
+export { useCanUseSkins } from './useCanUseSkins';
+export { useActiveSkinsGameForRound } from './useActiveSkinsGameForRound';
+export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
+export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
+export { useAutoSplitSkinsForCompetition } from './useAutoSplitSkinsForCompetition';
 
 // Re-export statistics hooks
 export {

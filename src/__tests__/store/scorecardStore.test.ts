@@ -26,6 +26,7 @@ import {
   getHoles,
 } from '@/services/offline/database';
 import { queueScorecardSync } from '@/services/offline/sync';
+import { storeLogger } from '@/utils/debugLogger';
 
 // Helper to get store state
 const getStore = () => useScorecardStore.getState();
@@ -899,13 +900,11 @@ describe('ScorecardStore', () => {
         jest.clearAllMocks();
         (saveHoleScore as jest.Mock).mockRejectedValueOnce(error);
 
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
         // Should not throw
         await store.updatePlayerHoleScore(playerId, 1, { strokes: 4, putts: 2 });
 
-        expect(consoleSpy).toHaveBeenCalled();
-        consoleSpy.mockRestore();
+        // Error is now logged via storeLogger (through persistScorecardUpdate)
+        expect(storeLogger.error).toHaveBeenCalled();
       });
     });
 

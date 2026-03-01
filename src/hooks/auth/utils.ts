@@ -5,9 +5,12 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import type { Player, Database } from '@/types/database.types';
+import type { Player } from '@/types/database.types';
 
-type PlayerInsert = Database['public']['Tables']['players']['Insert'];
+// Use Omit<Player, 'created_at' | 'updated_at'> instead of the Supabase-generated
+// PlayerInsert type, since the generated types may not include newer columns
+// (gender, handicap_index, handicap_index_updated_at, push_league_updates)
+type PlayerInsert = Omit<Player, 'created_at' | 'updated_at'>;
 
 interface UserMetadata {
   name?: string;
@@ -61,11 +64,15 @@ export async function ensurePlayerProfile(
     golf_id: null,
     handicap_updated_at: null,
     photo_url: null,
+    gender: null,
+    handicap_index: null,
+    handicap_index_updated_at: null,
     home_club_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    push_league_updates: true,
     equipped_badge_id: null,
     equipped_frame_id: null,
     equipped_title_id: null,

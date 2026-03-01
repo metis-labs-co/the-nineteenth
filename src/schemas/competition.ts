@@ -95,7 +95,7 @@ const competitionDetailsBaseSchema = z.object({
   handicapSystem: z.enum(['honor', 'golf-australia', 'gross-only'], {
     required_error: 'Please select a handicap system',
   }),
-  handicapSource: z.enum(handicapSources).default('profile'),
+  handicapSource: z.enum(handicapSources),
   inviteCode: z
     .union([
       z.literal(''),

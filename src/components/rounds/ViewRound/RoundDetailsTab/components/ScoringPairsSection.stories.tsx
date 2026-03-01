@@ -17,7 +17,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { View } from 'react-native';
 import { ScoringPairsSection } from './ScoringPairsSection';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { Player, ScoringPairWithPlayers } from '@/types/database.types';
+import type { Player, ScoringPairWithPlayers, RoundStatus } from '@/types/database.types';
 
 // Create a QueryClient for the stories
 const queryClient = new QueryClient({
@@ -56,6 +56,7 @@ const meta: Meta<typeof ScoringPairsSection> = {
     roundId: 'round-1',
     scoringPairsRequired: false,
     cardBackground: '#ffffff',
+    roundStatus: 'upcoming',
   },
 };
 
@@ -76,11 +77,15 @@ function createMockPlayer(overrides: Partial<Player> = {}): Player {
     golf_id: null,
     handicap_updated_at: null,
     photo_url: overrides.photo_url ?? null,
-    home_venue_id: null,
+    gender: null,
+    handicap_index: null,
+    handicap_index_updated_at: null,
+    home_club_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    push_league_updates: true,
     equipped_badge_id: null,
     equipped_frame_id: null,
     equipped_title_id: null,
@@ -159,7 +164,7 @@ export const DisabledWithManageButton: Story = {
   args: {
 
     scoringPairsRequired: false,
-    onManagePress: () => console.log('Manage pressed'),
+    onEditPress: () => console.log('Edit pressed'),
   },
   parameters: {
     docs: {
@@ -192,7 +197,7 @@ export const EnabledEmptyWithManageButton: Story = {
   args: {
 
     scoringPairsRequired: true,
-    onManagePress: () => console.log('Manage pressed'),
+    onEditPress: () => console.log('Edit pressed'),
   },
   parameters: {
     docs: {
@@ -331,7 +336,7 @@ export const ReciprocalPairsWithManage: Story = {
   args: {
 
     scoringPairsRequired: true,
-    onManagePress: () => console.log('Manage pressed'),
+    onEditPress: () => console.log('Edit pressed'),
   },
   parameters: {
     docs: {
@@ -426,7 +431,7 @@ export const CircularChainWithManage: Story = {
   args: {
 
     scoringPairsRequired: true,
-    onManagePress: () => console.log('Manage pressed'),
+    onEditPress: () => console.log('Edit pressed'),
   },
   parameters: {
     docs: {

@@ -429,7 +429,10 @@ class CoordinatesService {
         .from('hole_coordinates')
         .select('hole_number, poi_type')
         .eq('course_id', courseId)
-        .in('poi_type', ESSENTIAL_POI_TYPES);
+        .in('poi_type', ESSENTIAL_POI_TYPES as string[]) as {
+          data: { hole_number: number; poi_type: string }[] | null;
+          error: any;
+        };
 
       if (error) {
         console.error(

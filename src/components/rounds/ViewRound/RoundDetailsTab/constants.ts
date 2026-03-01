@@ -15,6 +15,6 @@ export const GAME_TYPE_LABELS: Record<GameType, string> = {
 };
 
 export const COMPETITION_TYPE_LABELS: Record<CompetitionType, string> = {
-  league: 'League',
+  knockout: 'Knockout',
   event: 'Event',
 };

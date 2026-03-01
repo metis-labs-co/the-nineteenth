@@ -249,18 +249,18 @@ export const GameTypeBestBall: Story = {
 };
 
 /**
- * Scramble format
+ * Shamble format
  */
-export const GameTypeScramble: Story = {
+export const GameTypeShamble: Story = {
   render: () => (
     <CardWrapper>
       <RoundCard
-        roundId="round-scramble"
+        roundId="round-shamble"
         roundNumber={1}
         courseName="Commonwealth GC"
         date="2025-01-15"
         teeTime="09:00:00"
-        gameType="scramble"
+        gameType="shamble"
         status="upcoming"
         onStartRound={(id) => console.log('Start:', id)}
       />

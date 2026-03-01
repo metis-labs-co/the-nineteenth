@@ -248,12 +248,6 @@ const mockTheme: Theme = {
     border: '#E0E0E0',
     notification: '#FF0000',
   },
-  fonts: {
-    regular: { fontFamily: 'System', fontWeight: '400' as const },
-    medium: { fontFamily: 'System', fontWeight: '500' as const },
-    bold: { fontFamily: 'System', fontWeight: '700' as const },
-    heavy: { fontFamily: 'System', fontWeight: '800' as const },
-  },
 };
 
 function renderTabNavigator() {

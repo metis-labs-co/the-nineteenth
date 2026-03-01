@@ -17,15 +17,12 @@ import {
   IconLock,
   IconCheck,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
+import { spacing, typography, borderRadius, skinsColor, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import type { SkinsConfig, SkinsPoolSource } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { PoolSourceData } from '@/components/skins';
-
-/** Wolf theme color */
-const WOLF_COLOR = '#6B7280';
 
 interface OptionsStepProps {
   // Scoring pairs
@@ -357,7 +354,7 @@ export const OptionsStep = memo(function OptionsStep({
                 styles.toggleCard,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: wolfEnabled ? WOLF_COLOR : colors.border,
+                  borderColor: wolfEnabled ? wolfColor : colors.border,
                 },
               ]}
               onPress={onWolfTogglePress}
@@ -371,10 +368,10 @@ export const OptionsStep = memo(function OptionsStep({
                 <View
                   style={[
                     styles.iconContainer,
-                    { backgroundColor: wolfEnabled ? `${WOLF_COLOR}20` : colors.gray100 },
+                    { backgroundColor: wolfEnabled ? `${wolfColor}20` : colors.gray100 },
                   ]}
                 >
-                  <IconDog size={20} color={wolfEnabled ? WOLF_COLOR : colors.gray400} />
+                  <IconDog size={20} color={wolfEnabled ? wolfColor : colors.gray400} />
                 </View>
                 <View style={styles.toggleText}>
                   <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
@@ -389,8 +386,8 @@ export const OptionsStep = memo(function OptionsStep({
                 style={[
                   styles.checkbox,
                   {
-                    backgroundColor: wolfEnabled ? WOLF_COLOR : colors.surface,
-                    borderColor: wolfEnabled ? WOLF_COLOR : colors.gray300,
+                    backgroundColor: wolfEnabled ? wolfColor : colors.surface,
+                    borderColor: wolfEnabled ? wolfColor : colors.gray300,
                   },
                 ]}
               >
@@ -433,7 +430,7 @@ export const OptionsStep = memo(function OptionsStep({
             <TouchableOpacity
               style={[
                 styles.configSummary,
-                { backgroundColor: `${WOLF_COLOR}10`, borderColor: `${WOLF_COLOR}40` },
+                { backgroundColor: `${wolfColor}10`, borderColor: `${wolfColor}40` },
               ]}
               onPress={onWolfEditPress}
               activeOpacity={0.7}
@@ -466,7 +463,7 @@ export const OptionsStep = memo(function OptionsStep({
                   </View>
                 )}
               </View>
-              <Text style={[styles.configTapHint, { color: WOLF_COLOR }]}>Tap to edit</Text>
+              <Text style={[styles.configTapHint, { color: wolfColor }]}>Tap to edit</Text>
             </TouchableOpacity>
           )}
         </>

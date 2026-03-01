@@ -26,15 +26,15 @@ import {
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { IconDog, IconLock, IconAlertCircle } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { WolfConfigBottomSheet } from './WolfConfigBottomSheet';
 import { WolfDisclaimerModal, hasAcceptedWolfDisclaimer } from './WolfDisclaimerModal';
 import type { WolfConfig, WolfParticipant } from '@/types/database/wolf.types';
 
-/** Wolf theme color (gray-500) */
-export const WOLF_COLOR = '#6B7280';
+/** @deprecated Use wolfColor from '@/constants/theme' instead */
+export { wolfColor as WOLF_COLOR } from '@/constants/theme';
 
 /**
  * State for tracking existing Wolf game in edit mode
@@ -199,10 +199,10 @@ export const WolfSection = memo(function WolfSection({
               <View
                 style={[
                   styles.iconContainer,
-                  { backgroundColor: wolfEnabled ? `${WOLF_COLOR}20` : colors.gray200 },
+                  { backgroundColor: wolfEnabled ? `${wolfColor}20` : colors.gray200 },
                 ]}
               >
-                <IconDog size={24} color={wolfEnabled ? WOLF_COLOR : colors.gray500} />
+                <IconDog size={24} color={wolfEnabled ? wolfColor : colors.gray500} />
               </View>
               <View style={styles.textContainer}>
                 <Text style={[styles.label, { color: colors.textPrimary }]}>
@@ -219,8 +219,8 @@ export const WolfSection = memo(function WolfSection({
               <Switch
                 value={wolfEnabled}
                 onValueChange={handleWolfToggle}
-                trackColor={{ false: colors.gray300, true: `${WOLF_COLOR}80` }}
-                thumbColor={wolfEnabled ? WOLF_COLOR : colors.gray100}
+                trackColor={{ false: colors.gray300, true: `${wolfColor}80` }}
+                thumbColor={wolfEnabled ? wolfColor : colors.gray100}
                 disabled={isDisabled}
               />
             )}
@@ -242,8 +242,8 @@ export const WolfSection = memo(function WolfSection({
               style={[
                 styles.configSummary,
                 {
-                  backgroundColor: isLocked ? colors.surfaceVariant : `${WOLF_COLOR}10`,
-                  borderColor: isLocked ? colors.border : `${WOLF_COLOR}40`,
+                  backgroundColor: isLocked ? colors.surfaceVariant : `${wolfColor}10`,
+                  borderColor: isLocked ? colors.border : `${wolfColor}40`,
                 },
               ]}
               onPress={handleEditWolfConfig}
@@ -295,7 +295,7 @@ export const WolfSection = memo(function WolfSection({
                   <Text style={[styles.lockedHintText, { color: colors.gray400 }]}>Locked</Text>
                 </View>
               ) : (
-                <Text style={[styles.configTapHint, { color: WOLF_COLOR }]}>Tap to edit</Text>
+                <Text style={[styles.configTapHint, { color: wolfColor }]}>Tap to edit</Text>
               )}
             </TouchableOpacity>
           )}

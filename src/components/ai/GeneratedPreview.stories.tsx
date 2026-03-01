@@ -311,7 +311,7 @@ export const BestBallFormat: Story = {
   },
 };
 
-export const ScrambleFormat: Story = {
+export const ShambleFormat: Story = {
   args: {
     competition: createCompetition({
       teamMode: 'fixed',

@@ -28,6 +28,7 @@ const createMockResult = (
   skins_game_id: 'game-1',
   hole_number: 1,
   winner_id: null,
+  team_winner_id: null,
   is_carryover: false,
   hole_scores: {},
   hole_pot_value: 5,
@@ -49,6 +50,7 @@ const createWinnerResult = (
   skins_game_id: 'game-1',
   hole_number: holeNumber,
   winner_id: winnerId,
+  team_winner_id: null,
   is_carryover: false,
   hole_scores: {
     [winnerId]: { gross: grossScore, net: grossScore, strokes_received: 0 },
@@ -57,7 +59,7 @@ const createWinnerResult = (
   carryover_to_next: 0,
   payout_amount: payoutAmount,
   calculated_at: new Date().toISOString(),
-  winner: { id: winnerId, name: winnerName, handicap: 10 },
+  winner: { id: winnerId, name: winnerName },
 });
 
 const createCarryoverResult = (
@@ -68,6 +70,7 @@ const createCarryoverResult = (
   skins_game_id: 'game-1',
   hole_number: holeNumber,
   winner_id: null,
+  team_winner_id: null,
   is_carryover: true,
   hole_scores: {
     'player-1': { gross: 4, net: 4, strokes_received: 0 },

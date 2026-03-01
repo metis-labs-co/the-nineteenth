@@ -26,6 +26,7 @@ jest.mock('@/utils/scoring', () => ({
 const createTestPlayer = (overrides: Partial<Player> = {}): Player => ({
   id: 'player-1',
   name: 'Test Player',
+  email: 'test.player@example.com',
   handicap: 18,
   ...overrides,
 });

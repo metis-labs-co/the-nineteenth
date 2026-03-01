@@ -102,6 +102,7 @@ const emptyFormData: Partial<CompetitionDetailsFormData> = {
   startDate: '',
   endDate: '',
   handicapSystem: 'honor',
+  handicapSource: 'profile',
   inviteCode: '',
 };
 
@@ -112,6 +113,7 @@ const eventFormData: CompetitionDetailsFormData = {
   startDate: '15/01/2025',
   endDate: '17/01/2025',
   handicapSystem: 'honor',
+  handicapSource: 'profile',
   inviteCode: 'SUMMER25',
   enableTeams: false,
 };
@@ -123,6 +125,7 @@ const knockoutFormData: CompetitionDetailsFormData = {
   startDate: '01/02/2025',
   endDate: '',
   handicapSystem: 'honor',
+  handicapSource: 'profile',
   inviteCode: 'WARRIORS',
   enableTeams: false,
 };
@@ -134,6 +137,7 @@ const minimalFormData: CompetitionDetailsFormData = {
   startDate: '25/12/2025',
   endDate: '25/12/2025',
   handicapSystem: 'honor',
+  handicapSource: 'profile',
   inviteCode: '',
   enableTeams: false,
 };
@@ -145,6 +149,7 @@ const longDescriptionData: CompetitionDetailsFormData = {
   startDate: '10/03/2025',
   endDate: '10/03/2025',
   handicapSystem: 'honor',
+  handicapSource: 'profile',
   inviteCode: 'CORP2025',
   enableTeams: false,
 };
@@ -428,6 +433,7 @@ export const PartiallyFilled: Story = {
           startDate: '',
           endDate: '',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: '',
           enableTeams: false,
         } as CompetitionDetailsFormData}
@@ -520,6 +526,7 @@ export const UseCaseCasualWeekend: Story = {
           startDate: '25/01/2025',
           endDate: '25/01/2025',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'SAT25',
           enableTeams: false,
         }}
@@ -545,6 +552,7 @@ export const UseCaseCorporateDay: Story = {
           startDate: '15/03/2025',
           endDate: '15/03/2025',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'ACME2025',
           enableTeams: false,
         }}
@@ -570,6 +578,7 @@ export const UseCaseClubChampionship: Story = {
           startDate: '01/04/2025',
           endDate: '30/04/2025',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'MGC2025',
           enableTeams: false,
         }}
@@ -595,6 +604,7 @@ export const UseCaseMonthlyKnockout: Story = {
           startDate: '01/01/2025',
           endDate: '',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'T19KNOCKOUT',
           enableTeams: false,
         }}
@@ -620,6 +630,7 @@ export const UseCaseCharityEvent: Story = {
           startDate: '10/05/2025',
           endDate: '10/05/2025',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'CHARITY25',
           enableTeams: false,
         }}
@@ -648,6 +659,7 @@ export const AustralianSummer: Story = {
           startDate: '26/12/2025',
           endDate: '26/12/2025',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'BOXDAY25',
           enableTeams: false,
         }}
@@ -672,6 +684,7 @@ export const AustraliaDayEvent: Story = {
           startDate: '26/01/2026',
           endDate: '26/01/2026',
           handicapSystem: 'honor',
+          handicapSource: 'profile',
           inviteCode: 'AUSSIE26',
           enableTeams: false,
         }}

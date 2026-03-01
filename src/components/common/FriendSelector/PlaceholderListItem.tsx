@@ -47,8 +47,8 @@ export const PlaceholderListItem = memo(function PlaceholderListItem({
 
     const result = calculateGADailyHandicap({
       gaHandicap: placeholder.handicap,
-      slopeRating: selectedTee.slope_rating ?? 113,
-      courseRating: selectedTee.course_rating ?? coursePar,
+      slopeRating: selectedTee.slopeRating ?? 113,
+      courseRating: selectedTee.courseRating ?? coursePar,
       par: coursePar,
       gender: 'male', // Default for placeholder players
     });

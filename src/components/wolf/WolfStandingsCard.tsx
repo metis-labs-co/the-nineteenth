@@ -18,9 +18,8 @@ import React from 'react';
 import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { formatWolfNetResult } from '@/utils/wolfCalculations';
-import { WOLF_COLOR } from './WolfSection';
 import type { WolfStandingEntry } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -224,7 +223,7 @@ export const WolfStandingsCard = React.memo(function WolfStandingsCard({
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.titleRow}>
-          <Icon source="podium-gold" size={24} color={WOLF_COLOR} />
+          <Icon source="podium-gold" size={24} color={wolfColor} />
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             STANDINGS
           </Text>

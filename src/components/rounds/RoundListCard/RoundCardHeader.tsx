@@ -5,13 +5,10 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { IconDog } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, skinsColor } from '@/constants/theme';
+import { spacing, typography, skinsColor, wolfColor } from '@/constants/theme';
 import { Pill, StatusBadge } from '@/components/common';
 import { getGameTypeLabel } from '@/constants/statusConfig';
 import { RoundListCardData, formatUserScore } from './types';
-
-/** Gray color for wolf feature */
-const WOLF_COLOR = '#6B7280';
 
 interface RoundCardHeaderProps {
   round: RoundListCardData;
@@ -75,8 +72,8 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
         )}
         {/* Wolf indicator */}
         {round.hasWolf && (
-          <View style={[styles.gameIndicator, { backgroundColor: `${WOLF_COLOR}15` }]}>
-            <IconDog size={14} color={WOLF_COLOR} />
+          <View style={[styles.gameIndicator, { backgroundColor: `${wolfColor}15` }]}>
+            <IconDog size={14} color={wolfColor} />
           </View>
         )}
         <Text style={[styles.competitionName, { color: colors.textPrimary }]}>

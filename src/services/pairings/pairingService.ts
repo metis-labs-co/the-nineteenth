@@ -112,7 +112,7 @@ async function enrichPairingsWithPlayers(
 
   // Create lookup map
   const playerLookup: PlayerLookup = {};
-  (players || []).forEach((player) => {
+  ((players || []) as { id: string; name: string; handicap: number | null; photo_url: string | null }[]).forEach((player) => {
     playerLookup[player.id] = {
       id: player.id,
       name: player.name,
@@ -428,7 +428,7 @@ export async function autoGeneratePairings(
   }
 
   // Convert to PairingPlayer format
-  const pairingPlayers: PairingPlayer[] = players.map((p) => ({
+  const pairingPlayers: PairingPlayer[] = (players as { id: string; name: string; handicap: number | null; photo_url: string | null }[]).map((p) => ({
     id: p.id,
     name: p.name,
     handicap: p.handicap,

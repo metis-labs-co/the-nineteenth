@@ -1,0 +1,70 @@
+/**
+ * Scoring Query Keys
+ *
+ * Scorecards, Leaderboards, Scoring Pairs, Statistics & Score Mismatches
+ */
+
+// =====================================================
+// SCORECARDS
+// =====================================================
+
+export const scorecardKeys = {
+  all: ['scorecards'] as const,
+  lists: () => [...scorecardKeys.all, 'list'] as const,
+  list: (filters: { roundId?: string; competitionId?: string }) =>
+    [...scorecardKeys.lists(), filters] as const,
+  details: () => [...scorecardKeys.all, 'detail'] as const,
+  detail: (id: string) => [...scorecardKeys.details(), id] as const,
+  player: (roundId: string, playerId: string) =>
+    [...scorecardKeys.all, 'player', roundId, playerId] as const,
+} as const;
+
+// =====================================================
+// LEADERBOARD
+// =====================================================
+
+export const leaderboardKeys = {
+  all: ['leaderboard'] as const,
+  competition: (competitionId: string) =>
+    [...leaderboardKeys.all, competitionId] as const,
+  round: (roundId: string) =>
+    [...leaderboardKeys.all, 'round', roundId] as const,
+} as const;
+
+// =====================================================
+// SCORING PAIRS
+// =====================================================
+
+export const scoringPairsKeys = {
+  all: ['scoringPairs'] as const,
+  lists: () => [...scoringPairsKeys.all, 'list'] as const,
+  list: (roundId: string) => [...scoringPairsKeys.lists(), roundId] as const,
+  playersToScore: (roundId: string, scorerId: string) =>
+    [...scoringPairsKeys.all, 'playersToScore', roundId, scorerId] as const,
+} as const;
+
+// =====================================================
+// STATISTICS
+// =====================================================
+
+export const statisticsKeys = {
+  all: ['statistics'] as const,
+  player: (playerId: string) => [...statisticsKeys.all, 'player', playerId] as const,
+  competition: (competitionId: string) =>
+    [...statisticsKeys.all, 'competition', competitionId] as const,
+} as const;
+
+// =====================================================
+// SCORE MISMATCHES
+// =====================================================
+
+export const scoreMismatchKeys = {
+  all: ['scoreMismatch'] as const,
+  mismatches: (roundId: string) => [...scoreMismatchKeys.all, 'mismatches', roundId] as const,
+  readiness: (roundId: string, userId: string) =>
+    [...scoreMismatchKeys.all, 'readiness', roundId, userId] as const,
+  partnerStatus: (roundId: string, userId: string) =>
+    [...scoreMismatchKeys.all, 'partner', roundId, userId] as const,
+  submissionStatus: (roundId: string, playerId: string) =>
+    [...scoreMismatchKeys.all, 'submission', roundId, playerId] as const,
+} as const;

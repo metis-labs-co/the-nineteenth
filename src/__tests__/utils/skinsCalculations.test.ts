@@ -196,8 +196,8 @@ describe('Score Preparation Functions', () => {
       p3: { '1': { strokes: 4 }, '2': { strokes: 4 } },
     };
 
-    const hole1 = { par: 4, strokeIndex: 5 };
-    const hole2 = { par: 4, strokeIndex: 15 };
+    const hole1 = { par: 4 as const, strokeIndex: 5 };
+    const hole2 = { par: 4 as const, strokeIndex: 15 };
 
     it('calculates gross, net, and strokes_received for each player', () => {
       const result = prepareHoleScores(participants, scorecards, hole1, 1);

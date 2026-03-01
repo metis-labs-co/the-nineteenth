@@ -288,9 +288,8 @@ export default function ClubScreen({ route, navigation }: Props) {
         rightActions={canSync ? [
           {
             icon: isSyncing ? 'loading' : 'refresh',
-            onPress: forceSync,
+            onPress: isSyncing ? () => {} : forceSync,
             accessibilityLabel: 'Refresh club data',
-            disabled: isSyncing,
           },
         ] : undefined}
       />

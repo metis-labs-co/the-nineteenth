@@ -38,6 +38,8 @@ const createMockGame = (overrides: Partial<SkinsGame> = {}): SkinsGame => ({
   currency: 'AUD',
   scoring_type: 'gross',
   pool_source: 'direct',
+  pool_draw_amount: 0,
+  carryover_returned: 0,
   status: 'completed',
   disclaimer_accepted_at: new Date().toISOString(),
   disclaimer_accepted_by: 'player-1',
@@ -45,6 +47,8 @@ const createMockGame = (overrides: Partial<SkinsGame> = {}): SkinsGame => ({
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   completed_at: new Date().toISOString(),
+  is_team_skins: false,
+  participant_team_ids: null,
   ...overrides,
 });
 
@@ -58,6 +62,8 @@ const createMockPayout = (
   id: `payout-${playerId}`,
   skins_game_id: 'game-1',
   player_id: playerId,
+  team_id: null,
+  is_team_payout: false,
   buy_in: 22.5, // $5/hole * 18 holes / 4 players = $22.50
   total_winnings: totalWinnings,
   net_result: netResult,
@@ -65,7 +71,7 @@ const createMockPayout = (
   holes_tied: 0,
   holes_lost: 18 - holesWon,
   calculated_at: new Date().toISOString(),
-  player: { id: playerId, name: playerName, handicap: 10 },
+  player: { id: playerId, name: playerName },
 });
 
 // Scenario: John won big, Sarah broke even, Mike and You lost

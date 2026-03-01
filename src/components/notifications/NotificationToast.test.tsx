@@ -66,7 +66,7 @@ jest.mock('react-native-toast-message', () => ({
     hide: jest.fn(),
   },
 }));
-const mockToast = Toast as { show: jest.Mock; hide: jest.Mock };
+const mockToast = Toast as unknown as { show: jest.Mock; hide: jest.Mock };
 
 // ===========================================================================
 // TEST FIXTURES

@@ -37,11 +37,11 @@ export type WizardStep = 'course' | 'tee' | 'matchType' | 'partners' | 'ballCoun
 export interface PlayingPartner {
   id: string;
   name: string;
-  handicap?: number | null;
+  handicap?: number | undefined;
   /** Social Handicap Index (calculated from app rounds) */
-  handicapIndex?: number | null;
+  handicapIndex?: number | undefined;
   /** Player gender for GA daily handicap consistency factor */
-  gender?: 'male' | 'female' | null;
+  gender?: 'male' | 'female' | undefined;
 }
 
 /**

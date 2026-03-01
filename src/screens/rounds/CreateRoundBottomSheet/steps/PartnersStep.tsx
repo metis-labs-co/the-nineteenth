@@ -172,11 +172,9 @@ export const PartnersStep = memo(function PartnersStep({
     [friends]
   );
 
-  // Calculate course par from tee holes for daily handicap calculation
-  const coursePar = useMemo(() => {
-    if (!selectedTee?.holes) return undefined;
-    return selectedTee.holes.reduce((sum, hole) => sum + (hole.par || 0), 0);
-  }, [selectedTee]);
+  // Course par for daily handicap calculation
+  // TeeBox doesn't carry hole data, so default to standard 72
+  const coursePar = 72;
 
   return (
     <View style={styles.container}>

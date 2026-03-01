@@ -42,6 +42,8 @@ const mockSkinsGame: SkinsGame = {
   currency: 'AUD',
   scoring_type: 'gross',
   pool_source: 'direct',
+  pool_draw_amount: 0,
+  carryover_returned: 0,
   status: 'active',
   disclaimer_accepted_at: new Date().toISOString(),
   disclaimer_accepted_by: 'player-1',
@@ -49,6 +51,8 @@ const mockSkinsGame: SkinsGame = {
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   completed_at: null,
+  is_team_skins: false,
+  participant_team_ids: null,
 };
 
 const createMockResult = (
@@ -62,17 +66,26 @@ const createMockResult = (
   skins_game_id: 'game-1',
   hole_number: holeNumber,
   winner_id: winnerId,
+  team_winner_id: null,
   is_carryover: isCarryover,
   hole_scores: {},
   hole_pot_value: 5,
   carryover_to_next: isCarryover ? 5 : 0,
   payout_amount: payoutAmount,
   calculated_at: new Date().toISOString(),
-  winner: winnerId && winnerName ? { id: winnerId, name: winnerName, handicap: 10 } : null,
+  winner: winnerId && winnerName ? { id: winnerId, name: winnerName } : null,
 });
 
 const mockSummary: SkinsGameSummary = {
-  game: mockSkinsGame,
+  game: {
+    ...mockSkinsGame,
+    participants: [
+      { id: 'player-1', name: 'John', handicap: 10 },
+      { id: 'player-2', name: 'Sarah', handicap: 15 },
+      { id: 'player-3', name: 'Mike', handicap: 20 },
+      { id: 'player-4', name: 'Dave', handicap: 12 },
+    ],
+  },
   results: [
     createMockResult(1, false, 'player-1', 'John', 5),
     createMockResult(2, true), // Carryover

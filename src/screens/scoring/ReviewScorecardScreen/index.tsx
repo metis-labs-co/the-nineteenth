@@ -29,10 +29,10 @@ import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable, Contribut
 import { PageHeader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
-import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard, WOLF_COLOR } from '@/components/wolf';
+import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard } from '@/components/wolf';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import { MismatchResolutionModal } from '@/components/scoring';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { spacing, borderRadius, typography, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
@@ -220,7 +220,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
   if (isSummaryLoading || !summary) {
     return (
       <View style={styles.wolfLoadingContainer}>
-        <ActivityIndicator size="large" color={WOLF_COLOR} />
+        <ActivityIndicator size="large" color={wolfColor} />
         <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
           Loading Wolf results...
         </Text>
@@ -244,7 +244,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
         }
       >
         <View style={[styles.wolfEmptyCard, { backgroundColor: colors.surface }]}>
-          <Icon source="dog-side" size={48} color={WOLF_COLOR} />
+          <Icon source="dog-side" size={48} color={wolfColor} />
           <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.md }]}>
             No Wolf Results Yet
           </Text>
@@ -310,7 +310,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
       {game.status === 'active' && holes_completed < 18 && (
         <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
           <View style={styles.inProgressHeader}>
-            <Icon source="dog-side" size={20} color={WOLF_COLOR} />
+            <Icon source="dog-side" size={20} color={wolfColor} />
             <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
               Game In Progress
             </Text>

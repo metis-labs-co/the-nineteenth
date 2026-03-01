@@ -17,6 +17,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import {
   useClubsWithCourses,
   useSearchClubs,
+  toClubCourseDisplayItem,
   type CourseWithFavoriteStatus,
   type ClubCourseDisplayItem,
 } from '@/hooks/useClubs';
@@ -74,57 +75,7 @@ export default function ProfileScreen() {
 
   // Get display items for club list
   const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
-    return (searchQuery.length >= 2 ? searchResults : allClubs).map((club) => ({
-      type: club.is_multi_course ? 'multi-course-club' : 'single-course',
-      club: {
-        id: club.id,
-        source: club.source,
-        golfapi_club_id: club.golfapi_club_id ?? null,
-        name: club.name,
-        state: club.state,
-        city: club.city,
-        address: club.address,
-        postal_code: club.postal_code ?? null,
-        country: club.country ?? 'Australia',
-        continent: club.continent ?? null,
-        phone: club.phone,
-        email: club.email,
-        website: club.website,
-        latitude: club.latitude ?? null,
-        longitude: club.longitude ?? null,
-        location: club.location,
-        total_holes: club.total_holes,
-        is_featured: ('is_featured' in club ? club.is_featured : false) as boolean,
-        last_synced: club.last_synced,
-        created_at: club.created_at,
-        updated_at: club.updated_at,
-      },
-      venue: {
-        id: club.id,
-        source: club.source,
-        golfapi_club_id: club.golfapi_club_id ?? null,
-        name: club.name,
-        state: club.state,
-        city: club.city,
-        address: club.address,
-        postal_code: club.postal_code ?? null,
-        country: club.country ?? 'Australia',
-        continent: club.continent ?? null,
-        phone: club.phone,
-        email: club.email,
-        website: club.website,
-        latitude: club.latitude ?? null,
-        longitude: club.longitude ?? null,
-        location: club.location,
-        total_holes: club.total_holes,
-        is_featured: ('is_featured' in club ? club.is_featured : false) as boolean,
-        last_synced: club.last_synced,
-        created_at: club.created_at,
-        updated_at: club.updated_at,
-      },
-      courses: club.courses,
-      is_home: club.is_home,
-    }));
+    return (searchQuery.length >= 2 ? searchResults : allClubs).map(toClubCourseDisplayItem);
   }, [searchQuery, searchResults, allClubs]);
 
   // Club modal handlers

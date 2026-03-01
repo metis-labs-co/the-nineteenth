@@ -30,15 +30,13 @@ import { BottomSheet } from '@/components/common/BottomSheet';
 import { FormInput } from '@/components/common/FormInput';
 import { RadioButtonOption } from '@/screens/profile/components/RadioButtonOption';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import type { WolfConfig, WolfScoringType } from '@/types/database/wolf.types';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-/** Color for Wolf-related UI elements */
-const WOLF_COLOR = '#6B7280'; // gray-500
 
 // ============================================================================
 // TYPES
@@ -290,8 +288,8 @@ export function WolfConfigBottomSheet({
                 style={[
                   styles.toggleRow,
                   {
-                    backgroundColor: value ? `${WOLF_COLOR}15` : colors.surface,
-                    borderColor: value ? WOLF_COLOR : colors.border,
+                    backgroundColor: value ? `${wolfColor}15` : colors.surface,
+                    borderColor: value ? wolfColor : colors.border,
                   },
                 ]}
                 onPress={() => onChange(!value)}
@@ -302,7 +300,7 @@ export function WolfConfigBottomSheet({
                   <Icon
                     source="fire"
                     size={24}
-                    color={value ? WOLF_COLOR : colors.textSecondary}
+                    color={value ? wolfColor : colors.textSecondary}
                   />
                   <View style={styles.toggleTextContainer}>
                     <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
@@ -316,7 +314,7 @@ export function WolfConfigBottomSheet({
                 <Switch
                   value={value}
                   onValueChange={onChange}
-                  color={WOLF_COLOR}
+                  color={wolfColor}
                 />
               </TouchableOpacity>
             )}
@@ -433,12 +431,12 @@ export function WolfConfigBottomSheet({
             </Text>
             <TouchableOpacity
               onPress={shuffleOrder}
-              style={[styles.shuffleButton, { backgroundColor: `${WOLF_COLOR}15` }]}
+              style={[styles.shuffleButton, { backgroundColor: `${wolfColor}15` }]}
               activeOpacity={0.7}
               testID="wolf-shuffle-button"
             >
-              <Icon source="shuffle-variant" size={16} color={WOLF_COLOR} />
-              <Text style={[styles.shuffleText, { color: WOLF_COLOR }]}>Shuffle</Text>
+              <Icon source="shuffle-variant" size={16} color={wolfColor} />
+              <Text style={[styles.shuffleText, { color: wolfColor }]}>Shuffle</Text>
             </TouchableOpacity>
           </View>
 
@@ -460,7 +458,7 @@ export function WolfConfigBottomSheet({
                 <View
                   style={[
                     styles.holeIndicator,
-                    { backgroundColor: index === 0 ? WOLF_COLOR : colors.surfaceVariant },
+                    { backgroundColor: index === 0 ? wolfColor : colors.surfaceVariant },
                   ]}
                 >
                   <Text
@@ -479,7 +477,7 @@ export function WolfConfigBottomSheet({
                     {getParticipantName(playerId)}
                   </Text>
                   {index === 0 && (
-                    <Text style={[styles.firstWolfBadge, { color: WOLF_COLOR }]}>
+                    <Text style={[styles.firstWolfBadge, { color: wolfColor }]}>
                       First Wolf
                     </Text>
                   )}
@@ -531,10 +529,10 @@ export function WolfConfigBottomSheet({
         <View
           style={[
             styles.infoCard,
-            { backgroundColor: `${WOLF_COLOR}10`, borderColor: colors.border },
+            { backgroundColor: `${wolfColor}10`, borderColor: colors.border },
           ]}
         >
-          <Icon source="dog-side" size={20} color={WOLF_COLOR} />
+          <Icon source="dog-side" size={20} color={wolfColor} />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
             Wolf is a strategic game where the Wolf each hole chooses to partner up or go alone against the pack.
           </Text>
@@ -547,7 +545,7 @@ export function WolfConfigBottomSheet({
           style={[
             styles.saveButton,
             {
-              backgroundColor: canSave ? WOLF_COLOR : colors.surfaceVariant,
+              backgroundColor: canSave ? wolfColor : colors.surfaceVariant,
             },
           ]}
           onPress={handleSubmit(onSubmit)}

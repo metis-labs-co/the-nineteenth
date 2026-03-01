@@ -18,7 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, LoadingSpinner } from '@/components/common';
+import { PageHeader, LoadingSpinner, EmptyState } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useEligibleScorecards, useTagRoundToLeague } from '@/hooks/useLeagues';
@@ -115,17 +115,11 @@ export default function TagRoundToLeagueScreen() {
           }
         />
       ) : (
-        <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primaryBackground }]}>
-            <Icon source="golf-tee" size={40} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            No Eligible Rounds
-          </Text>
-          <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-            Complete an 18-hole round first. Only submitted scorecards with a handicap differential can be tagged.
-          </Text>
-        </View>
+        <EmptyState
+          title="No Eligible Rounds"
+          message="Complete an 18-hole round first. Only submitted scorecards with a handicap differential can be tagged."
+          icon="golf-tee"
+        />
       )}
     </View>
   );
@@ -177,29 +171,5 @@ const styles = StyleSheet.create({
   cardGross: {
     ...typography.caption,
     marginTop: 2,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xxl,
-  },
-  emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptyDescription: {
-    ...typography.body,
-    textAlign: 'center',
-    maxWidth: 280,
   },
 });

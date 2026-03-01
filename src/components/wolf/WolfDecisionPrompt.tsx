@@ -25,9 +25,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, wolfColor } from '@/constants/theme';
 import { determineWolfForHole } from '@/utils/wolfCalculations';
-import { WOLF_COLOR } from './WolfSection';
 import type { WolfGameWithParticipants, WolfHoleDecision } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -144,8 +143,8 @@ export function WolfDecisionPrompt({
         testID={testID}
       >
         <View style={styles.row}>
-          <View style={[styles.iconContainer, { backgroundColor: `${WOLF_COLOR}15` }]}>
-            <Icon source="dog-side" size={20} color={WOLF_COLOR} />
+          <View style={[styles.iconContainer, { backgroundColor: `${wolfColor}15` }]}>
+            <Icon source="dog-side" size={20} color={wolfColor} />
           </View>
           <View style={styles.textContent}>
             <Text style={[styles.wolfName, { color: colors.textPrimary }]}>
@@ -178,8 +177,8 @@ export function WolfDecisionPrompt({
           styles.container,
           styles.decidedContainer,
           {
-            backgroundColor: `${WOLF_COLOR}10`,
-            borderColor: `${WOLF_COLOR}40`,
+            backgroundColor: `${wolfColor}10`,
+            borderColor: `${wolfColor}40`,
           },
         ]}
         onPress={onChoosePartner}
@@ -190,11 +189,11 @@ export function WolfDecisionPrompt({
         testID={testID}
       >
         <View style={styles.row}>
-          <View style={[styles.iconContainer, { backgroundColor: `${WOLF_COLOR}20` }]}>
-            <Icon source="dog-side" size={20} color={WOLF_COLOR} />
+          <View style={[styles.iconContainer, { backgroundColor: `${wolfColor}20` }]}>
+            <Icon source="dog-side" size={20} color={wolfColor} />
           </View>
           <View style={styles.textContent}>
-            <Text style={[styles.wolfName, { color: WOLF_COLOR }]}>
+            <Text style={[styles.wolfName, { color: wolfColor }]}>
               {wolfPlayer.name} is Wolf
             </Text>
             <Text style={[styles.decisionSummary, { color: colors.textSecondary }]}>
@@ -220,7 +219,7 @@ export function WolfDecisionPrompt({
         styles.pendingContainer,
         {
           backgroundColor: colors.surface,
-          borderColor: WOLF_COLOR,
+          borderColor: wolfColor,
         },
         shadows.sm,
       ]}
@@ -232,18 +231,18 @@ export function WolfDecisionPrompt({
       testID={testID}
     >
       <View style={styles.row}>
-        <View style={[styles.iconContainer, styles.pendingIcon, { backgroundColor: `${WOLF_COLOR}15` }]}>
-          <Icon source="dog-side" size={24} color={WOLF_COLOR} />
+        <View style={[styles.iconContainer, styles.pendingIcon, { backgroundColor: `${wolfColor}15` }]}>
+          <Icon source="dog-side" size={24} color={wolfColor} />
         </View>
         <View style={styles.textContent}>
           <Text style={[styles.wolfName, styles.pendingName, { color: colors.textPrimary }]}>
             {wolfPlayer.name} is Wolf
           </Text>
-          <Text style={[styles.promptText, { color: WOLF_COLOR }]}>
+          <Text style={[styles.promptText, { color: wolfColor }]}>
             Tap to choose a partner
           </Text>
         </View>
-        <View style={[styles.arrowContainer, { backgroundColor: WOLF_COLOR }]}>
+        <View style={[styles.arrowContainer, { backgroundColor: wolfColor }]}>
           <Icon source="chevron-right" size={20} color={colors.white} />
         </View>
       </View>

@@ -48,7 +48,10 @@ const mockPlayer = {
   handicap: 15,
   phone: null,
   avatar_url: null,
-  home_venue_id: null,
+  gender: null,
+  handicap_index: null,
+  handicap_index_updated_at: null,
+  home_club_id: null,
   handicap_updated_at: new Date().toISOString(),
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
@@ -56,6 +59,7 @@ const mockPlayer = {
   push_competition_updates: true,
   push_friend_requests: true,
   push_scorecard_updates: true,
+  push_league_updates: true,
 };
 
 // Supabase auth mock state

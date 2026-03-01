@@ -42,7 +42,7 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, wolfColor } from '@/constants/theme';
 
 // ============================================================================
 // CONSTANTS
@@ -51,8 +51,6 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 /** AsyncStorage key for tracking disclaimer acceptance */
 const WOLF_DISCLAIMER_STORAGE_KEY = '@wolf_disclaimer_accepted';
 
-/** Wolf theme color (gray-500) */
-const WOLF_COLOR = '#6B7280';
 
 /** Warning/amber color for the icon */
 const WARNING_COLOR = '#f59e0b';
@@ -232,13 +230,13 @@ export function WolfDisclaimerModal({
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: `${WOLF_COLOR}15` },
+              { backgroundColor: `${wolfColor}15` },
             ]}
           >
             <Icon
               source="dog-side"
               size={40}
-              color={WOLF_COLOR}
+              color={wolfColor}
             />
           </View>
 
@@ -288,7 +286,7 @@ export function WolfDisclaimerModal({
           </ScrollView>
 
           {/* Game Rules Brief */}
-          <View style={[styles.rulesBox, { backgroundColor: `${WOLF_COLOR}10` }]}>
+          <View style={[styles.rulesBox, { backgroundColor: `${wolfColor}10` }]}>
             <Text style={[styles.rulesTitle, { color: colors.textPrimary }]}>
               How Wolf Works
             </Text>
@@ -364,7 +362,7 @@ export function WolfDisclaimerModal({
                 styles.button,
                 styles.acceptButton,
                 {
-                  backgroundColor: isChecked ? WOLF_COLOR : colors.surfaceVariant,
+                  backgroundColor: isChecked ? wolfColor : colors.surfaceVariant,
                 },
               ]}
               onPress={handleAccept}

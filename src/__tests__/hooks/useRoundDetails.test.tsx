@@ -25,8 +25,8 @@ import {
 // MOCK DATA
 // ============================================================================
 
-const mockVenue = {
-  id: 'venue-123',
+const mockClub = {
+  id: 'club-123',
   name: 'Test Golf Club',
   city: 'Melbourne',
   state: 'VIC',
@@ -35,7 +35,7 @@ const mockVenue = {
 
 const mockCourse = {
   id: 'course-123',
-  venue_id: 'venue-123',
+  club_id: 'club-123',
   name: 'Championship Course',
   description: 'A beautiful 18-hole course',
   holes: Array.from({ length: 18 }, (_, i) => ({
@@ -51,7 +51,7 @@ const mockCourse = {
   course_rating: 72.5,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  venues: mockVenue,
+  clubs: mockClub,
 };
 
 const mockCompetition = {
@@ -288,7 +288,7 @@ describe('useRoundDetails', () => {
       expect(result.current.data?.course?.name).toBe('Championship Course');
     });
 
-    it('includes venue data nested in course', async () => {
+    it('includes club data nested in course', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useRoundDetails('round-123'), {
         wrapper,
@@ -298,8 +298,8 @@ describe('useRoundDetails', () => {
         expect(result.current.data).toBeDefined();
       });
 
-      expect(result.current.data?.course?.venue).toBeDefined();
-      expect(result.current.data?.course?.venue?.name).toBe('Test Golf Club');
+      expect(result.current.data?.course?.club).toBeDefined();
+      expect(result.current.data?.course?.club?.name).toBe('Test Golf Club');
     });
 
     it('includes competition data', async () => {

@@ -17,7 +17,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundDetailsTab } from './index';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
-import type { RoundWithCourse, CourseWithVenue, CompetitionSummary } from '@/hooks/useRoundDetails';
+import type { RoundWithCourse, CourseWithClub, CompetitionSummary } from '@/hooks/useRoundDetails';
 import type { Hole, GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // Store reference to mock navigate function
@@ -123,9 +123,9 @@ jest.mock('@/utils/formatting', () => ({
 // TEST FIXTURES
 // ===========================================================================
 
-function createTestVenue() {
+function createTestClub() {
   return {
-    id: 'venue-1',
+    id: 'club-1',
     name: 'Test Golf Club',
     city: 'Melbourne',
     state: 'VIC' as AustralianState,
@@ -133,24 +133,32 @@ function createTestVenue() {
   };
 }
 
-function createCourseWithVenue(overrides: Partial<CourseWithVenue> = {}): CourseWithVenue {
+function createCourseWithVenue(overrides: Partial<CourseWithClub> = {}): CourseWithClub {
   const holes = create18Holes();
   return {
     id: 'course-1',
-    venue_id: 'venue-1',
+    club_id: 'club-1',
+    golfapi_course_id: null,
+    golfapi_long_course_id: null,
     name: 'Championship Course',
     description: 'A challenging championship course',
+    num_holes: 18,
+    measure_unit: null,
     holes,
+    holes_women: null,
+    match_play_indexes: null,
     tees: [
       { name: 'Blue', color: 'blue', totalYardage: 6800, courseRating: 72.5, slopeRating: 130 },
       { name: 'White', color: 'white', totalYardage: 6400, courseRating: 70.0, slopeRating: 125 },
       { name: 'Red', color: 'red', totalYardage: 5600, courseRating: 68.5, slopeRating: 115 },
     ],
+    tees_migrated: null,
     slope_rating: 125,
     course_rating: 70.0,
+    golfapi_updated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    venue: createTestVenue(),
+    club: createTestClub(),
     ...overrides,
   };
 }
@@ -351,8 +359,8 @@ describe('RoundDetailsTab', () => {
     it('shows venue name when no city/state', () => {
       const round = createRoundWithCourse({
         course: createCourseWithVenue({
-          venue: {
-            id: 'venue-1',
+          club: {
+            id: 'club-1',
             name: 'Royal Melbourne',
             city: '',
             state: null,
@@ -368,7 +376,7 @@ describe('RoundDetailsTab', () => {
 
     it('does not show venue link when no venue', () => {
       const round = createRoundWithCourse({
-        course: createCourseWithVenue({ venue: null }),
+        course: createCourseWithVenue({ club: null }),
       });
 
       render(<RoundDetailsTab round={round} />);
@@ -860,8 +868,8 @@ describe('RoundDetailsTab', () => {
     it('handles venue with only city', () => {
       const round = createRoundWithCourse({
         course: createCourseWithVenue({
-          venue: {
-            id: 'venue-1',
+          club: {
+            id: 'club-1',
             name: 'Local Club',
             city: 'Sydney',
             state: null,
@@ -878,8 +886,8 @@ describe('RoundDetailsTab', () => {
     it('handles venue with only state', () => {
       const round = createRoundWithCourse({
         course: createCourseWithVenue({
-          venue: {
-            id: 'venue-1',
+          club: {
+            id: 'club-1',
             name: 'State Club',
             city: '',
             state: 'QLD',

@@ -27,6 +27,7 @@ import { useMatchPlayData } from '@/hooks/scorecard';
 import { useActiveSkinsGameForRound, useSkinsResults } from '@/hooks/useSkins';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { isSingleBallScore } from '@/types/database/base';
+import type { SkinsResultWithWinner } from '@/types';
 import { scoringLogger } from '@/utils/debugLogger';
 import { supabase } from '@/services/supabase/client';
 
@@ -360,7 +361,7 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
           /* Skins Tab Content */
           skinsGame && skinsResults ? (
             <SkinsResultsCard
-              results={skinsResults}
+              results={skinsResults as SkinsResultWithWinner[]}
               potType={skinsGame.pot_type}
               potValue={skinsGame.pot_value}
               scoringType={skinsGame.scoring_type}

@@ -4,9 +4,10 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
+import { EmptyState } from '@/components/common/EmptyState';
 import LadderRow from '@/components/leagues/LadderRow';
 import type { LadderStandingsEntry } from '@/types/database';
 
@@ -31,12 +32,12 @@ export default function LadderTab({
 
   if (standings.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Icon source="ladder" size={48} color={colors.gray300} />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          No players on the ladder yet
-        </Text>
-      </View>
+      <EmptyState
+        title="No players on the ladder yet"
+        message="Players will appear here once they join the league"
+        icon="ladder"
+        compact
+      />
     );
   }
 
@@ -71,13 +72,5 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    gap: spacing.md,
-  },
-  emptyText: {
-    ...typography.body,
   },
 });

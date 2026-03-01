@@ -104,8 +104,8 @@ export const PlayerGroupCard = React.memo(function PlayerGroupCard({
 
       const result = calculateGADailyHandicap({
         gaHandicap: baseHandicap,
-        slopeRating: selectedTee.slope_rating ?? 113,
-        courseRating: selectedTee.course_rating ?? coursePar,
+        slopeRating: selectedTee.slopeRating ?? 113,
+        courseRating: selectedTee.courseRating ?? coursePar,
         par: coursePar,
         gender: player.gender ?? 'male',
       });

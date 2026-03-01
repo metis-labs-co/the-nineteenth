@@ -13,6 +13,9 @@
 import { supabase } from '@/services/supabase/client';
 import type { HoleScore } from '@/types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (table: string): any => (supabase as any).from(table);
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -119,8 +122,7 @@ export async function saveScoreEntry(
     throw createError('Hole number must be between 1 and 18', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_entries')
+  const { data, error } = await (fromTable('score_entries')
     .upsert(
       {
         round_id: roundId,
@@ -137,7 +139,7 @@ export async function saveScoreEntry(
       }
     )
     .select()
-    .single();
+    .single()) as { data: ScoreEntry | null; error: any };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to save score entry:', error);
@@ -155,8 +157,7 @@ export async function getRoundScoreEntries(roundId: string): Promise<ScoreEntry[
     throw createError('Round ID is required', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_entries')
+  const { data, error } = await fromTable('score_entries')
     .select('*')
     .eq('round_id', roundId)
     .order('hole_number');
@@ -180,8 +181,7 @@ export async function getScorerEntries(
     throw createError('Round ID and Scorer ID are required', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_entries')
+  const { data, error } = await fromTable('score_entries')
     .select('*')
     .eq('round_id', roundId)
     .eq('scorer_id', scorerId)
@@ -282,13 +282,12 @@ export async function createMismatchRecords(roundId: string): Promise<number> {
     return 0;
   }
 
-  const { data, error } = await supabase
-    .from('score_mismatches')
+  const { data, error } = await (fromTable('score_mismatches')
     .upsert(mismatches, {
       onConflict: 'round_id,player_id,hole_number',
       ignoreDuplicates: true,
     })
-    .select();
+    .select()) as { data: ScoreMismatch[] | null; error: any };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to create mismatch records:', error);
@@ -306,8 +305,7 @@ export async function getPendingMismatches(roundId: string): Promise<ScoreMismat
     throw createError('Round ID is required', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_mismatches')
+  const { data, error } = await fromTable('score_mismatches')
     .select(
       `
       *,
@@ -334,8 +332,7 @@ export async function getMismatch(mismatchId: string): Promise<ScoreMismatch | n
     throw createError('Mismatch ID is required', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_mismatches')
+  const { data, error } = await fromTable('score_mismatches')
     .select('*')
     .eq('id', mismatchId)
     .single();
@@ -371,8 +368,7 @@ export async function resolveMismatch(
     throw createError('Mismatch ID and Resolver ID are required', 'VALIDATION');
   }
 
-  const { error } = await supabase
-    .from('score_mismatches')
+  const { error } = await (fromTable('score_mismatches')
     .update({
       status: 'resolved',
       resolved_score: resolvedScore,
@@ -380,7 +376,7 @@ export async function resolveMismatch(
       resolved_at: new Date().toISOString(),
     })
     .eq('id', mismatchId)
-    .eq('status', 'pending'); // Only update if still pending (first-write-wins)
+    .eq('status', 'pending')) as { error: any }; // Only update if still pending (first-write-wins)
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to resolve mismatch:', error);
@@ -409,7 +405,7 @@ export async function applyResolvedScoreToScorecard(
     .select('id, scores')
     .eq('round_id', roundId)
     .eq('player_id', playerId)
-    .single();
+    .single() as { data: { id: string; scores: Record<string, HoleScore> } | null; error: any };
 
   if (fetchError) {
     console.error('[ScoreMismatchService] Failed to fetch scorecard:', fetchError);
@@ -421,7 +417,7 @@ export async function applyResolvedScoreToScorecard(
   }
 
   // Update the specific hole score
-  const scores = (scorecard.scores as Record<string, HoleScore>) || {};
+  const scores = scorecard.scores || {};
   const holeKey = holeNumber.toString();
 
   if (scores[holeKey]) {
@@ -431,8 +427,7 @@ export async function applyResolvedScoreToScorecard(
   }
 
   // Save back to scorecard
-  const { error: updateError } = await supabase
-    .from('scorecards')
+  const { error: updateError } = await (supabase.from('scorecards') as any)
     .update({ scores, updated_at: new Date().toISOString() })
     .eq('id', scorecard.id);
 
@@ -514,7 +509,7 @@ export async function getPartnerProgress(
     )
     .eq('round_id', roundId)
     .eq('player_id', userId)
-    .single();
+    .single() as { data: { scorer_id: string; scorer: { id: string; name: string } | null } | null; error: any };
 
   if (pairError) {
     if (pairError.code === 'PGRST116') {
@@ -529,8 +524,8 @@ export async function getPartnerProgress(
     throw createError(`Failed to fetch partner: ${pairError.message}`, 'DATABASE');
   }
 
-  const scorerId = pairData.scorer_id;
-  const scorerName = (pairData.scorer as { id: string; name: string } | null)?.name ?? 'Partner';
+  const scorerId = pairData!.scorer_id;
+  const scorerName = pairData!.scorer?.name ?? 'Partner';
 
   // Get partner's entries
   const entries = await getScorerEntries(roundId, scorerId);
@@ -563,7 +558,7 @@ export async function startBypassTimer(
 
   const bypassAvailableAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins from now
 
-  const { error } = await supabase.from('score_submission_status').upsert(
+  const { error } = await (fromTable('score_submission_status').upsert(
     {
       round_id: roundId,
       player_id: playerId,
@@ -575,7 +570,7 @@ export async function startBypassTimer(
     {
       onConflict: 'round_id,player_id',
     }
-  );
+  )) as { error: any };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to start bypass timer:', error);
@@ -596,8 +591,7 @@ export async function getSubmissionStatus(
     throw createError('Round ID and Player ID are required', 'VALIDATION');
   }
 
-  const { data, error } = await supabase
-    .from('score_submission_status')
+  const { data, error } = await fromTable('score_submission_status')
     .select('*')
     .eq('round_id', roundId)
     .eq('player_id', playerId)
@@ -625,8 +619,7 @@ export async function markSubmissionBypassed(
     throw createError('Round ID and Player ID are required', 'VALIDATION');
   }
 
-  const { error } = await supabase
-    .from('score_submission_status')
+  const { error } = await fromTable('score_submission_status')
     .update({
       bypassed: true,
       bypassed_at: new Date().toISOString(),

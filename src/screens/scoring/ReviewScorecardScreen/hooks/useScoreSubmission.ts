@@ -194,10 +194,15 @@ export function useScoreSubmission({
         .from('rounds')
         .select('game_type, competition_id')
         .eq('id', roundId)
-        .single();
+        .single() as unknown as { data: { game_type: string; competition_id: string | null } | null; error: any };
 
       if (roundError || !round) {
         submitLogger.error('Failed to fetch round data for finalization', roundError, { roundId: roundId.substring(0, 8) + '...' });
+        return;
+      }
+
+      if (!round.competition_id) {
+        submitLogger.warn('Round has no competition_id, skipping finalization');
         return;
       }
 
@@ -206,7 +211,7 @@ export function useScoreSubmission({
         .from('competitions')
         .select('point_system')
         .eq('id', round.competition_id)
-        .single();
+        .single() as unknown as { data: { point_system: PointSystemConfig | null } | null; error: any };
 
       if (compError || !competition) {
         submitLogger.error('Failed to fetch competition for finalization', compError, { competitionId: round.competition_id?.substring(0, 8) + '...' });
@@ -218,30 +223,19 @@ export function useScoreSubmission({
         .from('scorecards')
         .select('*')
         .eq('round_id', roundId)
-        .eq('status', 'completed');
+        .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: any };
 
       if (scError || !scorecards || scorecards.length === 0) {
         submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
         return;
       }
 
-      // Transform scorecards to the format expected by finalizeRound
-      const scorecardsForFinalize: Scorecard[] = scorecards.map((sc) => ({
-        id: sc.id,
-        round_id: sc.round_id,
-        player_id: sc.player_id,
-        scores: sc.scores || {},
-        total_gross: sc.total_gross || 0,
-        total_net: sc.total_net || 0,
-        total_points: sc.total_points || 0,
-        status: sc.status,
-        created_at: sc.created_at,
-        updated_at: sc.updated_at,
-      }));
+      // Scorecards are already typed as Scorecard[] from the query assertion
+      const scorecardsForFinalize: Scorecard[] = scorecards;
 
       // Use default point system if none configured
       const pointSystem: PointSystemConfig = competition.point_system || {
-        type: 'standard',
+        type: 'position',
         rules: { '1': 10, '2': 8, '3': 6, '4': 5, '5': 4, '6': 3, '7': 2, '8': 1, 'default': 1 },
       };
 

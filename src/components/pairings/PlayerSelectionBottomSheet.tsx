@@ -277,8 +277,8 @@ export const PlayerSelectionBottomSheet = React.memo(
     return (
       <BottomSheet
         visible={visible}
-        onDismiss={handleClose}
-        snapPoints={['75%']}
+        onClose={handleClose}
+        height={0.75}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

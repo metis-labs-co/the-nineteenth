@@ -100,14 +100,12 @@ export function SkinsGameSection({
 
     if (shouldAutoFinalize) {
       hasAttemptedFinalize.current = true;
-      console.log('[SkinsGameSection] Auto-finalizing skins game:', skinsGame.id);
       finalizeGame({ gameId: skinsGame.id })
         .then(() => {
-          console.log('[SkinsGameSection] Auto-finalize successful, refetching payouts');
           refetchPayouts();
         })
-        .catch((error) => {
-          console.error('[SkinsGameSection] Auto-finalize failed:', error);
+        .catch(() => {
+          // Auto-finalize failed silently
         });
     }
   }, [
@@ -299,7 +297,7 @@ export function SkinsGameSection({
                           ]}
                           numberOfLines={1}
                         >
-                          {payout.player.name}
+                          {payout.player?.name ?? 'Unknown'}
                         </Text>
                       </View>
                       <Text style={[styles.payoutsCell, styles.holesColumn, { color: colors.textSecondary }]}>

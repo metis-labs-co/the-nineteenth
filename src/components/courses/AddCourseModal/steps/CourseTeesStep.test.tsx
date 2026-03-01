@@ -107,6 +107,8 @@ const defaultProps = {
   editingTeeId: null,
   newTeeName: '',
   newTeeColor: 'white' as TeeColor,
+  newSlopeRating: '',
+  newCourseRating: '',
   onCourseNameChange: jest.fn(),
   onAddTee: jest.fn(),
   onEditTee: jest.fn(),
@@ -115,6 +117,8 @@ const defaultProps = {
   onDeleteTee: jest.fn(),
   onTeeNameChange: jest.fn(),
   onTeeColorChange: jest.fn(),
+  onSlopeRatingChange: jest.fn(),
+  onCourseRatingChange: jest.fn(),
 };
 
 // =====================================================

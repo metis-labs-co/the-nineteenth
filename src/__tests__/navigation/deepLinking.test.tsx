@@ -36,7 +36,7 @@ const linkingConfig = {
       // Public deep links
       JoinCompetition: 'join/:code?',
 
-      // Authenticated screens
+      // Authenticated screens (nested navigator)
       MainTabs: {
         screens: {
           RoundsTab: 'rounds',
@@ -63,7 +63,7 @@ const linkingConfig = {
       Club: 'club/:clubId',
       Course: 'course/:courseId',
     },
-  },
+  } as { initialRouteName?: string; screens: Record<string, any> },
 };
 
 // ============================================================================
@@ -406,12 +406,6 @@ const mockTheme: Theme = {
     border: '#E0E0E0',
     notification: '#FF0000',
   },
-  fonts: {
-    regular: { fontFamily: 'System', fontWeight: '400' as const },
-    medium: { fontFamily: 'System', fontWeight: '500' as const },
-    bold: { fontFamily: 'System', fontWeight: '700' as const },
-    heavy: { fontFamily: 'System', fontWeight: '800' as const },
-  },
 };
 
 function renderRootNavigator() {
@@ -635,7 +629,7 @@ describe('Deep Linking', () => {
       expect(state).toBeDefined();
       expect(state?.routes[0].name).toBe('JoinCompetition');
       // Code should be undefined when not provided
-      expect(state?.routes[0].params?.code).toBeUndefined();
+      expect((state?.routes[0].params as Record<string, unknown> | undefined)?.code).toBeUndefined();
     });
 
     it('handles trailing slashes in URLs', () => {

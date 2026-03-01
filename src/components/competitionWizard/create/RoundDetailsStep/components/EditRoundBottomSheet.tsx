@@ -18,7 +18,7 @@ import { TeeSelectionModal } from './TeeSelectionModal';
 import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
 import type { TeeBox, Club } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
-import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs } from '@/hooks/useClubs';
+import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem } from '@/hooks/useClubs';
 import type { FavoriteCourseWithClub } from '../types';
 
 export interface EditRoundBottomSheetProps {
@@ -63,34 +63,7 @@ export function EditRoundBottomSheet({
   // Transform clubs to display items
   const displayItems: ClubCourseDisplayItem[] = React.useMemo(() => {
     const clubs = clubSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map((club) => ({
-      type: club.is_multi_course ? 'multi-course-club' : 'single-course',
-      club: {
-        id: club.id,
-        source: club.source,
-        golfapi_club_id: club.golfapi_club_id ?? null,
-        name: club.name,
-        state: club.state,
-        city: club.city,
-        address: club.address,
-        postal_code: club.postal_code ?? null,
-        country: club.country ?? 'Australia',
-        continent: club.continent ?? null,
-        phone: club.phone,
-        email: club.email,
-        website: club.website,
-        latitude: club.latitude ?? null,
-        longitude: club.longitude ?? null,
-        location: club.location,
-        total_holes: club.total_holes,
-        is_featured: ('is_featured' in club ? club.is_featured : false) as boolean,
-        last_synced: club.last_synced,
-        created_at: club.created_at,
-        updated_at: club.updated_at,
-      },
-      courses: club.courses,
-      is_home: club.is_home,
-    }));
+    return (clubs ?? []).map(toClubCourseDisplayItem);
   }, [clubSearchQuery, searchResults, allClubs]);
 
   // Reset local state when round changes

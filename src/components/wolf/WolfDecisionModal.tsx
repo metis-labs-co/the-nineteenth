@@ -45,9 +45,8 @@ import {
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, wolfColor } from '@/constants/theme';
 import { WOLF_POINTS } from '@/types/database/wolf.types';
-import { WOLF_COLOR } from './WolfSection';
 import type { WolfGame } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -197,8 +196,8 @@ export function WolfDecisionModal({
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={[styles.headerIconContainer, { backgroundColor: `${WOLF_COLOR}15` }]}>
-              <Icon source="dog-side" size={32} color={WOLF_COLOR} />
+            <View style={[styles.headerIconContainer, { backgroundColor: `${wolfColor}15` }]}>
+              <Icon source="dog-side" size={32} color={wolfColor} />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
@@ -282,8 +281,8 @@ export function WolfDecisionModal({
                 styles.optionCard,
                 styles.loneWolfCard,
                 {
-                  backgroundColor: `${WOLF_COLOR}10`,
-                  borderColor: WOLF_COLOR,
+                  backgroundColor: `${wolfColor}10`,
+                  borderColor: wolfColor,
                 },
               ]}
               onPress={handleLoneWolf}
@@ -294,11 +293,11 @@ export function WolfDecisionModal({
               testID={`${testID}-lone-wolf`}
             >
               <View style={styles.optionMain}>
-                <View style={[styles.optionIcon, { backgroundColor: `${WOLF_COLOR}20` }]}>
-                  <Icon source="dog-side" size={24} color={WOLF_COLOR} />
+                <View style={[styles.optionIcon, { backgroundColor: `${wolfColor}20` }]}>
+                  <Icon source="dog-side" size={24} color={wolfColor} />
                 </View>
                 <View style={styles.optionContent}>
-                  <Text style={[styles.optionTitle, { color: WOLF_COLOR }]}>
+                  <Text style={[styles.optionTitle, { color: wolfColor }]}>
                     Lone Wolf
                   </Text>
                   <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>

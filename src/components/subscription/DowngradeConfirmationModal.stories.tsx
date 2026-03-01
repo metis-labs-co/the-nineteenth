@@ -7,8 +7,12 @@
 
 import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { action } from '@storybook/addon-actions';
 import { DowngradeConfirmationModal } from './DowngradeConfirmationModal';
+
+// Lightweight action logger for stories (addon-actions may not export 'action')
+const action = (name: string) => (...args: unknown[]) => {
+  console.log(`[action] ${name}`, ...args);
+};
 
 // ============================================================================
 // META

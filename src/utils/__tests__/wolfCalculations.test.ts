@@ -286,48 +286,48 @@ describe('calculateWolfPoints', () => {
 describe('calculateWolfStandings', () => {
   it('accumulates points across holes correctly', () => {
     const decisions = [
-      { hole_number: 1, points_awarded: { p1: 4, p2: 0, p3: 0 }, calculated_at: '2025-01-01' },
-      { hole_number: 2, points_awarded: { p1: 0, p2: 2, p3: 2 }, calculated_at: '2025-01-01' },
-      { hole_number: 3, points_awarded: { p1: 0, p2: 0, p3: 0 }, calculated_at: '2025-01-01' }, // Tie
-    ] as any;
+      { points_awarded: { p1: 4, p2: 0, p3: 0 } },
+      { points_awarded: { p1: 0, p2: 2, p3: 2 } },
+      { points_awarded: { p1: 0, p2: 0, p3: 0 } }, // Tie
+    ];
 
-    const standings = calculateWolfStandings(decisions);
+    const standings = calculateWolfStandings(decisions, ['p1', 'p2', 'p3']);
 
-    expect(standings.get('p1')).toBe(4);
-    expect(standings.get('p2')).toBe(2);
-    expect(standings.get('p3')).toBe(2);
+    expect(standings['p1']).toBe(4);
+    expect(standings['p2']).toBe(2);
+    expect(standings['p3']).toBe(2);
   });
 
-  it('ignores decisions without calculated_at', () => {
+  it('ignores points from players not in participantIds', () => {
     const decisions = [
-      { hole_number: 1, points_awarded: { p1: 4, p2: 0 }, calculated_at: '2025-01-01' },
-      { hole_number: 2, points_awarded: { p1: 10, p2: 10 }, calculated_at: null }, // Not calculated
-    ] as any;
+      { points_awarded: { p1: 4, p2: 0 } },
+      { points_awarded: { p1: 10, p2: 10 } },
+    ];
 
-    const standings = calculateWolfStandings(decisions);
+    const standings = calculateWolfStandings(decisions, ['p1', 'p2']);
 
-    expect(standings.get('p1')).toBe(4);
-    expect(standings.get('p2')).toBe(0);
+    expect(standings['p1']).toBe(14);
+    expect(standings['p2']).toBe(10);
   });
 
-  it('returns empty map for no decisions', () => {
-    const standings = calculateWolfStandings([]);
-    expect(standings.size).toBe(0);
+  it('returns empty object for no participants', () => {
+    const standings = calculateWolfStandings([], []);
+    expect(Object.keys(standings).length).toBe(0);
   });
 });
 
 describe('getSortedStandings', () => {
   it('sorts by points descending with correct ranks', () => {
-    const standings = new Map([
-      ['p1', 10],
-      ['p2', 15],
-      ['p3', 10],
-    ]);
-    const names = new Map([
-      ['p1', 'Alice'],
-      ['p2', 'Bob'],
-      ['p3', 'Charlie'],
-    ]);
+    const standings: Record<string, number> = {
+      p1: 10,
+      p2: 15,
+      p3: 10,
+    };
+    const names: Record<string, string> = {
+      p1: 'Alice',
+      p2: 'Bob',
+      p3: 'Charlie',
+    };
 
     const sorted = getSortedStandings(standings, names);
 
@@ -337,16 +337,16 @@ describe('getSortedStandings', () => {
   });
 
   it('handles ties in ranking', () => {
-    const standings = new Map([
-      ['p1', 10],
-      ['p2', 10],
-      ['p3', 5],
-    ]);
-    const names = new Map([
-      ['p1', 'A'],
-      ['p2', 'B'],
-      ['p3', 'C'],
-    ]);
+    const standings: Record<string, number> = {
+      p1: 10,
+      p2: 10,
+      p3: 5,
+    };
+    const names: Record<string, string> = {
+      p1: 'A',
+      p2: 'B',
+      p3: 'C',
+    };
 
     const sorted = getSortedStandings(standings, names);
 

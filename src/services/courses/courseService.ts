@@ -38,6 +38,8 @@ import type {
 } from '@/types/database.types';
 import type { RegionFilter } from '@/types/database/enums';
 import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
+import type { TeeInsert } from './teesService';
+import type { HoleCoordinateInsert } from './coordinatesService';
 
 // =====================================================
 // TYPES
@@ -178,7 +180,8 @@ class CourseService {
       result.apiSearched = true;
 
       // Transform API results to Club format
-      const apiClubs = apiResults.map((clubResponse) => transformApiClubResponse(clubResponse));
+      // Search results have a subset of club fields - cast to satisfy transformer
+      const apiClubs = apiResults.map((clubResponse) => transformApiClubResponse(clubResponse as any));
 
       // Filter out clubs already in cache (by golfapi_club_id)
       const cachedGolfApiIds = new Set(
@@ -250,9 +253,9 @@ class CourseService {
       const tees = await teesService.cacheTees(
         course.id,
         teesData.map((t) => ({
-          name: t.name || 'Default',
           ...t,
-        }))
+          name: t.name || 'Default',
+        })) as TeeInsert[]
       );
 
       // Import GPS coordinates (non-blocking - don't fail if coordinates unavailable)
@@ -353,9 +356,9 @@ class CourseService {
             const tees = await teesService.cacheTees(
               course.id,
               teesData.map((t) => ({
-                name: t.name || 'Default',
                 ...t,
-              }))
+                name: t.name || 'Default',
+              })) as TeeInsert[]
             );
 
             allTees.push(...tees);
@@ -553,7 +556,7 @@ class CourseService {
       }
 
       // Cache coordinates
-      return coordinatesService.cacheCoordinates(courseId, transformedCoords);
+      return coordinatesService.cacheCoordinates(courseId, transformedCoords as HoleCoordinateInsert[]);
     } catch (error) {
       console.warn('[CourseService] Failed to import coordinates:', error);
       return 0;

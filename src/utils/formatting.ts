@@ -256,7 +256,7 @@ export function formatTeeTime(timeString: string | null): string {
 }
 
 // ============================================================================
-// CURRENCY FORMATTING (re-exported from skinsCalculations for convenience)
+// CURRENCY FORMATTING (shared utilities)
 // ============================================================================
 
-export { formatCurrency, formatNetResult } from './skinsCalculations';
+export { formatCurrency, formatNetResult } from './currency';

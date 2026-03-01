@@ -19,9 +19,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { determineWolfForHole, formatWolfCurrency } from '@/utils/wolfCalculations';
-import { WOLF_COLOR } from './WolfSection';
 import type {
   WolfGameWithParticipants,
   WolfDecisionWithDetails,
@@ -344,7 +343,7 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
                   color: isBlindWolf
                     ? colors.warning
                     : isLoneWolf
-                      ? WOLF_COLOR
+                      ? wolfColor
                       : colors.textTertiary,
                 },
               ]}
@@ -417,7 +416,7 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
       {/* Card Header */}
       <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
         <View style={styles.titleContainer}>
-          <Icon source="dog-side" size={24} color={WOLF_COLOR} />
+          <Icon source="dog-side" size={24} color={wolfColor} />
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             WOLF RESULTS
           </Text>

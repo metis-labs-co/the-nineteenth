@@ -22,6 +22,56 @@ import type {
   SkinsLeaderboardOptions,
   SkinsGameHistoryOptions,
 } from './types';
+import type { SkinsGame } from '@/types/database/skins.types';
+
+// =====================================================
+// LOCAL DB ROW TYPES
+// =====================================================
+
+/** Row shape returned from skins_games table queries */
+type SkinsGameRow = SkinsGame;
+
+/** Row shape for player queries */
+interface PlayerRow {
+  id: string;
+  name: string;
+  handicap?: number | null;
+  avatar_url?: string | null;
+}
+
+/** Row shape for round queries */
+interface RoundRow {
+  id: string;
+  round_number: number;
+  date: string | null;
+  course_id: string | null;
+  competition_id: string | null;
+}
+
+/** Row shape for course queries */
+interface CourseRow {
+  id: string;
+  name: string;
+}
+
+/** Row shape for competition queries */
+interface CompetitionRow {
+  id: string;
+  name: string;
+}
+
+/** Row shape for payout queries */
+interface PayoutRow {
+  id: string;
+  skins_game_id: string;
+  player_id: string | null;
+  buy_in: number;
+  total_winnings: number;
+  net_result: number;
+  holes_won: number;
+  holes_tied: number;
+  holes_lost: number;
+}
 
 // =====================================================
 // STATISTICS HOOKS
@@ -39,16 +89,16 @@ export function useSkinsStatistics(playerId: string | undefined) {
     queryFn: async (): Promise<SkinsPlayerStatistics | null> => {
       if (!playerId) return null;
 
-      const { data, error } = await supabase.rpc('get_player_skins_stats', {
+      const { data, error } = await supabase.rpc('get_player_skins_stats' as never, {
         p_player_id: playerId,
-      });
+      } as never);
 
       if (error) {
         if (error.code === 'PGRST116') return null;
         throw createError(`Failed to fetch skins statistics: ${error.message}`, 'DATABASE');
       }
 
-      return data as SkinsPlayerStatistics;
+      return data as unknown as SkinsPlayerStatistics;
     },
     enabled: !!playerId,
     staleTime: 60 * 1000, // 1 minute
@@ -81,16 +131,16 @@ export function useMySkinsStatistics() {
     queryFn: async (): Promise<SkinsPlayerStatistics | null> => {
       if (!userId) return null;
 
-      const { data, error } = await supabase.rpc('get_player_skins_stats', {
+      const { data, error } = await supabase.rpc('get_player_skins_stats' as never, {
         p_player_id: userId,
-      });
+      } as never);
 
       if (error) {
         if (error.code === 'PGRST116') return null;
         throw createError(`Failed to fetch skins statistics: ${error.message}`, 'DATABASE');
       }
 
-      return data as SkinsPlayerStatistics;
+      return data as unknown as SkinsPlayerStatistics;
     },
     enabled: !!userId,
     staleTime: 60 * 1000,
@@ -124,32 +174,35 @@ export function useSkinsLeaderboard(options: SkinsLeaderboardOptions = {}) {
   return useQuery({
     queryKey: skinsKeys.leaderboard({ friendsOnly, minGames }),
     queryFn: async (): Promise<SkinsLeaderboardEntry[]> => {
-      const { data: leaderboard, error } = await supabase.rpc('get_skins_leaderboard', {
+      const { data: leaderboard, error } = await supabase.rpc('get_skins_leaderboard' as never, {
         p_limit: limit,
         p_min_games: minGames,
         p_friends_only: friendsOnly,
         p_user_id: friendsOnly ? userId ?? null : null,
-      });
+      } as never);
 
       if (error) {
         throw createError(`Failed to fetch skins leaderboard: ${error.message}`, 'DATABASE');
       }
 
-      if (!leaderboard || leaderboard.length === 0) return [];
+      const entries = (leaderboard ?? []) as unknown as SkinsLeaderboardEntry[];
+      if (entries.length === 0) return [];
 
-      const playerIds = leaderboard.map((entry: SkinsLeaderboardEntry) => entry.player_id);
-      const { data: players } = await supabase
+      const playerIds = entries.map((entry) => entry.player_id);
+      const { data: rawPlayers } = await supabase
         .from('players')
         .select('id, name, avatar_url')
         .in('id', playerIds);
 
+      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
+
       const playerMap = new Map(
-        (players ?? []).map((p) => [p.id, { id: p.id, name: p.name, avatar_url: p.avatar_url }])
+        players.map((p) => [p.id, { id: p.id, name: p.name, avatar_url: p.avatar_url }])
       );
 
-      return (leaderboard as SkinsLeaderboardEntry[]).map((entry) => ({
+      return entries.map((entry) => ({
         ...entry,
-        player: playerMap.get(entry.playerId),
+        player: playerMap.get(entry.player_id),
       }));
     },
     enabled: !friendsOnly || !!userId,
@@ -178,7 +231,7 @@ export function useSkinsGameHistory(
     queryFn: async (): Promise<SkinsGameHistoryEntry[]> => {
       if (!playerId) return [];
 
-      const { data: games, error: gamesError } = await supabase
+      const { data: rawGames, error: gamesError } = await supabase
         .from('skins_games')
         .select('*')
         .contains('participant_ids', [playerId])
@@ -190,10 +243,11 @@ export function useSkinsGameHistory(
         throw createError(`Failed to fetch skins history: ${gamesError.message}`, 'DATABASE');
       }
 
-      if (!games || games.length === 0) return [];
+      const games = (rawGames ?? []) as unknown as SkinsGameRow[];
+      if (games.length === 0) return [];
 
       const roundIds = [...new Set(games.map((g) => g.round_id))];
-      const { data: rounds } = await supabase
+      const { data: rawRounds } = await supabase
         .from('rounds')
         .select(`
           id,
@@ -204,33 +258,41 @@ export function useSkinsGameHistory(
         `)
         .in('id', roundIds);
 
-      const courseIds = [...new Set((rounds ?? []).map((r) => r.course_id).filter(Boolean))];
-      const { data: courses } = courseIds.length > 0
+      const rounds = (rawRounds ?? []) as unknown as RoundRow[];
+
+      const courseIds = [...new Set(rounds.map((r) => r.course_id).filter(Boolean))] as string[];
+      const { data: rawCourses } = courseIds.length > 0
         ? await supabase
             .from('courses')
             .select('id, name')
             .in('id', courseIds)
         : { data: [] };
 
-      const competitionIds = [...new Set((rounds ?? []).map((r) => r.competition_id).filter(Boolean))];
-      const { data: competitions } = competitionIds.length > 0
+      const courses = (rawCourses ?? []) as unknown as CourseRow[];
+
+      const competitionIds = [...new Set(rounds.map((r) => r.competition_id).filter(Boolean))] as string[];
+      const { data: rawCompetitions } = competitionIds.length > 0
         ? await supabase
             .from('competitions')
             .select('id, name')
             .in('id', competitionIds)
         : { data: [] };
 
+      const competitions = (rawCompetitions ?? []) as unknown as CompetitionRow[];
+
       const gameIds = games.map((g) => g.id);
-      const { data: payouts } = await supabase
+      const { data: rawPayouts } = await supabase
         .from('skins_payouts')
         .select('*')
         .in('skins_game_id', gameIds)
         .eq('player_id', playerId);
 
-      const courseMap = new Map((courses ?? []).map((c) => [c.id, c]));
-      const competitionMap = new Map((competitions ?? []).map((c) => [c.id, c]));
+      const payouts = (rawPayouts ?? []) as unknown as PayoutRow[];
+
+      const courseMap = new Map(courses.map((c) => [c.id, c]));
+      const competitionMap = new Map(competitions.map((c) => [c.id, c]));
       const roundMap = new Map(
-        (rounds ?? []).map((r) => [
+        rounds.map((r) => [
           r.id,
           {
             id: r.id,
@@ -241,7 +303,7 @@ export function useSkinsGameHistory(
           },
         ])
       );
-      const payoutMap = new Map((payouts ?? []).map((p) => [p.skins_game_id, p]));
+      const payoutMap = new Map(payouts.map((p) => [p.skins_game_id, p]));
 
       return games.map((game) => {
         const payout = payoutMap.get(game.id);
@@ -296,17 +358,17 @@ export function useSkinsRank(playerId: string | undefined, minGames: number = 1)
     queryFn: async (): Promise<number | null> => {
       if (!playerId) return null;
 
-      const { data, error } = await supabase.rpc('get_player_skins_rank', {
+      const { data, error } = await supabase.rpc('get_player_skins_rank' as never, {
         p_player_id: playerId,
         p_min_games: minGames,
-      });
+      } as never);
 
       if (error) {
         if (error.code === 'PGRST116') return null;
         throw createError(`Failed to fetch skins rank: ${error.message}`, 'DATABASE');
       }
 
-      return data as number | null;
+      return data as unknown as number | null;
     },
     enabled: !!playerId,
     staleTime: 5 * 60 * 1000,

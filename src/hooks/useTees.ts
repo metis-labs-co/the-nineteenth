@@ -210,9 +210,19 @@ export function useTeesByGender(
 ) {
   const { data: tees, ...rest } = useTeesByCourse(courseId, options);
 
-  // Filter by gender (unisex tees should be shown for all genders)
+  // Filter by gender based on available ratings
+  // Tees with women's ratings are for women, tees with men's ratings are for men
+  // Tees with both or neither are unisex
   const filteredTees =
-    tees?.filter((tee) => tee.gender === gender || tee.gender === 'unisex' || !tee.gender) ?? [];
+    tees?.filter((tee) => {
+      const hasMenRatings = tee.slope != null || tee.course_rating != null;
+      const hasWomenRatings = tee.slope_women != null || tee.course_rating_women != null;
+      const teeGender = hasMenRatings && hasWomenRatings ? 'unisex'
+        : hasWomenRatings ? 'women'
+        : hasMenRatings ? 'men'
+        : 'unisex';
+      return teeGender === gender || teeGender === 'unisex';
+    }) ?? [];
 
   return {
     ...rest,

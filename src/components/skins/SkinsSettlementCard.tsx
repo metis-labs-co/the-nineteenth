@@ -94,15 +94,19 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
       const map: TeamNameMap = {};
       const teamParticipants: TeamPayoutParticipant[] = [];
       teamPayouts.forEach((p) => {
-        map[p.team_id] = p.team.name;
-        teamParticipants.push({
-          id: p.team_id,
-          member_count: p.team.members?.length ?? 1,
-        });
+        if (p.team_id) {
+          map[p.team_id] = p.team.name;
+          teamParticipants.push({
+            id: p.team_id,
+            member_count: p.team.members?.length ?? 1,
+          });
+        }
       });
 
       const netPositions = calculateTeamNetPositions(
-        teamPayouts.map((p) => ({ team_id: p.team_id, net_result: p.net_result })),
+        teamPayouts
+          .filter((p): p is SkinsPayoutWithTeam & { team_id: string } => p.team_id !== null)
+          .map((p) => ({ team_id: p.team_id, net_result: p.net_result })),
         teamParticipants
       );
       const transactions = simplifyTeamDebts(netPositions, teamParticipants);
@@ -118,7 +122,9 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
       // Individual skins - calculate player debts
       const map: PlayerNameMap = {};
       payouts.forEach((p) => {
-        map[p.player_id] = p.player.name;
+        if (p.player_id && p.player) {
+          map[p.player_id] = p.player.name;
+        }
       });
 
       const netPositions = calculateNetPositions(payouts);
@@ -163,7 +169,7 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
     } else {
       (sortedPayouts as SkinsPayoutWithPlayer[]).forEach((p, index) => {
         const prefix = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
-        message += `${prefix}: ${p.player.name} - ${formatNetResult(p.net_result)} (${p.holes_won} holes won)\n`;
+        message += `${prefix}: ${p.player?.name ?? 'Unknown'} - ${formatNetResult(p.net_result)} (${p.holes_won} holes won)\n`;
       });
     }
 
@@ -261,7 +267,7 @@ export const SkinsSettlementCard = React.memo(function SkinsSettlementCard({
                   style={[styles.playerName, { color: colors.textPrimary }]}
                   numberOfLines={1}
                 >
-                  {payout.player.name}
+                  {payout.player?.name ?? 'Unknown'}
                 </Text>
               </View>
               <Text style={[styles.tableCell, styles.holesColumn, { color: colors.textSecondary }]}>
@@ -563,7 +569,7 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     ...typography.small,
-  },
+  } as any, // Typography styles used for both Text and View containers
 
   // Column widths
   playerColumn: {

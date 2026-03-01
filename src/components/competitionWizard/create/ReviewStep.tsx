@@ -24,6 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 const gameTypeLabels: Record<GameType, string> = {
   'stableford': 'Stableford',
   'stroke': 'Stroke Play',
+  'par': 'Par',
   'match-play': 'Match Play',
   'best-ball': 'Best Ball',
   'scramble': 'Scramble',

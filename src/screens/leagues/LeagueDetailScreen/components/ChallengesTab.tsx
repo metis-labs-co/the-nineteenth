@@ -4,9 +4,10 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
+import { EmptyState } from '@/components/common/EmptyState';
 import ChallengeCard from '@/components/leagues/ChallengeCard';
 import type { LadderChallengeWithPlayers } from '@/types/database';
 
@@ -36,15 +37,12 @@ export default function ChallengesTab({
 
   if (challenges.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Icon source="sword-cross" size={48} color={colors.gray300} />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          No challenges yet
-        </Text>
-        <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-          Challenge a player above you on the ladder to get started
-        </Text>
-      </View>
+      <EmptyState
+        title="No challenges yet"
+        message="Challenge a player above you on the ladder to get started"
+        icon="sword-cross"
+        compact
+      />
     );
   }
 
@@ -95,18 +93,5 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.bodyBold,
     marginBottom: spacing.xs,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    gap: spacing.sm,
-  },
-  emptyText: {
-    ...typography.body,
-  },
-  emptyHint: {
-    ...typography.small,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xxl,
   },
 });

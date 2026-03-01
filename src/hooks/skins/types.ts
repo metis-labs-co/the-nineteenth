@@ -5,7 +5,7 @@
  */
 
 import type { TeamFormat } from '@/types/database/enums';
-import type { SkinsHoleScores, SkinsTeamHoleScores } from '@/types/database/skins.types';
+import type { SkinsHoleScores, SkinsTeamHoleScores, SkinsScoringType } from '@/types/database/skins.types';
 
 // =====================================================
 // ERROR TYPES
@@ -65,16 +65,14 @@ export interface ProcessSkinsInput {
 export interface ProcessSkinsResult {
   /** Whether processing was attempted */
   processed: boolean;
-  /** Whether the hole was won or carried over */
-  isCarryover: boolean;
-  /** Winner player ID (null if carryover) */
-  winnerId: string | null;
-  /** Winner team ID (null if carryover or individual) */
-  teamWinnerId?: string | null;
-  /** Payout amount for this hole */
-  payoutAmount: number;
-  /** Current carryover after this hole */
-  currentCarryover: number;
+  /** Whether the hole had a winner */
+  hasWinner?: boolean;
+  /** Winner name for display */
+  winnerName?: string;
+  /** Winnings amount for the hole */
+  winningsAmount?: number;
+  /** Carryover amount if no winner */
+  carryoverAmount?: number;
   /** Error message if processing failed */
   error?: string;
 }
@@ -83,17 +81,14 @@ export interface ProcessSkinsResult {
  * Input for auto-split skins for competition
  */
 export interface AutoSplitSkinsInput {
-  roundId: string;
-  /** Competition ID (optional - derived from round if not provided) */
-  competitionId?: string;
-  /** Force create new skins games even if some exist */
-  force?: boolean;
-  /** Pot type for created games */
-  potType?: 'per_hole' | 'total_pot';
-  /** Pot value for created games */
-  potValue?: number;
+  /** Competition ID */
+  competitionId: string;
+  /** Prize pool ID */
+  poolId: string;
+  /** Pot value per round */
+  potPerRound: number;
   /** Scoring type */
-  scoringType?: 'gross' | 'net';
+  scoringType: SkinsScoringType;
   /** User ID who is creating the games */
   createdBy: string;
 }
@@ -102,10 +97,12 @@ export interface AutoSplitSkinsInput {
  * Result from auto-split skins
  */
 export interface AutoSplitSkinsResult {
-  /** Whether any games were created */
-  created: boolean;
+  /** Whether the operation succeeded */
+  success: boolean;
   /** Number of games created */
   gamesCreated: number;
+  /** Total amount drawn from pool */
+  totalDrawn: number;
   /** IDs of created games */
   gameIds: string[];
   /** Error message if failed */
@@ -113,13 +110,19 @@ export interface AutoSplitSkinsResult {
 }
 
 /**
- * Result from syncing skins (internal)
+ * Result from syncing skins
  */
 export interface SyncSkinsResult {
   /** Whether sync was successful */
   success: boolean;
-  /** Number of holes synced */
-  holesSynced: number;
+  /** Number of games created */
+  gamesCreated: number;
+  /** Number of games cancelled */
+  gamesCancelled: number;
+  /** Amount drawn from pool */
+  amountDrawn: number;
+  /** Amount returned to pool */
+  amountReturned: number;
   /** Error message if failed */
   error?: string;
 }

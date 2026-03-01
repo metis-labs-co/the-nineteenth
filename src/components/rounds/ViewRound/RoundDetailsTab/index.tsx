@@ -19,10 +19,9 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, skinsColor, wolfColor } from '@/constants/theme';
 import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
-import { WOLF_COLOR } from '@/components/wolf';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
@@ -76,7 +75,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   }, [round.course?.holes, round.course?.tees, round.selected_tee]);
 
   // Location comes from the club
-  const club = round.course?.club || round.course?.venue;
+  const club = round.course?.club || (round.course as any)?.venue;
   const location = [club?.city, club?.state].filter(Boolean).join(', ');
 
   // Navigate to club
@@ -231,7 +230,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
                   <Icon source="dice-multiple" size={18} color={skinsColor} />
                 )}
                 {hasWolf && (
-                  <Icon source="dog-side" size={18} color={WOLF_COLOR} />
+                  <Icon source="dog-side" size={18} color={wolfColor} />
                 )}
                 <Pill
                   label={GAME_TYPE_LABELS[round.game_type]}

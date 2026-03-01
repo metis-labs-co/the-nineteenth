@@ -62,7 +62,7 @@ export type {
 } from './types';
 
 // Re-export helpers
-export { mergeTees, isLocalClub } from './helpers';
+export { mergeTees, isLocalClub, toClubCourseDisplayItem } from './helpers';
 
 // Re-export query hooks
 export {

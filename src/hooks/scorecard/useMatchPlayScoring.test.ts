@@ -36,12 +36,9 @@ function create18Holes(): Hole[] {
   const holes: Hole[] = [];
   for (let i = 1; i <= 18; i++) {
     holes.push({
-      id: `hole-${i}`,
-      courseId: 'course-1',
-      number: i,
-      par: i % 3 === 0 ? 3 : i % 5 === 0 ? 5 : 4,
+      number: i as Hole['number'],
+      par: (i % 3 === 0 ? 3 : i % 5 === 0 ? 5 : 4) as Hole['par'],
       strokeIndex: i,
-      yardage: 300 + i * 10,
     });
   }
   return holes;

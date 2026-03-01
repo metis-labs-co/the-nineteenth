@@ -94,6 +94,42 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `${data.inviter_name || 'Someone'} invited you to play${data.venue_name ? ` at ${data.venue_name}` : ''}`,
   },
+  league_player_joined: {
+    icon: 'account-group',
+    getTitle: () => 'Player Joined League',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} joined ${data.league_name || 'your league'}`,
+  },
+  league_player_left: {
+    icon: 'account-minus',
+    getTitle: () => 'Player Left League',
+    getMessage: (data) =>
+      `${data.player_name || 'A player'} left ${data.league_name || 'your league'}`,
+  },
+  league_player_removed: {
+    icon: 'account-remove',
+    getTitle: () => 'Player Removed',
+    getMessage: (data) =>
+      `${data.player_name || 'A player'} was removed from ${data.league_name || 'your league'}`,
+  },
+  league_round_tagged: {
+    icon: 'tag-plus',
+    getTitle: () => 'Round Tagged to League',
+    getMessage: (data) =>
+      `A round was tagged to ${data.league_name || 'your league'}`,
+  },
+  league_leaderboard_changed: {
+    icon: 'chart-bar',
+    getTitle: () => 'Leaderboard Updated',
+    getMessage: (data) =>
+      `The leaderboard for ${data.league_name || 'your league'} has been updated`,
+  },
+  round_completed: {
+    icon: 'flag-checkered',
+    getTitle: () => 'Round Completed',
+    getMessage: (data) =>
+      `Round${data.round_number ? ` ${data.round_number}` : ''} has been completed${data.course_name ? ` at ${data.course_name}` : ''}`,
+  },
 };
 
 /**

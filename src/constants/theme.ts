@@ -38,6 +38,7 @@ export const colors = lightColors;
 // ============================================================================
 
 export const spacing = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -246,6 +247,9 @@ export const zIndex = {
 // Skins feature color (amber/gold)
 export const skinsColor = '#f59e0b';
 
+// Wolf feature color (gray-500)
+export const wolfColor = '#6B7280';
+
 // Export a theme object with everything
 export const theme = {
   colors,
@@ -262,6 +266,7 @@ export const theme = {
   breakpoints,
   zIndex,
   skinsColor,
+  wolfColor,
 } as const;
 
 // Type for the theme

@@ -1,24 +1,14 @@
 /**
- * ViewRoundScreen - View a round (standalone or competition)
+ * useViewRoundScreen - Custom hook for ViewRoundScreen
  *
- * @description
- * Displays round details with tabs:
- * - Details: Course info, tee time, match type, progress
- * - Scorecard: Read-only scorecard grid showing all players' scores
- *
- * Commented out tabs (for future use):
- * - Players: Player list with scores (Stableford points, birdies, pars, bogeys)
- * - Leaderboard: Round leaderboard
- *
- * Works for both standalone rounds (practice rounds) and competition rounds.
+ * Contains all state, data fetching, computed values, and handlers
+ * for the ViewRoundScreen component.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
-import { Icon, Text } from 'react-native-paper';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useConfirmationDialog, useCompetitionInfo } from '@/hooks';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
@@ -26,70 +16,33 @@ import { useDeleteRound } from '@/hooks/useDeleteRound';
 import { competitionKeys, roundKeys } from '@/hooks/queryKeys';
 import { supabase } from '@/services/supabase/client';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { IconDog } from '@tabler/icons-react-native';
-import { spacing, borderRadius, shadows, typography, skinsColor } from '@/constants/theme';
-
-/** Gray color for wolf feature */
-const WOLF_COLOR = '#6B7280';
-import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader } from '@/components/common/PageHeader';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { ErrorState } from '@/components/common/ErrorState';
-import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
-import { Tabs, type TabItem } from '@/components/common/Tabs';
-import {
-  RoundDetailsTab,
-  RoundGameSetupTab,
-  RoundScorecardTab,
-  // Commented out for trial - keeping for potential future use
-  // RoundPlayersTab,
-  // RoundLeaderboardTab,
-} from '@/components/rounds/ViewRound';
-import { ScoringPairsConfigBottomSheet } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
-import { SkinsConfigBottomSheet } from '@/components/skins';
-import { MatchPlayLeaderboard } from '@/components/leaderboard/MatchPlayLeaderboard';
-import { MatchPlayScorecardTable } from '@/components/scorecard/MatchPlayScorecardTable';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
 import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults, useSkinsGame } from '@/hooks/useSkins';
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
-import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard } from '@/components/wolf';
-import { CourseSelectionModal } from '../admin/AddRoundScreen/components';
-import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
-import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
-import { SkinsResultsCard } from '@/components/skins';
-import { ContributionLeaderboard, ScrambleTeamSelector, ScrambleScorecardTable, ScrambleTeamLeaderboard } from '@/components/scorecard';
-import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
-import { Pill } from '@/components/common/Pill';
-import { COMPETITION_TYPE_LABELS } from '@/components/rounds/ViewRound/RoundDetailsTab/constants';
+import { skinsColor, wolfColor, spacing, typography } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { SkinsConfig } from '@/types/database/skins.types';
 import type { HoleScore, MultiBallHoleScore, Player, Hole } from '@/types';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
+import type { TabItem } from '@/components/common/Tabs';
 
 // =====================================================
 // TYPES & CONSTANTS
 // =====================================================
 
-type TabKey = 'details' | 'gameSetup' | 'scorecard' | 'match' | 'skins' | 'wolf' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
-// Commented out for trial - keeping for potential future use
-// type TabKey = 'details' | 'players' | 'leaderboard';
+export type TabKey = 'details' | 'gameSetup' | 'scorecard' | 'match' | 'skins' | 'wolf' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'details', label: 'Details' },
   { key: 'gameSetup', label: 'Game Setup' },
   { key: 'scorecard', label: 'Scorecard' },
-  // Commented out for trial - keeping for potential future use
-  // { key: 'players', label: 'Players' },
-  // { key: 'leaderboard', label: 'Leaderboard' },
 ];
 
-// =====================================================
-// MAIN COMPONENT
-// =====================================================
+type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
-export default function ViewRoundScreen({ route, navigation }: Props) {
+export function useViewRoundScreen({ route, navigation }: Props) {
   const { roundId, competitionId } = route.params;
   const [activeTab, setActiveTab] = useState<TabKey>('details');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -111,14 +64,12 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   // Update course mutation
   const { mutate: updateCourse } = useMutation({
     mutationFn: async (courseId: string) => {
-      const { error } = await supabase
-        .from('rounds')
+      const { error } = await (supabase.from('rounds') as any)
         .update({ course_id: courseId })
         .eq('id', roundId);
       if (error) throw error;
     },
     onSuccess: () => {
-      // Invalidate round queries to refresh data
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
     },
     onError: (error) => {
@@ -129,8 +80,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   // Skins game mutations
   const { mutate: updateSkinsGame } = useMutation({
     mutationFn: async ({ gameId, updates }: { gameId: string; updates: Partial<SkinsConfig> }) => {
-      const { error } = await supabase
-        .from('skins_games')
+      const { error } = await (supabase.from('skins_games') as any)
         .update(updates)
         .eq('id', gameId);
       if (error) throw error;
@@ -215,7 +165,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   }, [wolfGame]);
 
   // Fetch Wolf game summary for the tab (only when there's an active/completed game)
-  const { data: wolfSummary, refetch: refetchWolfSummary, isRefetching: isRefetchingWolf } = useWolfSummary(hasWolfGame ? wolfGame?.id : undefined);
+  const { data: wolfSummary, refetch: refetchWolfSummary } = useWolfSummary(hasWolfGame ? wolfGame?.id : undefined);
 
   // Get the active or completed skins game for displaying results
   const activeSkinsGame = useMemo(() => {
@@ -288,23 +238,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     return undefined;
   }, [isTeamSkins, skinsGameWithParticipants, round, scorecards]);
 
-  // DEBUG: Log skins data (after all skins-related hooks are defined)
-  console.log('[ViewRoundScreen] Skins data:', {
-    activeSkinsGameId: activeSkinsGame?.id,
-    skinsResultsCount: skinsResults?.length ?? 0,
-    skinsResultsHoles: skinsResults?.map(r => ({
-      hole: r.hole_number,
-      teamWinnerId: (r as { team_winner_id?: string }).team_winner_id,
-      teamWinner: (r as { team_winner?: { name: string } | null }).team_winner?.name,
-    })),
-    isRefetching: isRefetchingSkinsResults,
-    isTeamSkins,
-    skinsTeamsCount: skinsTeams?.length ?? 0,
-    skinsTeamNames: skinsTeams?.map(t => t.name),
-    gameIsTeamSkins: skinsGameWithParticipants?.is_team_skins,
-    roundTeamFormat: round?.team_format,
-  });
-
   // Refetch skins data when screen gains focus (to sync with score entry screen)
   useFocusEffect(
     useCallback(() => {
@@ -316,10 +249,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   );
 
   const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers || ((isMatchPlayRound || isTeamMatchPlayRound) && isLoadingMatchPlay);
-  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults || isRefetchingWolf;
+  const isRefreshing = isRefetchingRound || isRefetchingScorecards || isRefetchingPlayers || isRefetchingMatchPlay || isRefetchingSkinsResults;
 
   // Check if current user is playing in this round
-  // For standalone rounds, the user who created it is always playing
   const isUserPlaying = useMemo(() => {
     if (!user?.id) return false;
 
@@ -399,8 +331,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, isOrganizer, round?.scoring_pairs_required]);
 
   // Check if user can delete this round
-  // - Practice rounds: Only the creator can delete
-  // - Competition rounds: Only the organizer can delete, and only if status is 'upcoming'
   const canDelete = useMemo(() => {
     if (!user?.id || !round) return false;
 
@@ -411,7 +341,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
     // For competition rounds, check if user is the organizer AND round hasn't started
     if (!isStandalone && competitionInfo?.organizer_id === user.id) {
-      // Only allow deletion if the round status is 'upcoming' (not started)
       return round.status === 'upcoming';
     }
 
@@ -440,11 +369,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   }, [user?.id, scorecards, round]);
 
   // Get match play players for individual match play rounds
-  // For match play, we need exactly 2 players
   const matchPlayPlayers = useMemo(() => {
     if (!isMatchPlayRound) return null;
 
-    // Get players from scorecards or roundPlayers
     const players = scorecards?.map((sc) => ({
       id: sc.player_id,
       name: sc.player?.name || 'Unknown',
@@ -453,7 +380,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       name: p.name,
     })) || [];
 
-    // Match play requires exactly 2 players
     if (players.length >= 2) {
       return {
         player1: players[0],
@@ -472,7 +398,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     const holeScore = scorecard.scores?.[String(holeNumber)];
     if (!holeScore) return undefined;
 
-    // Handle both HoleScore and MultiBallHoleScore
     if ('strokes' in holeScore) {
       return holeScore.strokes;
     }
@@ -492,7 +417,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const getShambleTeamScore = useCallback((holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
     if (!scorecards || scorecards.length === 0) return undefined;
 
-    // For shamble, shot contributions are stored in the first player's scorecard
     return scorecards[0]?.scores?.[String(holeNumber)];
   }, [scorecards]);
 
@@ -500,7 +424,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const shamblePlayers: Player[] = useMemo(() => {
     if (!isShambleRound) return [];
 
-    // Prefer scorecards for player info (has more complete data)
     if (scorecards && scorecards.length > 0) {
       return scorecards.map((sc) => ({
         id: sc.player_id,
@@ -510,7 +433,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       }));
     }
 
-    // Fall back to round players
     if (roundPlayers && roundPlayers.length > 0) {
       return roundPlayers.map((p) => ({
         id: p.id,
@@ -527,7 +449,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const strokePlayPlayers: Player[] = useMemo(() => {
     if (!isStrokePlayRound) return [];
 
-    // Prefer scorecards for player info (has more complete data)
     if (scorecards && scorecards.length > 0) {
       return scorecards.map((sc) => ({
         id: sc.player_id,
@@ -537,7 +458,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       }));
     }
 
-    // Fall back to round players
     if (roundPlayers && roundPlayers.length > 0) {
       return roundPlayers.map((p) => ({
         id: p.id,
@@ -562,14 +482,11 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const scrambleTeams = useMemo(() => {
     if (!isScrambleRound) return [];
 
-    // Check for standalone team config
     const teamConfig = (round as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
     if (teamConfig?.teams && teamConfig.teams.length > 0) {
       return teamConfig.teams;
     }
 
-    // For competition scramble or single-team rounds, treat all players as one team
-    // Create a single team from all players
     const allPlayerIds = scorecards?.map((sc) => sc.player_id) ||
       roundPlayers?.map((p) => p.id) || [];
 
@@ -591,10 +508,8 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     const selectedTeam = scrambleTeams[selectedTeamIndex] || scrambleTeams[0];
     if (!selectedTeam) return [];
 
-    // Get player info from scorecards or roundPlayers
     const playerMap = new Map<string, Player>();
 
-    // Build map from scorecards
     scorecards?.forEach((sc) => {
       playerMap.set(sc.player_id, {
         id: sc.player_id,
@@ -604,7 +519,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       });
     });
 
-    // Fall back to roundPlayers for any missing
     roundPlayers?.forEach((p) => {
       if (!playerMap.has(p.id)) {
         playerMap.set(p.id, {
@@ -616,7 +530,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       }
     });
 
-    // Filter to only team members
     return selectedTeam.memberIds
       .map((id) => playerMap.get(id))
       .filter((p): p is Player => p !== undefined);
@@ -626,8 +539,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const scrambleTeamHandicap = useMemo(() => {
     if (scrambleTeamPlayers.length === 0) return 0;
     const totalHandicap = scrambleTeamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
-    // Scramble team handicap is typically a percentage of combined handicap
-    // Using 25% of the combined total (common rule)
     return Math.round((totalHandicap * 0.25) * 10) / 10;
   }, [scrambleTeamPlayers]);
 
@@ -635,7 +546,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const allScramblePlayers: Player[] = useMemo(() => {
     if (!isScrambleRound) return [];
 
-    // Build from scorecards first (has most complete data)
     if (scorecards && scorecards.length > 0) {
       return scorecards.map((sc) => ({
         id: sc.player_id,
@@ -645,7 +555,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       }));
     }
 
-    // Fall back to roundPlayers
     if (roundPlayers && roundPlayers.length > 0) {
       return roundPlayers.map((p) => ({
         id: p.id,
@@ -662,11 +571,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   const getScrambleTeamScore = useCallback((holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {
     if (!scorecards || scorecards.length === 0) return undefined;
 
-    // For scramble, score is stored in first player's scorecard
     const selectedTeam = scrambleTeams[selectedTeamIndex] || scrambleTeams[0];
     if (!selectedTeam) return undefined;
 
-    // Find scorecard for any team member (they should all have the same team score)
     const teamScorecard = scorecards.find((sc) =>
       selectedTeam.memberIds.includes(sc.player_id)
     );
@@ -681,7 +588,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     const team = scrambleTeams[teamIndex];
     if (!team) return undefined;
 
-    // Find scorecard for any team member
     const teamScorecard = scorecards.find((sc) =>
       team.memberIds.includes(sc.player_id)
     );
@@ -696,10 +602,8 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     const team = scrambleTeams[teamIndex];
     if (!team) return [];
 
-    // Get player info from scorecards or roundPlayers
     const playerMap = new Map<string, Player>();
 
-    // Build map from scorecards
     scorecards?.forEach((sc) => {
       playerMap.set(sc.player_id, {
         id: sc.player_id,
@@ -709,7 +613,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       });
     });
 
-    // Fall back to roundPlayers for any missing
     roundPlayers?.forEach((p) => {
       if (!playerMap.has(p.id)) {
         playerMap.set(p.id, {
@@ -721,7 +624,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
       }
     });
 
-    // Filter to only team members
     return team.memberIds
       .map((id) => playerMap.get(id))
       .filter((p): p is Player => p !== undefined);
@@ -732,8 +634,6 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     const teamPlayers = getScrambleTeamPlayersByIndex(teamIndex);
     if (teamPlayers.length === 0) return 0;
     const totalHandicap = teamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
-    // Scramble team handicap is typically a percentage of combined handicap
-    // Using 25% of the combined total (common rule)
     return Math.round((totalHandicap * 0.25) * 10) / 10;
   }, [getScrambleTeamPlayersByIndex]);
 
@@ -743,20 +643,15 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   }, [navigation]);
 
   const handleScoreRound = useCallback(() => {
-    // Route to appropriate scoring screen based on game type
     if (isTeamMatchPlayRound) {
-      // Team match play goes to TeamMatchPlayScoring
       navigation.navigate('TeamMatchPlayScoring', {
         roundId,
-        // TODO: Pass actual team IDs from round pairings
         team1Id: undefined,
         team2Id: undefined,
       });
     } else if (isMatchPlayRound) {
-      // Individual match play goes to MatchPlayScoring
       navigation.navigate('MatchPlayScoring', {
         roundId,
-        // TODO: Pass actual player IDs from round pairings
         player1Id: undefined,
         player2Id: undefined,
       });
@@ -809,11 +704,9 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
   const handleSkinsConfigSave = useCallback(
     async (config: SkinsConfig) => {
-      // Get current skins game if exists
       const currentSkinsGame = skinsGames?.[0];
 
       if (currentSkinsGame) {
-        // Update existing skins game
         updateSkinsGame(
           {
             gameId: currentSkinsGame.id,
@@ -831,21 +724,15 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           }
         );
       } else if (user?.id) {
-        // Create new skins game
-        // Collect participant IDs from multiple sources
         const playerIdsFromRoundPlayers = roundPlayers?.map((p) => p.id) ?? [];
         const playerIdsFromScorecards = scorecards?.map((sc) => sc.player_id) ?? [];
 
-        // Combine and deduplicate
         const allPlayerIds = new Set([
           ...playerIdsFromRoundPlayers,
           ...playerIdsFromScorecards,
         ]);
 
-        // If we don't have enough players and this is a competition round,
-        // try fetching from competition_players
         if (allPlayerIds.size < 2 && competitionId) {
-          console.log('[ViewRoundScreen] Fetching competition players for skins...');
           const { data: compPlayers } = await supabase
             .from('competition_players')
             .select('player_id')
@@ -856,19 +743,10 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
           }
         }
 
-        // Always include current user
         allPlayerIds.add(user.id);
 
         const participantIds = Array.from(allPlayerIds);
 
-        console.log('[ViewRoundScreen] Skins participants:', {
-          fromRoundPlayers: playerIdsFromRoundPlayers.length,
-          fromScorecards: playerIdsFromScorecards.length,
-          total: participantIds.length,
-          isCompetitionRound: !!competitionId,
-        });
-
-        // Skins requires at least 2 participants
         if (participantIds.length < 2) {
           showAlert(
             'Not Enough Players',
@@ -881,36 +759,27 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
 
         // Determine if this is a team skins game
         const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
-        const isTeamSkins = round?.is_team_round && round?.team_format && TEAM_GAME_TYPES.includes(round.team_format);
+        const isTeamSkinsGame = round?.is_team_round && round?.team_format && TEAM_GAME_TYPES.includes(round.team_format);
 
         // Get team IDs if team skins
         let teamIds: string[] = [];
-        if (isTeamSkins && scrambleTeams.length > 0) {
-          // For standalone rounds with team_config, use those team IDs
+        if (isTeamSkinsGame && scrambleTeams.length > 0) {
           teamIds = scrambleTeams
-            .filter((t) => t.id !== 'default-team') // Exclude default team
+            .filter((t) => t.id !== 'default-team')
             .map((t) => t.id);
         }
 
         // If we have teams, also try to fetch actual team records from DB
-        if (isTeamSkins && teamIds.length === 0 && competitionId) {
-          // Try to fetch teams from database for competition rounds
+        if (isTeamSkinsGame && teamIds.length === 0 && competitionId) {
           const { data: dbTeams } = await supabase
             .from('teams')
             .select('id')
-            .eq('round_id', roundId);
+            .eq('round_id', roundId) as unknown as { data: { id: string }[] | null };
 
           if (dbTeams && dbTeams.length > 0) {
             teamIds = dbTeams.map((t) => t.id);
           }
         }
-
-        console.log('[ViewRoundScreen] Creating skins game:', {
-          isTeamSkins,
-          teamFormat: round?.team_format,
-          teamIds,
-          participantIds: participantIds.length,
-        });
 
         createSkinsGame(
           {
@@ -921,8 +790,7 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
             scoring_type: config.scoring_type,
             currency: config.currency,
             disclaimerAcceptedBy: user.id,
-            // Team skins fields
-            is_team_skins: isTeamSkins ?? false,
+            is_team_skins: isTeamSkinsGame ?? false,
             participant_team_ids: teamIds.length > 0 ? teamIds : undefined,
           },
           {
@@ -1003,83 +871,25 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
   // Get header title
   const getHeaderTitle = (): string | React.ReactNode => {
     if (isStandalone) {
-      // Show appropriate title based on active side-games
       if (hasSkinsGame && hasWolfGame) {
-        // Both Skins and Wolf active
-        return (
-          <View style={styles.skinsHeaderTitle}>
-            <Icon source="dice-multiple" size={20} color={skinsColor} />
-            <IconDog size={20} color={WOLF_COLOR} />
-            <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
-              Skins & Wolf
-            </Text>
-          </View>
-        );
+        return 'Skins & Wolf';
       }
       if (hasSkinsGame) {
-        // Only Skins active
-        return (
-          <View style={styles.skinsHeaderTitle}>
-            <Icon source="dice-multiple" size={20} color={skinsColor} />
-            <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
-              Skins Match
-            </Text>
-          </View>
-        );
+        return 'Skins Match';
       }
       if (hasWolfGame) {
-        // Only Wolf active
-        return (
-          <View style={styles.skinsHeaderTitle}>
-            <IconDog size={20} color={WOLF_COLOR} />
-            <Text style={[styles.skinsHeaderText, { color: colors.textPrimary }]}>
-              Wolf Game
-            </Text>
-          </View>
-        );
+        return 'Wolf Game';
       }
-      // Show "Match" if there are multiple players, "Practice Round" for solo
       const playerCount = scorecards?.length || roundPlayers?.length || 0;
       return playerCount > 1 ? 'Match' : 'Practice Round';
     }
     return `Round ${round?.round_number || ''}`;
   };
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader
-          title="Round"
-          variant="centered"
-          showBack
-          onBack={handleBack}
-        />
-        <LoadingSpinner size="lg" message="Loading round..." />
-      </View>
-    );
-  }
+  // Get header title with icons (React node version for the component)
+  const headerTitleHasIcons = isStandalone && (hasSkinsGame || hasWolfGame);
 
-  // Error state
-  if (roundError || !round) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader
-          title="Round"
-          variant="centered"
-          showBack
-          onBack={handleBack}
-        />
-        <ErrorState
-          title="Unable to load round"
-          error={roundError?.message || 'Round not found'}
-          onRetry={refetchRound}
-        />
-      </View>
-    );
-  }
-
-  // Get delete dialog message based on round type
+  // Get delete dialog message
   const getDeleteMessage = () => {
     if (isStandalone) {
       return 'Are you sure you want to delete this practice round? All scores and data will be permanently removed.';
@@ -1087,587 +897,130 @@ export default function ViewRoundScreen({ route, navigation }: Props) {
     return 'Are you sure you want to delete this round? All pairings, scores, and data will be permanently removed.';
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <PageHeader
-        title={getHeaderTitle()}
-        subtitle={competitionInfo?.name || undefined}
-        variant="centered"
-        showBack
-        onBack={handleBack}
-        rightActions={
-          canDelete
-            ? [
-                {
-                  icon: 'delete-outline',
-                  onPress: handleDeletePress,
-                  accessibilityLabel: 'Delete round',
-                  color: colors.error,
-                },
-              ]
-            : undefined
-        }
-      />
+  const handleNavigateToSubscription = useCallback(() => {
+    navigation.navigate('Subscription');
+  }, [navigation]);
 
-      {/* Score Round Button */}
-      {isUserPlaying && round.status !== 'completed' && (
-        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity
-            style={[styles.scoreButton, { backgroundColor: colors.primary }]}
-            onPress={handleScoreRound}
-            activeOpacity={0.8}
-            accessibilityLabel="Score this round"
-            accessibilityRole="button"
-          >
-            <Icon source="golf" size={20} color={colors.textInverse} />
-            <Text style={[styles.scoreButtonText, { color: colors.textInverse }]}>
-              {round.status === 'in-progress' ? 'Continue Scoring' : 'Score Round'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+  const handleTagLeagueSheetOpen = useCallback(() => {
+    setShowTagLeagueSheet(true);
+  }, []);
 
-      {/* Tag to League Button */}
-      {canTagToLeague && round.status === 'completed' && (
-        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
-          <FeatureLockCompact
-            feature="join_league"
-            onUpgradePress={() => navigation.navigate('Subscription')}
-          >
-            <TouchableOpacity
-              style={[styles.tagLeagueButton, { borderColor: colors.primary }]}
-              onPress={() => setShowTagLeagueSheet(true)}
-              activeOpacity={0.8}
-              accessibilityLabel="Tag to league"
-              accessibilityRole="button"
-            >
-              <Icon source="trophy-outline" size={20} color={colors.primary} />
-              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
-                Tag to League
-              </Text>
-            </TouchableOpacity>
-          </FeatureLockCompact>
-        </View>
-      )}
+  const handleTagLeagueSheetClose = useCallback(() => {
+    setShowTagLeagueSheet(false);
+  }, []);
 
-      {/* Competition Card - Show above tabs for competition rounds */}
-      {round.competition && (
-        <TouchableOpacity
-          style={[styles.competitionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleCompetitionPress}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.competitionIconContainer, { backgroundColor: colors.primaryLighter }]}>
-            <Icon source="trophy" size={24} color={colors.primary} />
-          </View>
-          <View style={styles.competitionInfo}>
-            <Text style={[styles.competitionLabel, { color: colors.textSecondary }]}>
-              Competition
-            </Text>
-            <Text style={[styles.competitionName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {round.competition.name}
-            </Text>
-          </View>
-          <View style={styles.competitionRight}>
-            <Pill
-              label={COMPETITION_TYPE_LABELS[round.competition.competition_type]}
-              variant="primary"
-              size="sm"
-            />
-            <Icon source="chevron-right" size={24} color={colors.gray400} />
-          </View>
-        </TouchableOpacity>
-      )}
+  return {
+    // Route params
+    roundId,
+    competitionId,
 
-      {/* Tab Bar */}
-      <Tabs<TabKey>
-        tabs={tabs}
-        selectedTab={activeTab}
-        onTabChange={setActiveTab}
-        style={styles.tabs}
-      />
+    // State
+    activeTab,
+    setActiveTab,
+    showDeleteDialog,
+    showCourseModal,
+    courseSearchQuery,
+    setCourseSearchQuery,
+    showScoringPairsSheet,
+    showSkinsConfigSheet,
+    showTagLeagueSheet,
+    selectedTeamIndex,
+    setSelectedTeamIndex,
 
-      {/* Tab Content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.textPrimary]}
-            tintColor={colors.textPrimary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === 'details' && (
-          <RoundDetailsTab
-            round={round}
-            isOrganizer={isOrganizer}
-            onEditPress={handleEditRound}
-            onCourseSelectPress={handleCourseSelectPress}
-          />
-        )}
-        {activeTab === 'gameSetup' && (
-          <RoundGameSetupTab
-            round={round}
-            isOrganizer={isOrganizer}
-            players={(roundPlayers || []).map((rp) => rp.player).filter(Boolean) as Player[]}
-            onScoringPairsEditPress={handleScoringPairsEditPress}
-            onSkinsEditPress={handleSkinsEditPress}
-            // TODO: Add Wolf config sheet handling when needed
-          />
-        )}
-        {activeTab === 'scorecard' && (
-          <RoundScorecardTab
-            scorecards={scorecards || []}
-            roundPlayers={roundPlayers || []}
-            holes={round.course?.holes || null}
-            onPlayerPress={handlePlayerPress}
-            selectedTeeData={round.selected_tee}
-          />
-        )}
-        {activeTab === 'match' && (isMatchPlayRound || isTeamMatchPlayRound) && (
-          <View style={styles.matchTabContent}>
-            {/* Individual Match Play Scorecard */}
-            {isMatchPlayRound && matchPlayPlayers && round.course?.holes && (
-              <>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  Match Scorecard
-                </Text>
-                <MatchPlayScorecardTable
-                  holes={round.course.holes}
-                  player1={matchPlayPlayers.player1}
-                  player2={matchPlayPlayers.player2}
-                  getPlayerScore={getPlayerScore}
-                />
-              </>
-            )}
+    // Auth
+    user,
+    colors,
 
-            {/* Match Play Results (if available) */}
-            {matchPlayData && matchPlayData.entries.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.lg }]}>
-                  Match Results
-                </Text>
-                <MatchPlayLeaderboard
-                  entries={matchPlayData.entries}
-                  currentUserId={user?.id}
-                  roundStatus={round.status}
-                  isTeamRound={round.is_team_round || false}
-                />
-              </>
-            )}
+    // Dialog
+    dialogConfig,
+    dismissDialog,
 
-            {/* Empty state when no data available */}
-            {!isMatchPlayRound && !matchPlayData && (
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No match data available yet.
-              </Text>
-            )}
-          </View>
-        )}
-        {activeTab === 'skins' && hasSkinsGame && activeSkinsGame && (
-          <View style={styles.skinsTabContent}>
-            <SkinsResultsCard
-              results={skinsResults || []}
-              potType={activeSkinsGame.pot_type}
-              potValue={activeSkinsGame.pot_value}
-              scoringType={activeSkinsGame.scoring_type}
-              participants={activeSkinsGame.participants}
-              isTeamSkins={isTeamSkins}
-              teams={skinsTeams}
-              parValues={
-                Array.isArray(round.course?.holes)
-                  ? round.course.holes.reduce(
-                      (acc, hole) => ({ ...acc, [hole.number]: hole.par }),
-                      {} as Record<number, number>
-                    )
-                  : {}
-              }
-            />
-          </View>
-        )}
-        {activeTab === 'wolf' && hasWolfGame && wolfSummary && (
-          <View style={styles.wolfTabContent}>
-            {/* Wolf Results Table - Hole by hole breakdown */}
-            <WolfResultsCard
-              wolfGame={wolfSummary.game}
-              decisions={wolfSummary.decisions}
-              testID="wolf-results-card"
-            />
+    // Data
+    round,
+    roundError,
+    scorecards,
+    roundPlayers,
+    matchPlayData,
+    skinsGames,
+    skinsResults,
+    activeSkinsGame,
+    skinsGameWithParticipants,
+    wolfGame,
+    wolfSummary,
+    competitionInfo,
 
-            {/* Wolf Standings Card */}
-            {wolfSummary.standings.length > 0 && (
-              <WolfStandingsCard
-                standings={wolfSummary.standings}
-                potEnabled={wolfSummary.game.pot_enabled}
-                testID="wolf-standings-card"
-              />
-            )}
+    // Loading/refreshing
+    isLoading,
+    isRefreshing,
+    isDeleting,
 
-            {/* Settlement Card (show when game is complete and pot is enabled) */}
-            {wolfSummary.game.pot_enabled &&
-              (wolfSummary.game.status === 'completed' || wolfSummary.payouts.length > 0) &&
-              wolfSummary.game.pot_value_per_point && (
-                <WolfSettlementCard
-                  payouts={wolfSummary.payouts}
-                  potValue={wolfSummary.game.pot_value_per_point}
-                  currency={wolfSummary.game.currency}
-                  testID="wolf-settlement-card"
-                />
-              )}
+    // Computed
+    isStandalone,
+    isMatchPlayRound,
+    isTeamMatchPlayRound,
+    isShambleRound,
+    isScrambleRound,
+    isStrokePlayRound,
+    isUserPlaying,
+    isOrganizer,
+    isTeamSkins,
+    skinsTeams,
+    hasSkinsGame,
+    hasWolfGame,
+    canDelete,
+    canTagToLeague,
+    userScorecardId,
+    tabs,
+    headerTitleHasIcons,
 
-            {/* In-Progress Info */}
-            {wolfSummary.game.status === 'active' && wolfSummary.holes_completed < 18 && (
-              <View style={[styles.wolfInProgressCard, { backgroundColor: colors.surface }]}>
-                <View style={styles.wolfInProgressHeader}>
-                  <IconDog size={20} color={WOLF_COLOR} />
-                  <Text style={[typography.bodyBold, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
-                    Game In Progress
-                  </Text>
-                </View>
-                <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-                  {wolfSummary.holes_completed} of 18 holes completed
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-        {activeTab === 'wolf' && hasWolfGame && !wolfSummary && (
-          <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-            <IconDog size={48} color={colors.textTertiary} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              No Wolf Results Yet
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Wolf results will appear here as you complete each hole.
-            </Text>
-          </View>
-        )}
-        {activeTab === 'leaderboard' && isStrokePlayRound && (
-          <View style={styles.leaderboardTabContent}>
-            <StrokePlayLeaderboardFull
-              players={strokePlayPlayers}
-              holes={round.course?.holes as Hole[] || []}
-              getPlayerScore={getStrokePlayPlayerScore}
-              currentUserId={user?.id}
-            />
-          </View>
-        )}
-        {activeTab === 'teamScores' && isShambleRound && (
-          <View style={styles.teamScoresTabContent}>
-            <ContributionLeaderboard
-              players={shamblePlayers}
-              getTeamScore={getShambleTeamScore}
-              totalHoles={round.course?.holes?.length || 18}
-              showOnlyDrives={true}
-              getPlayerScore={getShamblePlayerScore}
-              holes={round.course?.holes || undefined}
-            />
-          </View>
-        )}
-        {activeTab === 'scrambleTeamScore' && isScrambleRound && (
-          <View style={styles.scrambleTabContent}>
-            {round.course?.holes && scrambleTeams.length > 0 ? (
-              <>
-                {/* Team selector */}
-                <ScrambleTeamSelector
-                  teams={scrambleTeams}
-                  selectedIndex={selectedTeamIndex}
-                  onSelectTeam={setSelectedTeamIndex}
-                  getTeamPlayers={getScrambleTeamPlayersByIndex}
-                />
-                {/* Selected team's scorecard */}
-                <ScrambleScorecardTable
-                  holes={round.course.holes as Hole[]}
-                  teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
-                  teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
-                  getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
-                />
-              </>
-            ) : (
-              <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-                <Icon source="account-group" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  No Team Data
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  Team scores will appear here once scoring begins.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-        {activeTab === 'scrambleLeaderboard' && isScrambleRound && (
-          <View style={styles.scrambleTabContent}>
-            {round.course?.holes && scrambleTeams.length > 0 ? (
-              <ScrambleTeamLeaderboard
-                teams={scrambleTeams}
-                players={allScramblePlayers}
-                holes={round.course.holes as Hole[]}
-                getTeamScore={getScrambleTeamScoreByIndex}
-                currentUserId={user?.id}
-                testID="scramble-team-leaderboard"
-              />
-            ) : (
-              <View style={[styles.emptyContainer, { backgroundColor: colors.surface }]}>
-                <Icon source="trophy-outline" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  No Leaderboard Data
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  Team standings will appear here once scoring begins.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-        {activeTab === 'scrambleContributions' && isScrambleRound && (
-          <View style={styles.scrambleTabContent}>
-            {/* Team selector */}
-            <ScrambleTeamSelector
-              teams={scrambleTeams}
-              selectedIndex={selectedTeamIndex}
-              onSelectTeam={setSelectedTeamIndex}
-              getTeamPlayers={getScrambleTeamPlayersByIndex}
-            />
-            <ContributionLeaderboard
-              players={getScrambleTeamPlayersByIndex(selectedTeamIndex)}
-              getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
-              totalHoles={round.course?.holes?.length || 18}
-              showOnlyDrives={false}
-            />
-          </View>
-        )}
-        {/* Commented out for trial - keeping for potential future use */}
-        {/* {activeTab === 'players' && (
-          <RoundPlayersTab
-            scorecards={scorecards || []}
-            holes={round.course?.holes || null}
-          />
-        )}
-        {activeTab === 'leaderboard' && (
-          <RoundLeaderboardTab scorecards={scorecards || []} />
-        )} */}
-      </ScrollView>
+    // Match play data
+    matchPlayPlayers,
+    getPlayerScore,
 
-      {/* Modals and Bottom Sheets - rendered last to appear on top */}
-      <ConfirmationDialog
-        visible={showDeleteDialog}
-        title="Delete Round"
-        message={getDeleteMessage()}
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        loading={isDeleting}
-        icon="delete-outline"
-      />
+    // Shamble data
+    shamblePlayers,
+    getShamblePlayerScore,
+    getShambleTeamScore,
 
-      <CourseSelectionModal
-        visible={showCourseModal}
-        onClose={handleCourseModalClose}
-        onSelect={handleCourseSelect}
-        searchQuery={courseSearchQuery}
-        onSearchQueryChange={setCourseSearchQuery}
-      />
+    // Stroke play data
+    strokePlayPlayers,
+    getStrokePlayPlayerScore,
 
-      <ScoringPairsConfigBottomSheet
-        visible={showScoringPairsSheet}
-        onDismiss={handleScoringPairsSheetClose}
-        roundId={roundId}
-        competitionId={competitionId}
-        scoringPairsRequired={round?.scoring_pairs_required ?? false}
-      />
+    // Scramble data
+    scrambleTeams,
+    scrambleTeamPlayers,
+    scrambleTeamHandicap,
+    allScramblePlayers,
+    getScrambleTeamScore,
+    getScrambleTeamScoreByIndex,
+    getScrambleTeamPlayersByIndex,
+    getScrambleTeamHandicapByIndex,
 
-      <SkinsConfigBottomSheet
-        visible={showSkinsConfigSheet}
-        onDismiss={handleSkinsConfigClose}
-        initialConfig={
-          skinsGames?.[0]
-            ? {
-                pot_type: skinsGames[0].pot_type,
-                pot_value: skinsGames[0].pot_value,
-                scoring_type: skinsGames[0].scoring_type,
-                currency: skinsGames[0].currency,
-              }
-            : null
-        }
-        onSave={handleSkinsConfigSave}
-      />
+    // Handlers
+    handleBack,
+    handleScoreRound,
+    handleEditRound,
+    handleCourseSelectPress,
+    handleCourseSelect,
+    handleCourseModalClose,
+    handleScoringPairsEditPress,
+    handleScoringPairsSheetClose,
+    handleSkinsEditPress,
+    handleSkinsConfigSave,
+    handleSkinsConfigClose,
+    handlePlayerPress,
+    handleCompetitionPress,
+    handleDeletePress,
+    handleDeleteCancel,
+    handleDeleteConfirm,
+    handleRefresh,
+    getHeaderTitle,
+    getDeleteMessage,
+    handleNavigateToSubscription,
+    handleTagLeagueSheetOpen,
+    handleTagLeagueSheetClose,
 
-      {/* Tag to League Bottom Sheet */}
-      {userScorecardId && (
-        <TagToLeagueBottomSheet
-          visible={showTagLeagueSheet}
-          onClose={() => setShowTagLeagueSheet(false)}
-          scorecardId={userScorecardId}
-        />
-      )}
-
-      {/* Alert Dialog */}
-      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
-    </View>
-  );
+    // Refetch functions
+    refetchRound,
+  };
 }
-
-// =====================================================
-// STYLES
-// =====================================================
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  // Score Button
-  scoreButtonContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  scoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.lg,
-    height: 48,
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  tagLeagueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.lg,
-    height: 48,
-    gap: spacing.sm,
-    borderWidth: 1.5,
-  },
-  scoreButtonText: {
-    ...typography.bodyBold,
-  },
-
-  // Competition Card (above tabs)
-  competitionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    ...shadows.sm,
-  },
-  competitionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  competitionInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  competitionLabel: {
-    ...typography.caption,
-  },
-  competitionName: {
-    ...typography.bodyBold,
-    marginTop: 2,
-  },
-  competitionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-
-  // Tabs
-  tabs: {
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.sm,
-  },
-
-  // Scroll View
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-
-  // Match Tab
-  matchTabContent: {
-    gap: spacing.md,
-  },
-  skinsTabContent: {
-    gap: spacing.md,
-  },
-  wolfTabContent: {
-    gap: spacing.md,
-  },
-  wolfInProgressCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  wolfInProgressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  teamScoresTabContent: {
-    gap: spacing.md,
-  },
-  leaderboardTabContent: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    marginBottom: spacing.xs,
-  },
-
-  // Skins Header Title
-  skinsHeaderTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  skinsHeaderText: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 24,
-  },
-
-  // Empty State
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
-    paddingVertical: spacing.xl,
-  },
-
-  // Scramble Tabs
-  scrambleTabContent: {
-    gap: spacing.md,
-  },
-  emptyContainer: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-});

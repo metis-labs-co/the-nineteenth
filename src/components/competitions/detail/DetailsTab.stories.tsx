@@ -55,6 +55,7 @@ function createCompetition(overrides: Partial<Competition> = {}): Competition {
     start_date: '2025-01-15',
     end_date: '2025-01-16',
     handicap_system: 'honor' as HandicapSystem,
+    handicap_source: 'profile',
     visibility: 'private',
     invite_code: 'SUMMER25',
     organizer_id: 'organizer-1',
@@ -62,6 +63,7 @@ function createCompetition(overrides: Partial<Competition> = {}): Competition {
     team_mode: 'none' as TeamMode,
     team_size: null,
     point_system: DEFAULT_POINT_SYSTEM,
+    knockout_config: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -69,20 +71,28 @@ function createCompetition(overrides: Partial<Competition> = {}): Competition {
   };
 }
 
-function createCourse(id: string, name: string, venueName: string): Course & { venues?: { name: string; city: string | null; state: string | null } | null } {
+function createCourse(id: string, name: string, clubName: string): Course & { clubs?: { name: string; city: string | null; state: string | null } | null } {
   return {
     id,
-    venue_id: `venue-${id}`,
+    club_id: `club-${id}`,
+    golfapi_course_id: null,
+    golfapi_long_course_id: null,
     name,
     description: `${name} - A premier golf course`,
+    num_holes: 18,
+    measure_unit: null,
     holes: [],
+    holes_women: null,
+    match_play_indexes: null,
     tees: [],
+    tees_migrated: null,
     slope_rating: 125,
     course_rating: 72.5,
+    golfapi_updated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    venues: {
-      name: venueName,
+    clubs: {
+      name: clubName,
       city: 'Melbourne',
       state: 'VIC',
     },

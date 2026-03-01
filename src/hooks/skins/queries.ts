@@ -35,7 +35,65 @@ import type {
   SkinsWinner,
   SkinsTeamWinner,
   SkinsPayoutPlayer,
+  SkinsPayout,
 } from '@/types/database/skins.types';
+
+// =====================================================
+// LOCAL DB ROW TYPES
+// These bridge the gap between Supabase auto-generated types
+// (which may be missing newer columns) and the application types.
+// =====================================================
+
+/** Row shape returned from skins_games table queries */
+type SkinsGameRow = SkinsGame;
+
+/** Row shape returned from skins_results table queries */
+interface SkinsResultRow {
+  id: string;
+  skins_game_id: string;
+  hole_number: number;
+  winner_id: string | null;
+  team_winner_id: string | null;
+  is_carryover: boolean;
+  hole_scores: unknown;
+  hole_pot_value: number;
+  carryover_to_next: number;
+  payout_amount: number;
+  calculated_at: string;
+}
+
+/** Row shape returned from skins_payouts table queries */
+interface SkinsPayoutRow {
+  id: string;
+  skins_game_id: string;
+  player_id: string | null;
+  team_id: string | null;
+  is_team_payout: boolean;
+  buy_in: number;
+  total_winnings: number;
+  net_result: number;
+  holes_won: number;
+  holes_tied: number;
+  holes_lost: number;
+  calculated_at: string;
+}
+
+/** Row shape for player queries */
+interface PlayerRow {
+  id: string;
+  name: string;
+  handicap: number | null;
+}
+
+/** Row shape for team with members */
+interface TeamWithMembersRow {
+  id: string;
+  name: string;
+  team_members?: Array<{
+    player_id: string;
+    players: PlayerRow | null;
+  }>;
+}
 
 // =====================================================
 // QUERY HOOKS
@@ -53,7 +111,7 @@ export function useSkinsGame(gameId: string | undefined) {
     queryFn: async (): Promise<SkinsGameWithParticipants | SkinsGameWithTeamParticipants | null> => {
       if (!gameId) return null;
 
-      const { data: game, error } = await supabase
+      const { data: rawGame, error } = await supabase
         .from('skins_games')
         .select('*')
         .eq('id', gameId)
@@ -64,6 +122,7 @@ export function useSkinsGame(gameId: string | undefined) {
         throw createError(`Failed to fetch skins game: ${error.message}`, 'DATABASE');
       }
 
+      const game = rawGame as unknown as SkinsGameRow | null;
       if (!game) return null;
 
       // Check if this is a team skins game
@@ -72,7 +131,7 @@ export function useSkinsGame(gameId: string | undefined) {
 
         // Source 1: Try using participant_team_ids if available
         if (game.participant_team_ids?.length) {
-          const { data: teams, error: teamsError } = await supabase
+          const { data: rawTeams, error: teamsError } = await supabase
             .from('teams')
             .select(`
               id,
@@ -92,10 +151,12 @@ export function useSkinsGame(gameId: string | undefined) {
             console.error('[useSkins] Failed to fetch team participants:', teamsError);
           }
 
-          teamParticipants = (teams ?? []).map((team) => ({
+          const teams = (rawTeams ?? []) as unknown as TeamWithMembersRow[];
+
+          teamParticipants = teams.map((team) => ({
             id: team.id,
             name: team.name,
-            members: (team.team_members ?? []).map((tm: { player_id: string; players: { id: string; name: string; handicap: number | null } | null }) => ({
+            members: (team.team_members ?? []).map((tm) => ({
               id: tm.player_id,
               name: tm.players?.name ?? 'Unknown',
               handicap: tm.players?.handicap ?? null,
@@ -105,23 +166,25 @@ export function useSkinsGame(gameId: string | undefined) {
 
         // Source 2: Fallback to round's team_config for standalone rounds
         if (teamParticipants.length === 0 && game.round_id) {
-          const { data: round } = await supabase
+          const { data: rawRound } = await supabase
             .from('rounds')
             .select('team_config')
             .eq('id', game.round_id)
             .single();
 
-          const teamConfig = (round as { team_config?: { teams?: Array<{ id: string; name: string; memberIds: string[] }> } })?.team_config;
+          const round = rawRound as unknown as { team_config?: { teams?: Array<{ id: string; name: string; memberIds: string[] }> } } | null;
+          const teamConfig = round?.team_config;
 
           if (teamConfig?.teams && teamConfig.teams.length > 0) {
             // Get player details for members
             const allMemberIds = teamConfig.teams.flatMap(t => t.memberIds);
-            const { data: players } = await supabase
+            const { data: rawPlayers } = await supabase
               .from('players')
               .select('id, name, handicap')
               .in('id', allMemberIds);
 
-            const playerMap = new Map(players?.map(p => [p.id, p]) ?? []);
+            const players = (rawPlayers ?? []) as unknown as PlayerRow[];
+            const playerMap = new Map(players.map(p => [p.id, p]));
 
             teamParticipants = teamConfig.teams.map(team => ({
               id: team.id,
@@ -149,7 +212,7 @@ export function useSkinsGame(gameId: string | undefined) {
       }
 
       // Individual skins - fetch player participants
-      const { data: players, error: playersError } = await supabase
+      const { data: rawPlayers, error: playersError } = await supabase
         .from('players')
         .select('id, name, handicap')
         .in('id', game.participant_ids);
@@ -158,7 +221,9 @@ export function useSkinsGame(gameId: string | undefined) {
         console.error('[useSkins] Failed to fetch participants:', playersError);
       }
 
-      const participants: SkinsParticipant[] = (players ?? []).map((p) => ({
+      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
+
+      const participants: SkinsParticipant[] = players.map((p) => ({
         id: p.id,
         name: p.name,
         handicap: p.handicap,
@@ -189,7 +254,7 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
     queryFn: async (): Promise<SkinsGameWithParticipants[]> => {
       if (!roundId) return [];
 
-      const { data: games, error } = await supabase
+      const { data: rawGames, error } = await supabase
         .from('skins_games')
         .select('*')
         .eq('round_id', roundId)
@@ -199,13 +264,14 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
         throw createError(`Failed to fetch skins games: ${error.message}`, 'DATABASE');
       }
 
-      if (!games || games.length === 0) return [];
+      const games = (rawGames ?? []) as unknown as SkinsGameRow[];
+      if (games.length === 0) return [];
 
       // Collect all unique participant IDs
       const allParticipantIds = [...new Set(games.flatMap((g) => g.participant_ids))];
 
       // Fetch all participants in one query
-      const { data: players, error: playersError } = await supabase
+      const { data: rawPlayers, error: playersError } = await supabase
         .from('players')
         .select('id, name, handicap')
         .in('id', allParticipantIds);
@@ -214,14 +280,16 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
         console.error('[useSkins] Failed to fetch participants:', playersError);
       }
 
+      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
+
       const playerMap = new Map(
-        (players ?? []).map((p) => [p.id, { id: p.id, name: p.name, handicap: p.handicap }])
+        players.map((p) => [p.id, { id: p.id, name: p.name, handicap: p.handicap }])
       );
 
       return games.map((game) => ({
         ...game,
         participants: game.participant_ids
-          .map((id) => playerMap.get(id))
+          .map((id: string) => playerMap.get(id))
           .filter((p): p is SkinsParticipant => p !== undefined),
       })) as SkinsGameWithParticipants[];
     },
@@ -245,32 +313,21 @@ export function useSkinsResults(gameId: string | undefined) {
   return useQuery({
     queryKey: skinsKeys.results(gameId ?? ''),
     queryFn: async (): Promise<SkinsResultWithWinner[] | SkinsResultWithTeamWinner[]> => {
-      if (!gameId) {
-        console.log('[useSkinsResults] No gameId provided, returning empty');
-        return [];
-      }
+      if (!gameId) return [];
 
-      console.log('[useSkinsResults] Fetching results for game:', gameId);
-
-      const { data: results, error } = await supabase
+      const { data: rawResults, error } = await supabase
         .from('skins_results')
         .select('*')
         .eq('skins_game_id', gameId)
         .order('hole_number', { ascending: true });
 
-      console.log('[useSkinsResults] Query result:', {
-        gameId,
-        resultsCount: results?.length ?? 0,
-        holeNumbers: results?.map(r => r.hole_number),
-        teamWinnerIds: results?.map(r => r.team_winner_id),
-        error: error?.message,
-      });
+      const results = (rawResults ?? []) as unknown as SkinsResultRow[];
 
       if (error) {
         throw createError(`Failed to fetch skins results: ${error.message}`, 'DATABASE');
       }
 
-      if (!results || results.length === 0) return [];
+      if (results.length === 0) return [];
 
       // Check if any results have team winners (team skins)
       const hasTeamWinners = results.some((r) => r.team_winner_id);
@@ -282,33 +339,38 @@ export function useSkinsResults(gameId: string | undefined) {
         let teamWinnerMap = new Map<string, SkinsTeamWinner>();
         if (teamWinnerIds.length > 0) {
           // First try to fetch from teams table (competition teams)
-          const { data: teams } = await supabase
+          const { data: rawTeams } = await supabase
             .from('teams')
             .select('id, name')
             .in('id', teamWinnerIds);
 
-          if (teams && teams.length > 0) {
+          const teams = (rawTeams ?? []) as unknown as Array<{ id: string; name: string }>;
+
+          if (teams.length > 0) {
             teamWinnerMap = new Map(teams.map((t) => [t.id, { id: t.id, name: t.name, members: [] }]));
           }
 
           // If not all teams found in teams table, check round.team_config (standalone rounds)
           if (teamWinnerMap.size < teamWinnerIds.length) {
             // Fetch the skins game to get round_id
-            const { data: skinsGame } = await supabase
+            const { data: rawSkinsGame } = await supabase
               .from('skins_games')
               .select('round_id')
               .eq('id', gameId)
               .single();
 
+            const skinsGame = rawSkinsGame as unknown as { round_id: string } | null;
+
             if (skinsGame?.round_id) {
               // Fetch the round's team_config
-              const { data: round } = await supabase
+              const { data: rawRound } = await supabase
                 .from('rounds')
                 .select('team_config')
                 .eq('id', skinsGame.round_id)
                 .single();
 
-              const teamConfig = (round as { team_config?: { teams?: Array<{ id: string; name: string }> } })?.team_config;
+              const round = rawRound as unknown as { team_config?: { teams?: Array<{ id: string; name: string }> } } | null;
+              const teamConfig = round?.team_config;
               if (teamConfig?.teams) {
                 // Add teams from team_config that aren't already in the map
                 teamConfig.teams.forEach((t) => {
@@ -329,16 +391,18 @@ export function useSkinsResults(gameId: string | undefined) {
       }
 
       // Individual skins - fetch player winner details
-      const winnerIds = [...new Set(results.map((r) => r.winner_id).filter(Boolean))];
+      const winnerIds = [...new Set(results.map((r) => r.winner_id).filter(Boolean))] as string[];
 
       let winnerMap = new Map<string, SkinsWinner>();
       if (winnerIds.length > 0) {
-        const { data: winners } = await supabase
+        const { data: rawWinners } = await supabase
           .from('players')
           .select('id, name')
           .in('id', winnerIds);
 
-        if (winners) {
+        const winners = (rawWinners ?? []) as unknown as Array<{ id: string; name: string }>;
+
+        if (winners.length > 0) {
           winnerMap = new Map(winners.map((w) => [w.id, { id: w.id, name: w.name }]));
         }
       }
@@ -371,7 +435,7 @@ export function useSkinsPayouts(gameId: string | undefined) {
     queryFn: async (): Promise<SkinsPayoutWithPlayer[]> => {
       if (!gameId) return [];
 
-      const { data: payouts, error } = await supabase
+      const { data: rawPayouts, error } = await supabase
         .from('skins_payouts')
         .select('*')
         .eq('skins_game_id', gameId)
@@ -381,22 +445,27 @@ export function useSkinsPayouts(gameId: string | undefined) {
         throw createError(`Failed to fetch skins payouts: ${error.message}`, 'DATABASE');
       }
 
-      if (!payouts || payouts.length === 0) return [];
+      const payouts = (rawPayouts ?? []) as unknown as SkinsPayoutRow[];
+      if (payouts.length === 0) return [];
 
       // Get player details
-      const playerIds = payouts.map((p) => p.player_id);
-      const { data: players } = await supabase
+      const playerIds = payouts.map((p) => p.player_id).filter(Boolean) as string[];
+      const { data: rawPlayers } = await supabase
         .from('players')
         .select('id, name')
         .in('id', playerIds);
 
+      const players = (rawPlayers ?? []) as unknown as Array<{ id: string; name: string }>;
+
       const playerMap = new Map<string, SkinsPayoutPlayer>(
-        (players ?? []).map((p) => [p.id, { id: p.id, name: p.name }])
+        players.map((p) => [p.id, { id: p.id, name: p.name }])
       );
 
       return payouts.map((payout) => ({
         ...payout,
-        player: playerMap.get(payout.player_id) ?? { id: payout.player_id, name: 'Unknown' },
+        player: payout.player_id
+          ? playerMap.get(payout.player_id) ?? { id: payout.player_id, name: 'Unknown' }
+          : null,
       })) as SkinsPayoutWithPlayer[];
     },
     enabled: !!gameId,

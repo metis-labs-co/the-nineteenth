@@ -245,7 +245,7 @@ class GolfApiClient {
     params?: Record<string, unknown>
   ): string {
     // Ensure baseUrl ends without slash and endpoint starts without slash
-    const baseUrl = this.config.baseUrl.replace(/\/$/, '');
+    const baseUrl = (this.config.baseUrl ?? '').replace(/\/$/, '');
     const cleanEndpoint = endpoint.replace(/^\//, '');
     const fullUrl = `${baseUrl}/${cleanEndpoint}`;
 

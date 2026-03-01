@@ -56,7 +56,7 @@ describe('ScaledText', () => {
     });
 
     it('renders empty children', () => {
-      render(<ScaledText testID="empty" />);
+      render(<ScaledText testID="empty">{''}</ScaledText>);
       expect(screen.getByTestId('empty')).toBeTruthy();
     });
 

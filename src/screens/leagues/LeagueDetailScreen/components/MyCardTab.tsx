@@ -7,6 +7,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { EmptyState } from '@/components/common/EmptyState';
 import EclecticScorecardView from '@/components/leagues/EclecticScorecardView';
 import type { EclecticBestScore, EclecticScoring } from '@/types/database';
 
@@ -58,12 +59,12 @@ export default function MyCardTab({
           courseName={courseName}
         />
       ) : (
-        <View style={styles.emptyContainer}>
-          <Icon source="golf" size={48} color={colors.gray300} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Course data loading...
-          </Text>
-        </View>
+        <EmptyState
+          title="Loading Course Data"
+          message="Course data is loading..."
+          icon="golf"
+          compact
+        />
       )}
     </View>
   );
@@ -85,13 +86,5 @@ const styles = StyleSheet.create({
   },
   tagButtonText: {
     ...typography.bodyBold,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    gap: spacing.md,
-  },
-  emptyText: {
-    ...typography.body,
   },
 });

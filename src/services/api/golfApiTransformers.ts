@@ -23,10 +23,6 @@ import type {
   GolfApiTee,
   GolfApiCoordinate,
   GolfApiCoordinatesResponse,
-  // Legacy types for backward compatibility
-  GolfApiLegacyClubResponse,
-  GolfApiCourseDetail,
-  GolfApiOldTee,
 } from './golfApiTypes';
 import {
   parseRating,
@@ -44,9 +40,6 @@ import type {
   MeasureUnit,
   Hole,
   GeoPoint,
-  // Legacy types for backward compatibility
-  LegacyCourse,
-  TeeBox,
 } from '@/types/database';
 
 // =====================================================
@@ -608,115 +601,3 @@ export function sortByDistance(results: Partial<Club>[]): Partial<Club>[] {
   return results;
 }
 
-// =====================================================
-// LEGACY COMPATIBILITY LAYER
-// These functions maintain backward compatibility with courseService.ts
-// They will be removed when courseService.ts is updated to use new API
-// =====================================================
-
-/**
- * @deprecated Use transformApiClubResponse instead
- * Transform legacy GolfAPI.io club response to partial LegacyCourse
- * Kept for backward compatibility with courseService.ts
- */
-export function transformClubToCourse(club: GolfApiLegacyClubResponse): Partial<LegacyCourse> {
-  // Create GeoPoint for PostGIS
-  const location: GeoPoint | null = club.coordinates
-    ? { type: 'Point', coordinates: [club.coordinates.longitude, club.coordinates.latitude] }
-    : null;
-
-  // Normalize state code
-  const normalizedState = normalizeAustralianState(club.state);
-
-  return {
-    source: 'api' as const,
-    api_id: club.id,
-    name: club.name,
-    state: isAustralianState(normalizedState) ? normalizedState : null,
-    city: club.city || null,
-    address: club.address || null,
-    phone: club.phone || null,
-    email: club.email || null,
-    website: club.website || null,
-    location,
-    holes: null,
-    tees: null,
-    slope_rating: null,
-    course_rating: null,
-  };
-}
-
-/**
- * @deprecated Use transformApiTee instead
- * Transform legacy tee data to TeeBox
- */
-function transformLegacyTee(apiTee: GolfApiOldTee): TeeBox {
-  return {
-    name: apiTee.name || apiTee.color || 'Unknown',
-    color: apiTee.color || 'white',
-    totalYardage: apiTee.totalYardage || 0,
-    courseRating: apiTee.courseRating,
-    slopeRating: apiTee.slopeRating,
-  };
-}
-
-/**
- * @deprecated Use transformApiCourseResponse instead
- * Transform legacy course detail with club to partial LegacyCourse
- * Kept for backward compatibility with courseService.ts
- */
-export function transformCourseDetail(
-  club: GolfApiLegacyClubResponse,
-  course: GolfApiCourseDetail
-): Partial<LegacyCourse> {
-  // Create GeoPoint for PostGIS
-  const location: GeoPoint | null = club.coordinates
-    ? { type: 'Point', coordinates: [club.coordinates.longitude, club.coordinates.latitude] }
-    : null;
-
-  // Normalize state code
-  const normalizedState = normalizeAustralianState(club.state);
-
-  // Transform holes
-  const holes: Hole[] | null =
-    course.holes && course.holes.length > 0
-      ? course.holes
-          .map((h) => ({
-            number: h.number as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18,
-            par: h.par,
-            strokeIndex: h.strokeIndex,
-            yardages: h.yardages?.reduce((acc, y) => {
-              acc[y.teeName?.toLowerCase() || y.teeId] = y.yards;
-              return acc;
-            }, {} as Record<string, number>),
-          }))
-          .sort((a, b) => a.number - b.number)
-      : null;
-
-  // Transform tees
-  const tees: TeeBox[] | null =
-    course.tees && course.tees.length > 0
-      ? course.tees.map(transformLegacyTee)
-      : null;
-
-  // Get primary tee ratings
-  const primaryTee = course.tees?.[0];
-
-  return {
-    source: 'api' as const,
-    api_id: course.id,
-    name: course.name || club.name,
-    state: isAustralianState(normalizedState) ? normalizedState : null,
-    city: club.city || null,
-    address: club.address || null,
-    phone: club.phone || null,
-    email: club.email || null,
-    website: club.website || null,
-    location,
-    holes,
-    tees,
-    slope_rating: course.slopeRating ?? primaryTee?.slopeRating ?? null,
-    course_rating: course.courseRating ?? primaryTee?.courseRating ?? null,
-    last_synced: new Date().toISOString(),
-  };
-}

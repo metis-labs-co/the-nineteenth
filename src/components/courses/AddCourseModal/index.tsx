@@ -28,7 +28,7 @@ export type { AddCourseModalProps };
 export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseModalProps) {
   const colors = useThemeColors();
 
-  const wizard = useAddCourseWizard({ onClose, onVenueCreated });
+  const wizard = useAddCourseWizard({ onClose, onClubCreated: onVenueCreated ?? (() => {}) });
 
   const teeManagement = useTeeManagement({
     onAddTee: wizard.handleAddTee,
@@ -118,7 +118,7 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
           {wizard.currentStep === 1 && (
             <VenueDetailsStep
               data={wizard.wizardData.step1}
-              onVenueNameChange={wizard.handleVenueNameChange}
+              onVenueNameChange={wizard.handleClubNameChange}
               onCityChange={wizard.handleCityChange}
               onStateChange={wizard.handleStateChange}
             />

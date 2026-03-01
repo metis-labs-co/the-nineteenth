@@ -47,6 +47,7 @@ import type {
 } from '@/services/api/golfApiTypes';
 
 import { GolfApiPoiType, GolfApiLocation } from '@/services/api/golfApiTypes';
+import type { Hole } from '@/types/database.types';
 
 // ============================================================================
 // Test Helpers
@@ -1107,8 +1108,8 @@ describe('golfApiTransformers', () => {
       it('returns true for 18 valid holes', () => {
         const course = {
           holes: Array.from({ length: 18 }, (_, i) => ({
-            number: i + 1,
-            par: 4,
+            number: (i + 1) as Hole['number'],
+            par: 4 as Hole['par'],
             strokeIndex: i + 1,
           })),
         };
@@ -1119,8 +1120,8 @@ describe('golfApiTransformers', () => {
       it('returns true for 9 valid holes', () => {
         const course = {
           holes: Array.from({ length: 9 }, (_, i) => ({
-            number: i + 1,
-            par: 4,
+            number: (i + 1) as Hole['number'],
+            par: 4 as Hole['par'],
             strokeIndex: i + 1,
           })),
         };

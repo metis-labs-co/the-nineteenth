@@ -128,6 +128,7 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
     start_date: '2025-01-15',
     end_date: '2025-01-16',
     handicap_system: 'honor' as HandicapSystem,
+    handicap_source: 'profile',
     visibility: 'private',
     invite_code: 'SUMMER25',
     organizer_id: 'organizer-1',
@@ -135,6 +136,7 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
     team_mode: 'none' as TeamMode,
     team_size: null,
     point_system: DEFAULT_POINT_SYSTEM,
+    knockout_config: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -142,19 +144,27 @@ function createTestCompetition(overrides: Partial<Competition> = {}): Competitio
   };
 }
 
-function createTestCourse(overrides: Partial<Course> = {}): Course & { venues?: { name: string; city: string | null; state: string | null } | null } {
+function createTestCourse(overrides: Partial<Course> = {}): Course & { clubs?: { name: string; city: string | null; state: string | null } | null } {
   return {
     id: 'course-1',
-    venue_id: 'venue-1',
+    club_id: 'club-1',
+    golfapi_course_id: null,
+    golfapi_long_course_id: null,
     name: 'Royal Melbourne Golf Course',
     description: 'Championship course',
+    num_holes: 18,
+    measure_unit: null,
     holes: [],
+    holes_women: null,
+    match_play_indexes: null,
     tees: [],
+    tees_migrated: null,
     slope_rating: 125,
     course_rating: 72.5,
+    golfapi_updated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    venues: {
+    clubs: {
       name: 'Royal Melbourne Golf Club',
       city: 'Melbourne',
       state: 'VIC',
@@ -648,11 +658,11 @@ describe('DetailsTab', () => {
 
     it('handles courses without venue data', () => {
       // Create a course and explicitly remove venue data
-      const courseWithoutVenue: Course & { venues?: { name: string; city: string | null; state: string | null } | null } = {
+      const courseWithoutClub: Course & { clubs?: { name: string; city: string | null; state: string | null } | null } = {
         ...createTestCourse(),
-        venues: null,
+        clubs: null,
       };
-      const rounds: RoundWithCourse[] = [createTestRound(1, courseWithoutVenue)];
+      const rounds: RoundWithCourse[] = [createTestRound(1, courseWithoutClub)];
       render(<DetailsTab {...defaultProps} rounds={rounds} />);
       expect(screen.getByTestId('course-card-course-1')).toBeTruthy();
     });

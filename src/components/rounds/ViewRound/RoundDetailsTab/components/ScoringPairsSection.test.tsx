@@ -120,11 +120,15 @@ function createMockPlayer(overrides: Partial<{
     golf_id: null,
     handicap_updated_at: null,
     photo_url: overrides.photo_url ?? null,
-    home_venue_id: null,
+    gender: null,
+    handicap_index: null,
+    handicap_index_updated_at: null,
+    home_club_id: null,
     push_enabled: true,
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
+    push_league_updates: true,
     equipped_badge_id: null,
     equipped_frame_id: null,
     equipped_title_id: null,
@@ -232,6 +236,7 @@ const defaultProps = {
   roundId: 'round-1',
   scoringPairsRequired: false,
   cardBackground: '#ffffff',
+  roundStatus: 'upcoming' as const,
 };
 
 // ===========================================================================
@@ -271,6 +276,7 @@ describe('ScoringPairsSection', () => {
           roundId="round-1"
           scoringPairsRequired={false}
           cardBackground="#fff"
+          roundStatus="upcoming"
         />
       );
       expect(screen.getByText('Scoring Pairs')).toBeTruthy();
@@ -317,11 +323,11 @@ describe('ScoringPairsSection', () => {
     });
 
     it('does not show manage button when not premium', () => {
-      const onManagePress = jest.fn();
+      const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
           {...defaultProps}
-          onManagePress={onManagePress}
+          onEditPress={onEditPress}
         />
       );
 
@@ -540,44 +546,44 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Manage Button', () => {
-    it('shows manage button when onManagePress provided', () => {
-      const onManagePress = jest.fn();
+    it('shows manage button when onEditPress provided', () => {
+      const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
           {...defaultProps}
-          onManagePress={onManagePress}
+          onEditPress={onEditPress}
         />
       );
 
       expect(screen.getByText('Manage')).toBeTruthy();
     });
 
-    it('does not show manage button when onManagePress not provided', () => {
+    it('does not show manage button when onEditPress not provided', () => {
       render(<ScoringPairsSection {...defaultProps} />);
 
       expect(screen.queryByText('Manage')).toBeNull();
     });
 
-    it('calls onManagePress when manage button pressed', () => {
-      const onManagePress = jest.fn();
+    it('calls onEditPress when manage button pressed', () => {
+      const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
           {...defaultProps}
-          onManagePress={onManagePress}
+          onEditPress={onEditPress}
         />
       );
 
       fireEvent.press(screen.getByText('Manage'));
 
-      expect(onManagePress).toHaveBeenCalledTimes(1);
+      expect(onEditPress).toHaveBeenCalledTimes(1);
     });
 
     it('has correct accessibility label on manage button', () => {
-      const onManagePress = jest.fn();
+      const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
           {...defaultProps}
-          onManagePress={onManagePress}
+          onEditPress={onEditPress}
         />
       );
 
@@ -774,7 +780,7 @@ describe('ScoringPairsSection', () => {
 
   describe('Props Combinations', () => {
     it('renders correctly with all props enabled', () => {
-      const onManagePress = jest.fn();
+      const onEditPress = jest.fn();
       mockUseScoringPairs.mockReturnValue({
         data: createReciprocalPairs(),
         isLoading: false,
@@ -787,7 +793,8 @@ describe('ScoringPairsSection', () => {
           roundId="round-1"
           scoringPairsRequired={true}
           cardBackground="#ffffff"
-          onManagePress={onManagePress}
+          roundStatus="upcoming"
+          onEditPress={onEditPress}
         />
       );
 
@@ -803,6 +810,7 @@ describe('ScoringPairsSection', () => {
           roundId="round-1"
           scoringPairsRequired={false}
           cardBackground="#ffffff"
+          roundStatus="upcoming"
         />
       );
 
@@ -933,7 +941,7 @@ describe('ScoringPairsSection', () => {
         <ScoringPairsSection
           {...defaultProps}
           scoringPairsRequired={true}
-          onManagePress={jest.fn()}
+          onEditPress={jest.fn()}
         />
       );
 

@@ -205,6 +205,7 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     push_competition_updates: false,
     push_friend_requests: false,
     push_scorecard_updates: false,
+    push_league_updates: false,
     equipped_badge_id: null,
     equipped_frame_id: null,
     equipped_title_id: null,

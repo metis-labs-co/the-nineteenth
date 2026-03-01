@@ -507,12 +507,12 @@ export const MatchTypeBestBall: Story = {
 };
 
 /**
- * Scramble
+ * Shamble
  */
-export const MatchTypeScramble: Story = {
+export const MatchTypeShamble: Story = {
   render: () => (
     <InteractiveRoundCard
-      round={createMockRound({ matchType: 'scramble' })}
+      round={createMockRound({ matchType: 'shamble' })}
       index={0}
       errors={{}}
       isRemovable={false}

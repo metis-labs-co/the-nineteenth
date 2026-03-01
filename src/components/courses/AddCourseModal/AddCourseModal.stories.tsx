@@ -10,7 +10,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { AddCourseModal } from './index';
-import type { Venue, Course } from '@/types/database.types';
+import type { Club, Course } from '@/types/database.types';
 
 // =====================================================
 // META
@@ -78,11 +78,11 @@ function InteractiveWrapper({
   ...props
 }: Partial<React.ComponentProps<typeof AddCourseModal>> & { initialVisible?: boolean }) {
   const [visible, setVisible] = useState(initialVisible);
-  const [lastCreated, setLastCreated] = useState<{ venue: Venue; course: Course } | null>(null);
+  const [lastCreated, setLastCreated] = useState<{ club: Club; course: Course } | null>(null);
 
-  const handleVenueCreated = (venue: Venue, course: Course) => {
-    setLastCreated({ venue, course });
-    console.log('Venue created:', venue);
+  const handleClubCreated = (club: Club, course: Course) => {
+    setLastCreated({ club, course });
+    console.log('Club created:', club);
     console.log('Course created:', course);
   };
 
@@ -96,14 +96,14 @@ function InteractiveWrapper({
       <AddCourseModal
         visible={visible}
         onClose={() => setVisible(false)}
-        onVenueCreated={handleVenueCreated}
+        onClubCreated={handleClubCreated}
         {...props}
       />
 
       {lastCreated && (
         <View style={styles.resultContainer}>
           <Text style={styles.resultTitle}>Last Created:</Text>
-          <Text>Venue: {lastCreated.venue.name}</Text>
+          <Text>Club: {lastCreated.club.name}</Text>
           <Text>Course: {lastCreated.course.name}</Text>
         </View>
       )}
@@ -137,7 +137,7 @@ export const Hidden: Story = {
   args: {
     visible: false,
     onClose: () => console.log('onClose called'),
-    onVenueCreated: () => console.log('onVenueCreated called'),
+    onClubCreated: () => console.log('onClubCreated called'),
   },
 };
 

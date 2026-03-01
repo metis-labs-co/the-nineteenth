@@ -7,6 +7,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
+import { EmptyState } from '@/components/common/EmptyState';
 import type { EclecticLeaderboardEntry, EclecticScoring } from '@/types/database';
 
 interface EclecticLeaderboardTabProps {
@@ -26,15 +27,12 @@ export default function EclecticLeaderboardTab({
 
   if (leaderboard.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Icon source="star-shooting" size={48} color={colors.gray300} />
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          No scores recorded yet
-        </Text>
-        <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-          Tag a round from this course to start building your eclectic scorecard
-        </Text>
-      </View>
+      <EmptyState
+        title="No scores recorded yet"
+        message="Tag a round from this course to start building your eclectic scorecard"
+        icon="star-shooting"
+        compact
+      />
     );
   }
 
@@ -180,18 +178,5 @@ const styles = StyleSheet.create({
   },
   roundsText: {
     ...typography.small,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    gap: spacing.sm,
-  },
-  emptyText: {
-    ...typography.body,
-  },
-  emptyHint: {
-    ...typography.small,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xxl,
   },
 });

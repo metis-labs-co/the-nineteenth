@@ -108,14 +108,12 @@ export function WolfGameSection({
 
     if (shouldAutoFinalize) {
       hasAttemptedFinalize.current = true;
-      console.log('[WolfGameSection] Auto-finalizing Wolf game:', wolfGame.id);
       finalizeGame({ gameId: wolfGame.id })
         .then(() => {
-          console.log('[WolfGameSection] Auto-finalize successful, refetching payouts');
           refetchPayouts();
         })
-        .catch((error) => {
-          console.error('[WolfGameSection] Auto-finalize failed:', error);
+        .catch(() => {
+          // Auto-finalize failed silently
         });
     }
   }, [

@@ -112,7 +112,7 @@ async function main() {
       // Insert tees
       const tees = courseTees[course.id] || [];
       for (const tee of tees) {
-        const { id: _tid, created_at: _tca, course_id: _tci, total_length: _tl, ...teeData } = tee;
+        const { id: _tid, created_at: _tca, course_id: _tci, total_length: _tl, front9_length: _f9, back9_length: _b9, ...teeData } = tee;
         teeData.course_id = newCourse.id;
         const { error: teeErr } = await prod.from('tees').insert(teeData);
         if (teeErr) {

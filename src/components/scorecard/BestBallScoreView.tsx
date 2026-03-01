@@ -210,12 +210,6 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   const strokesOnHole = getStrokesOnHole(player.handicap ?? 0, currentHole);
 
   const handleDecrement = useCallback(() => {
-    console.log('[BestBallScoreView] Decrement pressed:', {
-      playerId: player.id.substring(0, 8) + '...',
-      disabled,
-      currentScore: selectedScore,
-      isPickedUp,
-    });
     if (!disabled) {
       if (isPickedUp) {
         onScoreSelect(player.id, currentHole.par + 2);
@@ -227,12 +221,6 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   }, [disabled, player.id, selectedScore, currentHole.par, onScoreSelect, isPickedUp]);
 
   const handleIncrement = useCallback(() => {
-    console.log('[BestBallScoreView] Increment pressed:', {
-      playerId: player.id.substring(0, 8) + '...',
-      disabled,
-      currentScore: selectedScore,
-      isPickedUp,
-    });
     if (!disabled && !isPickedUp) {
       const newScore = selectedScore ? Math.min(MAX_SCORE, selectedScore + 1) : currentHole.par;
       onScoreSelect(player.id, newScore);
@@ -240,11 +228,6 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   }, [disabled, player.id, selectedScore, currentHole.par, onScoreSelect, isPickedUp]);
 
   const handlePickUp = useCallback(() => {
-    console.log('[BestBallScoreView] PickUp pressed:', {
-      playerId: player.id.substring(0, 8) + '...',
-      disabled,
-      currentScore: selectedScore,
-    });
     if (!disabled) {
       onScoreSelect(player.id, PICKUP_SCORE);
     }

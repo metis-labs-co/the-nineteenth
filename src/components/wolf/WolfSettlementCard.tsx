@@ -25,13 +25,12 @@ import { Text, Icon, Divider } from 'react-native-paper';
 import { useConfirmationDialog } from '@/hooks';
 import { ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import {
   formatWolfCurrency,
   formatWolfNetResult,
   simplifyWolfDebts,
 } from '@/utils/wolfCalculations';
-import { WOLF_COLOR } from './WolfSection';
 import type { WolfPayoutWithPlayer } from '@/types/database/wolf.types';
 
 // ============================================================================
@@ -147,7 +146,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
       {/* Card Header */}
       <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
         <View style={styles.titleContainer}>
-          <Icon source="cash-multiple" size={24} color={WOLF_COLOR} />
+          <Icon source="cash-multiple" size={24} color={wolfColor} />
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             SETTLEMENT
           </Text>
@@ -156,7 +155,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
           <Text style={[styles.potValueLabel, { color: colors.textSecondary }]}>
             Per-point value:
           </Text>
-          <Text style={[styles.potValue, { color: WOLF_COLOR }]}>
+          <Text style={[styles.potValue, { color: wolfColor }]}>
             {formatWolfCurrency(potValue)}
           </Text>
         </View>
@@ -329,7 +328,7 @@ export const WolfSettlementCard = React.memo(function WolfSettlementCard({
           style={[
             styles.actionButton,
             styles.shareButton,
-            { backgroundColor: WOLF_COLOR },
+            { backgroundColor: wolfColor },
           ]}
           onPress={handleShare}
           accessibilityLabel="Share results"

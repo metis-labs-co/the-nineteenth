@@ -5,8 +5,8 @@
  */
 
 import { teeToTeeBox } from '@/utils/teeTransformers';
-import type { Course } from '@/types/database.types';
-import type { SupabaseCourseWithTees, ClubWithCourses, SearchResultItem } from './types';
+import type { Club, Course, CourseSource } from '@/types/database.types';
+import type { SupabaseCourseWithTees, ClubWithCourses, ClubCourseDisplayItem, SearchResultItem } from './types';
 
 /**
  * Merge tees from the tees table into the course's tees field
@@ -31,4 +31,69 @@ export function mergeTees(course: SupabaseCourseWithTees): Course {
  */
 export function isLocalClub(item: SearchResultItem): item is ClubWithCourses {
   return !('source' in item) || item.source !== 'golfapi';
+}
+
+/**
+ * Transform a SearchResultItem (which may be a local ClubWithCourses or a GolfApiSearchResultItem)
+ * into a ClubCourseDisplayItem for UI display.
+ *
+ * Safely handles the union type by providing defaults for properties
+ * that only exist on the full Club type.
+ */
+export function toClubCourseDisplayItem(item: SearchResultItem): ClubCourseDisplayItem {
+  const clubData: Club = isLocalClub(item)
+    ? {
+        id: item.id,
+        source: item.source,
+        golfapi_club_id: item.golfapi_club_id,
+        name: item.name,
+        state: item.state,
+        city: item.city,
+        address: item.address,
+        postal_code: item.postal_code,
+        country: item.country,
+        continent: item.continent,
+        phone: item.phone,
+        email: item.email,
+        website: item.website,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        location: item.location,
+        total_holes: item.total_holes,
+        is_featured: item.is_featured,
+        last_synced: item.last_synced,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }
+    : {
+        id: item.id,
+        source: 'api' as CourseSource,
+        golfapi_club_id: item.golfapi_club_id,
+        name: item.name,
+        state: item.state,
+        city: item.city,
+        address: null,
+        postal_code: null,
+        country: 'Australia',
+        continent: null,
+        phone: null,
+        email: null,
+        website: null,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        location: null,
+        total_holes: null,
+        is_featured: false,
+        last_synced: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+  return {
+    type: item.is_multi_course ? 'multi-course-club' : 'single-course',
+    club: clubData,
+    venue: clubData,
+    courses: item.courses,
+    is_home: item.is_home,
+  };
 }

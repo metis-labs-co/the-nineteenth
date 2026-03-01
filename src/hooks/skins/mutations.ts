@@ -30,6 +30,35 @@ import type {
 } from '@/types/database/skins.types';
 
 // =====================================================
+// LOCAL DB ROW TYPES
+// =====================================================
+
+/** Row shape returned from skins_games table queries */
+type SkinsGameRow = SkinsGame;
+
+/** Row shape returned from skins_results table queries */
+interface SkinsResultRow {
+  id: string;
+  skins_game_id: string;
+  hole_number: number;
+  winner_id: string | null;
+  team_winner_id: string | null;
+  is_carryover: boolean;
+  hole_scores: unknown;
+  hole_pot_value: number;
+  carryover_to_next: number;
+  payout_amount: number;
+  calculated_at: string;
+}
+
+/** Row shape for player queries */
+interface PlayerRow {
+  id: string;
+  name: string;
+  handicap: number | null;
+}
+
+// =====================================================
 // TYPES
 // =====================================================
 
@@ -91,7 +120,7 @@ export function useCreateSkinsGame() {
           } as never);
 
           throw createError(
-            `Insufficient skins budget. Requested $${totalPotNeeded.toFixed(2)} but only $${((remaining as number) ?? 0).toFixed(2)} available.`,
+            `Insufficient skins budget. Requested $${totalPotNeeded.toFixed(2)} but only $${((remaining as unknown as number) ?? 0).toFixed(2)} available.`,
             'VALIDATION'
           );
         }
@@ -110,7 +139,7 @@ export function useCreateSkinsGame() {
           throw createError(`Failed to draw from pool: ${drawError.message}`, 'DATABASE');
         }
 
-        poolDrawAmount = (drawnAmount as number) ?? 0;
+        poolDrawAmount = (drawnAmount as unknown as number) ?? 0;
 
         if (gameInput.pot_type === 'per_hole') {
           potValue = poolDrawAmount / 18;
@@ -139,7 +168,7 @@ export function useCreateSkinsGame() {
 
       const { data, error } = await supabase
         .from('skins_games')
-        .insert(insertData)
+        .insert(insertData as never)
         .select()
         .single();
 
@@ -156,7 +185,7 @@ export function useCreateSkinsGame() {
         throw createError(`Failed to create skins game: ${error.message}`, 'DATABASE');
       }
 
-      return data as SkinsGame;
+      return data as unknown as SkinsGame;
     },
 
     onSuccess: (data) => {
@@ -185,23 +214,27 @@ export function useProcessSkinsHole() {
     mutationFn: async (input: ProcessSkinsHoleInput): Promise<SkinsResult> => {
       const { skinsGameId, holeNumber, holeScores } = input;
 
-      const { data: game, error: gameError } = await supabase
+      const { data: rawGame, error: gameError } = await supabase
         .from('skins_games')
         .select('*')
         .eq('id', skinsGameId)
         .single();
 
+      const game = rawGame as unknown as SkinsGameRow | null;
+
       if (gameError || !game) {
         throw createError('Skins game not found', 'NOT_FOUND');
       }
 
-      const { data: existingResults } = await supabase
+      const { data: rawExistingResults } = await supabase
         .from('skins_results')
         .select('*')
         .eq('skins_game_id', skinsGameId)
         .order('hole_number', { ascending: true });
 
-      const currentCarryover = calculateCurrentCarryover(existingResults ?? []);
+      const existingResults = (rawExistingResults ?? []) as unknown as SkinsResultRow[];
+
+      const currentCarryover = calculateCurrentCarryover(existingResults as unknown as SkinsResult[]);
       const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
 
       const resultData = processHoleResult(
@@ -212,12 +245,14 @@ export function useProcessSkinsHole() {
         game.scoring_type
       );
 
-      const { data: existingHole } = await supabase
+      const { data: rawExistingHole } = await supabase
         .from('skins_results')
         .select('id')
         .eq('skins_game_id', skinsGameId)
         .eq('hole_number', holeNumber)
         .single();
+
+      const existingHole = rawExistingHole as unknown as { id: string } | null;
 
       let result: SkinsResult;
 
@@ -232,7 +267,7 @@ export function useProcessSkinsHole() {
             carryover_to_next: resultData.carryover_to_next,
             payout_amount: resultData.payout_amount,
             calculated_at: new Date().toISOString(),
-          })
+          } as never)
           .eq('id', existingHole.id)
           .select()
           .single();
@@ -241,7 +276,7 @@ export function useProcessSkinsHole() {
           throw createError(`Failed to update skins result: ${error.message}`, 'DATABASE');
         }
 
-        result = data as SkinsResult;
+        result = data as unknown as SkinsResult;
       } else {
         const { data, error } = await supabase
           .from('skins_results')
@@ -254,7 +289,7 @@ export function useProcessSkinsHole() {
             hole_pot_value: resultData.hole_pot_value,
             carryover_to_next: resultData.carryover_to_next,
             payout_amount: resultData.payout_amount,
-          })
+          } as never)
           .select()
           .single();
 
@@ -262,14 +297,13 @@ export function useProcessSkinsHole() {
           throw createError(`Failed to insert skins result: ${error.message}`, 'DATABASE');
         }
 
-        result = data as SkinsResult;
+        result = data as unknown as SkinsResult;
       }
 
       return result;
     },
 
     onSuccess: (data) => {
-      console.log('[useProcessSkinsHole] Success, invalidating cache for game:', data.skins_game_id);
       queryClient.invalidateQueries({
         queryKey: skinsKeys.results(data.skins_game_id),
         refetchType: 'all',
@@ -300,11 +334,13 @@ export function useProcessTeamSkinsHole() {
     mutationFn: async (input: ProcessTeamSkinsHoleInput): Promise<SkinsResult> => {
       const { skinsGameId, holeNumber, teamScores, teamFormat, skipTeamValidation } = input;
 
-      const { data: game, error: gameError } = await supabase
+      const { data: rawGame, error: gameError } = await supabase
         .from('skins_games')
         .select('*')
         .eq('id', skinsGameId)
         .single();
+
+      const game = rawGame as unknown as SkinsGameRow | null;
 
       if (gameError || !game) {
         throw createError('Skins game not found', 'NOT_FOUND');
@@ -314,13 +350,15 @@ export function useProcessTeamSkinsHole() {
         throw createError('This is not a team skins game', 'VALIDATION');
       }
 
-      const { data: existingResults } = await supabase
+      const { data: rawExistingResults } = await supabase
         .from('skins_results')
         .select('*')
         .eq('skins_game_id', skinsGameId)
         .order('hole_number', { ascending: true });
 
-      const currentCarryover = calculateCurrentCarryover(existingResults ?? []);
+      const existingResults = (rawExistingResults ?? []) as unknown as SkinsResultRow[];
+
+      const currentCarryover = calculateCurrentCarryover(existingResults as unknown as SkinsResult[]);
       const baseHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
 
       const resultData = processTeamHoleResult(
@@ -332,24 +370,18 @@ export function useProcessTeamSkinsHole() {
         game.scoring_type
       );
 
-      const { data: existingHole, error: existingError } = await supabase
+      const { data: rawExistingHole, error: existingError } = await supabase
         .from('skins_results')
         .select('id')
         .eq('skins_game_id', skinsGameId)
         .eq('hole_number', holeNumber)
         .maybeSingle();
 
-      console.log('[useProcessTeamSkinsHole] Checking existing result:', {
-        skinsGameId,
-        holeNumber,
-        existingHoleId: existingHole?.id,
-        existingError: existingError?.message,
-      });
+      const existingHole = rawExistingHole as unknown as { id: string } | null;
 
       let result: SkinsResult;
 
       if (existingHole) {
-        console.log('[useProcessTeamSkinsHole] Updating existing result:', existingHole.id);
         const { data, error } = await supabase
           .from('skins_results')
           .update({
@@ -361,7 +393,7 @@ export function useProcessTeamSkinsHole() {
             carryover_to_next: resultData.carryover_to_next,
             payout_amount: resultData.payout_amount,
             calculated_at: new Date().toISOString(),
-          })
+          } as never)
           .eq('id', existingHole.id)
           .select()
           .single();
@@ -370,9 +402,8 @@ export function useProcessTeamSkinsHole() {
           throw createError(`Failed to update team skins result: ${error.message}`, 'DATABASE');
         }
 
-        result = data as SkinsResult;
+        result = data as unknown as SkinsResult;
       } else {
-        console.log('[useProcessTeamSkinsHole] Inserting new result for hole:', holeNumber);
         const { data, error } = await supabase
           .from('skins_results')
           .upsert({
@@ -386,7 +417,7 @@ export function useProcessTeamSkinsHole() {
             carryover_to_next: resultData.carryover_to_next,
             payout_amount: resultData.payout_amount,
             calculated_at: new Date().toISOString(),
-          }, {
+          } as never, {
             onConflict: 'skins_game_id,hole_number',
           })
           .select()
@@ -396,14 +427,13 @@ export function useProcessTeamSkinsHole() {
           throw createError(`Failed to upsert team skins result: ${error.message}`, 'DATABASE');
         }
 
-        result = data as SkinsResult;
+        result = data as unknown as SkinsResult;
       }
 
       return result;
     },
 
     onSuccess: (data) => {
-      console.log('[useProcessTeamSkinsHole] Success, invalidating cache for game:', data.skins_game_id);
       queryClient.invalidateQueries({
         queryKey: skinsKeys.results(data.skins_game_id),
         refetchType: 'all',
@@ -432,17 +462,19 @@ export function useFinalizeSkinsGame() {
 
   return useMutation({
     mutationFn: async ({ gameId }: { gameId: string }): Promise<SkinsGame> => {
-      const { data: game, error: gameError } = await supabase
+      const { data: rawGame, error: gameError } = await supabase
         .from('skins_games')
         .select('*')
         .eq('id', gameId)
         .single();
 
+      const game = rawGame as unknown as SkinsGameRow | null;
+
       if (gameError || !game) {
         throw createError('Skins game not found', 'NOT_FOUND');
       }
 
-      const { data: results, error: resultsError } = await supabase
+      const { data: rawResults, error: resultsError } = await supabase
         .from('skins_results')
         .select('*')
         .eq('skins_game_id', gameId)
@@ -452,12 +484,16 @@ export function useFinalizeSkinsGame() {
         throw createError(`Failed to fetch results: ${resultsError.message}`, 'DATABASE');
       }
 
-      const { data: players } = await supabase
+      const results = (rawResults ?? []) as unknown as SkinsResultRow[];
+
+      const { data: rawPlayers } = await supabase
         .from('players')
         .select('id, name, handicap')
         .in('id', game.participant_ids);
 
-      const participants = (players ?? []).map((p) => ({
+      const players = (rawPlayers ?? []) as unknown as PlayerRow[];
+
+      const participants = players.map((p) => ({
         id: p.id,
         name: p.name,
         handicap: p.handicap,
@@ -467,7 +503,7 @@ export function useFinalizeSkinsGame() {
 
       const payoutResult = calculateFinalPayoutsWithCarryover(
         game as SkinsGame,
-        (results ?? []) as SkinsResult[],
+        results as unknown as SkinsResult[],
         participants,
         { poolSourced: isPoolSourced }
       );
@@ -488,7 +524,7 @@ export function useFinalizeSkinsGame() {
       if (payoutInserts.length > 0) {
         const { error: insertError } = await supabase
           .from('skins_payouts')
-          .insert(payoutInserts);
+          .insert(payoutInserts as never);
 
         if (insertError) {
           throw createError(`Failed to insert payouts: ${insertError.message}`, 'DATABASE');
@@ -500,7 +536,7 @@ export function useFinalizeSkinsGame() {
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-        })
+        } as never)
         .eq('id', gameId)
         .select()
         .single();
@@ -509,19 +545,7 @@ export function useFinalizeSkinsGame() {
         throw createError(`Failed to update game status: ${updateError.message}`, 'DATABASE');
       }
 
-      if (isPoolSourced && payoutResult.remainingCarryover > 0) {
-        console.log(
-          `[useFinalizeSkinsGame] Pool-sourced game completed. ` +
-          `Remaining carryover $${payoutResult.remainingCarryover} will be returned to pool via DB trigger.`
-        );
-      } else if (payoutResult.hole18CarryoverSplit) {
-        console.log(
-          `[useFinalizeSkinsGame] Direct pot game completed. ` +
-          `Hole 18 carryover was split among ${participants.length} participants.`
-        );
-      }
-
-      return updatedGame as SkinsGame;
+      return updatedGame as unknown as SkinsGame;
     },
 
     onSuccess: (data) => {
@@ -552,7 +576,7 @@ export function useCancelSkinsGame() {
     mutationFn: async ({ gameId }: { gameId: string }): Promise<SkinsGame> => {
       const { data, error } = await supabase
         .from('skins_games')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled' } as never)
         .eq('id', gameId)
         .select()
         .single();
@@ -561,7 +585,7 @@ export function useCancelSkinsGame() {
         throw createError(`Failed to cancel skins game: ${error.message}`, 'DATABASE');
       }
 
-      return data as SkinsGame;
+      return data as unknown as SkinsGame;
     },
 
     onSuccess: (data) => {

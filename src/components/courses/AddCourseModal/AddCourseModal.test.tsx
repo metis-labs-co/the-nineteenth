@@ -17,7 +17,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { AddCourseModal } from './index';
 import type { TeeFormData, HoleFormData } from './types';
-import type { Venue, Course } from '@/types/database.types';
+import type { Club, Course } from '@/types/database.types';
 
 // =====================================================
 // MOCKS
@@ -287,22 +287,28 @@ jest.mock('./steps/HoleDataStep', () => {
 const defaultProps = {
   visible: true,
   onClose: jest.fn(),
-  onVenueCreated: jest.fn(),
+  onClubCreated: jest.fn(),
 };
 
-const _createMockVenue = (): Venue => ({
-  id: 'venue-1',
-  name: 'Test Venue',
+const _createMockClub = (): Club => ({
+  id: 'club-1',
+  name: 'Test Club',
   city: 'Melbourne',
   state: 'VIC',
   total_holes: 18,
   source: 'manual',
-  api_id: null,
+  golfapi_club_id: null,
   address: '123 Golf St',
+  postal_code: null,
+  country: 'Australia',
+  continent: null,
+  latitude: null,
+  longitude: null,
   phone: null,
   email: null,
   website: null,
   location: null,
+  is_featured: false,
   last_synced: null,
   created_at: '2024-01-01',
   updated_at: '2024-01-01',
@@ -310,13 +316,21 @@ const _createMockVenue = (): Venue => ({
 
 const _createMockCourse = (): Course => ({
   id: 'course-1',
-  venue_id: 'venue-1',
+  club_id: 'club-1',
+  golfapi_course_id: null,
+  golfapi_long_course_id: null,
   name: 'Championship Course',
   description: null,
+  num_holes: 18,
+  measure_unit: null,
+  holes: [],
+  holes_women: null,
+  match_play_indexes: null,
+  tees: [],
+  tees_migrated: null,
   slope_rating: null,
   course_rating: null,
-  holes: [],
-  tees: [],
+  golfapi_updated_at: null,
   created_at: '2024-01-01',
   updated_at: '2024-01-01',
 });
@@ -811,7 +825,7 @@ describe('AddCourseModal', () => {
 
       expect(useAddCourseWizard).toHaveBeenCalledWith({
         onClose: defaultProps.onClose,
-        onVenueCreated: defaultProps.onVenueCreated,
+        onClubCreated: defaultProps.onClubCreated,
       });
     });
 

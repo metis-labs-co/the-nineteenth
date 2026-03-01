@@ -22,8 +22,9 @@ import {
   useSearchClubs,
   useClubsWithCourses,
   useFavoriteCoursesWithClubs,
+  toClubCourseDisplayItem,
 } from '@/hooks/useClubs';
-import type { ClubCourseDisplayItem, ClubWithCourses } from '@/hooks/useClubs';
+import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
 import { BottomSheet } from '@/components/common';
 
 // Types
@@ -77,35 +78,11 @@ export default function CreateRoundBottomSheet({
   );
   const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Helper to transform clubs to display items
-  const toDisplayItem = (club: ClubWithCourses): ClubCourseDisplayItem => ({
-    type: club.is_multi_course ? 'multi-course-club' : 'single-course',
-    club: {
-      id: club.id,
-      source: club.source,
-      golfapi_club_id: club.golfapi_club_id,
-      name: club.name,
-      state: club.state,
-      city: club.city,
-      address: club.address,
-      phone: club.phone,
-      email: club.email,
-      website: club.website,
-      location: club.location,
-      total_holes: club.total_holes,
-      last_synced: club.last_synced,
-      created_at: club.created_at,
-      updated_at: club.updated_at,
-    },
-    courses: club.courses,
-    is_home: club.is_home,
-  });
-
   // Transform clubs to display items (for both search and full list)
   const displayItems: ClubCourseDisplayItem[] =
     wizard.data.searchQuery.trim().length >= 2
-      ? (searchResults ?? []).map(toDisplayItem)
-      : (allClubs ?? []).map(toDisplayItem);
+      ? (searchResults ?? []).map(toClubCourseDisplayItem)
+      : (allClubs ?? []).map(toClubCourseDisplayItem);
 
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;

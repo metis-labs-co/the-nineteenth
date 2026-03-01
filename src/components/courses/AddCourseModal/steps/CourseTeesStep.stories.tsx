@@ -531,6 +531,8 @@ export const InteractiveDemo: Story = {
     const [editingTeeId, setEditingTeeId] = useState<string | null>(null);
     const [newTeeName, setNewTeeName] = useState('');
     const [newTeeColor, setNewTeeColor] = useState<TeeColor>('white');
+    const [newSlopeRating, setNewSlopeRating] = useState('');
+    const [newCourseRating, setNewCourseRating] = useState('');
 
     const handleAddTee = () => {
       const newId = generateId();
@@ -539,12 +541,16 @@ export const InteractiveDemo: Story = {
       setEditingTeeId(newId);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleEditTee = (tee: TeeFormData) => {
       setEditingTeeId(tee.id);
       setNewTeeName(tee.name);
       setNewTeeColor(tee.color);
+      setNewSlopeRating(tee.slopeRating?.toString() ?? '');
+      setNewCourseRating(tee.courseRating?.toString() ?? '');
     };
 
     const handleSaveTee = () => {
@@ -557,6 +563,8 @@ export const InteractiveDemo: Story = {
       setEditingTeeId(null);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleCancelEdit = (tee: TeeFormData | undefined) => {
@@ -567,6 +575,8 @@ export const InteractiveDemo: Story = {
       setEditingTeeId(null);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleDeleteTee = (teeId: string) => {
@@ -575,6 +585,8 @@ export const InteractiveDemo: Story = {
         setEditingTeeId(null);
         setNewTeeName('');
         setNewTeeColor('white');
+        setNewSlopeRating('');
+        setNewCourseRating('');
       }
     };
 
@@ -592,6 +604,8 @@ export const InteractiveDemo: Story = {
           editingTeeId={editingTeeId}
           newTeeName={newTeeName}
           newTeeColor={newTeeColor}
+          newSlopeRating={newSlopeRating}
+          newCourseRating={newCourseRating}
           onCourseNameChange={setCourseName}
           onAddTee={handleAddTee}
           onEditTee={handleEditTee}
@@ -600,6 +614,8 @@ export const InteractiveDemo: Story = {
           onDeleteTee={handleDeleteTee}
           onTeeNameChange={setNewTeeName}
           onTeeColorChange={setNewTeeColor}
+          onSlopeRatingChange={setNewSlopeRating}
+          onCourseRatingChange={setNewCourseRating}
         />
         <View style={styles.footer}>
           <Divider />
@@ -630,6 +646,8 @@ export const PrePopulatedDemo: Story = {
     const [editingTeeId, setEditingTeeId] = useState<string | null>(null);
     const [newTeeName, setNewTeeName] = useState('');
     const [newTeeColor, setNewTeeColor] = useState<TeeColor>('white');
+    const [newSlopeRating, setNewSlopeRating] = useState('');
+    const [newCourseRating, setNewCourseRating] = useState('');
 
     const handleAddTee = () => {
       const newId = generateId();
@@ -638,12 +656,16 @@ export const PrePopulatedDemo: Story = {
       setEditingTeeId(newId);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleEditTee = (tee: TeeFormData) => {
       setEditingTeeId(tee.id);
       setNewTeeName(tee.name);
       setNewTeeColor(tee.color);
+      setNewSlopeRating(tee.slopeRating?.toString() ?? '');
+      setNewCourseRating(tee.courseRating?.toString() ?? '');
     };
 
     const handleSaveTee = () => {
@@ -656,6 +678,8 @@ export const PrePopulatedDemo: Story = {
       setEditingTeeId(null);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleCancelEdit = (tee: TeeFormData | undefined) => {
@@ -665,6 +689,8 @@ export const PrePopulatedDemo: Story = {
       setEditingTeeId(null);
       setNewTeeName('');
       setNewTeeColor('white');
+      setNewSlopeRating('');
+      setNewCourseRating('');
     };
 
     const handleDeleteTee = (teeId: string) => {
@@ -673,6 +699,8 @@ export const PrePopulatedDemo: Story = {
         setEditingTeeId(null);
         setNewTeeName('');
         setNewTeeColor('white');
+        setNewSlopeRating('');
+        setNewCourseRating('');
       }
     };
 
@@ -690,6 +718,8 @@ export const PrePopulatedDemo: Story = {
           editingTeeId={editingTeeId}
           newTeeName={newTeeName}
           newTeeColor={newTeeColor}
+          newSlopeRating={newSlopeRating}
+          newCourseRating={newCourseRating}
           onCourseNameChange={setCourseName}
           onAddTee={handleAddTee}
           onEditTee={handleEditTee}
@@ -698,6 +728,8 @@ export const PrePopulatedDemo: Story = {
           onDeleteTee={handleDeleteTee}
           onTeeNameChange={setNewTeeName}
           onTeeColorChange={setNewTeeColor}
+          onSlopeRatingChange={setNewSlopeRating}
+          onCourseRatingChange={setNewCourseRating}
         />
       </View>
     );

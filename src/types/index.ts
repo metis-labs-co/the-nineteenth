@@ -37,6 +37,7 @@ export type {
   InvitationStatus,
   CourseSource,
   NotificationType,
+  TeamFormat,
 } from './database.types';
 
 // Re-export notification types
@@ -152,6 +153,12 @@ export type {
   SkinsConfig,
   SkinsPoolSource,
   SkinsPoolSourceConfig,
+  SkinsGame,
+  SkinsGameSummary,
+  SkinsResultWithWinner,
+  SkinsPayoutWithPlayer,
+  SkinsPayoutWithTeam,
+  SkinsResultWithTeamWinner,
   // Wolf types
   WolfConfig,
   WolfScoringType,
@@ -362,6 +369,8 @@ export interface Scorecard {
   scores: { [holeNumber: number]: HoleScore | MultiBallHoleScore };
   totalGross: number;
   totalNet: number;
+  /** Par game score (+1/0/-1 per hole) */
+  total_par_score?: number;
   status: ScorecardStatus;
   submittedAt?: Date;
   submittedBy?: string;

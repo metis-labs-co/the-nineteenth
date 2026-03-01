@@ -356,7 +356,7 @@ describe('leaderboardUtils', () => {
         rawScore: 42,
         grossScore: 150,
         netScore: 130,
-        resultData: { total_strokes: 130 },
+        resultData: { net_score: 130 },
       };
 
       const entry = createLeaderboardEntry('team-1', result, true);

@@ -151,7 +151,7 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
     .from('rounds')
     .select('competition_id')
     .eq('id', roundId)
-    .single();
+    .single() as { data: { competition_id: string | null } | null };
 
   // 1. Try to get players from pairings (competition rounds)
   const { data: pairingsData, error: pairingsError } = await supabase
@@ -177,7 +177,7 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
       .from('competition_players')
       .select('player_id')
       .eq('competition_id', roundData.competition_id)
-      .eq('status', 'accepted');
+      .eq('status', 'accepted') as unknown as { data: { player_id: string }[] | null; error: any };
 
     if (compPlayersError) {
       console.error('Error fetching competition_players:', compPlayersError);

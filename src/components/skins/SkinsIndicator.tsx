@@ -174,16 +174,6 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
     staleTime: 60 * 1000, // 1 minute
   });
 
-  // DEBUG: Log skins indicator state
-  console.log('[SkinsIndicator] Debug:', {
-    roundId,
-    isGameLoading,
-    skinsGame: skinsGame ? { id: skinsGame.id, status: skinsGame.status } : null,
-    gameError: gameError?.message ?? null,
-    willRender: !!(skinsGame || isGameLoading),
-    roundData: roundData ? { team_format: roundData.team_format, is_team_round: roundData.is_team_round } : null,
-  });
-
   // Calculate carryover holes count
   // NOTE: Must be called before any early returns to satisfy React's rules of hooks
   const carryoverHoles = useMemo(() => {

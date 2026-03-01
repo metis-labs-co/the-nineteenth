@@ -531,9 +531,9 @@ export default function CourseScreen({ route, navigation }: Props) {
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statBox}>
               <Icon
-                source={coordSummary?.hasCoordinates ? 'crosshairs-gps' : 'crosshairs-off'}
+                source={(coordSummary && coordSummary.length > 0) ? 'crosshairs-gps' : 'crosshairs-off'}
                 size={20}
-                color={coordSummary?.hasCoordinates ? colors.success : colors.gray400}
+                color={(coordSummary && coordSummary.length > 0) ? colors.success : colors.gray400}
               />
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GPS</Text>
             </View>

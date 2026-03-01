@@ -11,8 +11,8 @@
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { courseKeys } from './queryKeys';
-import { courseService, type CourseSearchResult } from '@/services/courses/courseService';
-import type { Course, LegacyCourse, RegionFilter } from '@/types/database.types';
+import { courseService, type CourseSearchResult, type CourseWithDetails } from '@/services/courses/courseService';
+import type { Course, Club, RegionFilter } from '@/types/database.types';
 
 // =====================================================
 // TYPES
@@ -29,7 +29,7 @@ export interface UseApiCourseSearchOptions {
 
 export interface UseImportCourseOptions {
   /** Callback on successful import */
-  onSuccess?: (course: LegacyCourse) => void;
+  onSuccess?: (course: Course) => void;
   /** Callback on error */
   onError?: (error: Error) => void;
 }
@@ -78,12 +78,11 @@ export function useImportCourse(options: UseImportCourseOptions = {}) {
   return useMutation({
     mutationFn: async ({
       apiCourseId,
-      clubId,
     }: {
       apiCourseId: string;
-      clubId: string;
+      clubId?: string;
     }) => {
-      const result = await courseService.importCourse(apiCourseId, clubId);
+      const result = await courseService.importCourse(apiCourseId);
       return result.course;
     },
     onSuccess: (course) => {
@@ -100,23 +99,28 @@ export function useImportCourse(options: UseImportCourseOptions = {}) {
 /**
  * Import a basic course from search result (without full details)
  */
-export function useImportBasicCourse(options: UseImportCourseOptions = {}) {
+export function useImportBasicClub(options: { onSuccess?: (club: Club) => void; onError?: (error: Error) => void } = {}) {
   const queryClient = useQueryClient();
   const { onSuccess, onError } = options;
 
   return useMutation({
-    mutationFn: async (partialCourse: Partial<LegacyCourse>) => {
-      return courseService.importBasicCourse(partialCourse);
+    mutationFn: async (partialClub: Partial<Club>) => {
+      return courseService.importBasicClub(partialClub);
     },
-    onSuccess: (course) => {
+    onSuccess: (club) => {
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      onSuccess?.(course);
+      onSuccess?.(club);
     },
     onError: (error: Error) => {
       onError?.(error);
     },
   });
 }
+
+/**
+ * @deprecated Use useImportBasicClub instead
+ */
+export const useImportBasicCourse = useImportBasicClub;
 
 /**
  * Get a course with optional auto-refresh from API
@@ -126,11 +130,11 @@ export function useImportBasicCourse(options: UseImportCourseOptions = {}) {
  */
 export function useCourseWithDetails(
   courseId: string | undefined,
-  options: Partial<UseQueryOptions<LegacyCourse | null, Error>> = {}
+  options: Partial<UseQueryOptions<CourseWithDetails | null, Error>> = {}
 ) {
   return useQuery({
     queryKey: courseKeys.detailWithApi(courseId ?? ''),
-    queryFn: async (): Promise<LegacyCourse | null> => {
+    queryFn: async (): Promise<CourseWithDetails | null> => {
       if (!courseId) return null;
       return courseService.getCourseWithDetails(courseId);
     },
@@ -190,7 +194,7 @@ export function useRefreshStaleCourses() {
 
   return useMutation({
     mutationFn: async (batchSize: number = 10) => {
-      return courseService.refreshStaleCourses(batchSize);
+      return courseService.refreshStaleClubs(batchSize);
     },
     onSuccess: () => {
       // Invalidate all course queries
@@ -228,7 +232,7 @@ export function useCombinedCourseSearch(
       // Map API results to include temporary flag
       ...(searchResult.data?.apiResults ?? []).map((c) => ({
         ...c,
-        id: c.api_id || '', // Use api_id as temporary id
+        id: c.golfapi_club_id || '', // Use golfapi_club_id as temporary id
         _isApiResult: true, // Flag for UI to show import button
       })),
     ] as (Course & { _isApiResult?: boolean })[],
