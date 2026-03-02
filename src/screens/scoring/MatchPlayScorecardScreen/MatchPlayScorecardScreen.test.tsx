@@ -111,12 +111,18 @@ jest.mock('react-native-paper', () => {
     if (!visible) return null;
     return React.createElement(View, { testID: 'dialog' }, children);
   };
-  Dialog.Title = ({ children }: { children: React.ReactNode }) =>
+  const DialogTitle = ({ children }: { children: React.ReactNode }) =>
     React.createElement(RNText, null, children);
-  Dialog.Content = ({ children }: { children: React.ReactNode }) =>
+  DialogTitle.displayName = 'Dialog.Title';
+  Dialog.Title = DialogTitle;
+  const DialogContent = ({ children }: { children: React.ReactNode }) =>
     React.createElement(View, null, children);
-  Dialog.Actions = ({ children }: { children: React.ReactNode }) =>
+  DialogContent.displayName = 'Dialog.Content';
+  Dialog.Content = DialogContent;
+  const DialogActions = ({ children }: { children: React.ReactNode }) =>
     React.createElement(View, null, children);
+  DialogActions.displayName = 'Dialog.Actions';
+  Dialog.Actions = DialogActions;
 
   return {
     ...actualModule,

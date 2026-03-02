@@ -40,8 +40,8 @@ jest.mock('@/hooks/useRoundLeaderboard', () => ({
     data.type === 'stableford',
   isStrokeScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'stroke',
-  isParScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
-    data.type === 'par',
+  isParScore: (_data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
+    false,
   isMatchPlayScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'match-play',
   isTeamScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>

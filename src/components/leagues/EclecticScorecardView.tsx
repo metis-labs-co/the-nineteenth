@@ -94,11 +94,11 @@ export default React.memo(function EclecticScorecardView({
           {hasScore ? (
             <View style={[
               styles.scoreBadge,
-              { backgroundColor: getScoreColor(bestScore.best_gross, hole.par, colors) + '20' },
+              { backgroundColor: getScoreColor(bestScore.best_gross, hole.par) + '20' },
             ]}>
               <Text style={[
                 styles.scoreText,
-                { color: getScoreColor(bestScore.best_gross, hole.par, colors) },
+                { color: getScoreColor(bestScore.best_gross, hole.par) },
               ]}>
                 {bestScore.best_gross}
               </Text>
@@ -126,7 +126,7 @@ export default React.memo(function EclecticScorecardView({
           {hasScore ? (
             <Text style={[
               styles.vsParText,
-              { color: getScoreColor(bestScore.best_gross, hole.par, colors) },
+              { color: getScoreColor(bestScore.best_gross, hole.par) },
             ]}>
               {bestScore.best_gross - hole.par === 0
                 ? 'E'

@@ -112,7 +112,6 @@ export default function CourseListScreen() {
 
   const {
     data: favoriteCourses,
-    isLoading: isLoadingFavorites,
     refetch: refetchFavorites,
     isRefetching: isRefetchingFavorites,
   } = useFavoriteCoursesWithClubs();

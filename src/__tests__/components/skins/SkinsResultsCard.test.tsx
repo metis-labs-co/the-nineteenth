@@ -23,7 +23,7 @@ import type { SkinsResultWithWinner } from '@/types';
 const originalRender = FlatList.prototype.render;
 beforeAll(() => {
   (FlatList.prototype as any).render = function () {
-    const { data, renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, contentContainerStyle, scrollEnabled, showsVerticalScrollIndicator, ...rest } = this.props;
+    const { data, renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, contentContainerStyle, scrollEnabled: _scrollEnabled, showsVerticalScrollIndicator: _showsVerticalScrollIndicator, ...rest } = this.props;
     return React.createElement(View, { ...rest, style: contentContainerStyle },
       ListHeaderComponent ? (typeof ListHeaderComponent === 'function' ? React.createElement(ListHeaderComponent) : ListHeaderComponent) : null,
       data && data.length > 0

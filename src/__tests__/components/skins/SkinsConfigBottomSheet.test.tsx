@@ -19,7 +19,7 @@ jest.mock('@/components/common/FormInput', () => {
   const React = require('react');
   const { View, TextInput: RNTextInput, Text } = require('react-native');
   return {
-    FormInput: ({ label, value, onChangeText, onBlur, placeholder, error, testID, leftAffix, ...props }: any) =>
+    FormInput: ({ label, value, onChangeText, onBlur, placeholder, error, testID, leftAffix }: any) =>
       React.createElement(View, { testID },
         label ? React.createElement(Text, null, label) : null,
         leftAffix ? React.createElement(Text, null, leftAffix) : null,

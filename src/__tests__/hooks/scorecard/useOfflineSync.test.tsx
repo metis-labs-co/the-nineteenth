@@ -263,6 +263,7 @@ describe('useOfflineSync', () => {
 
 // The useIsOnline hook now delegates to useOnlineStatus which uses NetInfo directly.
 // We need to access the NetInfo mock to control online/offline states.
+// eslint-disable-next-line import/first
 import NetInfo from '@react-native-community/netinfo';
 
 describe('useIsOnline', () => {

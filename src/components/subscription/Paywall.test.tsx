@@ -14,7 +14,6 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
 import { Paywall, PaywallProps } from './Paywall';
 import { subscriptionService, SubscriptionProduct } from '@/services/subscription/SubscriptionService';

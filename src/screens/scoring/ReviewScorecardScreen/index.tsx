@@ -20,7 +20,6 @@ import {
   useWindowDimensions,
   Share,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,7 +44,6 @@ import {
   calculateCombinedPayouts,
   buildCombinedShareMessage,
 } from '@/utils/combinedPayouts';
-import type { CombinedPlayerPayout, CombinedDebtTransaction } from '@/utils/combinedPayouts';
 import { formatCurrency, formatNetResult } from '@/utils/currency';
 import { useAuth } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
@@ -397,7 +395,6 @@ interface PayoutsTabContentProps {
 }
 
 function PayoutsTabContent({ mode, skinsGameId, wolfGameId, isRefreshing, onRefresh, bottomInset }: PayoutsTabContentProps) {
-  const colors = useThemeColors();
   const {
     data: skinsSummary,
     isLoading: isLoadingSkins,
