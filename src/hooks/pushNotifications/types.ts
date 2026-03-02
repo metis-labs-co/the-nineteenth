@@ -35,7 +35,7 @@ export interface UpdatePushPreferencesInput {
 export interface UsePushNotificationsReturn {
   // Data
   tokens: PushToken[] | undefined;
-  preferences: PushPreferences | undefined;
+  preferences: PushPreferences | null | undefined;
   permissionStatus: PermissionStatus | undefined;
 
   // Status

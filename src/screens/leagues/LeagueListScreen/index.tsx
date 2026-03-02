@@ -9,7 +9,7 @@
  * - Empty state
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,14 +23,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { PageHeader } from '@/components/common/PageHeader';
-import { FeatureButton } from '@/components/common';
+import { FeatureButton, ConfirmationDialog } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useLeagues } from '@/hooks/useLeagues';
+import { useLeagues, useDeleteLeague } from '@/hooks/useLeagues';
 import type { League } from '@/types/database';
 
 import { LeagueCard } from '@/components/leagues';
@@ -41,6 +41,8 @@ export default function LeagueListScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const { data: leagues, isLoading, refetch } = useLeagues();
+  const deleteLeague = useDeleteLeague();
+  const [leagueToDelete, setLeagueToDelete] = useState<League | null>(null);
 
   // Welcome modal
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } = useScreenWelcome('leagues');
@@ -60,11 +62,27 @@ export default function LeagueListScreen() {
     [navigation]
   );
 
+  const handleDeleteLeague = useCallback((league: League) => {
+    setLeagueToDelete(league);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (leagueToDelete) {
+      deleteLeague.mutate(leagueToDelete.id);
+      setLeagueToDelete(null);
+    }
+  }, [leagueToDelete, deleteLeague]);
+
   const renderItem = useCallback(
     ({ item }: { item: League }) => (
-      <LeagueCard league={item} onPress={() => handleLeaguePress(item)} />
+      <LeagueCard
+        league={item}
+        onPress={() => handleLeaguePress(item)}
+        onDelete={handleDeleteLeague}
+        swipeEnabled
+      />
     ),
-    [handleLeaguePress]
+    [handleLeaguePress, handleDeleteLeague]
   );
 
   return (
@@ -146,6 +164,19 @@ export default function LeagueListScreen() {
         content={welcomeContent}
         onDismiss={dismissModal}
         testID="leagues-welcome-modal"
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmationDialog
+        visible={!!leagueToDelete}
+        title="Delete League"
+        message={`Are you sure you want to delete "${leagueToDelete?.name}"? This will remove all rounds and player data. This action cannot be undone.`}
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setLeagueToDelete(null)}
+        loading={deleteLeague.isPending}
+        icon="delete-outline"
       />
     </View>
   );

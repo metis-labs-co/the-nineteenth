@@ -813,6 +813,31 @@ export async function archiveLeague(leagueId: string): Promise<void> {
 }
 
 /**
+ * Admin: Delete a league and all associated data
+ */
+export async function deleteLeague(leagueId: string): Promise<void> {
+  // Delete league rounds first
+  await from('league_rounds')
+    .delete()
+    .eq('league_id', leagueId);
+
+  // Delete league players
+  await from('league_players')
+    .delete()
+    .eq('league_id', leagueId);
+
+  // Delete the league itself
+  const { error } = await from('leagues')
+    .delete()
+    .eq('id', leagueId);
+
+  if (error) {
+    console.error('[Leagues] Error deleting league:', error);
+    throw new Error(`Failed to delete league: ${error.message}`);
+  }
+}
+
+/**
  * Admin: Update league name/description
  */
 export async function updateLeague(

@@ -352,12 +352,22 @@ describe('validateFeatureAccess - other features', () => {
   });
 
   describe('create_league', () => {
-    it('should deny on free tier (maxLeaguesOwned = 0)', () => {
+    it('should allow on free tier within limit', () => {
       const result = validateFeatureAccess(
         'create_league',
         createFreeTierLimits(),
         'free',
         { currentCount: 0 }
+      );
+      expect(result.allowed).toBe(true);
+    });
+
+    it('should deny on free tier at limit', () => {
+      const result = validateFeatureAccess(
+        'create_league',
+        createFreeTierLimits(),
+        'free',
+        { currentCount: 1 }
       );
       expect(result.allowed).toBe(false);
       expect(result.upgradeRequired).toBe(true);
@@ -395,14 +405,14 @@ describe('validateFeatureAccess - other features', () => {
   });
 
   describe('join_league', () => {
-    it('should deny on free tier', () => {
+    it('should allow on free tier', () => {
       const result = validateFeatureAccess(
         'join_league',
         createFreeTierLimits(),
         'free',
         {}
       );
-      expect(result.allowed).toBe(false);
+      expect(result.allowed).toBe(true);
     });
 
     it('should allow on social tier', () => {

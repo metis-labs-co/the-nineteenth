@@ -2,7 +2,7 @@
  * LeagueCard - Card component for league list items
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { IconChevronRight } from '@tabler/icons-react-native';
@@ -16,6 +16,8 @@ import type { League, LeagueType } from '@/types/database';
 interface LeagueCardProps {
   league: League;
   onPress: () => void;
+  onDelete?: (league: League) => void;
+  swipeEnabled?: boolean;
 }
 
 const LEAGUE_TYPE_LABELS: Record<LeagueType, string> = {
@@ -37,16 +39,25 @@ const getStatusVariant = (status: string) => {
   }
 };
 
-export default React.memo(function LeagueCard({ league, onPress }: LeagueCardProps) {
+export default React.memo(function LeagueCard({ league, onPress, onDelete, swipeEnabled = false }: LeagueCardProps) {
   const colors = useThemeColors();
 
   const typeLabel = LEAGUE_TYPE_LABELS[league.league_type] ?? 'Ongoing';
 
+  const handleDelete = useCallback(() => {
+    onDelete?.(league);
+  }, [onDelete, league]);
+
+  const deleteHint = swipeEnabled && onDelete ? ', swipe left to delete' : '';
+
   return (
     <CardContainer
       onPress={onPress}
+      swipeable={swipeEnabled && !!onDelete}
+      onDelete={handleDelete}
+      deleteAccessibilityName={league.name}
       style={styles.card}
-      accessibilityLabel={`${league.name} league, ${typeLabel}, ${league.status}`}
+      accessibilityLabel={`${league.name} league, ${typeLabel}, ${league.status}${deleteHint}`}
     >
       <View style={styles.contentWrapper}>
         <View style={styles.content}>

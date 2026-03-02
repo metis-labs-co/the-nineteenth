@@ -26,6 +26,7 @@ import {
   leaveLeague,
   removePlayer,
   archiveLeague,
+  deleteLeague,
   updateLeague,
 } from '@/services/api/leagues';
 import {
@@ -281,6 +282,20 @@ export function useRemoveLeaguePlayer(leagueId: string) {
     },
     onError: (error) => {
       console.error('[useRemoveLeaguePlayer] Failed:', error);
+    },
+  });
+}
+
+export function useDeleteLeague() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leagueId: string) => deleteLeague(leagueId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leagueKeys.all });
+    },
+    onError: (error) => {
+      console.error('[useDeleteLeague] Failed:', error);
     },
   });
 }

@@ -48,8 +48,8 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
 | GPS distance to pin | ❌ | ✅ | ✅ | ✅ |
 | **Leagues** | | | | |
-| Create leagues | ❌ | 3 | Unlimited | No limit |
-| Join leagues | ❌ | ✅ | ✅ | ✅ |
+| Create leagues | 1 | 3 | Unlimited | No limit |
+| Join leagues | ✅ | ✅ | ✅ | ✅ |
 | **Social Features** | | | | |
 | Friends limit | 10 | 25 | Unlimited | Unlimited |
 | View player profiles | ✅ | ✅ | ✅ | ✅ |
