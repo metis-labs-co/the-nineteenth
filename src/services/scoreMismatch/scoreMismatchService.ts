@@ -13,6 +13,7 @@
 import { supabase } from '@/services/supabase/client';
 import type { HoleScore } from '@/types';
 
+// These tables exist in the DB but haven't been added to generated types yet.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fromTable = (table: string): any => (supabase as any).from(table);
 
@@ -139,7 +140,7 @@ export async function saveScoreEntry(
       }
     )
     .select()
-    .single()) as { data: ScoreEntry | null; error: any };
+    .single()) as { data: ScoreEntry | null; error: { message: string } | null };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to save score entry:', error);
@@ -287,7 +288,7 @@ export async function createMismatchRecords(roundId: string): Promise<number> {
       onConflict: 'round_id,player_id,hole_number',
       ignoreDuplicates: true,
     })
-    .select()) as { data: ScoreMismatch[] | null; error: any };
+    .select()) as { data: ScoreMismatch[] | null; error: { message: string } | null };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to create mismatch records:', error);
@@ -376,7 +377,7 @@ export async function resolveMismatch(
       resolved_at: new Date().toISOString(),
     })
     .eq('id', mismatchId)
-    .eq('status', 'pending')) as { error: any }; // Only update if still pending (first-write-wins)
+    .eq('status', 'pending')) as { error: { message: string } | null }; // Only update if still pending (first-write-wins)
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to resolve mismatch:', error);
@@ -405,7 +406,7 @@ export async function applyResolvedScoreToScorecard(
     .select('id, scores')
     .eq('round_id', roundId)
     .eq('player_id', playerId)
-    .single() as { data: { id: string; scores: Record<string, HoleScore> } | null; error: any };
+    .single() as { data: { id: string; scores: Record<string, HoleScore> } | null; error: { message: string } | null };
 
   if (fetchError) {
     console.error('[ScoreMismatchService] Failed to fetch scorecard:', fetchError);
@@ -427,6 +428,7 @@ export async function applyResolvedScoreToScorecard(
   }
 
   // Save back to scorecard
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: updateError } = await (supabase.from('scorecards') as any)
     .update({ scores, updated_at: new Date().toISOString() })
     .eq('id', scorecard.id);
@@ -509,7 +511,7 @@ export async function getPartnerProgress(
     )
     .eq('round_id', roundId)
     .eq('player_id', userId)
-    .single() as { data: { scorer_id: string; scorer: { id: string; name: string } | null } | null; error: any };
+    .single() as { data: { scorer_id: string; scorer: { id: string; name: string } | null } | null; error: { message: string; code?: string } | null };
 
   if (pairError) {
     if (pairError.code === 'PGRST116') {
@@ -570,7 +572,7 @@ export async function startBypassTimer(
     {
       onConflict: 'round_id,player_id',
     }
-  )) as { error: any };
+  )) as { error: { message: string } | null };
 
   if (error) {
     console.error('[ScoreMismatchService] Failed to start bypass timer:', error);

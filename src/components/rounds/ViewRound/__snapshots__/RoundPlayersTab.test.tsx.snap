@@ -133,7 +133,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with null holes 1`] = `
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -340,7 +340,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with null holes 1`] = `
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -590,7 +590,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -739,7 +739,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dbeafe",
                     },
                   ]
                 }
@@ -789,7 +789,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dcfce7",
                     },
                   ]
                 }
@@ -839,7 +839,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#fef3c7",
                     },
                   ]
                 }
@@ -940,7 +940,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -1089,7 +1089,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dbeafe",
                     },
                   ]
                 }
@@ -1139,7 +1139,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dcfce7",
                     },
                   ]
                 }
@@ -1189,7 +1189,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#fef3c7",
                     },
                   ]
                 }
@@ -1290,7 +1290,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -1439,7 +1439,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dbeafe",
                     },
                   ]
                 }
@@ -1489,7 +1489,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#dcfce7",
                     },
                   ]
                 }
@@ -1539,7 +1539,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players and scores 1`] 
                       "paddingVertical": 4,
                     },
                     {
-                      "backgroundColor": undefined,
+                      "backgroundColor": "#fef3c7",
                     },
                   ]
                 }
@@ -1683,7 +1683,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players not started 1`]
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }
@@ -1890,7 +1890,7 @@ exports[`RoundPlayersTab Snapshots matches snapshot with players not started 1`]
                         "lineHeight": 24,
                       },
                       {
-                        "color": undefined,
+                        "color": "#FFFFFF",
                       },
                     ]
                   }

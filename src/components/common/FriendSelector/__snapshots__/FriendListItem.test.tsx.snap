@@ -138,8 +138,7 @@ exports[`FriendListItem Snapshots matches snapshot for default state 1`] = `
           ]
         }
       >
-        HC: 
-        12
+        HC: 12
       </Text>
     </View>
     <View
@@ -153,13 +152,13 @@ exports[`FriendListItem Snapshots matches snapshot for default state 1`] = `
             "width": 44,
           },
           {
-            "backgroundColor": "#F5F5F5",
+            "backgroundColor": undefined,
           },
         ]
       }
     >
       <View
-        color="#BDBDBD"
+        color="#757575"
         size={20}
         testID="icon-plus"
       />
@@ -312,8 +311,7 @@ exports[`FriendListItem Snapshots matches snapshot for disabled state 1`] = `
           ]
         }
       >
-        HC: 
-        12
+        HC: 12
       </Text>
     </View>
     <View
@@ -327,13 +325,13 @@ exports[`FriendListItem Snapshots matches snapshot for disabled state 1`] = `
             "width": 44,
           },
           {
-            "backgroundColor": "#F5F5F5",
+            "backgroundColor": undefined,
           },
         ]
       }
     >
       <View
-        color="#BDBDBD"
+        color="#757575"
         size={20}
         testID="icon-plus"
       />
@@ -480,8 +478,7 @@ exports[`FriendListItem Snapshots matches snapshot for selected state 1`] = `
           ]
         }
       >
-        HC: 
-        12
+        HC: 12
       </Text>
     </View>
     <View
@@ -658,8 +655,7 @@ exports[`FriendListItem Snapshots matches snapshot with pending badge 1`] = `
           ]
         }
       >
-        HC: 
-        12
+        HC: 12
       </Text>
     </View>
     <View
@@ -673,13 +669,13 @@ exports[`FriendListItem Snapshots matches snapshot with pending badge 1`] = `
             "width": 44,
           },
           {
-            "backgroundColor": "#F5F5F5",
+            "backgroundColor": undefined,
           },
         ]
       }
     >
       <View
-        color="#BDBDBD"
+        color="#757575"
         size={20}
         testID="icon-plus"
       />

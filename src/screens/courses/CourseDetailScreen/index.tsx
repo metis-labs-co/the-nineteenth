@@ -39,7 +39,7 @@ import { supabase } from '@/services/supabase/client';
 import { courseService } from '@/services/courses/courseService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import type { TeeBox, Tee, GameType, Club, Hole } from '@/types/database.types';
+import type { TeeBox, GameType, Club, Hole } from '@/types/database.types';
 import type { Player } from '@/types';
 import { hydrateHolesWithTeeYardages, resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { teeToTeeBox } from '@/utils/teeTransformers';
@@ -445,7 +445,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.textPrimary} />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
         }
       >
         {/* Course Header Card */}

@@ -463,7 +463,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
   }, [purchasesEnabled, showAlert, isDevSimulationMode, handleDevTierSwitch, selectedUpgradeTier]);
 
   // Handle successful purchase
-  const handlePurchaseSuccess = useCallback((newTier: SubscriptionTier) => {
+  const handlePurchaseSuccess = useCallback((_newTier: SubscriptionTier) => {
     refresh();
   }, [refresh]);
 
@@ -547,6 +547,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >

@@ -14,6 +14,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, ScrollView } from 'react-native';
+import { Portal } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
   calculatePlayerStats,
@@ -215,7 +216,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
             </View>
           </ScrollView>
         </View>
-        <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
+        <Portal>
+          <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
+        </Portal>
       </View>
     );
   }
@@ -299,7 +302,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
         )}
       </View>
 
-      <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
+      <Portal>
+        <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
+      </Portal>
     </View>
   );
 });

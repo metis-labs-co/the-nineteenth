@@ -59,13 +59,12 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
           courses!course_id (
             id,
             name,
-            holes,
-            tees
+            holes
           )
         `)
         .eq('id', roundId)
         .single() as {
-          data: { courses: { id: string; name: string; holes: Hole[] | null; tees: TeeBox[] | null } | null } | null;
+          data: { courses: { id: string; name: string; holes: Hole[] | null } | null } | null;
           error: { message: string } | null;
         };
 
@@ -93,8 +92,8 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
 
       // Get holes from course or use defaults (fallback if empty array)
       // Transform from database format (snake_case) to app format (camelCase) if needed
-      const rawHoles = courseData.holes as unknown[] | null;
-      let holes = rawHoles && rawHoles.length > 0
+      const rawHoles = courseData.holes;
+      let holes = Array.isArray(rawHoles) && rawHoles.length > 0
         ? transformHolesIfNeeded(rawHoles)
         : DEFAULT_HOLES;
 
@@ -140,7 +139,6 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
       roundDataLogger.debug('Course data loaded', {
         courseName: courseData.name,
         holesCount: holes.length,
-        teesCount: courseData.tees?.length || 0,
         hasYardages: holes.some(h => h.yardages && Object.keys(h.yardages).length > 0),
       });
 
@@ -148,7 +146,7 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
         id: courseData.id,
         name: courseData.name,
         holes,
-        tees: courseData.tees || [],
+        tees: [],
       });
       setIsLoading(false);
     } catch (err) {

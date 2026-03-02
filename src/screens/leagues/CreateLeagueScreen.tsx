@@ -36,7 +36,7 @@ import { TeeSelectionModal } from '@/components/competitionWizard/create/RoundDe
 import LeagueTypeSelector from '@/components/leagues/LeagueTypeSelector';
 import type { LeagueType, LadderSeeding, EclecticScoring, Tee } from '@/types/database';
 import type { TeeBox } from '@/types/database/base';
-import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/clubs';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem, SearchResultItem } from '@/hooks/clubs';
 import type { Club } from '@/types/database.types';
 import type { CreateLeagueInput } from '@/services/api/leagues';
 
@@ -54,7 +54,7 @@ function SeasonConfig({
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
 }) {
-  const colors = useThemeColors();
+  const _colors = useThemeColors();
 
   return (
     <FormSection noCard title="Season Dates" description="Only rounds played within these dates can be tagged.">
@@ -354,7 +354,7 @@ function OngoingConfig() {
           How Scoring Works
         </Text>
         <Text style={[styles.infoDescription, { color: colors.textSecondary }]}>
-          Players tag completed 18-hole rounds to the league. Leaderboard ranks by the average of each player's best 8 handicap differentials from their last 20 rounds.
+          Players tag completed 18-hole rounds to the league. Leaderboard ranks by the average of each player&apos;s best 8 handicap differentials from their last 20 rounds.
         </Text>
       </View>
     </View>
@@ -431,7 +431,7 @@ export default function CreateLeagueScreen() {
   // Transform clubs to display items for CourseSelectionModal
   const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
     const clubs = courseSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map((club: any) => {
+    return (clubs ?? []).map((club: SearchResultItem) => {
       const type: 'single-course' | 'multi-course-club' = club.is_multi_course
         ? 'multi-course-club'
         : 'single-course';
@@ -505,8 +505,8 @@ export default function CreateLeagueScreen() {
     try {
       const league = await createLeague.mutateAsync(input);
       navigation.replace('LeagueDetail', { id: league.id });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create league');
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create league');
     }
   }, [
     canCreateLeague, name, description, leagueType, startDate, endDate,

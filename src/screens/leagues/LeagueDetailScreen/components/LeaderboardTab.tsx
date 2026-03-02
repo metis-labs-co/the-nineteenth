@@ -12,7 +12,7 @@ import type { LeagueLeaderboardEntry } from '@/types/database';
 import { LeagueLeaderboardRow } from '@/components/leagues';
 
 interface Props {
-  leaderboard: Array<{ entry: LeagueLeaderboardEntry; isTied: boolean }>;
+  leaderboard: { entry: LeagueLeaderboardEntry; isTied: boolean }[];
   currentUserId?: string;
   onRowPress: (entry: LeagueLeaderboardEntry) => void;
 }

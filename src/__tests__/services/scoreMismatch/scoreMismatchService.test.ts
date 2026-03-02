@@ -173,7 +173,7 @@ function mockSupabaseError(message: string, code: string = 'PGRST000') {
 /**
  * Create a mock chain builder for complex multi-table scenarios
  */
-function createMockChainBuilder() {
+function _createMockChainBuilder() {
   const tableResponses = new Map<string, { data: unknown; error: unknown }>();
 
   const createChain = (tableName: string) => {
@@ -753,7 +753,7 @@ describe('Submission Readiness', () => {
 
     it('should return waiting_for_partner when partner incomplete', async () => {
       // Mock multiple sequential calls for the complex flow
-      let callCount = 0;
+      let _callCount = 0;
       (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
@@ -766,7 +766,7 @@ describe('Submission Readiness', () => {
           });
         }),
         then: jest.fn((resolve) => {
-          callCount++;
+          _callCount++;
           if (tableName === 'score_mismatches') {
             return resolve({ data: [], error: null }); // No pending mismatches
           }
@@ -924,7 +924,7 @@ describe('Bypass Handling', () => {
 
   describe('startBypassTimer()', () => {
     it('should create bypass timer record with 30-minute delay', async () => {
-      const mockChain = mockSupabaseSuccess(null);
+      const _mockChain = mockSupabaseSuccess(null);
 
       const before = Date.now();
       const result = await startBypassTimer(ROUND_ID, PLAYER_A_ID, PLAYER_B_ID);

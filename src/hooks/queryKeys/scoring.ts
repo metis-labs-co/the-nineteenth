@@ -50,6 +50,8 @@ export const scoringPairsKeys = {
 export const statisticsKeys = {
   all: ['statistics'] as const,
   player: (playerId: string) => [...statisticsKeys.all, 'player', playerId] as const,
+  playerFiltered: (playerId: string, filters: { leagueId?: string; competitionId?: string }) =>
+    [...statisticsKeys.all, 'player', playerId, 'filtered', filters] as const,
   competition: (competitionId: string) =>
     [...statisticsKeys.all, 'competition', competitionId] as const,
 } as const;

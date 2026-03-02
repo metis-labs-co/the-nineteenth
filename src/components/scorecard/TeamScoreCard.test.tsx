@@ -252,26 +252,27 @@ describe('TeamScoreCard', () => {
       expect(screen.getByText('The Golfers')).toBeTruthy();
     });
 
-    it('renders team member count', () => {
+    it('renders team member names', () => {
       const props = createDefaultProps();
       render(<TeamScoreCard {...props} />);
 
-      // Team has 2 members
-      expect(screen.getByText(/2 players/)).toBeTruthy();
+      // Team has 2 members displayed as "Name1 • Name2"
+      expect(screen.getByText(/John Smith/)).toBeTruthy();
+      expect(screen.getByText(/Jane Doe/)).toBeTruthy();
     });
 
-    it('renders shots received label', () => {
+    it('renders SCRAMBLE format badge', () => {
       const props = createDefaultProps();
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText('SHOTS')).toBeTruthy();
+      expect(screen.getByText('SCRAMBLE')).toBeTruthy();
     });
 
-    it('renders Stableford points label', () => {
+    it('renders TEAM PTS label', () => {
       const props = createDefaultProps();
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText('PTS')).toBeTruthy();
+      expect(screen.getByText('TEAM PTS')).toBeTruthy();
     });
 
     it('renders Pick Up button label', () => {
@@ -326,7 +327,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 7.5/)).toBeTruthy();
+      expect(screen.getByText(/HC: 7.5/)).toBeTruthy();
     });
 
     it('displays team handicap for 4-player team', () => {
@@ -336,15 +337,16 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 15.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 15.0/)).toBeTruthy();
     });
 
-    it('displays 4 players count for 4-player team', () => {
+    it('displays member names for 4-player team', () => {
       const team = createFourPlayerTeam();
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/4 players/)).toBeTruthy();
+      expect(screen.getByText(/John Smith/)).toBeTruthy();
+      expect(screen.getByText(/Bob Wilson/)).toBeTruthy();
     });
 
     it('handles team with no members', () => {
@@ -353,8 +355,7 @@ describe('TeamScoreCard', () => {
       render(<TeamScoreCard {...props} />);
 
       expect(screen.getByText('Empty Team')).toBeTruthy();
-      expect(screen.getByText(/Team HC: 0.0/)).toBeTruthy();
-      expect(screen.getByText(/0 players/)).toBeTruthy();
+      expect(screen.getByText(/HC: 0.0/)).toBeTruthy();
     });
 
     it('handles team with null handicaps', () => {
@@ -366,7 +367,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 0.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 0.0/)).toBeTruthy();
     });
 
     it('truncates long team names', () => {
@@ -393,10 +394,9 @@ describe('TeamScoreCard', () => {
       });
       render(<TeamScoreCard {...props} />);
 
-      // With team handicap 9, on SI 7, player gets 0 shots (9/18 = 0, SI 7 <= 9 mod 18 = 9, so extra = 1)
-      // Actually mock: base = floor(9/18) = 0, extra = (7 <= 9) ? 1 : 0 = 1, so 1 shot
-      // The "1" appears in the SHOTS section
-      expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+      // With team handicap 9, on SI 7, mock: base = floor(9/18) = 0, extra = (7 <= 9) ? 1 : 0 = 1, so 1 shot
+      // The component displays shots inline: "HC: 9.0 • +1 shot"
+      expect(screen.getByText(/\+1 shot/)).toBeTruthy();
     });
   });
 
@@ -878,7 +878,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 7.5/)).toBeTruthy();
+      expect(screen.getByText(/HC: 7.5/)).toBeTruthy();
     });
 
     it('calculates handicap correctly for 4-player team', () => {
@@ -887,7 +887,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 15.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 15.0/)).toBeTruthy();
     });
 
     it('calculates handicap correctly for team with all same handicaps', () => {
@@ -896,7 +896,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 9.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 9.0/)).toBeTruthy();
     });
 
     it('handles team with all scratch golfers', () => {
@@ -905,7 +905,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 0.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 0.0/)).toBeTruthy();
     });
 
     it('handles team with high handicaps', () => {
@@ -914,7 +914,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 18.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 18.0/)).toBeTruthy();
     });
 
     it('rounds to one decimal place', () => {
@@ -923,7 +923,7 @@ describe('TeamScoreCard', () => {
       const props = createDefaultProps({ team });
       render(<TeamScoreCard {...props} />);
 
-      expect(screen.getByText(/Team HC: 4.0/)).toBeTruthy();
+      expect(screen.getByText(/HC: 4.0/)).toBeTruthy();
     });
   });
 

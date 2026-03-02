@@ -177,7 +177,7 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
       .from('competition_players')
       .select('player_id')
       .eq('competition_id', roundData.competition_id)
-      .eq('status', 'accepted') as unknown as { data: { player_id: string }[] | null; error: any };
+      .eq('status', 'accepted') as unknown as { data: { player_id: string }[] | null; error: { code?: string; message: string } | null };
 
     if (compPlayersError) {
       console.error('Error fetching competition_players:', compPlayersError);

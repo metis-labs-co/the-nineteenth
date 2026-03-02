@@ -7,13 +7,23 @@ import { View, Text, StyleSheet } from 'react-native';
 import { IconPlus } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
-import { PageHeader, FeatureButton, Tabs } from '@/components/common';
+import { PageHeader, FeatureButton, Tabs, FilterPill } from '@/components/common';
 import { LimitIndicator } from '@/components/subscription';
-import type { RoundTab, RoundItem } from '../types';
+import type { RoundTab, RoundTypeFilter, RoundItem } from '../types';
+
+const ROUND_TYPE_FILTERS: { key: RoundTypeFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'practice', label: 'Practice' },
+  { key: 'match', label: 'Match' },
+  { key: 'skins', label: 'Skins' },
+  { key: 'wolf', label: 'Wolf' },
+];
 
 interface RoundListHeaderProps {
   selectedTab: RoundTab;
   onTabChange: (tab: RoundTab) => void;
+  roundTypeFilter: RoundTypeFilter;
+  onRoundTypeFilterChange: (filter: RoundTypeFilter) => void;
   activeRounds: RoundItem[];
   historyRounds: RoundItem[];
   onOpenNewRound: () => void;
@@ -27,6 +37,8 @@ interface RoundListHeaderProps {
 export function RoundListHeader({
   selectedTab,
   onTabChange,
+  roundTypeFilter,
+  onRoundTypeFilterChange,
   activeRounds,
   historyRounds,
   onOpenNewRound,
@@ -85,6 +97,19 @@ export function RoundListHeader({
               />
             )}
           </View>
+
+          {/* Round Type Filter Pills */}
+          <View style={styles.filterRow}>
+            {ROUND_TYPE_FILTERS.map(({ key, label }) => (
+              <FilterPill
+                key={key}
+                label={label}
+                selected={roundTypeFilter === key}
+                onPress={() => onRoundTypeFilterChange(key)}
+                accessibilityLabel={`Show ${label.toLowerCase()} rounds`}
+              />
+            ))}
+          </View>
         </View>
       </View>
     </>
@@ -109,6 +134,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContainer: {
+    marginBottom: spacing.md,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     marginBottom: spacing.md,
   },
 });

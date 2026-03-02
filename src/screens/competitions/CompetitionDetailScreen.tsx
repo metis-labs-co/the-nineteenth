@@ -513,6 +513,8 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                 : null
             }
             colors={colors}
+            competitionId={id}
+            competitionName={competition.name}
           />
         )}
 

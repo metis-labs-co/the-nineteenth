@@ -143,7 +143,7 @@ export const SkinsSection = memo(function SkinsSection({
   // Pool source state
   const hasPool = poolData?.pool !== null;
   const hasSkinsBudget = (poolData?.pool?.skins_budget ?? 0) > 0;
-  const canUsePool = hasPool && hasSkinsBudget && !poolData?.isLocked;
+  const _canUsePool = hasPool && hasSkinsBudget && !poolData?.isLocked;
   const skinsRemaining = poolData?.balance?.skins_remaining ?? poolData?.pool?.skins_budget ?? 0;
   const autoSplitEnabled = poolData?.pool?.auto_split_skins ?? false;
   const autoSplitAmount = poolData?.pool?.skins_pot_per_round ?? 0;
@@ -468,7 +468,7 @@ export const SkinsSection = memo(function SkinsSection({
             <View style={[styles.infoBox, { backgroundColor: colors.surfaceVariant, marginTop: spacing.md }]}>
               <IconAlertCircle size={20} color={colors.textSecondary} />
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                {teamFormat === 'scramble' ? 'Scramble' : teamFormat === 'shamble' ? 'Shamble' : 'Best Ball'} format requires teams to be enabled for skins games. Enable "Split Into Teams" in the match type settings.
+                {teamFormat === 'scramble' ? 'Scramble' : teamFormat === 'shamble' ? 'Shamble' : 'Best Ball'} format requires teams to be enabled for skins games. Enable &quot;Split Into Teams&quot; in the match type settings.
               </Text>
             </View>
           )}

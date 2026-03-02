@@ -13,31 +13,36 @@
  */
 
 import React from 'react';
+import { View, FlatList } from 'react-native';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { SkinsResultsCard } from '@/components/skins/SkinsResultsCard';
 import type { SkinsResultWithWinner } from '@/types';
 
+// Patch FlatList.prototype.render to actually render all items in the test environment.
+// By default, FlatList virtualizes content and may not render off-screen items.
+const originalRender = FlatList.prototype.render;
+beforeAll(() => {
+  (FlatList.prototype as any).render = function () {
+    const { data, renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, contentContainerStyle, scrollEnabled, showsVerticalScrollIndicator, ...rest } = this.props;
+    return React.createElement(View, { ...rest, style: contentContainerStyle },
+      ListHeaderComponent ? (typeof ListHeaderComponent === 'function' ? React.createElement(ListHeaderComponent) : ListHeaderComponent) : null,
+      data && data.length > 0
+        ? data.map((item: any, index: number) => {
+            const key = keyExtractor ? keyExtractor(item, index) : String(index);
+            return React.createElement(React.Fragment, { key }, renderItem({ item, index, separators: {} }));
+          })
+        : ListEmptyComponent ? (typeof ListEmptyComponent === 'function' ? React.createElement(ListEmptyComponent) : ListEmptyComponent) : null,
+      ListFooterComponent ? (typeof ListFooterComponent === 'function' ? React.createElement(ListFooterComponent) : ListFooterComponent) : null,
+    );
+  };
+});
+afterAll(() => {
+  FlatList.prototype.render = originalRender;
+});
+
 // ============================================================================
 // TEST FIXTURES
 // ============================================================================
-
-const createMockResult = (
-  overrides: Partial<SkinsResultWithWinner> = {}
-): SkinsResultWithWinner => ({
-  id: `result-${Math.random().toString(36).substr(2, 9)}`,
-  skins_game_id: 'game-1',
-  hole_number: 1,
-  winner_id: null,
-  team_winner_id: null,
-  is_carryover: false,
-  hole_scores: {},
-  hole_pot_value: 5,
-  carryover_to_next: 0,
-  payout_amount: 0,
-  calculated_at: new Date().toISOString(),
-  winner: null,
-  ...overrides,
-});
 
 const createWinnerResult = (
   holeNumber: number,
@@ -227,7 +232,8 @@ describe('SkinsResultsCard', () => {
         />
       );
 
-      expect(screen.getByText('John')).toBeTruthy();
+      // John may appear in both the hole row and the player totals section
+      expect(screen.getAllByText('John').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders payout amount for winning holes', () => {
@@ -242,7 +248,8 @@ describe('SkinsResultsCard', () => {
         />
       );
 
-      expect(screen.getByText('$10.00')).toBeTruthy();
+      // $10.00 may appear in both the hole row and the player totals section
+      expect(screen.getAllByText('$10.00').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders -- for carryover holes with no winner', () => {
@@ -335,7 +342,8 @@ describe('SkinsResultsCard', () => {
       );
 
       // Front 9 total: 5 + 10 + 5 = 20
-      expect(screen.getByText('$20.00')).toBeTruthy();
+      // May also appear in player totals, so use getAllByText
+      expect(screen.getAllByText('$20.00').length).toBeGreaterThanOrEqual(1);
     });
 
     it('calculates Back 9 subtotal correctly', () => {
@@ -355,7 +363,8 @@ describe('SkinsResultsCard', () => {
       );
 
       // Back 9 total: 5 + 10 + 15 = 30
-      expect(screen.getByText('$30.00')).toBeTruthy();
+      // May also appear in player totals, so use getAllByText
+      expect(screen.getAllByText('$30.00').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -563,14 +572,14 @@ describe('SkinsResultsCard', () => {
         />
       );
 
-      // John won holes 1 and 6
-      expect(screen.getByText('John')).toBeTruthy();
-      // Sarah won hole 3
-      expect(screen.getByText('Sarah')).toBeTruthy();
+      // John won holes 1 and 6 - may appear in both hole rows and player totals
+      expect(screen.getAllByText('John').length).toBeGreaterThanOrEqual(1);
+      // Sarah won hole 3 - may appear in both hole rows and player totals
+      expect(screen.getAllByText('Sarah').length).toBeGreaterThanOrEqual(1);
 
-      // Winners should have amounts
-      expect(screen.getByText('$5.00')).toBeTruthy(); // Hole 1
-      expect(screen.getByText('$15.00')).toBeTruthy(); // Hole 6 (3 carried holes)
+      // Winners should have amounts (may appear in multiple places)
+      expect(screen.getAllByText('$5.00').length).toBeGreaterThanOrEqual(1); // Hole 1
+      expect(screen.getAllByText('$15.00').length).toBeGreaterThanOrEqual(1); // Hole 6 (3 carried holes)
 
       // Carryover notes
       expect(screen.getAllByText(/Tied, \+\$\d+\.\d+ carried/).length).toBeGreaterThan(0);

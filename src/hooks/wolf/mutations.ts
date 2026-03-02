@@ -33,7 +33,6 @@ import type {
   SubmitWolfDecisionInput,
   RecordWolfHoleResultInput,
   WolfHoleScores,
-  WolfPointsAwarded,
 } from '@/types/database/wolf.types';
 
 // =====================================================

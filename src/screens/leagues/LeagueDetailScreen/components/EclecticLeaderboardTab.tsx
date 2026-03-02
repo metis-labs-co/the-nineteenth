@@ -6,7 +6,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import type { EclecticLeaderboardEntry, EclecticScoring } from '@/types/database';
 

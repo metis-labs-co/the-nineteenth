@@ -4,7 +4,7 @@
  */
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 config({ path: resolve(__dirname, '..', '.env') });
 
@@ -17,7 +17,7 @@ const prod = createClient(
   process.env.SUPABASE_SECRET_KEY_PROD!
 );
 
-async function fetchAll(client: any, table: string, filter?: { col: string; val: any }) {
+async function fetchAll(client: SupabaseClient, table: string, filter?: { col: string; val: string | number | boolean }) {
   let query = client.from(table).select('*');
   if (filter) query = query.eq(filter.col, filter.val);
   const { data, error } = await query;

@@ -8,7 +8,7 @@
  * - All fields optional - allows creating "blank" placeholder rounds
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

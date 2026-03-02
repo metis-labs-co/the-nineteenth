@@ -83,6 +83,7 @@ export type FeatureId =
   // Social features
   | 'add_friend'
   | 'compare_stats'
+  | 'compare_stats_filtered'
   // Statistics features
   | 'basic_stats'
   | 'score_distribution'
@@ -282,6 +283,7 @@ export function isFeatureId(value: string): value is FeatureId {
     'scoring_pairs',
     'add_friend',
     'compare_stats',
+    'compare_stats_filtered',
     'basic_stats',
     'score_distribution',
     'advanced_stats',

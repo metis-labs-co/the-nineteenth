@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
@@ -194,7 +195,7 @@ export function useScoreSubmission({
         .from('rounds')
         .select('game_type, competition_id')
         .eq('id', roundId)
-        .single() as unknown as { data: { game_type: string; competition_id: string | null } | null; error: any };
+        .single() as unknown as { data: { game_type: string; competition_id: string | null } | null; error: PostgrestError | null };
 
       if (roundError || !round) {
         submitLogger.error('Failed to fetch round data for finalization', roundError, { roundId: roundId.substring(0, 8) + '...' });
@@ -211,7 +212,7 @@ export function useScoreSubmission({
         .from('competitions')
         .select('point_system')
         .eq('id', round.competition_id)
-        .single() as unknown as { data: { point_system: PointSystemConfig | null } | null; error: any };
+        .single() as unknown as { data: { point_system: PointSystemConfig | null } | null; error: PostgrestError | null };
 
       if (compError || !competition) {
         submitLogger.error('Failed to fetch competition for finalization', compError, { competitionId: round.competition_id?.substring(0, 8) + '...' });
@@ -223,7 +224,7 @@ export function useScoreSubmission({
         .from('scorecards')
         .select('*')
         .eq('round_id', roundId)
-        .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: any };
+        .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: PostgrestError | null };
 
       if (scError || !scorecards || scorecards.length === 0) {
         submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
@@ -506,6 +507,7 @@ export function useScoreSubmission({
         performSubmission();
       },
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- navigation and resetRound excluded to prevent unnecessary re-renders
   }, [
     isOnline,
     competitionId,

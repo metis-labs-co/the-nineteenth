@@ -32,7 +32,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { useWolfGameByRound, useWolfStandings, useWolfHoleDecisions } from '@/hooks/wolf';
 import { determineWolfForHole } from '@/utils/wolfCalculations';
-import type { WolfHoleDecision, WolfGameWithParticipants } from '@/types/database/wolf.types';
+import type { WolfHoleDecision } from '@/types/database/wolf.types';
 
 // ============================================================================
 // TYPES
@@ -118,7 +118,6 @@ export const WolfIndicator = React.memo(function WolfIndicator({
   const {
     data: wolfGame,
     isLoading: isGameLoading,
-    error: gameError,
   } = useWolfGameByRound(roundId);
 
   // Get all hole decisions for summary
@@ -149,25 +148,11 @@ export const WolfIndicator = React.memo(function WolfIndicator({
     return decisions.find((d) => d.hole_number === currentHole) ?? null;
   }, [decisions, currentHole]);
 
-  // Count holes with decisions made
-  const holesDecided = useMemo(() => {
-    if (!decisions) return 0;
-    return decisions.filter((d) => d.decided_at !== null).length;
-  }, [decisions]);
-
   // Count holes completed (with results calculated)
   const holesCompleted = useMemo(() => {
     if (!decisions) return 0;
     return decisions.filter((d) => d.calculated_at !== null).length;
   }, [decisions]);
-
-  // Get current leader
-  const currentLeader = useMemo(() => {
-    if (!standings || standings.length === 0) return null;
-    // Standings are already sorted by points descending
-    const leader = standings[0];
-    return leader.total_points > 0 ? leader : null;
-  }, [standings]);
 
   // Handle press
   const handlePress = useCallback(() => {

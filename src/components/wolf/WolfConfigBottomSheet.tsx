@@ -105,7 +105,7 @@ export function WolfConfigBottomSheet({
   initialConfig,
   onSave,
   participants,
-  showBackdrop = true,
+  showBackdrop: _showBackdrop = true,
 }: WolfConfigBottomSheetProps) {
   const colors = useThemeColors();
 

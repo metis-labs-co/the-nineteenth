@@ -32,15 +32,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 // Mock AccessibilityInfo
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-  return {
-    ...RN,
-    AccessibilityInfo: {
-      announceForAccessibility: jest.fn(),
-    },
-  };
-});
+const mockAnnounceForAccessibility = jest.fn();
+jest.spyOn(
+  require('react-native').AccessibilityInfo,
+  'announceForAccessibility'
+).mockImplementation(mockAnnounceForAccessibility);
 
 // ============================================================================
 // TEST SUITE
@@ -93,7 +89,7 @@ describe('SkinsDisclaimerModal', () => {
         />
       );
 
-      expect(screen.getByText('Gambling Feature Notice')).toBeTruthy();
+      expect(screen.getByText('Side Game Notice')).toBeTruthy();
     });
 
     it('renders the message', () => {
@@ -106,7 +102,7 @@ describe('SkinsDisclaimerModal', () => {
       );
 
       expect(
-        screen.getByText(/Skins is a betting feature for friendly wagers between players/)
+        screen.getByText(/Skins is a social side game that tracks friendly competitions between players/)
       ).toBeTruthy();
     });
 
@@ -119,18 +115,15 @@ describe('SkinsDisclaimerModal', () => {
         />
       );
 
-      expect(screen.getByText('This feature is for social entertainment only')).toBeTruthy();
+      expect(screen.getByText('This feature tracks side game scores for social entertainment')).toBeTruthy();
       expect(
-        screen.getByText('All players must be of legal gambling age in your jurisdiction')
+        screen.getByText('The app does not process, hold, or transfer any money')
       ).toBeTruthy();
       expect(
-        screen.getByText('The app does not process real money or payments')
+        screen.getByText('Any settlements are arranged privately between players')
       ).toBeTruthy();
       expect(
-        screen.getByText('Settlement of bets is handled between players')
-      ).toBeTruthy();
-      expect(
-        screen.getByText('Please check local laws regarding gambling activities')
+        screen.getByText('The Nineteenth is not responsible for any arrangements between players')
       ).toBeTruthy();
     });
 
@@ -478,7 +471,7 @@ describe('SkinsDisclaimerModal', () => {
         />
       );
 
-      const alertContainer = screen.getByLabelText('Gambling Feature Notice');
+      const alertContainer = screen.getByLabelText('Side Game Notice');
       expect(alertContainer.props.accessibilityRole).toBe('alert');
     });
   });

@@ -33,18 +33,17 @@ export interface SupabaseCourseData {
   id: string;
   name: string;
   holes?: Hole[];
-  tees?: TeeBox[] | null;
 }
 
 /**
  * Team config for standalone scramble rounds (stored in rounds.team_config JSONB)
  */
 export interface StandaloneTeamConfig {
-  teams: Array<{
+  teams: {
     id: string;
     name: string;
     memberIds: string[];
-  }>;
+  }[];
 }
 
 /**
@@ -112,8 +111,7 @@ export const ROUND_METADATA_SELECT = `
   team_config,
   courses!course_id (
     id,
-    name,
-    tees
+    name
   )
 `;
 
@@ -131,8 +129,7 @@ export const ROUND_WITH_HOLES_SELECT = `
   courses!course_id (
     id,
     name,
-    holes,
-    tees
+    holes
   )
 `;
 

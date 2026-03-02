@@ -34,18 +34,21 @@ const mockUseRoundLeaderboard = jest.fn();
 
 jest.mock('@/hooks/useRoundLeaderboard', () => ({
   useRoundLeaderboard: (...args: unknown[]) => mockUseRoundLeaderboard(...args),
+  isPlayerEntry: (entry: RoundLeaderboardEntry) => !entry.isTeamResult,
   isTeamEntry: (entry: RoundLeaderboardEntry) => entry.isTeamResult,
   isStablefordScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'stableford',
   isStrokeScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'stroke',
+  isParScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
+    data.type === 'par',
   isMatchPlayScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'match-play',
   isTeamScore: (data: StablefordScoreData | StrokeScoreData | MatchPlayScoreData | TeamScoreData) =>
     data.type === 'team',
 }));
 
-// Mock icons
+// Mock icons (must include all icons used by sub-components: LeaderboardRow, MatchPlayLeaderboard, etc.)
 jest.mock('@tabler/icons-react-native', () => {
   const { Text } = require('react-native');
   return {
@@ -54,6 +57,8 @@ jest.mock('@tabler/icons-react-native', () => {
     IconSwords: () => <Text>SwordsIcon</Text>,
     IconCalendar: () => <Text>CalendarIcon</Text>,
     IconClock: () => <Text>ClockIcon</Text>,
+    IconAlertTriangle: () => <Text>AlertTriangleIcon</Text>,
+    IconCheck: () => <Text>CheckIcon</Text>,
   };
 });
 
@@ -81,7 +86,7 @@ jest.mock('@/components/common/Pill', () => {
   };
 });
 
-// Mock LoadingSpinner
+// Mock common components (barrel export)
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
   return {
@@ -89,6 +94,19 @@ jest.mock('@/components/common', () => {
       <View testID="loading-spinner">
         <Text>{message}</Text>
       </View>
+    ),
+    ScaledText: ({ children, style, ...props }: any) => (
+      <Text style={style} {...props}>{children}</Text>
+    ),
+  };
+});
+
+// Mock ScaledText direct import (used by sub-components like StablefordLeaderboard, LeaderboardRow, etc.)
+jest.mock('@/components/common/ScaledText', () => {
+  const { Text } = require('react-native');
+  return {
+    ScaledText: ({ children, style, ...props }: any) => (
+      <Text style={style} {...props}>{children}</Text>
     ),
   };
 });
@@ -530,8 +548,9 @@ describe('RoundLeaderboard', () => {
       expect(screen.getByText('Bob Wilson')).toBeTruthy();
 
       // Positions (2, 3 - first position shows trophy icon)
-      expect(screen.getByText('2')).toBeTruthy();
-      expect(screen.getByText('3')).toBeTruthy();
+      // Use getAllByText because competition points column may also contain the same numbers
+      expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
 
       // Handicaps
       expect(screen.getByText('15')).toBeTruthy();

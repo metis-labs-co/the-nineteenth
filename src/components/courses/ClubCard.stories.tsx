@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { Meta, StoryObj } from '@storybook/react';
-import { ClubCard, VenueCard } from './ClubCard';
+import { ClubCard } from './ClubCard';
 import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { Club, Hole } from '@/types/database.types';
 

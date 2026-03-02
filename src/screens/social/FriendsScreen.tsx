@@ -291,7 +291,7 @@ export default function FriendsScreen() {
           current={acceptedFriendsCount}
           max={maxFriends}
           label="Friends"
-          showBar={true}
+          showBar={false}
           testID="friends-limit-indicator"
         />
       </View>
@@ -492,6 +492,8 @@ const styles = StyleSheet.create({
 
   // Content sections
   limitIndicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,

@@ -102,35 +102,41 @@ describe('StablefordEngine', () => {
 
     it('calculates correct points for 18 handicap player', () => {
       const courseData = createCourseData();
-      // With 18 handicap index, playing handicap = round(18 * 0.95) = 17 (95% allowance)
-      // Gets 1 stroke on SI 1-17, none on SI 18
-      // 17 holes: net birdie = 3 pts, 1 hole: net par = 2 pts
-      // Total = 17 * 3 + 1 * 2 = 53 points
+      // With 18 handicap index on slope 113, course rating 72, par 72:
+      // GA Daily HC = ((18 * 113 / 113) + (72 - 72)) * 0.93 * 0.9986 = 16.72
+      // Rounded daily HC = 17
+      // Playing HC = round(17 * 0.95) = round(16.15) = 16
+      // Gets 1 stroke on SI 1-16, none on SI 17-18
+      // 16 holes: net birdie = 3 pts, 2 holes: net par = 2 pts
+      // Total = 16 * 3 + 2 * 2 = 52 points
       const scores = courseData.holes.map((h) => h.par);
       const scorecard = createScorecard('p1', 18, scores);
 
       const result = engine.calculateScore(scorecard, courseData);
 
-      expect(result.rawScore).toBe(53); // 17 * 3 + 1 * 2 = 53 points
-      expect(result.stablefordPoints).toBe(53);
+      expect(result.rawScore).toBe(52); // 16 * 3 + 2 * 2 = 52 points
+      expect(result.stablefordPoints).toBe(52);
       expect(result.grossScore).toBe(72);
     });
 
     it('calculates correct points for 36 handicap player', () => {
       const courseData = createCourseData();
-      // With 36 handicap index, playing handicap = round(36 * 0.95) = 34
-      // baseStrokes = floor(34/18) = 1, remainder = 34 % 18 = 16
-      // SI 1-16: 2 strokes, SI 17-18: 1 stroke
+      // With 36 handicap index on slope 113, course rating 72, par 72:
+      // GA Daily HC = ((36 * 113 / 113) + (72 - 72)) * 0.93 * 0.9986 = 33.43
+      // Rounded daily HC = 33
+      // Playing HC = round(33 * 0.95) = round(31.35) = 31
+      // baseStrokes = floor(31/18) = 1, remainder = 31 % 18 = 13
+      // SI 1-13: 2 strokes, SI 14-18: 1 stroke
       // Playing bogey golf gross (par + 1):
-      // - SI 1-16: net = par + 1 - 2 = par - 1 = birdie = 3 pts (16 holes)
-      // - SI 17-18: net = par + 1 - 1 = par = par = 2 pts (2 holes)
-      // Total = 16 * 3 + 2 * 2 = 52 points
+      // - SI 1-13: net = par + 1 - 2 = par - 1 = birdie = 3 pts (13 holes)
+      // - SI 14-18: net = par + 1 - 1 = par = par = 2 pts (5 holes)
+      // Total = 13 * 3 + 5 * 2 = 49 points
       const scores = courseData.holes.map((h) => h.par + 1);
       const scorecard = createScorecard('p1', 36, scores);
 
       const result = engine.calculateScore(scorecard, courseData);
 
-      expect(result.rawScore).toBe(52); // 16 * 3 + 2 * 2 = 52 points
+      expect(result.rawScore).toBe(49); // 13 * 3 + 5 * 2 = 49 points
       expect(result.grossScore).toBe(90); // 72 + 18
     });
 

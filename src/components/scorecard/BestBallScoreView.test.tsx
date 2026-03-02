@@ -306,9 +306,11 @@ describe('BestBallScoreView', () => {
       const props = createDefaultProps({ playerScores });
       render(<BestBallScoreView {...props} />);
 
-      // Should have multiple "pts" labels
+      // Should have "pts" labels for non-best players and "BEST" for the best player
       const ptsLabels = screen.getAllByText('pts');
-      expect(ptsLabels.length).toBe(3);
+      // First player is marked as "BEST" (since all tied, first wins), so only 2 show "pts"
+      expect(ptsLabels.length).toBe(2);
+      expect(screen.getByText('BEST')).toBeTruthy();
     });
   });
 

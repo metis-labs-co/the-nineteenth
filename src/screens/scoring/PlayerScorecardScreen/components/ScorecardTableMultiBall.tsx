@@ -48,7 +48,7 @@ export function ScorecardTableMultiBall({
   const ballHeaders = Array.from({ length: ballCount }, (_, i) => getBallLabel(i));
 
   // Check if any stats columns are visible
-  const hasStats = showFIR || showGIR;
+  const _hasStats = showFIR || showGIR;
 
   // Render header row
   const renderHeaderRow = () => (

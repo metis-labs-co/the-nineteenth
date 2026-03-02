@@ -33,11 +33,10 @@ import type {
   Course,
   Tee,
   HoleCoordinate,
-  CourseWithClub,
   ClubWithCourses,
 } from '@/types/database.types';
 import type { RegionFilter } from '@/types/database/enums';
-import type { GolfApiSearchParams } from '@/services/api/golfApiTypes';
+import type { GolfApiSearchParams, GolfApiClubResponse } from '@/services/api/golfApiTypes';
 import type { TeeInsert } from './teesService';
 import type { HoleCoordinateInsert } from './coordinatesService';
 
@@ -181,7 +180,7 @@ class CourseService {
 
       // Transform API results to Club format
       // Search results have a subset of club fields - cast to satisfy transformer
-      const apiClubs = apiResults.map((clubResponse) => transformApiClubResponse(clubResponse as any));
+      const apiClubs = apiResults.map((clubResponse) => transformApiClubResponse(clubResponse as unknown as GolfApiClubResponse));
 
       // Filter out clubs already in cache (by golfapi_club_id)
       const cachedGolfApiIds = new Set(

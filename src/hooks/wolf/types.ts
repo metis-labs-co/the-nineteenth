@@ -118,3 +118,68 @@ export interface WolfSettlementTransaction {
   toPlayerName: string;
   amount: number;
 }
+
+// =====================================================
+// STATISTICS TYPES
+// =====================================================
+
+/**
+ * Player wolf statistics from the database
+ */
+export interface WolfPlayerStatistics {
+  id: string;
+  player_id: string;
+  games_played: number;
+  games_won: number;
+  total_points_earned: number;
+  total_holes_played: number;
+  total_holes_as_wolf: number;
+  total_winnings: number;
+  total_net_result: number;
+  current_win_streak: number;
+  longest_win_streak: number;
+  win_rate: number | null;
+  last_game_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Game history entry with joined round/course/payout data
+ */
+export interface WolfGameHistoryEntry {
+  id: string;
+  round_id: string;
+  scoring_type: string;
+  pot_enabled: boolean;
+  pot_value_per_point: number | null;
+  status: string;
+  completed_at: string | null;
+  created_at: string;
+  round?: {
+    id: string;
+    round_number: number;
+    date: string | null;
+    course?: {
+      id: string;
+      name: string;
+    };
+    competition?: {
+      id: string;
+      name: string;
+    };
+  };
+  payout?: {
+    total_points: number;
+    total_winnings: number;
+    net_result: number;
+  };
+}
+
+/**
+ * Options for wolf game history query
+ */
+export interface WolfGameHistoryOptions {
+  limit?: number;
+  offset?: number;
+}

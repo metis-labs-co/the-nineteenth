@@ -67,7 +67,7 @@ export interface WolfDecisionModalProps {
   /** The Wolf player's name */
   wolfName: string;
   /** Other players who can be chosen as partner */
-  otherPlayers: Array<{ id: string; name: string }>;
+  otherPlayers: { id: string; name: string }[];
   /** Whether Blind Wolf is enabled in game settings */
   blindWolfEnabled: boolean;
   /** Whether Blind Wolf can still be selected (only before any scores entered) */
@@ -201,7 +201,7 @@ export function WolfDecisionModal({
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                Wolf's Choice
+                Wolf&apos;s Choice
               </Text>
               <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                 Hole {currentHole} • {wolfName} is Wolf

@@ -61,7 +61,7 @@ export function DriveContributorPicker({
     [onSelect]
   );
 
-  const handleClearSelection = useCallback(() => {
+  const _handleClearSelection = useCallback(() => {
     // We don't have a way to clear in the current interface,
     // but if needed, could call onSelect with empty string
     setModalVisible(false);

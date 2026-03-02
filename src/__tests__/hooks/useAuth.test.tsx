@@ -84,7 +84,7 @@ jest.mock('@/services/supabase/client', () => ({
           error: null,
         })
       ),
-      signInWithPassword: jest.fn(({ email, password }) => {
+      signInWithPassword: jest.fn(({ email: _email, password: _password }) => {
         if (mockLoginShouldFail) {
           return Promise.resolve({
             data: { user: null, session: null },
@@ -97,7 +97,7 @@ jest.mock('@/services/supabase/client', () => ({
           error: null,
         });
       }),
-      signUp: jest.fn(({ email, password, options }) => {
+      signUp: jest.fn(({ email: _email, password: _password, options: _options }) => {
         if (mockSignupShouldFail) {
           return Promise.resolve({
             data: { user: null, session: null },
@@ -110,13 +110,13 @@ jest.mock('@/services/supabase/client', () => ({
           error: null,
         });
       }),
-      signInWithOtp: jest.fn(({ email }) =>
+      signInWithOtp: jest.fn(({ email: _email }) =>
         Promise.resolve({
           data: {},
           error: null,
         })
       ),
-      verifyOtp: jest.fn(({ email, token }) => {
+      verifyOtp: jest.fn(({ email: _email, token }) => {
         if (token === 'invalid') {
           return Promise.resolve({
             data: { user: null, session: null },

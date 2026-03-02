@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { queryClient } from '@/services/queryClient';
 import { calculateHandicapIndex } from '@/utils/handicapDifferential';
 import { syncLogger } from '@/utils/debugLogger';
@@ -41,7 +42,7 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
       .in('status', ['completed', 'confirmed'])
       .not('handicap_differential', 'is', null)
       .order('submitted_at', { ascending: false })
-      .limit(20) as unknown as { data: { handicap_differential: number | null }[] | null; error: any };
+      .limit(20) as unknown as { data: { handicap_differential: number | null }[] | null; error: PostgrestError | null };
 
     if (fetchError) {
       syncLogger.warn('Failed to fetch scorecards for handicap index calculation', {
@@ -79,7 +80,7 @@ export async function updatePlayerHandicapIndex(playerId: string): Promise<void>
     });
 
     // Step 3: Update the player's handicap_index
-    const { error: updateError } = await (supabase.from('players') as any)
+    const { error: updateError } = await (supabase.from('players') as unknown as { update: (values: Record<string, unknown>) => { eq: (column: string, value: string) => Promise<{ error: PostgrestError | null }> } })
       .update({
         handicap_index: newHandicapIndex,
         handicap_index_updated_at: new Date().toISOString(),

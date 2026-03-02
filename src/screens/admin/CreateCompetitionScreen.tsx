@@ -170,10 +170,10 @@ export default function CreateCompetitionScreen() {
   }, [hasPrizePool]);
 
   // Total step count
-  const totalSteps = STEPS.length;
+  const _totalSteps = STEPS.length;
 
   // Get the review step number (last step)
-  const reviewStepNumber = hasPrizePool ? 5 : 4;
+  const _reviewStepNumber = hasPrizePool ? 5 : 4;
 
   // Handle step completion - dynamic step flow
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
@@ -220,33 +220,45 @@ export default function CreateCompetitionScreen() {
 
   // Handle final submission - dynamic step flow with prize pool
   const handleSubmit = async () => {
+    console.log('[CreateCompetition] handleSubmit called');
+    console.log('[CreateCompetition] wizardData.step1:', JSON.stringify(wizardData.step1, null, 2));
+    console.log('[CreateCompetition] wizardData.step2:', JSON.stringify(wizardData.step2, null, 2));
+    console.log('[CreateCompetition] wizardData.players:', JSON.stringify(wizardData.players, null, 2));
+    console.log('[CreateCompetition] wizardData.prizePoolConfig:', JSON.stringify(wizardData.prizePoolConfig, null, 2));
+
     if (!wizardData.step1 || !wizardData.step2) {
+      console.warn('[CreateCompetition] Missing step data - step1:', !!wizardData.step1, 'step2:', !!wizardData.step2);
       showAlert('Error', 'Please complete all steps');
       return;
     }
 
     // If prize pool enabled but not configured, show error
     if (wizardData.step1.enablePrizePool && !wizardData.prizePoolConfig) {
+      console.warn('[CreateCompetition] Prize pool enabled but not configured');
       showAlert('Error', 'Please configure the prize pool');
       return;
     }
 
     try {
-      const result = await createCompetition.mutateAsync({
+      // Build the mutation input for logging
+      const parsedStartDate = parseAustralianDate(wizardData.step1.startDate);
+      const parsedEndDate = wizardData.step1.endDate
+        ? parseAustralianDate(wizardData.step1.endDate)
+        : undefined;
+
+      const mutationInput = {
         // Step 1: Competition details
         name: wizardData.step1.name,
         description: wizardData.step1.description,
         competitionType: wizardData.step1.competitionType,
-        startDate: parseAustralianDate(wizardData.step1.startDate),
-        endDate: wizardData.step1.endDate
-          ? parseAustralianDate(wizardData.step1.endDate)
-          : undefined,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
         handicapSystem: wizardData.step1.handicapSystem,
         inviteCode: wizardData.step1.inviteCode,
-        visibility: 'private',
+        visibility: 'private' as const,
 
         // Team settings from enableTeams toggle (defaults)
-        teamMode: wizardData.step1.enableTeams ? 'fixed' : 'none',
+        teamMode: wizardData.step1.enableTeams ? ('fixed' as const) : ('none' as const),
         teamSize: wizardData.step1.enableTeams ? 2 : undefined,
         pointSystem: DEFAULT_POINT_SYSTEM,
 
@@ -269,7 +281,17 @@ export default function CreateCompetitionScreen() {
           email: player.email || '',
           handicap: player.handicap ?? undefined,
         })),
-      });
+      };
+
+      console.log('[CreateCompetition] Parsed dates - start:', parsedStartDate, 'end:', parsedEndDate);
+      console.log('[CreateCompetition] Rounds input:', JSON.stringify(mutationInput.rounds, null, 2));
+      console.log('[CreateCompetition] Players input:', JSON.stringify(mutationInput.players, null, 2));
+      console.log('[CreateCompetition] Calling createCompetition.mutateAsync...');
+
+      const result = await createCompetition.mutateAsync(mutationInput);
+      console.log('[CreateCompetition] Competition created successfully:', result.competition.id);
+      console.log('[CreateCompetition] Invite code:', result.inviteCode);
+      console.log('[CreateCompetition] Rounds created:', result.rounds.length);
 
       // If prize pool is enabled, create it after competition creation
       if (wizardData.step1.enablePrizePool && wizardData.prizePoolConfig && user) {
@@ -309,7 +331,17 @@ export default function CreateCompetitionScreen() {
         navigation.replace('CompetitionDetail', { id: result.competition.id });
       }, 2000);
     } catch (error) {
-      console.error('Failed to create competition:', error);
+      console.error('[CreateCompetition] Failed to create competition:', error);
+      console.error('[CreateCompetition] Error type:', typeof error);
+      console.error('[CreateCompetition] Error name:', error instanceof Error ? error.name : 'N/A');
+      console.error('[CreateCompetition] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[CreateCompetition] Error stack:', error instanceof Error ? error.stack : 'N/A');
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error('[CreateCompetition] Error code:', (error as { code: unknown }).code);
+      }
+      if (error && typeof error === 'object' && 'details' in error) {
+        console.error('[CreateCompetition] Error details:', (error as { details: unknown }).details);
+      }
 
       // Check if this is a permission/tier limit error
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -338,7 +370,7 @@ export default function CreateCompetitionScreen() {
       } else {
         showAlert(
           'Error',
-          'Failed to create competition. Please try again.'
+          `Failed to create competition. Please try again.\n\nDetails: ${errorMessage}`
         );
       }
     }

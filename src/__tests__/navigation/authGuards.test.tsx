@@ -9,8 +9,8 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
-import { Theme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { render, screen, waitFor } from '@testing-library/react-native';
+import { Theme, createNavigationContainerRef } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -58,7 +58,7 @@ jest.mock('@/navigation/navigationRef', () => ({
 // Mock all screen components to avoid loading complex dependencies
 jest.mock('@/screens/auth/LoginScreen', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
-  return function MockLoginScreen({ navigation }: { navigation: any }) {
+  return function MockLoginScreen({ navigation: _navigation }: { navigation: any }) {
     return (
       <View testID="login-screen">
         <Text>Login Screen</Text>
@@ -333,9 +333,121 @@ jest.mock('@/screens/subscription/SubscriptionScreen', () => {
   };
 });
 
+// Scoring Screens (additional)
+jest.mock('@/screens/scoring/TeamMatchPlayScoringScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'teammatchplayscoring-screen' }, React.createElement(Text, null, 'TeamMatchPlayScoring'));
+  };
+});
+jest.mock('@/screens/scoring', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return {
+    MatchPlayScorecardScreen: function MockScreen() {
+      return React.createElement(View, { testID: 'matchplayscorecard-screen' }, React.createElement(Text, null, 'MatchPlayScorecard'));
+    },
+  };
+});
+
+// Profile Screens (additional)
+jest.mock('@/screens/profile/HandicapHistoryScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'handicaphistory-screen' }, React.createElement(Text, null, 'HandicapHistory'));
+  };
+});
+jest.mock('@/screens/profile/PrivacyDataScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'privacydata-screen' }, React.createElement(Text, null, 'PrivacyData'));
+  };
+});
+jest.mock('@/screens/profile/CountryRegionScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'countryregion-screen' }, React.createElement(Text, null, 'CountryRegion'));
+  };
+});
+jest.mock('@/screens/profile/GameResultsScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'gameresults-screen' }, React.createElement(Text, null, 'GameResults'));
+  };
+});
+
+// League Screens
+jest.mock('@/screens/leagues/LeagueDetailScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'leaguedetail-screen' }, React.createElement(Text, null, 'LeagueDetail'));
+  };
+});
+jest.mock('@/screens/leagues/CreateLeagueScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'createleague-screen' }, React.createElement(Text, null, 'CreateLeague'));
+  };
+});
+jest.mock('@/screens/leagues/JoinLeagueScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'joinleague-screen' }, React.createElement(Text, null, 'JoinLeague'));
+  };
+});
+jest.mock('@/screens/leagues/LeagueSettingsScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'leaguesettings-screen' }, React.createElement(Text, null, 'LeagueSettings'));
+  };
+});
+jest.mock('@/screens/leagues/TagRoundToLeagueScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'tagroundtoleague-screen' }, React.createElement(Text, null, 'TagRoundToLeague'));
+  };
+});
+jest.mock('@/screens/leagues/ChallengeDetailScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'challengedetail-screen' }, React.createElement(Text, null, 'ChallengeDetail'));
+  };
+});
+
+// Biometric Lock
+jest.mock('@/hooks/useBiometricLock', () => ({
+  useBiometricLock: () => ({
+    isLocked: false,
+    isAuthenticating: false,
+    unlock: jest.fn(),
+    error: null,
+    biometricType: null,
+  }),
+}));
+jest.mock('@/components/biometric', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    BiometricLockScreen: function MockScreen() {
+      return React.createElement(View, { testID: 'biometric-lock-screen' });
+    },
+  };
+});
+
 // Mock LoadingSpinner component
 jest.mock('@/components/common', () => ({
-  LoadingSpinner: ({ size }: { size?: string }) => {
+  LoadingSpinner: ({ size: _size }: { size?: string }) => {
     const { View } = require('react-native');
     return <View testID="loading-spinner" />;
   },

@@ -17,7 +17,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { View } from 'react-native';
 import { ScoringPairsSection } from './ScoringPairsSection';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { Player, ScoringPairWithPlayers, RoundStatus } from '@/types/database.types';
+import type { Player, ScoringPairWithPlayers } from '@/types/database.types';
 
 // Create a QueryClient for the stories
 const queryClient = new QueryClient({

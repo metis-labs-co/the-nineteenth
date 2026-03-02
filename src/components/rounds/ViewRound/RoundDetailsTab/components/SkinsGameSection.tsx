@@ -426,7 +426,7 @@ export function SkinsGameSection({
                     PARTICIPANTS
                   </Text>
                   <View style={styles.participantsList}>
-                    {skinsGame.participants.map((participant, index) => (
+                    {skinsGame.participants.map((participant, _index) => (
                       <View
                         key={participant.id}
                         style={[

@@ -59,7 +59,9 @@ export interface EligibleScorecard {
   course_id?: string | null;
 }
 
-// Helper to bypass Supabase generated types for new tables
+// Helper to bypass Supabase generated types for new tables.
+// These tables exist in the DB but haven't been added to generated types yet.
+// Once `supabase gen types` is run after deploying migrations, this can be removed.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
 
@@ -125,13 +127,16 @@ export async function getLeaguePlayers(leagueId: string): Promise<(LeaguePlayer 
     throw new Error(`Failed to fetch league players: ${error.message}`);
   }
 
-  return (data ?? []) as any;
+  return (data ?? []) as unknown as (LeaguePlayer & {
+    player: { id: string; name: string; photo_url: string | null };
+  })[];
 }
 
 /**
  * Fetch league leaderboard using the DB function
  */
 export async function getLeagueLeaderboard(leagueId: string): Promise<LeagueLeaderboardEntry[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .rpc('get_league_leaderboard', { p_league_id: leagueId });
 
@@ -147,6 +152,7 @@ export async function getLeagueLeaderboard(leagueId: string): Promise<LeagueLead
  * Fetch eclectic leaderboard using the DB function
  */
 export async function getEclecticLeaderboard(leagueId: string): Promise<EclecticLeaderboardEntry[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .rpc('get_eclectic_leaderboard', { p_league_id: leagueId });
 
@@ -240,7 +246,21 @@ export async function getPlayerLeagueRounds(
   }
 
   // Flatten the nested Supabase response
-  return ((data ?? []) as any[]).map((row) => {
+  interface NestedLeagueRoundRow {
+    id: string;
+    scorecard_id: string;
+    handicap_differential: number;
+    tagged_at: string;
+    scorecards?: {
+      round_id?: string;
+      total_gross?: number;
+      course_rating_used?: number | null;
+      slope_rating_used?: number | null;
+      daily_handicap_used?: number | null;
+      rounds?: { date?: string; courses?: { name?: string } };
+    };
+  }
+  return ((data ?? []) as unknown as NestedLeagueRoundRow[]).map((row) => {
     const sc = row.scorecards;
     const round = sc?.rounds;
     const course = round?.courses;
@@ -278,7 +298,7 @@ export async function getEligibleScorecards(
     .eq('league_id', leagueId)
     .eq('player_id', user.id);
 
-  const taggedIds = (tagged ?? []).map((r: any) => r.scorecard_id);
+  const taggedIds = (tagged ?? []).map((r: { scorecard_id: string }) => r.scorecard_id);
 
   // Get eligible scorecards - include round's course_id for eclectic filtering
   let query = supabase
@@ -320,7 +340,17 @@ export async function getEligibleScorecards(
     throw new Error(`Failed to fetch eligible scorecards: ${error.message}`);
   }
 
-  return ((data ?? []) as any[]).map((sc) => ({
+  interface ScorecardWithRound {
+    id: string;
+    round_id: string | null;
+    player_id: string;
+    handicap_differential: number;
+    status: string;
+    created_at: string;
+    total_gross: number | null;
+    rounds?: { date?: string; course_id?: string; courses?: { name?: string } };
+  }
+  return ((data ?? []) as unknown as ScorecardWithRound[]).map((sc) => ({
     id: sc.id,
     round_id: sc.round_id,
     player_id: sc.player_id,
@@ -355,7 +385,7 @@ export async function getLeagueTagsForScorecard(scorecardId: string): Promise<{
     throw new Error(`Failed to fetch scorecard tags: ${error.message}`);
   }
 
-  return ((data ?? []) as any[]).map((row) => ({
+  return ((data ?? []) as unknown as { id: string; league_id: string; tagged_at: string }[]).map((row) => ({
     leagueRoundId: row.id,
     leagueId: row.league_id,
     taggedAt: row.tagged_at,
@@ -522,7 +552,15 @@ export async function tagRoundToLeague(
     throw new Error('Scorecard not found');
   }
 
-  const sc = scorecard as any;
+  interface ScorecardForTag {
+    id: string;
+    player_id: string;
+    handicap_differential: number | null;
+    status: string;
+    scores: Record<string, { strokes?: number; net_score?: number }> | null;
+    round_id: string | null;
+  }
+  const sc = scorecard as unknown as ScorecardForTag;
 
   if (sc.player_id !== user.id) {
     throw new Error('You can only tag your own scorecards');
@@ -536,14 +574,14 @@ export async function tagRoundToLeague(
     throw new Error('This scorecard does not have a handicap differential');
   }
 
-  // Validate 18 holes
+  // Validate 18 holes - scores is a Record<string, HoleScore> keyed by hole number
   const scores = sc.scores;
-  if (!scores || !Array.isArray(scores)) {
+  if (!scores || typeof scores !== 'object') {
     throw new Error('Invalid scorecard data');
   }
 
-  const holesWithStrokes = scores.filter(
-    (s: any) => s && s.strokes != null && s.strokes > 0
+  const holesWithStrokes = Object.values(scores).filter(
+    (s) => s && s.strokes != null && s.strokes > 0
   );
   if (holesWithStrokes.length < 18) {
     throw new Error('Only 18-hole rounds can be tagged to leagues');
@@ -594,8 +632,8 @@ export async function tagRoundToLeague(
  */
 async function validateTagForLeagueType(
   league: League,
-  scorecard: any,
-  userId: string
+  scorecard: { round_id: string | null; handicap_differential: number | null },
+  _userId: string
 ): Promise<void> {
   switch (league.league_type) {
     case 'season': {
@@ -672,14 +710,14 @@ async function updateEclecticBestScores(
   leagueId: string,
   playerId: string,
   scorecardId: string,
-  scores: any[],
+  scores: Record<string, { strokes?: number; net_score?: number }>,
   league: League
 ): Promise<void> {
-  for (const score of scores) {
+  for (const [holeKey, score] of Object.entries(scores)) {
     if (!score || score.strokes == null || score.strokes <= 0) continue;
 
-    const holeNumber = score.hole_number ?? score.holeNumber;
-    if (!holeNumber || holeNumber < 1 || holeNumber > 18) continue;
+    const holeNumber = parseInt(holeKey, 10);
+    if (isNaN(holeNumber) || holeNumber < 1 || holeNumber > 18) continue;
 
     // Calculate net score if applicable
     let bestNet: number | null = null;

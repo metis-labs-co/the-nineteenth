@@ -115,11 +115,11 @@ interface GolfApiSearchResult {
   country: string;
   latitude: string;
   longitude: string;
-  courses?: Array<{
+  courses?: {
     courseID: string;
     courseName: string;
     numHoles: number;
-  }>;
+  }[];
 }
 
 interface GolfApiClubResponse {
@@ -137,12 +137,12 @@ interface GolfApiClubResponse {
   latitude: string;
   longitude: string;
   totalHoles?: number;
-  courses?: Array<{
+  courses?: {
     courseID: string;
     longCourseID?: string;
     courseName: string;
     numHoles: number;
-  }>;
+  }[];
 }
 
 interface GolfApiCourseResponse {
@@ -156,7 +156,7 @@ interface GolfApiCourseResponse {
   strokeIndex?: number[];
   strokeIndexWomen?: number[];
   matchPlayStrokeIndex?: number[];
-  tees?: Array<{
+  tees?: {
     teeID: string;
     teeName: string;
     teeColor?: string;
@@ -191,7 +191,7 @@ interface GolfApiCourseResponse {
     lengthHole16?: number;
     lengthHole17?: number;
     lengthHole18?: number;
-  }>;
+  }[];
 }
 
 async function golfApiRequest<T>(endpoint: string, params?: Record<string, string>): Promise<T> {

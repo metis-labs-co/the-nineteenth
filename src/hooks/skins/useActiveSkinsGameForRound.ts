@@ -35,10 +35,10 @@ interface PlayerRow {
 interface TeamWithMembersRow {
   id: string;
   name: string;
-  team_members?: Array<{
+  team_members?: {
     player_id: string;
     players: PlayerRow | null;
-  }>;
+  }[];
 }
 
 /**

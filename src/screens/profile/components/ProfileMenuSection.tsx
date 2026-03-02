@@ -34,6 +34,7 @@ interface ProfileMenuSectionProps {
   onCountryRegion: () => void;
   onNotifications: () => void;
   onHelpAndSupport: () => void;
+  onGameResults: () => void;
   onFriends: () => void;
   onSignOut: () => void;
 }
@@ -48,6 +49,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onAchievements,
   onCustomizeProfile,
   onSubscription,
+  onGameResults,
   onGuestPlayers,
   onPrivacyData,
   onSettings,
@@ -64,6 +66,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   const isHandicapHistoryLocked = !checkFeature('handicap_history').allowed;
   const isManageGuestsLocked = !checkFeature('manage_guests').allowed;
   const isDetailedStatsLocked = !checkFeature('detailed_stats').allowed;
+  const isGameResultsLocked = !checkFeature('skins_game').allowed;
 
   // Lock badge component for gated menu items
   const renderLockBadge = (feature: FeatureId) => {
@@ -113,6 +116,13 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             onPress={isHandicapHistoryLocked ? onSubscription : onHandicapHistory}
             rightContent={isHandicapHistoryLocked ? renderLockBadge('handicap_history') : undefined}
             testID="menu-handicap-history"
+          />
+          <MenuItemRow
+            icon="cash-multiple"
+            title="Game Results"
+            onPress={isGameResultsLocked ? onSubscription : onGameResults}
+            rightContent={isGameResultsLocked ? renderLockBadge('skins_game') : undefined}
+            testID="menu-game-results"
           />
           <MenuItemRow
             icon="trophy"

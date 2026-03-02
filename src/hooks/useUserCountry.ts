@@ -91,6 +91,7 @@ export const normalizeSupportedCountry = normalizeCountryFromGps;
 
 export function useUserCountry(): UseUserCountryReturn {
   const countryOverride = useSettingsStore((state) => state.countryOverride);
+  const skipDetection = !!countryOverride;
 
   const [country, setCountry] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,13 +100,9 @@ export function useUserCountry(): UseUserCountryReturn {
 
   const { data: homeClub, isLoading: homeClubLoading } = useHomeClub();
 
-  // If user has set a country override, skip all detection
-  if (countryOverride) {
-    return { country: countryOverride, isLoading: false };
-  }
-
   // Step 1: Check cache on mount
   useEffect(() => {
+    if (skipDetection) return;
     let cancelled = false;
 
     async function checkCache() {
@@ -119,10 +116,11 @@ export function useUserCountry(): UseUserCountryReturn {
 
     checkCache();
     return () => { cancelled = true; };
-  }, []);
+  }, [skipDetection]);
 
   // Step 2: GPS reverse geocode (one-shot, no continuous watching)
   useEffect(() => {
+    if (skipDetection) return;
     if (resolvedRef.current) return;
 
     let cancelled = false;
@@ -166,10 +164,11 @@ export function useUserCountry(): UseUserCountryReturn {
 
     detectViaGps();
     return () => { cancelled = true; };
-  }, []);
+  }, [skipDetection]);
 
   // Step 3: Home club fallback — runs once GPS check is done and home club loaded
   useEffect(() => {
+    if (skipDetection) return;
     if (resolvedRef.current) return;
     if (!gpsChecked) return;
     if (homeClubLoading) return;
@@ -181,10 +180,11 @@ export function useUserCountry(): UseUserCountryReturn {
       setCachedCountry(clubCountry);
     }
     setIsLoading(false);
-  }, [gpsChecked, homeClub, homeClubLoading]);
+  }, [skipDetection, gpsChecked, homeClub, homeClubLoading]);
 
   // Safety timeout: if still loading after 5s, stop loading
   useEffect(() => {
+    if (skipDetection) return;
     if (!isLoading) return;
 
     const timer = setTimeout(() => {
@@ -194,7 +194,12 @@ export function useUserCountry(): UseUserCountryReturn {
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [isLoading]);
+  }, [skipDetection, isLoading]);
+
+  // If user has set a country override, skip all detection
+  if (countryOverride) {
+    return { country: countryOverride, isLoading: false };
+  }
 
   return { country, isLoading };
 }

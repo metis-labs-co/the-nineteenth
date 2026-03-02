@@ -26,18 +26,25 @@ export async function checkCompetitionCreationPermission(): Promise<PermissionCh
 
   // Call database function to check permission
   // Note: Using type assertion because the database function types may not be perfectly aligned
+  console.log('[API] Calling RPC user_can_create_competition for user:', user.id);
   const { data: canCreate, error: rpcError } = await supabase
     .rpc('user_can_create_competition' as unknown as never, { p_user_id: user.id } as never);
 
+  console.log('[API] RPC result - canCreate:', canCreate, 'error:', rpcError ? JSON.stringify(rpcError) : 'none');
+
   if (rpcError) {
-    console.error('[API] Error checking competition creation permission:', rpcError);
+    console.error('[API] Error checking competition creation permission:', JSON.stringify(rpcError));
+    console.error('[API] RPC error code:', rpcError.code, 'hint:', rpcError.hint);
     // Fail open - if we can't check, allow (better UX, DB will still enforce)
     return { allowed: true };
   }
 
   if (canCreate) {
+    console.log('[API] Permission granted - user can create competition');
     return { allowed: true };
   }
+
+  console.log('[API] Permission denied - checking limits...');
 
   // Get current count and limit for better error message
   const limits = useSubscriptionStore.getState().limits;

@@ -78,8 +78,8 @@ export function useRoundSubmission({
         if (existingGameId) {
           // Update existing skins game
           console.log('[useRoundSubmission] Updating existing skins game:', existingGameId);
-          // Note: Using 'as any' because skins_games table types haven't been regenerated yet
           const { error } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
             .from('skins_games') as any)
             .update({
               pot_type: skinsConfig.pot_type,
@@ -99,7 +99,7 @@ export function useRoundSubmission({
         } else if (userId && participantIds.length >= 2) {
           // Create new skins game
           console.log('[useRoundSubmission] Creating new skins game for round:', roundId, 'pool source:', skinsPoolSource);
-          // Note: Using 'as any' because skins_games table types haven't been regenerated yet
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
           const { error } = await (supabase.from('skins_games') as any).insert({
             round_id: roundId,
             pairing_id: null,
@@ -139,8 +139,8 @@ export function useRoundSubmission({
       } else if (!skinsEnabled && existingGameId) {
         // Delete existing skins game (user disabled skins)
         console.log('[useRoundSubmission] Deleting skins game:', existingGameId);
-        // Note: Using 'as any' because skins_games table types haven't been regenerated yet
         const { error } = await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
           .from('skins_games') as any)
           .delete()
           .eq('id', existingGameId);
@@ -173,8 +173,8 @@ export function useRoundSubmission({
         if (existingGameId) {
           // Update existing Wolf game
           console.log('[useRoundSubmission] Updating existing Wolf game:', existingGameId);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
           const { error } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
             .from('wolf_games') as any)
             .update({
               scoring_type: wolfConfig.scoring_type,
@@ -218,8 +218,8 @@ export function useRoundSubmission({
       } else if (!wolfEnabled && existingGameId) {
         // Delete existing Wolf game (user disabled Wolf)
         console.log('[useRoundSubmission] Deleting Wolf game:', existingGameId);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
         const { error } = await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
           .from('wolf_games') as any)
           .delete()
           .eq('id', existingGameId);

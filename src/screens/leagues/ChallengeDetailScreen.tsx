@@ -47,8 +47,8 @@ export default function ChallengeDetailScreen() {
   const handleAccept = useCallback(async () => {
     try {
       await respondMutation.mutateAsync({ challengeId, accept: true });
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
     }
   }, [respondMutation, challengeId]);
 
@@ -61,8 +61,8 @@ export default function ChallengeDetailScreen() {
     try {
       await respondMutation.mutateAsync({ challengeId, accept: false });
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
     }
   }, [respondMutation, challengeId, navigation]);
 
@@ -75,8 +75,8 @@ export default function ChallengeDetailScreen() {
     try {
       await cancelMutation.mutateAsync(challengeId);
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
     }
   }, [cancelMutation, challengeId, navigation]);
 

@@ -60,7 +60,7 @@ jest.mock('@tabler/icons-react-native', () => {
   };
 });
 
-// Mock LoadingSpinner
+// Mock common components
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
   return {
@@ -69,6 +69,15 @@ jest.mock('@/components/common', () => {
         <Text>{message || 'Loading...'}</Text>
         {size && <Text>Size: {size}</Text>}
       </View>
+    ),
+    EmptyState: ({ title, message, icon }: { title: string; message: string; icon?: string }) => (
+      <View testID={icon ? `icon-${icon}` : 'empty-state'}>
+        <Text>{title}</Text>
+        <Text>{message}</Text>
+      </View>
+    ),
+    ScaledText: ({ children, style, ...props }: any) => (
+      <Text style={style} {...props}>{children}</Text>
     ),
   };
 });

@@ -5,7 +5,6 @@
  * Shows different tier combinations and interaction states.
  */
 
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { DowngradeConfirmationModal } from './DowngradeConfirmationModal';
 

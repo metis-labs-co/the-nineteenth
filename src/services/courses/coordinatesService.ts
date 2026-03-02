@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import type { PostgrestError } from '@supabase/supabase-js';
 import type { HoleCoordinate } from '@/types/database.types';
 import type { PoiType } from '@/types/database/enums';
 import type { Database } from '@/types/supabase';
@@ -21,7 +22,6 @@ import {
   calculateCoordinateDistance,
   groupCoordinatesByHole,
   getCoordinateByPoiType,
-  type HoleCoordinatesByHole,
 } from '@/utils/gpsCalculations';
 
 // Re-export GPS calculation utilities for backward compatibility
@@ -45,7 +45,7 @@ export {
  * Supabase database types for hole_coordinates table
  */
 type HoleCoordinatesTable = Database['public']['Tables']['hole_coordinates'];
-type HoleCoordinateRow = HoleCoordinatesTable['Row'];
+type _HoleCoordinateRow = HoleCoordinatesTable['Row'];
 type HoleCoordinateInsertDb = HoleCoordinatesTable['Insert'];
 
 /**
@@ -431,7 +431,7 @@ class CoordinatesService {
         .eq('course_id', courseId)
         .in('poi_type', ESSENTIAL_POI_TYPES as string[]) as {
           data: { hole_number: number; poi_type: string }[] | null;
-          error: any;
+          error: PostgrestError | null;
         };
 
       if (error) {

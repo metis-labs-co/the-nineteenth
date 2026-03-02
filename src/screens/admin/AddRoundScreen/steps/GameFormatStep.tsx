@@ -9,7 +9,6 @@ import { FormSection } from '@/components/common';
 import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
 import { TeamRoundSection } from '../components';
 import type { GameType, TeamFormat, TeamWithMembers } from '@/types/database.types';
-import type { FormErrors } from '../types';
 
 interface GameFormatStepProps {
   gameType: GameType;

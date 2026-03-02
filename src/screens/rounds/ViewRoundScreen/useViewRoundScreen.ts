@@ -6,14 +6,13 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useConfirmationDialog, useCompetitionInfo } from '@/hooks';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useDeleteRound } from '@/hooks/useDeleteRound';
-import { competitionKeys, roundKeys } from '@/hooks/queryKeys';
+import { roundKeys } from '@/hooks/queryKeys';
 import { supabase } from '@/services/supabase/client';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,10 +20,9 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
 import { useSkinsGamesByRound, useCreateSkinsGame, useSkinsResults, useSkinsGame } from '@/hooks/useSkins';
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
-import { skinsColor, wolfColor, spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { SkinsConfig } from '@/types/database/skins.types';
-import type { HoleScore, MultiBallHoleScore, Player, Hole } from '@/types';
+import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
 import type { TabItem } from '@/components/common/Tabs';
 
@@ -32,7 +30,7 @@ import type { TabItem } from '@/components/common/Tabs';
 // TYPES & CONSTANTS
 // =====================================================
 
-export type TabKey = 'details' | 'gameSetup' | 'scorecard' | 'match' | 'skins' | 'wolf' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
+export type TabKey = 'details' | 'gameSetup' | 'scorecard' | 'match' | 'skins' | 'wolf' | 'payouts' | 'teamScores' | 'scrambleTeamScore' | 'scrambleLeaderboard' | 'scrambleContributions' | 'leaderboard';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'details', label: 'Details' },
@@ -64,6 +62,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   // Update course mutation
   const { mutate: updateCourse } = useMutation({
     mutationFn: async (courseId: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('rounds') as any)
         .update({ course_id: courseId })
         .eq('id', roundId);
@@ -80,6 +79,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   // Skins game mutations
   const { mutate: updateSkinsGame } = useMutation({
     mutationFn: async ({ gameId, updates }: { gameId: string; updates: Partial<SkinsConfig> }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('skins_games') as any)
         .update(updates)
         .eq('id', gameId);
@@ -238,6 +238,63 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     return undefined;
   }, [isTeamSkins, skinsGameWithParticipants, round, scorecards]);
 
+  // Check if individual games have pots (for payouts tab)
+  const hasSkinsWithPot = useMemo(() => {
+    if (!hasSkinsGame || isTeamSkins) return false; // v1: individual skins only
+    if (!activeSkinsGame || activeSkinsGame.pot_value <= 0) return false;
+    return true;
+  }, [hasSkinsGame, isTeamSkins, activeSkinsGame]);
+
+  const hasWolfWithPot = useMemo(() => {
+    if (!hasWolfGame) return false;
+    if (!wolfGame?.pot_enabled || !wolfGame?.pot_value_per_point || wolfGame.pot_value_per_point <= 0) return false;
+    return true;
+  }, [hasWolfGame, wolfGame]);
+
+  const hasPayoutsTab = hasSkinsWithPot || hasWolfWithPot;
+  const payoutsMode = hasSkinsWithPot && hasWolfWithPot
+    ? 'combined' as const
+    : hasSkinsWithPot
+      ? 'skins-only' as const
+      : hasWolfWithPot
+        ? 'wolf-only' as const
+        : null;
+
+  // Build player name map from all available sources
+  const playerNameMap = useMemo((): Record<string, string> => {
+    const map: Record<string, string> = {};
+
+    // From scorecards
+    scorecards?.forEach((sc) => {
+      if (sc.player?.name) {
+        map[sc.player_id] = sc.player.name;
+      }
+    });
+
+    // From round players
+    roundPlayers?.forEach((p) => {
+      if (p.name && !map[p.id]) {
+        map[p.id] = p.name;
+      }
+    });
+
+    // From wolf summary participants
+    wolfSummary?.game.participants?.forEach((p) => {
+      if (p.name && !map[p.id]) {
+        map[p.id] = p.name;
+      }
+    });
+
+    // From skins game participants
+    activeSkinsGame?.participants?.forEach((p) => {
+      if (p.name && !map[p.id]) {
+        map[p.id] = p.name;
+      }
+    });
+
+    return map;
+  }, [scorecards, roundPlayers, wolfSummary, activeSkinsGame]);
+
   // Refetch skins data when screen gains focus (to sync with score entry screen)
   useFocusEffect(
     useCallback(() => {
@@ -327,8 +384,12 @@ export function useViewRoundScreen({ route, navigation }: Props) {
       result.push({ key: 'wolf' as const, label: 'Wolf' });
     }
 
+    if (hasPayoutsTab) {
+      result.push({ key: 'payouts' as const, label: 'Payouts' });
+    }
+
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, isOrganizer, round?.scoring_pairs_required]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, isOrganizer, round?.scoring_pairs_required]);
 
   // Check if user can delete this round
   const canDelete = useMemo(() => {
@@ -967,6 +1028,9 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     skinsTeams,
     hasSkinsGame,
     hasWolfGame,
+    hasPayoutsTab,
+    payoutsMode,
+    playerNameMap,
     canDelete,
     canTagToLeague,
     userScorecardId,

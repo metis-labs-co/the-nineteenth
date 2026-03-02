@@ -31,31 +31,25 @@ import {
   StyleSheet,
   Switch,
   TouchableOpacity,
-  TextInput as RNTextInput,
 } from 'react-native';
 import { Text, Icon, Divider, TextInput } from 'react-native-paper';
 import {
   IconTrophy,
   IconLock,
   IconCurrencyDollar,
-  IconPercentage,
   IconInfoCircle,
-  IconUsers,
   IconDice,
   IconMedal,
   IconDots,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
-import { ProgressBar } from '@/components/common/ProgressBar';
 import { Pill } from '@/components/common';
 import type {
   CompetitionPrizePool,
   PoolFundingType,
-  CreatePrizePoolInput,
-  UpdatePrizePoolInput,
 } from '@/types';
 
 // ============================================================================
@@ -132,7 +126,7 @@ const DEFAULT_CONFIG: PrizePoolConfig = {
 // ============================================================================
 
 export const PrizePoolSection = memo(function PrizePoolSection({
-  competitionId,
+  competitionId: _competitionId,
   pool,
   playerCount,
   roundCount,

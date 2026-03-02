@@ -24,7 +24,7 @@ import type { Database } from '@/types/supabase';
  * Supabase database types for tees table
  */
 type TeesTable = Database['public']['Tables']['tees'];
-type TeeRow = TeesTable['Row'];
+type _TeeRow = TeesTable['Row'];
 type TeeInsertDb = TeesTable['Insert'];
 type TeeUpdateDb = TeesTable['Update'];
 

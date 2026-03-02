@@ -25,7 +25,7 @@ import {
   RefreshControl,
   type ListRenderItemInfo,
 } from 'react-native';
-import { Text, ActivityIndicator, Icon } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import {
   IconArrowDown,
@@ -67,7 +67,7 @@ export interface PoolTransactionsListProps {
 // ============================================================================
 
 const PRIZE_POOL_COLOR = '#059669'; // Emerald/success
-const SKINS_COLOR = '#8B5CF6'; // Purple
+const _SKINS_COLOR = '#8B5CF6'; // Purple
 const ERROR_COLOR = '#DC2626'; // Red for draws/debits
 const ADJUSTMENT_COLOR = '#6B7280'; // Gray for adjustments
 

@@ -60,7 +60,7 @@ jest.mock('react-native-paper', () => {
 const createMockWizardReturn = (overrides = {}) => ({
   currentStep: 1,
   wizardData: {
-    step1: { venueName: '', city: '', state: null },
+    step1: { clubName: '', city: '', state: null },
     step2: { courseName: '', tees: [] },
     step3: { holes: [], currentHoleIndex: 0 },
   },
@@ -74,7 +74,7 @@ const createMockWizardReturn = (overrides = {}) => ({
   handleNext: jest.fn(),
   handleBack: jest.fn(),
   handleClose: jest.fn(),
-  handleVenueNameChange: jest.fn(),
+  handleClubNameChange: jest.fn(),
   handleCityChange: jest.fn(),
   handleStateChange: jest.fn(),
   handleCourseNameChange: jest.fn(),
@@ -183,7 +183,7 @@ jest.mock('./steps/VenueDetailsStep', () => {
       onCityChange,
       onStateChange: _onStateChange,
     }: {
-      data: { venueName: string; city: string; state: string | null };
+      data: { clubName: string; city: string; state: string | null };
       onVenueNameChange: (text: string) => void;
       onCityChange: (text: string) => void;
       onStateChange: (state: string | null) => void;
@@ -192,7 +192,7 @@ jest.mock('./steps/VenueDetailsStep', () => {
         <Text>Venue Details Step</Text>
         <TextInput
           testID="venue-name-input"
-          value={data.venueName}
+          value={data.clubName}
           onChangeText={onVenueNameChange}
           placeholder="Venue name"
         />
@@ -386,8 +386,8 @@ describe('AddCourseModal', () => {
 
     it('displays step 1 title in header', () => {
       render(<AddCourseModal {...defaultProps} />);
-      // Both header and step indicator show "Venue", so check at least 2 exist
-      expect(screen.getAllByText('Venue').length).toBeGreaterThanOrEqual(1);
+      // Both header and step indicator show "Club", so check at least 2 exist
+      expect(screen.getAllByText('Club').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders cancel button in header', () => {
@@ -472,10 +472,10 @@ describe('AddCourseModal', () => {
   // ===========================================================================
 
   describe('Header', () => {
-    it('displays "Venue" title on step 1', () => {
+    it('displays "Club" title on step 1', () => {
       render(<AddCourseModal {...defaultProps} />);
       // Title appears in both header and step indicator
-      expect(screen.getAllByText('Venue').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Club').length).toBeGreaterThanOrEqual(1);
     });
 
     it('displays "Course & Tees" title on step 2', () => {
@@ -604,7 +604,7 @@ describe('AddCourseModal', () => {
     it('passes correct data to VenueDetailsStep', () => {
       mockWizardReturn = createMockWizardReturn({
         wizardData: {
-          step1: { venueName: 'Test Venue', city: 'Melbourne', state: 'VIC' },
+          step1: { clubName: 'Test Venue', city: 'Melbourne', state: 'VIC' },
           step2: { courseName: '', tees: [] },
           step3: { holes: [], currentHoleIndex: 0 },
         },
@@ -615,13 +615,13 @@ describe('AddCourseModal', () => {
       expect(screen.getByDisplayValue('Melbourne')).toBeTruthy();
     });
 
-    it('calls handleVenueNameChange when input changes', () => {
+    it('calls handleClubNameChange when input changes', () => {
       render(<AddCourseModal {...defaultProps} />);
 
       const input = screen.getByTestId('venue-name-input');
       fireEvent.changeText(input, 'New Venue');
 
-      expect(mockWizardReturn.handleVenueNameChange).toHaveBeenCalledWith('New Venue');
+      expect(mockWizardReturn.handleClubNameChange).toHaveBeenCalledWith('New Venue');
     });
 
     it('calls handleCityChange when city input changes', () => {
@@ -643,7 +643,7 @@ describe('AddCourseModal', () => {
       mockWizardReturn = createMockWizardReturn({
         currentStep: 2,
         wizardData: {
-          step1: { venueName: 'Test Venue', city: '', state: null },
+          step1: { clubName: 'Test Venue', city: '', state: null },
           step2: { courseName: 'Championship', tees: createMockTees() },
           step3: { holes: [], currentHoleIndex: 0 },
         },
@@ -700,7 +700,7 @@ describe('AddCourseModal', () => {
       mockWizardReturn = createMockWizardReturn({
         currentStep: 3,
         wizardData: {
-          step1: { venueName: 'Test Venue', city: '', state: null },
+          step1: { clubName: 'Test Venue', city: '', state: null },
           step2: { courseName: 'Championship', tees: createMockTees() },
           step3: { holes: createMockHoles(), currentHoleIndex: 5 },
         },
@@ -750,7 +750,7 @@ describe('AddCourseModal', () => {
         currentStep: 3,
         duplicateSiValues: [1, 5, 12],
         wizardData: {
-          step1: { venueName: 'Test', city: '', state: null },
+          step1: { clubName: 'Test', city: '', state: null },
           step2: { courseName: '', tees: [] },
           step3: { holes: createMockHoles(), currentHoleIndex: 0 },
         },
@@ -825,7 +825,7 @@ describe('AddCourseModal', () => {
 
       expect(useAddCourseWizard).toHaveBeenCalledWith({
         onClose: defaultProps.onClose,
-        onClubCreated: defaultProps.onClubCreated,
+        onClubCreated: expect.any(Function),
       });
     });
 
@@ -879,7 +879,7 @@ describe('AddCourseModal', () => {
     it('handles empty wizard data gracefully', () => {
       mockWizardReturn = createMockWizardReturn({
         wizardData: {
-          step1: { venueName: '', city: '', state: null },
+          step1: { clubName: '', city: '', state: null },
           step2: { courseName: '', tees: [] },
           step3: { holes: [], currentHoleIndex: 0 },
         },
@@ -947,7 +947,7 @@ describe('AddCourseModal', () => {
       mockWizardReturn = createMockWizardReturn({
         currentStep: 2,
         wizardData: {
-          step1: { venueName: '', city: '', state: null },
+          step1: { clubName: '', city: '', state: null },
           step2: { courseName: '', tees: [] },
           step3: { holes: [], currentHoleIndex: 0 },
         },
@@ -961,7 +961,7 @@ describe('AddCourseModal', () => {
       mockWizardReturn = createMockWizardReturn({
         currentStep: 3,
         wizardData: {
-          step1: { venueName: '', city: '', state: null },
+          step1: { clubName: '', city: '', state: null },
           step2: { courseName: '', tees: [] },
           step3: { holes: [], currentHoleIndex: 0 },
         },
@@ -976,7 +976,7 @@ describe('AddCourseModal', () => {
         currentStep: 3,
         duplicateSiValues: [1, 2, 3, 4, 5],
         wizardData: {
-          step1: { venueName: '', city: '', state: null },
+          step1: { clubName: '', city: '', state: null },
           step2: { courseName: '', tees: [] },
           step3: { holes: createMockHoles(), currentHoleIndex: 0 },
         },

@@ -325,6 +325,7 @@ export function useRoundData({
     };
 
     updateRoundStatus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- individual metadata properties are listed; adding the object would cause infinite loops
   }, [roundId, metadata.isLoading, metadata.data?.roundStatus, metadata.refetch]);
 
   // Update state from focused hooks

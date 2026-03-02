@@ -12,9 +12,6 @@
 
 import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, ScrollView, Pressable, Animated, Dimensions } from 'react-native';
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7;
 import { Text, Icon, Menu } from 'react-native-paper';
 import {
   spacing,
@@ -28,6 +25,9 @@ import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions } f
 import { isSingleBallScore } from '@/types/database';
 import type { TeamWithMembers } from '@/types/database.types';
 import { PICKUP_SCORE } from '@/constants/scoring';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7;
 
 interface TeamScoreCardProps {
   team: TeamWithMembers;

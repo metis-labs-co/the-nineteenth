@@ -11,7 +11,7 @@ import { IconTrophy, IconChevronRight } from '@tabler/icons-react-native';
 import { ScaledText } from '@/components/common/ScaledText';
 import { useThemeColors } from '@/context/ThemeContext';
 import { withOpacity } from '@/constants/colors';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import type { LeagueLeaderboardEntry } from '@/types/database';
 
 interface Props {

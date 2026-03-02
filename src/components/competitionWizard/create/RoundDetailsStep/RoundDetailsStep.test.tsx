@@ -99,14 +99,14 @@ jest.mock('./components/RoundCard', () => {
   };
 });
 
-// Mock MatchTypeModal
-jest.mock('./components/MatchTypeModal', () => {
+// Mock GameTypeModal (renamed from MatchTypeModal)
+jest.mock('./components/GameTypeModal', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
   return {
-    MatchTypeModal: ({ visible, selectedMatchType, onSelect, onClose }: any) =>
+    GameTypeModal: ({ visible, selectedGameType, onSelect, onClose }: any) =>
       visible ? (
         <View testID="match-type-modal">
-          <Text testID="selected-match-type">{selectedMatchType}</Text>
+          <Text testID="selected-match-type">{selectedGameType}</Text>
           <TouchableOpacity testID="select-stableford" onPress={() => onSelect('stableford')}>
             <Text>Stableford</Text>
           </TouchableOpacity>

@@ -13,7 +13,7 @@
  * - Large touch targets for on-course use
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   spacing,

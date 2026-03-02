@@ -24,12 +24,30 @@ jest.mock('@/context/ThemeContext', () => ({
     surface: '#FAFAFA',
     textPrimary: '#1A1A1A',
     textSecondary: '#666666',
+    textTertiary: '#999999',
     white: '#FFFFFF',
     gray200: '#E5E5E5',
     gray300: '#D4D4D4',
+    gray400: '#A3A3A3',
+    gray500: '#737373',
     error: '#DC2626',
   }),
 }));
+
+// Mock SubscriptionContext
+jest.mock('@/context/SubscriptionContext', () => ({
+  useIsPremium: () => true,
+  useCheckFeature: () => (_featureId: string, _context?: any) => ({ allowed: true, requiredTier: 'free' }),
+}));
+
+// Mock tabler icons
+jest.mock('@tabler/icons-react-native', () => {
+  const { View } = require('react-native');
+  return {
+    IconTrophy: (props: any) => <View testID="icon-trophy" {...props} />,
+    IconLock: (props: any) => <View testID="icon-lock" {...props} />,
+  };
+});
 
 // Mock safe area insets
 jest.mock('react-native-safe-area-context', () => ({
@@ -111,6 +129,25 @@ jest.mock('@/components/common', () => {
         {hint && !error && <Text testID="date-hint">{hint}</Text>}
       </View>
     ),
+    FormSection: ({ children }: any) => <View testID="form-section">{children}</View>,
+    SegmentedButton: ({ value, onValueChange, buttons, style }: any) => {
+      const { TouchableOpacity: TO } = require('react-native');
+      return (
+        <View testID="segmented-buttons" style={style}>
+          {buttons.map((button: any) => (
+            <TO
+              key={button.value}
+              testID={`segment-${button.value}`}
+              onPress={() => onValueChange(button.value)}
+              accessibilityState={{ selected: value === button.value }}
+            >
+              <Text>{button.label}</Text>
+            </TO>
+          ))}
+        </View>
+      );
+    },
+    Pill: ({ label }: any) => <View testID="pill"><Text>{label}</Text></View>,
   };
 });
 
@@ -118,7 +155,7 @@ jest.mock('@/components/common', () => {
 jest.mock('react-native-paper', () => {
   const { TouchableOpacity, View, Text } = require('react-native');
   return {
-    Button: ({ children, onPress, mode, style, testID, textColor, buttonColor: _buttonColor, disabled }: any) => (
+    Button: ({ children, onPress, mode, style, testID, textColor, buttonColor: _buttonColor, disabled, contentStyle: _contentStyle }: any) => (
       <TouchableOpacity
         testID={testID || `button-${mode}`}
         onPress={onPress}
@@ -133,19 +170,8 @@ jest.mock('react-native-paper', () => {
       const { Text: RNText } = require('react-native');
       return <RNText style={style} {...props}>{children}</RNText>;
     },
-    SegmentedButtons: ({ value, onValueChange, buttons, style }: any) => (
-      <View testID="segmented-buttons" style={style}>
-        {buttons.map((button: any) => (
-          <TouchableOpacity
-            key={button.value}
-            testID={`segment-${button.value}`}
-            onPress={() => onValueChange(button.value)}
-            accessibilityState={{ selected: value === button.value }}
-          >
-            <Text>{button.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    Icon: ({ source, size, color }: any) => (
+      <View testID={`icon-${source}`} style={{ width: size, height: size, backgroundColor: color }} />
     ),
   };
 });
@@ -200,15 +226,15 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       expect(screen.getByText('Cancel')).toBeTruthy();
-      expect(screen.getByText('Next: Team Settings')).toBeTruthy();
+      expect(screen.getByText('Next: Rounds')).toBeTruthy();
     });
 
     it('renders competition type segmented buttons', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
-      expect(screen.getByTestId('segmented-buttons')).toBeTruthy();
+      expect(screen.getAllByTestId('segmented-buttons').length).toBeGreaterThan(0);
       expect(screen.getByTestId('segment-event')).toBeTruthy();
-      expect(screen.getByTestId('segment-league')).toBeTruthy();
+      expect(screen.getByTestId('segment-knockout')).toBeTruthy();
     });
 
     it('renders step description', () => {
@@ -281,11 +307,11 @@ describe('CompetitionDetailsStep', () => {
       expect(screen.getByTestId('date-picker-end-date')).toBeTruthy();
     });
 
-    it('hides end date field when league type is selected', async () => {
+    it('hides end date field when knockout type is selected', async () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Switch to league type
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
 
       // Wait for layout animation
       await waitFor(() => {
@@ -299,13 +325,13 @@ describe('CompetitionDetailsStep', () => {
       expect(screen.getByText('A fixed-term competition with a set end date')).toBeTruthy();
     });
 
-    it('shows correct hint for league type', async () => {
+    it('shows correct hint for knockout type', async () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
 
       await waitFor(() => {
-        expect(screen.getByText('An ongoing competition with no fixed end date')).toBeTruthy();
+        expect(screen.getByText('A bracket-style elimination competition')).toBeTruthy();
       });
     });
 
@@ -314,13 +340,13 @@ describe('CompetitionDetailsStep', () => {
 
       // Initially event is selected
       expect(screen.getByTestId('segment-event').props.accessibilityState.selected).toBe(true);
-      expect(screen.getByTestId('segment-league').props.accessibilityState.selected).toBe(false);
+      expect(screen.getByTestId('segment-knockout').props.accessibilityState.selected).toBe(false);
 
       // Switch to league
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('segment-league').props.accessibilityState.selected).toBe(true);
+        expect(screen.getByTestId('segment-knockout').props.accessibilityState.selected).toBe(true);
         expect(screen.getByTestId('segment-event').props.accessibilityState.selected).toBe(false);
       });
     });
@@ -335,7 +361,7 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={initialDataWithEndDate} />);
 
       // Switch to league
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
 
       // Switch back to event
       await waitFor(() => {
@@ -429,7 +455,7 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Submit with empty form
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).not.toHaveBeenCalled();
@@ -439,7 +465,7 @@ describe('CompetitionDetailsStep', () => {
     it('calls onComplete with valid form data', async () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
@@ -463,7 +489,7 @@ describe('CompetitionDetailsStep', () => {
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={knockoutData} />);
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalled();
@@ -483,7 +509,7 @@ describe('CompetitionDetailsStep', () => {
       const startDateInput = screen.getByTestId('date-input-start-date');
       fireEvent.changeText(startDateInput, '15/06/2026');
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         // Check that onComplete was not called
@@ -497,7 +523,7 @@ describe('CompetitionDetailsStep', () => {
       const nameInput = screen.getByTestId('input-competition-name');
       fireEvent.changeText(nameInput, 'AB');
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).not.toHaveBeenCalled();
@@ -510,7 +536,7 @@ describe('CompetitionDetailsStep', () => {
       const nameInput = screen.getByTestId('input-competition-name');
       fireEvent.changeText(nameInput, 'Valid Competition Name');
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).not.toHaveBeenCalled();
@@ -525,7 +551,7 @@ describe('CompetitionDetailsStep', () => {
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={partialData} />);
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).not.toHaveBeenCalled();
@@ -540,7 +566,7 @@ describe('CompetitionDetailsStep', () => {
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={dataWithShortInviteCode} />);
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).not.toHaveBeenCalled();
@@ -555,7 +581,7 @@ describe('CompetitionDetailsStep', () => {
 
       render(<CompetitionDetailsStep {...defaultProps} initialData={dataWithNoInviteCode} />);
 
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalled();
@@ -572,14 +598,14 @@ describe('CompetitionDetailsStep', () => {
       const { UNSAFE_root: _UNSAFE_root } = render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Component should render without errors
-      expect(screen.getByTestId('segmented-buttons')).toBeTruthy();
+      expect(screen.getAllByTestId('segmented-buttons').length).toBeGreaterThan(0);
     });
 
     it('renders footer with action buttons', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       expect(screen.getByText('Cancel')).toBeTruthy();
-      expect(screen.getByText('Next: Team Settings')).toBeTruthy();
+      expect(screen.getByText('Next: Rounds')).toBeTruthy();
     });
   });
 
@@ -646,9 +672,9 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
       // Rapid switches
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
       fireEvent.press(screen.getByTestId('segment-event'));
-      fireEvent.press(screen.getByTestId('segment-league'));
+      fireEvent.press(screen.getByTestId('segment-knockout'));
       fireEvent.press(screen.getByTestId('segment-event'));
 
       await waitFor(() => {
@@ -725,7 +751,7 @@ describe('CompetitionDetailsStep', () => {
       render(<CompetitionDetailsStep {...defaultProps} initialData={validFormData} />);
 
       // Submit and check onComplete receives honor as handicap system
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
@@ -751,7 +777,7 @@ describe('CompetitionDetailsStep', () => {
       fireEvent.changeText(descriptionInput, 'Test Description');
 
       // Try to submit without dates
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         // Data should still be there
@@ -806,7 +832,7 @@ describe('CompetitionDetailsStep', () => {
       fireEvent.changeText(endDateInput, '31/12/2026');
 
       // Submit
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
@@ -832,17 +858,17 @@ describe('CompetitionDetailsStep', () => {
 
       // Fill start date only (no end date needed for knockout)
       const startDateInput = screen.getByTestId('date-input-start-date');
-      fireEvent.changeText(startDateInput, '01/01/2026');
+      fireEvent.changeText(startDateInput, '15/06/2026');
 
       // Submit
-      fireEvent.press(screen.getByText('Next: Team Settings'));
+      fireEvent.press(screen.getByText('Next: Rounds'));
 
       await waitFor(() => {
         expect(mockOnComplete).toHaveBeenCalledTimes(1);
         const calledWith = mockOnComplete.mock.calls[0][0];
         expect(calledWith.name).toBe('Knockout Competition');
         expect(calledWith.competitionType).toBe('knockout');
-        expect(calledWith.startDate).toBe('01/01/2026');
+        expect(calledWith.startDate).toBe('15/06/2026');
       });
     });
 

@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import MatchPlayScorecardScreen from './index';
 import { useMatchPlayData } from '@/hooks/scorecard';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -65,6 +65,76 @@ jest.mock('@/components/scorecard', () => ({
   },
 }));
 
+// Mock skins hooks
+jest.mock('@/hooks/useSkins', () => ({
+  useActiveSkinsGameForRound: jest.fn().mockReturnValue({ data: null, isLoading: false }),
+  useSkinsResults: jest.fn().mockReturnValue({ data: null, refetch: jest.fn() }),
+}));
+
+// Mock useFinalizeSkinsForRound
+jest.mock('@/hooks', () => ({
+  useFinalizeSkinsForRound: jest.fn().mockReturnValue({ finalizeSkinsForRound: jest.fn().mockResolvedValue({ finalized: false }) }),
+}));
+
+// Mock skins component
+jest.mock('@/components/skins', () => ({
+  SkinsResultsCard: () => null,
+}));
+
+// Mock supabase
+jest.mock('@/services/supabase/client', () => ({
+  supabase: {
+    from: jest.fn().mockReturnValue({
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      }),
+    }),
+  },
+}));
+
+// Mock debug logger
+jest.mock('@/utils/debugLogger', () => ({
+  scoringLogger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
+
+// Mock react-native-paper additions (Portal, Dialog, Button not in global mock)
+jest.mock('react-native-paper', () => {
+  const React = require('react');
+  const actualModule = jest.requireActual('react-native-paper');
+  const { View, Text: RNText, TouchableOpacity } = require('react-native');
+
+  const Dialog = ({ children, visible }: { children: React.ReactNode; visible: boolean }) => {
+    if (!visible) return null;
+    return React.createElement(View, { testID: 'dialog' }, children);
+  };
+  Dialog.Title = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(RNText, null, children);
+  Dialog.Content = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(View, null, children);
+  Dialog.Actions = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(View, null, children);
+
+  return {
+    ...actualModule,
+    Text: ({ children, style, ...props }: any) =>
+      React.createElement(RNText, { style, ...props }, children),
+    Portal: ({ children }: { children: React.ReactNode }) => React.createElement(View, null, children),
+    Dialog,
+    Button: ({ children, onPress, disabled }: any) =>
+      React.createElement(TouchableOpacity, { onPress: disabled ? undefined : onPress, disabled }, React.createElement(RNText, null, children)),
+    Icon: ({ source, size }: any) =>
+      React.createElement(View, { testID: `icon-${source}`, style: { width: size, height: size } }),
+    ActivityIndicator: (props: any) =>
+      React.createElement(View, { testID: 'activity-indicator', ...props }),
+    Surface: ({ children, style, ...props }: any) =>
+      React.createElement(View, { style, ...props }, children),
+  };
+});
+
 // ============================================================================
 // TEST FIXTURES
 // ============================================================================
@@ -113,6 +183,9 @@ function setupSuccessfulMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    submitScorecards: jest.fn(),
+    resetRound: jest.fn(),
   } as any);
 
   return { mockRefetch };
@@ -133,6 +206,9 @@ function setupLoadingMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    submitScorecards: jest.fn(),
+    resetRound: jest.fn(),
   } as any);
 }
 
@@ -151,6 +227,9 @@ function setupErrorMock(errorMessage: string) {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    submitScorecards: jest.fn(),
+    resetRound: jest.fn(),
   } as any);
 }
 
@@ -169,6 +248,9 @@ function setupEmptyHolesMock() {
 
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: jest.fn().mockReturnValue(undefined),
+    getCompletedHolesCount: jest.fn().mockReturnValue(0),
+    submitScorecards: jest.fn(),
+    resetRound: jest.fn(),
   } as any);
 }
 
@@ -207,6 +289,9 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: jest.fn().mockReturnValue(undefined),
+        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        submitScorecards: jest.fn(),
+        resetRound: jest.fn(),
       } as any);
 
       render(
@@ -362,6 +447,9 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
+        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        submitScorecards: jest.fn(),
+        resetRound: jest.fn(),
       } as any);
 
       render(
@@ -390,6 +478,9 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
+        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        submitScorecards: jest.fn(),
+        resetRound: jest.fn(),
       } as any);
 
       render(
@@ -417,6 +508,9 @@ describe('MatchPlayScorecardScreen', () => {
 
       mockedUseScorecardStore.mockReturnValue({
         getPlayerScore: mockGetPlayerScore,
+        getCompletedHolesCount: jest.fn().mockReturnValue(0),
+        submitScorecards: jest.fn(),
+        resetRound: jest.fn(),
       } as any);
 
       render(

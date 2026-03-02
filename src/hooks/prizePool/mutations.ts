@@ -276,7 +276,7 @@ export function useDeletePrizePool() {
   return useMutation({
     mutationFn: async ({
       poolId,
-      competitionId,
+      competitionId: _competitionId,
     }: {
       poolId: string;
       competitionId: string;

@@ -291,9 +291,9 @@ export function WolfDisclaimerModal({
               How Wolf Works
             </Text>
             <Text style={[styles.rulesText, { color: colors.textSecondary }]}>
-              Each hole, a rotating "Wolf" chooses to partner with another player
+              Each hole, a rotating &quot;Wolf&quot; chooses to partner with another player
               or go alone against the pack. Points are awarded based on the best
-              ball outcome. Going "Lone Wolf" earns more points but is harder to win.
+              ball outcome. Going &quot;Lone Wolf&quot; earns more points but is harder to win.
             </Text>
           </View>
 

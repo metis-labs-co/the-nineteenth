@@ -370,7 +370,7 @@ export function useProcessTeamSkinsHole() {
         game.scoring_type
       );
 
-      const { data: rawExistingHole, error: existingError } = await supabase
+      const { data: rawExistingHole, error: _existingError } = await supabase
         .from('skins_results')
         .select('id')
         .eq('skins_game_id', skinsGameId)

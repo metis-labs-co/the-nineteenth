@@ -56,14 +56,14 @@ export interface PairingWithPlayers {
   createdAt: string;
   updatedAt: string;
   /** Populated player details */
-  players: Array<{
+  players: {
     id: string;
     name: string;
     handicap: number | null;
     handicapIndex?: number | null;
     gender?: 'male' | 'female' | null;
     photoUrl: string | null;
-  }>;
+  }[];
 }
 
 /**
@@ -113,10 +113,10 @@ export interface GeneratePairingsResult {
  */
 export interface CreatePairingsInput {
   roundId: string;
-  groups: Array<{
+  groups: {
     playerIds: string[];
     teeTime: string | null;
-  }>;
+  }[];
 }
 
 /**

@@ -56,6 +56,14 @@ jest.mock('@/store/scorecardStore', () => ({
     get holes() {
       return mockHoles;
     },
+    get groupScorecards() {
+      // Build a Map from mockInMemoryScores that mimics the store's groupScorecards shape
+      const map = new Map<string, { scores: Record<number, { strokes: number }> }>();
+      for (const [playerId, scores] of Object.entries(mockInMemoryScores)) {
+        map.set(playerId, { scores });
+      }
+      return map;
+    },
   })),
 }));
 
@@ -221,7 +229,7 @@ describe('Match Play Scorecard Integration', () => {
 
   describe('Score Entry Flow with Hook', () => {
     it('enters scores and calculates match status correctly', () => {
-      const { result, rerender } = renderHook(
+      const { result, rerender: _rerender } = renderHook(
         (props) => useMatchPlayScoring(props),
         { initialProps: defaultParams }
       );

@@ -38,6 +38,7 @@ const TestChild = ({ hole }: { hole: number }) => (
 );
 
 // Render function for testing
+// eslint-disable-next-line react/display-name
 const createRenderHole = () => (holeNumber: number) => <TestChild hole={holeNumber} />;
 
 describe('SwipeableHoleNavigator', () => {

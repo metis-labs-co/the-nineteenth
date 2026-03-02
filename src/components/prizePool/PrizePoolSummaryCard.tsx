@@ -78,10 +78,10 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
   // Format percentage helper
-  const formatPercent = (percent: number) => `${percent}%`;
+  const _formatPercent = (percent: number) => `${percent}%`;
 
   // Calculate progress percentage (0-100)
-  const getUsagePercent = (used: number, budget: number) => {
+  const _getUsagePercent = (used: number, budget: number) => {
     if (budget === 0) return 0;
     return Math.min((used / budget) * 100, 100);
   };

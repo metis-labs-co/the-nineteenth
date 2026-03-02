@@ -35,6 +35,9 @@ export type {
   WolfGameCreateOptions,
   WolfSettlementEntry,
   WolfSettlementTransaction,
+  WolfPlayerStatistics,
+  WolfGameHistoryEntry,
+  WolfGameHistoryOptions,
 } from './types';
 
 // Re-export helpers
@@ -51,6 +54,12 @@ export {
   useCanUseWolf,
   useWolfSummary,
 } from './queries';
+
+// Re-export statistics hooks
+export {
+  useWolfStatistics,
+  useWolfGameHistory,
+} from './statistics';
 
 // Re-export mutation hooks
 export {

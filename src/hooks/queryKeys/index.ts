@@ -8,8 +8,16 @@
  * @see https://tanstack.com/query/latest/docs/react/guides/query-keys
  */
 
+import { authKeys } from './auth';
+import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys } from './competition';
+import { clubKeys, venueKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
+import { roundKeys } from './round';
+import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys } from './scoring';
+import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
+import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
+
 // Domain-specific query key exports
-export { authKeys } from './auth';
+export { authKeys };
 
 export {
   competitionKeys,
@@ -17,7 +25,7 @@ export {
   teamKeys,
   pairingKeys,
   knockoutKeys,
-} from './competition';
+};
 
 export {
   clubKeys,
@@ -26,9 +34,9 @@ export {
   teeKeys,
   coordinateKeys,
   favoriteKeys,
-} from './course';
+};
 
-export { roundKeys } from './round';
+export { roundKeys };
 
 export {
   scorecardKeys,
@@ -36,14 +44,14 @@ export {
   scoringPairsKeys,
   statisticsKeys,
   scoreMismatchKeys,
-} from './scoring';
+};
 
 export {
   friendsKeys,
   notificationKeys,
   pushKeys,
   placeholderPlayersKeys,
-} from './social';
+};
 
 export {
   skinsKeys,
@@ -54,7 +62,7 @@ export {
   leagueKeys,
   subscriptionKeys,
   aiKeys,
-} from './features';
+};
 
 // =====================================================
 // HELPER TYPES
@@ -72,15 +80,6 @@ export type QueryKey<T extends (...args: unknown[]) => readonly unknown[]> = Ret
 // =====================================================
 // ALL QUERY KEYS (for invalidating everything)
 // =====================================================
-
-// Re-import for allQueryKeys aggregation
-import { authKeys } from './auth';
-import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys } from './competition';
-import { clubKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
-import { roundKeys } from './round';
-import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys } from './scoring';
-import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
-import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
 
 /**
  * All query keys (for invalidating everything)

@@ -27,7 +27,6 @@ import { getFirstName, getInitials } from '@/utils/displayHelpers';
 import {
   determineHoleWinner,
   calculateMatchStatus,
-  getPlayerMatchStatus,
 } from '@/screens/scoring/MatchPlayScoringScreen/utils/matchPlayCalculations';
 import type { HoleResult, MatchStatus } from '@/screens/scoring/MatchPlayScoringScreen/types';
 import type { Hole } from '@/types/database.types';

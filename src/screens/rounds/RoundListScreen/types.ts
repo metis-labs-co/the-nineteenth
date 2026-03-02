@@ -12,6 +12,8 @@ export interface PlayingPartner {
 
 export type RoundTab = 'active' | 'history';
 
+export type RoundTypeFilter = 'all' | 'practice' | 'match' | 'skins' | 'wolf';
+
 // Player info for round (matches RoundListCard's internal type)
 export interface RoundPlayerInfo {
   id: string;
@@ -29,6 +31,8 @@ export interface RoundListData {
 export interface UseRoundFiltersReturn {
   selectedTab: RoundTab;
   setSelectedTab: (tab: RoundTab) => void;
+  roundTypeFilter: RoundTypeFilter;
+  setRoundTypeFilter: (filter: RoundTypeFilter) => void;
   displayedRounds: RoundItem[];
   activeRounds: RoundItem[];
   historyRounds: RoundItem[];

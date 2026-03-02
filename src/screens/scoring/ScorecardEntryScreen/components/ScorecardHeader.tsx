@@ -65,7 +65,7 @@ export function ScorecardHeader({
   const [showSkinsAlert, setShowSkinsAlert] = useState(false);
 
   // Handle skins indicator press - show coming soon alert for now
-  const handleSkinsPress = useCallback(() => {
+  const _handleSkinsPress = useCallback(() => {
     setShowSkinsAlert(true);
   }, []);
 

@@ -19,7 +19,7 @@ import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { BottomSheet, ConfirmationDialog, FormSection, LoadingSpinner } from '@/components/common';
 import { PrizePoolSection, type PrizePoolConfig } from './PrizePoolSection';
 import {

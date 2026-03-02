@@ -34,9 +34,23 @@ export function useCreateCompetition() {
 
   return useMutation({
     mutationFn: async (input: CreateCompetitionInput) => {
+      console.log('[useCreateCompetition] mutationFn called');
+      console.log('[useCreateCompetition] Input name:', input.name);
+      console.log('[useCreateCompetition] Input handicapSystem:', input.handicapSystem);
+      console.log('[useCreateCompetition] Input startDate:', input.startDate);
+      console.log('[useCreateCompetition] Input rounds count:', input.rounds?.length ?? (input.round ? 1 : 0));
+      console.log('[useCreateCompetition] Input players count:', input.players?.length ?? 0);
       // Normalize rounds - support both single 'round' and multiple 'rounds'
       const rounds = input.rounds || (input.round ? [input.round] : []);
-      return await apiClient.createCompetition({ ...input, rounds });
+      console.log('[useCreateCompetition] Normalized rounds count:', rounds.length);
+      try {
+        const result = await apiClient.createCompetition({ ...input, rounds });
+        console.log('[useCreateCompetition] API call succeeded, competition id:', result.competition.id);
+        return result;
+      } catch (err) {
+        console.error('[useCreateCompetition] API call failed:', err);
+        throw err;
+      }
     },
 
     onSuccess: (data) => {

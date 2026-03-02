@@ -223,7 +223,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   autoRefresh = true,
   onEntryPress,
 }: LeaderboardTabProps) {
-  const colors = useThemeColors();
+  const _colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
 
   // Get completed rounds for round-specific leaderboards

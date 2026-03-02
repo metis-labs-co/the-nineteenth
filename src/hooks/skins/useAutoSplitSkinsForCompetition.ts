@@ -44,7 +44,7 @@ export function useAutoSplitSkinsForCompetition() {
           throw createError(`Failed to fetch rounds: ${roundsError.message}`, 'DATABASE');
         }
 
-        const rounds = (rawRounds ?? []) as unknown as Array<{ id: string; round_number: number; status: string }>;
+        const rounds = (rawRounds ?? []) as unknown as { id: string; round_number: number; status: string }[];
 
         if (rounds.length === 0) {
           return {
@@ -64,7 +64,7 @@ export function useAutoSplitSkinsForCompetition() {
           throw createError(`Failed to fetch players: ${playersError.message}`, 'DATABASE');
         }
 
-        const competitionPlayers = (rawCompetitionPlayers ?? []) as unknown as Array<{ player_id: string }>;
+        const competitionPlayers = (rawCompetitionPlayers ?? []) as unknown as { player_id: string }[];
         const participantIds = competitionPlayers.map((cp) => cp.player_id);
 
         if (participantIds.length === 0) {
@@ -83,7 +83,7 @@ export function useAutoSplitSkinsForCompetition() {
           .in('round_id', rounds.map((r) => r.id))
           .neq('status', 'cancelled');
 
-        const existingGames = (rawExistingGames ?? []) as unknown as Array<{ round_id: string; status: string }>;
+        const existingGames = (rawExistingGames ?? []) as unknown as { round_id: string; status: string }[];
         const roundsWithGames = new Set(existingGames.map((g) => g.round_id));
         const roundsToCreate = rounds.filter((r) => !roundsWithGames.has(r.id));
 
@@ -119,7 +119,7 @@ export function useAutoSplitSkinsForCompetition() {
           };
         }
 
-        const batchResults = (results as unknown as Array<{ game_id: string; round_id: string; draw_amount: number }>) ?? [];
+        const batchResults = (results as unknown as { game_id: string; round_id: string; draw_amount: number }[]) ?? [];
         const gameIds = batchResults.map((r) => r.game_id);
         const totalDrawn = batchResults.reduce((sum, r) => sum + (r.draw_amount ?? 0), 0);
 
@@ -166,7 +166,7 @@ export function useAutoSplitSkinsForCompetition() {
           throw createError(`Failed to fetch rounds: ${roundsError.message}`, 'DATABASE');
         }
 
-        const rounds = (rawRounds ?? []) as unknown as Array<{ id: string; round_number: number; status: string }>;
+        const rounds = (rawRounds ?? []) as unknown as { id: string; round_number: number; status: string }[];
 
         const scheduledRoundIds = new Set(
           rounds.filter((r) => r.status === 'upcoming').map((r) => r.id)
@@ -183,13 +183,13 @@ export function useAutoSplitSkinsForCompetition() {
           throw createError(`Failed to fetch existing games: ${gamesError.message}`, 'DATABASE');
         }
 
-        const existingGames = (rawExistingGames ?? []) as unknown as Array<{
+        const existingGames = (rawExistingGames ?? []) as unknown as {
           id: string;
           round_id: string;
           pot_value: number;
           pool_draw_amount: number;
           status: string;
-        }>;
+        }[];
 
         const existingRoundIds = new Set(existingGames.map((g) => g.round_id));
 
@@ -208,7 +208,7 @@ export function useAutoSplitSkinsForCompetition() {
             .select('player_id')
             .eq('competition_id', competitionId);
 
-          const competitionPlayers = (rawCompetitionPlayers ?? []) as unknown as Array<{ player_id: string }>;
+          const competitionPlayers = (rawCompetitionPlayers ?? []) as unknown as { player_id: string }[];
           participantIds = competitionPlayers.map((cp) => cp.player_id);
         }
 
@@ -326,7 +326,7 @@ export function useAutoSplitSkinsForCompetition() {
           .select('id')
           .eq('competition_id', competitionId);
 
-        const rounds = (rawRounds ?? []) as unknown as Array<{ id: string }>;
+        const rounds = (rawRounds ?? []) as unknown as { id: string }[];
 
         if (rounds.length === 0) {
           return { success: true, gamesCancelled: 0, amountReturned: 0 };
@@ -343,12 +343,12 @@ export function useAutoSplitSkinsForCompetition() {
           throw createError(`Failed to fetch games: ${gamesError.message}`, 'DATABASE');
         }
 
-        const games = (rawGames ?? []) as unknown as Array<{
+        const games = (rawGames ?? []) as unknown as {
           id: string;
           round_id: string;
           pot_value: number;
           pool_draw_amount: number;
-        }>;
+        }[];
 
         if (games.length === 0) {
           return { success: true, gamesCancelled: 0, amountReturned: 0 };

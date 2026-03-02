@@ -18,24 +18,35 @@ import {
   ScrollView,
   RefreshControl,
   useWindowDimensions,
+  Share,
+  TouchableOpacity,
+  FlatList,
 } from 'react-native';
-import { Text, Icon, ActivityIndicator } from 'react-native-paper';
+import { Text, Icon, Divider } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { OfflineIndicator } from '@/components/common/OfflineIndicator';
 import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable, ContributionLeaderboard, ScrambleTeamLeaderboard } from '@/components/scorecard';
-import { PageHeader, ConfirmationDialog } from '@/components/common';
+import { PageHeader, ConfirmationDialog, LoadingSpinner } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
 import { WolfResultsCard, WolfStandingsCard, WolfSettlementCard } from '@/components/wolf';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import { MismatchResolutionModal } from '@/components/scoring';
-import { spacing, borderRadius, typography, wolfColor } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useActiveSkinsGameForRound, useSkinsSummary } from '@/hooks/useSkins';
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
+import { calculateFinalPayouts } from '@/utils/skins/payouts';
+import { calculateWolfPayouts } from '@/utils/wolf/payouts';
+import {
+  calculateCombinedPayouts,
+  buildCombinedShareMessage,
+} from '@/utils/combinedPayouts';
+import type { CombinedPlayerPayout, CombinedDebtTransaction } from '@/utils/combinedPayouts';
+import { formatCurrency, formatNetResult } from '@/utils/currency';
 import { useAuth } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
 import { useRoundScoringPairs } from '@/hooks/scorecard';
@@ -57,7 +68,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 // TAB TYPES
 // =====================================================
 
-type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins' | 'wolf';
+type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'scorecard', label: 'Scorecard' },
@@ -94,10 +105,7 @@ function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: 
   if (isSummaryLoading || !summary) {
     return (
       <View style={styles.skinsLoadingContainer}>
-        <ActivityIndicator size="large" color={SKINS_COLOR} />
-        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
-          Loading skins results...
-        </Text>
+        <LoadingSpinner size="md" message="Loading skins results..." fullScreen={false} />
       </View>
     );
   }
@@ -114,6 +122,7 @@ function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: 
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >
@@ -148,6 +157,7 @@ function SkinsTabContent({ skinsGameId, isRefreshing, onRefresh, bottomInset }: 
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
           tintColor={colors.textPrimary}
+          colors={[colors.textPrimary]}
         />
       }
       showsVerticalScrollIndicator={true}
@@ -220,10 +230,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
   if (isSummaryLoading || !summary) {
     return (
       <View style={styles.wolfLoadingContainer}>
-        <ActivityIndicator size="large" color={wolfColor} />
-        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
-          Loading Wolf results...
-        </Text>
+        <LoadingSpinner size="md" message="Loading Wolf results..." fullScreen={false} />
       </View>
     );
   }
@@ -240,6 +247,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >
@@ -272,6 +280,7 @@ function WolfTabContent({ wolfGameId, isRefreshing, onRefresh, bottomInset }: Wo
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
           tintColor={colors.textPrimary}
+          colors={[colors.textPrimary]}
         />
       }
       showsVerticalScrollIndicator={true}
@@ -358,6 +367,7 @@ function LeaderboardTabContent({
           refreshing={isRefreshing}
           onRefresh={onRefresh}
           tintColor={colors.textPrimary}
+          colors={[colors.textPrimary]}
         />
       }
       showsVerticalScrollIndicator={true}
@@ -369,6 +379,370 @@ function LeaderboardTabContent({
         currentUserId={currentUserId}
         testID="stroke-play-leaderboard-full"
       />
+    </ScrollView>
+  );
+}
+
+// =====================================================
+// PAYOUTS TAB CONTENT COMPONENT
+// =====================================================
+
+interface PayoutsTabContentProps {
+  mode: import('@/utils/combinedPayouts').PayoutsMode;
+  skinsGameId?: string;
+  wolfGameId?: string;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  bottomInset: number;
+}
+
+function PayoutsTabContent({ mode, skinsGameId, wolfGameId, isRefreshing, onRefresh, bottomInset }: PayoutsTabContentProps) {
+  const colors = useThemeColors();
+  const {
+    data: skinsSummary,
+    isLoading: isLoadingSkins,
+    refetch: refetchSkins,
+  } = useSkinsSummary(mode !== 'wolf-only' ? skinsGameId : undefined);
+  const {
+    data: wolfSummary,
+    isLoading: isLoadingWolf,
+    refetch: refetchWolf,
+  } = useWolfSummary(mode !== 'skins-only' ? wolfGameId : undefined);
+
+  const handleRefresh = useCallback(async () => {
+    const promises: Promise<unknown>[] = [];
+    if (mode !== 'wolf-only') promises.push(refetchSkins());
+    if (mode !== 'skins-only') promises.push(refetchWolf());
+    await Promise.all(promises);
+    onRefresh();
+  }, [refetchSkins, refetchWolf, onRefresh, mode]);
+
+  // Loading state
+  const isLoading =
+    (mode !== 'wolf-only' && (isLoadingSkins || !skinsSummary)) ||
+    (mode !== 'skins-only' && (isLoadingWolf || !wolfSummary));
+
+  if (isLoading) {
+    return (
+      <View style={styles.payoutsLoadingContainer}>
+        <LoadingSpinner size="md" message="Loading payouts..." fullScreen={false} />
+      </View>
+    );
+  }
+
+  return (
+    <PayoutsTabContentLoaded
+      mode={mode}
+      skinsSummary={skinsSummary ?? null}
+      wolfSummary={wolfSummary ?? null}
+      isRefreshing={isRefreshing}
+      onRefresh={handleRefresh}
+      bottomInset={bottomInset}
+    />
+  );
+}
+
+// Separate loaded component to use useMemo with non-null data
+function PayoutsTabContentLoaded({
+  mode,
+  skinsSummary,
+  wolfSummary,
+  isRefreshing,
+  onRefresh,
+  bottomInset,
+}: {
+  mode: import('@/utils/combinedPayouts').PayoutsMode;
+  skinsSummary: import('@/types/database/skins.types').SkinsGameSummary | null;
+  wolfSummary: import('@/types/database/wolf.types').WolfGameSummary | null;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  bottomInset: number;
+}) {
+  const colors = useThemeColors();
+  const isCombined = mode === 'combined';
+
+  // Build player name map from available summaries
+  const playerNameMap = useMemo((): Record<string, string> => {
+    const map: Record<string, string> = {};
+    skinsSummary?.game.participants?.forEach((p) => {
+      if (p.name) map[p.id] = p.name;
+    });
+    wolfSummary?.game.participants?.forEach((p) => {
+      if (p.name && !map[p.id]) map[p.id] = p.name;
+    });
+    return map;
+  }, [skinsSummary, wolfSummary]);
+
+  // Compute skins net results (skip if wolf-only)
+  const skinsEntries = useMemo(() => {
+    if (!skinsSummary || mode === 'wolf-only') return [];
+    const participants = skinsSummary.game.participant_ids.map((id) => ({ id }));
+    const payouts = calculateFinalPayouts(skinsSummary.game, skinsSummary.results, participants);
+    return payouts.map((p) => ({
+      player_id: p.player_id,
+      net_result: p.net_result,
+    }));
+  }, [skinsSummary, mode]);
+
+  // Extract wolf net results (skip if skins-only)
+  const wolfEntries = useMemo(() => {
+    if (!wolfSummary || mode === 'skins-only') return [];
+    if (wolfSummary.standings.length > 0 && wolfSummary.game.pot_enabled && wolfSummary.game.pot_value_per_point) {
+      const standingsMap: Record<string, number> = {};
+      for (const s of wolfSummary.standings) {
+        standingsMap[s.player_id] = s.total_points;
+      }
+      const wolfPayouts = calculateWolfPayouts(standingsMap, wolfSummary.game.pot_value_per_point);
+      return Object.entries(wolfPayouts).map(([player_id, p]) => ({
+        player_id,
+        net_result: p.netResult,
+      }));
+    }
+    return wolfSummary.standings
+      .filter((s) => s.net_result != null)
+      .map((s) => ({
+        player_id: s.player_id,
+        net_result: s.net_result!,
+      }));
+  }, [wolfSummary, mode]);
+
+  // Merge into combined standings
+  const { standings, debts } = useMemo(
+    () => calculateCombinedPayouts(skinsEntries, wolfEntries, playerNameMap),
+    [skinsEntries, wolfEntries, playerNameMap]
+  );
+
+  const playerCount = standings.length;
+  const isInProgress =
+    (skinsSummary?.game.status === 'active') || (wolfSummary?.game.status === 'active');
+
+  const titleText = mode === 'skins-only'
+    ? 'SKINS PAYOUTS'
+    : mode === 'wolf-only'
+      ? 'WOLF PAYOUTS'
+      : 'COMBINED PAYOUTS';
+
+  const subtitleSuffix = isCombined ? 'Skins + Wolf' : mode === 'skins-only' ? 'Skins' : 'Wolf';
+
+  // Share handler
+  const handleShare = useCallback(async () => {
+    try {
+      const message = buildCombinedShareMessage(
+        standings,
+        debts,
+        skinsSummary ? { pot_value: skinsSummary.game.pot_value } : null,
+        wolfSummary?.game.pot_value_per_point
+          ? { pot_value_per_point: wolfSummary.game.pot_value_per_point }
+          : null,
+        playerNameMap,
+        mode
+      );
+      await Share.share({ message, title: titleText });
+    } catch {
+      // User cancelled share
+    }
+  }, [standings, debts, skinsSummary, wolfSummary, playerNameMap, mode, titleText]);
+
+  const getNetColor = (value: number): string => {
+    if (value > 0) return colors.success;
+    if (value < 0) return colors.error;
+    return colors.textSecondary;
+  };
+
+  return (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={[styles.payoutsScrollContent, { paddingBottom: bottomInset + 100 }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.textPrimary}
+          colors={[colors.textPrimary]}
+        />
+      }
+      showsVerticalScrollIndicator={true}
+    >
+      {/* Standings Card */}
+      <View style={[styles.payoutsCard, { backgroundColor: colors.surface }, shadows.md]}>
+        {/* Header */}
+        <View style={[styles.payoutsCardHeader, { borderBottomColor: colors.border }]}>
+          <View style={styles.payoutsTitleContainer}>
+            <Icon source="cash-multiple" size={24} color={colors.primary} />
+            <Text style={[styles.payoutsTitle, { color: colors.textPrimary }]}>
+              {titleText}
+            </Text>
+          </View>
+          <Text style={[styles.payoutsSubtitle, { color: colors.textSecondary }]}>
+            {playerCount} player{playerCount !== 1 ? 's' : ''} | {subtitleSuffix}
+          </Text>
+        </View>
+
+        {/* Column Headers */}
+        <View style={[styles.payoutsColumnHeaders, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
+          <Text style={[styles.payoutsHeaderCell, styles.payoutsRankCol, { color: colors.textSecondary }]}>
+            #
+          </Text>
+          <Text style={[styles.payoutsHeaderCell, styles.payoutsPlayerCol, { color: colors.textSecondary }]}>
+            Player
+          </Text>
+          {isCombined && (
+            <Text style={[styles.payoutsHeaderCell, styles.payoutsSkinsCol, { color: colors.textSecondary }]}>
+              Skins
+            </Text>
+          )}
+          {isCombined && (
+            <Text style={[styles.payoutsHeaderCell, styles.payoutsWolfCol, { color: colors.textSecondary }]}>
+              Wolf
+            </Text>
+          )}
+          <Text style={[styles.payoutsHeaderCell, styles.payoutsTotalCol, { color: colors.textSecondary }]}>
+            {isCombined ? 'Total' : 'Net'}
+          </Text>
+        </View>
+
+        {/* Standings Rows */}
+        {standings.map((item, index) => {
+          const medalColors: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
+          const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+          return (
+            <View
+              key={item.player_id}
+              style={[
+                styles.payoutsStandingRow,
+                {
+                  backgroundColor: index % 2 === 0 ? colors.surface : colors.background,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <View style={styles.payoutsRankCol}>
+                {item.rank <= 3 ? (
+                  <View style={[styles.payoutsRankBadge, { backgroundColor: `${medalColors[item.rank]}20` }]}>
+                    <Text style={styles.payoutsRankEmoji}>{medals[item.rank]}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.payoutsRankBadge, { backgroundColor: colors.surfaceVariant }]}>
+                    <Text style={[styles.payoutsRankNumber, { color: colors.textSecondary }]}>{item.rank}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.payoutsPlayerCol}>
+                <Text style={[styles.payoutsPlayerName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+              </View>
+              {isCombined && (
+                <Text
+                  style={[
+                    styles.payoutsValueText,
+                    styles.payoutsSkinsCol,
+                    { color: item.in_skins ? getNetColor(item.skins_net) : colors.textSecondary },
+                  ]}
+                >
+                  {item.in_skins ? formatNetResult(item.skins_net) : '--'}
+                </Text>
+              )}
+              {isCombined && (
+                <Text
+                  style={[
+                    styles.payoutsValueText,
+                  styles.payoutsWolfCol,
+                  { color: item.in_wolf ? getNetColor(item.wolf_net) : colors.textSecondary },
+                ]}
+              >
+                {item.in_wolf ? formatNetResult(item.wolf_net) : '--'}
+              </Text>
+              )}
+              <Text
+                style={[
+                  styles.payoutsValueText,
+                  styles.payoutsTotalCol,
+                  { fontWeight: '600', color: getNetColor(item.total_net) },
+                ]}
+              >
+                {formatNetResult(item.total_net)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Combined Settlement Card */}
+      <View style={[styles.payoutsCard, { backgroundColor: colors.surface }, shadows.md]}>
+        <View style={[styles.payoutsCardHeader, { borderBottomColor: colors.border }]}>
+          <View style={styles.payoutsTitleContainer}>
+            <Icon source="handshake" size={24} color={colors.primary} />
+            <Text style={[styles.payoutsTitle, { color: colors.textPrimary }]}>
+              SETTLEMENT
+            </Text>
+          </View>
+        </View>
+
+        {debts.length > 0 ? (
+          <View style={styles.payoutsSection}>
+            <Text style={[styles.payoutsSectionTitle, { color: colors.textSecondary }]}>
+              WHO OWES WHO
+            </Text>
+            <View style={styles.payoutsDebtList}>
+              {debts.map((transaction, index) => {
+                const fromName = playerNameMap[transaction.from_player_id] || 'Unknown';
+                const toName = playerNameMap[transaction.to_player_id] || 'Unknown';
+                return (
+                  <View
+                    key={`${transaction.from_player_id}-${transaction.to_player_id}-${index}`}
+                    style={[styles.payoutsDebtRow, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  >
+                    <View style={styles.payoutsDebtParties}>
+                      <Text style={[styles.payoutsDebtName, { color: colors.error }]}>{fromName}</Text>
+                      <Icon source="arrow-right" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.payoutsDebtName, { color: colors.success }]}>{toName}</Text>
+                    </View>
+                    <Text style={[styles.payoutsDebtAmount, { color: colors.textPrimary }]}>
+                      {formatCurrency(transaction.amount)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.payoutsSection}>
+            <View style={[styles.payoutsEvenCard, { backgroundColor: `${colors.success}15` }]}>
+              <Icon source="check-circle" size={24} color={colors.success} />
+              <Text style={[styles.payoutsEvenText, { color: colors.success }]}>
+                All even - no money owed!
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <Divider style={{ backgroundColor: colors.border }} />
+
+        {/* Share Button */}
+        <View style={styles.payoutsActions}>
+          <TouchableOpacity
+            style={[styles.payoutsShareButton, { backgroundColor: colors.primary }]}
+            onPress={handleShare}
+            accessibilityLabel="Share combined results"
+            accessibilityRole="button"
+          >
+            <Icon source="share-variant" size={20} color="#fff" />
+            <Text style={[styles.payoutsShareText, { color: '#fff' }]}>Share Results</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* In-Progress Note */}
+      {isInProgress && (
+        <View style={[styles.inProgressCard, { backgroundColor: colors.surface }]}>
+          <Icon source="information-outline" size={20} color={colors.primary} />
+          <Text style={[typography.small, { color: colors.textSecondary, flex: 1, marginLeft: spacing.sm }]}>
+            Standings update as holes are completed
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -428,7 +802,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   );
 
   // Mismatch hooks
-  const { data: mismatches = [], isLoading: mismatchesLoading } = usePendingMismatches(roundId || undefined);
+  const { data: mismatches = [], isLoading: _mismatchesLoading } = usePendingMismatches(roundId || undefined);
   const { mutateAsync: resolveMismatch, isPending: isResolving } = useResolveMismatch();
   const { data: partnerStatus } = usePartnerStatus(roundId || undefined, currentUserId, holeCount);
 
@@ -439,6 +813,29 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Check for active Wolf game
   const { data: wolfGame } = useWolfGameByRound(roundId || undefined);
   const hasWolfGame = !!wolfGame && wolfGame.status !== 'cancelled';
+
+  // Check if individual games have pots (for payouts tab)
+  const hasSkinsWithPot = useMemo(() => {
+    if (!hasSkinsGame || !skinsGame) return false;
+    if (skinsGame.is_team_skins) return false; // v1: individual skins only
+    if (skinsGame.pot_value <= 0) return false;
+    return true;
+  }, [hasSkinsGame, skinsGame]);
+
+  const hasWolfWithPot = useMemo(() => {
+    if (!hasWolfGame || !wolfGame) return false;
+    if (!wolfGame.pot_enabled || !wolfGame.pot_value_per_point || wolfGame.pot_value_per_point <= 0) return false;
+    return true;
+  }, [hasWolfGame, wolfGame]);
+
+  const hasPayoutsTab = hasSkinsWithPot || hasWolfWithPot;
+  const payoutsMode: import('@/utils/combinedPayouts').PayoutsMode | null = hasSkinsWithPot && hasWolfWithPot
+    ? 'combined'
+    : hasSkinsWithPot
+      ? 'skins-only'
+      : hasWolfWithPot
+        ? 'wolf-only'
+        : null;
 
   // Check if this is a stroke play round (for leaderboard tab)
   // Use roundDetails as fallback since store's gameType may not be preserved when loading from offline
@@ -452,7 +849,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
 
   // Calculate team handicap for scramble rounds
-  const teamHandicap = useMemo(() => {
+  const _teamHandicap = useMemo(() => {
     if (!isScramble || currentPlayers.length === 0) return 0;
     const handicaps = currentPlayers
       .map((p) => p.handicap ?? 0)
@@ -565,8 +962,13 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       tabList.push({ key: 'wolf' as const, label: 'Wolf' });
     }
 
+    // Add payouts tab if any game has a pot
+    if (hasPayoutsTab) {
+      tabList.push({ key: 'payouts' as const, label: 'Payouts' });
+    }
+
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, isStrokePlay, isScramble, isShamble]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble]);
 
   // Determine if we need to show tabs (more than just scorecard)
   const showTabs = isStrokePlay || hasSkinsGame || hasWolfGame || isScramble || isShamble;
@@ -793,6 +1195,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
               tintColor={colors.textPrimary}
+              colors={[colors.textPrimary]}
             />
           }
           showsVerticalScrollIndicator={true}
@@ -835,6 +1238,18 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         /* Wolf Content */
         <WolfTabContent
           wolfGameId={wolfGame.id}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
+      )}
+
+      {activeTab === 'payouts' && hasPayoutsTab && payoutsMode && (
+        /* Payouts Content */
+        <PayoutsTabContent
+          mode={payoutsMode}
+          skinsGameId={skinsGame?.id}
+          wolfGameId={wolfGame?.id}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
@@ -975,5 +1390,154 @@ const styles = StyleSheet.create({
   },
   wolfSectionContainer: {
     marginTop: spacing.md,
+  },
+  // Payouts tab styles
+  payoutsLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+  },
+  payoutsScrollContent: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  payoutsCard: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  payoutsCardHeader: {
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    gap: spacing.xs,
+  },
+  payoutsTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  payoutsTitle: {
+    ...typography.h4,
+  },
+  payoutsSubtitle: {
+    ...typography.small,
+    marginLeft: 32,
+  },
+  payoutsColumnHeaders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+  },
+  payoutsHeaderCell: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+  },
+  payoutsStandingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  payoutsRankCol: {
+    width: 40,
+    alignItems: 'center',
+  },
+  payoutsPlayerCol: {
+    flex: 1,
+  },
+  payoutsSkinsCol: {
+    width: 70,
+    textAlign: 'right',
+  },
+  payoutsWolfCol: {
+    width: 70,
+    textAlign: 'right',
+  },
+  payoutsTotalCol: {
+    width: 80,
+    textAlign: 'right',
+  },
+  payoutsRankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  payoutsRankEmoji: {
+    fontSize: 14,
+  },
+  payoutsRankNumber: {
+    ...typography.smallBold,
+  },
+  payoutsPlayerName: {
+    ...typography.small,
+  },
+  payoutsValueText: {
+    ...typography.small,
+  },
+  payoutsSection: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  payoutsSectionTitle: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  payoutsDebtList: {
+    gap: spacing.sm,
+  },
+  payoutsDebtRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  payoutsDebtParties: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  payoutsDebtName: {
+    ...typography.small,
+    fontWeight: '600',
+  },
+  payoutsDebtAmount: {
+    ...typography.bodyBold,
+  },
+  payoutsEvenCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  payoutsEvenText: {
+    ...typography.bodyBold,
+  },
+  payoutsActions: {
+    padding: spacing.lg,
+  },
+  payoutsShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    minHeight: 48,
+  },
+  payoutsShareText: {
+    ...typography.bodyBold,
   },
 });

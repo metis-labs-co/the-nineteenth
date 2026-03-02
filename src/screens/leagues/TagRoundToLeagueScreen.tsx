@@ -5,22 +5,21 @@
  * that are not already tagged to this league.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, LoadingSpinner, EmptyState } from '@/components/common';
+import { PageHeader, LoadingSpinner, EmptyState, ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useEligibleScorecards, useTagRoundToLeague } from '@/hooks/useLeagues';
 import type { EligibleScorecard } from '@/services/api/leagues';
 
@@ -36,6 +35,10 @@ export default function TagRoundToLeagueScreen() {
   const { data: scorecards, isLoading } = useEligibleScorecards(leagueId);
   const tagMutation = useTagRoundToLeague();
 
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [errorVisible, setErrorVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
   const handleTag = useCallback(
     async (scorecard: EligibleScorecard) => {
       try {
@@ -43,14 +46,13 @@ export default function TagRoundToLeagueScreen() {
           leagueId,
           scorecardId: scorecard.id,
         });
-        Alert.alert('Tagged', 'Round has been tagged to the league.', [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
-      } catch (error: any) {
-        Alert.alert('Error', error.message);
+        setSuccessVisible(true);
+      } catch (error: unknown) {
+        setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+        setErrorVisible(true);
       }
     },
-    [leagueId, tagMutation, navigation]
+    [leagueId, tagMutation]
   );
 
   const renderItem = useCallback(
@@ -121,6 +123,35 @@ export default function TagRoundToLeagueScreen() {
           icon="golf-tee"
         />
       )}
+
+      <ConfirmationDialog
+        visible={successVisible}
+        title="Round Tagged"
+        message="Round has been tagged to the league."
+        icon="check-circle"
+        confirmLabel="OK"
+        cancelLabel=""
+        onConfirm={() => {
+          setSuccessVisible(false);
+          navigation.goBack();
+        }}
+        onCancel={() => {
+          setSuccessVisible(false);
+          navigation.goBack();
+        }}
+      />
+
+      <ConfirmationDialog
+        visible={errorVisible}
+        title="Error"
+        message={errorMessage}
+        icon="alert-circle"
+        confirmLabel="OK"
+        confirmVariant="destructive"
+        cancelLabel=""
+        onConfirm={() => setErrorVisible(false)}
+        onCancel={() => setErrorVisible(false)}
+      />
     </View>
   );
 }

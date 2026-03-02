@@ -32,7 +32,7 @@ import { z } from 'zod';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { formatAvatarUrl } from '@/constants/avatars';
 

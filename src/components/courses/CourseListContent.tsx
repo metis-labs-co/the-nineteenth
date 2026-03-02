@@ -7,7 +7,7 @@
  * - Club/Course FlatList with pull-to-refresh
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View, FlatList, RefreshControl, Keyboard, Pressable } from 'react-native';
 import { Text, ActivityIndicator, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,11 @@ import type { Club } from '@/types/database.types';
  */
 function isApiResult(item: ClubCardItem): item is GolfApiSearchResultItem {
   return 'source' in item && item.source === 'golfapi';
+}
+
+/** Stable separator component — avoids re-creating on every render */
+function ListSeparator() {
+  return <View style={styles.listSeparator} />;
 }
 
 interface CourseListContentProps {
@@ -71,20 +76,33 @@ export function CourseListContent({
   /**
    * Get unique key for list item (handles both local and API results)
    */
-  const getItemKey = (item: ClubCardItem): string => {
+  const getItemKey = useCallback((item: ClubCardItem): string => {
     if (isApiResult(item)) {
       return item.id; // e.g., "golfapi_12345"
     }
     return item.club.id;
-  };
+  }, []);
 
   /**
    * Check if a specific item is being imported
    */
-  const isItemImporting = (item: ClubCardItem): boolean => {
+  const isItemImporting = useCallback((item: ClubCardItem): boolean => {
     if (!importingClubId || !isApiResult(item)) return false;
     return item.golfapi_club_id === importingClubId;
-  };
+  }, [importingClubId]);
+
+  // Club/Course list
+  const renderClubItem = useCallback(({ item }: { item: ClubCardItem }) => (
+    <ClubCard
+      item={item}
+      onCourseSelect={onCourseSelect}
+      onClubPress={onClubPress}
+      onToggleFavorite={onToggleFavorite}
+      isTogglingFavorite={togglingFavoriteId}
+      showFavoriteButton
+      isImporting={isItemImporting(item)}
+    />
+  ), [onCourseSelect, onClubPress, onToggleFavorite, togglingFavoriteId, isItemImporting]);
 
   // Loading state during search
   if (isSearching) {
@@ -132,19 +150,6 @@ export function CourseListContent({
     );
   }
 
-  // Club/Course list
-  const renderClubItem = ({ item }: { item: ClubCardItem }) => (
-    <ClubCard
-      item={item}
-      onCourseSelect={onCourseSelect}
-      onClubPress={onClubPress}
-      onToggleFavorite={onToggleFavorite}
-      isTogglingFavorite={togglingFavoriteId}
-      showFavoriteButton
-      isImporting={isItemImporting(item)}
-    />
-  );
-
   // Footer component showing API search progress or "search for more" prompt
   const renderListFooter = () => {
     if (isSearchingApi) {
@@ -164,7 +169,7 @@ export function CourseListContent({
         <View style={styles.searchPromptContainer}>
           <Icon source="magnify" size={20} color={colors.textSecondary} />
           <Text style={[styles.searchPromptText, { color: colors.textSecondary }]}>
-            Can't find your course? Search above
+            Can&apos;t find your course? Search above
           </Text>
         </View>
       );
@@ -191,10 +196,14 @@ export function CourseListContent({
         />
       }
       showsVerticalScrollIndicator={false}
-      ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+      ItemSeparatorComponent={ListSeparator}
       ListFooterComponent={renderListFooter}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      initialNumToRender={10}
+      maxToRenderPerBatch={5}
+      windowSize={5}
+      removeClippedSubviews
     />
   );
 }

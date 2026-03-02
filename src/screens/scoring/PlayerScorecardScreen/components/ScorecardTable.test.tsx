@@ -19,7 +19,7 @@ import type { Hole } from '@/types';
 jest.mock('@/components/scorecard', () => {
   const { View, Text } = require('react-native');
   return {
-    ScoreIndicator: ({ strokes, par }: { strokes: number | undefined; par: number }) => (
+    ScoreIndicator: ({ strokes, par: _par }: { strokes: number | undefined; par: number }) => (
       <View testID={`score-indicator-${strokes ?? 'empty'}`}>
         <Text>{strokes ?? '-'}</Text>
       </View>

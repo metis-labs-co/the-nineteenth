@@ -7,7 +7,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { authKeys } from './queryKeys';
 
 interface DeleteAccountResult {
   success: boolean;

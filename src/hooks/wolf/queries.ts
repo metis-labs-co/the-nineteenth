@@ -23,13 +23,13 @@ import { wolfKeys } from '@/hooks/queryKeys';
 import {
   calculateWolfStandings,
   getSortedStandings,
+  calculateWolfPayouts,
 } from '@/utils/wolfCalculations';
 import { createError } from './helpers';
 import type {
   WolfGame,
   WolfGameWithParticipants,
   WolfParticipant,
-  WolfHoleDecision,
   WolfDecisionWithDetails,
   WolfPayoutWithPlayer,
   WolfPayoutPlayer,
@@ -411,11 +411,11 @@ export function useWolfStandings(gameId: string | undefined) {
   const decisionsQuery = useWolfHoleDecisions(gameId);
 
   const game = gameQuery.data;
-  const decisions = decisionsQuery.data ?? [];
 
   // Calculate standings using useMemo
   const standings = useMemo((): WolfStandingEntry[] | null => {
     if (!game) return null;
+    const decisions = decisionsQuery.data ?? [];
 
     // Create player name map from participants
     const playerNames: Record<string, string> = {};
@@ -427,8 +427,18 @@ export function useWolfStandings(gameId: string | undefined) {
     const standingsMap = calculateWolfStandings(decisions, game.participant_ids);
 
     // Convert to sorted array with ranks
-    return getSortedStandings(standingsMap, playerNames);
-  }, [game, decisions]);
+    const sorted = getSortedStandings(standingsMap, playerNames);
+
+    // Calculate net_result for each standing entry when pot is enabled
+    if (game.pot_enabled && game.pot_value_per_point) {
+      const payoutCalcs = calculateWolfPayouts(standingsMap, game.pot_value_per_point);
+      for (const entry of sorted) {
+        entry.net_result = payoutCalcs[entry.player_id]?.netResult ?? 0;
+      }
+    }
+
+    return sorted;
+  }, [game, decisionsQuery.data]);
 
   return {
     data: standings,
@@ -550,12 +560,12 @@ export function useWolfSummary(gameId: string | undefined) {
   const payoutsQuery = useWolfPayouts(gameId);
 
   const game = gameQuery.data;
-  const decisions = decisionsQuery.data ?? [];
-  const payouts = payoutsQuery.data ?? [];
 
   // Compute summary using useMemo
   const summary = useMemo((): WolfGameSummary | null => {
     if (!game) return null;
+    const decisions = decisionsQuery.data ?? [];
+    const payouts = payoutsQuery.data ?? [];
 
     // Create player name map
     const playerNames: Record<string, string> = {};
@@ -566,6 +576,14 @@ export function useWolfSummary(gameId: string | undefined) {
     // Calculate standings
     const standingsMap = calculateWolfStandings(decisions, game.participant_ids);
     const standings = getSortedStandings(standingsMap, playerNames);
+
+    // Calculate net_result for each standing entry when pot is enabled
+    if (game.pot_enabled && game.pot_value_per_point) {
+      const payoutCalcs = calculateWolfPayouts(standingsMap, game.pot_value_per_point);
+      for (const entry of standings) {
+        entry.net_result = payoutCalcs[entry.player_id]?.netResult ?? 0;
+      }
+    }
 
     // Count completed holes (have calculated_at) and decided holes
     const holesCompleted = decisions.filter((d) => d.calculated_at !== null).length;
@@ -579,7 +597,7 @@ export function useWolfSummary(gameId: string | undefined) {
       holes_completed: holesCompleted,
       holes_decided: holesDecided,
     };
-  }, [game, decisions, payouts]);
+  }, [game, decisionsQuery.data, payoutsQuery.data]);
 
   return {
     data: summary,

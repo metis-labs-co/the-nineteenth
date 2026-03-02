@@ -21,16 +21,16 @@ import {
   UIManager,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { EmptyState } from '@/components/common';
 import type { Player, HoleScore, MultiBallHoleScore, Hole } from '@/types';
 import { isSingleBallScore } from '@/types/database';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface ContributionLeaderboardProps {
   /** Team members */

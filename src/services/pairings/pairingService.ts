@@ -76,7 +76,7 @@ function createError(
 /**
  * Convert database Player to PairingPlayer format
  */
-function toPlayerInfo(dbPlayer: Player): PairingPlayer {
+function _toPlayerInfo(dbPlayer: Player): PairingPlayer {
   return {
     id: dbPlayer.id,
     name: dbPlayer.name,

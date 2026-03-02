@@ -17,8 +17,10 @@ import { FilterPill, FilterPillProps } from './FilterPill';
 // Mock ThemeContext
 const mockColors = {
   primary: '#1E7F5E',
+  surface: '#FFFFFF',
   surfaceVariant: '#F5F5F5',
-  gray100: '#F5F5F5', // Badge uses gray100 for default variant background
+  border: '#E0E0E0',
+  gray100: '#F5F5F5',
   gray200: '#E5E7EB',
   textSecondary: '#6B7280',
   textDisabled: '#9CA3AF',
@@ -138,8 +140,8 @@ describe('FilterPill', () => {
         ? pill.props.style
         : [pill.props.style];
       const flatStyle = Object.assign({}, ...styles.filter(Boolean));
-      // Badge uses gray100 for default variant background color
-      expect(flatStyle.backgroundColor).toBe(mockColors.gray100);
+      // Badge uses colors.surface for default variant unselected background
+      expect(flatStyle.backgroundColor).toBe(mockColors.surface);
     });
 
     it('applies selected border color style', () => {
@@ -159,7 +161,8 @@ describe('FilterPill', () => {
         ? pill.props.style
         : [pill.props.style];
       const flatStyle = Object.assign({}, ...styles.filter(Boolean));
-      expect(flatStyle.borderColor).toBe(mockColors.gray200);
+      // Badge uses colors.border for default variant unselected border
+      expect(flatStyle.borderColor).toBe(mockColors.border);
     });
   });
 

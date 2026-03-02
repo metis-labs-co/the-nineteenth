@@ -39,10 +39,12 @@ import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact
 import { Pill } from '@/components/common/Pill';
 import { COMPETITION_TYPE_LABELS } from '@/components/rounds/ViewRound/RoundDetailsTab/constants';
 import type { Player, Hole } from '@/types';
+import type { SkinsResultWithWinner } from '@/types/database/skins.types';
 
 import { useViewRoundScreen, type TabKey } from './useViewRoundScreen';
 import { SkinsTab } from './tabs/SkinsTab';
 import { WolfTab } from './tabs/WolfTab';
+import { PayoutsTab } from './tabs/PayoutsTab';
 import { MatchTab } from './tabs/MatchTab';
 import { ScrambleTeamScoreTab } from './tabs/ScrambleTeamScoreTab';
 import { ScrambleLeaderboardTab } from './tabs/ScrambleLeaderboardTab';
@@ -307,6 +309,15 @@ export default function ViewRoundScreen(props: Props) {
           <WolfTab
             wolfSummary={vm.wolfSummary}
             hasWolfGame={vm.hasWolfGame}
+          />
+        )}
+        {vm.activeTab === 'payouts' && vm.hasPayoutsTab && vm.payoutsMode && (
+          <PayoutsTab
+            mode={vm.payoutsMode}
+            activeSkinsGame={vm.activeSkinsGame || null}
+            skinsResults={(vm.skinsResults || []) as SkinsResultWithWinner[]}
+            wolfSummary={vm.wolfSummary || null}
+            playerNameMap={vm.playerNameMap}
           />
         )}
         {vm.activeTab === 'leaderboard' && vm.isStrokePlayRound && (

@@ -4,9 +4,8 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import LadderRow from '@/components/leagues/LadderRow';
 import type { LadderStandingsEntry } from '@/types/database';
@@ -28,7 +27,7 @@ export default function LadderTab({
   hasActiveChallenge,
   onChallenge,
 }: LadderTabProps) {
-  const colors = useThemeColors();
+  const _colors = useThemeColors();
 
   if (standings.length === 0) {
     return (

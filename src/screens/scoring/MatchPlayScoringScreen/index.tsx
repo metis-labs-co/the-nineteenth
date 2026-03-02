@@ -92,7 +92,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     handlePickUp: storeHandlePickUp,
     getHoleResult,
     holeResults,
-    matchStatus,
+    matchStatus: _matchStatus,
     matchStatusText,
     isMatchComplete,
     player1MatchStatus,

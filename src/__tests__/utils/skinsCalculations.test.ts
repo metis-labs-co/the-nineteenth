@@ -34,8 +34,6 @@ import {
   type SkinsScorecardData,
 } from '@/utils/skinsCalculations';
 import type {
-  SkinsPotType,
-  SkinsScoringType,
   SkinsHoleScores,
   SkinsResult,
   SkinsGame,
@@ -1169,7 +1167,7 @@ describe('Skins Game Scenarios', () => {
 
       // With hole 18 carryover split for direct pot games:
       // All $90 is split evenly among 4 players = $22.50 each
-      const buyIn = calculateBuyIn('per_hole', 5, 4); // $22.50
+      const _buyIn = calculateBuyIn('per_hole', 5, 4); // $22.50
       const splitAmount = 90 / 4; // $22.50
 
       expect(payouts.every((p) => p.total_winnings === splitAmount)).toBe(true);

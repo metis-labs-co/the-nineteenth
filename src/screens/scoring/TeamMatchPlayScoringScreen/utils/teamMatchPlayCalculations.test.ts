@@ -632,7 +632,7 @@ describe('getBestPlayerScore', () => {
   ]);
 
   it('returns lowest score from team members', () => {
-    const getPlayerScore = jest.fn((playerId: string, hole: number) => {
+    const getPlayerScore = jest.fn((playerId: string, _hole: number) => {
       if (playerId === 'p1') return { strokes: 4 };
       if (playerId === 'p2') return { strokes: 5 };
       return undefined;

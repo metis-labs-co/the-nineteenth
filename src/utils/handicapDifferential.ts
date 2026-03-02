@@ -47,7 +47,7 @@ interface RatingsResult {
  * | 19     | 7           |
  * | 20+    | 8           |
  */
-const WHS_COUNTING_TABLE: Array<{ maxRounds: number; count: number }> = [
+const WHS_COUNTING_TABLE: { maxRounds: number; count: number }[] = [
   { maxRounds: 5, count: 1 },
   { maxRounds: 8, count: 2 },
   { maxRounds: 11, count: 3 },

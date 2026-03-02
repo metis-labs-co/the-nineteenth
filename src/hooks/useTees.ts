@@ -319,7 +319,7 @@ export function useDeleteTee() {
   return useMutation({
     mutationFn: async ({
       teeId,
-      courseId,
+      courseId: _courseId,
     }: {
       teeId: string;
       courseId: string;

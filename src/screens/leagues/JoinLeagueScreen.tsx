@@ -49,8 +49,8 @@ export default function JoinLeagueScreen() {
     try {
       const league = await joinLeague.mutateAsync(inviteCode.trim());
       navigation.replace('LeagueDetail', { id: league.id });
-    } catch (err: any) {
-      setError(err.message || 'Failed to join league');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to join league');
     }
   }, [canJoin, inviteCode, joinLeague, navigation]);
 
@@ -111,7 +111,7 @@ export default function JoinLeagueScreen() {
           <View style={[styles.helpBox, { backgroundColor: colors.surface }]}>
             <Icon source="information-outline" size={20} color={colors.textSecondary} />
             <Text style={[styles.helpText, { color: colors.textSecondary }]}>
-              Ask the league creator for the invite code. It starts with "LGE-" followed by 5 digits.
+              Ask the league creator for the invite code. It starts with &quot;LGE-&quot; followed by 5 digits.
             </Text>
           </View>
         </ScrollView>

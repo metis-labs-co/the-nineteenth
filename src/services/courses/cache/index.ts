@@ -19,8 +19,8 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import { clubCacheService, ClubCacheService } from './clubCacheService';
-import { courseCacheService, CourseCacheService } from './courseCacheService';
+import { clubCacheService } from './clubCacheService';
+import { courseCacheService } from './courseCacheService';
 import { CACHE_TTL_MS, type CacheStats } from './types';
 
 // Re-export types

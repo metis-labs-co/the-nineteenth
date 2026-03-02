@@ -26,7 +26,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, Icon, Avatar, ActivityIndicator } from 'react-native-paper';
-import { EmptyState } from '@/components/common';
+import { EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skinsCalculations';
@@ -278,7 +278,7 @@ export const SkinsLeaderboard = React.memo(function SkinsLeaderboard({
           </View>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={skinsColor} />
+          <LoadingSpinner size="md" fullScreen={false} />
         </View>
       </View>
     );

@@ -19,7 +19,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { GameType, TeamFormat } from '@/types/database/enums';
 import type { TeamWithMembers } from '@/types/database/team.types';
-import type { Player } from '@/types';
+
 
 /**
  * Team score data for display in header

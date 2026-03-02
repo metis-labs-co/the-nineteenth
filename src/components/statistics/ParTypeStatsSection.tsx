@@ -54,7 +54,7 @@ interface ParTypeColumnProps {
  */
 const ParTypeColumn = React.memo(function ParTypeColumn({
   label,
-  par,
+  par: _par,
   stats,
 }: ParTypeColumnProps) {
   const colors = useThemeColors();

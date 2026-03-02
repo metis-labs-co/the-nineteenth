@@ -23,7 +23,6 @@ import { useCheckFeature } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
 import type { SkinsConfig, SkinsPoolSource } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
-import type { PoolSourceData } from '@/components/skins';
 
 interface OptionsStepProps {
   // Scoring pairs
@@ -76,8 +75,8 @@ export const OptionsStep = memo(function OptionsStep({
   wolfDisabledReason,
   disabled,
   supportsTeams,
-  competitionPlayerCount,
-  onUpgradePress,
+  competitionPlayerCount: _competitionPlayerCount,
+  onUpgradePress: _onUpgradePress,
 }: OptionsStepProps) {
   const colors = useThemeColors();
   const checkFeature = useCheckFeature();

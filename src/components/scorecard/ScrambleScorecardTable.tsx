@@ -161,7 +161,7 @@ export function ScrambleScorecardTable({
 
   const renderHoleRow = (data: HoleRowData, index: number) => {
     const isEven = index % 2 === 0;
-    const scoreColor = getScoreColor(data.gross, data.hole.par);
+    const scoreColor = getScoreColor(data.gross, data.hole.par, colors);
 
     const holeCellContent = (
       <Text style={[styles.cellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>

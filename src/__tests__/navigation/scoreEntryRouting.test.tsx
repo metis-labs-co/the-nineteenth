@@ -32,6 +32,15 @@ jest.mock('@react-navigation/native', () => ({
     navigate: mockNavigate,
     goBack: mockGoBack,
   }),
+  createNavigationContainerRef: () => ({
+    isReady: jest.fn(() => true),
+    navigate: jest.fn(),
+    dispatch: jest.fn(),
+    reset: jest.fn(),
+    goBack: jest.fn(),
+    getCurrentRoute: jest.fn(() => ({ name: 'TestScreen', key: 'test-key' })),
+    current: null,
+  }),
 }));
 
 // Mock useAuth hook

@@ -86,6 +86,11 @@ jest.mock('@/components/common/EmptyState', () => {
   };
 });
 
+// Mock SubscriptionContext (required by useStatsVisibilityWithTier in settingsStore)
+jest.mock('@/context/SubscriptionContext', () => ({
+  useIsPremium: () => true,
+}));
+
 // Mock scoring utilities
 jest.mock('@/utils/scoring', () => ({
   getScoreColor: (score: number, par: number) => {
@@ -734,10 +739,9 @@ describe('RoundScorecardTab', () => {
         />
       );
 
-      // Table view legend doesn't include Eagle or Par
+      // Unified legend now includes Eagle in all views
       const eagleElements = screen.queryAllByText('Eagle');
-      // Eagle should not appear in table legend
-      expect(eagleElements.length).toBe(0);
+      expect(eagleElements.length).toBeGreaterThanOrEqual(1);
     });
   });
 

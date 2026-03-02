@@ -253,17 +253,94 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
           style={
             [
               {
-                "borderRadius": 7,
-                "borderWidth": 1.5,
-                "height": 14,
-                "width": 14,
+                "alignItems": "center",
+                "borderRadius": 4,
+                "height": 20,
+                "justifyContent": "center",
+                "width": 20,
               },
               {
-                "borderColor": "#1976D2",
+                "backgroundColor": "#F3E5F5",
               },
             ]
           }
-        />
+        >
+          <Text
+            style={
+              [
+                {
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "lineHeight": 16,
+                },
+                {
+                  "color": "#6A1B9A",
+                },
+              ]
+            }
+          >
+            2
+          </Text>
+        </View>
+        <Text
+          style={
+            [
+              {
+                "fontSize": 12,
+                "fontWeight": "400",
+                "lineHeight": 16,
+              },
+              {
+                "color": "#6B6B6B",
+              },
+            ]
+          }
+        >
+          Eagle
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 4,
+          }
+        }
+      >
+        <View
+          style={
+            [
+              {
+                "alignItems": "center",
+                "borderRadius": 4,
+                "height": 20,
+                "justifyContent": "center",
+                "width": 20,
+              },
+              {
+                "backgroundColor": "#dbeafe",
+              },
+            ]
+          }
+        >
+          <Text
+            style={
+              [
+                {
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "lineHeight": 16,
+                },
+                {
+                  "color": "#1976D2",
+                },
+              ]
+            }
+          >
+            3
+          </Text>
+        </View>
         <Text
           style={
             [
@@ -294,17 +371,94 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
           style={
             [
               {
-                "borderRadius": 2,
-                "borderWidth": 1.5,
-                "height": 14,
-                "width": 14,
+                "alignItems": "center",
+                "borderRadius": 4,
+                "height": 20,
+                "justifyContent": "center",
+                "width": 20,
               },
               {
-                "borderColor": "#F57C00",
+                "backgroundColor": "#dcfce7",
               },
             ]
           }
-        />
+        >
+          <Text
+            style={
+              [
+                {
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "lineHeight": 16,
+                },
+                {
+                  "color": "#388E3C",
+                },
+              ]
+            }
+          >
+            4
+          </Text>
+        </View>
+        <Text
+          style={
+            [
+              {
+                "fontSize": 12,
+                "fontWeight": "400",
+                "lineHeight": 16,
+              },
+              {
+                "color": "#6B6B6B",
+              },
+            ]
+          }
+        >
+          Par
+        </Text>
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 4,
+          }
+        }
+      >
+        <View
+          style={
+            [
+              {
+                "alignItems": "center",
+                "borderRadius": 4,
+                "height": 20,
+                "justifyContent": "center",
+                "width": 20,
+              },
+              {
+                "backgroundColor": "#fef3c7",
+              },
+            ]
+          }
+        >
+          <Text
+            style={
+              [
+                {
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "lineHeight": 16,
+                },
+                {
+                  "color": "#F57C00",
+                },
+              ]
+            }
+          >
+            5
+          </Text>
+        </View>
         <Text
           style={
             [
@@ -336,33 +490,33 @@ exports[`RoundScorecardTab Snapshots matches snapshot with players 1`] = `
             [
               {
                 "alignItems": "center",
-                "borderRadius": 2,
-                "borderWidth": 1.5,
-                "height": 18,
+                "borderRadius": 4,
+                "height": 20,
                 "justifyContent": "center",
-                "width": 18,
+                "width": 20,
               },
               {
-                "borderColor": "#D32F2F",
+                "backgroundColor": "#fee2e2",
               },
             ]
           }
         >
-          <View
+          <Text
             style={
               [
                 {
-                  "borderRadius": 2,
-                  "borderWidth": 1.5,
-                  "height": 12,
-                  "width": 12,
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "lineHeight": 16,
                 },
                 {
-                  "borderColor": "#D32F2F",
+                  "color": "#D32F2F",
                 },
               ]
             }
-          />
+          >
+            6+
+          </Text>
         </View>
         <Text
           style={

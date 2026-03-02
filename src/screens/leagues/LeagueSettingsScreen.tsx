@@ -40,7 +40,7 @@ export default function LeagueSettingsScreen() {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<SettingsRoute>();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const leagueId = route.params.leagueId;
 
   const { data: league } = useLeague(leagueId);
@@ -74,8 +74,8 @@ export default function LeagueSettingsScreen() {
       });
       setHasChanges(false);
       Alert.alert('Saved', 'League settings updated.');
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
     }
   }, [hasChanges, name, description, updateMutation]);
 
@@ -99,8 +99,8 @@ export default function LeagueSettingsScreen() {
     try {
       await archiveMutation.mutateAsync(leagueId);
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
     }
   }, [leagueId, archiveMutation, navigation]);
 
@@ -217,7 +217,7 @@ export default function LeagueSettingsScreen() {
         <View style={styles.section}>
           <SectionHeader title={`Players (${players?.length ?? 0})`} />
 
-          {players?.map((lp: any) => {
+          {players?.map((lp) => {
             const isCreator = lp.player_id === league?.created_by;
             return (
               <View

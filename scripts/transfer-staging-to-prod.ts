@@ -55,8 +55,8 @@ async function main() {
     process.exit(1);
   }
 
-  const prodApiIds = new Set(prodClubs.map((c: any) => c.golfapi_club_id));
-  const missing = stagingClubs.filter((c: any) => c.golfapi_club_id && !prodApiIds.has(c.golfapi_club_id));
+  const prodApiIds = new Set(prodClubs.map((c: { golfapi_club_id: string | null }) => c.golfapi_club_id));
+  const missing = stagingClubs.filter((c: { golfapi_club_id: string | null }) => c.golfapi_club_id && !prodApiIds.has(c.golfapi_club_id));
 
   console.log(`Staging: ${stagingClubs.length} featured clubs`);
   console.log(`Prod: ${prodClubs.length} featured clubs`);
@@ -71,7 +71,7 @@ async function main() {
     const { data: courses } = await staging.from('courses').select('*').eq('club_id', club.id);
 
     // Get tees for each course
-    const courseTees: Record<string, any[]> = {};
+    const courseTees: Record<string, { id: string }[]> = {};
     for (const course of courses || []) {
       const { data: tees } = await staging.from('tees').select('*').eq('course_id', course.id);
       courseTees[course.id] = tees || [];

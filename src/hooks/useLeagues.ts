@@ -233,6 +233,7 @@ export function useTagRoundToLeague() {
       queryClient.invalidateQueries({ queryKey: leagueKeys.tagCount(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eclecticLeaderboard(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eclecticBestScores(variables.leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.stats(variables.leagueId) });
     },
     onError: (error) => {
       console.error('[useTagRoundToLeague] Failed:', error);
@@ -250,6 +251,7 @@ export function useUntagRound(leagueId: string) {
       queryClient.invalidateQueries({ queryKey: leagueKeys.rounds(leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eligibleScorecards(leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.tagCount(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.stats(leagueId) });
     },
     onError: (error) => {
       console.error('[useUntagRound] Failed:', error);

@@ -19,12 +19,9 @@ import { useFavoriteEnrichment } from '@/hooks/useFavoriteCourses';
 import { useGolfApiSearch } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
-import { mergeTees } from './helpers';
 import type { Club } from '@/types/database.types';
 import type {
-  SupabaseCourseWithTees,
   SupabaseClubWithCourses,
-  SupabasePlayerHomeClub,
   SupabaseFavoriteCourseWithClub,
   ClubWithCourses,
   ClubCourseDisplayItem,
@@ -47,26 +44,19 @@ export function useClubsWithCourses(options?: {
   enabled?: boolean;
 }) {
   const { country, region, featuredOnly, enabled = true } = options ?? {};
-  const { user } = useAuth();
+  const { player } = useAuth();
   const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
+  const homeClubId = player?.home_club_id ?? null;
 
   const query = useQuery({
     queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly }),
-    queryFn: async (): Promise<{
-      clubs: SupabaseClubWithCourses[];
-      homeClubId: string | null;
-    }> => {
-      // Fetch clubs with their courses and tees
-      // Note: tees_from_table joins the normalized tees table
+    queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let clubQuery = supabase
         .from('clubs')
         .select(
           `
           *,
-          courses!inner (
-            *,
-            tees_from_table:tees (*)
-          )
+          courses!inner (*)
         `
         )
         .order('name', { ascending: true });
@@ -87,33 +77,17 @@ export function useClubsWithCourses(options?: {
 
       if (clubsError) throw clubsError;
 
-      // Fetch player's home club ID
-      let homeClubId: string | null = null;
-      if (user) {
-        const { data: player } = (await supabase
-          .from('players')
-          .select('home_club_id')
-          .eq('id', user.id)
-          .single()) as { data: SupabasePlayerHomeClub | null };
-
-        homeClubId = player?.home_club_id ?? null;
-      }
-
-      return {
-        clubs: (clubs as SupabaseClubWithCourses[] | null) ?? [],
-        homeClubId,
-      };
+      return (clubs as SupabaseClubWithCourses[] | null) ?? [];
     },
     enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Transform to ClubWithCourses with favorite status and merged tees
+  // Transform to ClubWithCourses with favorite status
   const data = query.data
-    ? query.data.clubs.map((club: SupabaseClubWithCourses) => {
-        // Merge tees from table into courses for backward compatibility
-        const courses = (club.courses ?? []).map((course: SupabaseCourseWithTees) => ({
-          ...mergeTees(course),
+    ? query.data.map((club: SupabaseClubWithCourses) => {
+        const courses = (club.courses ?? []).map((course) => ({
+          ...course,
           is_favorite: isFavorite(course.id),
         }));
 
@@ -122,7 +96,7 @@ export function useClubsWithCourses(options?: {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
-          is_home: club.id === query.data.homeClubId,
+          is_home: club.id === homeClubId,
         };
       })
     : undefined;
@@ -141,8 +115,9 @@ export function useClubsWithCourses(options?: {
  * and merges results seamlessly.
  */
 export function useSearchClubs(searchQuery: string, state?: string) {
-  const { user } = useAuth();
+  const { player } = useAuth();
   const { isFavorite, isLoading: favoritesLoading } = useFavoriteEnrichment();
+  const homeClubId = player?.home_club_id ?? null;
 
   // Debounce search query for API calls (300ms)
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
@@ -155,16 +130,10 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   // Local database query
   const localQuery = useQuery({
     queryKey: clubKeys.withCoursesFiltered({ search: searchQuery, state }),
-    queryFn: async (): Promise<{
-      clubs: SupabaseClubWithCourses[];
-      homeClubId: string | null;
-    }> => {
+    queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let queryBuilder = supabase.from('clubs').select(`
           *,
-          courses!inner (
-            *,
-            tees_from_table:tees (*)
-          )
+          courses!inner (*)
         `);
 
       // Apply search filter (case-insensitive)
@@ -183,33 +152,17 @@ export function useSearchClubs(searchQuery: string, state?: string) {
 
       if (error) throw error;
 
-      // Fetch player's home club ID
-      let homeClubId: string | null = null;
-      if (user) {
-        const { data: player } = (await supabase
-          .from('players')
-          .select('home_club_id')
-          .eq('id', user.id)
-          .single()) as { data: SupabasePlayerHomeClub | null };
-
-        homeClubId = player?.home_club_id ?? null;
-      }
-
-      return {
-        clubs: (clubs as SupabaseClubWithCourses[] | null) ?? [],
-        homeClubId,
-      };
+      return (clubs as SupabaseClubWithCourses[] | null) ?? [];
     },
     enabled: searchQuery.length >= 2 || !!state,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Transform local results to ClubWithCourses with merged tees
+  // Transform local results to ClubWithCourses with favorite status
   const localResults: ClubWithCourses[] | undefined = localQuery.data
-    ? localQuery.data.clubs.map((club: SupabaseClubWithCourses) => {
-        // Merge tees from table into courses for backward compatibility
-        const courses = (club.courses ?? []).map((course: SupabaseCourseWithTees) => ({
-          ...mergeTees(course),
+    ? localQuery.data.map((club: SupabaseClubWithCourses) => {
+        const courses = (club.courses ?? []).map((course) => ({
+          ...course,
           is_favorite: isFavorite(course.id),
         }));
 
@@ -218,7 +171,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
           courses,
           course_count: courses.length,
           is_multi_course: courses.length > 1,
-          is_home: club.id === localQuery.data.homeClubId,
+          is_home: club.id === homeClubId,
         };
       })
     : undefined;
@@ -378,7 +331,7 @@ export function useFavoriteCoursesWithClubs() {
     queryFn: async (): Promise<FavoriteCourseWithClub[]> => {
       if (!user) return [];
 
-      // Fetch favorites with course, club, and tees data
+      // Fetch favorites with course and club data
       const { data, error } = await supabase
         .from('favorite_courses')
         .select(
@@ -386,8 +339,7 @@ export function useFavoriteCoursesWithClubs() {
           course_id,
           courses:course_id (
             *,
-            club:club_id (*),
-            tees_from_table:tees (*)
+            club:club_id (*)
           )
         `
         )
@@ -398,7 +350,7 @@ export function useFavoriteCoursesWithClubs() {
       const typedData = data as SupabaseFavoriteCourseWithClub[] | null;
       return (typedData ?? [])
         .map((item: SupabaseFavoriteCourseWithClub) => ({
-          ...mergeTees(item.courses),
+          ...item.courses,
           club: item.courses.club,
           venue: item.courses.club, // @deprecated - use club
           is_favorite: true,

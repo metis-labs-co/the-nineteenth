@@ -38,8 +38,20 @@ jest.mock('@/services/subscription/SubscriptionService', () => ({
 }));
 const mockOpenURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as any);
 
-// Mock Alert
-jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+// Mock useConfirmationDialog
+const mockShowAlert = jest.fn();
+const mockShowDialog = jest.fn();
+const mockDismissDialog = jest.fn();
+jest.mock('@/hooks', () => ({
+  ...jest.requireActual('@/hooks'),
+  useConfirmationDialog: () => ({
+    dialogConfig: { visible: false, title: '', message: '', onConfirm: jest.fn() },
+    showDialog: mockShowDialog,
+    showAlert: mockShowAlert,
+    dismissDialog: mockDismissDialog,
+    setLoading: jest.fn(),
+  }),
+}));
 
 // ============================================================================
 // TEST FIXTURES
@@ -96,7 +108,7 @@ const defaultProps: PaywallProps = {
 const mockGetAvailableProducts = subscriptionService.getAvailableProducts as jest.Mock;
 const mockPurchaseProduct = subscriptionService.purchaseProduct as jest.Mock;
 const mockRestorePurchases = subscriptionService.restorePurchases as jest.Mock;
-const mockAlert = Alert.alert as jest.Mock;
+const mockAlert = mockShowAlert;
 
 function setupDefaultMocks() {
   mockGetAvailableProducts.mockResolvedValue({
@@ -689,10 +701,11 @@ describe('Paywall', () => {
       fireEvent.press(screen.getByLabelText('Restore purchases'));
 
       await waitFor(() => {
-        expect(mockAlert).toHaveBeenCalledWith(
-          'Purchases Restored',
-          'Your social subscription has been restored.',
-          expect.any(Array)
+        expect(mockShowDialog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Purchases Restored',
+            message: 'Your social subscription has been restored.',
+          })
         );
       });
     });

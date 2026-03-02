@@ -35,7 +35,6 @@ import type {
   SkinsWinner,
   SkinsTeamWinner,
   SkinsPayoutPlayer,
-  SkinsPayout,
 } from '@/types/database/skins.types';
 
 // =====================================================
@@ -89,10 +88,10 @@ interface PlayerRow {
 interface TeamWithMembersRow {
   id: string;
   name: string;
-  team_members?: Array<{
+  team_members?: {
     player_id: string;
     players: PlayerRow | null;
-  }>;
+  }[];
 }
 
 // =====================================================
@@ -172,7 +171,7 @@ export function useSkinsGame(gameId: string | undefined) {
             .eq('id', game.round_id)
             .single();
 
-          const round = rawRound as unknown as { team_config?: { teams?: Array<{ id: string; name: string; memberIds: string[] }> } } | null;
+          const round = rawRound as unknown as { team_config?: { teams?: { id: string; name: string; memberIds: string[] }[] } } | null;
           const teamConfig = round?.team_config;
 
           if (teamConfig?.teams && teamConfig.teams.length > 0) {
@@ -344,7 +343,7 @@ export function useSkinsResults(gameId: string | undefined) {
             .select('id, name')
             .in('id', teamWinnerIds);
 
-          const teams = (rawTeams ?? []) as unknown as Array<{ id: string; name: string }>;
+          const teams = (rawTeams ?? []) as unknown as { id: string; name: string }[];
 
           if (teams.length > 0) {
             teamWinnerMap = new Map(teams.map((t) => [t.id, { id: t.id, name: t.name, members: [] }]));
@@ -369,7 +368,7 @@ export function useSkinsResults(gameId: string | undefined) {
                 .eq('id', skinsGame.round_id)
                 .single();
 
-              const round = rawRound as unknown as { team_config?: { teams?: Array<{ id: string; name: string }> } } | null;
+              const round = rawRound as unknown as { team_config?: { teams?: { id: string; name: string }[] } } | null;
               const teamConfig = round?.team_config;
               if (teamConfig?.teams) {
                 // Add teams from team_config that aren't already in the map
@@ -400,7 +399,7 @@ export function useSkinsResults(gameId: string | undefined) {
           .select('id, name')
           .in('id', winnerIds);
 
-        const winners = (rawWinners ?? []) as unknown as Array<{ id: string; name: string }>;
+        const winners = (rawWinners ?? []) as unknown as { id: string; name: string }[];
 
         if (winners.length > 0) {
           winnerMap = new Map(winners.map((w) => [w.id, { id: w.id, name: w.name }]));
@@ -455,7 +454,7 @@ export function useSkinsPayouts(gameId: string | undefined) {
         .select('id, name')
         .in('id', playerIds);
 
-      const players = (rawPlayers ?? []) as unknown as Array<{ id: string; name: string }>;
+      const players = (rawPlayers ?? []) as unknown as { id: string; name: string }[];
 
       const playerMap = new Map<string, SkinsPayoutPlayer>(
         players.map((p) => [p.id, { id: p.id, name: p.name }])
@@ -491,12 +490,13 @@ export function useSkinsSummary(gameId: string | undefined) {
 
   // Extract data from dependent queries
   const game = gameQuery.data;
-  const results = resultsQuery.data ?? [];
-  const payouts = payoutsQuery.data ?? [];
 
   // Compute summary directly using useMemo - this reacts to changes in dependent data
   const summary = useMemo((): SkinsGameSummary | null => {
     if (!game) return null;
+
+    const results = resultsQuery.data ?? [];
+    const payouts = payoutsQuery.data ?? [];
 
     const totalPot = calculateTotalPot(game.pot_type, game.pot_value);
     const perHoleValue = calculateHoleValue(game.pot_type, game.pot_value);
@@ -512,7 +512,7 @@ export function useSkinsSummary(gameId: string | undefined) {
       total_pot: totalPot,
       per_hole_value: perHoleValue,
     };
-  }, [game, results, payouts]);
+  }, [game, resultsQuery.data, payoutsQuery.data]);
 
   // Return a query-like object for backwards compatibility
   return {

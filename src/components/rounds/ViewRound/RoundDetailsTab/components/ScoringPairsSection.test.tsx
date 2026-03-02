@@ -38,6 +38,12 @@ jest.mock('@/hooks/useScoringPairs', () => ({
   useScoringPairs: jest.fn(),
 }));
 
+// Mock SubscriptionContext - default to non-premium
+let mockIsPremium = false;
+jest.mock('@/context/SubscriptionContext', () => ({
+  useIsPremium: () => mockIsPremium,
+}));
+
 // Mock common components
 jest.mock('@/components/common', () => {
   const { View, Text } = require('react-native');
@@ -47,6 +53,13 @@ jest.mock('@/components/common', () => {
         <Text testID="loader-size">{size || 'md'}</Text>
       </View>
     ),
+    Pill: ({ label, variant, size }: { label: string; variant?: string; size?: string }) => (
+      <View testID={`pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+        <Text>{label}</Text>
+        <Text testID="pill-variant">{variant || 'default'}</Text>
+        <Text testID="pill-size">{size || 'md'}</Text>
+      </View>
+    ),
     PlayerAvatar: ({ photoUrl, name, size }: { photoUrl?: string; name?: string; size?: number }) => (
       <View testID="player-avatar" style={{ width: size, height: size }}>
         {photoUrl ? (
@@ -54,20 +67,6 @@ jest.mock('@/components/common', () => {
         ) : (
           <Text testID="player-avatar-initials">{name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?'}</Text>
         )}
-      </View>
-    ),
-  };
-});
-
-// Mock Pill component
-jest.mock('@/components/common/Pill', () => {
-  const { View, Text } = require('react-native');
-  return {
-    Pill: ({ label, variant, size }: { label: string; variant?: string; size?: string }) => (
-      <View testID={`pill-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-        <Text>{label}</Text>
-        <Text testID="pill-variant">{variant || 'default'}</Text>
-        <Text testID="pill-size">{size || 'md'}</Text>
       </View>
     ),
   };
@@ -246,6 +245,8 @@ const defaultProps = {
 describe('ScoringPairsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: non-premium
+    mockIsPremium = false;
     // Default mock - no pairs, not loading
     mockUseScoringPairs.mockReturnValue({
       data: [],
@@ -262,12 +263,12 @@ describe('ScoringPairsSection', () => {
   describe('Rendering', () => {
     it('renders without crashing', () => {
       render(<ScoringPairsSection {...defaultProps} />);
-      expect(screen.getByText('Scoring Pairs')).toBeTruthy();
+      expect(screen.getAllByText('Scoring Pairs').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders section title', () => {
       render(<ScoringPairsSection {...defaultProps} />);
-      expect(screen.getByText('Scoring Pairs')).toBeTruthy();
+      expect(screen.getAllByText('Scoring Pairs').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders with required props only', () => {
@@ -279,7 +280,7 @@ describe('ScoringPairsSection', () => {
           roundStatus="upcoming"
         />
       );
-      expect(screen.getByText('Scoring Pairs')).toBeTruthy();
+      expect(screen.getAllByText('Scoring Pairs').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -340,6 +341,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Premium State - Scoring Pairs Disabled', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('shows disabled status when scoring pairs not required', () => {
       render(<ScoringPairsSection {...defaultProps} scoringPairsRequired={false} />);
 
@@ -386,6 +391,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Premium State - Scoring Pairs Enabled', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('shows enabled status when scoring pairs required', () => {
       render(<ScoringPairsSection {...defaultProps} scoringPairsRequired={true} />);
 
@@ -433,6 +442,7 @@ describe('ScoringPairsSection', () => {
 
   describe('Reciprocal Pairs Display', () => {
     beforeEach(() => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: createReciprocalPairs(),
         isLoading: false,
@@ -483,6 +493,7 @@ describe('ScoringPairsSection', () => {
 
   describe('Circular Chain Pairs Display', () => {
     beforeEach(() => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: createCircularPairs(),
         isLoading: false,
@@ -527,6 +538,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Single Pair Display', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('shows "1 pair" for single pair (singular)', () => {
       mockUseScoringPairs.mockReturnValue({
         data: [createMockScoringPair()],
@@ -545,8 +560,12 @@ describe('ScoringPairsSection', () => {
   // MANAGE BUTTON TESTS
   // ===========================================================================
 
-  describe('Manage Button', () => {
-    it('shows manage button when onEditPress provided', () => {
+  describe('Edit Button', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
+    it('shows edit pencil icon when onEditPress provided and round is upcoming', () => {
       const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
@@ -555,16 +574,16 @@ describe('ScoringPairsSection', () => {
         />
       );
 
-      expect(screen.getByText('Manage')).toBeTruthy();
+      expect(screen.getByTestId('icon-pencil')).toBeTruthy();
     });
 
-    it('does not show manage button when onEditPress not provided', () => {
+    it('does not show edit pencil icon when onEditPress not provided', () => {
       render(<ScoringPairsSection {...defaultProps} />);
 
-      expect(screen.queryByText('Manage')).toBeNull();
+      expect(screen.queryByTestId('icon-pencil')).toBeNull();
     });
 
-    it('calls onEditPress when manage button pressed', () => {
+    it('calls onEditPress when edit card pressed', () => {
       const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
@@ -573,12 +592,12 @@ describe('ScoringPairsSection', () => {
         />
       );
 
-      fireEvent.press(screen.getByText('Manage'));
+      fireEvent.press(screen.getByLabelText('Edit scoring pairs'));
 
       expect(onEditPress).toHaveBeenCalledTimes(1);
     });
 
-    it('has correct accessibility label on manage button', () => {
+    it('has correct accessibility label on editable card', () => {
       const onEditPress = jest.fn();
       render(
         <ScoringPairsSection
@@ -587,8 +606,22 @@ describe('ScoringPairsSection', () => {
         />
       );
 
-      const manageButton = screen.getByLabelText('Manage scoring pairs');
-      expect(manageButton).toBeTruthy();
+      const editableCard = screen.getByLabelText('Edit scoring pairs');
+      expect(editableCard).toBeTruthy();
+    });
+
+    it('is not editable when round status is not upcoming', () => {
+      const onEditPress = jest.fn();
+      render(
+        <ScoringPairsSection
+          {...defaultProps}
+          roundStatus="completed"
+          onEditPress={onEditPress}
+        />
+      );
+
+      expect(screen.queryByLabelText('Edit scoring pairs')).toBeNull();
+      expect(screen.queryByTestId('icon-pencil')).toBeNull();
     });
   });
 
@@ -597,6 +630,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Avatar Display', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('shows initials when no photo_url', () => {
       mockUseScoringPairs.mockReturnValue({
         data: [
@@ -689,6 +726,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Edge Cases', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('handles null scoring pairs data', () => {
       mockUseScoringPairs.mockReturnValue({
         data: null,
@@ -779,6 +820,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Props Combinations', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('renders correctly with all props enabled', () => {
       const onEditPress = jest.fn();
       mockUseScoringPairs.mockReturnValue({
@@ -800,7 +845,7 @@ describe('ScoringPairsSection', () => {
 
       expect(screen.getByText('Scoring Pairs')).toBeTruthy();
       expect(screen.getByText('Enabled')).toBeTruthy();
-      expect(screen.getByText('Manage')).toBeTruthy();
+      expect(screen.getByLabelText('Edit scoring pairs')).toBeTruthy();
       expect(screen.getByText('Reciprocal Pairs')).toBeTruthy();
     });
 
@@ -816,7 +861,7 @@ describe('ScoringPairsSection', () => {
 
       expect(screen.getByText('Scoring Pairs')).toBeTruthy();
       expect(screen.getByText('Disabled')).toBeTruthy();
-      expect(screen.queryByText('Manage')).toBeNull();
+      expect(screen.queryByLabelText('Edit scoring pairs')).toBeNull();
     });
   });
 
@@ -849,6 +894,10 @@ describe('ScoringPairsSection', () => {
   // ===========================================================================
 
   describe('Initials Display', () => {
+    beforeEach(() => {
+      mockIsPremium = true;
+    });
+
     it('generates correct initials for two-word names', () => {
       mockUseScoringPairs.mockReturnValue({
         data: [
@@ -922,6 +971,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('matches snapshot for disabled state', () => {
+      mockIsPremium = true;
       const { toJSON } = render(
         <ScoringPairsSection {...defaultProps} scoringPairsRequired={false} />
       );
@@ -930,6 +980,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('matches snapshot for enabled with reciprocal pairs', () => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: createReciprocalPairs(),
         isLoading: false,
@@ -949,6 +1000,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('matches snapshot for enabled with circular pairs', () => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: createCircularPairs(),
         isLoading: false,
@@ -964,6 +1016,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('matches snapshot for loading state', () => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -979,6 +1032,7 @@ describe('ScoringPairsSection', () => {
     });
 
     it('matches snapshot for empty state', () => {
+      mockIsPremium = true;
       mockUseScoringPairs.mockReturnValue({
         data: [],
         isLoading: false,

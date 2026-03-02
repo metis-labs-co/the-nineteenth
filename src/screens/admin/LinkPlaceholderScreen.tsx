@@ -162,7 +162,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Additional state for pending link operation
-  const [pendingLinkPlayer, setPendingLinkPlayer] = useState<PlayerSearchResult | null>(null);
+  const [_pendingLinkPlayer, setPendingLinkPlayer] = useState<PlayerSearchResult | null>(null);
 
   // Data hooks
   const {
@@ -374,6 +374,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
               refreshing={isRefetching}
               onRefresh={refetch}
               tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}

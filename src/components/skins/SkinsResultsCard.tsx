@@ -18,7 +18,7 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
-import { Text, Icon, Divider } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
 import {
@@ -106,7 +106,7 @@ export const SkinsResultsCard = React.memo(function SkinsResultsCard({
     () => calculateHoleValue(potType, potValue),
     [potType, potValue]
   );
-  const totalPot = useMemo(
+  const _totalPot = useMemo(
     () => calculateTotalPot(potType, potValue),
     [potType, potValue]
   );

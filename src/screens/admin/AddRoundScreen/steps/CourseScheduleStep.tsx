@@ -10,7 +10,6 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { TeeSelector } from '@/components/common';
 import { DateTimeFields } from '../components';
 import type { TeeBox } from '@/types/database.types';
-import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { RoundFormData, FormErrors } from '../types';
 
 interface CourseScheduleStepProps {

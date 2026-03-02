@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
-import { useConfirmationDialog, type DialogConfig } from '@/hooks';
+import { useConfirmationDialog } from '@/hooks';
 import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';

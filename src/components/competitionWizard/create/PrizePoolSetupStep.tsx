@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconTrophy, IconInfoCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { PrizePoolConfigFormData, PoolFundingType } from '@/schemas/competition';
+import type { PrizePoolConfigFormData } from '@/schemas/competition';
 import { PrizePoolSection, type PrizePoolConfig } from '@/components/prizePool';
 
 // Prize pool color for styling

@@ -39,14 +39,14 @@ interface UseRoundScoringPairsResult {
  * @param currentUserId - Current user's player UUID
  * @param scoringPairsRequired - Whether scoring pairs are required for this round
  * @param isTeamRound - Whether this is a team format round (kept for backward compatibility)
- * @param allPlayers - All players in the round (kept for backward compatibility)
+ * @param _allPlayers - All players in the round (kept for backward compatibility)
  */
 export function useRoundScoringPairs(
   roundId: string | undefined,
   currentUserId: string | undefined,
   scoringPairsRequired: boolean = false,
   isTeamRound: boolean = false,
-  allPlayers: Player[] = []
+  _allPlayers: Player[] = []
 ): UseRoundScoringPairsResult {
   const [playersToScore, setPlayersToScore] = useState<Player[]>([]);
   const [myScorer, setMyScorer] = useState<Player | null>(null);

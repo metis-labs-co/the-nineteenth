@@ -56,31 +56,20 @@ jest.mock('@/components/subscription/UpgradePrompt', () => {
   };
 });
 
-// Note: react-native-paper mock uses the global mock from jest.setup.js
-// which provides Text, Icon, etc. We need to add RadioButton to the global mock
-// by re-mocking here with all the components we need
-jest.mock('react-native-paper', () => {
-  const React = require('react');
-  const { View, Text: RNText, TouchableOpacity } = require('react-native');
+// Mock GameTypeInfoBottomSheet
+jest.mock('./GameTypeInfoBottomSheet', () => {
+  const { View } = require('react-native');
   return {
-    Text: ({ children, style, numberOfLines, ...props }: any) =>
-      React.createElement(RNText, { style, numberOfLines, ...props }, children),
-    Icon: ({ source, size, color: _color }: any) =>
-      React.createElement(View, { testID: `icon-${source}`, style: { width: size, height: size } }),
-    RadioButton: Object.assign(
-      ({ value: _value, status: _status, onPress, disabled, color: _color2, uncheckedColor: _uncheckedColor }: any) =>
-        React.createElement(TouchableOpacity, {
-          testID: `radio-button-${_value}`,
-          onPress: disabled ? undefined : onPress,
-          disabled,
-        }),
-      {
-        Group: ({ children, value: _value, onValueChange: _onValueChange }: any) =>
-          React.createElement(View, { testID: 'radio-group' }, children),
-      }
-    ),
+    GameTypeInfoBottomSheet: ({ visible }: any) =>
+      visible ? <View testID="game-type-info-sheet" /> : null,
   };
 });
+
+// Mock withOpacity while keeping real module exports
+jest.mock('@/constants/colors', () => ({
+  ...jest.requireActual('@/constants/colors'),
+  withOpacity: (color: string, _opacity: number) => color,
+}));
 
 // Clear mock arrays before each test
 beforeEach(() => {
@@ -140,10 +129,13 @@ describe('RoundGameTypeSelector', () => {
       expect(screen.getByTestId('icon-sword-cross')).toBeTruthy();
     });
 
-    it('renders RadioButton.Group wrapper', () => {
+    it('renders all four individual game type options', () => {
       render(<RoundGameTypeSelector {...defaultProps} />);
 
-      expect(screen.getByTestId('radio-group')).toBeTruthy();
+      expect(screen.getByText('Stableford')).toBeTruthy();
+      expect(screen.getByText('Stroke Play')).toBeTruthy();
+      expect(screen.getByText('Par')).toBeTruthy();
+      expect(screen.getByText('Match Play')).toBeTruthy();
     });
 
     it('renders with selected value highlighted', () => {
@@ -244,11 +236,12 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      expect(screen.getByText('Social')).toBeTruthy();
+      // Social appears for both Stroke Play and Par
+      expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Premium')).toBeTruthy();
     });
 
-    it('shows chevron-right icon for restricted options', () => {
+    it('shows lock badge for restricted options', () => {
       render(
         <RoundGameTypeSelector
           {...defaultProps}
@@ -256,8 +249,9 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      const chevronIcons = screen.getAllByTestId('icon-chevron-right');
-      expect(chevronIcons.length).toBeGreaterThanOrEqual(2);
+      // Lock icons appear for stroke, par, and match-play (3 restricted types)
+      const lockIcons = screen.getAllByTestId('icon-lock');
+      expect(lockIcons.length).toBeGreaterThanOrEqual(3);
     });
 
     it('shows checkmark for selected allowed option', () => {
@@ -276,8 +270,8 @@ describe('RoundGameTypeSelector', () => {
       render(<RoundGameTypeSelector {...defaultProps} />);
 
       // Should use mockLimits which only has stableford
-      // Stroke and Match Play should show tier badges
-      expect(screen.getByText('Social')).toBeTruthy();
+      // Stroke, Par and Match Play should show tier badges
+      expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Premium')).toBeTruthy();
     });
 
@@ -611,7 +605,7 @@ describe('RoundGameTypeSelector', () => {
       render(
         <RoundGameTypeSelector
           {...defaultProps}
-          allowedGameTypes={['stableford', 'stroke', 'match-play']}
+          allowedGameTypes={['stableford', 'stroke', 'par', 'match-play']}
         />
       );
 
@@ -657,8 +651,8 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      // All options should show as locked
-      expect(screen.getAllByTestId('icon-lock').length).toBe(3);
+      // All options should show as locked (4 individual game types)
+      expect(screen.getAllByTestId('icon-lock').length).toBe(4);
     });
 
     it('handles all game types allowed', () => {
@@ -667,7 +661,7 @@ describe('RoundGameTypeSelector', () => {
         <RoundGameTypeSelector
           {...defaultProps}
           onChange={onChange}
-          allowedGameTypes={['stableford', 'stroke', 'match-play']}
+          allowedGameTypes={['stableford', 'stroke', 'par', 'match-play']}
         />
       );
 
@@ -841,12 +835,12 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      expect(screen.getByText('Social')).toBeTruthy();
+      expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
 
       rerender(
         <RoundGameTypeSelector
           {...defaultProps}
-          allowedGameTypes={['stableford', 'stroke', 'match-play']}
+          allowedGameTypes={['stableford', 'stroke', 'par', 'match-play']}
         />
       );
 
@@ -943,7 +937,8 @@ describe('RoundGameTypeSelector', () => {
             allowedGameTypes={['stableford']}
           />
         );
-        expect(screen.getByText('Social')).toBeTruthy();
+        // Both Stroke Play and Par require Social tier
+        expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -1004,7 +999,7 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      expect(screen.getByText('Social')).toBeTruthy();
+      expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
 
       rerender(
         <RoundGameTypeSelector
@@ -1013,7 +1008,7 @@ describe('RoundGameTypeSelector', () => {
         />
       );
 
-      expect(screen.getByText('Social')).toBeTruthy();
+      expect(screen.getAllByText('Social').length).toBeGreaterThanOrEqual(1);
     });
   });
 });

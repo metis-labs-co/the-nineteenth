@@ -22,7 +22,7 @@ interface RoundTeamRow {
   is_team_round?: boolean;
   team_format?: TeamFormat | null;
   team_config?: {
-    teams?: Array<{ id: string; name: string; memberIds: string[] }>;
+    teams?: { id: string; name: string; memberIds: string[] }[];
   } | null;
 }
 
@@ -37,10 +37,10 @@ interface PlayerRow {
 interface TeamWithMembersRow {
   id: string;
   name: string;
-  team_members?: Array<{
+  team_members?: {
     player_id: string;
     players: PlayerRow | null;
-  }>;
+  }[];
 }
 
 /**

@@ -43,6 +43,9 @@ export const wolfKeys = {
   payouts: (gameId: string) => [...wolfKeys.all, 'payouts', gameId] as const,
   summary: (gameId: string) => [...wolfKeys.all, 'summary', gameId] as const,
   canUseWolf: (userId: string) => [...wolfKeys.all, 'can-use', userId] as const,
+  // Statistics keys
+  statistics: (playerId: string) => [...wolfKeys.all, 'stats', playerId] as const,
+  history: (playerId: string) => [...wolfKeys.all, 'history', playerId] as const,
 } as const;
 
 // =====================================================
@@ -120,6 +123,8 @@ export const leagueKeys = {
   eclecticBestScores: (leagueId: string, playerId?: string) =>
     [...leagueKeys.all, 'eclecticScores', leagueId, playerId] as const,
   tagCount: (leagueId: string) => [...leagueKeys.all, 'tagCount', leagueId] as const,
+  // Stats
+  stats: (leagueId: string) => [...leagueKeys.all, 'stats', leagueId] as const,
 } as const;
 
 // =====================================================

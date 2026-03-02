@@ -40,7 +40,7 @@ import { useUserCountry } from '@/hooks/useUserCountry';
 import { useCountryMismatchPrompt } from '@/hooks/useCountryMismatchPrompt';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 import { getRegionsForCountry } from '@/constants/countries';
-import type { Course, Club } from '@/types/database.types';
+import type { Club } from '@/types/database.types';
 
 /**
  * Type guard to check if item is from GolfAPI.io (not yet imported)
@@ -123,7 +123,7 @@ export default function CourseListScreen() {
 
   // Computed values
   const isSearchActive = searchQuery.length >= 2;
-  const isLoading = isLoadingCountry || isLoadingAll || isLoadingFavorites;
+  const isLoading = isLoadingCountry || isLoadingAll;
   const isRefreshing = isRefetchingAll || isRefetchingFavorites;
   const error = allError || searchError;
 
@@ -287,7 +287,7 @@ export default function CourseListScreen() {
         navigation.navigate('Club', { clubId: item.id });
       }
     },
-    [importClub, navigation]
+    [importClub, navigation, showAlert]
   );
 
   // Navigate to course details

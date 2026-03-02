@@ -86,7 +86,13 @@ export type RootStackParamList = {
   FriendProfile: { friendId: string };
 
   // Stats Comparison
-  CompareStats: { playerId1: string; playerId2: string };
+  CompareStats: {
+    playerId1: string;
+    playerId2: string;
+    leagueId?: string;
+    competitionId?: string;
+    filterLabel?: string;
+  };
 
   // Subscription
   Subscription: undefined;
@@ -139,6 +145,9 @@ export type RootStackParamList = {
   // Achievements
   Achievements: { playerId?: string } | undefined;
   AchievementLeaderboard: { competitionId?: string } | undefined;
+
+  // Game Results (Side Games)
+  GameResults: undefined;
 };
 
 /**

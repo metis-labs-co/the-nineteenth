@@ -17,7 +17,7 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Share, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Share, TouchableOpacity, type TextStyle } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useConfirmationDialog } from '@/hooks';
 import { ConfirmationDialog } from '@/components/common';
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     ...typography.small,
-  } as any, // Typography styles used for both Text and View containers
+  } as TextStyle, // Typography styles used for both Text and View containers
 
   // Column widths
   playerColumn: {

@@ -46,7 +46,7 @@ jest.mock('@/store/settingsStore', () => ({
   }),
 }));
 
-// Mock the HoleTable component
+// Mock the sub-components
 jest.mock('./components', () => {
   const { View, Text } = require('react-native');
   return {
@@ -65,28 +65,28 @@ jest.mock('./components', () => {
         <Text testID="hole-table-units">{useMetres ? 'metres' : 'yards'}</Text>
       </View>
     ),
-    ScoringPairsSection: ({
+    PlayersSection: ({
       roundId,
-      scoringPairsRequired,
-      onManagePress,
     }: {
       roundId: string;
-      scoringPairsRequired: boolean;
       cardBackground: string;
-      onManagePress?: () => void;
     }) => (
-      <View testID="scoring-pairs-section">
-        <Text testID="scoring-pairs-round-id">{roundId}</Text>
-        <Text testID="scoring-pairs-required">{String(scoringPairsRequired)}</Text>
-        {onManagePress && (
-          <Text testID="scoring-pairs-manage-button" onPress={onManagePress}>
-            Manage
-          </Text>
-        )}
+      <View testID="players-section">
+        <Text testID="players-section-round-id">{roundId}</Text>
       </View>
     ),
   };
 });
+
+// Mock skins hook
+jest.mock('@/hooks/useSkins', () => ({
+  useSkinsGamesByRound: () => ({ data: null }),
+}));
+
+// Mock wolf hook
+jest.mock('@/hooks/wolf', () => ({
+  useWolfGameByRound: () => ({ data: null }),
+}));
 
 // Mock StatusBadge
 jest.mock('@/components/common/StatusBadge', () => {
@@ -386,55 +386,24 @@ describe('RoundDetailsTab', () => {
   });
 
   // ===========================================================================
-  // COMPETITION CARD TESTS
+  // PLAYERS SECTION TESTS
   // ===========================================================================
 
-  describe('Competition Card', () => {
-    it('displays competition card when competition exists', () => {
+  describe('Players Section', () => {
+    it('renders players section', () => {
       const round = createRoundWithCourse();
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('Competition')).toBeTruthy();
-      expect(screen.getByText('Summer Championship')).toBeTruthy();
+      expect(screen.getByTestId('players-section')).toBeTruthy();
     });
 
-    it('displays competition type pill', () => {
-      const round = createRoundWithCourse();
+    it('passes round id to players section', () => {
+      const round = createRoundWithCourse({ id: 'round-123' });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByTestId('pill-event')).toBeTruthy();
-    });
-
-    it('displays knockout type for knockout competition', () => {
-      const round = createRoundWithCourse({
-        competition: createCompetitionSummary({ competition_type: 'knockout' }),
-      });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('pill-knockout')).toBeTruthy();
-    });
-
-    it('navigates to competition when card pressed', () => {
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} />);
-
-      const competitionName = screen.getByText('Summer Championship');
-      fireEvent.press(competitionName);
-
-      // Just verify navigation was triggered
-      expect(mockNavigate).toHaveBeenCalled();
-    });
-
-    it('does not display competition card when no competition', () => {
-      const round = createRoundWithCourse({ competition: null });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.queryByText('Competition')).toBeNull();
+      expect(screen.getByTestId('players-section-round-id').children[0]).toBe('round-123');
     });
   });
 
@@ -585,53 +554,6 @@ describe('RoundDetailsTab', () => {
     });
   });
 
-  // ===========================================================================
-  // SCORING PAIRS SECTION TESTS
-  // ===========================================================================
-
-  describe('Scoring Pairs Section', () => {
-    it('renders scoring pairs section', () => {
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('scoring-pairs-section')).toBeTruthy();
-    });
-
-    it('passes round id to scoring pairs section', () => {
-      const round = createRoundWithCourse({ id: 'round-123' });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('scoring-pairs-round-id').children[0]).toBe('round-123');
-    });
-
-    it('passes scoring pairs required flag', () => {
-      const round = createRoundWithCourse({ scoring_pairs_required: true });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('scoring-pairs-required').children[0]).toBe('true');
-    });
-
-    it('passes manage callback for organizers', () => {
-      const onEditPress = jest.fn();
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
-
-      expect(screen.getByTestId('scoring-pairs-manage-button')).toBeTruthy();
-    });
-
-    it('does not pass manage callback for non-organizers', () => {
-      const onEditPress = jest.fn();
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} isOrganizer={false} onEditPress={onEditPress} />);
-
-      expect(screen.queryByTestId('scoring-pairs-manage-button')).toBeNull();
-    });
-  });
 
   // ===========================================================================
   // HOLE BREAKDOWN TESTS
@@ -842,17 +764,6 @@ describe('RoundDetailsTab', () => {
       expect(screen.getByText("St. Andrew's Links - Old Course")).toBeTruthy();
     });
 
-    it('handles very long competition name', () => {
-      const longName = 'The Annual Extremely Long Named Golf Championship Tournament 2025';
-      const round = createRoundWithCourse({
-        competition: createCompetitionSummary({ name: longName }),
-      });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByText(longName)).toBeTruthy();
-    });
-
     it('handles 9-hole course', () => {
       const nineHoles = create18Holes().slice(0, 9);
       const round = createRoundWithCourse({
@@ -920,7 +831,6 @@ describe('RoundDetailsTab', () => {
       );
 
       expect(screen.getByLabelText('Edit round details')).toBeTruthy();
-      expect(screen.getByTestId('scoring-pairs-required').children[0]).toBe('true');
     });
 
     it('renders correctly with mixed props', () => {

@@ -101,6 +101,17 @@ jest.mock('@/components/common/Pill', () => {
   };
 });
 
+// Mock useAutoSplitSkinsSync (used by PrizePoolSection, requires QueryClient)
+jest.mock('@/hooks/useAutoSplitSkinsSync', () => ({
+  useAutoSplitSkinsSync: () => ({
+    isLoading: false,
+    potPerRound: 0,
+    roundCount: 0,
+    skinsGamesCreated: 0,
+    playerCount: 0,
+  }),
+}));
+
 // Mock formatting utils
 jest.mock('@/utils/formatting', () => ({
   formatDateAustralian: (date: string) => {

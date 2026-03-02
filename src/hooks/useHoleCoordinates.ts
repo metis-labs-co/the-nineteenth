@@ -32,7 +32,6 @@ import {
   getCoordinateByPoiType,
 } from '@/services/courses/coordinatesService';
 import type { HoleCoordinate } from '@/types/database.types';
-import type { PoiType } from '@/types/database/enums';
 
 // =====================================================
 // TYPES

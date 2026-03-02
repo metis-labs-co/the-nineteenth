@@ -301,6 +301,7 @@ export default function ClubScreen({ route, navigation }: Props) {
             refreshing={isRefetching}
             onRefresh={refetch}
             tintColor={colors.textPrimary}
+            colors={[colors.textPrimary]}
           />
         }
       >

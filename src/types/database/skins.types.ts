@@ -172,7 +172,7 @@ export interface SkinsWinner {
 export interface SkinsTeamWinner {
   id: string;
   name: string;
-  members: Array<{ id: string; name: string }>;
+  members: { id: string; name: string }[];
 }
 
 /**
@@ -228,7 +228,7 @@ export interface SkinsPayoutPlayer {
 export interface SkinsPayoutTeam {
   id: string;
   name: string;
-  members: Array<{ id: string; name: string }>;
+  members: { id: string; name: string }[];
 }
 
 /**

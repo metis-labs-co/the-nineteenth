@@ -75,7 +75,7 @@ export const WinnerRow = React.memo(function WinnerRow({
   size = 'md',
   testID,
 }: WinnerRowProps) {
-  const colors = useThemeColors();
+  const _colors = useThemeColors();
   const isDark = useIsDark();
 
   const textColor = isDark ? WINNER_COLORS.textDark : WINNER_COLORS.text;

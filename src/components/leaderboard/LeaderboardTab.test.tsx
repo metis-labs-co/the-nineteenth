@@ -38,13 +38,29 @@ jest.mock('@tabler/icons-react-native', () => {
   };
 });
 
-// Mock LoadingSpinner
+// Mock common components
 jest.mock('@/components/common', () => {
-  const { View, Text } = require('react-native');
+  const { View, Text, TouchableOpacity } = require('react-native');
   return {
     LoadingSpinner: ({ message }: { message: string }) => (
       <View testID="loading-spinner">
         <Text>{message}</Text>
+      </View>
+    ),
+    ErrorState: ({ title, error, onRetry }: { title: string; error: string; onRetry: () => void }) => (
+      <View testID="error-state">
+        <Text>{title}</Text>
+        <Text>{error}</Text>
+        <TouchableOpacity onPress={onRetry}>
+          <Text>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    SectionHeader: ({ title, icon }: { title: string; icon?: string }) => (
+      <View testID={`section-header-${title}`}>
+        <Text>{title}</Text>
+        {icon === 'account-outline' && <View testID="icon-user" />}
+        {icon === 'account-group-outline' && <View testID="icon-users" />}
       </View>
     ),
   };

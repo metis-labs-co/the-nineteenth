@@ -28,7 +28,6 @@ import {
 } from '@/hooks/usePairings';
 import {
   generateSnakeDraftPairings,
-  movePlayerToGroup,
   addPlayerToGroup,
   removePlayerFromGroups,
   recalculateTeeTimes,
@@ -89,7 +88,7 @@ export const PairingsSection = React.memo(function PairingsSection({
 
   // Queries and mutations
   const { data: existingPairings, isLoading, refetch } = usePairings(roundId);
-  const { mutate: autoGenerate, isPending: isGenerating } = useAutoGeneratePairings();
+  const { mutate: _autoGenerate, isPending: isGenerating } = useAutoGeneratePairings();
   const { mutate: replacePairings, isPending: isSaving } = useReplacePairings();
   const { mutate: deleteAll, isPending: isDeleting } = useDeleteAllPairings();
 

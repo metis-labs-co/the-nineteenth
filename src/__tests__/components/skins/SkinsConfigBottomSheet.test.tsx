@@ -10,9 +10,25 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { SkinsConfigBottomSheet } from '@/components/skins/SkinsConfigBottomSheet';
 import type { SkinsConfig } from '@/types';
+
+// Mock FormInput to avoid TextInput.Affix being undefined in the react-native-paper mock
+jest.mock('@/components/common/FormInput', () => {
+  const React = require('react');
+  const { View, TextInput: RNTextInput, Text } = require('react-native');
+  return {
+    FormInput: ({ label, value, onChangeText, onBlur, placeholder, error, testID, leftAffix, ...props }: any) =>
+      React.createElement(View, { testID },
+        label ? React.createElement(Text, null, label) : null,
+        leftAffix ? React.createElement(Text, null, leftAffix) : null,
+        React.createElement(RNTextInput, { value, onChangeText, onBlur, placeholder }),
+        error ? React.createElement(Text, null, error) : null
+      ),
+    default: undefined,
+  };
+});
 
 // ============================================================================
 // TEST FIXTURES

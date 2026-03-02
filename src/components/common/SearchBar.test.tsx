@@ -19,6 +19,7 @@ const mockColors = {
   surface: '#FFFFFF',
   surfaceVariant: '#F5F5F5',
   textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
   gray100: '#F3F4F6',
   gray400: '#9CA3AF',
 };
@@ -599,7 +600,7 @@ describe('SearchBar', () => {
     it('applies placeholder text color', () => {
       render(<SearchBar {...defaultProps} />);
       const input = screen.getByPlaceholderText('Search...');
-      expect(input.props.placeholderTextColor).toBe(mockColors.gray400);
+      expect(input.props.placeholderTextColor).toBe(mockColors.textSecondary);
     });
   });
 

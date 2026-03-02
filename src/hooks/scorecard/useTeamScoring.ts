@@ -73,7 +73,7 @@ export function useTeamScoring({
   getHoleInfo,
   processSkinsHole,
 }: UseTeamScoringParams): UseTeamScoringResult {
-  const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards } = useScorecardStore();
+  const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards: _groupScorecards } = useScorecardStore();
 
   // Helper to trigger skins processing after team score entry
   const triggerSkinsProcessing = useCallback(async (holeNumber: number) => {
@@ -173,7 +173,8 @@ export function useTeamScoring({
     });
 
     return map;
-  }, [players, teams, currentHole, getPlayerScore, teamFormat, groupScorecards]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- groupScorecards is not used in the callback
+  }, [players, teams, currentHole, getPlayerScore, teamFormat]);
 
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(

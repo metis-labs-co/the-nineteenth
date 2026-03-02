@@ -82,24 +82,33 @@ function getResultText(decision: WolfHoleDecision | null): string {
 
 /**
  * Get abbreviated points display for a hole
- * Format: "J:2 S:2" for showing each player's points
+ * When pot is enabled, shows dollar values: "F:$6"
+ * When no pot, shows point values: "F:3"
  */
 function getPointsAbbrev(
   decision: WolfHoleDecision | null,
-  participants: Array<{ id: string; name: string }>
+  participants: { id: string; name: string }[],
+  potValuePerPoint: number | null
 ): string {
   if (!decision?.points_awarded || !decision.calculated_at) return '--';
 
   // If tie, no points awarded
   if (decision.is_tie) return '--';
 
-  // Get first initial for each player and their points
+  // Get first initial for each player and their points/value
   const pointParts: string[] = [];
   for (const participant of participants) {
     const points = decision.points_awarded[participant.id];
     if (points !== undefined && points > 0) {
       const initial = participant.name.charAt(0).toUpperCase();
-      pointParts.push(`${initial}:${points}`);
+      if (potValuePerPoint && potValuePerPoint > 0) {
+        const value = points * potValuePerPoint;
+        // Format as whole number if no cents, otherwise 2 decimal places
+        const formatted = value % 1 === 0 ? `$${value}` : `$${value.toFixed(2)}`;
+        pointParts.push(`${initial}:${formatted}`);
+      } else {
+        pointParts.push(`${initial}:${points}`);
+      }
     }
   }
 
@@ -125,16 +134,13 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
   }, [decisions]);
 
   // Calculate totals
-  const { holesPlayed, holesDecided, wolvesWon, packsWon, ties } = useMemo(() => {
-    let played = 0;
-    let decided = 0;
+  const { wolvesWon, packsWon, ties } = useMemo(() => {
     let wolfWins = 0;
     let packWins = 0;
     let tieCount = 0;
 
     decisions.forEach((d) => {
       if (d.calculated_at) {
-        played++;
         if (d.is_tie) {
           tieCount++;
         } else if (d.wolf_team_won === true) {
@@ -143,14 +149,9 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
           packWins++;
         }
       }
-      if (d.decided_at) {
-        decided++;
-      }
     });
 
     return {
-      holesPlayed: played,
-      holesDecided: decided,
       wolvesWon: wolfWins,
       packsWon: packWins,
       ties: tieCount,
@@ -215,7 +216,7 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
               Result
             </Text>
             <Text style={[styles.headerCell, styles.pointsColumn, { color: colors.textSecondary }]}>
-              Points
+              {wolfGame.pot_enabled ? 'Value' : 'Points'}
             </Text>
           </View>
         );
@@ -276,7 +277,8 @@ export const WolfResultsCard = React.memo(function WolfResultsCard({
     const choiceText = getChoiceText(decision);
     const partnerName = getPartnerName(decision);
     const resultText = getResultText(decision);
-    const pointsText = getPointsAbbrev(decision, wolfGame.participants);
+    const potValue = wolfGame.pot_enabled ? wolfGame.pot_value_per_point : null;
+    const pointsText = getPointsAbbrev(decision, wolfGame.participants, potValue);
 
     const isPlayed = !!decision?.calculated_at;
     const isTie = decision?.is_tie ?? false;

@@ -70,7 +70,7 @@ export function countScoreDistribution(
  * Calculate statistics for holes of a specific par value
  */
 export function calculateParTypeStats(
-  allScores: Array<{ strokes: number; par: number; gir: boolean | null; putts: number | null }>,
+  allScores: { strokes: number; par: number; gir: boolean | null; putts: number | null }[],
   targetPar: number
 ): ParTypeStats {
   const parHoles = allScores.filter((s) => s.par === targetPar);
@@ -131,7 +131,7 @@ export function calculateParTypeStats(
  * Scrambling = making par or better after missing the green in regulation
  */
 export function calculateShortGameStats(
-  allScores: Array<{ strokes: number; par: number; gir: boolean | null }>
+  allScores: { strokes: number; par: number; gir: boolean | null }[]
 ): ShortGameStats {
   const totalHoles = allScores.length;
 
@@ -180,7 +180,7 @@ export function calculateShortGameStats(
  * Calculate extended putting statistics
  */
 export function calculatePuttingDepthStats(
-  allScores: Array<{ putts: number | null; gir: boolean | null }>
+  allScores: { putts: number | null; gir: boolean | null }[]
 ): PuttingDepthStats {
   const holesWithPutts = allScores.filter((h) => typeof h.putts === 'number' && h.putts >= 0);
 

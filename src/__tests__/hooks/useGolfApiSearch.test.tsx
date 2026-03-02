@@ -65,10 +65,20 @@ let mockErrorMessage = 'API error';
 // MOCKS
 // ============================================================================
 
+// Mock useUserCountry to avoid AuthProvider dependency
+jest.mock('@/hooks/useUserCountry', () => ({
+  useUserCountry: () => ({
+    country: 'AUS',
+    isLoading: false,
+    effectiveCountry: 'AUS',
+    gpsCountry: 'AUS',
+  }),
+}));
+
 jest.mock('@/services/api/golfApiClient', () => ({
   golfApiClient: {
     isAvailable: jest.fn(() => mockApiAvailable),
-    hasQuota: jest.fn((required: number) => mockHasQuota),
+    hasQuota: jest.fn((_required: number) => mockHasQuota),
     searchClubs: jest.fn(async () => {
       if (mockShouldThrowError) {
         throw new Error(mockErrorMessage);

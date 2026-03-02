@@ -4,8 +4,7 @@
  * Fetches round metadata including game type, team settings, and course info.
  * This is a focused hook extracted from the larger useRoundData.
  *
- * Tee data is fetched from both the legacy courses.tees JSONB column and the
- * normalized tees table, preferring the normalized table when available.
+ * Tee data is fetched from the normalized tees table.
  */
 
 import { useCallback, useState, useEffect } from 'react';
@@ -87,13 +86,11 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
       const selectedTeeData = roundData.selected_tee as TeeBox | null;
       const selectedTeeColor = selectedTeeData?.color?.toLowerCase() || null;
 
-      // Get tees from legacy JSONB column first
-      let courseTees: TeeBox[] = (roundData.courses?.tees as TeeBox[]) || [];
-
-      // If no tees in legacy column but we have a course ID, fetch from normalized tees table
+      // Fetch tees from the normalized tees table
+      let courseTees: TeeBox[] = [];
       const courseId = roundData.courses?.id;
-      if (courseTees.length === 0 && courseId) {
-        roundDataLogger.debug('No tees in legacy column, fetching from normalized tees table', {
+      if (courseId) {
+        roundDataLogger.debug('Fetching tees from normalized tees table', {
           courseId: courseId.substring(0, 8),
         });
 

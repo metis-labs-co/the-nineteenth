@@ -45,6 +45,41 @@ jest.mock('@/services/offline/database', () => ({
 jest.mock('@/services/queryClient', () => ({
   invalidateLeaderboardCache: jest.fn(),
   invalidateScorecardCache: jest.fn(),
+  invalidateHandicapCache: jest.fn(),
+}));
+
+// Mock getCurrentUser from supabase client (used by syncScorecard for score entry attribution)
+jest.mock('@/services/supabase/client', () => ({
+  supabase: {
+    from: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      upsert: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      neq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      then: jest.fn((resolve) => resolve({ data: [], error: null })),
+    })),
+    auth: {
+      getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'test-user-id' } }, error: null })),
+    },
+  },
+  getCurrentUser: jest.fn(() => Promise.resolve({ id: 'test-user-id' })),
+}));
+
+// Mock score mismatch service (used by syncScorecard for score entry sync)
+jest.mock('@/services/scoreMismatch', () => ({
+  saveScoreEntry: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock handicap update service
+jest.mock('@/services/handicap/updatePlayerHandicapIndex', () => ({
+  updatePlayerHandicapIndex: jest.fn(() => Promise.resolve()),
 }));
 
 // Store the network change handler for testing

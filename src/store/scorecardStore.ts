@@ -14,7 +14,7 @@
 import { create } from 'zustand';
 import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox, HoleShotContributions } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-import { isMultiBallScore, isSingleBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
+import { isSingleBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import {
   saveScorecard,
   getScorecardsByRound,

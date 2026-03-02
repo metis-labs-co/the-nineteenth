@@ -159,4 +159,6 @@ export interface PlayerStatistics {
  */
 export interface UsePlayerStatisticsOptions {
   enabled?: boolean;
+  leagueId?: string;
+  competitionId?: string;
 }

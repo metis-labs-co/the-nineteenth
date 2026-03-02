@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon, TextInput, Button } from 'react-native-paper';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { BottomSheet } from '@/components/common/BottomSheet';
@@ -20,7 +20,6 @@ import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
 import type { TeeBox, Club } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
 import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem } from '@/hooks/useClubs';
-import type { FavoriteCourseWithClub } from '../types';
 
 export interface EditRoundBottomSheetProps {
   visible: boolean;
@@ -44,7 +43,7 @@ export function EditRoundBottomSheet({
   const [localRound, setLocalRound] = useState<SimplifiedRoundFormData>(round);
 
   // Course search state
-  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [_courseSearchQuery, _setCourseSearchQuery] = useState('');
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [showGameTypeModal, setShowGameTypeModal] = useState(false);
   const [showTeeModal, setShowTeeModal] = useState(false);

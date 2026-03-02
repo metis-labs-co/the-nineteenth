@@ -210,7 +210,7 @@ export function ScorecardTableBallsAsPlayers({
                 <Text
                   style={[
                     styles.totalValue,
-                    { color: getScoreColor(totalGross, multiBallStats.totalPar) },
+                    { color: getScoreColor(totalGross, multiBallStats.totalPar, colors) },
                   ]}
                 >
                   {totalGross || '-'}

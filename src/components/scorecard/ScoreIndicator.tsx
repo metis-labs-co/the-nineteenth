@@ -116,7 +116,7 @@ const BorderedIndicator = React.memo(function BorderedIndicator({
   }
 
   const diff = strokes - par;
-  const scoreColor = getScoreColor(strokes, par);
+  const scoreColor = getScoreColor(strokes, par, colors);
 
   // Eagle or better (-2 or less): double circle
   if (diff <= -2) {
@@ -286,7 +286,7 @@ const CompactIndicator = React.memo(function CompactIndicator({
     );
   }
 
-  const scoreColor = getScoreColor(strokes, par);
+  const scoreColor = getScoreColor(strokes, par, colors);
   const bgColor = getScoreBackgroundColor(strokes, par, colors);
 
   return (

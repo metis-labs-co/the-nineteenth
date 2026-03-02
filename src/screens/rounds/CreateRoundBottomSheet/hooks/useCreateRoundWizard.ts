@@ -542,6 +542,7 @@ export function useCreateRoundWizard({
         teams: [],
       }));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- uses .length intentionally to avoid re-running on partner order changes
   }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners.length, currentUserAsPartner, generateTeams]);
 
   // Regenerate teams when partners change for Best Ball (teams must stay in sync)

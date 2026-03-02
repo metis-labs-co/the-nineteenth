@@ -11,7 +11,8 @@ import type {
   LadderChallengeWithPlayers,
 } from '@/types/database';
 
-// Helper to bypass Supabase generated types for new tables
+// Helper to bypass Supabase generated types for new tables.
+// These tables exist in the DB but haven't been added to generated types yet.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
 
@@ -23,6 +24,7 @@ const from = (table: string) => (supabase as any).from(table);
  * Fetch ladder standings using the DB function
  */
 export async function getLadderStandings(leagueId: string): Promise<LadderStandingsEntry[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .rpc('get_ladder_standings', { p_league_id: leagueId });
 
@@ -65,7 +67,11 @@ export async function getLeagueChallenges(
     throw new Error(`Failed to fetch challenges: ${error.message}`);
   }
 
-  return ((data ?? []) as any[]).map((row) => ({
+  type ChallengeRow = LadderChallenge & {
+    challenger?: { id: string; name: string; photo_url: string | null };
+    challenged?: { id: string; name: string; photo_url: string | null };
+  };
+  return ((data ?? []) as unknown as ChallengeRow[]).map((row) => ({
     ...row,
     challenger_name: row.challenger?.name ?? 'Unknown',
     challenged_name: row.challenged?.name ?? 'Unknown',
@@ -101,7 +107,11 @@ export async function getMyActiveChallenges(leagueId: string): Promise<LadderCha
     throw new Error(`Failed to fetch challenges: ${error.message}`);
   }
 
-  return ((data ?? []) as any[]).map((row) => ({
+  type ChallengeRow = LadderChallenge & {
+    challenger?: { id: string; name: string; photo_url: string | null };
+    challenged?: { id: string; name: string; photo_url: string | null };
+  };
+  return ((data ?? []) as unknown as ChallengeRow[]).map((row) => ({
     ...row,
     challenger_name: row.challenger?.name ?? 'Unknown',
     challenged_name: row.challenged?.name ?? 'Unknown',
@@ -133,7 +143,11 @@ export async function getChallenge(challengeId: string): Promise<LadderChallenge
     throw new Error(`Failed to fetch challenge: ${error.message}`);
   }
 
-  const row = data as any;
+  type ChallengeRow = LadderChallenge & {
+    challenger?: { id: string; name: string; photo_url: string | null };
+    challenged?: { id: string; name: string; photo_url: string | null };
+  };
+  const row = data as unknown as ChallengeRow;
   return {
     ...row,
     challenger_name: row.challenger?.name ?? 'Unknown',
@@ -173,8 +187,10 @@ export async function createChallenge(
     .eq('league_id', leagueId)
     .in('player_id', [user.id, challengedPlayerId]);
 
-  const challenger = (players as any[])?.find((p: any) => p.player_id === user.id);
-  const challenged = (players as any[])?.find((p: any) => p.player_id === challengedPlayerId);
+  type LeaguePlayerRow = { player_id: string; ladder_position: number | null };
+  const playerRows = (players ?? []) as unknown as LeaguePlayerRow[];
+  const challenger = playerRows.find((p) => p.player_id === user.id);
+  const challenged = playerRows.find((p) => p.player_id === challengedPlayerId);
 
   if (!challenger?.ladder_position || !challenged?.ladder_position) {
     throw new Error('Both players must have ladder positions');
@@ -323,7 +339,8 @@ export async function submitChallengeRound(
     .single();
 
   if (!scorecard) throw new Error('Scorecard not found');
-  const sc = scorecard as any;
+  interface ScorecardRow { id: string; player_id: string; handicap_differential: number | null; status: string }
+  const sc = scorecard as unknown as ScorecardRow;
 
   if (sc.player_id !== user.id) throw new Error('You can only submit your own scorecards');
   if (sc.status !== 'completed' && sc.status !== 'confirmed') {

@@ -18,7 +18,7 @@ import type {
   PointSystemEntry,
   SimplifiedRoundFormData,
 } from '@/schemas/competition';
-import { DEFAULT_POINT_SYSTEM, createBlankRound } from '@/schemas/competition';
+import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 
 /**
  * Wizard state structure for the simplified 3-step wizard

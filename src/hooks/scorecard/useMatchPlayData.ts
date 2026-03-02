@@ -56,7 +56,7 @@ export function useMatchPlayData({
   roundId,
   player1Id,
   player2Id,
-  competitionId,
+  competitionId: _competitionId,
 }: UseMatchPlayDataParams): UseMatchPlayDataResult {
   const [error, setError] = useState<string | null>(null);
 

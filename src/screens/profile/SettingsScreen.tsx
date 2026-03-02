@@ -142,14 +142,14 @@ export default function SettingsScreen() {
   const showPutts = useSettingsStore((state) => state.showPutts);
   const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
   const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
-  const showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
+  const _showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
   const setShowPutts = useSettingsStore((state) => state.setShowPutts);
   const setShowFairwayHit = useSettingsStore((state) => state.setShowFairwayHit);
   const setShowGreenInRegulation = useSettingsStore((state) => state.setShowGreenInRegulation);
-  const setShowGpsDistance = useSettingsStore((state) => state.setShowGpsDistance);
+  const _setShowGpsDistance = useSettingsStore((state) => state.setShowGpsDistance);
   const resetToDefaults = useSettingsStore((state) => state.resetToDefaults);
 
   // Biometric settings

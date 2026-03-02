@@ -312,6 +312,7 @@ export type {
   LadderChallengeWithPlayers,
   EclecticBestScore,
   EclecticLeaderboardEntry,
+  LeagueStatsResponse,
 } from './league.types';
 
 // Schema type

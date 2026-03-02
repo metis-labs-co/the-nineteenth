@@ -21,8 +21,6 @@
 import React from 'react';
 import { render, screen } from '@/__tests__/utils/renderHelpers';
 import { ScoreIndicator, ScoreIndicatorProps } from './ScoreIndicator';
-import { colors } from '@/constants/theme';
-
 // Mock the scoring utility to have predictable colors using theme colors
 jest.mock('@/utils/scoring', () => {
   const themeColors = jest.requireActual('@/constants/theme').colors;

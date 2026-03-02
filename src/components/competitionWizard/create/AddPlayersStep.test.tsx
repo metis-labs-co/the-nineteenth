@@ -22,6 +22,40 @@ import { Alert } from 'react-native';
 // MOCKS
 // ============================================================================
 
+// Mock expo-location with Accuracy enum (needed by useUserLocation imported via barrel)
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ granted: true, status: 'granted' })
+  ),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({
+      coords: { latitude: -37.8136, longitude: 144.9631, accuracy: 10 },
+    })
+  ),
+  watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
+  Accuracy: {
+    Lowest: 1,
+    Low: 2,
+    Balanced: 3,
+    High: 4,
+    Highest: 5,
+    BestForNavigation: 6,
+  },
+}));
+
+// Mock expo-notifications (needed by pushService imported via barrel)
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true, status: 'granted' })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true, status: 'granted' })),
+  getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: 'test-token' })),
+  setNotificationHandler: jest.fn(),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+  setNotificationChannelAsync: jest.fn(),
+  AndroidImportance: { MAX: 5 },
+}));
+
 // Mock Alert.alert
 jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
 
@@ -53,8 +87,26 @@ jest.mock('@/components/common', () => {
         accessibilityLabel={accessibilityLabel}
       />
     ),
+    ConfirmationDialog: ({ visible, title, message, onCancel }: any) =>
+      visible ? (
+        <View testID="confirmation-dialog">
+          <Text>{title}</Text>
+          <Text>{message}</Text>
+          <View testID="dialog-cancel" onTouchEnd={onCancel} />
+        </View>
+      ) : null,
   };
 });
+
+// Mock useConfirmationDialog from barrel hooks import
+jest.mock('@/hooks', () => ({
+  useConfirmationDialog: () => ({
+    dialogConfig: { visible: false, title: '', message: '', onConfirm: jest.fn() },
+    showDialog: jest.fn(),
+    showAlert: jest.fn(),
+    dismissDialog: jest.fn(),
+  }),
+}));
 
 // Mock LimitIndicator
 jest.mock('@/components/subscription/LimitIndicator', () => {
@@ -520,7 +572,7 @@ jest.mock('@/components/common/FriendSelector', () => {
           ) : searchQuery ? (
             <View>
               <Text>No friends found</Text>
-              <Text>No friends match "{searchQuery}"</Text>
+              <Text>No friends match &quot;{searchQuery}&quot;</Text>
             </View>
           ) : (
             <View>
@@ -593,7 +645,7 @@ describe('AddPlayersStep', () => {
       render(<AddPlayersStep {...defaultProps} />);
 
       expect(screen.getByText('Back')).toBeTruthy();
-      expect(screen.getByText('Next: Review')).toBeTruthy();
+      expect(screen.getByText(/^Next \(/)).toBeTruthy();
     });
 
     it('shows current user as automatically selected', () => {
@@ -900,7 +952,7 @@ describe('AddPlayersStep', () => {
 
       // Only current user is selected (1 player)
       // Button should be disabled
-      const nextButton = screen.getByText('Next: Review');
+      const nextButton = screen.getByText(/^Next \(/);
 
       // fireEvent.press on a disabled Paper Button won't trigger onPress
       fireEvent.press(nextButton);
@@ -915,7 +967,7 @@ describe('AddPlayersStep', () => {
 
       // Select a friend to meet minimum requirement
       fireEvent.press(screen.getByText('John Smith'));
-      fireEvent.press(screen.getByText('Next: Review'));
+      fireEvent.press(screen.getByText(/^Next \(/));
 
       expect(onComplete).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -930,7 +982,7 @@ describe('AddPlayersStep', () => {
       render(<AddPlayersStep {...defaultProps} onComplete={onComplete} />);
 
       fireEvent.press(screen.getByText('John Smith'));
-      fireEvent.press(screen.getByText('Next: Review'));
+      fireEvent.press(screen.getByText(/^Next \(/));
 
       expect(onComplete).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -1054,7 +1106,7 @@ describe('AddPlayersStep', () => {
       fireEvent.press(screen.getByText('Jane Doe'));
 
       // Try to proceed (3 players total, at limit which is ok)
-      fireEvent.press(screen.getByText('Next: Review'));
+      fireEvent.press(screen.getByText(/^Next \(/));
 
       // Should proceed without error (at limit, not over)
       expect(Alert.alert).not.toHaveBeenCalledWith(

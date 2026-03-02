@@ -28,6 +28,7 @@ import LadderTab from './components/LadderTab';
 import ChallengesTab from './components/ChallengesTab';
 import EclecticLeaderboardTab from './components/EclecticLeaderboardTab';
 import MyCardTab from './components/MyCardTab';
+import StatsTab from './components/StatsTab';
 
 export default function LeagueDetailScreen() {
   const colors = useThemeColors();
@@ -124,7 +125,7 @@ export default function LeagueDetailScreen() {
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />}
       >
         <LeagueHeader
           league={league}
@@ -170,6 +171,9 @@ export default function LeagueDetailScreen() {
           />
         )}
 
+        {/* Stats tab (ongoing, season, round_limit) */}
+        {activeTab === 'stats' && <StatsTab leagueId={leagueId} />}
+
         {/* Ladder tab */}
         {activeTab === 'ladder' && (
           <LadderTab
@@ -211,6 +215,8 @@ export default function LeagueDetailScreen() {
             players={players}
             league={league}
             isCreator={!!isCreator}
+            currentUserId={userId}
+            leaderboard={leaderboardWithTied}
             onLeave={handleLeave}
           />
         )}

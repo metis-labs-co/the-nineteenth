@@ -12,7 +12,7 @@
  * the current user is allowed to score.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import {
   PlayerScoreCard,
   TeamScoreCard,

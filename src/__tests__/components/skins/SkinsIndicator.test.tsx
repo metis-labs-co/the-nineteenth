@@ -28,6 +28,15 @@ jest.mock('@/hooks/useSkins', () => ({
   useSkinsSummary: jest.fn(),
 }));
 
+// Mock react-query useQuery for round-team-format query
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQuery: jest.fn().mockReturnValue({
+    data: null,
+    isLoading: false,
+  }),
+}));
+
 // ============================================================================
 // TEST FIXTURES
 // ============================================================================
@@ -144,6 +153,7 @@ function mockHooks(options: {
   (skinsHooks.useSkinsSummary as jest.Mock).mockReturnValue({
     data: hasSummary ? modifiedSummary : null,
     isLoading: isSummaryLoading,
+    refetch: jest.fn(),
   });
 }
 
@@ -425,12 +435,10 @@ describe('SkinsIndicator', () => {
       const indicator = screen.getByTestId('skins-indicator');
       // Default md size is 40x40
       expect(indicator.props.style).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            width: 40,
-            height: 40,
-          }),
-        ])
+        expect.objectContaining({
+          width: 40,
+          height: 40,
+        })
       );
     });
 
@@ -448,12 +456,10 @@ describe('SkinsIndicator', () => {
       const indicator = screen.getByTestId('skins-indicator');
       // sm size is 32x32
       expect(indicator.props.style).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            width: 32,
-            height: 32,
-          }),
-        ])
+        expect.objectContaining({
+          width: 32,
+          height: 32,
+        })
       );
     });
   });
@@ -538,6 +544,7 @@ describe('SkinsIndicator', () => {
       (skinsHooks.useSkinsSummary as jest.Mock).mockReturnValue({
         data: summaryWithWinner,
         isLoading: false,
+        refetch: jest.fn(),
       });
 
       render(

@@ -203,3 +203,32 @@ export interface LeagueWithUserRank extends LeagueWithPlayerCount {
   user_rank: number | null;
   user_rounds_played: number;
 }
+
+// =====================================================
+// LEAGUE STATS
+// =====================================================
+
+/**
+ * Response from get_league_stats() RPC
+ */
+export interface LeagueStatsResponse {
+  total_rounds: number;
+  active_players: number;
+  league_avg_differential: number | null;
+  league_best_differential: number | null;
+  courses_played: number;
+  my_rounds_count: number;
+  my_avg_differential: number | null;
+  my_best_differential: number | null;
+  my_avg_gross: number | null;
+  my_differentials: { differential: number; date_played: string; course_name: string }[];
+  course_stats: { course_name: string; times_played: number; avg_gross: number; best_gross: number }[];
+  records: {
+    best_differential: { value: number; player_name: string; date: string } | null;
+    lowest_gross: { value: number; player_name: string; date: string; course: string } | null;
+    most_rounds: { count: number; player_name: string } | null;
+    most_improved: { improvement: number; player_name: string } | null;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  score_data: { scores: Record<string, any>[]; holes: { number: number; par: number }[] }[] | null;
+}

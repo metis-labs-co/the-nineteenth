@@ -129,7 +129,7 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
     let isQualifying = false;
     if (differential <= qualifyingThreshold) {
       const usedCount = qualifyingUsed.get(differential) || 0;
-      const availableAtThisDiff = differentials.filter((d) => d === differential).length;
+      const _availableAtThisDiff = differentials.filter((d) => d === differential).length;
       const totalQualifyingAtThisDiff = sortedDifferentials.filter(
         (d, i) => i < qualifyingCount && d === differential
       ).length;

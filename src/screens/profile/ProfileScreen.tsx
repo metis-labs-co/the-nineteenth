@@ -177,6 +177,7 @@ export default function ProfileScreen() {
           onFriends={() => navigation.navigate('Friends', { fromProfile: true })}
           onMyStatistics={() => navigation.navigate('MyStatistics')}
           onHandicapHistory={() => navigation.navigate('HandicapHistory')}
+          onGameResults={() => navigation.navigate('GameResults')}
           onAchievements={() => navigation.navigate('Achievements')}
           onCustomizeProfile={() => setShowCustomizeSheet(true)}
           onSubscription={() => navigation.navigate('Subscription')}

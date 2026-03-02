@@ -13,6 +13,20 @@ import type { RoundCardProps } from '../types';
 import type { RoundDetailsFormData } from '@/schemas/competition';
 import type { TeeBox } from '@/types/database.types';
 
+// Mock SubscriptionContext
+jest.mock('@/context/SubscriptionContext', () => ({
+  useIsPremium: () => true,
+  useCheckFeature: () => (_featureId: string, _context?: any) => ({ allowed: true, requiredTier: 'free' }),
+}));
+
+// Mock Pill from common
+jest.mock('@/components/common', () => {
+  const { View, Text } = require('react-native');
+  return {
+    Pill: ({ label }: any) => <View testID="pill"><Text>{label}</Text></View>,
+  };
+});
+
 // Mock child components
 jest.mock('@/components/common/DatePicker', () => {
   const { View, Text, TouchableOpacity } = require('react-native');

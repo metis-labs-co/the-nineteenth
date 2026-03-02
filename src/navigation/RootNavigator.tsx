@@ -86,6 +86,9 @@ import SubscriptionScreen from '@/screens/subscription/SubscriptionScreen';
 import AchievementsScreen from '@/screens/profile/AchievementsScreen';
 import AchievementLeaderboardScreen from '@/screens/profile/AchievementLeaderboardScreen';
 
+// Game Results (Side Games)
+import GameResultsScreen from '@/screens/profile/GameResultsScreen';
+
 // League Screens
 import LeagueDetailScreen from '@/screens/leagues/LeagueDetailScreen';
 import CreateLeagueScreen from '@/screens/leagues/CreateLeagueScreen';
@@ -541,6 +544,16 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={AchievementLeaderboardScreen}
               options={{
                 title: 'Achievement Leaders',
+                headerShown: false,
+              }}
+            />
+
+            {/* Game Results (Side Games) */}
+            <Stack.Screen
+              name="GameResults"
+              component={GameResultsScreen}
+              options={{
+                title: 'Game Results',
                 headerShown: false,
               }}
             />

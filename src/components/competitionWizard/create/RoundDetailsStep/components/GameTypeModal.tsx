@@ -11,8 +11,8 @@ import { View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Text, IconButton, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { GameTypeModalProps, GameTypeOption } from '../types';
-import { INDIVIDUAL_GAME_TYPES, TEAM_GAME_TYPES } from '../types';
+import type { GameTypeModalProps } from '../types';
+import { TEAM_GAME_TYPES } from '../types';
 
 export const GameTypeModal = React.memo(function GameTypeModal({
   visible,

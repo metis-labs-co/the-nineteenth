@@ -91,7 +91,7 @@ function calculatePlayerTotals(
  * Calculate team totals from skins results (team skins)
  */
 function calculateTeamTotals(
-  results: Array<SkinsResult & { team_winner?: { id: string; name: string } | null }>,
+  results: (SkinsResult & { team_winner?: { id: string; name: string } | null })[],
   teams: SkinsTeamParticipant[]
 ): ParticipantTotal[] {
   // Initialize totals for all teams
@@ -153,7 +153,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
   const [showPopover, setShowPopover] = useState(false);
 
   // Check if skins game is active for this round
-  const { data: skinsGame, isLoading: isGameLoading, error: gameError } = useActiveSkinsGameForRound(roundId);
+  const { data: skinsGame, isLoading: isGameLoading } = useActiveSkinsGameForRound(roundId);
 
   // Get summary data for the popover
   // Refetch every 3 seconds while popover is open to keep running totals updated
@@ -262,7 +262,7 @@ export const SkinsIndicator = React.memo(function SkinsIndicator({
 
       // Fallback: build teams from round's team_config
       if (!teams || teams.length === 0) {
-        const teamConfig = roundData?.team_config as { teams?: Array<{ id: string; name: string; memberIds: string[] }> } | null;
+        const teamConfig = roundData?.team_config as { teams?: { id: string; name: string; memberIds: string[] }[] } | null;
         if (teamConfig?.teams) {
           teams = teamConfig.teams.map(team => ({
             id: team.id,

@@ -30,7 +30,7 @@ interface RoundTeamRow {
   is_team_round?: boolean;
   team_format?: TeamFormat | null;
   team_config?: {
-    teams?: Array<{ id: string; name: string; memberIds: string[] }>;
+    teams?: { id: string; name: string; memberIds: string[] }[];
   } | null;
 }
 
@@ -155,7 +155,7 @@ export function useProcessSkinsIfNeeded() {
           holeNumber
         );
 
-        const { isValid, missingPlayerIds } = validateHoleScores(
+        const { isValid, missingPlayerIds: _missingPlayerIds } = validateHoleScores(
           holeScores,
           skinsGame.participant_ids
         );

@@ -233,8 +233,8 @@ describe('PlayerScoreCard', () => {
 
       // Mock calculates: base = floor(18/18) = 1, extra = (7 <= 0) ? 1 : 0 = 0
       // So with handicap 18, player gets 1 shot per hole
-      // The "1" appears in the SHOTS section
-      expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+      // The "+1" appears in the SHOTS section (component formats as +N)
+      expect(screen.getByText('+1')).toBeTruthy();
     });
 
     it('displays 0 strokes for low handicap on high SI hole', () => {

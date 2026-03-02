@@ -13,14 +13,35 @@
  */
 
 import React from 'react';
-import { Share } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { SkinsSettlementCard } from '@/components/skins/SkinsSettlementCard';
 import type { SkinsPayoutWithPlayer, SkinsGame } from '@/types';
 
 // ============================================================================
 // MOCK SETUP
 // ============================================================================
+
+// Mock expo-location to provide Accuracy enum (needed by transitive import chain:
+// SkinsSettlementCard -> useConfirmationDialog -> @/hooks/index -> useUserLocation -> expo-location)
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ granted: true, status: 'granted' })
+  ),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({
+      coords: { latitude: -37.8136, longitude: 144.9631, accuracy: 10 },
+    })
+  ),
+  watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
+  Accuracy: {
+    Lowest: 1,
+    Low: 2,
+    Balanced: 3,
+    High: 4,
+    Highest: 5,
+    BestForNavigation: 6,
+  },
+}));
 
 // We'll skip Share tests as mocking react-native Share is complex in this setup
 
@@ -160,10 +181,11 @@ describe('SkinsSettlementCard', () => {
         />
       );
 
-      expect(screen.getByText('John')).toBeTruthy();
-      expect(screen.getByText('Sarah')).toBeTruthy();
-      expect(screen.getByText('Mike')).toBeTruthy();
-      expect(screen.getByText('You')).toBeTruthy();
+      // Player names may appear in both the payouts table and the WHO OWES WHO section
+      expect(screen.getAllByText('John').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Sarah').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Mike').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('You').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders holes won count', () => {
@@ -426,6 +448,7 @@ describe('SkinsSettlementCard', () => {
         <SkinsSettlementCard
           payouts={createSamplePayouts()}
           game={totalPotGame}
+          testID="settlement-card"
         />
       );
 

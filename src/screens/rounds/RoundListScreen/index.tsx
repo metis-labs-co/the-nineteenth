@@ -11,7 +11,6 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   RefreshControl,
@@ -19,7 +18,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { ConfirmationDialog } from '@/components/common';
+import { ConfirmationDialog, LoadingSpinner } from '@/components/common';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { RoundListCard } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,7 +47,7 @@ export default function RoundsScreen() {
 
   // Hooks for data and state management
   const { rounds, isLoading, isRefetching, refetch, roundsPlayedCount } = useRoundList();
-  const { selectedTab, setSelectedTab, displayedRounds, activeRounds, historyRounds } = useRoundFilters(rounds);
+  const { selectedTab, setSelectedTab, roundTypeFilter, setRoundTypeFilter, displayedRounds, activeRounds, historyRounds } = useRoundFilters(rounds);
   const {
     handleScoreRound,
     handleDeleteRound,
@@ -100,6 +99,8 @@ export default function RoundsScreen() {
       <RoundListHeader
         selectedTab={selectedTab}
         onTabChange={setSelectedTab}
+        roundTypeFilter={roundTypeFilter}
+        onRoundTypeFilterChange={setRoundTypeFilter}
         activeRounds={activeRounds}
         historyRounds={historyRounds}
         onOpenNewRound={handleOpenNewRound}
@@ -112,9 +113,7 @@ export default function RoundsScreen() {
 
       {/* Scrollable Rounds List */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading rounds...</Text>
-        </View>
+        <LoadingSpinner size="md" message="Loading rounds..." />
       ) : (
         <FlatList
           data={displayedRounds}
@@ -124,7 +123,7 @@ export default function RoundsScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={<RoundListEmpty selectedTab={selectedTab} />}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
           }
           showsVerticalScrollIndicator={false}
         />
@@ -179,13 +178,5 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: spacing.md,
-  },
-  loadingContainer: {
-    flex: 1,
-    paddingVertical: spacing.xxxl,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
   },
 });

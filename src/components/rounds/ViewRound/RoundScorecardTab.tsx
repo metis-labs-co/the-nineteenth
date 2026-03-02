@@ -330,13 +330,13 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
           <View style={individualStyles.playerTotals}>
             <View style={individualStyles.totalItem}>
               <Text style={[individualStyles.totalLabel, { color: colors.textSecondary }]}>Gross</Text>
-              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalGross, parTotals.total) }]}>
+              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
                 {stats.totalGross || '-'}
               </Text>
             </View>
             <View style={individualStyles.totalItem}>
               <Text style={[individualStyles.totalLabel, { color: colors.textSecondary }]}>Net</Text>
-              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalNet, parTotals.total) }]}>
+              <Text style={[individualStyles.totalValue, { color: getScoreColor(stats.totalNet, parTotals.total, colors) }]}>
                 {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
               </Text>
             </View>

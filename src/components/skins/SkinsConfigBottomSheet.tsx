@@ -86,7 +86,7 @@ export function SkinsConfigBottomSheet({
   onDismiss,
   initialConfig,
   onSave,
-  showBackdrop = true,
+  showBackdrop: _showBackdrop = true,
   isTeamSkins = false,
   teams,
 }: SkinsConfigBottomSheetProps) {

@@ -52,6 +52,7 @@ const mockPreferences = {
   push_competition_updates: true,
   push_friend_requests: true,
   push_scorecard_updates: true,
+  push_league_updates: true,
 };
 
 // Mock state
@@ -136,6 +137,12 @@ jest.mock('@/services/supabase/client', () => ({
           eq: jest.fn().mockReturnThis(),
           update: jest.fn().mockReturnThis(),
           single: jest.fn(() =>
+            Promise.resolve({
+              data: mockPreferencesData,
+              error: null,
+            })
+          ),
+          maybeSingle: jest.fn(() =>
             Promise.resolve({
               data: mockPreferencesData,
               error: null,

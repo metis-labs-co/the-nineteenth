@@ -22,7 +22,7 @@ import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useStatsVisibility } from '@/store/settingsStore';
-import { spacing, borderRadius, shadows } from '@/constants/theme';
+import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -73,25 +73,30 @@ interface StatsDiff {
 
 export default function CompareStatsScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
-  const { playerId1, playerId2 } = route.params;
+  const { playerId1, playerId2, leagueId, competitionId, filterLabel } = route.params;
   const { checkFeature } = useSubscriptionContext();
 
   // Get stats visibility settings
   const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
 
-  // Check feature access for compare_stats
-  const compareStatsAccess = checkFeature('compare_stats');
+  // Check feature access - use filtered gate when filters are present
+  const hasFilters = !!leagueId || !!competitionId;
+  const featureId = hasFilters ? 'compare_stats_filtered' : 'compare_stats';
+  const compareStatsAccess = checkFeature(featureId);
 
   // Upgrade prompt state
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(!compareStatsAccess.allowed);
+
+  // Build filter options for statistics hooks
+  const statsOptions = hasFilters ? { leagueId, competitionId } : {};
 
   // Fetch player profiles
   const { data: player1, isLoading: isLoadingPlayer1 } = usePlayer(playerId1);
   const { data: player2, isLoading: isLoadingPlayer2 } = usePlayer(playerId2);
 
-  // Fetch player statistics
-  const { data: stats1, isLoading: isLoadingStats1 } = usePlayerStatistics(playerId1);
-  const { data: stats2, isLoading: isLoadingStats2 } = usePlayerStatistics(playerId2);
+  // Fetch player statistics (filtered when league/competition params present)
+  const { data: stats1, isLoading: isLoadingStats1 } = usePlayerStatistics(playerId1, statsOptions);
+  const { data: stats2, isLoading: isLoadingStats2 } = usePlayerStatistics(playerId2, statsOptions);
 
   const isLoading = isLoadingPlayer1 || isLoadingPlayer2 || isLoadingStats1 || isLoadingStats2;
 
@@ -116,18 +121,31 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   }, []);
 
   // Upgrade prompt configuration
-  const upgradePromptConfig: UpgradePromptConfig = {
-    feature: 'compare_stats',
-    title: 'Compare Stats with Friends',
-    message: 'Upgrade to Social tier to compare your statistics with other players.',
-    targetTier: 'social',
-    benefits: [
-      'Side-by-side stats comparison',
-      'See who performs better',
-      'Track progress against friends',
-      'Detailed score breakdowns',
-    ],
-  };
+  const upgradePromptConfig: UpgradePromptConfig = hasFilters
+    ? {
+        feature: 'compare_stats_filtered',
+        title: 'Filtered Stats Comparison',
+        message: 'Upgrade to Premium to compare stats within a specific league or competition.',
+        targetTier: 'premium',
+        benefits: [
+          'Compare stats within leagues',
+          'Compare stats within competitions',
+          'See head-to-head performance',
+          'Detailed filtered breakdowns',
+        ],
+      }
+    : {
+        feature: 'compare_stats',
+        title: 'Compare Stats with Friends',
+        message: 'Upgrade to Social tier to compare your statistics with other players.',
+        targetTier: 'social',
+        benefits: [
+          'Side-by-side stats comparison',
+          'See who performs better',
+          'Track progress against friends',
+          'Detailed score breakdowns',
+        ],
+      };
 
   // Calculate differences
   const diffs = useMemo((): StatsDiff | null => {
@@ -216,9 +234,9 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
       />
 
       <FeatureLock
-        feature="compare_stats"
+        feature={featureId}
         onUpgradePress={handleShowUpgradePrompt}
-        lockedMessage="Upgrade to compare stats with friends"
+        lockedMessage={hasFilters ? 'Upgrade to Premium for filtered comparison' : 'Upgrade to compare stats with friends'}
       >
         <ScrollView
           style={styles.scrollView}
@@ -230,6 +248,20 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
             player2={player2}
             isPlayer1You
           />
+
+          {/* Filter context badge */}
+          {filterLabel && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primaryBackground }]}>
+              <Icon
+                source={leagueId ? 'trophy-outline' : 'flag-outline'}
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.filterBadgeText, { color: colors.primary }]}>
+                {filterLabel}
+              </Text>
+            </View>
+          )}
 
           {/* No stats warning */}
           {(!hasStats1 || !hasStats2) && (
@@ -258,20 +290,24 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
                   diff={diffs.rounds}
                   higherIsBetter
                 />
-                <ComparisonRow
-                  label="Competitions"
-                  value1={stats1.competitionsEntered}
-                  value2={stats2.competitionsEntered}
-                  diff={diffs.competitions}
-                  higherIsBetter
-                />
-                <ComparisonRow
-                  label="Wins"
-                  value1={stats1.competitionsWon}
-                  value2={stats2.competitionsWon}
-                  diff={diffs.wins}
-                  higherIsBetter
-                />
+                {!leagueId && (
+                  <ComparisonRow
+                    label="Competitions"
+                    value1={stats1.competitionsEntered}
+                    value2={stats2.competitionsEntered}
+                    diff={diffs.competitions}
+                    higherIsBetter
+                  />
+                )}
+                {!leagueId && (
+                  <ComparisonRow
+                    label="Wins"
+                    value1={stats1.competitionsWon}
+                    value2={stats2.competitionsWon}
+                    diff={diffs.wins}
+                    higherIsBetter
+                  />
+                )}
                 <ComparisonRow
                   label="Holes"
                   value1={stats1.holesPlayed}
@@ -598,6 +634,19 @@ const styles = StyleSheet.create({
   },
   noStatsText: {
     flex: 1,
+  },
+  filterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.md,
+  },
+  filterBadgeText: {
+    ...typography.smallBold,
   },
   footer: {
     height: spacing.xxxl,

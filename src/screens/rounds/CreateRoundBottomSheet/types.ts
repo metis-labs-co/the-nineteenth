@@ -91,11 +91,11 @@ export interface ScrambleTeam {
  * Stored in rounds.team_config JSONB column for standalone scramble rounds
  */
 export interface TeamConfig {
-  teams: Array<{
+  teams: {
     id: string;
     name: string;
     memberIds: string[]; // Player UUIDs
-  }>;
+  }[];
 }
 
 /**

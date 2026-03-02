@@ -23,7 +23,7 @@ import {
   sortLeaderboardEntries,
 } from '@/utils/roundLeaderboardFormatters';
 import type { GameType, TeamFormat } from '@/types/database.types';
-import type { RoundResultRow, PlayerInfo } from '@/utils/roundLeaderboardFormatters';
+import type { RoundResultRow } from '@/utils/roundLeaderboardFormatters';
 
 // Re-export types and type guards from utility for backward compatibility
 export type {
@@ -86,11 +86,6 @@ interface RoundInfo {
   courses: {
     name: string;
   } | null;
-}
-
-/** Extended round result row with scorecards for local use */
-interface RoundResultRowWithScorecards extends RoundResultRow {
-  scorecards?: { bypassed: boolean }[] | null;
 }
 
 // =====================================================

@@ -234,6 +234,9 @@ export function validateFeatureAccess(
     case 'compare_stats':
       return checkBooleanFeature(limits.canCompareStats, 'Stats comparison', 'social');
 
+    case 'compare_stats_filtered':
+      return checkBooleanFeature(limits.canViewAdvancedStats, 'Filtered stats comparison', 'premium');
+
     case 'basic_stats':
       return checkBooleanFeature(limits.canViewBasicStats, 'Basic statistics', 'free');
 

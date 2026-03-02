@@ -46,6 +46,16 @@ function create18Holes(): Hole[] {
 
 const defaultHoles = create18Holes();
 
+function buildGroupScorecards(
+  scores: Record<string, Record<number, { strokes: number }>>
+): Map<string, { scores: Record<number, { strokes: number }> }> {
+  const map = new Map<string, { scores: Record<number, { strokes: number }> }>();
+  for (const [playerId, playerScores] of Object.entries(scores)) {
+    map.set(playerId, { scores: playerScores });
+  }
+  return map;
+}
+
 function setupStoreMock(
   scores: Record<string, Record<number, { strokes: number }>> = {},
   holes: Hole[] = defaultHoles
@@ -61,11 +71,14 @@ function setupStoreMock(
     return holes.find((h) => h.number === holeNumber);
   });
 
+  const groupScorecards = buildGroupScorecards(scores);
+
   mockedUseScorecardStore.mockReturnValue({
     getPlayerScore: mockGetPlayerScore,
     setPlayerScore: mockSetPlayerScore,
     getHoleInfo: mockGetHoleInfo,
     holes,
+    groupScorecards,
   } as any);
 }
 
@@ -126,7 +139,7 @@ describe('useMatchPlayScoring', () => {
       expect(mockSetPlayerScore).toHaveBeenCalledWith('player-2', 1, 5);
     });
 
-    it('does not update score when match is complete', () => {
+    it('allows score edits even when match is complete (scores locked after submission)', () => {
       // Setup a complete match (player1 wins 10 holes, player2 wins 0)
       const winningScores: Record<string, Record<number, { strokes: number }>> = {
         'player-1': {},
@@ -146,7 +159,8 @@ describe('useMatchPlayScoring', () => {
         result.current.handleScoreSelect('player1', 4);
       });
 
-      expect(mockSetPlayerScore).not.toHaveBeenCalled();
+      // Score edits are allowed even after match is complete
+      expect(mockSetPlayerScore).toHaveBeenCalledWith('player-1', 1, 4);
     });
   });
 

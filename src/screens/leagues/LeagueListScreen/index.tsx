@@ -27,10 +27,13 @@ import { FeatureButton, ConfirmationDialog } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
+import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useLeagues, useDeleteLeague } from '@/hooks/useLeagues';
+import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import type { League } from '@/types/database';
 
 import { LeagueCard } from '@/components/leagues';
@@ -43,6 +46,12 @@ export default function LeagueListScreen() {
   const { data: leagues, isLoading, refetch } = useLeagues();
   const deleteLeague = useDeleteLeague();
   const [leagueToDelete, setLeagueToDelete] = useState<League | null>(null);
+
+  // Subscription tier limits
+  const { limits } = useSubscriptionContext();
+  const maxLeagues = limits?.maxLeaguesOwned ?? 1;
+  const hasUnlimitedLeagues = isUnlimited(maxLeagues) || isNoLimit(maxLeagues);
+  const leagueCount = leagues?.length ?? 0;
 
   // Welcome modal
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } = useScreenWelcome('leagues');
@@ -128,7 +137,7 @@ export default function LeagueListScreen() {
           (!leagues || leagues.length === 0) && styles.emptyListContent,
         ]}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} />
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
         }
         ListHeaderComponent={
           <View style={styles.headerSection}>
@@ -147,6 +156,17 @@ export default function LeagueListScreen() {
                 style={styles.createButton}
               />
             </FeatureLockCompact>
+            {!hasUnlimitedLeagues && (
+              <View style={styles.limitRow}>
+                <LimitIndicator
+                  current={leagueCount}
+                  max={maxLeagues}
+                  label="Leagues"
+                  showBar={false}
+                  testID="leagues-limit-indicator"
+                />
+              </View>
+            )}
           </View>
         }
         ListEmptyComponent={isLoading ? null : (
@@ -200,6 +220,11 @@ const styles = StyleSheet.create({
   createButton: {
     marginHorizontal: 0,
     marginBottom: 0,
+  },
+  limitRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.sm,
   },
   headerActions: {
     flexDirection: 'row',

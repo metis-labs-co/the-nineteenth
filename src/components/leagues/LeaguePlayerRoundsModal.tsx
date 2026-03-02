@@ -56,7 +56,7 @@ export function LeaguePlayerRoundsModal({
   playerName,
   rank,
   avgDifferential,
-  bestDifferential,
+  bestDifferential: _bestDifferential,
   roundsPlayed,
   roundsCounting,
   rounds,

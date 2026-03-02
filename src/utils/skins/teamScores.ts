@@ -23,7 +23,7 @@ export interface SkinsTeamInfo {
   /** Member player IDs */
   member_ids: string[];
   /** Member details with handicaps (optional, populated for score calculation) */
-  members?: Array<{ id: string; handicap: number | null }>;
+  members?: { id: string; handicap: number | null }[];
 }
 
 /**

@@ -75,7 +75,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   }, [round.course?.holes, round.course?.tees, round.selected_tee]);
 
   // Location comes from the club
-  const club = round.course?.club || (round.course as any)?.venue;
+  const club = round.course?.club;
   const location = [club?.city, club?.state].filter(Boolean).join(', ');
 
   // Navigate to club

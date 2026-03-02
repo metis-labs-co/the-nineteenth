@@ -28,12 +28,12 @@ import {
   usePlayerTagCount,
 } from '@/hooks/useLeagues';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
-import type { LeagueLeaderboardEntry, EclecticLeaderboardEntry } from '@/types/database';
+import type { LeagueLeaderboardEntry } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, 'LeagueDetail'>;
 
-export type LeagueTab = 'leaderboard' | 'rounds' | 'players' | 'ladder' | 'challenges' | 'myCard';
+export type LeagueTab = 'leaderboard' | 'rounds' | 'stats' | 'players' | 'ladder' | 'challenges' | 'myCard';
 
 export function useLeagueDetail() {
   const navigation = useNavigation<NavigationProp>();
@@ -179,6 +179,7 @@ export function useLeagueDetail() {
         return [
           { key: 'leaderboard' as const, label: 'Leaderboard' },
           { key: 'rounds' as const, label: 'My Rounds' },
+          { key: 'stats' as const, label: 'Stats' },
           { key: 'players' as const, label: 'Players' },
         ];
     }
@@ -224,8 +225,8 @@ export function useLeagueDetail() {
             try {
               await leaveMutation.mutateAsync(leagueId);
               navigation.goBack();
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
+            } catch (error: unknown) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
             }
           },
         },
@@ -256,8 +257,8 @@ export function useLeagueDetail() {
       try {
         await createChallengeMutation.mutateAsync(playerId);
         Alert.alert('Challenge Sent', 'Your challenge has been sent. They have 48 hours to respond.');
-      } catch (error: any) {
-        Alert.alert('Error', error.message);
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
       }
     },
     [createChallengeMutation]
@@ -274,8 +275,8 @@ export function useLeagueDetail() {
     async (challengeId: string) => {
       try {
         await respondMutation.mutateAsync({ challengeId, accept: true });
-      } catch (error: any) {
-        Alert.alert('Error', error.message);
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
       }
     },
     [respondMutation]
@@ -294,8 +295,8 @@ export function useLeagueDetail() {
             onPress: async () => {
               try {
                 await respondMutation.mutateAsync({ challengeId, accept: false });
-              } catch (error: any) {
-                Alert.alert('Error', error.message);
+              } catch (error: unknown) {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
               }
             },
           },

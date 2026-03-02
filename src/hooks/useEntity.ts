@@ -19,7 +19,7 @@
  * ```
  */
 
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import type { Database } from '@/types/supabase';
 
@@ -36,7 +36,7 @@ export type TableRow<T extends SupabaseTable> = Database['public']['Tables'][T][
 /**
  * Options for useEntity hook
  */
-export interface UseEntityOptions<T> {
+export interface UseEntityOptions<_T> {
   /**
    * Supabase select query (default: '*')
    * Use this for joins, e.g., '*, club:clubs(*)'

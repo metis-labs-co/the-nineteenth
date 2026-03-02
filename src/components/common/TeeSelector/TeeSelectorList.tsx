@@ -14,7 +14,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useTeeSelector } from './hooks/useTeeSelector';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getFirstName } from '@/utils/displayHelpers';
-import type { TeeSelectorListProps, TeePreviewPlayer } from './types';
+import type { TeeSelectorListProps } from './types';
 import type { TeeBox } from '@/types/database.types';
 
 // ===========================================================================

@@ -32,7 +32,7 @@ interface MatchTabProps {
 
 export function MatchTab({
   isMatchPlayRound,
-  isTeamMatchPlayRound,
+  isTeamMatchPlayRound: _isTeamMatchPlayRound,
   matchPlayPlayers,
   holes,
   getPlayerScore,

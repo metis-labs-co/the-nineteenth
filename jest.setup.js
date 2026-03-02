@@ -173,6 +173,15 @@ jest.mock('@react-navigation/native', () => {
     }),
     useIsFocused: jest.fn(() => true),
     NavigationContainer: ({ children }) => children,
+    createNavigationContainerRef: () => ({
+      isReady: jest.fn(() => true),
+      navigate: jest.fn(),
+      dispatch: jest.fn(),
+      reset: jest.fn(),
+      goBack: jest.fn(),
+      getCurrentRoute: jest.fn(() => ({ name: 'TestScreen', key: 'test-key' })),
+      current: null,
+    }),
   };
 });
 
@@ -323,6 +332,15 @@ jest.mock('expo-location', () => ({
       coords: { latitude: -37.8136, longitude: 144.9631, accuracy: 10 },
     })
   ),
+  watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
+  Accuracy: {
+    Lowest: 1,
+    Low: 2,
+    Balanced: 3,
+    High: 4,
+    Highest: 5,
+    BestForNavigation: 6,
+  },
 }));
 
 // ============================================================================
@@ -583,6 +601,17 @@ jest.mock('@/context/ThemeContext', () => {
     par: '#388E3C',
     bogey: '#F57C00',
     doubleBogey: '#D32F2F',
+    eagle: '#6A1B9A',
+    eagleBackground: '#F3E5F5',
+    birdieBackground: '#dbeafe',
+    parBackground: '#dcfce7',
+    bogeyBackground: '#fef3c7',
+    doubleBogeyBackground: '#fee2e2',
+    surfaceElevated: '#FFFFFF',
+    textTertiary: '#9E9E9E',
+    textOnColored: '#FFFFFF',
+    textInverse: '#FFFFFF',
+    accent: '#FF9800',
   };
 
   return {

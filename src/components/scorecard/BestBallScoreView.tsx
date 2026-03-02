@@ -231,7 +231,7 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
     if (!disabled) {
       onScoreSelect(player.id, PICKUP_SCORE);
     }
-  }, [disabled, player.id, onScoreSelect, selectedScore]);
+  }, [disabled, player.id, onScoreSelect]);
 
   return (
     <View

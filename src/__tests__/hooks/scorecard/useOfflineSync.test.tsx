@@ -261,60 +261,62 @@ describe('useOfflineSync', () => {
 // TEST SUITE: useIsOnline
 // ============================================================================
 
+// The useIsOnline hook now delegates to useOnlineStatus which uses NetInfo directly.
+// We need to access the NetInfo mock to control online/offline states.
+import NetInfo from '@react-native-community/netinfo';
+
 describe('useIsOnline', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('should return initial online status', () => {
-    (offlineSync.getIsOnline as jest.Mock).mockReturnValue(true);
-
+    // NetInfo mock defaults to isConnected: true
     const { result } = renderHook(() => useIsOnline());
 
     expect(result.current).toBe(true);
   });
 
-  it('should return false when offline', () => {
-    (offlineSync.getIsOnline as jest.Mock).mockReturnValue(false);
+  it('should return false when offline', async () => {
+    // Override NetInfo.fetch to return offline
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      type: 'none',
+      isConnected: false,
+      isInternetReachable: false,
+    });
 
     const { result } = renderHook(() => useIsOnline());
 
-    expect(result.current).toBe(false);
+    await waitFor(() => {
+      expect(result.current).toBe(false);
+    });
   });
 
-  it('should subscribe to sync state changes for online status', () => {
+  it('should subscribe to NetInfo changes for online status', () => {
     renderHook(() => useIsOnline());
 
-    expect(offlineSync.subscribeSyncState).toHaveBeenCalled();
+    expect(NetInfo.addEventListener).toHaveBeenCalled();
   });
 
   it('should update when online status changes', async () => {
-    let isOnlineMock = true;
-    let capturedCallback: ((state: any) => void) | null = null;
+    let capturedListener: ((state: any) => void) | null = null;
 
-    (offlineSync.getIsOnline as jest.Mock).mockImplementation(() => isOnlineMock);
-
-    (offlineSync.subscribeSyncState as jest.Mock).mockImplementation((callback) => {
-      capturedCallback = callback;
-      callback({ status: 'idle' });
+    (NetInfo.addEventListener as jest.Mock).mockImplementation((listener) => {
+      capturedListener = listener;
       return jest.fn();
     });
 
-    const { result, rerender } = renderHook(() => useIsOnline());
+    const { result } = renderHook(() => useIsOnline());
 
-    // Initial state - should be online
+    // Initial state - should be online (from cached value)
     expect(result.current).toBe(true);
 
-    // Simulate network change by updating mock and triggering callback
-    isOnlineMock = false;
-    if (capturedCallback) {
+    // Simulate network change via NetInfo listener
+    if (capturedListener) {
       act(() => {
-        capturedCallback!({ status: 'offline' });
+        capturedListener!({ isConnected: false, type: 'none', isInternetReachable: false });
       });
     }
-
-    // Rerender to pick up the new value
-    rerender(undefined);
 
     await waitFor(() => {
       expect(result.current).toBe(false);
@@ -323,7 +325,7 @@ describe('useIsOnline', () => {
 
   it('should unsubscribe on unmount', () => {
     const unsubscribeMock = jest.fn();
-    (offlineSync.subscribeSyncState as jest.Mock).mockReturnValue(unsubscribeMock);
+    (NetInfo.addEventListener as jest.Mock).mockReturnValue(unsubscribeMock);
 
     const { unmount } = renderHook(() => useIsOnline());
 

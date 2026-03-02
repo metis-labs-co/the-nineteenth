@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { IconTrophy, IconPlus, IconDice, IconCheck, IconAlertCircle } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';

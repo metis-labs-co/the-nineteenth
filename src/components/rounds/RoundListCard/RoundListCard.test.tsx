@@ -46,6 +46,11 @@ jest.mock('@tabler/icons-react-native', () => {
         <Text>Trash</Text>
       </View>
     ),
+    IconDog: (props: any) => (
+      <View testID="icon-dog" {...props}>
+        <Text>Dog</Text>
+      </View>
+    ),
   };
 });
 
@@ -111,6 +116,12 @@ jest.mock('@/components/common', () => {
     Pill: ({ label, size: _size }: { label: string; size?: string }) => (
       <View testID="pill">
         <Text>{label}</Text>
+      </View>
+    ),
+    WinnerRow: ({ winner, pointsLabel, size: _size }: any) => (
+      <View testID="winner-row">
+        <Text>{winner?.name || 'Unknown'}</Text>
+        {pointsLabel && <Text>{pointsLabel}</Text>}
       </View>
     ),
   };
@@ -222,21 +233,26 @@ describe('RoundListCard', () => {
       const round = createRoundData({ status: 'scheduled' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-upcoming')).toBeTruthy();
+      // Status badge is no longer shown for regular statuses;
+      // verify the card renders the game type pill and competition name
+      expect(screen.getByText('Stableford')).toBeTruthy();
+      expect(screen.getByText('Summer Series')).toBeTruthy();
     });
 
     it('renders with in-progress status', () => {
       const round = createInProgressRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-in-progress')).toBeTruthy();
+      // In-progress rounds show a progress bar
+      expect(screen.getByTestId('progress-bar')).toBeTruthy();
     });
 
     it('renders with completed status', () => {
       const round = createCompletedRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-completed')).toBeTruthy();
+      // Completed rounds render without error
+      expect(screen.getByText('Stableford')).toBeTruthy();
     });
 
     it('renders chevron right icon', () => {
@@ -308,18 +324,20 @@ describe('RoundListCard', () => {
   // ===========================================================================
 
   describe('Standalone/Practice Round Display', () => {
-    it('displays "Practice Round" label', () => {
-      const round = createStandaloneRound();
+    it('displays "Practice Round" label for solo standalone round', () => {
+      const round = createStandaloneRound({
+        players: [{ id: 'player-1', name: 'John Smith' }],
+      });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
       expect(screen.getByText('Practice Round')).toBeTruthy();
     });
 
-    it('does not display round pill for standalone rounds', () => {
+    it('displays "Match" label for multiplayer standalone round', () => {
       const round = createStandaloneRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.queryByTestId('pill')).toBeNull();
+      expect(screen.getByText('Match')).toBeTruthy();
     });
 
     it('displays playing partners for standalone rounds', () => {
@@ -808,32 +826,39 @@ describe('RoundListCard', () => {
   // ===========================================================================
 
   describe('Status Variant Mapping', () => {
-    it('maps "scheduled" to "upcoming" variant', () => {
+    it('does not show status badge for scheduled rounds', () => {
       const round = createRoundData({ status: 'scheduled' });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-upcoming')).toBeTruthy();
+      // Regular statuses no longer show a StatusBadge
+      expect(screen.queryByTestId('status-badge-upcoming')).toBeNull();
     });
 
-    it('maps "in-progress" to "in-progress" variant', () => {
-      const round = createRoundData({ status: 'in-progress' });
+    it('shows stale badge for in-progress round with past date', () => {
+      const round = createInProgressRound({
+        date: '2020-01-01', // past date to trigger stale detection
+      });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-in-progress')).toBeTruthy();
+      expect(screen.getByText('Not Completed')).toBeTruthy();
     });
 
-    it('maps "completed" to "completed" variant', () => {
-      const round = createRoundData({ status: 'completed' });
+    it('does not show stale badge for in-progress round with today or future date', () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+      const round = createInProgressRound({
+        date: futureDate.toISOString().split('T')[0],
+      });
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-completed')).toBeTruthy();
+      expect(screen.queryByText('Not Completed')).toBeNull();
     });
 
-    it('maps unknown status to "upcoming" variant', () => {
-      const round = createRoundData({ status: 'unknown-status' });
+    it('does not show status badge for completed rounds', () => {
+      const round = createCompletedRound();
       render(<RoundListCard round={round} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-upcoming')).toBeTruthy();
+      expect(screen.queryByTestId('status-badge-completed')).toBeNull();
     });
   });
 

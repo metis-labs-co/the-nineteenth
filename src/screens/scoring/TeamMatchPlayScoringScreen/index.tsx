@@ -176,7 +176,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   }, [team2.members, getPlayerScoreValue]);
 
   // Get best contributors for current hole
-  const team1BestContributor = useMemo(() => {
+  const _team1BestContributor = useMemo(() => {
     return getBestContributor(team1, currentHole, (id, hole) => {
       const score = getPlayerScore(id, hole);
       if (score && isSingleBallScore(score)) {
@@ -186,7 +186,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     });
   }, [team1, currentHole, getPlayerScore]);
 
-  const team2BestContributor = useMemo(() => {
+  const _team2BestContributor = useMemo(() => {
     return getBestContributor(team2, currentHole, (id, hole) => {
       const score = getPlayerScore(id, hole);
       if (score && isSingleBallScore(score)) {
@@ -346,7 +346,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   );
 
   // Get hole result for any hole number
-  const getHoleResult = useCallback(
+  const _getHoleResult = useCallback(
     (holeNumber: number): TeamHoleResult => {
       return (
         holeResults[holeNumber] || {

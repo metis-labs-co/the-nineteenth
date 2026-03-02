@@ -14,7 +14,7 @@
  * - Super admin hole editing (par, SI, yardage)
  */
 
-import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -84,7 +84,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     currentHole,
     currentPlayers,
     holes,
-    groupScorecards,
+    groupScorecards: _groupScorecards,
     isLoading: storeLoading,
     isInitialized,
     isSyncing,
@@ -573,6 +573,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         </View>
       );
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleShotContributionsChange excluded to prevent infinite re-renders
     [
       getHoleInfo,
       courseId,

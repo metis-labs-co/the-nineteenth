@@ -39,7 +39,7 @@ export function PlayerScoreCard({
   currentScore,
   isPickedUp,
   par,
-  isMatchComplete,
+  isMatchComplete: _isMatchComplete,
   matchStatus,
   strokesReceived = 0,
   onScoreAdjust,

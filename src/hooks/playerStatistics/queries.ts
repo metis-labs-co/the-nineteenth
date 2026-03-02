@@ -42,18 +42,45 @@ export function usePlayerStatistics(
   playerId: string | undefined,
   options: UsePlayerStatisticsOptions = {}
 ) {
-  const { enabled = true } = options;
+  const { enabled = true, leagueId, competitionId } = options;
+
+  const hasFilters = !!leagueId || !!competitionId;
+  const queryKey = hasFilters
+    ? statisticsKeys.playerFiltered(playerId ?? '', { leagueId, competitionId })
+    : statisticsKeys.player(playerId ?? '');
 
   return useQuery({
-    queryKey: statisticsKeys.player(playerId ?? ''),
+    queryKey,
     queryFn: async (): Promise<PlayerStatistics> => {
       if (!playerId) {
         throw new Error('Player ID is required');
       }
 
+      // When filtering by league, first get the scorecard IDs from league_rounds
+      let leagueScorecardIds: string[] | null = null;
+      if (leagueId) {
+        const { data: leagueRoundsData, error: lrError } = await supabase
+          .from('league_rounds')
+          .select('scorecard_id')
+          .eq('league_id', leagueId)
+          .eq('player_id', playerId);
+
+        if (lrError) {
+          console.error('Error fetching league rounds:', lrError);
+          throw lrError;
+        }
+
+        leagueScorecardIds = ((leagueRoundsData || []) as unknown as { scorecard_id: string }[]).map((lr) => lr.scorecard_id);
+
+        // If no scorecards match the league filter, return zeroed-out stats
+        if (leagueScorecardIds.length === 0) {
+          return createEmptyStatistics();
+        }
+      }
+
       // Fetch all scorecards for the player with round and competition data
       // Uses left join for competitions to include practice/standalone rounds
-      const { data: scorecardsData, error: scorecardsError } = await supabase
+      let scorecardsQuery = supabase
         .from('scorecards')
         .select(
           `
@@ -90,6 +117,16 @@ export function usePlayerStatistics(
         .eq('player_id', playerId)
         .in('status', ['completed', 'confirmed']);
 
+      // Apply filters
+      if (leagueScorecardIds) {
+        scorecardsQuery = scorecardsQuery.in('id', leagueScorecardIds);
+      }
+      if (competitionId) {
+        scorecardsQuery = scorecardsQuery.eq('rounds.competition_id', competitionId);
+      }
+
+      const { data: scorecardsData, error: scorecardsError } = await scorecardsQuery;
+
       if (scorecardsError) {
         console.error('Error fetching scorecards:', scorecardsError);
         throw scorecardsError;
@@ -97,7 +134,13 @@ export function usePlayerStatistics(
 
       const scorecards = scorecardsData || [];
 
+      // If filtering returned no results, return empty stats
+      if (hasFilters && scorecards.length === 0) {
+        return createEmptyStatistics();
+      }
+
       // Fetch competitions where player is a participant
+      // Skip when filtering by league (not meaningful in league context)
       // Define type for the query result since Supabase can't infer join types
       interface CompetitionPlayerResult {
         competition_id: string;
@@ -109,28 +152,39 @@ export function usePlayerStatistics(
         } | null;
       }
 
-      const { data: competitionPlayersData, error: cpError } = await supabase
-        .from('competition_players')
-        .select(
+      let competitionPlayers: CompetitionPlayerResult[] = [];
+
+      if (!leagueId) {
+        let cpQuery = supabase
+          .from('competition_players')
+          .select(
+            `
+            competition_id,
+            status,
+            competitions (
+              id,
+              name,
+              status
+            )
           `
-          competition_id,
-          status,
-          competitions (
-            id,
-            name,
-            status
           )
-        `
-        )
-        .eq('player_id', playerId)
-        .eq('status', 'accepted');
+          .eq('player_id', playerId)
+          .eq('status', 'accepted');
 
-      if (cpError) {
-        console.error('Error fetching competition players:', cpError);
-        throw cpError;
+        // When filtering by competition, only fetch that one
+        if (competitionId) {
+          cpQuery = cpQuery.eq('competition_id', competitionId);
+        }
+
+        const { data: competitionPlayersData, error: cpError } = await cpQuery;
+
+        if (cpError) {
+          console.error('Error fetching competition players:', cpError);
+          throw cpError;
+        }
+
+        competitionPlayers = (competitionPlayersData || []) as CompetitionPlayerResult[];
       }
-
-      const competitionPlayers = (competitionPlayersData || []) as CompetitionPlayerResult[];
 
       // Calculate statistics
       const roundsPlayed = scorecards.length;
@@ -159,12 +213,12 @@ export function usePlayerStatistics(
       let girOpportunities = 0; // Holes where GIR was recorded
 
       // Collect all hole scores for par type and short game calculations
-      const allHoleScores: Array<{
+      const allHoleScores: {
         strokes: number;
         par: number;
         gir: boolean | null;
         putts: number | null;
-      }> = [];
+      }[] = [];
 
       // Track course stats
       const courseStatsMap = new Map<
@@ -497,4 +551,69 @@ export function usePlayerStatistics(
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   });
+}
+
+/**
+ * Create a zeroed-out PlayerStatistics object for when filters match no data
+ */
+function createEmptyStatistics(): PlayerStatistics {
+  const emptyParTypeStats = {
+    holesPlayed: 0,
+    averageScore: 0,
+    scoreToPar: 0,
+    girPercentage: null,
+    birdiePercentage: 0,
+    parPercentage: 0,
+    bogeyPercentage: 0,
+    doublePlusPercentage: 0,
+  };
+
+  return {
+    roundsPlayed: 0,
+    practiceRoundsPlayed: 0,
+    competitionRoundsPlayed: 0,
+    competitionsEntered: 0,
+    competitionsWon: 0,
+    holesPlayed: 0,
+    scoreDistribution: { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubleBogeys: 0, triplePlus: 0 },
+    totalScoreDistribution: 0,
+    averageGrossScore: 0,
+    averageStablefordPoints: 0,
+    averageScorePerHole: 0,
+    bestRound: null,
+    worstRound: null,
+    bestStablefordRound: null,
+    favouriteCourse: null,
+    courseStats: [],
+    lowestGrossScore: null,
+    highestStablefordPoints: null,
+    recentRounds: [],
+    parOrBetterPercentage: 0,
+    birdieOrBetterPercentage: 0,
+    totalPutts: null,
+    averagePuttsPerRound: null,
+    averagePuttsPerHole: null,
+    holesWithPuttsRecorded: 0,
+    fairwaysHit: null,
+    fairwayOpportunities: 0,
+    fairwayPercentage: null,
+    greensInRegulation: null,
+    girOpportunities: 0,
+    girPercentage: null,
+    par3Stats: emptyParTypeStats,
+    par4Stats: emptyParTypeStats,
+    par5Stats: emptyParTypeStats,
+    shortGame: {
+      scramblingPercentage: null,
+      scrambleAttempts: 0,
+      scramblesMade: 0,
+      bogeyAvoidanceRate: 0,
+      doubleBogeyOrWorseRate: 0,
+    },
+    puttingDepth: {
+      onePuttPercentage: null,
+      threePuttPercentage: null,
+      puttsPerGIR: null,
+    },
+  };
 }

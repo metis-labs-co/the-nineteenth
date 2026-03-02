@@ -55,7 +55,7 @@ export interface WolfSettlementCardProps {
 export const WolfSettlementCard = React.memo(function WolfSettlementCard({
   payouts,
   potValue,
-  currency = 'AUD',
+  currency: _currency = 'AUD',
   testID,
 }: WolfSettlementCardProps) {
   const colors = useThemeColors();

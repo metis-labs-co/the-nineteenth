@@ -1,13 +1,20 @@
 /**
  * PlayersTab - List of players in a competition
+ *
+ * Supports expandable player cards with compare button for non-organizer view.
+ * Organizers retain the remove player functionality.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { GolfBallLoader, EmptyState } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PlayerCard } from '@/components/social/PlayerCard';
+import { ExpandablePlayerCard } from '@/components/social/ExpandablePlayerCard';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { CompetitionPlayer } from './types';
 
@@ -21,6 +28,10 @@ export interface PlayersTabProps {
   /** ID of player currently being removed (for loading state) */
   removingPlayerId?: string | null;
   colors: ColorPalette;
+  /** Competition ID for filtered stats comparison */
+  competitionId?: string;
+  /** Competition name for filter label */
+  competitionName?: string;
 }
 
 export const PlayersTab = React.memo(function PlayersTab({
@@ -31,7 +42,24 @@ export const PlayersTab = React.memo(function PlayersTab({
   onRemovePlayer,
   removingPlayerId,
   colors,
+  competitionId,
+  competitionName,
 }: PlayersTabProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handleCompare = useCallback(
+    (playerId: string) => {
+      if (!currentUserId || !competitionId) return;
+      navigation.navigate('CompareStats', {
+        playerId1: currentUserId,
+        playerId2: playerId,
+        competitionId,
+        filterLabel: competitionName,
+      });
+    },
+    [navigation, currentUserId, competitionId, competitionName]
+  );
+
   return (
     <View>
       {players.length === 0 ? (
@@ -62,32 +90,52 @@ export const PlayersTab = React.memo(function PlayersTab({
                   }
                 : undefined;
 
-              // Can remove player if organizer and not the current user (organizer can't remove themselves)
+              // Can remove player if organizer and not the current user
               const canRemove = isOrganizer && !isCurrentUser && onRemovePlayer;
               const isBeingRemoved = removingPlayerId === player.id;
 
-              // Build right action - remove button for organizer, chevron for others
-              const rightAction = canRemove ? (
-                <TouchableOpacity
-                  onPress={() => onRemovePlayer(player.id, player.name)}
-                  disabled={isBeingRemoved}
-                  style={[styles.removeButton, { backgroundColor: colors.errorLight }]}
-                  accessibilityLabel={`Remove ${player.name} from competition`}
-                  accessibilityRole="button"
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  {isBeingRemoved ? (
-                    <GolfBallLoader size="sm" />
-                  ) : (
-                    <Icon source="account-remove" size={18} color={colors.error} />
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <Icon source="chevron-right" size={20} color={colors.gray400} />
-              );
+              // Organizer view: keep existing remove button pattern
+              if (isOrganizer) {
+                const rightAction = canRemove ? (
+                  <TouchableOpacity
+                    onPress={() => onRemovePlayer(player.id, player.name)}
+                    disabled={isBeingRemoved}
+                    style={[styles.removeButton, { backgroundColor: colors.errorLight }]}
+                    accessibilityLabel={`Remove ${player.name} from competition`}
+                    accessibilityRole="button"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {isBeingRemoved ? (
+                      <GolfBallLoader size="sm" />
+                    ) : (
+                      <Icon source="account-remove" size={18} color={colors.error} />
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <Icon source="chevron-right" size={20} color={colors.gray400} />
+                );
 
+                return (
+                  <PlayerCard
+                    key={cp.player_id}
+                    player={{
+                      id: player.id,
+                      name: player.name,
+                      email: player.email,
+                      handicap: player.handicap,
+                      photo_url: player.photo_url,
+                    }}
+                    badge={badge}
+                    variant="card"
+                    rightAction={rightAction}
+                    testID={`player-card-${player.id}`}
+                  />
+                );
+              }
+
+              // Non-organizer: expandable cards with compare
               return (
-                <PlayerCard
+                <ExpandablePlayerCard
                   key={cp.player_id}
                   player={{
                     id: player.id,
@@ -97,9 +145,9 @@ export const PlayersTab = React.memo(function PlayersTab({
                     photo_url: player.photo_url,
                   }}
                   badge={badge}
+                  isCurrentUser={isCurrentUser}
                   variant="card"
-                  rightAction={rightAction}
-                  testID={`player-card-${player.id}`}
+                  onCompare={competitionId ? () => handleCompare(player.id) : undefined}
                 />
               );
             })}

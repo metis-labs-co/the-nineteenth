@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
-import { ClubCard, VenueCard } from './ClubCard';
+import { ClubCard } from './ClubCard';
 import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { Club, Hole } from '@/types/database.types';
 
@@ -166,12 +166,14 @@ describe('ClubCard', () => {
   describe('Single-Course Club', () => {
     it('renders course name', () => {
       render(<ClubCard {...defaultProps} />);
-      expect(screen.getByText('Championship Course')).toBeTruthy();
+      // Single-course clubs show "Club Name - Course Name"
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
     });
 
     it('renders club name and location as subtitle', () => {
       render(<ClubCard {...defaultProps} />);
-      expect(screen.getByText('Test Golf Club · Melbourne, VIC')).toBeTruthy();
+      // Location is shown as a separate subtitle line
+      expect(screen.getByText('Melbourne, VIC')).toBeTruthy();
     });
 
     it('renders hole count when holes exist', () => {
@@ -192,7 +194,7 @@ describe('ClubCard', () => {
       const venue = defaultProps.item.club;
 
       // Find and press the touchable (course row)
-      const courseCard = screen.getByText('Championship Course');
+      const courseCard = screen.getByText('Test Golf Club - Championship Course');
       fireEvent.press(courseCard.parent?.parent || courseCard);
 
       expect(onCourseSelect).toHaveBeenCalledWith(course, venue);
@@ -288,7 +290,7 @@ describe('ClubCard', () => {
 
       // In selection mode, favorite button should not be rendered
       // Pressing anywhere should not call onToggleFavorite
-      const courseText = screen.getByText('Championship Course');
+      const courseText = screen.getByText('Test Golf Club - Championship Course');
       fireEvent.press(courseText);
 
       // Should not have called toggle favorite (pressing course calls onCourseSelect)
@@ -495,7 +497,7 @@ describe('ClubCard', () => {
     it('shows chevron-right for single-course club in selection mode', () => {
       render(<ClubCard {...defaultProps} selectionMode={true} />);
       // Icon should be rendered, verify component doesn't crash
-      expect(screen.getByText('Championship Course')).toBeTruthy();
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
     });
 
     it('hides favorite button for single-course in selection mode', () => {
@@ -605,14 +607,14 @@ describe('ClubCard', () => {
       render(<ClubCard {...defaultProps} item={item} />);
 
       // Component should render without errors
-      expect(screen.getByText('Championship Course')).toBeTruthy();
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
     });
 
     it('renders with non-favorite state', () => {
       const item = createSingleCourseItem({}, { is_favorite: false });
       render(<ClubCard {...defaultProps} item={item} />);
 
-      expect(screen.getByText('Championship Course')).toBeTruthy();
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
     });
 
     it('shows loading indicator only for matching course ID', async () => {
@@ -692,28 +694,25 @@ describe('ClubCard', () => {
       const item = createSingleCourseItem({ city: 'Sydney', state: undefined });
       render(<ClubCard {...defaultProps} item={item} />);
 
-      // Should show club name with just city
-      // Pattern: "Club Name · City"
-      expect(screen.getByText('Test Golf Club · Sydney')).toBeTruthy();
+      // Should show just city as location subtitle
+      expect(screen.getByText('Sydney')).toBeTruthy();
     });
 
     it('handles club with only state (no city)', () => {
       const item = createSingleCourseItem({ city: undefined, state: 'NSW' });
       render(<ClubCard {...defaultProps} item={item} />);
 
-      // Should show club name with just state
-      expect(screen.getByText('Test Golf Club · NSW')).toBeTruthy();
+      // Should show just state as location subtitle
+      expect(screen.getByText('NSW')).toBeTruthy();
     });
 
     it('handles club with neither city nor state', () => {
       const item = createSingleCourseItem({ city: undefined, state: undefined });
       render(<ClubCard {...defaultProps} item={item} />);
 
-      // Course name should be visible
-      expect(screen.getByText('Championship Course')).toBeTruthy();
-      // But the location part should be empty (just club name)
-      // The component will still show "Test Golf Club · " but with empty location
-      // Verify it doesn't show city or state explicitly
+      // Course name should be visible (as "Club - Course" format)
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
+      // No location subtitle since neither city nor state provided
       expect(screen.queryByText('Melbourne')).toBeNull();
       expect(screen.queryByText('VIC')).toBeNull();
     });
@@ -752,7 +751,7 @@ describe('ClubCard', () => {
     it('handles undefined onCourseSelect', () => {
       render(<ClubCard {...defaultProps} onCourseSelect={undefined} />);
 
-      const courseText = screen.getByText('Championship Course');
+      const courseText = screen.getByText('Test Golf Club - Championship Course');
       // Should not throw when pressed
       fireEvent.press(courseText);
     });
@@ -761,7 +760,7 @@ describe('ClubCard', () => {
       render(<ClubCard {...defaultProps} onToggleFavorite={undefined} />);
 
       // Component should render without the callback
-      expect(screen.getByText('Championship Course')).toBeTruthy();
+      expect(screen.getByText('Test Golf Club - Championship Course')).toBeTruthy();
     });
 
     it('handles course with null slope_rating', () => {
@@ -781,7 +780,7 @@ describe('ClubCard', () => {
 
       expect(
         screen.getByText(
-          'The Very Long Name Championship Golf Course at the Grand Resort and Country Club'
+          'Test Golf Club - The Very Long Name Championship Golf Course at the Grand Resort and Country Club'
         )
       ).toBeTruthy();
     });
@@ -851,10 +850,10 @@ describe('ClubCard', () => {
     it('renders consistently with same props', () => {
       // Just verify we can render twice without errors
       const { getByText: firstGet } = render(<ClubCard {...defaultProps} />);
-      expect(firstGet('Championship Course')).toBeTruthy();
+      expect(firstGet('Test Golf Club - Championship Course')).toBeTruthy();
 
       const { getByText: secondGet } = render(<ClubCard {...defaultProps} />);
-      expect(secondGet('Championship Course')).toBeTruthy();
+      expect(secondGet('Test Golf Club - Championship Course')).toBeTruthy();
     });
   });
 
@@ -869,7 +868,7 @@ describe('ClubCard', () => {
 
       render(<ClubCard {...defaultProps} item={item} onCourseSelect={onCourseSelect} />);
 
-      const courseText = screen.getByText('Championship Course');
+      const courseText = screen.getByText('Test Golf Club - Championship Course');
       fireEvent.press(courseText.parent?.parent || courseText);
 
       expect(onCourseSelect).toHaveBeenCalledWith(item.courses[0], item.club);

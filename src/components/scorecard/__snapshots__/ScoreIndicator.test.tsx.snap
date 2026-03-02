@@ -25,7 +25,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for birdie 1`] = `
             "justifyContent": "center",
           },
           {
-            "borderColor": "#22c55e",
+            "borderColor": "#3b82f6",
             "borderRadius": 14,
             "borderWidth": 1.5,
             "height": 28,
@@ -43,7 +43,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for birdie 1`] = `
               "lineHeight": 24,
             },
             {
-              "color": "#22c55e",
+              "color": "#3b82f6",
               "fontSize": 14,
             },
           ]
@@ -82,7 +82,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for bogey 1`] = `
             "justifyContent": "center",
           },
           {
-            "borderColor": "#f59e0b",
+            "borderColor": "#dc4a1a",
             "borderWidth": 1.5,
             "height": 28,
             "width": 28,
@@ -99,7 +99,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for bogey 1`] = `
               "lineHeight": 24,
             },
             {
-              "color": "#f59e0b",
+              "color": "#dc4a1a",
               "fontSize": 14,
             },
           ]
@@ -134,7 +134,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display bird
           "width": 24,
         },
         {
-          "backgroundColor": "#bbf7d0",
+          "backgroundColor": "#dbeafe",
         },
       ]
     }
@@ -148,7 +148,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display bird
             "lineHeight": 20,
           },
           {
-            "color": "#22c55e",
+            "color": "#3b82f6",
           },
         ]
       }
@@ -195,7 +195,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display boge
             "lineHeight": 20,
           },
           {
-            "color": "#f59e0b",
+            "color": "#dc4a1a",
           },
         ]
       }
@@ -228,7 +228,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display par 
           "width": 24,
         },
         {
-          "backgroundColor": "#dbeafe",
+          "backgroundColor": "#dcfce7",
         },
       ]
     }
@@ -242,7 +242,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for compact display par 
             "lineHeight": 20,
           },
           {
-            "color": "#3b82f6",
+            "color": "#374151",
           },
         ]
       }
@@ -352,7 +352,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for eagle 1`] = `
             "justifyContent": "center",
           },
           {
-            "borderColor": "#22c55e",
+            "borderColor": "#10b981",
             "borderRadius": 17,
             "borderWidth": 1.5,
             "height": 34,
@@ -369,7 +369,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for eagle 1`] = `
               "justifyContent": "center",
             },
             {
-              "borderColor": "#22c55e",
+              "borderColor": "#10b981",
               "borderRadius": 14,
               "borderWidth": 1.5,
               "height": 28,
@@ -387,7 +387,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for eagle 1`] = `
                 "lineHeight": 24,
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "fontSize": 14,
               },
             ]
@@ -426,7 +426,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for large size birdie 1`
             "justifyContent": "center",
           },
           {
-            "borderColor": "#22c55e",
+            "borderColor": "#3b82f6",
             "borderRadius": 16,
             "borderWidth": 2,
             "height": 32,
@@ -444,7 +444,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for large size birdie 1`
               "lineHeight": 24,
             },
             {
-              "color": "#22c55e",
+              "color": "#3b82f6",
               "fontSize": 16,
             },
           ]
@@ -503,7 +503,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for par 1`] = `
           "lineHeight": 24,
         },
         {
-          "color": "#3b82f6",
+          "color": "#374151",
           "fontSize": 14,
         },
       ]
@@ -568,7 +568,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for small size birdie 1`
             "justifyContent": "center",
           },
           {
-            "borderColor": "#22c55e",
+            "borderColor": "#3b82f6",
             "borderRadius": 11,
             "borderWidth": 1.5,
             "height": 22,
@@ -586,7 +586,7 @@ exports[`ScoreIndicator Snapshot Tests matches snapshot for small size birdie 1`
               "lineHeight": 24,
             },
             {
-              "color": "#22c55e",
+              "color": "#3b82f6",
               "fontSize": 12,
             },
           ]

@@ -14,7 +14,7 @@ import { BottomSheet } from '@/components/common/BottomSheet';
 import { GolfBallLoader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography } from '@/constants/theme';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys } from '@/hooks/queryKeys';
 import { useScoringPairs, useShuffleScoringPairs } from '@/hooks/useScoringPairs';

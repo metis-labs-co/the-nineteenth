@@ -252,7 +252,7 @@ export const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
           key={stats.playerId}
           style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
         >
-          <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total) }]}>
+          <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
             {stats.totalGross || '-'}
           </Text>
         </View>
@@ -285,7 +285,7 @@ export const ScrollableNetCells = React.memo(function ScrollableNetCells({
           key={stats.playerId}
           style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
         >
-          <Text style={[styles.totalText, { color: getScoreColor(stats.totalNet, parTotals.total) }]}>
+          <Text style={[styles.totalText, { color: getScoreColor(stats.totalNet, parTotals.total, colors) }]}>
             {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
           </Text>
         </View>

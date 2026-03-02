@@ -37,7 +37,7 @@ export default React.memo(function ChallengeCard({
   const colors = useThemeColors();
 
   const statusConfig = STATUS_CONFIG[challenge.status] ?? STATUS_CONFIG.pending;
-  const statusColor = (colors as any)[statusConfig.color] ?? colors.textSecondary;
+  const statusColor = colors[statusConfig.color as keyof typeof colors] ?? colors.textSecondary;
 
   const isChallenger = challenge.challenger_id === currentUserId;
   const isChallenged = challenge.challenged_id === currentUserId;

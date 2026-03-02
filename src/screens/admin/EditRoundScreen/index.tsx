@@ -30,7 +30,7 @@ import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useAuth } from '@/hooks/useAuth';
