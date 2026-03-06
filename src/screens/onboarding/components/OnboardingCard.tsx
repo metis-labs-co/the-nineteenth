@@ -63,19 +63,19 @@ export function OnboardingCard({
 
         {/* Additional content (e.g., form inputs) */}
         {children}
-      </View>
 
-      {/* Actions Area */}
-      {actions && (
-        <View
-          style={[
-            styles.actionsContainer,
-            { paddingBottom: insets.bottom + 100 },
-          ]}
-        >
-          {actions}
-        </View>
-      )}
+        {/* Actions Area */}
+        {actions && (
+          <View
+            style={[
+              styles.actionsContainer,
+              { paddingBottom: insets.bottom + 100 },
+            ]}
+          >
+            {actions}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contentContainer: {
-    flex: 0.35,
+    flex: 0.6,
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
   },
@@ -106,8 +106,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   actionsContainer: {
-    flex: 0.25,
-    justifyContent: 'flex-start',
+    alignSelf: 'stretch',
     paddingTop: spacing.xl,
   },
 });

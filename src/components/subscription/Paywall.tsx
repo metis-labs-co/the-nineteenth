@@ -321,9 +321,12 @@ export function Paywall({
 
           {/* Subscription Info */}
           <Text style={[styles.subscriptionInfo, { color: colors.textSecondary }]}>
-            Payment will be charged to your Apple ID account at the confirmation of purchase. Subscription automatically
-            renews unless it is cancelled at least 24 hours before the end of the current period. You can manage and cancel
-            your subscriptions by going to your account settings on the App Store after purchase.
+            {`The Nineteenth ${selectedProduct.name} (${billingPeriod === 'monthly' ? '1 month' : '1 year'}): ${selectedProduct.price}/${billingPeriod === 'monthly' ? 'month' : 'year'}. `}
+            Includes a {FREE_TRIAL_DAYS}-day free trial. Payment will be charged to your Apple ID account at the
+            confirmation of purchase. Subscription automatically renews unless it is cancelled at least 24 hours before
+            the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of
+            the current period. You can manage and cancel your subscriptions by going to your account settings on the
+            App Store after purchase.
           </Text>
         </ScrollView>
 
