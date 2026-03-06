@@ -73,7 +73,7 @@ export {
 } from './queries';
 
 // Re-export mutation hooks
-export { useCreateClub, useCreateCourse, useCreateClubWithCourse } from './mutations';
+export { useCreateClub, useCreateCourse, useCreateClubWithCourse, useDeleteClubIfEmpty } from './mutations';
 
 // Re-export deprecated aliases for backward compatibility
 export {

@@ -248,6 +248,10 @@ export type {
 export { useDeleteRound } from './useDeleteRound';
 export type { DeleteRoundInput, DeleteRoundResult } from './useDeleteRound';
 
+// Course delete hook
+export { useDeleteCourse } from './useDeleteCourse';
+export type { DeleteCourseInput, DeleteCourseResult } from './useDeleteCourse';
+
 // Scoring pairs hooks
 export {
   useScoringPairs,

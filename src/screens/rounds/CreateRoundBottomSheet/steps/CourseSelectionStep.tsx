@@ -26,6 +26,10 @@ interface CourseSelectionStepProps {
   favoriteCourses?: (CourseWithFavoriteStatus & { club: Club })[];
   onSelectCourse: (course: CourseWithFavoriteStatus, club: Club) => void;
   onSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: Club }) => void;
+  /** Whether current user is a super admin (shows "Add New Course" button) */
+  isSuperAdmin?: boolean;
+  /** Callback when "Add New Course" is pressed */
+  onAddNewCourse?: () => void;
 }
 
 export const CourseSelectionStep = memo(function CourseSelectionStep({
@@ -36,6 +40,8 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
   favoriteCourses,
   onSelectCourse,
   onSelectFavoriteCourse,
+  isSuperAdmin,
+  onAddNewCourse,
 }: CourseSelectionStepProps) {
   const colors = useThemeColors();
 
@@ -85,6 +91,30 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
             ))}
           </ScrollView>
         </View>
+      )}
+
+      {/* Add New Course (super admin only) */}
+      {isSuperAdmin && onAddNewCourse && (
+        <TouchableOpacity
+          style={[
+            styles.addCourseCard,
+            { borderColor: colors.primary, backgroundColor: colors.surface },
+          ]}
+          onPress={onAddNewCourse}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.addCourseIcon, { backgroundColor: colors.primaryLight }]}>
+            <Icon source="plus" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.addCourseTextContainer}>
+            <Text style={[styles.addCourseTitle, { color: colors.primary }]}>
+              Add New Course
+            </Text>
+            <Text style={[styles.addCourseSubtitle, { color: colors.textSecondary }]}>
+              Build a course as you play
+            </Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* Course List */}
@@ -166,6 +196,34 @@ const styles = StyleSheet.create({
     ...typography.small,
     fontWeight: '500',
     flexShrink: 1,
+  },
+  addCourseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  addCourseIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCourseTextContainer: {
+    flex: 1,
+  },
+  addCourseTitle: {
+    ...typography.bodyBold,
+  },
+  addCourseSubtitle: {
+    ...typography.small,
   },
   listContainer: {
     flex: 1,

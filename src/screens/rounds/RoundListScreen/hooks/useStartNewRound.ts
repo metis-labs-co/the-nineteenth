@@ -26,6 +26,15 @@ const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
   yardages: { white: 350 + i * 15 },
 }));
 
+// Placeholder holes for build-as-you-play mode
+// Intentionally generic: par 4, SI = hole number, no yardages
+// These are detected as "unconfigured" by the useBuildAsYouPlay hook
+const PLACEHOLDER_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
+  number: (i + 1) as Hole['number'],
+  par: 4 as Hole['par'],
+  strokeIndex: i + 1,
+}));
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export interface UseStartNewRoundReturn {
@@ -39,7 +48,8 @@ export interface UseStartNewRoundReturn {
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
-    wolfConfig?: StandaloneWolfConfig
+    wolfConfig?: StandaloneWolfConfig,
+    isBuildAsYouPlay?: boolean
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
@@ -67,7 +77,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
       ballCount: BallCount = 1,
       skinsConfig?: StandaloneSkinsConfig,
       teamConfig?: TeamConfig,
-      wolfConfig?: StandaloneWolfConfig
+      wolfConfig?: StandaloneWolfConfig,
+      isBuildAsYouPlay?: boolean
     ) => {
       if (isStartingRound) return;
 
@@ -86,10 +97,15 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
           console.error('Error fetching course:', courseError);
         }
 
-        // Use course holes or default holes (fallback if empty array)
+        // Use course holes, placeholder holes (build-as-you-play), or default holes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Raw JSONB data from database
         const rawHoles = (courseData as any)?.holes as unknown[] | null;
-        const holes: Hole[] = rawHoles && rawHoles.length > 0 ? transformHolesIfNeeded(rawHoles) : DEFAULT_HOLES;
+        const hasRealHoles = rawHoles && rawHoles.length > 0;
+        const holes: Hole[] = hasRealHoles
+          ? transformHolesIfNeeded(rawHoles)
+          : isBuildAsYouPlay
+            ? PLACEHOLDER_HOLES
+            : DEFAULT_HOLES;
 
         // Determine if this is a team format (scramble, shamble, best-ball, or match-play with teams)
         const isStandardTeamFormat = ['scramble', 'shamble', 'best-ball'].includes(gameType);
@@ -341,6 +357,7 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
           navigation.navigate('Scorecard', {
             roundId,
             competitionId: 'standalone',
+            isBuildAsYouPlay: isBuildAsYouPlay || undefined,
           });
         }
       } catch (error) {

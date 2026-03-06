@@ -7,6 +7,7 @@
  * - useCreateClub: Create a new club
  * - useCreateCourse: Create a course at a club
  * - useCreateClubWithCourse: Create club and course together
+ * - useDeleteClubIfEmpty: Delete a club only if it has zero courses
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -140,6 +141,48 @@ export function useCreateClubWithCourse() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clubKeys.all });
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
+    },
+  });
+}
+
+/**
+ * Delete a club only if it has zero remaining courses
+ * Used for orphan club cleanup after course deletion
+ */
+export function useDeleteClubIfEmpty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (clubId: string): Promise<{ deleted: boolean }> => {
+      // Check if club has any remaining courses
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { count, error: countError } = await (supabase as any)
+        .from('courses')
+        .select('id', { count: 'exact', head: true })
+        .eq('club_id', clubId);
+
+      if (countError) {
+        throw new Error(`Failed to check courses: ${countError.message}`);
+      }
+
+      if (count > 0) {
+        return { deleted: false };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+      const { error: deleteError } = await (supabase as any)
+        .from('clubs')
+        .delete()
+        .eq('id', clubId);
+
+      if (deleteError) {
+        throw new Error(`Failed to delete club: ${deleteError.message}`);
+      }
+
+      return { deleted: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubKeys.all });
     },
   });
 }

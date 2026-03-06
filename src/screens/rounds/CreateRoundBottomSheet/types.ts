@@ -138,6 +138,8 @@ export interface WizardData {
   wolfEnabled: boolean;
   /** Wolf game configuration (scoring type, blind wolf, pot) */
   wolfConfig: WolfConfig | null;
+  /** Whether this round uses build-as-you-play course creation (super admin only) */
+  isBuildAsYouPlay: boolean;
 }
 
 /**
@@ -156,7 +158,8 @@ export interface CreateRoundBottomSheetProps {
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
-    wolfConfig?: StandaloneWolfConfig
+    wolfConfig?: StandaloneWolfConfig,
+    isBuildAsYouPlay?: boolean
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;

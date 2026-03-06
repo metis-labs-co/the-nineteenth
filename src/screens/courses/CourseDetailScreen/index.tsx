@@ -34,6 +34,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useFormattedDistance } from '@/store/settingsStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
+import { useDeleteCourse } from '@/hooks/useDeleteCourse';
 import { EditHoleBottomSheet } from '@/components/courses';
 import { supabase } from '@/services/supabase/client';
 import { courseService } from '@/services/courses/courseService';
@@ -60,7 +61,10 @@ export default function CourseScreen({ route, navigation }: Props) {
   const { formatDistance } = useFormattedDistance();
 
   // Dialog state
-  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
+  const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
+
+  // Delete course mutation (manual courses only, super admin only)
+  const deleteCourseMutation = useDeleteCourse();
 
   // Fetch course details with tees from the normalized tees table
   const {
@@ -190,6 +194,37 @@ export default function CourseScreen({ route, navigation }: Props) {
       navigation.navigate('Club', { clubId: course.club.id });
     }
   }, [course?.club, navigation]);
+
+  // Handle delete course (manual courses only, super admin only)
+  const handleDeleteCourse = useCallback(() => {
+    if (!course || course.golfapi_course_id) return;
+
+    showDialog({
+      title: 'Delete Course',
+      message:
+        'This course and its hole data will be permanently removed. Rounds that used this course will keep their scores but lose the course reference.',
+      confirmLabel: 'Delete',
+      confirmVariant: 'destructive',
+      icon: 'trash-can-outline',
+      onConfirm: () => {
+        dismissDialog();
+        deleteCourseMutation.mutate(
+          { courseId: course.id, clubId: course.club?.id },
+          {
+            onSuccess: () => {
+              navigation.goBack();
+            },
+            onError: (error) => {
+              showAlert(
+                'Error',
+                error instanceof Error ? error.message : 'Failed to delete course'
+              );
+            },
+          }
+        );
+      },
+    });
+  }, [course, showDialog, dismissDialog, deleteCourseMutation, navigation, showAlert]);
 
   // Get selected tee box info (alias for compatibility)
   const selectedTeeBox = selectedTee;
@@ -429,17 +464,26 @@ export default function CourseScreen({ route, navigation }: Props) {
         title={course.name}
         showBack
         onBack={handleBack}
-        rightActions={
-          course.golfapi_course_id
-            ? [
-                {
+        rightActions={(() => {
+          const actions = [
+            ...(course.golfapi_course_id
+              ? [{
                   icon: isRefreshingFromApi ? 'loading' : 'refresh',
                   onPress: handleRefreshFromApi,
                   accessibilityLabel: 'Refresh course data from Golf API',
-                },
-              ]
-            : undefined
-        }
+                }]
+              : []),
+            ...(!course.golfapi_course_id && isSuperAdmin
+              ? [{
+                  icon: 'trash-can-outline',
+                  onPress: handleDeleteCourse,
+                  accessibilityLabel: 'Delete course',
+                  color: colors.error,
+                }]
+              : []),
+          ];
+          return actions.length > 0 ? actions : undefined;
+        })()}
       />
       <ScrollView
         style={styles.scrollView}

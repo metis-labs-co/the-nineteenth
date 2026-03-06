@@ -39,7 +39,7 @@ export type RootStackParamList = {
   ViewRound: { roundId: string; competitionId?: string }; // For standalone or competition rounds
 
   // Scorecard
-  Scorecard: { roundId: string; competitionId: string };
+  Scorecard: { roundId: string; competitionId: string; isBuildAsYouPlay?: boolean };
   ReviewScorecard: {
     roundId?: string;
     competitionId?: string;

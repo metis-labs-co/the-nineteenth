@@ -23,13 +23,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/store/settingsStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay } from '@/hooks/scorecard';
 import {
   QuickScorecardView,
   HoleHeader,
   SwipeableHoleNavigator,
 } from '@/components/scorecard';
-import { EditHoleBottomSheet } from '@/components/courses';
+import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
 import { WolfDecisionModal } from '@/components/wolf';
 import { useUpdateCourseHoles, useProcessSkinsIfNeeded } from '@/hooks';
 import {
@@ -62,7 +62,7 @@ import {
 type Props = RootStackScreenProps<'Scorecard'>;
 
 export default function ScorecardEntryScreen({ navigation, route }: Props) {
-  const { roundId, competitionId } = route.params;
+  const { roundId, competitionId, isBuildAsYouPlay: isBuildAsYouPlayParam } = route.params;
   const colors = useThemeColors();
   const { user } = useAuth();
   const isStandaloneRound = competitionId === 'standalone';
@@ -162,6 +162,21 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     isSoloRound,
   } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
 
+  // Build-as-you-play hook
+  const buildAsYouPlay = useBuildAsYouPlay({
+    enabled: !!isBuildAsYouPlayParam,
+    courseId: courseId ?? null,
+    holes,
+  });
+
+  // Check hole 1 on initial load for build-as-you-play
+  useEffect(() => {
+    if (buildAsYouPlay.enabled && !dataLoading && holes.length > 0) {
+      buildAsYouPlay.checkHoleBeforeNavigation(1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once when data is ready
+  }, [buildAsYouPlay.enabled, dataLoading, holes.length]);
+
   // Configure multi-ball mode when round data is loaded
   useEffect(() => {
     if (!dataLoading && ballCount > 1 && isSoloRound) {
@@ -174,6 +189,18 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     }
   }, [dataLoading, ballCount, isSoloRound, setMultiBallConfig, roundId]);
 
+  // Wrap setCurrentHole to intercept for build-as-you-play
+  const interceptedSetCurrentHole = useCallback(
+    (hole: number) => {
+      if (buildAsYouPlay.enabled && !buildAsYouPlay.isHoleConfigured(hole)) {
+        buildAsYouPlay.checkHoleBeforeNavigation(hole);
+        return;
+      }
+      setCurrentHole(hole);
+    },
+    [buildAsYouPlay, setCurrentHole]
+  );
+
   // Network status
   const netInfo = useNetInfo();
   const isOnline = netInfo.isConnected ?? true;
@@ -181,11 +208,11 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Offline sync hook
   const { triggerSync } = useOfflineSync();
 
-  // Navigation hook
+  // Navigation hook (uses intercepted setCurrentHole for build-as-you-play)
   const nav = useScorecardNavigation({
     navigation,
     currentHole,
-    setCurrentHole,
+    setCurrentHole: interceptedSetCurrentHole,
     pendingSyncCount,
     onLeaveAttempt: dialogs.openLeaveDialog,
     triggerSync,
@@ -433,6 +460,18 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   // Get current hole data (needed for handlers and rendering)
   const currentHoleData = getHoleInfo(currentHole);
+
+  // Build-as-you-play save handler
+  const handleBuildAsYouPlaySave = useCallback(
+    async (updatedHole: Hole) => {
+      await buildAsYouPlay.handleSaveHoleSetup(updatedHole);
+      // After save, navigate to the hole that was pending
+      if (buildAsYouPlay.pendingHoleNumber) {
+        setCurrentHole(buildAsYouPlay.pendingHoleNumber);
+      }
+    },
+    [buildAsYouPlay, setCurrentHole]
+  );
 
   // Super admin hole editing handlers
   const handleEditHole = useCallback(() => {
@@ -689,7 +728,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       <SwipeableHoleNavigator
         currentHole={currentHole}
         totalHoles={18}
-        onHoleChange={setCurrentHole}
+        onHoleChange={interceptedSetCurrentHole}
         enabled={!isSyncing && !isLoading && !isQuickViewScrolling}
         renderHole={renderHoleContent}
       />
@@ -730,6 +769,19 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           selectedTee={selectedTee}
           onSave={handleSaveHole}
           loading={updateCourseHolesMutation.isPending}
+        />
+      )}
+
+      {/* Build-as-you-play hole setup modal */}
+      {buildAsYouPlay.enabled && buildAsYouPlay.pendingHoleNumber && (
+        <BuildCourseHoleModal
+          visible={buildAsYouPlay.showHoleSetupModal}
+          holeNumber={buildAsYouPlay.pendingHoleNumber}
+          selectedTeeName={buildAsYouPlay.selectedTeeName}
+          usedStrokeIndexes={buildAsYouPlay.usedStrokeIndexes}
+          isSaving={buildAsYouPlay.isSaving}
+          onSave={handleBuildAsYouPlaySave}
+          onSelectTee={buildAsYouPlay.handleSelectTee}
         />
       )}
 

@@ -67,7 +67,8 @@ interface UseCreateRoundWizardOptions {
     ballCount?: BallCount,
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
-    wolfConfig?: StandaloneWolfConfig
+    wolfConfig?: StandaloneWolfConfig,
+    isBuildAsYouPlay?: boolean
   ) => void;
   onClose: () => void;
 }
@@ -122,6 +123,9 @@ interface UseCreateRoundWizardReturn {
   handleBackToPartners: () => void;
   handleContinueToScoringSetup: () => void;
 
+  // Build as you play
+  setBuildAsYouPlay: (enabled: boolean) => void;
+
   // Actions
   handleStartScoring: () => void;
   handleClose: () => void;
@@ -145,6 +149,7 @@ const initialData: WizardData = {
   splitIntoTeams: false,
   wolfEnabled: false,
   wolfConfig: null,
+  isBuildAsYouPlay: false,
 };
 
 export function useCreateRoundWizard({
@@ -563,6 +568,11 @@ export function useCreateRoundWizard({
     }
   }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners, currentUserAsPartner, generateTeams]);
 
+  // Build as you play
+  const setBuildAsYouPlay = useCallback((enabled: boolean) => {
+    setData((prev) => ({ ...prev, isBuildAsYouPlay: enabled }));
+  }, []);
+
   // Navigation handlers
   const handleBackToCourse = useCallback(() => {
     setCurrentStep('course');
@@ -604,7 +614,11 @@ export function useCreateRoundWizard({
             data.selectedTee ?? undefined,
             data.selectedMatchType ?? undefined,
             undefined, // No scoring pairs for solo rounds
-            1 // Single ball
+            1, // Single ball
+            undefined,
+            undefined,
+            undefined,
+            data.isBuildAsYouPlay || undefined
           );
           resetState();
         }
@@ -612,7 +626,7 @@ export function useCreateRoundWizard({
     } else {
       setCurrentStep('scoringSetup');
     }
-  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, onStartRound, resetState, isSocialOrHigher]);
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, onStartRound, resetState, isSocialOrHigher]);
 
   // Ball count handlers (solo rounds only)
   const handleSelectBallCount = useCallback((ballCount: BallCount) => {
@@ -628,11 +642,15 @@ export function useCreateRoundWizard({
         data.selectedTee ?? undefined,
         data.selectedMatchType ?? undefined,
         undefined, // No scoring pairs for solo rounds
-        data.ballCount
+        data.ballCount,
+        undefined,
+        undefined,
+        undefined,
+        data.isBuildAsYouPlay || undefined
       );
       resetState();
     }
-  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, onStartRound, resetState]);
+  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, onStartRound, resetState]);
 
   // Action handlers
   const handleStartScoring = useCallback(() => {
@@ -705,7 +723,8 @@ export function useCreateRoundWizard({
         undefined, // ballCount is only for solo rounds
         standaloneSkinsConfig,
         teamConfig,
-        standaloneWolfConfig
+        standaloneWolfConfig,
+        data.isBuildAsYouPlay || undefined
       );
 
       resetState();
@@ -745,6 +764,7 @@ export function useCreateRoundWizard({
     handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,
+    setBuildAsYouPlay,
     handleStartScoring,
     handleClose,
   };
