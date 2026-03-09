@@ -338,15 +338,22 @@ class CoordinatesService {
     }
 
     try {
-      // Prepare coordinates with course_id
-      const coordsToUpsert: HoleCoordinateInsertDb[] = coordinates.map((coord) => ({
-        course_id: courseId,
-        hole_number: coord.hole_number,
-        poi_type: coord.poi_type,
-        latitude: coord.latitude,
-        longitude: coord.longitude,
-        side_of_fairway: coord.side_of_fairway || null,
-      }));
+      // Prepare coordinates with course_id, deduplicating by (hole_number, poi_type)
+      // to avoid "ON CONFLICT DO UPDATE cannot affect row a second time" errors
+      // (e.g. GolfAPI returns both location=1 and location=2 tees that map to tee_front)
+      const deduped = new Map<string, HoleCoordinateInsertDb>();
+      for (const coord of coordinates) {
+        const key = `${coord.hole_number}:${coord.poi_type}`;
+        deduped.set(key, {
+          course_id: courseId,
+          hole_number: coord.hole_number,
+          poi_type: coord.poi_type,
+          latitude: coord.latitude,
+          longitude: coord.longitude,
+          side_of_fairway: coord.side_of_fairway || null,
+        });
+      }
+      const coordsToUpsert = Array.from(deduped.values());
 
       // Use upsert with ON CONFLICT
       const { data, error } = await supabase

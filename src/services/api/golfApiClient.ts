@@ -33,6 +33,19 @@ import {
 } from './golfApiTypes';
 
 // =====================================================
+// COUNTRY MAPPING
+// =====================================================
+
+/**
+ * Map app country names to Golf API country names where they differ.
+ * Verified against Golf API v2.3 — all other supported countries match as-is.
+ */
+const GOLFAPI_COUNTRY_MAP: Record<string, string> = {
+  'United Kingdom': 'UK',
+  'United States': 'USA',
+};
+
+// =====================================================
 // ERROR CLASSES
 // =====================================================
 
@@ -461,9 +474,11 @@ class GolfApiClient {
   async searchClubs(
     params: GolfApiSearchParams
   ): Promise<GolfApiClubSearchResult[]> {
-    // Map 'query' to 'name' for the API (GolfAPI.io uses 'name' param)
+    const rawCountry = params.country || DEFAULT_COUNTRY;
+    const apiCountry = GOLFAPI_COUNTRY_MAP[rawCountry] ?? rawCountry;
+
     const searchParams: Record<string, unknown> = {
-      country: params.country || DEFAULT_COUNTRY,
+      country: apiCountry,
     };
 
     // GolfAPI.io uses 'name' parameter for club name search

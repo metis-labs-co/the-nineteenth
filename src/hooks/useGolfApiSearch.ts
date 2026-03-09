@@ -5,7 +5,7 @@
  * Results are transformed to match local ClubWithCourses shape for seamless merging.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { golfApiClient } from '@/services/api/golfApiClient';
 import type { GolfApiClubSearchResult } from '@/services/api/golfApiTypes';
 import type { RegionFilter } from '@/types/database.types';
@@ -128,6 +128,7 @@ export function useGolfApiSearch(
       }
     },
     enabled: enabled && searchQuery.length >= 3,
+    placeholderData: keepPreviousData, // Prevent flicker between debounced queries
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: false, // Don't retry API failures

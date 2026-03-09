@@ -104,6 +104,7 @@ export default function CourseListScreen() {
     isLoading: isSearching,
     isSearchingApi,
     error: searchError,
+    refetch: refetchSearch,
   // Only pass region to search when the country has regions defined
   } = useSearchClubs(searchQuery, getRegionsForCountry(country).length > 0 ? selectedState : undefined);
 
@@ -238,7 +239,10 @@ export default function CourseListScreen() {
   const handleRefresh = useCallback(() => {
     refetchAll();
     refetchFavorites();
-  }, [refetchAll, refetchFavorites]);
+    if (isSearchActive) {
+      refetchSearch();
+    }
+  }, [refetchAll, refetchFavorites, isSearchActive, refetchSearch]);
 
   const handleToggleFavorite = useCallback(
     async (course: CourseWithFavoriteStatus) => {
