@@ -118,6 +118,18 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `A round was tagged to ${data.league_name || 'your league'}`,
   },
+  partnership_created: {
+    icon: 'handshake',
+    getTitle: () => 'Partnership Created',
+    getMessage: (data) =>
+      `${data.partner_name || 'Someone'} created a partnership in ${data.league_name || 'your league'}`,
+  },
+  partnership_round_tagged: {
+    icon: 'handshake',
+    getTitle: () => 'Partnership Round Tagged',
+    getMessage: (data) =>
+      `A round was tagged for your partnership in ${data.league_name || 'your league'}`,
+  },
   league_leaderboard_changed: {
     icon: 'chart-bar',
     getTitle: () => 'Leaderboard Updated',

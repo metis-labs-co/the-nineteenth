@@ -26,6 +26,7 @@ const LEAGUE_TYPE_LABELS: Record<LeagueType, string> = {
   round_limit: 'Round Limit',
   ladder: 'Ladder',
   eclectic: 'Eclectic',
+  partnership: 'Partnership',
 };
 
 const getStatusVariant = (status: string) => {

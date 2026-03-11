@@ -17,7 +17,7 @@ import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
 
-import { LeaguePlayerRoundsModal } from '@/components/leagues';
+import { LeaguePlayerRoundsModal, PartnershipRoundsModal } from '@/components/leagues';
 
 import { useLeagueDetail } from './hooks/useLeagueDetail';
 import LeagueHeader from './components/LeagueHeader';
@@ -29,6 +29,9 @@ import ChallengesTab from './components/ChallengesTab';
 import EclecticLeaderboardTab from './components/EclecticLeaderboardTab';
 import MyCardTab from './components/MyCardTab';
 import StatsTab from './components/StatsTab';
+import PartnershipLeaderboardTab from './components/PartnershipLeaderboardTab';
+import PartnershipCourseBestsTab from './components/PartnershipCourseBestsTab';
+import PartnershipRoundsTab from './components/PartnershipRoundsTab';
 
 export default function LeagueDetailScreen() {
   const colors = useThemeColors();
@@ -60,6 +63,11 @@ export default function LeagueDetailScreen() {
     eclecticBestScores,
     eclecticCourseHoles,
     eclecticCourseName,
+    myPartnership,
+    partnershipLeaderboard,
+    partnershipCourseBests,
+    partnershipRounds: partnershipRoundsData,
+    selectedPartnershipEntry,
 
     // Tabs
     tabs,
@@ -81,6 +89,12 @@ export default function LeagueDetailScreen() {
     handleChallengePress,
     handleAcceptChallenge,
     handleDeclineChallenge,
+
+    // Partnership handlers
+    handlePartnershipSetup,
+    handlePartnershipLeaderboardPress,
+    handleClosePartnershipRoundsModal,
+    handleUntagPartnershipRound,
   } = useLeagueDetail();
 
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } =
@@ -144,7 +158,7 @@ export default function LeagueDetailScreen() {
         />
 
         {/* Standard Leaderboard (ongoing, season, round_limit) */}
-        {activeTab === 'leaderboard' && leagueType !== 'eclectic' && (
+        {activeTab === 'leaderboard' && leagueType !== 'eclectic' && leagueType !== 'partnership' && (
           <LeaderboardTab
             leaderboard={leaderboardWithTied}
             currentUserId={userId}
@@ -162,7 +176,7 @@ export default function LeagueDetailScreen() {
         )}
 
         {/* My Rounds tab (ongoing, season, round_limit) */}
-        {activeTab === 'rounds' && (
+        {activeTab === 'rounds' && leagueType !== 'partnership' && (
           <MyRoundsTab
             rounds={myRounds}
             leagueId={leagueId}
@@ -197,6 +211,33 @@ export default function LeagueDetailScreen() {
           />
         )}
 
+        {/* Partnership Leaderboard */}
+        {activeTab === 'leaderboard' && leagueType === 'partnership' && (
+          <PartnershipLeaderboardTab
+            leaderboard={partnershipLeaderboard}
+            currentUserId={userId}
+            onRowPress={handlePartnershipLeaderboardPress}
+          />
+        )}
+
+        {/* Partnership Course Bests */}
+        {activeTab === 'courseBests' && leagueType === 'partnership' && (
+          <PartnershipCourseBestsTab
+            courseBests={partnershipCourseBests}
+          />
+        )}
+
+        {/* Partnership Rounds */}
+        {activeTab === 'rounds' && leagueType === 'partnership' && (
+          <PartnershipRoundsTab
+            rounds={partnershipRoundsData}
+            partnership={myPartnership}
+            isArchived={!!isArchived}
+            onTagRound={myPartnership ? handleTagRound : handlePartnershipSetup}
+            onUntagRound={handleUntagPartnershipRound}
+          />
+        )}
+
         {/* My Card tab (eclectic) */}
         {activeTab === 'myCard' && (
           <MyCardTab
@@ -226,6 +267,15 @@ export default function LeagueDetailScreen() {
         visible={isModalVisible}
         content={welcomeContent}
         onDismiss={dismissModal}
+      />
+
+      {/* Partnership rounds modal */}
+      <PartnershipRoundsModal
+        visible={!!selectedPartnershipEntry}
+        onClose={handleClosePartnershipRoundsModal}
+        entry={selectedPartnershipEntry}
+        rounds={partnershipRoundsData}
+        isLoading={false}
       />
 
       {/* Player rounds modal (for standard leaderboard taps) */}

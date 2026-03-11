@@ -53,6 +53,13 @@ const LEAGUE_TYPES: LeagueTypeOption[] = [
     description: 'Best score per hole across multiple rounds.',
     premiumOnly: true,
   },
+  {
+    type: 'partnership',
+    icon: 'handshake',
+    label: 'Partnership',
+    description: 'Pairs compete with combined scores across courses.',
+    premiumOnly: true,
+  },
 ];
 
 interface LeagueTypeSelectorProps {

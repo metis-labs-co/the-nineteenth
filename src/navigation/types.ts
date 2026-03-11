@@ -83,6 +83,8 @@ export type RootStackParamList = {
   LeagueSettings: { leagueId: string };
   TagRoundToLeague: { leagueId: string };
   ChallengeDetail: { challengeId: string; leagueId: string };
+  PartnershipSetup: { leagueId: string };
+  TagPartnershipRound: { leagueId: string; partnershipId: string };
   FriendProfile: { friendId: string };
 
   // Stats Comparison

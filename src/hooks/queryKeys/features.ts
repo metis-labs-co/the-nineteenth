@@ -125,6 +125,12 @@ export const leagueKeys = {
   tagCount: (leagueId: string) => [...leagueKeys.all, 'tagCount', leagueId] as const,
   // Stats
   stats: (leagueId: string) => [...leagueKeys.all, 'stats', leagueId] as const,
+  // Partnership
+  partnerships: (leagueId: string) => [...leagueKeys.all, 'partnerships', leagueId] as const,
+  myPartnership: (leagueId: string) => [...leagueKeys.all, 'myPartnership', leagueId] as const,
+  partnershipLeaderboard: (leagueId: string) => [...leagueKeys.all, 'partnershipLb', leagueId] as const,
+  partnershipCourseBests: (leagueId: string) => [...leagueKeys.all, 'partnershipCB', leagueId] as const,
+  partnershipRounds: (partnershipId: string) => [...leagueKeys.all, 'partnershipRounds', partnershipId] as const,
 } as const;
 
 // =====================================================

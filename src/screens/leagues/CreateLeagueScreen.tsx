@@ -34,7 +34,7 @@ import { useTeesByCourse } from '@/hooks/useTees';
 import { CourseSelectionModal } from '@/components/competitionWizard/create/RoundDetailsStep/components/CourseSelectionModal';
 import { TeeSelectionModal } from '@/components/competitionWizard/create/RoundDetailsStep/components/TeeSelectionModal';
 import LeagueTypeSelector from '@/components/leagues/LeagueTypeSelector';
-import type { LeagueType, LadderSeeding, EclecticScoring, Tee } from '@/types/database';
+import type { LeagueType, LadderSeeding, EclecticScoring, PartnershipFormat, Tee } from '@/types/database';
 import type { TeeBox } from '@/types/database/base';
 import type { CourseWithFavoriteStatus, ClubCourseDisplayItem, SearchResultItem } from '@/hooks/clubs';
 import type { Club } from '@/types/database.types';
@@ -343,6 +343,73 @@ function EclecticConfig({
   );
 }
 
+function PartnershipConfig({
+  format,
+  onFormatChange,
+}: {
+  format: PartnershipFormat;
+  onFormatChange: (value: PartnershipFormat) => void;
+}) {
+  const colors = useThemeColors();
+
+  const formatOptions: { value: PartnershipFormat; label: string; description: string }[] = [
+    { value: 'combined_stroke', label: 'Combined Stroke', description: 'Both play own ball. Scores added together.' },
+    { value: 'scramble', label: 'Scramble', description: 'One team ball. Pick the best shot each time.' },
+    { value: 'shamble', label: 'Shamble', description: 'Best drive, then each plays own ball.' },
+    { value: 'best_ball', label: 'Best Ball', description: 'Both play own ball. Best net score counts.' },
+  ];
+
+  return (
+    <>
+      <FormSection noCard title="Format" description="How the partnership plays each round.">
+        <View style={styles.formatOptions}>
+          {formatOptions.map((option) => {
+            const isSelected = format === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => onFormatChange(option.value)}
+                style={[
+                  styles.formatCard,
+                  {
+                    backgroundColor: isSelected ? colors.primaryBackground : colors.surface,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+                accessibilityLabel={`${option.label} format`}
+                accessibilityState={{ selected: isSelected }}
+              >
+                <View style={styles.formatTextRow}>
+                  <Text style={[styles.formatLabel, { color: colors.textPrimary }]}>
+                    {option.label}
+                  </Text>
+                  {isSelected && <Icon source="check-circle" size={18} color={colors.primary} />}
+                </View>
+                <Text style={[styles.formatDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                  {option.description}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </FormSection>
+
+      <View style={[styles.infoBox, { backgroundColor: colors.primaryBackground }]}>
+        <Icon source="information-outline" size={20} color={colors.primary} />
+        <View style={styles.infoTextContainer}>
+          <Text style={[styles.infoTitle, { color: colors.primary }]}>
+            How It Works
+          </Text>
+          <Text style={[styles.infoDescription, { color: colors.textSecondary }]}>
+            Pairs form partnerships and tag rounds together. Target scores are calculated from combined handicaps. Leaderboard ranks by average target differential &mdash; lower is better.
+          </Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
 function OngoingConfig() {
   const colors = useThemeColors();
 
@@ -400,6 +467,8 @@ export default function CreateLeagueScreen() {
   // Ladder
   const [challengeRange, setChallengeRange] = useState(3);
   const [ladderSeeding, setLadderSeeding] = useState<LadderSeeding>('join_order');
+  // Partnership
+  const [partnershipFormat, setPartnershipFormat] = useState<PartnershipFormat>('combined_stroke');
   // Eclectic
   const [courseId, setCourseId] = useState<string | null>(null);
   const [courseName, setCourseName] = useState<string | null>(null);
@@ -473,10 +542,12 @@ export default function CreateLeagueScreen() {
         return challengeRange >= 1 && challengeRange <= 5;
       case 'eclectic':
         return !!courseId && (eclecticScoring === 'gross' || !!teeId);
+      case 'partnership':
+        return !!partnershipFormat;
       default:
         return true;
     }
-  }, [canProceedStep1, leagueType, startDate, endDate, maxRounds, challengeRange, courseId, eclecticScoring, teeId]);
+  }, [canProceedStep1, leagueType, startDate, endDate, maxRounds, challengeRange, courseId, eclecticScoring, teeId, partnershipFormat]);
 
   const handleCreate = useCallback(async () => {
     if (!canCreateLeague) return;
@@ -500,6 +571,8 @@ export default function CreateLeagueScreen() {
       input.course_id = courseId!;
       input.tee_id = eclecticScoring === 'net' ? teeId! : undefined;
       input.eclectic_scoring = eclecticScoring;
+    } else if (leagueType === 'partnership') {
+      input.partnership_format = partnershipFormat;
     }
 
     try {
@@ -511,7 +584,7 @@ export default function CreateLeagueScreen() {
   }, [
     canCreateLeague, name, description, leagueType, startDate, endDate,
     maxRounds, countingRounds, useBestOf, challengeRange, ladderSeeding,
-    courseId, teeId, eclecticScoring, createLeague, navigation,
+    courseId, teeId, eclecticScoring, partnershipFormat, createLeague, navigation,
   ]);
 
   const handleCoursePress = useCallback(() => {
@@ -663,6 +736,12 @@ export default function CreateLeagueScreen() {
                   onCoursePress={handleCoursePress}
                   onTeePress={handleTeePress}
                   onScoringChange={setEclecticScoring}
+                />
+              )}
+              {leagueType === 'partnership' && (
+                <PartnershipConfig
+                  format={partnershipFormat}
+                  onFormatChange={setPartnershipFormat}
                 />
               )}
             </View>
@@ -861,6 +940,26 @@ const styles = StyleSheet.create({
   infoDescription: {
     ...typography.small,
     lineHeight: 20,
+  },
+  formatOptions: {
+    gap: spacing.sm,
+  },
+  formatCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+  },
+  formatTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  formatLabel: {
+    ...typography.bodyBold,
+  },
+  formatDescription: {
+    ...typography.small,
   },
   footer: {
     paddingHorizontal: spacing.lg,

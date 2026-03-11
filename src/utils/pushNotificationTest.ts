@@ -87,6 +87,14 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
   league_leaderboard_changed: {
     leagueId: 'test-league-123',
   },
+  partnership_created: {
+    leagueId: 'test-league-123',
+    playerId: 'test-player-456',
+  },
+  partnership_round_tagged: {
+    leagueId: 'test-league-123',
+    playerId: 'test-player-456',
+  },
   round_completed: {
     competitionId: 'test-comp-123',
     roundId: 'test-round-789',
@@ -110,6 +118,8 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   league_player_removed: 'Removed from League',
   league_round_tagged: 'Round Tagged',
   league_leaderboard_changed: 'Ranking Changed',
+  partnership_created: 'Partnership Created',
+  partnership_round_tagged: 'Partnership Round Tagged',
   round_completed: 'Round Complete',
 };
 
@@ -130,6 +140,8 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   league_player_removed: 'You were removed from Test League',
   league_round_tagged: 'Test Player tagged a round to Test League (18.5)',
   league_leaderboard_changed: 'You moved up to #2 in Test League',
+  partnership_created: 'Test Player created a partnership in Test League',
+  partnership_round_tagged: 'Test Player tagged a round for your partnership in Test League',
   round_completed: 'All scorecards submitted for Round 1 of Test Competition',
 };
 

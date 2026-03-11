@@ -96,6 +96,8 @@ import JoinLeagueScreen from '@/screens/leagues/JoinLeagueScreen';
 import LeagueSettingsScreen from '@/screens/leagues/LeagueSettingsScreen';
 import TagRoundToLeagueScreen from '@/screens/leagues/TagRoundToLeagueScreen';
 import ChallengeDetailScreen from '@/screens/leagues/ChallengeDetailScreen';
+import PartnershipSetupScreen from '@/screens/leagues/PartnershipSetupScreen';
+import TagPartnershipRoundScreen from '@/screens/leagues/TagPartnershipRoundScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -610,6 +612,24 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={ChallengeDetailScreen}
               options={{
                 title: 'Challenge',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="PartnershipSetup"
+              component={PartnershipSetupScreen}
+              options={{
+                title: 'Choose Partner',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="TagPartnershipRound"
+              component={TagPartnershipRoundScreen}
+              options={{
+                title: 'Tag Round',
                 headerShown: false,
               }}
             />

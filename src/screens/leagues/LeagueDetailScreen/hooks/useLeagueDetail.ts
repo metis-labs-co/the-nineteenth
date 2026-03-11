@@ -27,13 +27,20 @@ import {
   useEclecticBestScores,
   usePlayerTagCount,
 } from '@/hooks/useLeagues';
+import {
+  useMyPartnership,
+  usePartnershipLeaderboard,
+  usePartnershipCourseBests,
+  usePartnershipRounds,
+  useUntagPartnershipRound,
+} from '@/hooks/usePartnershipLeague';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
-import type { LeagueLeaderboardEntry } from '@/types/database';
+import type { LeagueLeaderboardEntry, PartnershipLeaderboardEntry } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, 'LeagueDetail'>;
 
-export type LeagueTab = 'leaderboard' | 'rounds' | 'stats' | 'players' | 'ladder' | 'challenges' | 'myCard';
+export type LeagueTab = 'leaderboard' | 'rounds' | 'stats' | 'players' | 'ladder' | 'challenges' | 'myCard' | 'courseBests';
 
 export function useLeagueDetail() {
   const navigation = useNavigation<NavigationProp>();
@@ -69,6 +76,17 @@ export function useLeagueDetail() {
   const { data: eclecticLeaderboard, refetch: refetchEclectic } = useEclecticLeaderboard(leagueId, isEclectic);
   const { data: eclecticBestScores } = useEclecticBestScores(leagueId, user?.id, isEclectic);
 
+  // Partnership-specific data
+  const isPartnership = leagueType === 'partnership';
+  const { data: myPartnership, refetch: refetchMyPartnership } = useMyPartnership(leagueId, isPartnership);
+  const { data: partnershipLeaderboard, refetch: refetchPartnershipLb } = usePartnershipLeaderboard(leagueId, isPartnership);
+  const { data: partnershipCourseBests, refetch: refetchPartnershipCB } = usePartnershipCourseBests(leagueId, isPartnership);
+  const { data: partnershipRounds, refetch: refetchPartnershipRounds } = usePartnershipRounds(
+    myPartnership?.id ?? '',
+    isPartnership && !!myPartnership
+  );
+  const untagPartnershipRoundMutation = useUntagPartnershipRound(leagueId, myPartnership?.id ?? '');
+
   // Eclectic course details (holes, name)
   const { data: eclecticCourse } = useCourseDetails(league?.course_id ?? '', {
     enabled: isEclectic && !!league?.course_id,
@@ -95,6 +113,8 @@ export function useLeagueDetail() {
     if (isLadder) return 'ladder';
     return 'leaderboard';
   }, [isLadder]);
+
+  const [selectedPartnershipEntry, setSelectedPartnershipEntry] = useState<PartnershipLeaderboardEntry | null>(null);
 
   const [activeTab, setActiveTab] = useState<LeagueTab>(defaultTab);
   const [selectedPlayer, setSelectedPlayer] = useState<LeagueLeaderboardEntry | null>(null);
@@ -175,6 +195,13 @@ export function useLeagueDetail() {
           { key: 'myCard' as const, label: 'My Card' },
           { key: 'players' as const, label: 'Players' },
         ];
+      case 'partnership':
+        return [
+          { key: 'leaderboard' as const, label: 'Leaderboard' },
+          { key: 'courseBests' as const, label: 'Course Bests' },
+          { key: 'rounds' as const, label: 'My Rounds' },
+          { key: 'players' as const, label: 'Players' },
+        ];
       default:
         return [
           { key: 'leaderboard' as const, label: 'Leaderboard' },
@@ -190,8 +217,9 @@ export function useLeagueDetail() {
     if (isStandardType) refetchLeaderboard();
     if (isLadder) { refetchLadder(); refetchChallenges(); }
     if (isEclectic) refetchEclectic();
+    if (isPartnership) { refetchPartnershipLb(); refetchPartnershipCB(); refetchMyPartnership(); refetchPartnershipRounds(); }
     refetchRounds();
-  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, isStandardType, isLadder, isEclectic]);
+  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, refetchPartnershipLb, refetchPartnershipCB, refetchMyPartnership, refetchPartnershipRounds, isStandardType, isLadder, isEclectic, isPartnership]);
 
   const handleShare = useCallback(async () => {
     if (!league) return;
@@ -205,8 +233,35 @@ export function useLeagueDetail() {
   }, [league]);
 
   const handleTagRound = useCallback(() => {
-    navigation.navigate('TagRoundToLeague', { leagueId });
+    if (isPartnership && myPartnership) {
+      navigation.navigate('TagPartnershipRound', { leagueId, partnershipId: myPartnership.id });
+    } else {
+      navigation.navigate('TagRoundToLeague', { leagueId });
+    }
+  }, [navigation, leagueId, isPartnership, myPartnership]);
+
+  const handlePartnershipSetup = useCallback(() => {
+    navigation.navigate('PartnershipSetup', { leagueId });
   }, [navigation, leagueId]);
+
+  const handlePartnershipLeaderboardPress = useCallback((entry: PartnershipLeaderboardEntry) => {
+    setSelectedPartnershipEntry(entry);
+  }, []);
+
+  const handleClosePartnershipRoundsModal = useCallback(() => {
+    setSelectedPartnershipEntry(null);
+  }, []);
+
+  const handleUntagPartnershipRound = useCallback(
+    async (roundId: string) => {
+      try {
+        await untagPartnershipRoundMutation.mutateAsync(roundId);
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
+      }
+    },
+    [untagPartnershipRoundMutation]
+  );
 
   const handleSettings = useCallback(() => {
     navigation.navigate('LeagueSettings', { leagueId });
@@ -334,6 +389,11 @@ export function useLeagueDetail() {
     eclecticBestScores: eclecticBestScores ?? [],
     eclecticCourseHoles,
     eclecticCourseName,
+    myPartnership: myPartnership ?? null,
+    partnershipLeaderboard: partnershipLeaderboard ?? [],
+    partnershipCourseBests: partnershipCourseBests ?? [],
+    partnershipRounds: partnershipRounds ?? [],
+    selectedPartnershipEntry,
 
     // Tab state
     tabs,
@@ -355,5 +415,11 @@ export function useLeagueDetail() {
     handleChallengePress,
     handleAcceptChallenge,
     handleDeclineChallenge,
+
+    // Partnership handlers
+    handlePartnershipSetup,
+    handlePartnershipLeaderboardPress,
+    handleClosePartnershipRoundsModal,
+    handleUntagPartnershipRound,
   };
 }
