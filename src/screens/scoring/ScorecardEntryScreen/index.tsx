@@ -21,7 +21,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { useStatsVisibilityWithTier } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useOfflineSync, useRoundData, useTeamScoring } from '@/hooks/scorecard';
 import {

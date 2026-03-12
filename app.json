@@ -19,6 +19,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
       "buildNumber": "3",
+      "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
         "applinks:thenineteenth.golf",
@@ -158,10 +159,12 @@
           "cameraPermission": "Allow The Nineteenth to take photos for your profile picture."
         }
       ],
+      "expo-apple-authentication",
       "expo-sqlite",
       "expo-font",
       "expo-local-authentication",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

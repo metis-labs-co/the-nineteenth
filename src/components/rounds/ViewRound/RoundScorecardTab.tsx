@@ -13,7 +13,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useWindowDimensions } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibilityWithTier } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
