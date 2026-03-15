@@ -45,6 +45,8 @@ export default function PartnershipRoundsTab({
         icon="handshake"
         title="No Partnership"
         message="Form a partnership first to start tagging rounds."
+        actionLabel="Form Partnership"
+        onAction={onTagRound}
       />
     );
   }

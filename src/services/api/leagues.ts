@@ -884,6 +884,34 @@ export async function deleteLeague(leagueId: string): Promise<void> {
 }
 
 /**
+ * Admin: Add players to a league (by player IDs)
+ */
+export async function addPlayersToLeague(
+  leagueId: string,
+  playerIds: string[]
+): Promise<void> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('You must be logged in');
+
+  if (playerIds.length === 0) return;
+
+  const inserts = playerIds.map((playerId) => ({
+    league_id: leagueId,
+    player_id: playerId,
+    status: 'accepted' as const,
+    joined_at: new Date().toISOString(),
+  }));
+
+  const { error } = await from('league_players')
+    .upsert(inserts, { onConflict: 'league_id,player_id' });
+
+  if (error) {
+    console.error('[Leagues] Error adding players:', error);
+    throw new Error(`Failed to add players: ${error.message}`);
+  }
+}
+
+/**
  * Admin: Update league name/description
  */
 export async function updateLeague(

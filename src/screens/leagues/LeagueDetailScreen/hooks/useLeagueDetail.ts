@@ -115,6 +115,8 @@ export function useLeagueDetail() {
   }, [isLadder]);
 
   const [selectedPartnershipEntry, setSelectedPartnershipEntry] = useState<PartnershipLeaderboardEntry | null>(null);
+  const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [showStartRound, setShowStartRound] = useState(false);
 
   const [activeTab, setActiveTab] = useState<LeagueTab>(defaultTab);
   const [selectedPlayer, setSelectedPlayer] = useState<LeagueLeaderboardEntry | null>(null);
@@ -217,9 +219,9 @@ export function useLeagueDetail() {
     if (isStandardType) refetchLeaderboard();
     if (isLadder) { refetchLadder(); refetchChallenges(); }
     if (isEclectic) refetchEclectic();
-    if (isPartnership) { refetchPartnershipLb(); refetchPartnershipCB(); refetchMyPartnership(); refetchPartnershipRounds(); }
+    if (isPartnership) { refetchPartnershipLb(); refetchPartnershipCB(); refetchMyPartnership(); if (myPartnership) refetchPartnershipRounds(); }
     refetchRounds();
-  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, refetchPartnershipLb, refetchPartnershipCB, refetchMyPartnership, refetchPartnershipRounds, isStandardType, isLadder, isEclectic, isPartnership]);
+  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, refetchPartnershipLb, refetchPartnershipCB, refetchMyPartnership, refetchPartnershipRounds, isStandardType, isLadder, isEclectic, isPartnership, myPartnership]);
 
   const handleShare = useCallback(async () => {
     if (!league) return;
@@ -262,6 +264,23 @@ export function useLeagueDetail() {
     },
     [untagPartnershipRoundMutation]
   );
+
+  const handleOpenAddPlayers = useCallback(() => {
+    setShowAddPlayers(true);
+  }, []);
+
+  const handleCloseAddPlayers = useCallback(() => {
+    setShowAddPlayers(false);
+  }, []);
+
+  // Start Round Now
+  const handleStartRoundNow = useCallback(() => {
+    setShowStartRound(true);
+  }, []);
+
+  const handleCloseStartRound = useCallback(() => {
+    setShowStartRound(false);
+  }, []);
 
   const handleSettings = useCallback(() => {
     navigation.navigate('LeagueSettings', { leagueId });
@@ -421,5 +440,15 @@ export function useLeagueDetail() {
     handlePartnershipLeaderboardPress,
     handleClosePartnershipRoundsModal,
     handleUntagPartnershipRound,
+
+    // Add players
+    showAddPlayers,
+    handleOpenAddPlayers,
+    handleCloseAddPlayers,
+
+    // Start round now
+    showStartRound,
+    handleStartRoundNow,
+    handleCloseStartRound,
   };
 }

@@ -6,18 +6,22 @@
  * Eclectic: Leaderboard | My Card | Players
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { IconGolf } from '@tabler/icons-react-native';
 import { PageHeader } from '@/components/common/PageHeader';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { FeatureButton } from '@/components/common/FeatureButton';
 import { Tabs } from '@/components/common/Tabs';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
+import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
+import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks/useStartNewRound';
 
-import { LeaguePlayerRoundsModal, PartnershipRoundsModal } from '@/components/leagues';
+import { LeaguePlayerRoundsModal, PartnershipRoundsModal, AddLeaguePlayersBottomSheet } from '@/components/leagues';
 
 import { useLeagueDetail } from './hooks/useLeagueDetail';
 import LeagueHeader from './components/LeagueHeader';
@@ -95,7 +99,40 @@ export default function LeagueDetailScreen() {
     handlePartnershipLeaderboardPress,
     handleClosePartnershipRoundsModal,
     handleUntagPartnershipRound,
+
+    // Add players
+    showAddPlayers,
+    handleOpenAddPlayers,
+    handleCloseAddPlayers,
+
+    // Start round now
+    showStartRound,
+    handleStartRoundNow,
+    handleCloseStartRound,
   } = useLeagueDetail();
+
+  // Start new round with pending league tag
+  const {
+    handleStartNewRound,
+    dialogConfig: startRoundDialogConfig,
+    dismissDialog: dismissStartRoundDialog,
+  } = useStartNewRound(() => {
+    handleCloseStartRound();
+  }, leagueId);
+
+  // For partnership leagues, auto-add the partner to the round
+  const initialPartners = useMemo(() => {
+    if (leagueType !== 'partnership' || !myPartnership || !userId) return undefined;
+    const partnership = myPartnership as typeof myPartnership & {
+      player_1?: { id: string; name: string };
+      player_2?: { id: string; name: string };
+    };
+    // Determine which player is the partner (not the current user)
+    const partner =
+      partnership.player_1_id === userId ? partnership.player_2 : partnership.player_1;
+    if (!partner) return undefined;
+    return [{ id: partner.id, name: partner.name }];
+  }, [leagueType, myPartnership, userId]);
 
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } =
     useScreenWelcome('leagueDetail');
@@ -256,12 +293,27 @@ export default function LeagueDetailScreen() {
             players={players}
             league={league}
             isCreator={!!isCreator}
+            isArchived={!!isArchived}
             currentUserId={userId}
             leaderboard={leaderboardWithTied}
             onLeave={handleLeave}
+            onAddPlayers={handleOpenAddPlayers}
           />
         )}
       </ScrollView>
+
+      {/* Start Round Now - sticky bottom button */}
+      {!isArchived && (
+        <View style={styles.featureButtonContainer}>
+          <FeatureButton
+            title="Start Round Now"
+            subtitle={`Play a round for ${league.name}`}
+            icon={<IconGolf size={24} color={colors.white} strokeWidth={2} />}
+            onPress={handleStartRoundNow}
+            accessibilityLabel="Start a round for this league"
+          />
+        </View>
+      )}
 
       <ScreenWelcomeModal
         visible={isModalVisible}
@@ -277,6 +329,27 @@ export default function LeagueDetailScreen() {
         rounds={partnershipRoundsData}
         isLoading={false}
       />
+
+      {/* Add players bottom sheet */}
+      <AddLeaguePlayersBottomSheet
+        visible={showAddPlayers}
+        onClose={handleCloseAddPlayers}
+        leagueId={leagueId}
+        existingPlayerIds={players?.map((p) => p.player_id) ?? []}
+      />
+
+      {/* Start Round Bottom Sheet */}
+      <CreateRoundBottomSheet
+        visible={showStartRound}
+        onClose={handleCloseStartRound}
+        onStartRound={handleStartNewRound}
+        initialPartners={initialPartners}
+        initialMatchType="stableford"
+        skipPartnerStep
+      />
+
+      {/* Start Round Error Dialog */}
+      <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
 
       {/* Player rounds modal (for standard leaderboard taps) */}
       <LeaguePlayerRoundsModal
@@ -311,6 +384,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing.xxxl,
+  },
+  featureButtonContainer: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   tabBar: {
     marginHorizontal: spacing.lg,

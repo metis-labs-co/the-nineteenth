@@ -30,6 +30,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 
 // Step components
 import WelcomeStep from './components/WelcomeStep';
+import NameCaptureStep from './components/NameCaptureStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
 import BiometricStep from './components/BiometricStep';
@@ -51,11 +52,17 @@ export interface StepProps {
   isLastStep: boolean;
   handicap: string;
   setHandicap: (value: string) => void;
+  firstName: string;
+  setFirstName: (value: string) => void;
+  lastName: string;
+  setLastName: (value: string) => void;
+  playerName?: string;
   isSubmitting: boolean;
 }
 
 const STEPS: StepItem[] = [
   { key: 'welcome', component: WelcomeStep },
+  { key: 'name', component: NameCaptureStep },
   { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
   { key: 'biometric', component: BiometricStep },
@@ -66,11 +73,13 @@ const STEPS: StepItem[] = [
 export default function OnboardingScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { updateProfile } = useAuth();
+  const { updateProfile, player } = useAuth();
 
   const flatListRef = useRef<FlatList>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [handicap, setHandicap] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handle viewable items change (for progress dots)
@@ -114,10 +123,13 @@ export default function OnboardingScreen() {
 
         console.log('[OnboardingScreen] Updating profile with handicap:', handicapValue);
 
-        // Save handicap and home club in a single update to avoid race conditions
-        const profileUpdate: { handicap: number; home_club_id?: string } = {
+        // Save handicap, name, and home club in a single update to avoid race conditions
+        const profileUpdate: { handicap: number; name?: string; home_club_id?: string } = {
           handicap: handicapValue,
         };
+        if (firstName.trim() || lastName.trim()) {
+          profileUpdate.name = `${firstName.trim()} ${lastName.trim()}`.trim();
+        }
         if (homeClubId) {
           profileUpdate.home_club_id = homeClubId;
         }
@@ -133,7 +145,7 @@ export default function OnboardingScreen() {
       }
       // Note: Don't set isSubmitting to false on success - let navigation happen
     },
-    [handicap, updateProfile, isSubmitting]
+    [handicap, firstName, lastName, updateProfile, isSubmitting]
   );
 
   // Skip entire onboarding
@@ -161,12 +173,17 @@ export default function OnboardingScreen() {
             isLastStep={index === STEPS.length - 1}
             handicap={handicap}
             setHandicap={setHandicap}
+            firstName={firstName}
+            setFirstName={setFirstName}
+            lastName={lastName}
+            setLastName={setLastName}
+            playerName={player?.name}
             isSubmitting={isSubmitting}
           />
         </View>
       );
     },
-    [handleNext, handleComplete, handleSkip, handicap, isSubmitting]
+    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, player?.name, isSubmitting]
   );
 
   return (

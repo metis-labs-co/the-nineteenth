@@ -12,5 +12,6 @@ export { PartnershipLeaderboardRow } from './PartnershipLeaderboardRow';
 export { PartnershipRoundCard } from './PartnershipRoundCard';
 export { PartnershipRoundsModal } from './PartnershipRoundsModal';
 export { DifficultyLevelSelector } from './DifficultyLevelSelector';
+export { default as AddLeaguePlayersBottomSheet } from './AddLeaguePlayersBottomSheet';
 
 export type { LeaguePlayerRoundsModalProps } from './LeaguePlayerRoundsModal';

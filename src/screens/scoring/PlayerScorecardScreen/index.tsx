@@ -26,7 +26,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibilityWithTier } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { scoringLogger } from '@/utils/debugLogger';

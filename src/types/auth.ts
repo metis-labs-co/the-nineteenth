@@ -34,6 +34,25 @@ export interface AuthState {
 }
 
 // =====================================================
+// SOCIAL AUTH
+// =====================================================
+
+/**
+ * Supported social login providers
+ */
+export type SocialProvider = 'apple' | 'google';
+
+/**
+ * Social login response (success)
+ */
+export interface SocialLoginResponse {
+  user: User;
+  session: Session;
+  player: Player;
+  isNewUser: boolean;
+}
+
+// =====================================================
 // AUTH INPUTS
 // =====================================================
 
@@ -205,6 +224,12 @@ export interface UseAuthReturn extends AuthState {
   sendOtp: (credentials: OtpCredentials) => Promise<OtpResponse>;
   verifyOtp: (credentials: OtpVerifyCredentials) => Promise<OtpVerifyResponse>;
   logout: () => Promise<void>;
+
+  // Social Auth
+  loginWithApple: () => Promise<SocialLoginResponse>;
+  loginWithGoogle: () => Promise<SocialLoginResponse>;
+  isSocialLoggingIn: boolean;
+  isAppleAvailable: boolean;
 
   // Password Management
   resetPassword: (request: PasswordResetRequest) => Promise<PasswordResetResponse>;

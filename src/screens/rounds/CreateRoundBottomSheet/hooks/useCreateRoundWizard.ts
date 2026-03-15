@@ -57,6 +57,11 @@ const OPTIONAL_TEAM_FORMATS: GameType[] = ['scramble', 'shamble', 'match-play'];
 interface UseCreateRoundWizardOptions {
   visible: boolean;
   initialCourse?: InitialCourse;
+  initialPartners?: PlayingPartner[];
+  /** Pre-selected match type — locks it and skips the match type step */
+  initialMatchType?: import('@/types/database.types').GameType;
+  /** Skip partner selection — starts the round immediately after tee selection */
+  skipPartnerStep?: boolean;
   onStartRound: (
     courseId: string,
     courseName: string,
@@ -150,6 +155,9 @@ const initialData: WizardData = {
 export function useCreateRoundWizard({
   visible,
   initialCourse,
+  initialPartners,
+  initialMatchType,
+  skipPartnerStep,
   onStartRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
@@ -235,21 +243,63 @@ export function useCreateRoundWizard({
           selectedCourse: courseData,
         }));
 
-        // Go to tee selection if tees available, otherwise match type
+        // Go to tee selection if tees available, otherwise match type (or skip if locked)
+        // Note: never auto-start round from initial effect — always let user pick tee or confirm course
         if (courseToUse.tees && courseToUse.tees.length > 0) {
           setCurrentStep('tee');
+        } else if (initialMatchType && skipPartnerStep) {
+          // Both match type and partners are pre-set, no tees — show tee step so user
+          // can tap "Skip tee selection" which will trigger startRoundWithCurrentState
+          setCurrentStep('tee');
         } else {
-          setCurrentStep('matchType');
+          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
         }
       }
     }
-  }, [visible, initialCourse, homeClub]);
+  }, [visible, initialCourse, homeClub, initialMatchType, skipPartnerStep]);
+
+  // Pre-populate partners when sheet opens (e.g. from partnership league)
+  useEffect(() => {
+    if (visible && initialPartners && initialPartners.length > 0) {
+      setData((prev) => ({
+        ...prev,
+        selectedPartners: initialPartners,
+      }));
+    }
+  }, [visible, initialPartners]);
+
+  // Pre-populate match type when sheet opens (e.g. from league)
+  useEffect(() => {
+    if (visible && initialMatchType) {
+      setData((prev) => ({
+        ...prev,
+        selectedMatchType: initialMatchType,
+      }));
+    }
+  }, [visible, initialMatchType]);
 
   // Reset state helper
   const resetState = useCallback(() => {
     setData(initialData);
     setCurrentStep('course');
   }, []);
+
+  // Start round immediately with current state (used when partner step is skipped)
+  const startRoundWithCurrentState = useCallback((
+    course: SelectedCourse,
+    tee: TeeBox | null,
+    partners: PlayingPartner[],
+    matchType: GameType | null,
+  ) => {
+    onStartRound(
+      course.courseId,
+      course.courseName,
+      partners,
+      tee ?? undefined,
+      matchType ?? undefined,
+    );
+    resetState();
+  }, [onStartRound, resetState]);
 
   // Course selection handlers
   const setSearchQuery = useCallback((query: string) => {
@@ -272,14 +322,16 @@ export function useCreateRoundWizard({
         searchQuery: '',
       }));
 
-      // If course has tees, go to tee selection; otherwise skip to match type
+      // If course has tees, go to tee selection; otherwise skip to match type (or skip if locked)
       if (course.tees && course.tees.length > 0) {
         setCurrentStep('tee');
+      } else if (initialMatchType && skipPartnerStep) {
+        startRoundWithCurrentState(courseData, null, initialPartners ?? [], initialMatchType);
       } else {
-        setCurrentStep('matchType');
+        setCurrentStep(initialMatchType ? 'partners' : 'matchType');
       }
     },
-    []
+    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState]
   );
 
   const handleSelectFavoriteCourse = useCallback(
@@ -298,26 +350,53 @@ export function useCreateRoundWizard({
         searchQuery: '',
       }));
 
-      // If course has tees, go to tee selection; otherwise skip to match type
+      // If course has tees, go to tee selection; otherwise skip to match type (or skip if locked)
       if (course.tees && course.tees.length > 0) {
         setCurrentStep('tee');
+      } else if (initialMatchType && skipPartnerStep) {
+        startRoundWithCurrentState(courseData, null, initialPartners ?? [], initialMatchType);
       } else {
-        setCurrentStep('matchType');
+        setCurrentStep(initialMatchType ? 'partners' : 'matchType');
       }
     },
-    []
+    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState]
   );
 
   // Tee selection handlers
   const handleSelectTee = useCallback((tee: TeeBox) => {
-    setData((prev) => ({ ...prev, selectedTee: tee }));
-    setCurrentStep('matchType');
-  }, []);
+    if (initialMatchType && skipPartnerStep) {
+      // Both match type and partners are pre-set — start the round immediately
+      setData((prev) => {
+        startRoundWithCurrentState(
+          prev.selectedCourse!,
+          tee,
+          prev.selectedPartners,
+          initialMatchType,
+        );
+        return { ...prev, selectedTee: tee };
+      });
+    } else {
+      setData((prev) => ({ ...prev, selectedTee: tee }));
+      setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+    }
+  }, [initialMatchType, skipPartnerStep, startRoundWithCurrentState]);
 
   const handleSkipTeeSelection = useCallback(() => {
-    setData((prev) => ({ ...prev, selectedTee: null }));
-    setCurrentStep('matchType');
-  }, []);
+    if (initialMatchType && skipPartnerStep) {
+      setData((prev) => {
+        startRoundWithCurrentState(
+          prev.selectedCourse!,
+          null,
+          prev.selectedPartners,
+          initialMatchType,
+        );
+        return { ...prev, selectedTee: null };
+      });
+    } else {
+      setData((prev) => ({ ...prev, selectedTee: null }));
+      setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+    }
+  }, [initialMatchType, skipPartnerStep, startRoundWithCurrentState]);
 
   // Match type selection
   const handleSelectMatchType = useCallback((matchType: GameType) => {
@@ -579,9 +658,18 @@ export function useCreateRoundWizard({
   }, []);
 
   const handleBackToMatchType = useCallback(() => {
-    setCurrentStep('matchType');
-    setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-  }, []);
+    if (initialMatchType) {
+      // Match type is locked — skip back to tee (or course if no tees)
+      setData((prev) => {
+        const hasTees = prev.selectedCourse?.tees && prev.selectedCourse.tees.length > 0;
+        setCurrentStep(hasTees ? 'tee' : 'course');
+        return { ...prev, friendSearchQuery: '' };
+      });
+    } else {
+      setCurrentStep('matchType');
+      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
+    }
+  }, [initialMatchType]);
 
   const handleBackToPartners = useCallback(() => {
     setCurrentStep('partners');

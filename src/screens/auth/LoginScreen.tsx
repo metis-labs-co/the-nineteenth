@@ -10,6 +10,7 @@ import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FormInput, AppIcon, LogoHorizontal } from '@/components/common';
+import { SocialLoginButtons, OrDivider } from '@/components/auth';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
@@ -41,7 +42,7 @@ export default function LoginScreen({ navigation }: Props) {
   const isDark = useIsDark();
 
   // Auth hook
-  const { login, sendOtp, verifyOtp, isAuthenticating } = useAuth();
+  const { login, sendOtp, verifyOtp, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleAvailable } = useAuth();
 
   // Form state
   const [email, setEmail] = useState('');
@@ -226,11 +227,41 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   /**
+   * Handle Apple social login
+   */
+  const handleAppleLogin = async () => {
+    setError(null);
+    try {
+      await loginWithApple();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('ERR_CANCELED') || message.includes('canceled')) return;
+      setError('Apple sign in failed. Please try again.');
+    }
+  };
+
+  /**
+   * Handle Google social login
+   */
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      await loginWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('ERR_CANCELED') || message.includes('canceled')) return;
+      setError('Google sign in failed. Please try again.');
+    }
+  };
+
+  /**
    * Navigate to signup screen
    */
   const handleNavigateToSignup = () => {
     navigation.navigate('Signup');
   };
+
+  const allLoading = isAuthenticating || isSocialLoggingIn;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -248,6 +279,17 @@ export default function LoginScreen({ navigation }: Props) {
               <AppIcon size={190} />
               <LogoHorizontal width={240} variant={isDark ? 'light' : 'dark'} />
             </View>
+
+            {/* Social Login Buttons */}
+            <SocialLoginButtons
+              onApplePress={handleAppleLogin}
+              onGooglePress={handleGoogleLogin}
+              isLoading={isSocialLoggingIn}
+              isAppleAvailable={isAppleAvailable}
+              disabled={allLoading}
+            />
+
+            <OrDivider />
 
             {/* Error Message */}
             {error && (

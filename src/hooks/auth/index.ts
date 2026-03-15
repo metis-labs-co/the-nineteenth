@@ -10,6 +10,7 @@
 export { useAuthSession } from './useAuthSession';
 export { useAuthUser } from './useAuthUser';
 export { useAuthMutations } from './useAuthMutations';
+export { useSocialAuth } from './useSocialAuth';
 export { usePasswordReset } from './usePasswordReset';
 export { useProfileMutations } from './useProfileMutations';
 

@@ -56,6 +56,9 @@ export default function CreateRoundBottomSheet({
   onClose,
   onStartRound,
   initialCourse,
+  initialPartners,
+  initialMatchType,
+  skipPartnerStep,
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
 
@@ -63,6 +66,9 @@ export default function CreateRoundBottomSheet({
   const wizard = useCreateRoundWizard({
     visible,
     initialCourse,
+    initialPartners,
+    initialMatchType,
+    skipPartnerStep,
     onStartRound,
     onClose,
   });
@@ -158,11 +164,21 @@ export default function CreateRoundBottomSheet({
           // - With partners: course → tee → matchType → partners → scoringSetup
           // - Solo with ballCount step: course → tee → matchType → partners → ballCount
           // - Solo without ballCount: course → tee → matchType → partners
-          wizard.data.selectedPartners.length > 0
-            ? (['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const)
-            : wizard.currentStep === 'ballCount'
-              ? (['course', 'tee', 'matchType', 'partners', 'ballCount'] as const)
-              : (['course', 'tee', 'matchType', 'partners'] as const)
+          // - When initialMatchType is set: matchType step is skipped
+          // - When skipPartnerStep is set: partners/scoringSetup/ballCount steps are skipped
+          (() => {
+            let steps: readonly string[];
+            if (skipPartnerStep) {
+              steps = ['course', 'tee', 'matchType'];
+            } else if (wizard.data.selectedPartners.length > 0) {
+              steps = ['course', 'tee', 'matchType', 'partners', 'scoringSetup'];
+            } else if (wizard.currentStep === 'ballCount') {
+              steps = ['course', 'tee', 'matchType', 'partners', 'ballCount'];
+            } else {
+              steps = ['course', 'tee', 'matchType', 'partners'];
+            }
+            return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
+          })()
         ).map((step, index, arr) => (
           <React.Fragment key={step}>
             <View
