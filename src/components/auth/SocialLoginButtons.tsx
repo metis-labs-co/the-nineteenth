@@ -6,72 +6,29 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { IconBrandApple, IconBrandGoogle } from '@tabler/icons-react-native';
+import { IconBrandGoogle } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 
 interface SocialLoginButtonsProps {
-  onApplePress: () => void;
   onGooglePress: () => void;
   isLoading: boolean;
-  isAppleAvailable: boolean;
   disabled?: boolean;
 }
 
 export function SocialLoginButtons({
-  onApplePress,
   onGooglePress,
   isLoading,
-  isAppleAvailable,
   disabled = false,
 }: SocialLoginButtonsProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   const isDisabled = disabled || isLoading;
 
   return (
     <View style={styles.container}>
-      {/* Apple Sign In - iOS only */}
-      {Platform.OS === 'ios' && isAppleAvailable && (
-        <TouchableOpacity
-          style={[
-            styles.button,
-            {
-              backgroundColor: isDark ? colors.white : '#000000',
-            },
-            isDisabled && styles.buttonDisabled,
-          ]}
-          onPress={onApplePress}
-          disabled={isDisabled}
-          activeOpacity={0.8}
-          accessibilityLabel="Continue with Apple"
-          accessibilityRole="button"
-        >
-          {isLoading ? (
-            <ActivityIndicator size={20} color={isDark ? '#000000' : colors.white} />
-          ) : (
-            <>
-              <IconBrandApple
-                size={20}
-                color={isDark ? '#000000' : '#FFFFFF'}
-                fill={isDark ? '#000000' : '#FFFFFF'}
-              />
-              <Text
-                style={[
-                  styles.buttonText,
-                  { color: isDark ? '#000000' : '#FFFFFF' },
-                ]}
-              >
-                Continue with Apple
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-
       {/* Google Sign In - All platforms */}
       <TouchableOpacity
         style={[
