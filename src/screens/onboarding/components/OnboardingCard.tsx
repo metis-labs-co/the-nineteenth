@@ -93,6 +93,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 0.6,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
   title: {

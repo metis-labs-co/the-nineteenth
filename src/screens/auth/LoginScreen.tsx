@@ -51,7 +51,7 @@ export default function LoginScreen({ navigation }: Props) {
 
   // UI state
   const [error, setError] = useState<string | null>(null);
-  const [useOtp, setUseOtp] = useState(false);
+  const [useOtp, setUseOtp] = useState(true);
   const [otpSent, setOtpSent] = useState(false);
 
   // Validation state
@@ -282,10 +282,8 @@ export default function LoginScreen({ navigation }: Props) {
 
             {/* Social Login Buttons */}
             <SocialLoginButtons
-              onApplePress={handleAppleLogin}
               onGooglePress={handleGoogleLogin}
               isLoading={isSocialLoggingIn}
-              isAppleAvailable={isAppleAvailable}
               disabled={allLoading}
             />
 
@@ -443,7 +441,7 @@ export default function LoginScreen({ navigation }: Props) {
                     textColor={colors.textSecondary}
                     accessibilityLabel={useOtp ? 'Use password instead' : 'Use email code instead'}
                   >
-                    {useOtp ? 'Use password instead' : 'Sign in with email code'}
+                    {useOtp ? 'Sign in with password' : 'Sign in with email code'}
                   </Button>
                 </>
               )}

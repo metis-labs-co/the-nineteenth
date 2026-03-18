@@ -181,6 +181,11 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   const shouldSearchApi =
     !localQuery.isLoading && (localResults?.length ?? 0) < 3 && debouncedQuery.length >= 3;
 
+  // Log search decision for debugging
+  if (debouncedQuery.length >= 3 && !localQuery.isLoading) {
+    console.log(`[useSearchClubs] query="${debouncedQuery}", localResults=${localResults?.length ?? 0}, shouldSearchApi=${shouldSearchApi}`);
+  }
+
   // GolfAPI.io search (using debounced query)
   const apiQuery = useGolfApiSearch(debouncedQuery, state, shouldSearchApi);
 

@@ -3,7 +3,7 @@
     "name": "The Nineteenth",
     "slug": "the-nineteenth",
     "scheme": "thenineteenth",
-    "version": "1.1.1",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,12 +18,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "3",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
-        "applinks:thenineteenth.golf",
-        "applinks:www.thenineteenth.golf",
         "applinks:thenineteenth.golf",
         "applinks:www.thenineteenth.golf"
       ],
@@ -35,18 +33,11 @@
         "NSLocationWhenInUseUsageDescription": "Allow The Nineteenth to find nearby golf courses.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
-          {
-            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": [
-              "CA92.1"
-            ]
-          },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
             "NSPrivacyAccessedAPITypeReasons": [
@@ -58,22 +49,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1f2937"
       },
       "package": "com.the.nineteenth.golf",
       "versionCode": 1,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -105,26 +86,6 @@
             "BROWSABLE",
             "DEFAULT"
           ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "thenineteenth.golf",
-              "pathPrefix": "/app/auth"
-            },
-            {
-              "scheme": "https",
-              "host": "www.thenineteenth.golf",
-              "pathPrefix": "/app/auth"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
         }
       ]
     },
@@ -135,7 +96,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/icon.png",
           "color": "#2563eb"
         }
       ],

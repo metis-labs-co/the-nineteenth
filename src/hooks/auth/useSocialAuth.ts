@@ -2,27 +2,26 @@
  * useSocialAuth - Social Authentication Hook
  *
  * Handles Apple and Google social login mutations.
- * Follows the same pattern as useAuthMutations.ts.
+ * - Apple: Uses native iOS flow (expo-apple-authentication) → signInWithIdToken
+ * - Google: Uses Supabase server-side OAuth flow (signInWithOAuth) → deep link callback
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/services/supabase/client';
 import { authKeys } from '../queryKeys';
 import { ensurePlayerProfile } from './utils';
 import {
   signInWithAppleNative,
   isAppleSignInAvailable,
-  GOOGLE_DISCOVERY,
-  getGoogleClientId,
 } from '@/services/auth/socialAuth';
 import type { Player } from '@/types/database.types';
 import type { SocialLoginResponse } from '@/types/auth';
 
-// Required for Google auth session on web
+// Ensure any in-progress auth session completes on web
 WebBrowser.maybeCompleteAuthSession();
 
 /**
@@ -38,20 +37,6 @@ export function useSocialAuth() {
       isAppleSignInAvailable().then(setAppleAvailable);
     }
   }, []);
-
-  // Set up Google auth request
-  const googleClientId = getGoogleClientId();
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'thenineteenth' });
-
-  const [googleRequest, googleResponse, googlePromptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: googleClientId || '',
-      redirectUri,
-      scopes: ['openid', 'profile', 'email'],
-      responseType: AuthSession.ResponseType.IdToken,
-    },
-    GOOGLE_DISCOVERY
-  );
 
   /**
    * Shared success handler for social login mutations
@@ -141,26 +126,56 @@ export function useSocialAuth() {
 
   /**
    * Mutation: Google Sign In
+   *
+   * Uses Supabase's server-side OAuth flow:
+   * 1. Supabase generates a Google OAuth URL with its own https:// callback
+   * 2. User signs in via in-app browser
+   * 3. Google redirects to Supabase callback
+   * 4. Supabase redirects to app via deep link with session tokens
    */
   const googleLoginMutation = useMutation({
     mutationFn: async (): Promise<SocialLoginResponse> => {
-      // Prompt Google sign-in
-      const result = await googlePromptAsync();
+      // The deep link URL that Supabase will redirect to after OAuth completes
+      const redirectTo = makeRedirectUri({ scheme: 'thenineteenth', path: 'google-auth' });
+      console.log('[Google Auth] redirectTo:', redirectTo);
 
-      if (result.type === 'dismiss' || result.type === 'cancel') {
+      // Start Supabase OAuth flow - this gives us a URL to open
+      const { data: oauthData, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true, // We'll handle the browser ourselves
+        },
+      });
+
+      if (oauthError) throw oauthError;
+      if (!oauthData.url) throw new Error('Google Sign In failed: No OAuth URL returned');
+
+      // Open the OAuth URL in an in-app browser
+      // preferEphemeralSession skips the iOS "wants to use" consent dialog
+      const result = await WebBrowser.openAuthSessionAsync(oauthData.url, redirectTo, {
+        preferEphemeralSession: true,
+      });
+
+      if (result.type !== 'success') {
         throw new Error('ERR_CANCELED');
       }
 
-      if (result.type !== 'success' || !result.params?.id_token) {
-        throw new Error('Google Sign In failed: No ID token returned');
+      // Extract tokens from the redirect URL
+      // Supabase appends #access_token=...&refresh_token=... to the redirect
+      const url = result.url;
+      const params = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '');
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (!accessToken || !refreshToken) {
+        throw new Error('Google Sign In failed: No tokens in redirect URL');
       }
 
-      const idToken = result.params.id_token;
-
-      // Sign in with Supabase using the Google ID token
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: idToken,
+      // Set the session in Supabase
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
       });
 
       if (error) throw error;
@@ -219,7 +234,7 @@ export function useSocialAuth() {
 
     // Availability
     isAppleAvailable: appleAvailable,
-    isGoogleAvailable: !!googleRequest,
+    isGoogleAvailable: true,
 
     // Errors
     appleError: appleLoginMutation.error,

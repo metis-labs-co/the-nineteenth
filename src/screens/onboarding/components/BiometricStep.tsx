@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -80,9 +80,24 @@ export function BiometricStep({ onNext }: StepProps) {
     onNext();
   };
 
-  // Don't render while checking availability (will auto-skip if unavailable)
+  // Show loading while checking availability (will auto-skip if unavailable)
   if (isChecking) {
-    return null;
+    return (
+      <OnboardingCard
+        illustration={
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: colors.primaryLight },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        }
+        title="Secure Your App"
+        description="Checking biometric availability..."
+      />
+    );
   }
 
   const isFaceId = biometricType === 'facial';

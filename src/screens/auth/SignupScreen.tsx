@@ -12,10 +12,10 @@ import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconMail } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { PageHeader, FormInput, AppIcon, LogoHorizontal } from '@/components/common';
+import { PageHeader, FormInput } from '@/components/common';
 import { SocialLoginButtons, OrDivider } from '@/components/auth';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/constants/app';
@@ -34,7 +34,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 export default function SignupScreen({ navigation }: Props) {
   // Theme colors
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   // Auth hook
   const { signup, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleAvailable } = useAuth();
@@ -207,11 +206,12 @@ export default function SignupScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={[]}>
       <PageHeader
         title="Sign Up"
         showBack={true}
         onBack={handleBackToLogin}
+        skipTopInset
       />
 
       <KeyboardAvoidingView
@@ -223,26 +223,18 @@ export default function SignupScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Logo */}
-            <View style={styles.logoContainer}>
-              <AppIcon size={190} />
-              <LogoHorizontal width={200} variant={isDark ? 'light' : 'dark'} />
-            </View>
-
-            {/* Header Section */}
+            {/* Header */}
             <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>Create Account</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>Sign up with socials</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Join The Nineteenth and start organising golf competitions
+                The quickest way to get started — no password needed
               </Text>
             </View>
 
             {/* Social Login Buttons */}
             <SocialLoginButtons
-              onApplePress={handleAppleLogin}
               onGooglePress={handleGoogleLogin}
               isLoading={isSocialLoggingIn}
-              isAppleAvailable={isAppleAvailable}
               disabled={allLoading}
             />
 
@@ -372,16 +364,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  logoContainer: {
-    alignItems: 'center',
+  header: {
     marginBottom: spacing.lg,
   },
-  header: {
-    marginBottom: spacing.xl,
-  },
   title: {
-    ...typography.h2,
-    marginBottom: spacing.sm,
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.body,

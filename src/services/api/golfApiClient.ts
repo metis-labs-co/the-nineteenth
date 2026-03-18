@@ -235,8 +235,13 @@ class GolfApiClient {
   public isAvailable(): boolean {
     try {
       this.ensureConfigured();
-      return Boolean(this.config.apiKey && this.config.baseUrl);
-    } catch {
+      const available = Boolean(this.config.apiKey && this.config.baseUrl);
+      if (!available) {
+        console.error(`[GolfAPI] isAvailable=false: apiKey=${this.config.apiKey ? 'SET' : 'MISSING'}, baseUrl=${this.config.baseUrl || 'MISSING'}`);
+      }
+      return available;
+    } catch (error) {
+      console.error('[GolfAPI] isAvailable=false: configuration error:', (error as Error).message);
       return false;
     }
   }
@@ -341,9 +346,8 @@ class GolfApiClient {
 
     const url = this.buildUrl(endpoint, method === 'GET' ? params : undefined);
 
-    this.log(`${method} ${endpoint}`, params);
-    this.log(`Base URL: ${this.config.baseUrl}`);
-    this.log(`Full URL: ${url}`);
+    console.log(`[GolfAPI] ${method} ${url}`);
+    this.log(`Params:`, params);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -365,9 +369,12 @@ class GolfApiClient {
 
       clearTimeout(timeoutId);
 
+      console.log(`[GolfAPI] Response: ${response.status} ${response.statusText}`);
+
       // Handle authentication errors (401, 403)
       if (response.status === 401 || response.status === 403) {
         const error = await this.parseErrorResponse(response);
+        console.error(`[GolfAPI] AUTH ERROR ${response.status}: ${error.message}. API key may be expired or invalid.`);
         throw new AuthenticationError(
           response.status as 401 | 403,
           error.message
@@ -376,6 +383,7 @@ class GolfApiClient {
 
       // Handle not found (404)
       if (response.status === 404) {
+        console.error(`[GolfAPI] NOT FOUND: ${endpoint}`);
         throw new NotFoundError(
           resourceInfo?.type || 'unknown',
           resourceInfo?.id,
@@ -401,12 +409,14 @@ class GolfApiClient {
           ),
         };
         this._apiRequestsLeft = 0;
+        console.error(`[GolfAPI] RATE LIMITED: retry after ${retryAfter}s`);
         throw new RateLimitError(rateLimitError);
       }
 
       // Handle other errors
       if (!response.ok) {
         const error = await this.parseErrorResponse(response);
+        console.error(`[GolfAPI] ERROR ${response.status}: ${error.message}`);
         throw new GolfApiClientError(error);
       }
 
@@ -511,7 +521,9 @@ class GolfApiClient {
       { type: 'club' }
     );
 
-    return response.clubs || [];
+    const clubs = response.clubs || [];
+    console.log(`[GolfAPI] searchClubs: ${clubs.length} clubs found for query="${searchParams.name}", country="${searchParams.country}"`);
+    return clubs;
   }
 
   /**

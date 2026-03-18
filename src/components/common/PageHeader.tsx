@@ -84,6 +84,8 @@ export interface PageHeaderProps {
   backgroundColor?: string;
   /** Optional: Custom title color */
   titleColor?: string;
+  /** Skip top safe area inset (useful for modal screens) */
+  skipTopInset?: boolean;
 }
 
 export function PageHeader({
@@ -97,6 +99,7 @@ export function PageHeader({
   rightContent,
   backgroundColor,
   titleColor,
+  skipTopInset = false,
 }: PageHeaderProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -115,7 +118,8 @@ export function PageHeader({
   const HEADER_HEIGHT = subtitle ? BASE_HEADER_HEIGHT + 18 : BASE_HEADER_HEIGHT;
 
   // Total height including safe area
-  const totalHeight = HEADER_HEIGHT + insets.top;
+  const topInset = skipTopInset ? 0 : insets.top;
+  const totalHeight = HEADER_HEIGHT + topInset;
 
   const isCentered = variant === 'centered';
 
@@ -170,7 +174,7 @@ export function PageHeader({
         styles.container,
         {
           minHeight: totalHeight,
-          paddingTop: insets.top,
+          paddingTop: topInset,
           backgroundColor: bgColor,
           borderBottomColor: colors.border,
         },
