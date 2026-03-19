@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -17,6 +17,7 @@ interface PartnershipRoundsTabProps {
   isArchived: boolean;
   onTagRound: () => void;
   onUntagRound?: (roundId: string) => void;
+  onRenamePartnership?: (name: string) => void;
 }
 
 export default function PartnershipRoundsTab({
@@ -25,6 +26,7 @@ export default function PartnershipRoundsTab({
   isArchived,
   onTagRound,
   onUntagRound,
+  onRenamePartnership,
 }: PartnershipRoundsTabProps) {
   const colors = useThemeColors();
 
@@ -37,6 +39,33 @@ export default function PartnershipRoundsTab({
         { text: 'Remove', style: 'destructive', onPress: () => onUntagRound?.(roundId) },
       ]
     );
+  };
+
+  const handleRename = () => {
+    if (!onRenamePartnership) return;
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Rename Partnership',
+        'Enter a new name for your partnership.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Save',
+            onPress: (value?: string) => {
+              if (value?.trim()) onRenamePartnership(value.trim());
+            },
+          },
+        ],
+        'plain-text',
+        partnership?.name ?? ''
+      );
+    } else {
+      // Android: Alert.prompt not available, use simple alert with instructions
+      Alert.alert(
+        'Rename Partnership',
+        `Current name: "${partnership?.name ?? ''}"\n\nTo rename, please use the partnership settings.`
+      );
+    }
   };
 
   if (!partnership) {
@@ -53,6 +82,20 @@ export default function PartnershipRoundsTab({
 
   return (
     <View style={styles.container}>
+      {/* Partnership name with edit */}
+      <TouchableOpacity
+        onPress={handleRename}
+        style={[styles.partnershipNameRow, { backgroundColor: colors.surface }]}
+        activeOpacity={0.7}
+        accessibilityLabel="Rename partnership"
+      >
+        <Icon source="handshake" size={18} color={colors.primary} />
+        <Text style={[styles.partnershipName, { color: colors.textPrimary }]} numberOfLines={1}>
+          {partnership.name}
+        </Text>
+        <Icon source="pencil-outline" size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
+
       {!isArchived && (
         <TouchableOpacity
           onPress={onTagRound}
@@ -90,6 +133,19 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  partnershipNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+  },
+  partnershipName: {
+    ...typography.bodyBold,
+    flex: 1,
   },
   tagButton: {
     flexDirection: 'row',

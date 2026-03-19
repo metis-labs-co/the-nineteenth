@@ -218,6 +218,23 @@ export async function createPartnership(
 }
 
 /**
+ * Update a partnership's display name
+ */
+export async function updatePartnershipName(partnershipId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Partnership name cannot be empty');
+
+  const { error } = await from('league_partnerships')
+    .update({ name: trimmed, updated_at: new Date().toISOString() })
+    .eq('id', partnershipId);
+
+  if (error) {
+    console.error('[PartnershipLeagues] Error updating partnership name:', error);
+    throw new Error(`Failed to update partnership name: ${error.message}`);
+  }
+}
+
+/**
  * Dissolve (deactivate) a partnership
  */
 export async function dissolvePartnership(partnershipId: string): Promise<void> {

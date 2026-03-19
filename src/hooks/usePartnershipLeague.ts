@@ -14,6 +14,7 @@ import {
   getPartnershipRounds,
   createPartnership,
   dissolvePartnership,
+  updatePartnershipName,
   tagPartnershipRound,
   untagPartnershipRound,
 } from '@/services/api/partnershipLeagues';
@@ -100,6 +101,23 @@ export function useDissolvePartnership(leagueId: string) {
     },
     onError: (error) => {
       console.error('[useDissolvePartnership] Failed:', error);
+    },
+  });
+}
+
+export function useUpdatePartnershipName(leagueId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ partnershipId, name }: { partnershipId: string; name: string }) =>
+      updatePartnershipName(partnershipId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leagueKeys.myPartnership(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.partnerships(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.partnershipLeaderboard(leagueId) });
+    },
+    onError: (error) => {
+      console.error('[useUpdatePartnershipName] Failed:', error);
     },
   });
 }

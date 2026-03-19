@@ -1,7 +1,7 @@
 /**
  * useLeagueDetail - Data fetching, state, and callbacks for LeagueDetailScreen
  *
- * Supports all league types: ongoing, season, round_limit, ladder, eclectic
+ * Supports all league types: ongoing, season, round_limit, ladder, eclectic, partnership
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -33,6 +33,7 @@ import {
   usePartnershipCourseBests,
   usePartnershipRounds,
   useUntagPartnershipRound,
+  useUpdatePartnershipName,
 } from '@/hooks/usePartnershipLeague';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import type { LeagueLeaderboardEntry, PartnershipLeaderboardEntry } from '@/types/database';
@@ -78,6 +79,7 @@ export function useLeagueDetail() {
 
   // Partnership-specific data
   const isPartnership = leagueType === 'partnership';
+  const [selectedPartnershipEntry, setSelectedPartnershipEntry] = useState<PartnershipLeaderboardEntry | null>(null);
   const { data: myPartnership, refetch: refetchMyPartnership } = useMyPartnership(leagueId, isPartnership);
   const { data: partnershipLeaderboard, refetch: refetchPartnershipLb } = usePartnershipLeaderboard(leagueId, isPartnership);
   const { data: partnershipCourseBests, refetch: refetchPartnershipCB } = usePartnershipCourseBests(leagueId, isPartnership);
@@ -85,7 +87,12 @@ export function useLeagueDetail() {
     myPartnership?.id ?? '',
     isPartnership && !!myPartnership
   );
+  const { data: selectedPartnershipRounds, isLoading: isLoadingSelectedPartnershipRounds } = usePartnershipRounds(
+    selectedPartnershipEntry?.partnership_id ?? '',
+    isPartnership && !!selectedPartnershipEntry
+  );
   const untagPartnershipRoundMutation = useUntagPartnershipRound(leagueId, myPartnership?.id ?? '');
+  const updatePartnershipNameMutation = useUpdatePartnershipName(leagueId);
 
   // Eclectic course details (holes, name)
   const { data: eclecticCourse } = useCourseDetails(league?.course_id ?? '', {
@@ -114,7 +121,6 @@ export function useLeagueDetail() {
     return 'leaderboard';
   }, [isLadder]);
 
-  const [selectedPartnershipEntry, setSelectedPartnershipEntry] = useState<PartnershipLeaderboardEntry | null>(null);
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const [showStartRound, setShowStartRound] = useState(false);
 
@@ -265,6 +271,18 @@ export function useLeagueDetail() {
     [untagPartnershipRoundMutation]
   );
 
+  const handleRenamePartnership = useCallback(
+    async (name: string) => {
+      if (!myPartnership) return;
+      try {
+        await updatePartnershipNameMutation.mutateAsync({ partnershipId: myPartnership.id, name });
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
+      }
+    },
+    [myPartnership, updatePartnershipNameMutation]
+  );
+
   const handleOpenAddPlayers = useCallback(() => {
     setShowAddPlayers(true);
   }, []);
@@ -406,6 +424,7 @@ export function useLeagueDetail() {
     hasActiveChallenge,
     eclecticLeaderboard: eclecticLeaderboard ?? [],
     eclecticBestScores: eclecticBestScores ?? [],
+    eclecticCourse: eclecticCourse ?? null,
     eclecticCourseHoles,
     eclecticCourseName,
     myPartnership: myPartnership ?? null,
@@ -413,6 +432,8 @@ export function useLeagueDetail() {
     partnershipCourseBests: partnershipCourseBests ?? [],
     partnershipRounds: partnershipRounds ?? [],
     selectedPartnershipEntry,
+    selectedPartnershipRounds: selectedPartnershipRounds ?? [],
+    isLoadingSelectedPartnershipRounds,
 
     // Tab state
     tabs,
@@ -440,6 +461,7 @@ export function useLeagueDetail() {
     handlePartnershipLeaderboardPress,
     handleClosePartnershipRoundsModal,
     handleUntagPartnershipRound,
+    handleRenamePartnership,
 
     // Add players
     showAddPlayers,

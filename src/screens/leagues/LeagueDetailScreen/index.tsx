@@ -4,6 +4,7 @@
  * Ongoing/Season/Round Limit: Leaderboard | My Rounds | Players
  * Ladder: Ladder | Challenges | Players
  * Eclectic: Leaderboard | My Card | Players
+ * Partnership: Leaderboard | Course Bests | My Rounds | Players
  */
 
 import React, { useMemo } from 'react';
@@ -65,6 +66,7 @@ export default function LeagueDetailScreen() {
     hasActiveChallenge,
     eclecticLeaderboard,
     eclecticBestScores,
+    eclecticCourse,
     eclecticCourseHoles,
     eclecticCourseName,
     myPartnership,
@@ -72,6 +74,8 @@ export default function LeagueDetailScreen() {
     partnershipCourseBests,
     partnershipRounds: partnershipRoundsData,
     selectedPartnershipEntry,
+    selectedPartnershipRounds,
+    isLoadingSelectedPartnershipRounds,
 
     // Tabs
     tabs,
@@ -99,6 +103,7 @@ export default function LeagueDetailScreen() {
     handlePartnershipLeaderboardPress,
     handleClosePartnershipRoundsModal,
     handleUntagPartnershipRound,
+    handleRenamePartnership,
 
     // Add players
     showAddPlayers,
@@ -133,6 +138,19 @@ export default function LeagueDetailScreen() {
     if (!partner) return undefined;
     return [{ id: partner.id, name: partner.name }];
   }, [leagueType, myPartnership, userId]);
+
+  const isPartnership = leagueType === 'partnership';
+
+  // For eclectic leagues, pre-select the league's required course
+  const eclecticInitialCourse = useMemo(() => {
+    if (leagueType !== 'eclectic' || !eclecticCourse) return undefined;
+    return {
+      courseId: eclecticCourse.id,
+      courseName: eclecticCourse.name,
+      club: eclecticCourse.club,
+      tees: eclecticCourse.tees,
+    };
+  }, [leagueType, eclecticCourse]);
 
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } =
     useScreenWelcome('leagueDetail');
@@ -272,6 +290,7 @@ export default function LeagueDetailScreen() {
             isArchived={!!isArchived}
             onTagRound={myPartnership ? handleTagRound : handlePartnershipSetup}
             onUntagRound={handleUntagPartnershipRound}
+            onRenamePartnership={handleRenamePartnership}
           />
         )}
 
@@ -326,8 +345,8 @@ export default function LeagueDetailScreen() {
         visible={!!selectedPartnershipEntry}
         onClose={handleClosePartnershipRoundsModal}
         entry={selectedPartnershipEntry}
-        rounds={partnershipRoundsData}
-        isLoading={false}
+        rounds={selectedPartnershipRounds}
+        isLoading={isLoadingSelectedPartnershipRounds}
       />
 
       {/* Add players bottom sheet */}
@@ -343,9 +362,10 @@ export default function LeagueDetailScreen() {
         visible={showStartRound}
         onClose={handleCloseStartRound}
         onStartRound={handleStartNewRound}
-        initialPartners={initialPartners}
-        initialMatchType="stableford"
-        skipPartnerStep
+        initialPartners={isPartnership ? initialPartners : undefined}
+        initialMatchType={isPartnership ? 'stableford' : undefined}
+        skipPartnerStep={isPartnership}
+        initialCourse={eclecticInitialCourse}
       />
 
       {/* Start Round Error Dialog */}
