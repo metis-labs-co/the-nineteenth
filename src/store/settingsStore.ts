@@ -33,6 +33,9 @@ interface SettingsState {
   // Developer settings
   debugModeEnabled: boolean;
 
+  // Pending league tags: roundId → leagueId (auto-tag after scorecard submission)
+  pendingLeagueTags: Record<string, string>;
+
   // Actions
   setDistanceUnit: (unit: DistanceUnit) => void;
   setShowPutts: (show: boolean) => void;
@@ -42,6 +45,8 @@ interface SettingsState {
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
+  setPendingLeagueTag: (roundId: string, leagueId: string) => void;
+  clearPendingLeagueTag: (roundId: string) => void;
   resetToDefaults: () => void;
 }
 
@@ -54,6 +59,7 @@ const DEFAULT_SETTINGS = {
   countryOverride: null as string | null,
   biometricEnabled: false,
   debugModeEnabled: false,
+  pendingLeagueTags: {} as Record<string, string>,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -78,6 +84,17 @@ export const useSettingsStore = create<SettingsState>()(
       setBiometricEnabled: (enabled) => set({ biometricEnabled: enabled }),
 
       setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
+
+      setPendingLeagueTag: (roundId, leagueId) =>
+        set((state) => ({
+          pendingLeagueTags: { ...state.pendingLeagueTags, [roundId]: leagueId },
+        })),
+
+      clearPendingLeagueTag: (roundId) =>
+        set((state) => {
+          const { [roundId]: _, ...rest } = state.pendingLeagueTags;
+          return { pendingLeagueTags: rest };
+        }),
 
       resetToDefaults: () => set((state) => ({ ...DEFAULT_SETTINGS, biometricEnabled: state.biometricEnabled })),
     }),

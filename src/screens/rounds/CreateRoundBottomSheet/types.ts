@@ -160,6 +160,12 @@ export interface CreateRoundBottomSheetProps {
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;
+  /** Pre-selected partners to add to the round automatically */
+  initialPartners?: PlayingPartner[];
+  /** Pre-selected match type — locks the match type step (skips it) */
+  initialMatchType?: GameType;
+  /** Skip the partner selection step entirely — starts the round after tee selection */
+  skipPartnerStep?: boolean;
 }
 
 /**

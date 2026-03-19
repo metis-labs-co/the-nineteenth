@@ -116,6 +116,18 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getMessage: (data) =>
       `${data.player_name || 'Someone'} tagged a round to ${data.league_name || 'a league'}${data.handicap_differential ? ` (${data.handicap_differential})` : ''}`,
   },
+  partnership_created: {
+    icon: 'handshake',
+    getTitle: (_data) => 'Partnership Created',
+    getMessage: (data) =>
+      `${data.partner_name || 'Someone'} created a partnership in ${data.league_name || 'a league'}`,
+  },
+  partnership_round_tagged: {
+    icon: 'handshake',
+    getTitle: (_data) => 'Partnership Round Tagged',
+    getMessage: (data) =>
+      `${data.player_name || 'Someone'} tagged a round for your partnership in ${data.league_name || 'a league'}`,
+  },
   league_leaderboard_changed: {
     icon: 'podium',
     getTitle: (_data) => 'Ranking Changed',

@@ -89,6 +89,10 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
   league_round_tagged: 'LeagueDetail',
   league_leaderboard_changed: 'LeagueDetail',
 
+  // Partnership notifications -> LeagueDetail
+  partnership_created: 'LeagueDetail',
+  partnership_round_tagged: 'LeagueDetail',
+
   // Round completed -> ViewRound
   round_completed: 'ViewRound',
 };
@@ -559,6 +563,8 @@ export function getCategoryForNotificationType(
     case 'league_player_removed':
     case 'league_round_tagged':
     case 'league_leaderboard_changed':
+    case 'partnership_created':
+    case 'partnership_round_tagged':
       return NotificationCategories.LEAGUE;
 
     default:

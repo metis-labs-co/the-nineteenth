@@ -313,6 +313,13 @@ export type {
   EclecticBestScore,
   EclecticLeaderboardEntry,
   LeagueStatsResponse,
+  PartnershipFormat,
+  DifficultyLevel,
+  PartnershipStatus,
+  LeaguePartnership,
+  PartnershipRound,
+  PartnershipLeaderboardEntry,
+  PartnershipCourseBest,
 } from './league.types';
 
 // Schema type

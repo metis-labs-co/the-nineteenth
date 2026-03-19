@@ -4,20 +4,25 @@
  * Ongoing/Season/Round Limit: Leaderboard | My Rounds | Players
  * Ladder: Ladder | Challenges | Players
  * Eclectic: Leaderboard | My Card | Players
+ * Partnership: Leaderboard | Course Bests | My Rounds | Players
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { IconGolf } from '@tabler/icons-react-native';
 import { PageHeader } from '@/components/common/PageHeader';
-import { LoadingSpinner } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { FeatureButton } from '@/components/common/FeatureButton';
 import { Tabs } from '@/components/common/Tabs';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
+import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
+import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks/useStartNewRound';
 
-import { LeaguePlayerRoundsModal } from '@/components/leagues';
+import { LeaguePlayerRoundsModal, PartnershipRoundsModal, AddLeaguePlayersBottomSheet } from '@/components/leagues';
 
 import { useLeagueDetail } from './hooks/useLeagueDetail';
 import LeagueHeader from './components/LeagueHeader';
@@ -29,6 +34,9 @@ import ChallengesTab from './components/ChallengesTab';
 import EclecticLeaderboardTab from './components/EclecticLeaderboardTab';
 import MyCardTab from './components/MyCardTab';
 import StatsTab from './components/StatsTab';
+import PartnershipLeaderboardTab from './components/PartnershipLeaderboardTab';
+import PartnershipCourseBestsTab from './components/PartnershipCourseBestsTab';
+import PartnershipRoundsTab from './components/PartnershipRoundsTab';
 
 export default function LeagueDetailScreen() {
   const colors = useThemeColors();
@@ -58,8 +66,16 @@ export default function LeagueDetailScreen() {
     hasActiveChallenge,
     eclecticLeaderboard,
     eclecticBestScores,
+    eclecticCourse,
     eclecticCourseHoles,
     eclecticCourseName,
+    myPartnership,
+    partnershipLeaderboard,
+    partnershipCourseBests,
+    partnershipRounds: partnershipRoundsData,
+    selectedPartnershipEntry,
+    selectedPartnershipRounds,
+    isLoadingSelectedPartnershipRounds,
 
     // Tabs
     tabs,
@@ -81,7 +97,60 @@ export default function LeagueDetailScreen() {
     handleChallengePress,
     handleAcceptChallenge,
     handleDeclineChallenge,
+
+    // Partnership handlers
+    handlePartnershipSetup,
+    handlePartnershipLeaderboardPress,
+    handleClosePartnershipRoundsModal,
+    handleUntagPartnershipRound,
+    handleRenamePartnership,
+
+    // Add players
+    showAddPlayers,
+    handleOpenAddPlayers,
+    handleCloseAddPlayers,
+
+    // Start round now
+    showStartRound,
+    handleStartRoundNow,
+    handleCloseStartRound,
   } = useLeagueDetail();
+
+  // Start new round with pending league tag
+  const {
+    handleStartNewRound,
+    dialogConfig: startRoundDialogConfig,
+    dismissDialog: dismissStartRoundDialog,
+  } = useStartNewRound(() => {
+    handleCloseStartRound();
+  }, leagueId);
+
+  // For partnership leagues, auto-add the partner to the round
+  const initialPartners = useMemo(() => {
+    if (leagueType !== 'partnership' || !myPartnership || !userId) return undefined;
+    const partnership = myPartnership as typeof myPartnership & {
+      player_1?: { id: string; name: string };
+      player_2?: { id: string; name: string };
+    };
+    // Determine which player is the partner (not the current user)
+    const partner =
+      partnership.player_1_id === userId ? partnership.player_2 : partnership.player_1;
+    if (!partner) return undefined;
+    return [{ id: partner.id, name: partner.name }];
+  }, [leagueType, myPartnership, userId]);
+
+  const isPartnership = leagueType === 'partnership';
+
+  // For eclectic leagues, pre-select the league's required course
+  const eclecticInitialCourse = useMemo(() => {
+    if (leagueType !== 'eclectic' || !eclecticCourse) return undefined;
+    return {
+      courseId: eclecticCourse.id,
+      courseName: eclecticCourse.name,
+      club: eclecticCourse.club,
+      tees: eclecticCourse.tees,
+    };
+  }, [leagueType, eclecticCourse]);
 
   const { isModalVisible, dismissModal, showModal, isFirstVisit, content: welcomeContent } =
     useScreenWelcome('leagueDetail');
@@ -144,7 +213,7 @@ export default function LeagueDetailScreen() {
         />
 
         {/* Standard Leaderboard (ongoing, season, round_limit) */}
-        {activeTab === 'leaderboard' && leagueType !== 'eclectic' && (
+        {activeTab === 'leaderboard' && leagueType !== 'eclectic' && leagueType !== 'partnership' && (
           <LeaderboardTab
             leaderboard={leaderboardWithTied}
             currentUserId={userId}
@@ -162,7 +231,7 @@ export default function LeagueDetailScreen() {
         )}
 
         {/* My Rounds tab (ongoing, season, round_limit) */}
-        {activeTab === 'rounds' && (
+        {activeTab === 'rounds' && leagueType !== 'partnership' && (
           <MyRoundsTab
             rounds={myRounds}
             leagueId={leagueId}
@@ -197,6 +266,34 @@ export default function LeagueDetailScreen() {
           />
         )}
 
+        {/* Partnership Leaderboard */}
+        {activeTab === 'leaderboard' && leagueType === 'partnership' && (
+          <PartnershipLeaderboardTab
+            leaderboard={partnershipLeaderboard}
+            currentUserId={userId}
+            onRowPress={handlePartnershipLeaderboardPress}
+          />
+        )}
+
+        {/* Partnership Course Bests */}
+        {activeTab === 'courseBests' && leagueType === 'partnership' && (
+          <PartnershipCourseBestsTab
+            courseBests={partnershipCourseBests}
+          />
+        )}
+
+        {/* Partnership Rounds */}
+        {activeTab === 'rounds' && leagueType === 'partnership' && (
+          <PartnershipRoundsTab
+            rounds={partnershipRoundsData}
+            partnership={myPartnership}
+            isArchived={!!isArchived}
+            onTagRound={myPartnership ? handleTagRound : handlePartnershipSetup}
+            onUntagRound={handleUntagPartnershipRound}
+            onRenamePartnership={handleRenamePartnership}
+          />
+        )}
+
         {/* My Card tab (eclectic) */}
         {activeTab === 'myCard' && (
           <MyCardTab
@@ -215,18 +312,64 @@ export default function LeagueDetailScreen() {
             players={players}
             league={league}
             isCreator={!!isCreator}
+            isArchived={!!isArchived}
             currentUserId={userId}
             leaderboard={leaderboardWithTied}
             onLeave={handleLeave}
+            onAddPlayers={handleOpenAddPlayers}
           />
         )}
       </ScrollView>
+
+      {/* Start Round Now - sticky bottom button */}
+      {!isArchived && (
+        <View style={styles.featureButtonContainer}>
+          <FeatureButton
+            title="Start Round Now"
+            subtitle={`Play a round for ${league.name}`}
+            icon={<IconGolf size={24} color={colors.white} strokeWidth={2} />}
+            onPress={handleStartRoundNow}
+            accessibilityLabel="Start a round for this league"
+          />
+        </View>
+      )}
 
       <ScreenWelcomeModal
         visible={isModalVisible}
         content={welcomeContent}
         onDismiss={dismissModal}
       />
+
+      {/* Partnership rounds modal */}
+      <PartnershipRoundsModal
+        visible={!!selectedPartnershipEntry}
+        onClose={handleClosePartnershipRoundsModal}
+        entry={selectedPartnershipEntry}
+        rounds={selectedPartnershipRounds}
+        isLoading={isLoadingSelectedPartnershipRounds}
+      />
+
+      {/* Add players bottom sheet */}
+      <AddLeaguePlayersBottomSheet
+        visible={showAddPlayers}
+        onClose={handleCloseAddPlayers}
+        leagueId={leagueId}
+        existingPlayerIds={players?.map((p) => p.player_id) ?? []}
+      />
+
+      {/* Start Round Bottom Sheet */}
+      <CreateRoundBottomSheet
+        visible={showStartRound}
+        onClose={handleCloseStartRound}
+        onStartRound={handleStartNewRound}
+        initialPartners={isPartnership ? initialPartners : undefined}
+        initialMatchType={isPartnership ? 'stableford' : undefined}
+        skipPartnerStep={isPartnership}
+        initialCourse={eclecticInitialCourse}
+      />
+
+      {/* Start Round Error Dialog */}
+      <ConfirmationDialog {...startRoundDialogConfig} onCancel={dismissStartRoundDialog} />
 
       {/* Player rounds modal (for standard leaderboard taps) */}
       <LeaguePlayerRoundsModal
@@ -261,6 +404,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing.xxxl,
+  },
+  featureButtonContainer: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   tabBar: {
     marginHorizontal: spacing.lg,

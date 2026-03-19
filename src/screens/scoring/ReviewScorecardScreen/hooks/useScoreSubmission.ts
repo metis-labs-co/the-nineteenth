@@ -27,6 +27,8 @@ import { getScoringPartner } from '@/services/scoringPairs';
 import { finalizeRound } from '@/services/rounds/roundResultsService';
 import { submitLogger } from '@/utils/debugLogger';
 import { useLeagues } from '@/hooks/useLeagues';
+import { useSettingsStore } from '@/store/settingsStore';
+import { tagRoundToLeague } from '@/services/api/leagues';
 import type { Scorecard, GameType, PointSystemConfig } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -434,10 +436,71 @@ export function useScoreSubmission({
         } else {
           submitLogger.info('Online submission successful');
 
+          // Check for pending league tag (auto-tag when round started from league detail)
+          const pendingLeagueId = roundId
+            ? useSettingsStore.getState().pendingLeagueTags[roundId]
+            : undefined;
+          let leagueTagged = false;
+          let leagueTagError: string | null = null;
+
+          if (pendingLeagueId && roundId && currentUserId) {
+            try {
+              submitLogger.info('Auto-tagging round to league', { roundId: roundId.substring(0, 8) + '...', leagueId: pendingLeagueId.substring(0, 8) + '...' });
+
+              // Find the current user's scorecard for this round
+              const { data: userScorecard } = await supabase
+                .from('scorecards')
+                .select('id')
+                .eq('round_id', roundId)
+                .eq('player_id', currentUserId)
+                .single();
+
+              if (userScorecard) {
+                await tagRoundToLeague(pendingLeagueId, (userScorecard as unknown as { id: string }).id);
+                leagueTagged = true;
+                submitLogger.info('Round auto-tagged to league successfully');
+              } else {
+                submitLogger.warn('Could not find user scorecard for auto-tagging');
+                leagueTagError = 'Could not find your scorecard to tag to the league. You can tag it manually later.';
+              }
+            } catch (error) {
+              const msg = error instanceof Error ? error.message : 'Unknown error';
+              submitLogger.error('Failed to auto-tag round to league', error);
+              leagueTagError = `Auto-tag failed: ${msg}. You can tag it manually later.`;
+            } finally {
+              // Always clear the pending tag
+              useSettingsStore.getState().clearPendingLeagueTag(roundId);
+            }
+          }
+
           // Check if user has active leagues for tagging prompt (uses prefetched data)
           const hasLeagues = (leaguesData ?? []).some((l) => l.status === 'active');
 
-          if (hasLeagues) {
+          if (leagueTagged) {
+            showDialog({
+              title: 'Scores Submitted!',
+              message: 'All scores have been submitted and tagged to your league.',
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'check-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+            });
+          } else if (leagueTagError) {
+            showDialog({
+              title: 'Scores Submitted',
+              message: `Scores submitted successfully.\n\n${leagueTagError}`,
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'alert-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+            });
+          } else if (hasLeagues) {
             showDialog({
               title: 'Scores Submitted!',
               message: 'All scores have been submitted successfully. Would you like to tag this round to a league?',

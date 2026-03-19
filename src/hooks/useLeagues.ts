@@ -25,6 +25,7 @@ import {
   untagRound,
   leaveLeague,
   removePlayer,
+  addPlayersToLeague,
   archiveLeague,
   deleteLeague,
   updateLeague,
@@ -284,6 +285,21 @@ export function useRemoveLeaguePlayer(leagueId: string) {
     },
     onError: (error) => {
       console.error('[useRemoveLeaguePlayer] Failed:', error);
+    },
+  });
+}
+
+export function useAddLeaguePlayers(leagueId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (playerIds: string[]) => addPlayersToLeague(leagueId, playerIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leagueKeys.players(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboard(leagueId) });
+    },
+    onError: (error) => {
+      console.error('[useAddLeaguePlayers] Failed:', error);
     },
   });
 }
