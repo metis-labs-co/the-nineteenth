@@ -21,6 +21,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useHasCoordinates, useDistanceToGreen } from '@/hooks/useHoleCoordinates';
+import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import { useFormattedDistance, useSettingsStore } from '@/store/settingsStore';
 
 // =====================================================
@@ -95,6 +96,9 @@ export const DistanceToPin = React.memo(function DistanceToPin({
 
   // Check if course has GPS coordinates
   const { data: hasCoordinates, isLoading: isLoadingCoords } = useHasCoordinates(courseId);
+
+  // Auto-backfill coordinates from GolfAPI.io if missing
+  useCoordinateBackfill(courseId);
 
   // User location hook
   const {

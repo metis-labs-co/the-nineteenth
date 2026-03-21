@@ -44,14 +44,18 @@ export interface CreateTeeInput {
   color?: string | null;
   golfapi_tee_id?: string | null;
   slope?: number | null;
-  rating?: number | null;
-  slope_front?: number | null;
-  slope_back?: number | null;
-  rating_front?: number | null;
-  rating_back?: number | null;
-  lengths?: number[] | null;
-  total_length?: number | null;
-  gender?: 'men' | 'women' | 'unisex' | null;
+  course_rating?: number | null;
+  slope_front9?: number | null;
+  slope_back9?: number | null;
+  course_rating_front9?: number | null;
+  course_rating_back9?: number | null;
+  slope_women?: number | null;
+  course_rating_women?: number | null;
+  slope_women_front9?: number | null;
+  slope_women_back9?: number | null;
+  course_rating_women_front9?: number | null;
+  course_rating_women_back9?: number | null;
+  measure_unit?: string | null;
 }
 
 /**
@@ -62,14 +66,18 @@ export interface UpdateTeeInput {
   name?: string;
   color?: string | null;
   slope?: number | null;
-  rating?: number | null;
-  slope_front?: number | null;
-  slope_back?: number | null;
-  rating_front?: number | null;
-  rating_back?: number | null;
-  lengths?: number[] | null;
-  total_length?: number | null;
-  gender?: 'men' | 'women' | 'unisex' | null;
+  course_rating?: number | null;
+  slope_front9?: number | null;
+  slope_back9?: number | null;
+  course_rating_front9?: number | null;
+  course_rating_back9?: number | null;
+  slope_women?: number | null;
+  course_rating_women?: number | null;
+  slope_women_front9?: number | null;
+  slope_women_back9?: number | null;
+  course_rating_women_front9?: number | null;
+  course_rating_women_back9?: number | null;
+  measure_unit?: string | null;
 }
 
 // =====================================================
@@ -251,14 +259,18 @@ export function useCreateTee() {
           color: input.color ?? null,
           golfapi_tee_id: input.golfapi_tee_id ?? null,
           slope: input.slope ?? null,
-          rating: input.rating ?? null,
-          slope_front: input.slope_front ?? null,
-          slope_back: input.slope_back ?? null,
-          rating_front: input.rating_front ?? null,
-          rating_back: input.rating_back ?? null,
-          lengths: input.lengths ?? null,
-          total_length: input.total_length ?? null,
-          gender: input.gender ?? null,
+          course_rating: input.course_rating ?? null,
+          slope_front9: input.slope_front9 ?? null,
+          slope_back9: input.slope_back9 ?? null,
+          course_rating_front9: input.course_rating_front9 ?? null,
+          course_rating_back9: input.course_rating_back9 ?? null,
+          slope_women: input.slope_women ?? null,
+          course_rating_women: input.course_rating_women ?? null,
+          slope_women_front9: input.slope_women_front9 ?? null,
+          slope_women_back9: input.slope_women_back9 ?? null,
+          course_rating_women_front9: input.course_rating_women_front9 ?? null,
+          course_rating_women_back9: input.course_rating_women_back9 ?? null,
+          measure_unit: input.measure_unit ?? null,
         } as never)
         .select()
         .single();
@@ -305,6 +317,8 @@ export function useUpdateTee() {
       // Invalidate course's tees list
       queryClient.invalidateQueries({ queryKey: teeKeys.byCourse(data.course_id) });
       queryClient.invalidateQueries({ queryKey: teeKeys.withCourse(data.course_id) });
+      // Also invalidate course details so CourseDetailScreen refreshes
+      queryClient.invalidateQueries({ queryKey: courseKeys.detail(data.course_id) });
     },
   });
 }
@@ -361,14 +375,18 @@ export function useBulkCreateTees() {
         color: tee.color ?? null,
         golfapi_tee_id: tee.golfapi_tee_id ?? null,
         slope: tee.slope ?? null,
-        rating: tee.rating ?? null,
-        slope_front: tee.slope_front ?? null,
-        slope_back: tee.slope_back ?? null,
-        rating_front: tee.rating_front ?? null,
-        rating_back: tee.rating_back ?? null,
-        lengths: tee.lengths ?? null,
-        total_length: tee.total_length ?? null,
-        gender: tee.gender ?? null,
+        course_rating: tee.course_rating ?? null,
+        slope_front9: tee.slope_front9 ?? null,
+        slope_back9: tee.slope_back9 ?? null,
+        course_rating_front9: tee.course_rating_front9 ?? null,
+        course_rating_back9: tee.course_rating_back9 ?? null,
+        slope_women: tee.slope_women ?? null,
+        course_rating_women: tee.course_rating_women ?? null,
+        slope_women_front9: tee.slope_women_front9 ?? null,
+        slope_women_back9: tee.slope_women_back9 ?? null,
+        course_rating_women_front9: tee.course_rating_women_front9 ?? null,
+        course_rating_women_back9: tee.course_rating_women_back9 ?? null,
+        measure_unit: tee.measure_unit ?? null,
       }));
 
       const { data, error } = await supabase

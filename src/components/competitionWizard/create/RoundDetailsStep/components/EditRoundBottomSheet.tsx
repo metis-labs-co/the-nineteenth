@@ -19,7 +19,7 @@ import { TeeSelectionModal } from './TeeSelectionModal';
 import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
 import type { TeeBox, Club } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
-import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem } from '@/hooks/useClubs';
+import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem, sortHomeClubFirst } from '@/hooks/useClubs';
 
 export interface EditRoundBottomSheetProps {
   visible: boolean;
@@ -60,10 +60,10 @@ export function EditRoundBottomSheet({
     undefined
   );
 
-  // Transform clubs to display items
+  // Transform clubs to display items, home club first
   const displayItems: ClubCourseDisplayItem[] = React.useMemo(() => {
     const clubs = clubSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map(toClubCourseDisplayItem);
+    return sortHomeClubFirst((clubs ?? []).map(toClubCourseDisplayItem));
   }, [clubSearchQuery, searchResults, allClubs]);
 
   // Reset local state when round changes

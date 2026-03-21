@@ -2,7 +2,7 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 6 steps: Welcome -> Create Competitions -> Notifications -> Biometric -> Handicap Capture -> Home Club
+ * 7 steps: Welcome -> Name -> Create Competitions -> Notifications -> Handicap Capture -> Home Club -> Biometric
  *
  * Features:
  * - Swipeable cards (FlatList with pagingEnabled)
@@ -25,6 +25,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
+import { useScreenInfoStore } from '@/store/screenInfoStore';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -56,6 +57,8 @@ export interface StepProps {
   setFirstName: (value: string) => void;
   lastName: string;
   setLastName: (value: string) => void;
+  homeClubId: string | undefined;
+  setHomeClubId: (value: string | undefined) => void;
   playerName?: string;
   isSubmitting: boolean;
 }
@@ -65,21 +68,23 @@ const STEPS: StepItem[] = [
   { key: 'name', component: NameCaptureStep },
   { key: 'competitions', component: CreateCompetitionsStep },
   { key: 'notifications', component: NotificationsStep },
-  { key: 'biometric', component: BiometricStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },
+  { key: 'biometric', component: BiometricStep },
 ];
 
 export default function OnboardingScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { updateProfile, player } = useAuth();
+  const resetAllScreensSeen = useScreenInfoStore((s) => s.resetAllScreensSeen);
 
   const flatListRef = useRef<FlatList>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [handicap, setHandicap] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [homeClubId, setHomeClubId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handle viewable items change (for progress dots)
@@ -108,8 +113,9 @@ export default function OnboardingScreen() {
 
   // Complete onboarding (with or without handicap)
   const handleComplete = useCallback(
-    async (skipHandicap = false, homeClubId?: string) => {
-      console.log('[OnboardingScreen] handleComplete called, skipHandicap:', skipHandicap, 'handicap:', handicap, 'homeClubId:', homeClubId);
+    async (skipHandicap = false, explicitHomeClubId?: string) => {
+      const resolvedHomeClubId = explicitHomeClubId ?? homeClubId;
+      console.log('[OnboardingScreen] handleComplete called, skipHandicap:', skipHandicap, 'handicap:', handicap, 'homeClubId:', resolvedHomeClubId);
 
       if (isSubmitting) {
         console.log('[OnboardingScreen] Already submitting, ignoring');
@@ -121,6 +127,9 @@ export default function OnboardingScreen() {
         const handicapValue =
           skipHandicap || !handicap ? 54 : parseFloat(handicap);
 
+        // Reset screen welcome modals so they show for first-time users
+        resetAllScreensSeen();
+
         console.log('[OnboardingScreen] Updating profile with handicap:', handicapValue);
 
         // Save handicap, name, and home club in a single update to avoid race conditions
@@ -130,8 +139,8 @@ export default function OnboardingScreen() {
         if (firstName.trim() || lastName.trim()) {
           profileUpdate.name = `${firstName.trim()} ${lastName.trim()}`.trim();
         }
-        if (homeClubId) {
-          profileUpdate.home_club_id = homeClubId;
+        if (resolvedHomeClubId) {
+          profileUpdate.home_club_id = resolvedHomeClubId;
         }
 
         await updateProfile(profileUpdate);
@@ -145,7 +154,7 @@ export default function OnboardingScreen() {
       }
       // Note: Don't set isSubmitting to false on success - let navigation happen
     },
-    [handicap, firstName, lastName, updateProfile, isSubmitting]
+    [handicap, firstName, lastName, homeClubId, updateProfile, resetAllScreensSeen, isSubmitting]
   );
 
   // Skip entire onboarding
@@ -177,13 +186,15 @@ export default function OnboardingScreen() {
             setFirstName={setFirstName}
             lastName={lastName}
             setLastName={setLastName}
+            homeClubId={homeClubId}
+            setHomeClubId={setHomeClubId}
             playerName={player?.name}
             isSubmitting={isSubmitting}
           />
         </View>
       );
     },
-    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, player?.name, isSubmitting]
+    [handleNext, handleComplete, handleSkip, handicap, firstName, lastName, homeClubId, player?.name, isSubmitting]
   );
 
   return (

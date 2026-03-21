@@ -69,7 +69,6 @@
         "appleTeamId": "TMB3988D5Z"
       },
       "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
       }
     },
@@ -80,7 +79,6 @@
         "appleTeamId": "TMB3988D5Z"
       },
       "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
       }
     }

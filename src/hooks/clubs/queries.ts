@@ -49,7 +49,7 @@ export function useClubsWithCourses(options?: {
   const homeClubId = player?.home_club_id ?? null;
 
   const query = useQuery({
-    queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly }),
+    queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly, homeClubId: featuredOnly ? homeClubId : undefined }),
     queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let clubQuery = supabase
         .from('clubs')
@@ -70,7 +70,12 @@ export function useClubsWithCourses(options?: {
       }
 
       if (featuredOnly) {
-        clubQuery = clubQuery.eq('is_featured', true);
+        if (homeClubId) {
+          // Always include home club even if not featured
+          clubQuery = clubQuery.or(`is_featured.eq.true,id.eq.${homeClubId}`);
+        } else {
+          clubQuery = clubQuery.eq('is_featured', true);
+        }
       }
 
       const { data: clubs, error: clubsError } = await clubQuery;

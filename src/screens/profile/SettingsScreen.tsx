@@ -24,7 +24,8 @@ import { spacing, typography, borderRadius, ThemeMode } from '@/constants/theme'
 import { useTheme, useThemeColors } from '@/context/ThemeContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBiometricSetting } from '@/store/settingsStore';
-import { clearSyncQueue } from '@/services/offline/sync';
+import { clearSyncQueue, manualSync } from '@/services/offline/sync';
+import { markAllForResync } from '@/services/offline/database';
 import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureLockToggle } from '@/components/subscription/FeatureLockToggle';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -128,6 +129,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const [isClearing, setIsClearing] = useState(false);
+  const [isResyncing, setIsResyncing] = useState(false);
 
   // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
@@ -224,6 +226,36 @@ export default function SettingsScreen() {
       onConfirm: performClearSyncQueue,
     });
   }, [showDialog, performClearSyncQueue]);
+
+  // Re-sync all scorecards (backfill FIR/GIR data that was previously stripped)
+  const performResyncScores = useCallback(async () => {
+    dismissDialog();
+    setIsResyncing(true);
+    try {
+      const count = await markAllForResync();
+      if (count > 0) {
+        await manualSync();
+        showAlert('Re-sync Complete', `${count} scorecard(s) queued for re-sync. FIR/GIR data will be restored.`);
+      } else {
+        showAlert('Nothing to Re-sync', 'All scorecards are already up to date.');
+      }
+    } catch (error) {
+      showAlert('Error', 'Failed to re-sync scores. Please try again.');
+      console.error('[Settings] Failed to re-sync scores:', error);
+    } finally {
+      setIsResyncing(false);
+    }
+  }, [dismissDialog, showAlert]);
+
+  const handleResyncScores = useCallback(() => {
+    showDialog({
+      title: 'Re-sync All Scores',
+      message: 'This will re-upload all scorecards from your device to restore any missing FIR/GIR data. This is safe and will not delete any scores.',
+      confirmLabel: 'Re-sync',
+      icon: 'sync',
+    onConfirm: performResyncScores,
+    });
+  }, [showDialog, performResyncScores]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -410,6 +442,27 @@ export default function SettingsScreen() {
                 )}
                 <Text style={[styles.troubleshootButtonText, { color: colors.textSecondary }]}>
                   {isClearing ? 'Clearing...' : 'Clear Sync Queue'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleResyncScores}
+                disabled={isResyncing}
+                style={[
+                  styles.troubleshootButton,
+                  { backgroundColor: colors.surface, borderColor: colors.gray300, marginTop: spacing.sm },
+                  isResyncing && styles.troubleshootButtonDisabled,
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Re-sync all scores"
+              >
+                {isResyncing ? (
+                  <GolfBallLoader size="sm" />
+                ) : (
+                  <Icon source="sync" size={20} color={colors.textSecondary} />
+                )}
+                <Text style={[styles.troubleshootButtonText, { color: colors.textSecondary }]}>
+                  {isResyncing ? 'Re-syncing...' : 'Re-sync All Scores'}
                 </Text>
               </TouchableOpacity>
             </View>

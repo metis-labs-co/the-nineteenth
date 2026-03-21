@@ -29,12 +29,16 @@ import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
 import { useUpdateCourseHoles, useCoordinateSummary } from '@/hooks';
+import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useFormattedDistance } from '@/store/settingsStore';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { EditHoleBottomSheet } from '@/components/courses';
+import { EditHoleBottomSheet, EditCourseBottomSheet, EditTeeBottomSheet } from '@/components/courses';
+import { useUpdateCourse } from '@/hooks/useUpdateCourse';
+import { useUpdateTee } from '@/hooks/useTees';
+import type { Tee } from '@/types/database.types';
 import { supabase } from '@/services/supabase/client';
 import { courseService } from '@/services/courses/courseService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -71,6 +75,24 @@ export default function CourseScreen({ route, navigation }: Props) {
     isRefetching,
   } = useCourseDetails(courseId, { includeTees: true });
 
+  // Debug logging for course data
+  React.useEffect(() => {
+    if (course) {
+      console.log('[CourseDetailScreen] Course loaded:', {
+        id: course.id,
+        name: course.name,
+        holesType: typeof course.holes,
+        holesIsArray: Array.isArray(course.holes),
+        holesLength: Array.isArray(course.holes) ? course.holes.length : 'N/A',
+        holesRaw: course.holes === null ? 'null' : course.holes === undefined ? 'undefined' : 'present',
+        teesFromTableLength: course.teesFromTable?.length ?? 'N/A',
+        teesLegacyLength: Array.isArray(course.tees) ? course.tees.length : 'N/A',
+      });
+    } else if (!isLoading) {
+      console.log('[CourseDetailScreen] Course is null/undefined after loading', { courseId, error });
+    }
+  }, [course, isLoading, courseId, error]);
+
   // Get tees - prefer tees from normalized table, fallback to legacy JSONB
   const courseTees = useMemo(() => {
     if (course?.teesFromTable && course.teesFromTable.length > 0) {
@@ -83,7 +105,12 @@ export default function CourseScreen({ route, navigation }: Props) {
   // The tees table stores per-hole lengths (length_hole_1, etc.) which need to be
   // merged into holes as yardages: { blue: 425, white: 400, ... }
   const holesWithYardages = useMemo(() => {
-    return hydrateHolesWithTeeYardages(course?.holes, course?.teesFromTable);
+    const result = hydrateHolesWithTeeYardages(course?.holes, course?.teesFromTable);
+    console.log('[CourseDetailScreen] holesWithYardages:', {
+      inputHolesLength: Array.isArray(course?.holes) ? course.holes.length : 'not array',
+      outputLength: result.length,
+    });
+    return result;
   }, [course?.holes, course?.teesFromTable]);
 
   // Selected tee for yardage display
@@ -120,11 +147,20 @@ export default function CourseScreen({ route, navigation }: Props) {
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
   const updateCourseHolesMutation = useUpdateCourseHoles();
 
+  // Super admin course/tee editing
+  const [isEditingCourse, setIsEditingCourse] = useState(false);
+  const [editingTee, setEditingTee] = useState<Tee | null>(null);
+  const updateCourseMutation = useUpdateCourse();
+  const updateTeeMutation = useUpdateTee();
+
   // API refresh state (re-imports course from Golf API)
   const [isRefreshingFromApi, setIsRefreshingFromApi] = useState(false);
 
   // GPS coordinates summary
   const { data: coordSummary, refetch: refetchCoords } = useCoordinateSummary(courseId);
+
+  // Auto-backfill GPS coordinates from GolfAPI.io if missing
+  useCoordinateBackfill(courseId);
 
   // Hide React Navigation header (we use PageHeader)
   React.useLayoutEffect(() => {
@@ -236,6 +272,50 @@ export default function CourseScreen({ route, navigation }: Props) {
     },
     [course, updateCourseHolesMutation, refetch, showAlert]
   );
+
+  // Super admin course save handler
+  const handleSaveCourse = useCallback(
+    async (updates: { name: string; description: string; slope_rating: string; course_rating: string }) => {
+      if (!course) return;
+      try {
+        await updateCourseMutation.mutateAsync({
+          courseId: course.id,
+          name: updates.name,
+          description: updates.description || null,
+          slope_rating: updates.slope_rating ? parseFloat(updates.slope_rating) : null,
+          course_rating: updates.course_rating ? parseFloat(updates.course_rating) : null,
+        });
+        refetch();
+        setIsEditingCourse(false);
+      } catch {
+        showAlert('Error', 'Failed to update course. Please try again.');
+      }
+    },
+    [course, updateCourseMutation, refetch, showAlert]
+  );
+
+  // Super admin tee save handler
+  const handleSaveTee = useCallback(
+    async (teeId: string, updates: { name?: string; color?: string | null; slope?: number | null; course_rating?: number | null; slope_women?: number | null; course_rating_women?: number | null }) => {
+      try {
+        await updateTeeMutation.mutateAsync({ id: teeId, ...updates });
+        refetch();
+        setEditingTee(null);
+      } catch {
+        showAlert('Error', 'Failed to update tee. Please try again.');
+      }
+    },
+    [updateTeeMutation, refetch, showAlert]
+  );
+
+  // Super admin tee edit trigger
+  const handleTeeEditPress = useCallback(() => {
+    if (!isSuperAdmin || !course?.teesFromTable || !selectedTee) return;
+    const teeRecord = course.teesFromTable.find(
+      (t) => t.name === selectedTee.name || t.color === selectedTee.color
+    );
+    if (teeRecord) setEditingTee(teeRecord);
+  }, [isSuperAdmin, course?.teesFromTable, selectedTee]);
 
   const handleCloseBottomSheet = useCallback(() => {
     setIsBottomSheetVisible(false);
@@ -430,7 +510,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         showBack
         onBack={handleBack}
         rightActions={
-          course.golfapi_course_id
+          !isSuperAdmin && course.golfapi_course_id
             ? [
                 {
                   icon: isRefreshingFromApi ? 'loading' : 'refresh',
@@ -477,6 +557,18 @@ export default function CourseScreen({ route, navigation }: Props) {
 
             {/* Action Buttons */}
             <View style={styles.headerActions}>
+              {/* Super Admin Edit Button */}
+              {isSuperAdmin && (
+                <TouchableOpacity
+                  style={styles.actionButtonLarge}
+                  activeOpacity={0.7}
+                  onPress={() => setIsEditingCourse(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit course details"
+                >
+                  <Icon source="pencil" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              )}
               {/* Favorite Button */}
               <TouchableOpacity
                 style={[
@@ -541,18 +633,47 @@ export default function CourseScreen({ route, navigation }: Props) {
 
           {/* Selected Tee Info */}
           {selectedTeeBox && (
-            <View style={[styles.selectedTeeInfo, { backgroundColor: colors.surfaceVariant }]}>
-              <View
-                style={[styles.teeColorIndicator, { backgroundColor: getTeeColor(selectedTeeBox.color, colors.gray400) }]}
-              />
-              <View style={styles.selectedTeeDetails}>
-                <Text style={[styles.selectedTeeName, { color: colors.textPrimary }]}>{selectedTeeBox.name} Tees</Text>
-                <Text style={[styles.selectedTeeYardage, { color: colors.textSecondary }]}>
-                  {selectedTeeBox.totalYardage ? formatDistance(selectedTeeBox.totalYardage) : ''}
-                  {selectedTeeBox.courseRating && ` · CR: ${selectedTeeBox.courseRating}`}
-                  {selectedTeeBox.slopeRating && ` · Slope: ${selectedTeeBox.slopeRating}`}
-                </Text>
+            <TouchableOpacity
+              disabled={!isSuperAdmin}
+              activeOpacity={isSuperAdmin ? 0.7 : 1}
+              onPress={handleTeeEditPress}
+              accessibilityLabel={isSuperAdmin ? `Edit ${selectedTeeBox.name} tee ratings` : undefined}
+            >
+              <View style={[styles.selectedTeeInfo, { backgroundColor: colors.surfaceVariant }]}>
+                <View
+                  style={[styles.teeColorIndicator, { backgroundColor: getTeeColor(selectedTeeBox.color, colors.gray400) }]}
+                />
+                <View style={styles.selectedTeeDetails}>
+                  <Text style={[styles.selectedTeeName, { color: colors.textPrimary }]}>{selectedTeeBox.name} Tees</Text>
+                  <Text style={[styles.selectedTeeYardage, { color: colors.textSecondary }]}>
+                    {selectedTeeBox.totalYardage ? formatDistance(selectedTeeBox.totalYardage) : ''}
+                    {selectedTeeBox.courseRating && ` · CR: ${selectedTeeBox.courseRating}`}
+                    {selectedTeeBox.slopeRating && ` · Slope: ${selectedTeeBox.slopeRating}`}
+                  </Text>
+                </View>
+                {isSuperAdmin && (
+                  <Icon source="pencil" size={16} color={colors.textSecondary} />
+                )}
               </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Super Admin Actions */}
+          {isSuperAdmin && (
+            <View style={[styles.adminActions, { borderTopColor: colors.border }]}>
+              {course.golfapi_course_id && (
+                <TouchableOpacity
+                  style={[styles.adminActionButton, { borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                  onPress={handleRefreshFromApi}
+                  disabled={isRefreshingFromApi}
+                >
+                  <Icon source={isRefreshingFromApi ? 'loading' : 'refresh'} size={18} color={colors.primary} />
+                  <Text style={[styles.adminActionText, { color: colors.primary }]}>
+                    {isRefreshingFromApi ? 'Refreshing...' : 'Refresh from API'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -620,6 +741,28 @@ export default function CourseScreen({ route, navigation }: Props) {
           selectedTee={selectedTeeColor}
           onSave={handleSaveHole}
           loading={updateCourseHolesMutation.isPending}
+        />
+      )}
+
+      {/* Super admin course editing modal */}
+      {isEditingCourse && course && (
+        <EditCourseBottomSheet
+          visible={isEditingCourse}
+          onClose={() => setIsEditingCourse(false)}
+          course={course}
+          onSave={handleSaveCourse}
+          loading={updateCourseMutation.isPending}
+        />
+      )}
+
+      {/* Super admin tee editing modal */}
+      {editingTee && (
+        <EditTeeBottomSheet
+          visible={!!editingTee}
+          onClose={() => setEditingTee(null)}
+          tee={editingTee}
+          onSave={handleSaveTee}
+          loading={updateTeeMutation.isPending}
         />
       )}
 
@@ -806,5 +949,26 @@ const styles = StyleSheet.create({
   featureButtonContainer: {
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+  },
+
+  // Admin Actions
+  adminActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  adminActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  adminActionText: {
+    ...typography.smallBold,
   },
 });

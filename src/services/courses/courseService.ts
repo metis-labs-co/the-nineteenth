@@ -28,6 +28,11 @@ import {
   hasHoleData,
   hasTeeData,
 } from '@/services/api/golfApiTransformers';
+import {
+  filterMultiNineCourses,
+  getDisplayCourseName,
+  getMultiNineTotalHoles,
+} from '@/services/api/multiNineFilter';
 import type {
   Club,
   Course,
@@ -241,9 +246,10 @@ class CourseService {
         ...clubData,
       });
 
-      // Cache course with club_id
+      // Cache course with club_id (apply multi-nine rename if applicable)
+      const rawCourseName = courseData.name || 'Main Course';
       const course = await courseCacheService.cacheCourse({
-        name: courseData.name || 'Main Course',
+        name: getDisplayCourseName(clubData.golfapi_club_id ?? null, rawCourseName),
         club_id: club.id,
         ...courseData,
       });
@@ -323,6 +329,13 @@ class CourseService {
 
       // Transform and cache club
       const clubData = transformApiClubResponse(clubResponse);
+
+      // Fix total_holes for multi-nine clubs (e.g., 27 instead of 162)
+      const multiNineHoles = getMultiNineTotalHoles(clubResponse.courses ?? []);
+      if (multiNineHoles) {
+        clubData.total_holes = multiNineHoles;
+      }
+
       const club = await courseCacheService.cacheClub({
         name: clubData.name || 'Unknown Club',
         ...clubData,
@@ -331,9 +344,13 @@ class CourseService {
       const courses: Course[] = [];
       const allTees: Tee[] = [];
 
+      // Filter multi-nine clubs to valid playable combinations only
+      const allCourses = clubResponse.courses ?? [];
+      const coursesToImport = filterMultiNineCourses(allCourses);
+
       // Import each course from the club
-      if (clubResponse.courses && clubResponse.courses.length > 0) {
-        for (const courseSummary of clubResponse.courses) {
+      if (coursesToImport.length > 0) {
+        for (const courseSummary of coursesToImport) {
           try {
             // Fetch full course details
             const courseResponse = await golfApiClient.getCourse(courseSummary.courseID);
@@ -342,9 +359,10 @@ class CourseService {
             const { course: courseData, tees: teesData } =
               transformApiCourseResponse(courseResponse);
 
-            // Cache course
+            // Cache course (apply multi-nine rename if applicable)
+            const rawName = courseData.name || courseSummary.courseName || 'Main Course';
             const course = await courseCacheService.cacheCourse({
-              name: courseData.name || courseSummary.courseName || 'Main Course',
+              name: getDisplayCourseName(golfapiClubId, rawName),
               club_id: club.id,
               ...courseData,
             });

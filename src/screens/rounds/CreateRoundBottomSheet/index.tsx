@@ -23,6 +23,7 @@ import {
   useClubsWithCourses,
   useFavoriteCoursesWithClubs,
   toClubCourseDisplayItem,
+  sortHomeClubFirst,
 } from '@/hooks/useClubs';
 import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
 import { BottomSheet } from '@/components/common';
@@ -84,11 +85,12 @@ export default function CreateRoundBottomSheet({
   );
   const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Transform clubs to display items (for both search and full list)
-  const displayItems: ClubCourseDisplayItem[] =
+  // Transform clubs to display items (for both search and full list), home club first
+  const displayItems: ClubCourseDisplayItem[] = sortHomeClubFirst(
     wizard.data.searchQuery.trim().length >= 2
       ? (searchResults ?? []).map(toClubCourseDisplayItem)
-      : (allClubs ?? []).map(toClubCourseDisplayItem);
+      : (allClubs ?? []).map(toClubCourseDisplayItem)
+  );
 
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;

@@ -29,7 +29,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useCreateLeague } from '@/hooks/useLeagues';
 import { useFeatureAccess } from '@/hooks/subscription/useFeatureAccess';
-import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs } from '@/hooks/clubs';
+import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, sortHomeClubFirst } from '@/hooks/clubs';
 import { useTeesByCourse } from '@/hooks/useTees';
 import { CourseSelectionModal } from '@/components/competitionWizard/create/RoundDetailsStep/components/CourseSelectionModal';
 import { TeeSelectionModal } from '@/components/competitionWizard/create/RoundDetailsStep/components/TeeSelectionModal';
@@ -497,10 +497,10 @@ export default function CreateLeagueScreen() {
     enabled: !!courseId,
   });
 
-  // Transform clubs to display items for CourseSelectionModal
+  // Transform clubs to display items for CourseSelectionModal, home club first
   const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
     const clubs = courseSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map((club: SearchResultItem) => {
+    return sortHomeClubFirst((clubs ?? []).map((club: SearchResultItem) => {
       const type: 'single-course' | 'multi-course-club' = club.is_multi_course
         ? 'multi-course-club'
         : 'single-course';
@@ -511,7 +511,7 @@ export default function CreateLeagueScreen() {
         courses: club.courses ?? [],
         is_home: club.is_home,
       };
-    });
+    }));
   }, [courseSearchQuery, searchResults, allClubs]);
 
   // Convert Tee[] to TeeBox[] for the TeeSelectionModal

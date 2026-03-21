@@ -17,7 +17,7 @@ import { useBiometricSetting } from '@/store/settingsStore';
 import { useAuth } from '@/hooks/useAuth';
 import type { StepProps } from '../OnboardingScreen';
 
-export function BiometricStep({ onNext }: StepProps) {
+export function BiometricStep({ onNext, onComplete }: StepProps) {
   const colors = useThemeColors();
   const { session } = useAuth();
   const { setBiometricEnabled } = useBiometricSetting();
@@ -34,10 +34,10 @@ export function BiometricStep({ onNext }: StepProps) {
       if (!mounted) return;
 
       if (!availability.isAvailable) {
-        // No biometric hardware — auto-skip this step
+        // No biometric hardware — auto-complete onboarding
         if (!hasAutoSkipped.current) {
           hasAutoSkipped.current = true;
-          onNext();
+          onComplete();
         }
         return;
       }
@@ -49,7 +49,7 @@ export function BiometricStep({ onNext }: StepProps) {
     return () => {
       mounted = false;
     };
-  }, [onNext]);
+  }, [onComplete]);
 
   const handleEnable = async () => {
     if (isEnabling) return;
@@ -66,7 +66,7 @@ export function BiometricStep({ onNext }: StepProps) {
           await biometricService.storeRefreshToken(session.refresh_token);
         }
         setBiometricEnabled(true);
-        onNext();
+        await onComplete();
       }
       // If cancelled or failed, stay on step — user can retry or skip
     } catch (error) {
@@ -76,8 +76,8 @@ export function BiometricStep({ onNext }: StepProps) {
     }
   };
 
-  const handleSkip = () => {
-    onNext();
+  const handleSkip = async () => {
+    await onComplete();
   };
 
   // Show loading while checking availability (will auto-skip if unavailable)
@@ -160,7 +160,7 @@ export function BiometricStep({ onNext }: StepProps) {
                 { color: isEnabling ? colors.textDisabled : colors.textSecondary },
               ]}
             >
-              Maybe later
+              Skip & Get Started
             </Text>
           </TouchableOpacity>
         </View>

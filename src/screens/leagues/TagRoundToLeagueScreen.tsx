@@ -119,7 +119,7 @@ export default function TagRoundToLeagueScreen() {
       ) : (
         <EmptyState
           title="No Eligible Rounds"
-          message="Complete an 18-hole round first. Only submitted scorecards with a handicap differential can be tagged."
+          message="Complete an 18-hole round first. Only submitted scorecards with a handicap differential can be tagged. The course must have a course rating and slope rating for the tee played."
           icon="golf-tee"
         />
       )}

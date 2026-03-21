@@ -314,6 +314,8 @@ export type {
 // Course update hooks
 export { useUpdateCourseHoles } from './useUpdateCourseHoles';
 export type { UpdateCourseHolesInput } from './useUpdateCourseHoles';
+export { useUpdateCourse } from './useUpdateCourse';
+export type { UpdateCourseInput } from './useUpdateCourse';
 
 // Placeholder players hooks
 export {
@@ -383,6 +385,10 @@ export type {
   DistanceResult,
   HoleCoordinateSummary,
 } from './useHoleCoordinates';
+
+// Coordinate backfill (auto-fetch missing GPS data from GolfAPI.io)
+export { useCoordinateBackfill } from './useCoordinateBackfill';
+export type { UseCoordinateBackfillResult } from './useCoordinateBackfill';
 
 // User Location hooks (GPS tracking for distance-to-pin)
 export { useUserLocation } from './useUserLocation';

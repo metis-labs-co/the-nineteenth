@@ -80,12 +80,14 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
   }
 
   // Transform scores object to ensure string keys (Supabase JSONB compatibility)
-  // Include shotContributions for scramble/shamble team formats
+  // Include all tracked stats: putts, FIR, GIR, penalties, shotContributions
   const scoresForDb: Record<
     string,
     {
       strokes: number;
       putts?: number;
+      fairwayHit?: boolean;
+      greenInRegulation?: boolean;
       penalties?: number;
       shotContributions?: { drive?: string; approach?: string; putt?: string };
     }
@@ -96,6 +98,8 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
       scoresForDb[String(holeNum)] = {
         strokes: score.strokes,
         putts: score.putts,
+        fairwayHit: score.fairwayHit,
+        greenInRegulation: score.greenInRegulation,
         penalties: score.penalties || 0,
         // Include shot contributions if present (scramble/shamble formats)
         ...(score.shotContributions && { shotContributions: score.shotContributions }),

@@ -30,7 +30,8 @@ import type { Club } from '@/types/database.types';
 import type { StepProps } from '../OnboardingScreen';
 
 export function HomeClubStep({
-  onComplete,
+  onNext,
+  setHomeClubId,
   isSubmitting,
 }: StepProps) {
   const colors = useThemeColors();
@@ -87,20 +88,15 @@ export function HomeClubStep({
     handleCloseModal();
   }, [displayItems]);
 
-  const handleGetStarted = async () => {
+  const handleContinue = () => {
     if (isSubmitting) return;
-
-    try {
-      // Complete onboarding, passing home club ID to save in single update
-      await onComplete(false, selectedClub?.id);
-    } catch (error) {
-      console.error('[HomeClubStep] Error completing:', error);
-    }
+    setHomeClubId(selectedClub?.id);
+    onNext();
   };
 
-  const handleSkip = async () => {
-    // Skip without setting home club
-    await onComplete(false);
+  const handleSkip = () => {
+    setHomeClubId(undefined);
+    onNext();
   };
 
   const renderClubItem = useCallback(
@@ -115,8 +111,6 @@ export function HomeClubStep({
     ),
     [handleCourseSelect, handleClubPress]
   );
-
-  const isProcessing = isSubmitting;
 
   return (
     <>
@@ -181,7 +175,7 @@ export function HomeClubStep({
                 onPress={handleOpenModal}
                 accessibilityLabel="Select home club"
                 accessibilityRole="button"
-                disabled={isProcessing}
+                disabled={isSubmitting}
               >
                 <Icon source="magnify" size={20} color={colors.textSecondary} />
                 <Text style={[styles.selectButtonText, { color: colors.textSecondary }]}>
@@ -195,21 +189,21 @@ export function HomeClubStep({
               style={[
                 styles.getStartedButton,
                 { backgroundColor: colors.primary },
-                isProcessing && styles.buttonDisabled,
+                isSubmitting && styles.buttonDisabled,
               ]}
-              onPress={handleGetStarted}
-              accessibilityLabel={selectedClub ? 'Set home club and get started' : 'Get started'}
+              onPress={handleContinue}
+              accessibilityLabel={selectedClub ? 'Set home club and continue' : 'Continue'}
               accessibilityRole="button"
-              disabled={isProcessing}
+              disabled={isSubmitting}
             >
-              {isProcessing ? (
+              {isSubmitting ? (
                 <GolfBallLoader size="sm" />
               ) : (
                 <>
                   <Text style={[styles.buttonText, { color: colors.textInverse }]}>
-                    Get Started
+                    Next
                   </Text>
-                  <Icon source="check" size={20} color={colors.textInverse} />
+                  <Icon source="arrow-right" size={20} color={colors.textInverse} />
                 </>
               )}
             </TouchableOpacity>
@@ -220,12 +214,12 @@ export function HomeClubStep({
               onPress={handleSkip}
               accessibilityLabel="Skip setting home club"
               accessibilityRole="button"
-              disabled={isProcessing}
+              disabled={isSubmitting}
             >
               <Text
                 style={[
                   styles.skipButtonText,
-                  { color: isProcessing ? colors.textDisabled : colors.textSecondary },
+                  { color: isSubmitting ? colors.textDisabled : colors.textSecondary },
                 ]}
               >
                 Maybe later
