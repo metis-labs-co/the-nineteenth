@@ -26,7 +26,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Only import these 3 combinations (1st=South, 2nd=North, 3rd=East)
 const COURSES_TO_IMPORT: { apiCourseId: string; displayName: string }[] = [
   { apiCourseId: '0121769153723593685', displayName: 'South/North Course' },
-  { apiCourseId: '0231769153723593685', displayName: 'North/East Course' },
+  { apiCourseId: '0131769153723593685', displayName: 'North/East Course' },
   { apiCourseId: '0311769153723593685', displayName: 'East/South Course' },
 ];
 

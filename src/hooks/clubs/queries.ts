@@ -20,6 +20,7 @@ import { useGolfApiSearch } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
 import type { Club } from '@/types/database.types';
+import { mergeTees } from './helpers';
 import type {
   SupabaseClubWithCourses,
   SupabaseFavoriteCourseWithClub,
@@ -56,7 +57,7 @@ export function useClubsWithCourses(options?: {
         .select(
           `
           *,
-          courses!inner (*)
+          courses!inner (*, tees_from_table:tees(*))
         `
         )
         .order('name', { ascending: true });
@@ -92,7 +93,7 @@ export function useClubsWithCourses(options?: {
   const data = query.data
     ? query.data.map((club: SupabaseClubWithCourses) => {
         const courses = (club.courses ?? []).map((course) => ({
-          ...course,
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -138,7 +139,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
     queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let queryBuilder = supabase.from('clubs').select(`
           *,
-          courses!inner (*)
+          courses!inner (*, tees_from_table:tees(*))
         `);
 
       // Apply search filter (case-insensitive)
@@ -167,7 +168,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   const localResults: ClubWithCourses[] | undefined = localQuery.data
     ? localQuery.data.map((club: SupabaseClubWithCourses) => {
         const courses = (club.courses ?? []).map((course) => ({
-          ...course,
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -349,7 +350,8 @@ export function useFavoriteCoursesWithClubs() {
           course_id,
           courses:course_id (
             *,
-            club:club_id (*)
+            club:club_id (*),
+            tees_from_table:tees(*)
           )
         `
         )
@@ -360,7 +362,7 @@ export function useFavoriteCoursesWithClubs() {
       const typedData = data as SupabaseFavoriteCourseWithClub[] | null;
       return (typedData ?? [])
         .map((item: SupabaseFavoriteCourseWithClub) => ({
-          ...item.courses,
+          ...mergeTees(item.courses),
           club: item.courses.club,
           venue: item.courses.club, // @deprecated - use club
           is_favorite: true,

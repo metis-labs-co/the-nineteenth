@@ -22,7 +22,7 @@ export interface SupabaseCourseWithTees extends Course {
  * Club with courses from Supabase join
  */
 export interface SupabaseClubWithCourses extends Club {
-  courses: Course[];
+  courses: SupabaseCourseWithTees[];
 }
 
 /**
@@ -37,7 +37,7 @@ export interface SupabasePlayerHomeClub {
  */
 export interface SupabaseFavoriteCourseWithClub {
   course_id: string;
-  courses: Course & { club: Club };
+  courses: SupabaseCourseWithTees & { club: Club };
 }
 
 // =====================================================

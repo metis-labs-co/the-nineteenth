@@ -2,18 +2,12 @@
  * Filters multi-nine club courses from GolfAPI.io imports.
  *
  * 27-hole clubs (3 nines) return 9 course combinations from GolfAPI.
- * Only 3 are valid playable courses — the forward-circular combos:
- * (1st+2nd, 2nd+3rd, 3rd+1st).
+ * Only 3 are valid playable courses. This module detects multi-nine clubs
+ * and filters to the valid combinations.
  *
- * This module detects multi-nine clubs by course naming pattern and
- * filters to only the valid combinations.
+ * For clubs with known overrides, uses a curated course ID → display name map.
+ * For unknown multi-nine clubs, falls back to keeping courses where tee ratings exist.
  */
-
-/** Parsed ordinal pair from a course name like "1st + 2nd" */
-interface NinePair {
-  first: number;
-  second: number;
-}
 
 /** Course summary shape matching GolfAPI response */
 interface CourseSummary {
@@ -27,7 +21,7 @@ const ORDINAL_PAIR_REGEX = /^(\d+)(?:st|nd|rd|th)\s*\+\s*(\d+)(?:st|nd|rd|th)$/i
 /**
  * Parse "1st + 2nd" → { first: 1, second: 2 }, or null if not a nine-pair name.
  */
-export function parseNinePair(courseName: string): NinePair | null {
+export function parseNinePair(courseName: string): { first: number; second: number } | null {
   const match = courseName.trim().match(ORDINAL_PAIR_REGEX);
   if (!match) return null;
   return { first: parseInt(match[1], 10), second: parseInt(match[2], 10) };
@@ -39,50 +33,62 @@ export function parseNinePair(courseName: string): NinePair | null {
  */
 export function isMultiNineClub(courses: CourseSummary[]): boolean {
   if (courses.length < 4) return false;
-
   const n = Math.sqrt(courses.length);
   if (!Number.isInteger(n) || n < 2) return false;
-
   return courses.every((c) => parseNinePair(c.courseName) !== null);
 }
 
 /**
  * Get the number of nines for a multi-nine club.
- * Returns null if not a multi-nine club.
  */
 export function detectNineCount(courses: CourseSummary[]): number | null {
   if (!isMultiNineClub(courses)) return null;
   return Math.sqrt(courses.length);
 }
 
+// =====================================================
+// CLUB-SPECIFIC OVERRIDES
+// =====================================================
+
 /**
- * Get valid forward-circular combinations for n nines.
- * For n=3: [[1,2], [2,3], [3,1]]
- * For n=2: [[1,2], [2,1]]
+ * Curated mapping: golfapi_club_id → { golfapi_course_id → display name }.
+ * Defines which courses are valid and what they should be named.
+ * The forward-circular heuristic doesn't work for all clubs (e.g., The Eastern
+ * uses 1st+2nd, 1st+3rd, 3rd+1st — not 1st+2nd, 2nd+3rd, 3rd+1st).
  */
-function getValidCombinations(nineCount: number): [number, number][] {
-  const combos: [number, number][] = [];
-  for (let i = 1; i <= nineCount; i++) {
-    const next = (i % nineCount) + 1;
-    combos.push([i, next]);
-  }
-  return combos;
-}
+const CLUB_COURSE_OVERRIDES: Record<string, Record<string, string>> = {
+  // The Eastern Golf Club, Yering VIC
+  '141519519758903234': {
+    '0121769153723593685': 'South/North Course', // 1st + 2nd
+    '0131769153723593685': 'North/East Course', // 1st + 3rd
+    '0311769153723593685': 'East/South Course', // 3rd + 1st
+  },
+};
 
 /**
  * Filter multi-nine club courses to only valid playable combinations.
- * Returns the original array unchanged for normal clubs.
+ *
+ * - If the club has a curated override, uses that.
+ * - Otherwise for detected multi-nine clubs, excludes self-combinations (1st+1st etc).
+ * - Returns the original array unchanged for normal clubs.
  */
-export function filterMultiNineCourses<T extends CourseSummary>(courses: T[]): T[] {
-  const nineCount = detectNineCount(courses);
-  if (!nineCount) return courses;
+export function filterMultiNineCourses<T extends CourseSummary>(
+  courses: T[],
+  golfapiClubId?: string | null
+): T[] {
+  // Check for club-specific override first
+  if (golfapiClubId && CLUB_COURSE_OVERRIDES[golfapiClubId]) {
+    const overrides = CLUB_COURSE_OVERRIDES[golfapiClubId];
+    return courses.filter((c) => c.courseID in overrides);
+  }
 
-  const validCombos = getValidCombinations(nineCount);
-  const validSet = new Set(validCombos.map(([a, b]) => `${a},${b}`));
+  // Generic multi-nine detection
+  if (!isMultiNineClub(courses)) return courses;
 
+  // Exclude self-combinations (1st+1st, 2nd+2nd, etc.)
   return courses.filter((c) => {
     const pair = parseNinePair(c.courseName);
-    return pair && validSet.has(`${pair.first},${pair.second}`);
+    return pair && pair.first !== pair.second;
   });
 }
 
@@ -95,42 +101,19 @@ export function getMultiNineTotalHoles(courses: CourseSummary[]): number | null 
   return nineCount ? nineCount * 9 : null;
 }
 
-// =====================================================
-// CLUB-SPECIFIC NINE NAME OVERRIDES
-// =====================================================
-
 /**
- * Static lookup: golfapi_club_id → nine number → display name.
- * Used to rename "1st + 2nd" → "South/North Course" for known clubs.
- */
-const CLUB_NINE_NAMES: Record<string, Record<number, string>> = {
-  // The Eastern Golf Club, Yering VIC
-  '141519519758903234': { 1: 'South', 2: 'North', 3: 'East' },
-};
-
-/**
- * Get display name for a course, applying club-specific nine name overrides.
- * E.g., for The Eastern: "1st + 2nd" → "South/North Course"
+ * Get display name for a course, applying club-specific overrides.
  * Returns the original name if no override exists.
  */
 export function getDisplayCourseName(
   golfapiClubId: string | undefined | null,
+  originalCourseId: string | undefined | null,
   originalName: string
 ): string {
-  if (!golfapiClubId) return originalName;
+  if (!golfapiClubId || !originalCourseId) return originalName;
 
-  const nineNames = CLUB_NINE_NAMES[golfapiClubId];
-  if (!nineNames) return originalName;
+  const overrides = CLUB_COURSE_OVERRIDES[golfapiClubId];
+  if (!overrides) return originalName;
 
-  const pair = parseNinePair(originalName);
-  if (!pair) return originalName;
-
-  const firstName = nineNames[pair.first];
-  const secondName = nineNames[pair.second];
-
-  if (firstName && secondName) {
-    return `${firstName}/${secondName} Course`;
-  }
-
-  return originalName;
+  return overrides[originalCourseId] || originalName;
 }

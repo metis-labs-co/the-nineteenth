@@ -249,9 +249,9 @@ class CourseService {
       // Cache course with club_id (apply multi-nine rename if applicable)
       const rawCourseName = courseData.name || 'Main Course';
       const course = await courseCacheService.cacheCourse({
-        name: getDisplayCourseName(clubData.golfapi_club_id ?? null, rawCourseName),
-        club_id: club.id,
         ...courseData,
+        name: getDisplayCourseName(clubData.golfapi_club_id ?? null, golfapiCourseId, rawCourseName),
+        club_id: club.id,
       });
 
       // Cache tees
@@ -346,7 +346,7 @@ class CourseService {
 
       // Filter multi-nine clubs to valid playable combinations only
       const allCourses = clubResponse.courses ?? [];
-      const coursesToImport = filterMultiNineCourses(allCourses);
+      const coursesToImport = filterMultiNineCourses(allCourses, golfapiClubId);
 
       // Import each course from the club
       if (coursesToImport.length > 0) {
@@ -362,9 +362,9 @@ class CourseService {
             // Cache course (apply multi-nine rename if applicable)
             const rawName = courseData.name || courseSummary.courseName || 'Main Course';
             const course = await courseCacheService.cacheCourse({
-              name: getDisplayCourseName(golfapiClubId, rawName),
-              club_id: club.id,
               ...courseData,
+              name: getDisplayCourseName(golfapiClubId, courseSummary.courseID, rawName),
+              club_id: club.id,
             });
 
             courses.push(course);
