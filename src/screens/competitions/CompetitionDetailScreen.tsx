@@ -10,11 +10,11 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConfirmationDialog, useCompetitionDetailsData, getCurrentPlayerStanding } from '@/hooks';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { Text, Button, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -399,15 +399,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
           {error?.message || 'Competition not found'}
         </Text>
-        <Button
-          mode="contained"
+        <TouchableOpacity
           onPress={() => refetch()}
-          style={styles.retryButton}
-          buttonColor={colors.primary}
-          textColor={colors.white}
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          Retry
-        </Button>
+          <Text style={[styles.retryButtonLabel, { color: colors.white }]}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -689,6 +688,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   retryButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
+  },
+  retryButtonLabel: {
+    ...typography.bodyBold,
   },
 });

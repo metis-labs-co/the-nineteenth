@@ -190,8 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   diffValue: {
-    ...typography.h3,
-    fontSize: 18,
+    ...typography.h4,
   },
   cardContent: {
     flex: 1,

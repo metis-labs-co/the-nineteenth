@@ -3,9 +3,11 @@
  *
  * Functions for calculating simplified debts to settle
  * Wolf game results between players.
+ *
+ * Uses the shared debt settlement algorithm from utils/debtSettlement.
  */
 
-import { roundCurrency } from '../currency';
+import { simplifyDebts } from '../debtSettlement';
 
 /**
  * Debt transaction between two players.
@@ -35,43 +37,15 @@ export interface WolfDebtTransaction {
 export function simplifyWolfDebts(
   payouts: Record<string, { netResult: number }>
 ): WolfDebtTransaction[] {
-  const transactions: WolfDebtTransaction[] = [];
-
-  // Create mutable copies of net positions
   const positions = Object.entries(payouts).map(([id, p]) => ({
-    playerId: id,
+    id,
     netAmount: p.netResult,
   }));
 
-  // Separate into creditors (positive) and debtors (negative)
-  const creditors = positions.filter((p) => p.netAmount > 0.01);
-  const debtors = positions.filter((p) => p.netAmount < -0.01);
-
-  // Sort: largest creditors and debtors first
-  creditors.sort((a, b) => b.netAmount - a.netAmount);
-  debtors.sort((a, b) => a.netAmount - b.netAmount);
-
-  // Match debtors to creditors
-  for (const debtor of debtors) {
-    let remaining = Math.abs(debtor.netAmount);
-
-    for (const creditor of creditors) {
-      if (remaining <= 0.01) break;
-      if (creditor.netAmount <= 0.01) continue;
-
-      const amount = Math.min(remaining, creditor.netAmount);
-      if (amount > 0.01) {
-        transactions.push({
-          fromPlayerId: debtor.playerId,
-          toPlayerId: creditor.playerId,
-          amount: roundCurrency(amount),
-        });
-      }
-
-      remaining -= amount;
-      creditor.netAmount -= amount;
-    }
-  }
-
-  return transactions;
+  const generic = simplifyDebts(positions);
+  return generic.map(t => ({
+    fromPlayerId: t.fromId,
+    toPlayerId: t.toId,
+    amount: t.amount,
+  }));
 }

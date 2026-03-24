@@ -5,8 +5,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FormInput, AppIcon, LogoHorizontal } from '@/components/common';
@@ -329,42 +331,49 @@ export default function LoginScreen({ navigation }: Props) {
                   />
 
                   {/* Verify Button */}
-                  <Button
-                    mode="contained"
+                  <TouchableOpacity
                     onPress={handleVerifyOtp}
                     disabled={isAuthenticating || otpCode.length < 6}
-                    loading={isAuthenticating}
-                    style={styles.loginButton}
-                    contentStyle={styles.loginButtonContent}
-                    labelStyle={styles.loginButtonLabel}
-                    buttonColor={colors.primary}
-                    textColor={colors.white}
+                    style={[
+                      styles.loginButton,
+                      { backgroundColor: colors.primary },
+                      (isAuthenticating || otpCode.length < 6) && styles.buttonDisabled,
+                    ]}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
                     accessibilityLabel="Verify code button"
                     accessibilityHint="Tap to verify the code and sign in"
                   >
-                    {isAuthenticating ? 'Verifying...' : 'Verify Code'}
-                  </Button>
+                    {isAuthenticating && <ActivityIndicator size="small" color={colors.white} style={styles.buttonLoader} />}
+                    <Text style={[styles.loginButtonLabel, { color: colors.white }]}>
+                      {isAuthenticating ? 'Verifying...' : 'Verify Code'}
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Resend / Back options */}
                   <View style={styles.otpActionsContainer}>
-                    <Button
-                      mode="text"
+                    <TouchableOpacity
                       onPress={handleSendOtp}
                       disabled={isAuthenticating}
-                      labelStyle={styles.toggleButtonLabel}
-                      textColor={colors.primary}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Resend Code"
                     >
-                      Resend Code
-                    </Button>
-                    <Button
-                      mode="text"
+                      <Text style={[styles.toggleButtonLabel, { color: colors.primary }]}>
+                        Resend Code
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                       onPress={handleBackToEmail}
                       disabled={isAuthenticating}
-                      labelStyle={styles.toggleButtonLabel}
-                      textColor={colors.textSecondary}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change Email"
                     >
-                      Change Email
-                    </Button>
+                      <Text style={[styles.toggleButtonLabel, { color: colors.textSecondary }]}>
+                        Change Email
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </>
               ) : (
@@ -412,39 +421,44 @@ export default function LoginScreen({ navigation }: Props) {
                   )}
 
                   {/* Login / Send Code Button */}
-                  <Button
-                    mode="contained"
+                  <TouchableOpacity
                     onPress={useOtp ? handleSendOtp : handleLogin}
                     disabled={isAuthenticating}
-                    loading={isAuthenticating}
-                    style={styles.loginButton}
-                    contentStyle={styles.loginButtonContent}
-                    labelStyle={styles.loginButtonLabel}
-                    buttonColor={colors.primary}
-                    textColor={colors.white}
+                    style={[
+                      styles.loginButton,
+                      { backgroundColor: colors.primary },
+                      isAuthenticating && styles.buttonDisabled,
+                    ]}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
                     accessibilityLabel={useOtp ? 'Send code button' : 'Login button'}
                     accessibilityHint={useOtp ? 'Tap to receive a verification code via email' : 'Tap to sign in to your account'}
                   >
-                    {isAuthenticating
-                      ? useOtp
-                        ? 'Sending...'
-                        : 'Signing in...'
-                      : useOtp
-                        ? 'Send Code'
-                        : 'Login'}
-                  </Button>
+                    {isAuthenticating && <ActivityIndicator size="small" color={colors.white} style={styles.buttonLoader} />}
+                    <Text style={[styles.loginButtonLabel, { color: colors.white }]}>
+                      {isAuthenticating
+                        ? useOtp
+                          ? 'Sending...'
+                          : 'Signing in...'
+                        : useOtp
+                          ? 'Send Code'
+                          : 'Login'}
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Toggle Login Method */}
-                  <Button
-                    mode="text"
+                  <TouchableOpacity
                     onPress={toggleLoginMethod}
                     disabled={isAuthenticating}
-                    labelStyle={styles.toggleButtonLabel}
-                    textColor={colors.textSecondary}
+                    style={styles.toggleButton}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
                     accessibilityLabel={useOtp ? 'Use password instead' : 'Use email code instead'}
                   >
-                    {useOtp ? 'Sign in with password' : 'Sign in with email code'}
-                  </Button>
+                    <Text style={[styles.toggleButtonLabel, { color: colors.textSecondary }]}>
+                      {useOtp ? 'Sign in with password' : 'Sign in with email code'}
+                    </Text>
+                  </TouchableOpacity>
                 </>
               )}
             </View>
@@ -452,17 +466,18 @@ export default function LoginScreen({ navigation }: Props) {
             {/* Signup Link */}
             <View style={styles.signupContainer}>
               <Text style={[styles.signupText, { color: colors.textSecondary }]}>Don&apos;t have an account? </Text>
-              <Button
-                mode="text"
+              <TouchableOpacity
                 onPress={handleNavigateToSignup}
                 disabled={isAuthenticating}
-                labelStyle={styles.signupButtonLabel}
-                textColor={colors.primary}
+                activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Sign up button"
                 accessibilityHint="Navigate to sign up screen"
               >
-                Sign Up
-              </Button>
+                <Text style={[styles.signupButtonLabel, { color: colors.primary }]}>
+                  Sign Up
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -540,18 +555,28 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   loginButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,
-  },
-  loginButtonContent: {
     height: 48,
   },
   loginButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonLoader: {
+    marginRight: spacing.sm,
+  },
+  toggleButton: {
+    alignItems: 'center' as const,
+    paddingVertical: spacing.sm,
   },
   toggleButtonLabel: {
-    fontSize: 14,
+    ...typography.small,
   },
   signupContainer: {
     flexDirection: 'row',
@@ -563,7 +588,6 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
   signupButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
 });

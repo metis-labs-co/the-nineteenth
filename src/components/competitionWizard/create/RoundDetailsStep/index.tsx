@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import { Button, Text, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -117,26 +117,22 @@ export default function RoundDetailsStep({
           },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
-          theme={{ colors: { outline: colors.gray300 } }}
+          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Back
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={form.handleSubmit}
-          style={styles.nextButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
+          style={[styles.nextButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          Next: Add Players
-        </Button>
+          <Text style={[styles.buttonLabel, { color: colors.white }]}>Next: Add Players</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Modals */}
@@ -253,13 +249,19 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
 });
 

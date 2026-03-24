@@ -235,12 +235,12 @@ const styles = StyleSheet.create({
   progressBar: {
     width: 60,
     height: 6,
-    borderRadius: 3,
+    borderRadius: borderRadius.sm,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: borderRadius.sm,
   },
   archivedBanner: {
     flexDirection: 'row',
@@ -251,7 +251,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   archivedText: {
-    ...typography.small,
-    fontWeight: '600',
+    ...typography.smallBold,
   },
 });

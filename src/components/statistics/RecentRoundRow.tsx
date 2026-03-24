@@ -7,6 +7,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { Pill } from '@/components/common';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -59,9 +60,7 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
             {courseName}
           </Text>
           {isPracticeRound && (
-            <View style={[styles.practiceBadge, { backgroundColor: colors.infoLight }]}>
-              <Text style={[styles.practiceBadgeText, { color: colors.info }]}>Practice</Text>
-            </View>
+            <Pill label="Practice" variant="info" size="sm" />
           )}
         </View>
         <Text style={[styles.competition, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -108,16 +107,6 @@ const styles = StyleSheet.create({
   course: {
     ...typography.bodyBold,
     flexShrink: 1,
-  },
-  practiceBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  practiceBadgeText: {
-    ...typography.caption,
-    fontSize: 10,
-    fontWeight: '600',
   },
   competition: {
     ...typography.caption,

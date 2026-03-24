@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   indexValue: {
+    ...typography.display,
     fontSize: 48,
-    fontWeight: '700',
     lineHeight: 56,
     marginBottom: spacing.md,
   },
@@ -106,7 +106,6 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...typography.h4,
-    fontWeight: '600',
   },
   statLabel: {
     ...typography.caption,

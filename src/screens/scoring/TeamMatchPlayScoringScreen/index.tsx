@@ -15,8 +15,8 @@
  */
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
-import { Text, Icon, Button } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, BackHandler, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { HoleHeader, SwipeableHoleNavigator } from '@/components/scorecard';
@@ -646,9 +646,14 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     return (
       <SafeAreaView style={[styles.errorContainer, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>{errorMessage}</Text>
-        <Button mode="contained" onPress={() => navigation.goBack()}>
-          Go Back
-        </Button>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.goBackButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.goBackButtonLabel, { color: colors.white }]}>Go Back</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -760,6 +765,16 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
   },
+  goBackButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+  },
+  goBackButtonLabel: {
+    ...typography.bodyBold,
+  },
   matchStatusBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -799,7 +814,7 @@ const styles = StyleSheet.create({
   holesWonDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: borderRadius.full,
   },
   holesWonText: {
     ...typography.h3,

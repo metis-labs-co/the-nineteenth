@@ -12,12 +12,10 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-// LoadingSpinner import removed as it's not used (LeaderboardTable handles loading state)
-import { IconAlertTriangle } from '@tabler/icons-react-native';
+import { ErrorState } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -25,7 +23,7 @@ import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useAuth } from '@/hooks/useAuth';
 import { LeaderboardTable } from '@/components/leaderboard';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -72,23 +70,11 @@ export default function LeaderboardScreen({ navigation, route }: Props) {
           showBack
           onBack={handleGoBack}
         />
-        <View style={styles.errorContainer}>
-          <View style={[styles.errorIconContainer, { backgroundColor: colors.errorLight }]}>
-            <IconAlertTriangle size={48} color={colors.error} />
-          </View>
-          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load leaderboard</Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {error instanceof Error ? error.message : 'An error occurred'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={handleRefresh}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading leaderboard"
-          >
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          error={error instanceof Error ? error : 'An error occurred'}
+          title="Unable to load leaderboard"
+          onRetry={handleRefresh}
+        />
       </View>
     );
   }
@@ -160,39 +146,4 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
 
-  // Error State
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxxl,
-  },
-  errorIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  errorTitle: {
-    ...typography.h3,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  retryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  retryButtonText: {
-    ...typography.bodyBold,
-  },
 });

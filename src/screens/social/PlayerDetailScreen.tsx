@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { LoadingSpinner, PlayerAvatar } from '@/components/common';
+import { LoadingSpinner, PlayerAvatar, ErrorState, EmptyState } from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -127,21 +127,11 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
           showBack
           onBack={handleGoBack}
         />
-        <View style={styles.errorContainer}>
-          <Icon source="alert-circle" size={48} color={colors.error} />
-          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load player</Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {error instanceof Error ? error.message : 'An error occurred'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={handleRefresh}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading player"
-          >
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          error={error instanceof Error ? error : 'An error occurred'}
+          title="Unable to load player"
+          onRetry={handleRefresh}
+        />
       </View>
     );
   }
@@ -243,14 +233,12 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
 
         {/* No Stats Message */}
         {!hasStats ? (
-          <View style={styles.noStatsContainer}>
-            <Icon source="chart-line" size={48} color={colors.gray300} />
-            <Text style={[styles.noStatsTitle, { color: colors.textPrimary }]}>No statistics yet</Text>
-            <Text style={[styles.noStatsMessage, { color: colors.textSecondary }]}>
-              {player.name} hasn&apos;t completed any rounds yet. Statistics will appear once they start
-              playing.
-            </Text>
-          </View>
+          <EmptyState
+            title="No statistics yet"
+            message={`${player.name} hasn't completed any rounds yet. Statistics will appear once they start playing.`}
+            icon="chart-line"
+            compact
+          />
         ) : (
           <>
             {/* Overview Stats */}
@@ -572,22 +560,6 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
   },
 
-  // No Stats State
-  noStatsContainer: {
-    alignItems: 'center',
-    padding: spacing.xxxl,
-    marginTop: spacing.xl,
-  },
-  noStatsTitle: {
-    ...typography.h3,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  noStatsMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
 
   // Stats Grid
   statsGrid: {
@@ -696,32 +668,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 
-  // Error State
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xxxl,
-  },
-  errorTitle: {
-    ...typography.h3,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  retryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  retryButtonText: {
-    ...typography.bodyBold,
-  },
 });

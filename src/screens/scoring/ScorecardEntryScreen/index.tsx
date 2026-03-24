@@ -15,8 +15,8 @@
  */
 
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,7 +40,7 @@ import {
 } from '@/hooks/wolf';
 import { determineWolfForHole } from '@/utils/wolfCalculations';
 import { scoringLogger } from '@/utils/debugLogger';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks';
 import type { RootStackScreenProps } from '@/navigation/types';
@@ -640,12 +640,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         </Text>
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>{fetchError}</Text>
         <View style={styles.errorButtons}>
-          <Button mode="outlined" onPress={() => navigation.goBack()} style={styles.errorButton}>
-            Go Back
-          </Button>
-          <Button mode="contained" onPress={retryFetch} style={styles.errorButton}>
-            Retry
-          </Button>
+          <TouchableOpacity
+            style={[styles.errorButton, styles.errorButtonOutlined, { borderColor: colors.border }]}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.errorButtonLabel, { color: colors.textPrimary }]}>Go Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.errorButton, styles.errorButtonContained, { backgroundColor: colors.primary }]}
+            onPress={retryFetch}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.errorButtonLabel, { color: colors.white }]}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -658,9 +668,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>
           Failed to load hole data
         </Text>
-        <Button mode="contained" onPress={() => navigation.goBack()}>
-          Go Back
-        </Button>
+        <TouchableOpacity
+          style={[styles.errorButtonContained, { backgroundColor: colors.primary, minWidth: 100, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: borderRadius.lg }]}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.errorButtonLabel, { color: colors.white }]}>Go Back</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -791,6 +806,19 @@ const styles = StyleSheet.create({
   },
   errorButton: {
     minWidth: 100,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.lg,
+  },
+  errorButtonOutlined: {
+    borderWidth: 1,
+  },
+  errorButtonContained: {
+    // backgroundColor set inline
+  },
+  errorButtonLabel: {
+    ...typography.bodyBold,
   },
   playersContainer: {
     flex: 1,

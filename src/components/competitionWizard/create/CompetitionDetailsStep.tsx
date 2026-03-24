@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, ScrollView, LayoutAnimation, UIManager, TouchableOpacity } from 'react-native';
-import { Button, Text, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -418,25 +418,22 @@ export default function CompetitionDetailsStep({
 
       {/* Action Buttons - Sticky Footer */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.surface, borderTopColor: colors.gray200 }]}>
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.cancelButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
+          style={[styles.cancelButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Cancel
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleSubmit(onComplete)}
-          style={styles.nextButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
+          style={[styles.nextButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          Next: Rounds
-        </Button>
+          <Text style={[styles.buttonLabel, { color: colors.white }]}>Next: Rounds</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -488,13 +485,19 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
   teamToggle: {
     flexDirection: 'row',

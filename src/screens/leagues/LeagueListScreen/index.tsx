@@ -139,7 +139,10 @@ export default function LeagueListScreen() {
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <TouchableOpacity
-                style={[styles.joinButton, { backgroundColor: colors.primaryBackground }]}
+                style={[
+                  styles.joinButton,
+                  { backgroundColor: colors.surface, borderColor: colors.primary },
+                ]}
                 onPress={handleJoinLeague}
                 activeOpacity={0.7}
                 accessibilityRole="button"
@@ -317,15 +320,18 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: borderRadius.xxxl,
   },
   joinButton: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   joinButtonText: {
-    ...typography.bodyBold,
+    ...typography.smallBold,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,

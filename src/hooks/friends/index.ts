@@ -1,15 +1,12 @@
 /**
- * useFriends - Friends Management Hooks
+ * Friends Hooks
  *
- * Re-exports from the friends/ directory for backward compatibility.
- * New code should import directly from '@/hooks/friends'.
- *
- * @example
- * ```tsx
- * import { useFriends, useAddFriend } from '@/hooks/friends';
- * ```
+ * Comprehensive friends management hooks split by concern:
+ * - queries.ts: Read-only hooks (friends list, search, requests, stats)
+ * - mutations.ts: Write hooks (add, accept, decline, remove, cancel)
  */
 
+// Query hooks
 export {
   useFriendsCount,
   useCheckCanAddFriend,
@@ -19,9 +16,13 @@ export {
   useSentFriendRequests,
   useSearchPlayers,
   useFriendStats,
+} from './queries';
+
+// Mutation hooks
+export {
   useAddFriend,
   useAcceptFriendRequest,
   useDeclineFriendRequest,
   useRemoveFriend,
   useCancelFriendRequest,
-} from './friends';
+} from './mutations';

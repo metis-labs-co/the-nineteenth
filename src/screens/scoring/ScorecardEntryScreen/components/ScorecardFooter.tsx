@@ -8,8 +8,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 
@@ -46,62 +46,76 @@ export function ScorecardFooter({
       ]}
     >
       <View style={styles.viewScorecardRow}>
-        <Button
-          mode="text"
+        <TouchableOpacity
           onPress={onViewScorecard}
           style={styles.viewScorecardButton}
-          labelStyle={[styles.viewScorecardLabel, { color: colors.primary }]}
-          compact
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          View Full Scorecard
-        </Button>
+          <Text style={[styles.viewScorecardLabel, { color: colors.primary }]}>
+            View Full Scorecard
+          </Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.navButtonsRow}>
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onPreviousHole}
           disabled={!canGoPrevious}
-          style={styles.navButton}
-          labelStyle={[styles.navButtonLabel, { color: colors.textPrimary }]}
-          contentStyle={styles.navButtonContent}
+          style={[
+            styles.navButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
+            !canGoPrevious && { opacity: 0.5 },
+          ]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Previous
-        </Button>
+          <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
+        </TouchableOpacity>
 
         {showReviewButton ? (
           <>
             {/* Show Next Hole button if not on last hole */}
             {canGoNext && (
-              <Button
-                mode="outlined"
+              <TouchableOpacity
                 onPress={onNextHole}
-                style={styles.navButton}
-                labelStyle={[styles.navButtonLabel, { color: colors.textPrimary }]}
-                contentStyle={styles.navButtonContent}
+                style={[
+                  styles.navButton,
+                  styles.navButtonContent,
+                  { borderWidth: 1, borderColor: colors.border },
+                ]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
               >
-                Next Hole
-              </Button>
+                <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Next Hole</Text>
+              </TouchableOpacity>
             )}
-            <Button
-              mode="contained"
+            <TouchableOpacity
               onPress={onViewScorecard}
-              style={[styles.navButton, { backgroundColor: colors.success }]}
-              labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
-              contentStyle={styles.navButtonContent}
+              style={[
+                styles.navButton,
+                styles.navButtonContent,
+                { backgroundColor: colors.success },
+              ]}
+              activeOpacity={0.8}
+              accessibilityRole="button"
             >
-              Review Scores
-            </Button>
+              <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Review Scores</Text>
+            </TouchableOpacity>
           </>
         ) : (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={onNextHole}
-            style={[styles.navButton, { backgroundColor: colors.primary }]}
-            labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
-            contentStyle={styles.navButtonContent}
+            style={[
+              styles.navButton,
+              styles.navButtonContent,
+              { backgroundColor: colors.primary },
+            ]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            Next Hole
-          </Button>
+            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -121,7 +135,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   viewScorecardButton: {
-    marginVertical: 0,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   viewScorecardLabel: {
     ...typography.small,
@@ -138,6 +153,8 @@ const styles = StyleSheet.create({
   navButtonContent: {
     paddingVertical: spacing.sm,
     minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navButtonLabel: {
     ...typography.bodyBold,

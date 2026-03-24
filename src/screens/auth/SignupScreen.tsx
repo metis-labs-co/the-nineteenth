@@ -8,7 +8,7 @@ import {
   Linking,
   TouchableOpacity,
 } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconMail } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -187,16 +187,17 @@ export default function SignupScreen({ navigation }: Props) {
             Please check your inbox and click the link to activate your account.
             Once confirmed, you can log in.
           </Text>
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={handleBackToLogin}
-            style={styles.confirmationButton}
-            contentStyle={styles.signupButtonContent}
-            buttonColor={colors.primary}
-            textColor={colors.white}
+            style={[styles.confirmationButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Go to Login"
           >
-            Go to Login
-          </Button>
+            <Text style={[styles.signupButtonLabel, { color: colors.white }]}>
+              Go to Login
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.confirmationHint, { color: colors.textDisabled }]}>
             Didn&apos;t receive the email? Check your spam folder or try signing up again.
           </Text>
@@ -291,37 +292,40 @@ export default function SignupScreen({ navigation }: Props) {
               />
 
               {/* Sign Up Button */}
-              <Button
-                mode="contained"
+              <TouchableOpacity
                 onPress={handleSignup}
                 disabled={allLoading}
-                loading={isAuthenticating}
-                style={styles.signupButton}
-                contentStyle={styles.signupButtonContent}
-                labelStyle={styles.signupButtonLabel}
-                buttonColor={colors.primary}
-                textColor={colors.white}
+                style={[
+                  styles.signupButton,
+                  { backgroundColor: colors.primary },
+                  allLoading && styles.buttonDisabled,
+                ]}
+                activeOpacity={0.8}
+                accessibilityRole="button"
                 accessibilityLabel="Sign up button"
                 accessibilityHint="Tap to create your account"
               >
-                {isAuthenticating ? 'Creating Account...' : 'Sign Up'}
-              </Button>
+                <Text style={[styles.signupButtonLabel, { color: colors.white }]}>
+                  {isAuthenticating ? 'Creating Account...' : 'Sign Up'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Login Link */}
             <View style={styles.loginContainer}>
               <Text style={[styles.loginText, { color: colors.textSecondary }]}>Already have an account? </Text>
-              <Button
-                mode="text"
+              <TouchableOpacity
                 onPress={handleBackToLogin}
                 disabled={allLoading}
-                labelStyle={styles.loginButtonLabel}
-                textColor={colors.primary}
+                activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Login button"
                 accessibilityHint="Navigate to login screen"
               >
-                Login
-              </Button>
+                <Text style={[styles.loginButtonLabel, { color: colors.primary }]}>
+                  Login
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Terms & Privacy Notice */}
@@ -389,15 +393,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   signupButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,
-  },
-  signupButtonContent: {
     height: 48,
   },
   signupButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   loginContainer: {
     flexDirection: 'row',
@@ -409,8 +416,7 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
   loginButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   termsContainer: {
     marginTop: spacing.xl,
@@ -468,9 +474,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   confirmationButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginTop: spacing.xxl,
     width: '100%',
     borderRadius: borderRadius.md,
+    height: 48,
   },
   confirmationHint: {
     ...typography.caption,

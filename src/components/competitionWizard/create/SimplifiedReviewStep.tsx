@@ -10,8 +10,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform, ScrollView } from 'react-native';
-import { Button, Text, Divider, Chip, Icon } from 'react-native-paper';
+import { View, StyleSheet, Platform, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text, Divider, Chip, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconTrophy, IconDice, IconMedal, IconDots } from '@tabler/icons-react-native';
 import type {
@@ -456,29 +456,27 @@ export default function SimplifiedReviewStep({
           },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
+          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }, isSubmitting && { opacity: 0.5 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
           disabled={isSubmitting}
-          theme={{ colors: { outline: colors.gray300 } }}
         >
-          Back
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={onSubmit}
-          style={styles.createButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
-          loading={isSubmitting}
+          style={[styles.createButton, { backgroundColor: colors.primary }, isSubmitting && { opacity: 0.5 }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
           disabled={isSubmitting}
         >
-          {isSubmitting ? 'Creating...' : 'Create Competition'}
-        </Button>
+          {isSubmitting && <ActivityIndicator size="small" color={colors.white} />}
+          <Text style={[styles.buttonLabel, { color: colors.white }]}>
+            {isSubmitting ? 'Creating...' : 'Create Competition'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -659,13 +657,21 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
   // Prize pool styles
   sectionTitleRow: {

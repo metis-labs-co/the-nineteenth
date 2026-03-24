@@ -9,7 +9,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { StatCard } from '@/components/statistics';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 interface MyLeaguePerformanceProps {
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
     gap: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
   },
   emptyText: {
     ...typography.small,

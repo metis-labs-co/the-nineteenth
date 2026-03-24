@@ -11,9 +11,9 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { EmptyState } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
 import { StatCard } from '@/components/statistics';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
@@ -28,26 +28,6 @@ interface GameStatsProps {
   showFairwayHit: boolean;
   showGreenInRegulation: boolean;
 }
-
-// =====================================================
-// NO DATA CARD COMPONENT
-// =====================================================
-
-interface NoDataCardProps {
-  message: string;
-}
-
-const NoDataCard = React.memo(function NoDataCard({ message }: NoDataCardProps) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={[styles.noDataCard, { backgroundColor: colors.gray100 }]}>
-      <Text style={[styles.noDataText, { color: colors.textSecondary }]}>
-        {message}
-      </Text>
-    </View>
-  );
-});
 
 // =====================================================
 // COMPONENT
@@ -125,13 +105,28 @@ export const GameStats = React.memo(function GameStats({
 
       {/* Show messages for enabled settings with no data */}
       {showPutts && stats.holesWithPuttsRecorded === 0 && (
-        <NoDataCard message="No putting data recorded yet. Start tracking putts during your rounds!" />
+        <EmptyState
+          title="No putting data"
+          message="Start tracking putts during your rounds!"
+          icon="golf"
+          compact
+        />
       )}
       {showFairwayHit && stats.fairwayOpportunities === 0 && (
-        <NoDataCard message="No fairway data recorded yet. Start tracking fairways hit during your rounds!" />
+        <EmptyState
+          title="No fairway data"
+          message="Start tracking fairways hit during your rounds!"
+          icon="arrow-right-bold"
+          compact
+        />
       )}
       {showGreenInRegulation && stats.girOpportunities === 0 && (
-        <NoDataCard message="No GIR data recorded yet. Start tracking greens in regulation during your rounds!" />
+        <EmptyState
+          title="No GIR data"
+          message="Start tracking greens in regulation during your rounds!"
+          icon="flag-checkered"
+          compact
+        />
       )}
     </>
   );
@@ -149,15 +144,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -spacing.xs,
-  },
-  noDataCard: {
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-  },
-  noDataText: {
-    ...typography.small,
-    textAlign: 'center',
   },
 });
 
