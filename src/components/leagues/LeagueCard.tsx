@@ -18,6 +18,7 @@ interface LeagueCardProps {
   onPress: () => void;
   onDelete?: (league: League) => void;
   swipeEnabled?: boolean;
+  playerCount?: number;
 }
 
 const LEAGUE_TYPE_LABELS: Record<LeagueType, string> = {
@@ -40,7 +41,7 @@ const getStatusVariant = (status: string) => {
   }
 };
 
-export default React.memo(function LeagueCard({ league, onPress, onDelete, swipeEnabled = false }: LeagueCardProps) {
+export default React.memo(function LeagueCard({ league, onPress, onDelete, swipeEnabled = false, playerCount }: LeagueCardProps) {
   const colors = useThemeColors();
 
   const typeLabel = LEAGUE_TYPE_LABELS[league.league_type] ?? 'Ongoing';
@@ -85,6 +86,13 @@ export default React.memo(function LeagueCard({ league, onPress, onDelete, swipe
               {league.description}
             </Text>
           ) : null}
+
+          {/* Player Count */}
+          {playerCount != null && (
+            <Text style={[styles.playerCount, { color: colors.textSecondary }]}>
+              {playerCount} {playerCount === 1 ? 'player' : 'players'}
+            </Text>
+          )}
         </View>
 
         {/* Arrow */}
@@ -121,6 +129,10 @@ const styles = StyleSheet.create({
   },
   description: {
     ...typography.small,
+  },
+  playerCount: {
+    ...typography.small,
+    marginTop: spacing.xs,
   },
   arrow: {
     marginLeft: spacing.md,

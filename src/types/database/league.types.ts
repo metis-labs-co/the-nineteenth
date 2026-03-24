@@ -62,6 +62,9 @@ export interface League {
 
   // Partnership fields
   partnership_format: PartnershipFormat | null;
+
+  // Visibility
+  is_public: boolean;
 }
 
 /**

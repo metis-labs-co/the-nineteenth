@@ -17,6 +17,7 @@ import type {
   LeagueType,
   LeagueLeaderboardEntry,
   LeagueRoundDetail,
+  LeagueWithPlayerCount,
   EclecticBestScore,
   EclecticLeaderboardEntry,
   EclecticScoring,
@@ -47,6 +48,8 @@ export interface CreateLeagueInput {
   eclectic_scoring?: EclecticScoring;
   // Partnership fields
   partnership_format?: PartnershipFormat;
+  // Visibility
+  is_public?: boolean;
 }
 
 export interface EligibleScorecard {
@@ -73,15 +76,11 @@ const from = (table: string) => (supabase as any).from(table);
 // =====================================================
 
 /**
- * Fetch all leagues the user is a member of or created
+ * Fetch leagues where the user is creator or accepted member
  */
 export async function getLeagues(): Promise<League[]> {
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error('You must be logged in');
-
-  const { data, error } = await from('leagues')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_my_leagues');
 
   if (error) {
     console.error('[Leagues] Error fetching leagues:', error);
@@ -89,6 +88,23 @@ export async function getLeagues(): Promise<League[]> {
   }
 
   return (data ?? []) as League[];
+}
+
+/**
+ * Fetch public active leagues with optional search and player count
+ */
+export async function getPublicLeagues(search?: string): Promise<LeagueWithPlayerCount[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_public_leagues', {
+    p_search: search || null,
+  });
+
+  if (error) {
+    console.error('[Leagues] Error fetching public leagues:', error);
+    throw new Error(`Failed to fetch public leagues: ${error.message}`);
+  }
+
+  return (data ?? []) as LeagueWithPlayerCount[];
 }
 
 /**
@@ -432,6 +448,7 @@ export async function createLeague(input: CreateLeagueInput): Promise<League> {
     description: input.description || null,
     created_by: user.id,
     league_type: input.league_type || 'ongoing',
+    is_public: input.is_public ?? false,
   };
 
   // Season fields
@@ -498,13 +515,12 @@ export async function joinLeague(inviteCode: string): Promise<League> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw new Error('You must be logged in');
 
-  // Find the league by invite code
-  const { data: league, error: findError } = await from('leagues')
-    .select('*')
-    .eq('invite_code', inviteCode.toUpperCase().trim())
-    .eq('status', 'active')
-    .single();
+  // Find the league by invite code (uses SECURITY DEFINER to bypass RLS for private leagues)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagues, error: findError } = await (supabase as any)
+    .rpc('lookup_league_by_invite_code', { p_invite_code: inviteCode.trim() });
 
+  const league = leagues?.[0];
   if (findError || !league) {
     throw new Error('Invalid invite code. Please check and try again.');
   }
@@ -537,6 +553,40 @@ export async function joinLeague(inviteCode: string): Promise<League> {
   }
 
   return league as League;
+}
+
+/**
+ * Join a public league directly (no invite code needed)
+ */
+export async function joinPublicLeague(leagueId: string): Promise<void> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('You must be logged in');
+
+  // Check if already a member
+  const { data: existing } = await from('league_players')
+    .select('status')
+    .eq('league_id', leagueId)
+    .eq('player_id', user.id)
+    .single();
+
+  if (existing && existing.status === 'accepted') {
+    throw new Error('You are already a member of this league.');
+  }
+
+  const { error: joinError } = await from('league_players')
+    .upsert({
+      league_id: leagueId,
+      player_id: user.id,
+      status: 'accepted',
+      joined_at: new Date().toISOString(),
+    }, {
+      onConflict: 'league_id,player_id',
+    });
+
+  if (joinError) {
+    console.error('[Leagues] Error joining public league:', joinError);
+    throw new Error(`Failed to join league: ${joinError.message}`);
+  }
 }
 
 /**
@@ -916,7 +966,7 @@ export async function addPlayersToLeague(
  */
 export async function updateLeague(
   leagueId: string,
-  input: { name?: string; description?: string }
+  input: { name?: string; description?: string; is_public?: boolean }
 ): Promise<League> {
   const { data, error } = await from('leagues')
     .update(input)

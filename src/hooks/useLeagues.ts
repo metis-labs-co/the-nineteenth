@@ -12,6 +12,7 @@ import {
   getLeague,
   getLeaguePlayers,
   getLeagueLeaderboard,
+  getPublicLeagues,
   getMyLeagueRounds,
   getPlayerLeagueRounds,
   getEligibleScorecards,
@@ -21,6 +22,7 @@ import {
   getEclecticBestScores,
   createLeague,
   joinLeague,
+  joinPublicLeague,
   tagRoundToLeague,
   untagRound,
   leaveLeague,
@@ -61,6 +63,14 @@ export function useLeague(id: string, enabled = true) {
     queryFn: () => getLeague(id),
     enabled: !!id && enabled,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function usePublicLeagues(search?: string) {
+  return useQuery({
+    queryKey: leagueKeys.publicList(search),
+    queryFn: () => getPublicLeagues(search),
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -220,6 +230,20 @@ export function useJoinLeague() {
   });
 }
 
+export function useJoinPublicLeague() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leagueId: string) => joinPublicLeague(leagueId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leagueKeys.all });
+    },
+    onError: (error) => {
+      console.error('[useJoinPublicLeague] Failed:', error);
+    },
+  });
+}
+
 export function useTagRoundToLeague() {
   const queryClient = useQueryClient();
 
@@ -336,7 +360,7 @@ export function useUpdateLeague(leagueId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { name?: string; description?: string }) =>
+    mutationFn: (input: { name?: string; description?: string; is_public?: boolean }) =>
       updateLeague(leagueId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.detail(leagueId) });

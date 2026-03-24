@@ -455,6 +455,7 @@ export default function CreateLeagueScreen() {
   const [leagueType, setLeagueType] = useState<LeagueType>('ongoing');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
 
   // Step 2: Type-specific config
   // Season
@@ -556,6 +557,7 @@ export default function CreateLeagueScreen() {
       name: name.trim(),
       description: description.trim() || undefined,
       league_type: leagueType,
+      is_public: isPublic,
     };
 
     if (leagueType === 'season') {
@@ -582,7 +584,7 @@ export default function CreateLeagueScreen() {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create league');
     }
   }, [
-    canCreateLeague, name, description, leagueType, startDate, endDate,
+    canCreateLeague, name, description, isPublic, leagueType, startDate, endDate,
     maxRounds, countingRounds, useBestOf, challengeRange, ladderSeeding,
     courseId, teeId, eclecticScoring, partnershipFormat, createLeague, navigation,
   ]);
@@ -697,6 +699,25 @@ export default function CreateLeagueScreen() {
                   numberOfLines={3}
                   accessibilityHint="Optionally describe your league"
                 />
+
+                <TouchableOpacity
+                  onPress={() => setIsPublic(!isPublic)}
+                  style={[styles.toggleRow, { borderColor: colors.border }]}
+                >
+                  <View style={styles.toggleTextContainer}>
+                    <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                      Public League
+                    </Text>
+                    <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                      Allow anyone to find and join this league
+                    </Text>
+                  </View>
+                  <Icon
+                    source={isPublic ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={24}
+                    color={isPublic ? colors.primary : colors.gray300}
+                  />
+                </TouchableOpacity>
               </View>
             </View>
           ) : (

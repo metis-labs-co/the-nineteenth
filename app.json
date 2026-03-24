@@ -18,12 +18,13 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "0",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [
         "applinks:thenineteenth.golf",
-        "applinks:www.thenineteenth.golf"
+        "applinks:www.thenineteenth.golf",
+        "webcredentials:thenineteenth.golf"
       ],
       "infoPlist": {
         "NSCameraUsageDescription": "Allow The Nineteenth to take photos for your profile picture.",
@@ -53,7 +54,7 @@
         "backgroundColor": "#1f2937"
       },
       "package": "com.the.nineteenth.golf",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

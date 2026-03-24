@@ -63,6 +63,7 @@ export function createTestLeague(overrides: Partial<League> = {}): League {
     tee_id: null,
     eclectic_scoring: null,
     partnership_format: null,
+    is_public: false,
     created_at: '2026-01-15T08:00:00.000Z',
     updated_at: '2026-01-15T08:00:00.000Z',
     ...overrides,

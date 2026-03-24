@@ -103,6 +103,7 @@ export const leagueKeys = {
   all: ['leagues'] as const,
   lists: () => [...leagueKeys.all, 'list'] as const,
   list: (filters?: { status?: string }) => [...leagueKeys.lists(), filters] as const,
+  publicList: (search?: string) => [...leagueKeys.all, 'public', search] as const,
   details: () => [...leagueKeys.all, 'detail'] as const,
   detail: (id: string) => [...leagueKeys.details(), id] as const,
   leaderboard: (leagueId: string) => [...leagueKeys.all, 'leaderboard', leagueId] as const,

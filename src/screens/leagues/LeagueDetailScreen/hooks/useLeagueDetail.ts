@@ -18,6 +18,7 @@ import {
   useMyLeagueRounds,
   usePlayerLeagueRounds,
   useLeaveLeague,
+  useJoinPublicLeague,
   useLadderStandings,
   useLeagueChallenges,
   useMyActiveChallenges,
@@ -63,6 +64,14 @@ export function useLeagueDetail() {
   const { data: myRounds, refetch: refetchRounds } = useMyLeagueRounds(leagueId);
   const { data: tagCount } = usePlayerTagCount(leagueId, leagueType === 'round_limit');
   const leaveMutation = useLeaveLeague();
+  const joinPublicMutation = useJoinPublicLeague();
+
+  // Check if current user is a member (creator or in players list)
+  const isMember = useMemo(() => {
+    if (!user?.id || !league) return false;
+    if (league.created_by === user.id) return true;
+    return players?.some((p) => p.player_id === user.id && p.status === 'accepted') ?? false;
+  }, [user?.id, league, players]);
 
   // Ladder-specific data
   const isLadder = leagueType === 'ladder';
@@ -398,6 +407,14 @@ export function useLeagueDetail() {
     [respondMutation]
   );
 
+  const handleJoinPublicLeague = useCallback(async () => {
+    try {
+      await joinPublicMutation.mutateAsync(leagueId);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to join league');
+    }
+  }, [joinPublicMutation, leagueId]);
+
   return {
     // Data
     league,
@@ -411,6 +428,8 @@ export function useLeagueDetail() {
     isLoadingPlayerRounds,
     isCreator,
     isArchived,
+    isMember,
+    isJoining: joinPublicMutation.isPending,
     leagueId,
     userId: user?.id,
 
@@ -472,5 +491,8 @@ export function useLeagueDetail() {
     showStartRound,
     handleStartRoundNow,
     handleCloseStartRound,
+
+    // Public join
+    handleJoinPublicLeague,
   };
 }

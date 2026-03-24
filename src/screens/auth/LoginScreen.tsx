@@ -383,6 +383,7 @@ export default function LoginScreen({ navigation }: Props) {
                     autoCapitalize="none"
                     autoComplete="email"
                     textContentType="emailAddress"
+                    importantForAutofill="yes"
                     error={emailError || undefined}
                     disabled={isAuthenticating}
                     accessibilityHint="Enter your email address"
@@ -403,6 +404,7 @@ export default function LoginScreen({ navigation }: Props) {
                       autoCapitalize="none"
                       autoComplete="current-password"
                       textContentType="password"
+                      importantForAutofill="yes"
                       error={passwordError || undefined}
                       disabled={isAuthenticating}
                       accessibilityHint="Enter your password"

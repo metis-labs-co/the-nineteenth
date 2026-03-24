@@ -263,6 +263,7 @@ export default function SignupScreen({ navigation }: Props) {
                 autoCapitalize="none"
                 autoComplete="email"
                 textContentType="emailAddress"
+                importantForAutofill="yes"
                 error={emailError || undefined}
                 disabled={allLoading}
                 accessibilityHint="Enter your email address"
@@ -282,6 +283,7 @@ export default function SignupScreen({ navigation }: Props) {
                 autoCapitalize="none"
                 autoComplete="new-password"
                 textContentType="newPassword"
+                importantForAutofill="yes"
                 error={passwordError || undefined}
                 hint={!passwordError && password.length > 0 ? 'Use 8+ characters with uppercase, lowercase, and numbers' : undefined}
                 disabled={allLoading}

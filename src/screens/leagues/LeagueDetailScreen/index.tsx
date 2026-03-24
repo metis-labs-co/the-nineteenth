@@ -8,7 +8,8 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { IconGolf } from '@tabler/icons-react-native';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -18,7 +19,8 @@ import { Tabs } from '@/components/common/Tabs';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import { Pill } from '@/components/common/Pill';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks/useStartNewRound';
 
@@ -114,6 +116,11 @@ export default function LeagueDetailScreen() {
     showStartRound,
     handleStartRoundNow,
     handleCloseStartRound,
+
+    // Public join
+    isMember,
+    isJoining,
+    handleJoinPublicLeague,
   } = useLeagueDetail();
 
   // Start new round with pending league tag
@@ -162,6 +169,55 @@ export default function LeagueDetailScreen() {
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="lg" />
         </View>
+      </View>
+    );
+  }
+
+  // Non-member view for public leagues
+  if (!isMember) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <PageHeader title="League" showBack onBack={() => navigation.goBack()} />
+        <ScrollView contentContainerStyle={styles.previewContent}>
+          <View style={[styles.previewCard, { backgroundColor: colors.surface }]}>
+            <Pill label={league.league_type.replace('_', ' ')} variant="default" size="md" />
+            <Text style={[styles.previewName, { color: colors.textPrimary }]}>
+              {league.name}
+            </Text>
+            {league.description ? (
+              <Text style={[styles.previewDescription, { color: colors.textSecondary }]}>
+                {league.description}
+              </Text>
+            ) : null}
+            <Text style={[styles.previewPlayerCount, { color: colors.textSecondary }]}>
+              {players?.length ?? 0} {(players?.length ?? 0) === 1 ? 'player' : 'players'}
+            </Text>
+          </View>
+          {league.is_public ? (
+            <TouchableOpacity
+              style={[styles.joinPublicButton, { backgroundColor: colors.primary }]}
+              onPress={handleJoinPublicLeague}
+              disabled={isJoining}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Join this league"
+            >
+              {isJoining ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Text style={[styles.joinPublicButtonText, { color: colors.white }]}>
+                  Join League
+                </Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.noAccessCard, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.noAccessText, { color: colors.textSecondary }]}>
+                You don't have access to this league. Ask the organiser for an invite code.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
     );
   }
@@ -411,5 +467,42 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     marginHorizontal: spacing.lg,
+  },
+  previewContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  previewCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+  previewName: {
+    ...typography.h3,
+  },
+  previewDescription: {
+    ...typography.body,
+  },
+  previewPlayerCount: {
+    ...typography.small,
+    marginTop: spacing.xs,
+  },
+  joinPublicButton: {
+    height: 52,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinPublicButtonText: {
+    ...typography.bodyBold,
+  },
+  noAccessCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+  },
+  noAccessText: {
+    ...typography.body,
+    textAlign: 'center',
   },
 });

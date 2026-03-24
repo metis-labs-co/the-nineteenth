@@ -1,12 +1,11 @@
 /**
- * LeagueListScreen - Tab screen showing user's leagues
+ * LeagueListScreen - Tab screen showing user's leagues + public browse
  *
  * Features:
- * - List of leagues the user belongs to
- * - Create League button (subscription-gated)
- * - Join League button
+ * - "My Leagues" tab: leagues the user belongs to (create, join, delete)
+ * - "Browse" tab: searchable list of public leagues
  * - Pull-to-refresh
- * - Empty state
+ * - Empty states
  */
 
 import React, { useCallback, useState } from 'react';
@@ -17,7 +16,7 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { IconPlus } from '@tabler/icons-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,19 +25,23 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { FeatureButton, ConfirmationDialog } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
+import { Tabs } from '@/components/common/Tabs';
+import { SearchBar } from '@/components/common/SearchBar';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
 import { LimitIndicator } from '@/components/subscription/LimitIndicator';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useLeagues, useDeleteLeague } from '@/hooks/useLeagues';
+import { useLeagues, useDeleteLeague, usePublicLeagues } from '@/hooks/useLeagues';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
-import type { League } from '@/types/database';
+import type { League, LeagueWithPlayerCount } from '@/types/database';
 
 import { LeagueCard } from '@/components/leagues';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type TabKey = 'my' | 'browse';
 
 export default function LeagueListScreen() {
   const colors = useThemeColors();
@@ -46,6 +49,16 @@ export default function LeagueListScreen() {
   const { data: leagues, isLoading, refetch } = useLeagues();
   const deleteLeague = useDeleteLeague();
   const [leagueToDelete, setLeagueToDelete] = useState<League | null>(null);
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<TabKey>('my');
+
+  // Browse search
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+  const { data: publicLeagues, isLoading: isLoadingPublic, refetch: refetchPublic } = usePublicLeagues(
+    debouncedSearch || undefined
+  );
 
   // Subscription tier limits
   const { limits } = useSubscriptionContext();
@@ -82,7 +95,7 @@ export default function LeagueListScreen() {
     }
   }, [leagueToDelete, deleteLeague]);
 
-  const renderItem = useCallback(
+  const renderMyLeagueItem = useCallback(
     ({ item }: { item: League }) => (
       <LeagueCard
         league={item}
@@ -92,6 +105,17 @@ export default function LeagueListScreen() {
       />
     ),
     [handleLeaguePress, handleDeleteLeague]
+  );
+
+  const renderBrowseItem = useCallback(
+    ({ item }: { item: LeagueWithPlayerCount }) => (
+      <LeagueCard
+        league={item}
+        onPress={() => handleLeaguePress(item)}
+        playerCount={item.player_count}
+      />
+    ),
+    [handleLeaguePress]
   );
 
   return (
@@ -128,55 +152,107 @@ export default function LeagueListScreen() {
         }
       />
 
-      <FlatList
-        data={leagues ?? []}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          (!leagues || leagues.length === 0) && styles.emptyListContent,
+      <Tabs
+        tabs={[
+          { key: 'my' as const, label: 'My Leagues' },
+          { key: 'browse' as const, label: 'Browse' },
         ]}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
-        }
-        ListHeaderComponent={
-          <View style={styles.headerSection}>
-            <FeatureLockCompact
-              feature="create_league"
-              context={{ currentCount: leagues?.length ?? 0 }}
-              onUpgradePress={() => navigation.navigate('Subscription')}
-            >
-              <FeatureButton
-                title="Create League"
-                subtitle="Compete across any course"
-                icon={<IconPlus size={24} color={colors.white} strokeWidth={2.5} />}
-                onPress={handleCreateLeague}
-                backgroundColor={colors.primary}
-                accessibilityLabel="Create new league"
-                style={styles.createButton}
-              />
-            </FeatureLockCompact>
-            {!hasUnlimitedLeagues && (
-              <View style={styles.limitRow}>
-                <LimitIndicator
-                  current={leagueCount}
-                  max={maxLeagues}
-                  label="Leagues"
-                  showBar={false}
-                  testID="leagues-limit-indicator"
-                />
-              </View>
-            )}
-          </View>
-        }
-        ListEmptyComponent={isLoading ? null : (
-          <EmptyState
-            icon="trophy-outline"
-            title="No Leagues Yet"
-            message="Create a league to compete with friends across any course, or join one with an invite code."
-          />
-        )}
+        selectedTab={activeTab}
+        onTabChange={setActiveTab}
+        style={styles.tabs}
       />
+
+      {activeTab === 'my' ? (
+        <FlatList
+          data={leagues ?? []}
+          renderItem={renderMyLeagueItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            (!leagues || leagues.length === 0) && styles.emptyListContent,
+          ]}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
+          }
+          ListHeaderComponent={
+            <View style={styles.headerSection}>
+              <FeatureLockCompact
+                feature="create_league"
+                context={{ currentCount: leagues?.length ?? 0 }}
+                onUpgradePress={() => navigation.navigate('Subscription')}
+              >
+                <FeatureButton
+                  title="Create League"
+                  subtitle="Compete across any course"
+                  icon={<IconPlus size={24} color={colors.white} strokeWidth={2.5} />}
+                  onPress={handleCreateLeague}
+                  backgroundColor={colors.primary}
+                  accessibilityLabel="Create new league"
+                  style={styles.createButton}
+                />
+              </FeatureLockCompact>
+              {!hasUnlimitedLeagues && (
+                <View style={styles.limitRow}>
+                  <LimitIndicator
+                    current={leagueCount}
+                    max={maxLeagues}
+                    label="Leagues"
+                    showBar={false}
+                    testID="leagues-limit-indicator"
+                  />
+                </View>
+              )}
+            </View>
+          }
+          ListEmptyComponent={isLoading ? null : (
+            <EmptyState
+              icon="trophy-outline"
+              title="No Leagues Yet"
+              message="Create a league to compete with friends across any course, or join one with an invite code."
+            />
+          )}
+        />
+      ) : (
+        <FlatList
+          data={publicLeagues ?? []}
+          renderItem={renderBrowseItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            (!publicLeagues || publicLeagues.length === 0) && styles.emptyListContent,
+          ]}
+          refreshControl={
+            <RefreshControl refreshing={isLoadingPublic} onRefresh={refetchPublic} tintColor={colors.textPrimary} colors={[colors.textPrimary]} />
+          }
+          ListHeaderComponent={
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search public leagues..."
+              accessibilityLabel="Search public leagues"
+              hideBorder
+              containerStyle={styles.searchContainer}
+            />
+          }
+          ListEmptyComponent={
+            isLoadingPublic ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <EmptyState
+                icon="earth"
+                title={searchQuery ? 'No Results' : 'No Public Leagues'}
+                message={
+                  searchQuery
+                    ? 'No leagues match your search. Try a different term.'
+                    : 'No public leagues yet. Check back later or create your own!'
+                }
+              />
+            )
+          }
+        />
+      )}
 
       {/* Welcome Info Modal */}
       <ScreenWelcomeModal
@@ -205,6 +281,11 @@ export default function LeagueListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tabs: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
   },
   listContent: {
     paddingBottom: spacing.xxxl,
@@ -245,5 +326,16 @@ const styles = StyleSheet.create({
   },
   joinButtonText: {
     ...typography.bodyBold,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: spacing.xxxl,
   },
 });
