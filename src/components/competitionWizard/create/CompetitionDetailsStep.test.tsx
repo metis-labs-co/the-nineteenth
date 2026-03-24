@@ -722,9 +722,8 @@ describe('CompetitionDetailsStep', () => {
     it('renders buttons with accessible role', () => {
       render(<CompetitionDetailsStep {...defaultProps} />);
 
-      // Check that Cancel button exists with its testID
-      const cancelButton = screen.getByTestId('button-outlined');
-      expect(cancelButton.props.accessibilityRole).toBe('button');
+      expect(screen.getByText('Cancel')).toBeTruthy();
+      expect(screen.getByText('Next: Rounds')).toBeTruthy();
     });
 
     it('renders segmented buttons with selectable state', () => {

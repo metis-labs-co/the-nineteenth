@@ -569,7 +569,7 @@ describe('PushNotificationSettings', () => {
       renderComponent();
       expect(screen.getByText('Push Notifications')).toBeTruthy();
       const toggle = screen.getByTestId('push-settings-master-toggle');
-      expect(toggle.props.value).toBe(false);
+      expect(toggle.props.accessibilityState.checked).toBe(false);
     });
 
     it('handles undefined preferences gracefully', () => {
@@ -590,9 +590,9 @@ describe('PushNotificationSettings', () => {
       } as any);
 
       renderComponent();
-      expect(screen.getByTestId('push-settings-competition-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-friends-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-scorecard-toggle').props.value).toBe(true);
+      expect(screen.getByTestId('push-settings-competition-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-friends-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-scorecard-toggle').props.accessibilityState.checked).toBe(true);
     });
   });
 
@@ -790,10 +790,10 @@ describe('PushNotificationSettings', () => {
       renderComponent();
       expect(screen.getByText('Notifications enabled')).toBeTruthy();
       expect(screen.getByText('Notification Types')).toBeTruthy();
-      expect(screen.getByTestId('push-settings-master-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-competition-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-friends-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-scorecard-toggle').props.value).toBe(true);
+      expect(screen.getByTestId('push-settings-master-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-competition-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-friends-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-scorecard-toggle').props.accessibilityState.checked).toBe(true);
     });
 
     it('renders for user with only some notifications enabled', () => {
@@ -808,9 +808,9 @@ describe('PushNotificationSettings', () => {
       } as any);
 
       renderComponent();
-      expect(screen.getByTestId('push-settings-competition-toggle').props.value).toBe(true);
-      expect(screen.getByTestId('push-settings-friends-toggle').props.value).toBe(false);
-      expect(screen.getByTestId('push-settings-scorecard-toggle').props.value).toBe(true);
+      expect(screen.getByTestId('push-settings-competition-toggle').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('push-settings-friends-toggle').props.accessibilityState.checked).toBe(false);
+      expect(screen.getByTestId('push-settings-scorecard-toggle').props.accessibilityState.checked).toBe(true);
     });
 
     it('renders for simulator user', () => {
@@ -821,7 +821,7 @@ describe('PushNotificationSettings', () => {
 
       renderComponent();
       expect(screen.getByText('Push notifications require a physical device')).toBeTruthy();
-      expect(screen.getByTestId('push-settings-master-toggle').props.disabled).toBe(true);
+      expect(screen.getByTestId('push-settings-master-toggle').props.accessibilityState.disabled).toBe(true);
     });
 
     it('renders for user who denied permission', () => {
@@ -834,7 +834,7 @@ describe('PushNotificationSettings', () => {
       renderComponent();
       expect(screen.getByText('Notifications blocked in device settings')).toBeTruthy();
       expect(screen.getByText('Enable in Settings')).toBeTruthy();
-      expect(screen.getByTestId('push-settings-master-toggle').props.disabled).toBe(true);
+      expect(screen.getByTestId('push-settings-master-toggle').props.accessibilityState.disabled).toBe(true);
     });
   });
 });

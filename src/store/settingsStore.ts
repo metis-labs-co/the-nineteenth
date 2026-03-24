@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsPremium } from '@/context/SubscriptionContext';
 export type DistanceUnit = 'yards' | 'metres';
 
 interface SettingsState {
@@ -137,6 +138,21 @@ export function useStatsVisibility() {
     showPutts,
     showFairwayHit,
     showGreenInRegulation,
+  };
+}
+
+/**
+ * Hook to get visibility settings gated by subscription tier.
+ * FIR and GIR require Premium; putts are always available.
+ */
+export function useStatsVisibilityWithTier() {
+  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
+  const isPremium = useIsPremium();
+
+  return {
+    showPutts,
+    showFairwayHit: isPremium ? showFairwayHit : false,
+    showGreenInRegulation: isPremium ? showGreenInRegulation : false,
   };
 }
 

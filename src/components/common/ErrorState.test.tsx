@@ -218,7 +218,7 @@ describe('ErrorState', () => {
     it('renders refresh icon in button', () => {
       const onRetry = jest.fn();
       render(<ErrorState error="Error" onRetry={onRetry} />);
-      expect(screen.getByTestId('button-icon-refresh')).toBeTruthy();
+      expect(screen.getByTestId('icon-refresh')).toBeTruthy();
     });
   });
 

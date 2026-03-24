@@ -12,8 +12,8 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Switch, Icon, Divider } from 'react-native-paper';
-import { GolfBallLoader, ConfirmationDialog, SectionHeader } from '@/components/common';
+import { Text, Icon, Divider } from 'react-native-paper';
+import { GolfBallLoader, ConfirmationDialog, SectionHeader, ToggleSwitch } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { RadioButtonOption } from './components';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,12 +65,9 @@ const SettingRow = React.memo(function SettingRow({
           )}
         </View>
       </View>
-      <Switch
+      <ToggleSwitch
         value={value}
         onValueChange={onValueChange}
-        color={colors.primary}
-        accessibilityLabel={`Toggle ${label}`}
-        accessibilityHint={description}
       />
     </View>
   );
