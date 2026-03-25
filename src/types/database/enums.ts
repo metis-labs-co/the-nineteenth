@@ -56,6 +56,8 @@ export type NotificationType =
   | 'league_player_removed'
   | 'league_round_tagged'
   | 'league_leaderboard_changed'
+  | 'partnership_created'
+  | 'partnership_round_tagged'
   | 'round_completed';
 
 // Feature enums

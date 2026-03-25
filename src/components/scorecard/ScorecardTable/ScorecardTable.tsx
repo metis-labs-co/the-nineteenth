@@ -49,6 +49,11 @@ import {
   SoloStatsTotalCells,
   SoloStatsNetEmptyCells,
   SoloStatsStablefordEmptyCells,
+  SoloStablefordHeaderCell,
+  SoloStablefordHoleCell,
+  SoloStablefordSubtotalCell,
+  SoloStablefordTotalCell,
+  SoloStablefordEmptyCell,
 } from './cells';
 
 // =====================================================
@@ -66,6 +71,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   showGIR = false,
   selectedTeeData,
   gameType,
+  handicapSource,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
   const [showHandicapInfo, setShowHandicapInfo] = useState(false);
@@ -73,18 +79,30 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   // Only show stats columns for solo rounds (1 player)
   const isSoloRound = players.length === 1;
   const showSoloStats = isSoloRound && (showPutts || showFIR || showGIR);
+  const showSoloStableford = isSoloRound && (!gameType || gameType === 'stableford');
   const soloPlayer = isSoloRound ? players[0] : null;
+
+  // Calculate how many stats columns are shown (for layout width reservation)
+  const statsColumnCount = useMemo(() => {
+    if (!isSoloRound) return 0;
+    let count = 0;
+    if (showPutts) count++;
+    if (showFIR) count++;
+    if (showGIR) count++;
+    if (showSoloStableford) count++;
+    return count;
+  }, [isSoloRound, showPutts, showFIR, showGIR, showSoloStableford]);
 
   // Calculate layout
   const layout = useMemo(
-    () => calculateScorecardLayout(screenWidth, players.length),
-    [screenWidth, players.length]
+    () => calculateScorecardLayout(screenWidth, players.length, statsColumnCount),
+    [screenWidth, players.length, statsColumnCount]
   );
 
   // Calculate player statistics (with daily handicap if tee data available)
   const playerStats = useMemo(
-    () => calculatePlayerStats(players, holes, selectedTeeData),
-    [players, holes, selectedTeeData]
+    () => calculatePlayerStats(players, holes, selectedTeeData, handicapSource),
+    [players, holes, selectedTeeData, handicapSource]
   );
 
   // Calculate par totals
@@ -100,6 +118,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
 
   const { playerCellWidth, needsHorizontalScroll } = layout;
+
+  // For solo rounds with stats in non-scroll path, use flex layout (0 signals flex:1)
+  const flexPlayerWidth = (!needsHorizontalScroll && statsColumnCount > 0) ? 0 : playerCellWidth;
 
   // Render with horizontal scroll for player columns
   if (needsHorizontalScroll) {
@@ -156,6 +177,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* Header */}
               <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                 <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} onHandicapInfoPress={() => setShowHandicapInfo(true)} selectedTeeData={selectedTeeData} coursePar={coursePar} />
+                {showSoloStableford && <SoloStablefordHeaderCell />}
                 {showSoloStats && (
                   <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -164,6 +186,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {front9.map((hole) => (
                 <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                   <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} gameType={gameType} />
+                  {showSoloStableford && soloPlayer && (
+                    <SoloStablefordHoleCell hole={hole} player={soloPlayer} />
+                  )}
                   {showSoloStats && soloPlayer && (
                     <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                   )}
@@ -172,6 +197,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* OUT */}
               <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} gameType={gameType} />
+                {showSoloStableford && playerStats[0] && (
+                  <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
+                )}
                 {showSoloStats && soloPlayer && (
                   <SoloStatsSubtotalCells player={soloPlayer} holes={front9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -180,6 +208,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {back9.map((hole) => (
                 <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
                   <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} gameType={gameType} />
+                  {showSoloStableford && soloPlayer && (
+                    <SoloStablefordHoleCell hole={hole} player={soloPlayer} />
+                  )}
                   {showSoloStats && soloPlayer && (
                     <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                   )}
@@ -188,6 +219,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* IN */}
               <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} gameType={gameType} />
+                {showSoloStableford && playerStats[0] && (
+                  <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
+                )}
                 {showSoloStats && soloPlayer && (
                   <SoloStatsSubtotalCells player={soloPlayer} holes={back9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -195,6 +229,9 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* Gross */}
               <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+                {showSoloStableford && playerStats[0] && (
+                  <SoloStablefordTotalCell playerStats={playerStats[0]} />
+                )}
                 {showSoloStats && soloPlayer && (
                   <SoloStatsTotalCells player={soloPlayer} holes={holes} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -202,6 +239,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* Net */}
               <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
                 <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+                {showSoloStableford && <SoloStablefordEmptyCell />}
                 {showSoloStats && (
                   <SoloStatsNetEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -209,6 +247,7 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               {/* Pts */}
               <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
                 <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} gameType={gameType} />
+                {showSoloStableford && <SoloStablefordEmptyCell />}
                 {showSoloStats && (
                   <SoloStatsStablefordEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
                 )}
@@ -229,7 +268,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Header */}
       <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
         <FixedHeaderCells />
-        <ScrollableHeaderCells players={players} playerCellWidth={playerCellWidth} onPlayerPress={onPlayerPress} onHandicapInfoPress={() => setShowHandicapInfo(true)} selectedTeeData={selectedTeeData} coursePar={coursePar} />
+        <ScrollableHeaderCells players={players} playerCellWidth={flexPlayerWidth} onPlayerPress={onPlayerPress} onHandicapInfoPress={() => setShowHandicapInfo(true)} selectedTeeData={selectedTeeData} coursePar={coursePar} />
+        {showSoloStableford && <SoloStablefordHeaderCell />}
         {showSoloStats && (
           <SoloStatsHeaderCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -239,7 +279,10 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {front9.map((hole) => (
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
           <FixedHoleCells hole={hole} onHolePress={onHolePress} />
-          <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} gameType={gameType} />
+          <ScrollableHoleCells hole={hole} players={players} playerCellWidth={flexPlayerWidth} gameType={gameType} />
+          {showSoloStableford && soloPlayer && (
+            <SoloStablefordHoleCell hole={hole} player={soloPlayer} />
+          )}
           {showSoloStats && soloPlayer && (
             <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
           )}
@@ -249,7 +292,10 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* OUT subtotal */}
       <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="OUT" par={parTotals.front9} />
-        <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={playerCellWidth} gameType={gameType} />
+        <ScrollableSubtotalCells playerStats={playerStats} isBack9={false} playerCellWidth={flexPlayerWidth} gameType={gameType} />
+        {showSoloStableford && playerStats[0] && (
+          <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={false} />
+        )}
         {showSoloStats && soloPlayer && (
           <SoloStatsSubtotalCells player={soloPlayer} holes={front9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -259,7 +305,10 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {back9.map((hole) => (
         <View key={hole.number} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
           <FixedHoleCells hole={hole} onHolePress={onHolePress} />
-          <ScrollableHoleCells hole={hole} players={players} playerCellWidth={playerCellWidth} gameType={gameType} />
+          <ScrollableHoleCells hole={hole} players={players} playerCellWidth={flexPlayerWidth} gameType={gameType} />
+          {showSoloStableford && soloPlayer && (
+            <SoloStablefordHoleCell hole={hole} player={soloPlayer} />
+          )}
           {showSoloStats && soloPlayer && (
             <SoloStatsHoleCells hole={hole} player={soloPlayer} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
           )}
@@ -269,7 +318,10 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* IN subtotal */}
       <View style={[styles.tableRow, styles.subtotalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedSubtotalCells label="IN" par={parTotals.back9} />
-        <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={playerCellWidth} gameType={gameType} />
+        <ScrollableSubtotalCells playerStats={playerStats} isBack9={true} playerCellWidth={flexPlayerWidth} gameType={gameType} />
+        {showSoloStableford && playerStats[0] && (
+          <SoloStablefordSubtotalCell playerStats={playerStats[0]} isBack9={true} />
+        )}
         {showSoloStats && soloPlayer && (
           <SoloStatsSubtotalCells player={soloPlayer} holes={back9} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -278,7 +330,10 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Gross row */}
       <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedGrossCells parTotal={parTotals.total} />
-        <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+        <ScrollableGrossCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={flexPlayerWidth} />
+        {showSoloStableford && playerStats[0] && (
+          <SoloStablefordTotalCell playerStats={playerStats[0]} />
+        )}
         {showSoloStats && soloPlayer && (
           <SoloStatsTotalCells player={soloPlayer} holes={holes} showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -287,7 +342,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Net row */}
       <View style={[styles.tableRow, styles.totalRow, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border }]}>
         <FixedNetCells />
-        <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={playerCellWidth} />
+        <ScrollableNetCells playerStats={playerStats} parTotals={parTotals} playerCellWidth={flexPlayerWidth} />
+        {showSoloStableford && <SoloStablefordEmptyCell />}
         {showSoloStats && (
           <SoloStatsNetEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}
@@ -296,7 +352,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       {/* Stableford row */}
       <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
         <FixedStablefordCells gameType={gameType} />
-        <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} gameType={gameType} />
+        <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={flexPlayerWidth} gameType={gameType} />
+        {showSoloStableford && <SoloStablefordEmptyCell />}
         {showSoloStats && (
           <SoloStatsStablefordEmptyCells showPutts={showPutts} showFIR={showFIR} showGIR={showGIR} />
         )}

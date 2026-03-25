@@ -10,17 +10,16 @@
  */
 
 import React, { useState, useCallback, useLayoutEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, Snackbar } from 'react-native-paper';
-import { LoadingSpinner } from '@/components/common';
+import { ErrorState, LoadingSpinner } from '@/components/common';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconRefresh } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { ScoringPairFormationUI } from '@/components/scoring';
 import { PageHeader } from '@/components/common/PageHeader';
 import { UpgradePrompt } from '@/components/subscription';
-import { spacing, typography, borderRadius, shadows, layout } from '@/constants/theme';
+import { spacing, typography, borderRadius, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { supabase } from '@/services/supabase/client';
@@ -205,7 +204,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
   const { mutate: createScoringPairs, isPending: isSaving } = useCreateScoringPairs();
 
   // Fetch data
-  const { data, isLoading, error, refetch, isRefetching } = useScoringPairsData(
+  const { data, isLoading, error, refetch } = useScoringPairsData(
     roundId,
     competitionId
   );
@@ -350,25 +349,11 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
           showBack
           onBack={handleGoBack}
         />
-        <View style={styles.centeredContainer}>
-          <IconAlertCircle size={48} color={colors.error} />
-          <Text style={styles.errorTitle}>Failed to Load</Text>
-          <Text style={styles.errorMessage}>
-            {error?.message || 'Unable to load scoring pairs data'}
-          </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => refetch()}
-            disabled={isRefetching}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading"
-          >
-            <IconRefresh size={18} color={colors.textInverse} />
-            <Text style={styles.retryButtonText}>
-              {isRefetching ? 'Retrying...' : 'Retry'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          error={error?.message || 'Unable to load scoring pairs data'}
+          title="Failed to Load"
+          onRetry={() => refetch()}
+        />
       </View>
     );
   }
@@ -448,34 +433,6 @@ const createStyles = (colors: ColorPalette) =>
       ...typography.body,
       color: colors.textSecondary,
       marginTop: spacing.md,
-    },
-    errorTitle: {
-      ...typography.h3,
-      color: colors.textPrimary,
-      marginTop: spacing.md,
-    },
-    errorMessage: {
-      ...typography.body,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      maxWidth: 300,
-    },
-    retryButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primary,
-      paddingHorizontal: spacing.xxl,
-      paddingVertical: spacing.md,
-      borderRadius: borderRadius.lg,
-      marginTop: spacing.lg,
-      gap: spacing.sm,
-      minHeight: layout.buttonHeight,
-      ...shadows.sm,
-    },
-    retryButtonText: {
-      ...typography.bodyBold,
-      color: colors.textInverse,
     },
     savingOverlay: {
       ...StyleSheet.absoluteFillObject,

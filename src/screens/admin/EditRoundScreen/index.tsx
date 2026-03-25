@@ -22,11 +22,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { ConfirmationDialog, FormSection, PageHeader } from '@/components/common';
+import { ConfirmationDialog, ErrorState, FormSection, PageHeader } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -225,23 +225,13 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   // Error state
   if (fetchError || !round) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centerContent]}>
-        <Icon source="alert-circle-outline" size={64} color={colors.error} />
-        <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load round</Text>
-        <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-          {fetchError?.message || 'Round not found'}
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.errorBackButton, { backgroundColor: colors.primary }]}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Go Back"
-        >
-          <Text style={[styles.errorBackButtonText, { color: colors.textOnColored }]}>
-            Go Back
-          </Text>
-        </TouchableOpacity>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ErrorState
+          error={fetchError?.message || 'Round not found'}
+          title="Unable to load round"
+          onRetry={() => navigation.goBack()}
+          retryLabel="Go Back"
+        />
       </View>
     );
   }
@@ -448,24 +438,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  errorTitle: {
-    ...typography.h3,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  errorMessage: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  errorBackButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  errorBackButtonText: {
-    ...typography.bodyBold,
   },
   footer: {
     flexDirection: 'row',

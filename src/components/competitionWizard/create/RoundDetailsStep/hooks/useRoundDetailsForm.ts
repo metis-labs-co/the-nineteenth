@@ -19,6 +19,7 @@ import {
   useSearchClubs,
   useFavoriteCoursesWithClubs,
   toClubCourseDisplayItem,
+  sortHomeClubFirst,
 } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
 import {
@@ -181,10 +182,10 @@ export function useRoundDetailsForm({
     undefined
   );
 
-  // Transform clubs to display items
+  // Transform clubs to display items, home club first
   const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
     const clubs = courseSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map(toClubCourseDisplayItem);
+    return sortHomeClubFirst((clubs ?? []).map(toClubCourseDisplayItem));
   }, [courseSearchQuery, searchResults, allClubs]);
 
   const canAddRound = rounds.length < effectiveMaxRounds;

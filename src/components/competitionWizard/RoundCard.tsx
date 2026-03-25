@@ -1,7 +1,7 @@
 // src/components/competition/RoundCard.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Card, Text, Icon } from 'react-native-paper';
 import { IconGolf, IconCalendar, IconClock } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -203,13 +203,15 @@ export const RoundCard = React.memo(function RoundCard({
         {/* Action Button */}
         {isActionable && (
           <View style={styles.buttonContainer}>
-            <Button
-              mode={buttonConfig.mode}
+            <TouchableOpacity
               onPress={buttonConfig.onPress}
-              icon={buttonConfig.icon}
-              style={styles.actionButton}
-              contentStyle={styles.actionButtonContent}
-              labelStyle={styles.actionButtonLabel}
+              style={[
+                styles.actionButton,
+                buttonConfig.mode === 'contained'
+                  ? { backgroundColor: colors.primary }
+                  : { borderWidth: 1, borderColor: colors.border },
+              ]}
+              activeOpacity={buttonConfig.mode === 'contained' ? 0.8 : 0.7}
               accessibilityLabel={buttonConfig.label}
               accessibilityRole="button"
               accessibilityHint={
@@ -218,8 +220,20 @@ export const RoundCard = React.memo(function RoundCard({
                   : 'Starts scoring for this round'
               }
             >
-              {buttonConfig.label}
-            </Button>
+              <Icon
+                source={buttonConfig.icon}
+                size={20}
+                color={buttonConfig.mode === 'contained' ? colors.white : colors.primary}
+              />
+              <Text
+                style={[
+                  styles.actionButtonLabel,
+                  { color: buttonConfig.mode === 'contained' ? colors.white : colors.primary },
+                ]}
+              >
+                {buttonConfig.label}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       </Card.Content>
@@ -299,11 +313,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: borderRadius.md,
-  },
-  actionButtonContent: {
     height: 48,
     paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   actionButtonLabel: {
     ...typography.bodyBold,

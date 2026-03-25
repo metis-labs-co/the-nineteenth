@@ -254,6 +254,29 @@ export async function deleteOrphanedScorecards(validRoundIds: string[]): Promise
 }
 
 /**
+ * Mark all non-standalone scorecards as unsynced to trigger re-sync.
+ * Used to backfill data that was previously stripped during sync (e.g. FIR/GIR).
+ * Returns the number of scorecards marked for re-sync.
+ */
+export async function markAllForResync(): Promise<number> {
+  const database = await getDb();
+  const result = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM ${TABLE_NAMES.SCORECARDS}
+     WHERE is_synced = 1 AND (is_standalone = 0 OR is_standalone IS NULL)`
+  );
+  const count = result?.count ?? 0;
+
+  if (count > 0) {
+    await database.runAsync(
+      `UPDATE ${TABLE_NAMES.SCORECARDS} SET is_synced = 0
+       WHERE is_synced = 1 AND (is_standalone = 0 OR is_standalone IS NULL)`
+    );
+    dbLogger.info('Marked scorecards for re-sync (FIR/GIR backfill)', { count });
+  }
+  return count;
+}
+
+/**
  * Clear invalid mock data from the database
  */
 export async function clearInvalidMockData(): Promise<number> {

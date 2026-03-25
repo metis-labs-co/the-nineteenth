@@ -7,6 +7,7 @@
 import { teeToTeeBox } from '@/utils/teeTransformers';
 import type { Club, Course, CourseSource } from '@/types/database.types';
 import type { SupabaseCourseWithTees, ClubWithCourses, ClubCourseDisplayItem, SearchResultItem } from './types';
+import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 
 /**
  * Merge tees from the tees table into the course's tees field
@@ -96,4 +97,23 @@ export function toClubCourseDisplayItem(item: SearchResultItem): ClubCourseDispl
     courses: item.courses,
     is_home: item.is_home,
   };
+}
+
+/**
+ * Sort display items with home club first, then alphabetically by name.
+ * Works with ClubCourseDisplayItem and GolfApiSearchResultItem.
+ */
+export function sortHomeClubFirst<T extends ClubCourseDisplayItem | GolfApiSearchResultItem>(
+  items: T[]
+): T[] {
+  return [...items].sort((a, b) => {
+    const aIsHome = 'is_home' in a ? a.is_home : false;
+    const bIsHome = 'is_home' in b ? b.is_home : false;
+    if (aIsHome && !bIsHome) return -1;
+    if (!aIsHome && bIsHome) return 1;
+
+    const aName = 'club' in a && a.club ? a.club.name : (a as GolfApiSearchResultItem).name;
+    const bName = 'club' in b && b.club ? b.club.name : (b as GolfApiSearchResultItem).name;
+    return aName.localeCompare(bName);
+  });
 }

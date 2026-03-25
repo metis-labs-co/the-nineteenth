@@ -9,8 +9,9 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog, type DialogConfig } from '@/hooks';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
-import { transformHolesIfNeeded } from '@/utils/holeTransformers';
+import { parseAndTransformHoles } from '@/utils/holeTransformers';
 import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
@@ -49,17 +50,19 @@ export interface UseStartNewRoundReturn {
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
-    isBuildAsYouPlay?: boolean
+    isBuildAsYouPlay?: boolean,
+    handicapSource?: string
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
   dismissDialog: () => void;
 }
 
-export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn {
+export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: string): UseStartNewRoundReturn {
   const navigation = useNavigation<NavigationProp>();
   const { user, player } = useAuth();
   const { initializeRound } = useScorecardStore();
+  const setPendingLeagueTag = useSettingsStore((s) => s.setPendingLeagueTag);
 
   // Dialog state for error alerts
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
@@ -78,7 +81,8 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
       skinsConfig?: StandaloneSkinsConfig,
       teamConfig?: TeamConfig,
       wolfConfig?: StandaloneWolfConfig,
-      isBuildAsYouPlay?: boolean
+      isBuildAsYouPlay?: boolean,
+      handicapSource?: string
     ) => {
       if (isStartingRound) return;
 
@@ -99,10 +103,10 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
 
         // Use course holes, placeholder holes (build-as-you-play), or default holes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Raw JSONB data from database
-        const rawHoles = (courseData as any)?.holes as unknown[] | null;
-        const hasRealHoles = rawHoles && rawHoles.length > 0;
-        const holes: Hole[] = hasRealHoles
-          ? transformHolesIfNeeded(rawHoles)
+        const rawHoles = (courseData as any)?.holes;
+        const parsedHoles = parseAndTransformHoles(rawHoles);
+        const holes: Hole[] = parsedHoles.length > 0
+          ? parsedHoles
           : isBuildAsYouPlay
             ? PLACEHOLDER_HOLES
             : DEFAULT_HOLES;
@@ -131,6 +135,7 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
             // Set team round fields for team formats (scramble, shamble, best-ball, match-play with teams)
             is_team_round: isTeamFormat,
             team_format: isMatchPlayWithTeams ? 'match-play-team' : (isStandardTeamFormat ? gameType : null),
+            ...(handicapSource ? { handicap_source: handicapSource } : {}),
           })
           .select('id')
           .single();
@@ -341,6 +346,12 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
           holes: holes.length,
         });
 
+        // Store pending league tag if starting from a league
+        if (pendingLeagueId) {
+          setPendingLeagueTag(roundId, pendingLeagueId);
+          console.log('[useStartNewRound] Stored pending league tag:', { roundId, leagueId: pendingLeagueId });
+        }
+
         // Initialize the scorecard store
         await initializeRound(roundId, players, holes, gameType, false);
 
@@ -367,7 +378,7 @@ export function useStartNewRound(onStarted?: () => void): UseStartNewRoundReturn
         setIsStartingRound(false);
       }
     },
-    [navigation, player, user, initializeRound, isStartingRound, onStarted, showAlert]
+    [navigation, player, user, initializeRound, isStartingRound, onStarted, showAlert, pendingLeagueId, setPendingLeagueTag]
   );
 
   return {

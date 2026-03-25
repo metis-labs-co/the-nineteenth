@@ -78,9 +78,9 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
 
         <InfoSection
           icon="card-account-details"
-          title="GA Handicap"
+          title="Handicap"
           abbreviation="HC"
-          description="Your official Golf Australia Handicap Index. This is the handicap you enter manually in your profile or import from Golf Australia. It represents your verified playing ability."
+          description="Your handicap as entered in your profile. This is the handicap you set manually and represents your verified playing ability."
         />
 
         <InfoSection

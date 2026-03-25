@@ -72,7 +72,6 @@ export async function ensurePlayerProfile(
     push_competition_updates: true,
     push_friend_requests: true,
     push_scorecard_updates: true,
-    push_league_updates: true,
     equipped_badge_id: null,
     equipped_frame_id: null,
     equipped_title_id: null,

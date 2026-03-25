@@ -96,11 +96,11 @@ export interface TeamMatchPlayScoringScreenParams {
 /**
  * Transform TeamWithMembers to MatchTeam
  */
-export function toMatchTeam(team: TeamWithMembers): MatchTeam {
+export function toMatchTeam(team: TeamWithMembers, handicapMap?: Map<string, number>): MatchTeam {
   const members = (team.members || []).map((m) => ({
     id: m.player_id,
     name: m.player?.name || 'Unknown',
-    handicap: m.player?.handicap ?? 0,
+    handicap: handicapMap?.get(m.player_id) ?? m.player?.handicap ?? 0,
     score: null,
     pickedUp: false,
   }));

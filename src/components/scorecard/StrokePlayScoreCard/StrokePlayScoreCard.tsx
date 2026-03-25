@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import {
   spacing,
@@ -33,23 +33,13 @@ import {
 import { PICKUP_SCORE } from '@/constants/scoring';
 
 import { StatsRow } from '../PlayerScoreCard/StatsRow';
-
-// Score button definitions with relative-to-par values
-interface ScoreButton {
-  label: string;
-  shortLabel: string;
-  relativeToPar: number;
-  colorKey: 'eagle' | 'birdie' | 'par' | 'bogey' | 'doubleBogey';
-}
-
-const SCORE_BUTTONS: ScoreButton[] = [
-  { label: 'Eagle', shortLabel: 'EAG', relativeToPar: -2, colorKey: 'eagle' },
-  { label: 'Birdie', shortLabel: 'BIR', relativeToPar: -1, colorKey: 'birdie' },
-  { label: 'Par', shortLabel: 'PAR', relativeToPar: 0, colorKey: 'par' },
-  { label: 'Bogey', shortLabel: 'BOG', relativeToPar: 1, colorKey: 'bogey' },
-  { label: 'Double', shortLabel: 'DBL', relativeToPar: 2, colorKey: 'doubleBogey' },
-  { label: 'Triple', shortLabel: 'TRP', relativeToPar: 3, colorKey: 'doubleBogey' },
-];
+import { ExtendedScorePickerModal } from './ExtendedScorePickerModal';
+import {
+  SCORE_BUTTONS,
+  formatRelativeToPar,
+  formatParScoreDisplay,
+  getParScoreLabel,
+} from './scoreCardHelpers';
 
 interface StrokePlayScoreCardProps {
   player: Player;
@@ -131,19 +121,6 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
     [colors]
   );
 
-  // Par game display helpers
-  const formatParScoreDisplay = useCallback((value: number): string => {
-    if (value === 0) return 'E';
-    return value > 0 ? `+${value}` : `${value}`;
-  }, []);
-
-  const getParScoreLabel = useCallback((parScore: number | null): string => {
-    if (parScore === null) return '';
-    if (parScore === 1) return 'Win';
-    if (parScore === 0) return 'Square';
-    return 'Loss';
-  }, []);
-
   const getParScoreColor = useCallback(
     (parScore: number | null): string => {
       if (parScore === null) return colors.textSecondary;
@@ -170,17 +147,6 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
       }
     },
     [disabled, currentHole.par, onScoreSelect]
-  );
-
-  // Handle extended score selection (for +4 or worse)
-  const handleExtendedScore = useCallback(
-    (strokes: number) => {
-      if (!disabled) {
-        onScoreSelect(strokes);
-        setShowExtendedPicker(false);
-      }
-    },
-    [disabled, onScoreSelect]
   );
 
   const handlePlayerPress = useCallback(() => {
@@ -228,16 +194,6 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
       }
     }
   }, [disabled, onStatsUpdate, singleBallScore?.putts]);
-
-  // Format relative to par display
-  const formatRelativeToPar = (value: number | null, includeSign = true) => {
-    if (value === null) return '-';
-    if (value === 0) return 'E';
-    if (includeSign) {
-      return value > 0 ? `+${value}` : `${value}`;
-    }
-    return `${value}`;
-  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surfaceVariant }]}>
@@ -469,71 +425,15 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
       )}
 
       {/* Extended Score Picker Modal */}
-      <Modal
+      <ExtendedScorePickerModal
         visible={showExtendedPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowExtendedPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowExtendedPicker(false)}
-        >
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Select Score
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              Par {currentHole.par} - Extended scores
-            </Text>
-            <View style={styles.extendedScoreGrid}>
-              {[...Array(10)].map((_, i) => {
-                const strokes = i + 1;
-                const relativeToPar = strokes - currentHole.par;
-                const isSelected = selectedScore === strokes;
-
-                return (
-                  <TouchableOpacity
-                    key={strokes}
-                    style={[
-                      styles.extendedScoreButton,
-                      { borderColor: colors.border },
-                      isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
-                    ]}
-                    onPress={() => handleExtendedScore(strokes)}
-                  >
-                    <Text
-                      style={[
-                        styles.extendedScoreNumber,
-                        { color: isSelected ? colors.textOnColored : colors.textPrimary },
-                      ]}
-                    >
-                      {strokes}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.extendedScoreRelative,
-                        { color: isSelected ? colors.textOnColored : getScoreColor(relativeToPar) },
-                      ]}
-                    >
-                      {formatRelativeToPar(relativeToPar)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: colors.border }]}
-              onPress={() => setShowExtendedPicker(false)}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowExtendedPicker(false)}
+        onSelectScore={onScoreSelect}
+        currentHolePar={currentHole.par}
+        selectedScore={selectedScore}
+        getScoreColor={getScoreColor}
+        disabled={disabled}
+      />
     </View>
   );
 });
@@ -696,65 +596,6 @@ const styles = StyleSheet.create({
   noScoreText: {
     ...typography.body,
     textAlign: 'center',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    ...shadows.lg,
-  },
-  modalTitle: {
-    ...typography.h3,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  modalSubtitle: {
-    ...typography.small,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  extendedScoreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  extendedScoreButton: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  extendedScoreNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 24,
-  },
-  extendedScoreRelative: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  cancelButton: {
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    ...typography.bodyBold,
   },
 });
 

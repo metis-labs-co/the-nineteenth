@@ -30,6 +30,8 @@ import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
+import { useIsPremium } from '@/context/SubscriptionContext';
+import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 import { MatchPlayHeader, MatchPlayFooter, PlayerScoreCard, MatchProgress } from './components';
@@ -50,6 +52,8 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
+  const isPremium = useIsPremium();
+  const { handicapSource, selectedTeeData: storeTeeData } = useScorecardStore();
 
   // State - start on initialHole if provided (clamped to 1-18)
   const [currentHole, setCurrentHole] = useState(1);
@@ -163,6 +167,32 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   }, [holes]);
 
   const currentHoleData = safeHoles[currentHole - 1];
+
+  // Calculate playing handicap for both players (daily HC if Premium)
+  const teeData = storeTeeData || selectedTeeBox;
+  const player1Handicap = useMemo(() => {
+    const { playingHandicap } = calculatePlayingHandicap({
+      player: player1,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+      applyDailyHandicap: isPremium,
+    });
+    return playingHandicap;
+  }, [player1, teeData, safeHoles, handicapSource, isPremium]);
+
+  const player2Handicap = useMemo(() => {
+    const { playingHandicap } = calculatePlayingHandicap({
+      player: player2,
+      selectedTeeData: teeData,
+      holes: safeHoles,
+      handicapSource,
+      gameType: 'match-play',
+      applyDailyHandicap: isPremium,
+    });
+    return playingHandicap;
+  }, [player2, teeData, safeHoles, handicapSource, isPremium]);
 
   // Wrap score handlers with logging
   // Note: We allow score edits even after match is complete - scores are only locked after submission
@@ -423,7 +453,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player1MatchStatus}
-                strokesReceived={getStrokesReceived(player1.handicap, holeData.strokeIndex)}
+                strokesReceived={getStrokesReceived(player1Handicap, holeData.strokeIndex)}
                 onScoreAdjust={(delta) => handleScoreAdjust('player1', delta)}
                 onParSelect={() => handleScoreSelect('player1', holeData.par)}
                 onPickUp={() => handlePickUp('player1')}
@@ -447,7 +477,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 par={holeData.par}
                 isMatchComplete={isMatchComplete}
                 matchStatus={player2MatchStatus}
-                strokesReceived={getStrokesReceived(player2.handicap, holeData.strokeIndex)}
+                strokesReceived={getStrokesReceived(player2Handicap, holeData.strokeIndex)}
                 onScoreAdjust={(delta) => handleScoreAdjust('player2', delta)}
                 onParSelect={() => handleScoreSelect('player2', holeData.par)}
                 onPickUp={() => handlePickUp('player2')}

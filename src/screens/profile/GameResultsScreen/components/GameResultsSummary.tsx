@@ -237,8 +237,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   breakdownStatValue: {
-    ...typography.bodyBold,
-    fontSize: 14,
+    ...typography.smallBold,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

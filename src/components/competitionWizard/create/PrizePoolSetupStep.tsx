@@ -12,8 +12,8 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Button, Text, Icon } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconTrophy, IconInfoCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -260,26 +260,23 @@ export function PrizePoolSetupStep({
           },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
+          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Back
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleComplete}
-          style={styles.nextButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={PRIZE_POOL_COLOR}
-          textColor={colors.white}
+          style={[styles.nextButton, { backgroundColor: PRIZE_POOL_COLOR }, !calculations.isValidAllocation && { opacity: 0.5 }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
           disabled={!calculations.isValidAllocation}
         >
-          Next: Review
-        </Button>
+          <Text style={[styles.buttonLabel, { color: colors.white }]}>Next: Review</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -412,13 +409,19 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
 });
 

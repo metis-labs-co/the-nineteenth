@@ -15,11 +15,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { StyleSheet, View, Linking, Platform, Switch } from 'react-native';
+import { StyleSheet, View, Linking, Platform } from 'react-native';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { ToggleSwitch } from '@/components/common';
 
 /**
  * Props for PushNotificationSettings component
@@ -86,16 +87,11 @@ const SettingRow = React.memo(function SettingRow({
           </Text>
         )}
       </View>
-      <Switch
+      <ToggleSwitch
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        trackColor={{ false: colors.gray300, true: colors.primaryLight }}
-        thumbColor={value ? colors.primary : colors.gray100}
-        ios_backgroundColor={colors.gray300}
         accessibilityLabel={accessibilityLabel}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: value, disabled }}
         testID={testID}
       />
     </View>

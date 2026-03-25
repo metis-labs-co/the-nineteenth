@@ -45,8 +45,12 @@ export interface UseBuildAsYouPlayReturn {
   dismissModal: () => void;
   /** Whether a save is in progress */
   isSaving: boolean;
+  /** Error message from the last failed save attempt */
+  saveError: string | null;
   /** Set of stroke indexes already used by configured holes */
   usedStrokeIndexes: Set<number>;
+  /** Number of holes that have been configured */
+  configuredCount: number;
 }
 
 // =====================================================
@@ -144,30 +148,37 @@ export function useBuildAsYouPlay({
     async (updatedHole: Hole) => {
       if (!courseId) return;
 
+      // Reset any previous error
+      updateCourseHolesMutation.reset();
+
       // Update the holes array with the configured hole
       const updatedHoles = holes.map((h) =>
         h.number === updatedHole.number ? updatedHole : h
       );
 
-      // Persist to database
-      await updateCourseHolesMutation.mutateAsync({
-        courseId,
-        holes: updatedHoles,
-      });
+      try {
+        // Persist to database
+        await updateCourseHolesMutation.mutateAsync({
+          courseId,
+          holes: updatedHoles,
+        });
 
-      // Update local scorecard store
-      useScorecardStore.getState().updateHoles(updatedHoles);
+        // Update local scorecard store
+        useScorecardStore.getState().updateHoles(updatedHoles);
 
-      // Mark hole as configured
-      setConfiguredHoles((prev) => {
-        const next = new Set(prev);
-        next.add(updatedHole.number);
-        return next;
-      });
+        // Mark hole as configured
+        setConfiguredHoles((prev) => {
+          const next = new Set(prev);
+          next.add(updatedHole.number);
+          return next;
+        });
 
-      // Close modal
-      setShowHoleSetupModal(false);
-      setPendingHoleNumber(null);
+        // Close modal
+        setShowHoleSetupModal(false);
+        setPendingHoleNumber(null);
+      } catch {
+        // Error is captured by mutation state — modal stays open for retry
+      }
     },
     [courseId, holes, updateCourseHolesMutation]
   );
@@ -190,7 +201,9 @@ export function useBuildAsYouPlay({
       handleSelectTee: () => {},
       dismissModal: () => {},
       isSaving: false,
+      saveError: null,
       usedStrokeIndexes: new Set(),
+      configuredCount: 0,
     };
   }
 
@@ -205,6 +218,10 @@ export function useBuildAsYouPlay({
     handleSelectTee,
     dismissModal,
     isSaving: updateCourseHolesMutation.isPending,
+    saveError: updateCourseHolesMutation.error
+      ? (updateCourseHolesMutation.error as Error).message ?? 'Failed to save hole'
+      : null,
     usedStrokeIndexes,
+    configuredCount: configuredHoles.size,
   };
 }

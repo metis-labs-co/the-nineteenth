@@ -20,6 +20,9 @@ import type { ScorecardTablePlayer } from '../types';
 import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
 import type { PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
+/** Returns width style or flex:1 when playerCellWidth is 0 (solo even layout) */
+const cellSizeStyle = (w: number) => (w > 0 ? { width: w } : { flex: 1 as const });
+
 // =====================================================
 // HEADER
 // =====================================================
@@ -90,7 +93,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
           return (
             <TouchableOpacity
               key={playerData.id}
-              style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+              style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
               onPress={() => onPlayerPress(playerData.playerId)}
               activeOpacity={0.7}
             >
@@ -102,7 +105,7 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
         return (
           <View
             key={playerData.id}
-            style={[styles.tableCell, styles.headerCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+            style={[styles.tableCell, styles.headerCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
           >
             {content}
           </View>
@@ -157,14 +160,14 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
           const parScoreColor = parScore > 0 ? colors.success : parScore < 0 ? colors.error : colors.textSecondary;
 
           return (
-            <View key={playerData.id} style={[styles.tableCell, { width: playerCellWidth }]}>
+            <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
               <Text style={[styles.parScoreText, { color: parScoreColor }]}>{parScoreText}</Text>
             </View>
           );
         }
 
         return (
-          <View key={playerData.id} style={[styles.tableCell, { width: playerCellWidth }]}>
+          <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
             <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
           </View>
         );
@@ -203,7 +206,7 @@ export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCel
           return (
             <View
               key={stats.playerId}
-              style={[styles.tableCell, styles.subtotalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+              style={[styles.tableCell, styles.subtotalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
             >
               <Text style={[styles.subtotalText, { color: parScoreColor }]}>
                 {stats.hasScores ? parScoreText : '-'}
@@ -216,7 +219,7 @@ export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCel
         return (
           <View
             key={stats.playerId}
-            style={[styles.tableCell, styles.subtotalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+            style={[styles.tableCell, styles.subtotalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
           >
             <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
               {gross || '-'}
@@ -250,7 +253,7 @@ export const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
         >
           <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
             {stats.totalGross || '-'}
@@ -283,7 +286,7 @@ export const ScrollableNetCells = React.memo(function ScrollableNetCells({
       {playerStats.map((stats) => (
         <View
           key={stats.playerId}
-          style={[styles.tableCell, styles.totalCell, { width: playerCellWidth, backgroundColor: colors.surfaceVariant }]}
+          style={[styles.tableCell, styles.totalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
         >
           <Text style={[styles.totalText, { color: getScoreColor(stats.totalNet, parTotals.total, colors) }]}>
             {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
@@ -321,7 +324,7 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
           return (
             <View
               key={stats.playerId}
-              style={[styles.tableCell, styles.stablefordCell, { width: playerCellWidth, backgroundColor: colors.primary }]}
+              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
             >
               <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>
                 {stats.hasScores ? parScoreText : '-'}
@@ -333,7 +336,7 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
         return (
           <View
             key={stats.playerId}
-            style={[styles.tableCell, styles.stablefordCell, { width: playerCellWidth, backgroundColor: colors.primary }]}
+            style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
           >
             <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>
               {stats.totalStableford}

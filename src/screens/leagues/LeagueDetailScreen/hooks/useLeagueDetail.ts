@@ -1,7 +1,7 @@
 /**
  * useLeagueDetail - Data fetching, state, and callbacks for LeagueDetailScreen
  *
- * Supports all league types: ongoing, season, round_limit, ladder, eclectic
+ * Supports all league types: ongoing, season, round_limit, ladder, eclectic, partnership
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -18,6 +18,7 @@ import {
   useMyLeagueRounds,
   usePlayerLeagueRounds,
   useLeaveLeague,
+  useJoinPublicLeague,
   useLadderStandings,
   useLeagueChallenges,
   useMyActiveChallenges,
@@ -27,13 +28,21 @@ import {
   useEclecticBestScores,
   usePlayerTagCount,
 } from '@/hooks/useLeagues';
+import {
+  useMyPartnership,
+  usePartnershipLeaderboard,
+  usePartnershipCourseBests,
+  usePartnershipRounds,
+  useUntagPartnershipRound,
+  useUpdatePartnershipName,
+} from '@/hooks/usePartnershipLeague';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
-import type { LeagueLeaderboardEntry } from '@/types/database';
+import type { LeagueLeaderboardEntry, PartnershipLeaderboardEntry } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, 'LeagueDetail'>;
 
-export type LeagueTab = 'leaderboard' | 'rounds' | 'stats' | 'players' | 'ladder' | 'challenges' | 'myCard';
+export type LeagueTab = 'leaderboard' | 'rounds' | 'stats' | 'players' | 'ladder' | 'challenges' | 'myCard' | 'courseBests';
 
 export function useLeagueDetail() {
   const navigation = useNavigation<NavigationProp>();
@@ -55,6 +64,14 @@ export function useLeagueDetail() {
   const { data: myRounds, refetch: refetchRounds } = useMyLeagueRounds(leagueId);
   const { data: tagCount } = usePlayerTagCount(leagueId, leagueType === 'round_limit');
   const leaveMutation = useLeaveLeague();
+  const joinPublicMutation = useJoinPublicLeague();
+
+  // Check if current user is a member (creator or in players list)
+  const isMember = useMemo(() => {
+    if (!user?.id || !league) return false;
+    if (league.created_by === user.id) return true;
+    return players?.some((p) => p.player_id === user.id && p.status === 'accepted') ?? false;
+  }, [user?.id, league, players]);
 
   // Ladder-specific data
   const isLadder = leagueType === 'ladder';
@@ -68,6 +85,23 @@ export function useLeagueDetail() {
   const isEclectic = leagueType === 'eclectic';
   const { data: eclecticLeaderboard, refetch: refetchEclectic } = useEclecticLeaderboard(leagueId, isEclectic);
   const { data: eclecticBestScores } = useEclecticBestScores(leagueId, user?.id, isEclectic);
+
+  // Partnership-specific data
+  const isPartnership = leagueType === 'partnership';
+  const [selectedPartnershipEntry, setSelectedPartnershipEntry] = useState<PartnershipLeaderboardEntry | null>(null);
+  const { data: myPartnership, refetch: refetchMyPartnership } = useMyPartnership(leagueId, isPartnership);
+  const { data: partnershipLeaderboard, refetch: refetchPartnershipLb } = usePartnershipLeaderboard(leagueId, isPartnership);
+  const { data: partnershipCourseBests, refetch: refetchPartnershipCB } = usePartnershipCourseBests(leagueId, isPartnership);
+  const { data: partnershipRounds, refetch: refetchPartnershipRounds } = usePartnershipRounds(
+    myPartnership?.id ?? '',
+    isPartnership && !!myPartnership
+  );
+  const { data: selectedPartnershipRounds, isLoading: isLoadingSelectedPartnershipRounds } = usePartnershipRounds(
+    selectedPartnershipEntry?.partnership_id ?? '',
+    isPartnership && !!selectedPartnershipEntry
+  );
+  const untagPartnershipRoundMutation = useUntagPartnershipRound(leagueId, myPartnership?.id ?? '');
+  const updatePartnershipNameMutation = useUpdatePartnershipName(leagueId);
 
   // Eclectic course details (holes, name)
   const { data: eclecticCourse } = useCourseDetails(league?.course_id ?? '', {
@@ -95,6 +129,9 @@ export function useLeagueDetail() {
     if (isLadder) return 'ladder';
     return 'leaderboard';
   }, [isLadder]);
+
+  const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [showStartRound, setShowStartRound] = useState(false);
 
   const [activeTab, setActiveTab] = useState<LeagueTab>(defaultTab);
   const [selectedPlayer, setSelectedPlayer] = useState<LeagueLeaderboardEntry | null>(null);
@@ -175,6 +212,13 @@ export function useLeagueDetail() {
           { key: 'myCard' as const, label: 'My Card' },
           { key: 'players' as const, label: 'Players' },
         ];
+      case 'partnership':
+        return [
+          { key: 'leaderboard' as const, label: 'Leaderboard' },
+          { key: 'courseBests' as const, label: 'Course Bests' },
+          { key: 'rounds' as const, label: 'My Rounds' },
+          { key: 'players' as const, label: 'Players' },
+        ];
       default:
         return [
           { key: 'leaderboard' as const, label: 'Leaderboard' },
@@ -190,8 +234,9 @@ export function useLeagueDetail() {
     if (isStandardType) refetchLeaderboard();
     if (isLadder) { refetchLadder(); refetchChallenges(); }
     if (isEclectic) refetchEclectic();
+    if (isPartnership) { refetchPartnershipLb(); refetchPartnershipCB(); refetchMyPartnership(); if (myPartnership) refetchPartnershipRounds(); }
     refetchRounds();
-  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, isStandardType, isLadder, isEclectic]);
+  }, [refetch, refetchLeaderboard, refetchRounds, refetchLadder, refetchChallenges, refetchEclectic, refetchPartnershipLb, refetchPartnershipCB, refetchMyPartnership, refetchPartnershipRounds, isStandardType, isLadder, isEclectic, isPartnership, myPartnership]);
 
   const handleShare = useCallback(async () => {
     if (!league) return;
@@ -205,8 +250,64 @@ export function useLeagueDetail() {
   }, [league]);
 
   const handleTagRound = useCallback(() => {
-    navigation.navigate('TagRoundToLeague', { leagueId });
+    if (isPartnership && myPartnership) {
+      navigation.navigate('TagPartnershipRound', { leagueId, partnershipId: myPartnership.id });
+    } else {
+      navigation.navigate('TagRoundToLeague', { leagueId });
+    }
+  }, [navigation, leagueId, isPartnership, myPartnership]);
+
+  const handlePartnershipSetup = useCallback(() => {
+    navigation.navigate('PartnershipSetup', { leagueId });
   }, [navigation, leagueId]);
+
+  const handlePartnershipLeaderboardPress = useCallback((entry: PartnershipLeaderboardEntry) => {
+    setSelectedPartnershipEntry(entry);
+  }, []);
+
+  const handleClosePartnershipRoundsModal = useCallback(() => {
+    setSelectedPartnershipEntry(null);
+  }, []);
+
+  const handleUntagPartnershipRound = useCallback(
+    async (roundId: string) => {
+      try {
+        await untagPartnershipRoundMutation.mutateAsync(roundId);
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
+      }
+    },
+    [untagPartnershipRoundMutation]
+  );
+
+  const handleRenamePartnership = useCallback(
+    async (name: string) => {
+      if (!myPartnership) return;
+      try {
+        await updatePartnershipNameMutation.mutateAsync({ partnershipId: myPartnership.id, name });
+      } catch (error: unknown) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong');
+      }
+    },
+    [myPartnership, updatePartnershipNameMutation]
+  );
+
+  const handleOpenAddPlayers = useCallback(() => {
+    setShowAddPlayers(true);
+  }, []);
+
+  const handleCloseAddPlayers = useCallback(() => {
+    setShowAddPlayers(false);
+  }, []);
+
+  // Start Round Now
+  const handleStartRoundNow = useCallback(() => {
+    setShowStartRound(true);
+  }, []);
+
+  const handleCloseStartRound = useCallback(() => {
+    setShowStartRound(false);
+  }, []);
 
   const handleSettings = useCallback(() => {
     navigation.navigate('LeagueSettings', { leagueId });
@@ -306,6 +407,14 @@ export function useLeagueDetail() {
     [respondMutation]
   );
 
+  const handleJoinPublicLeague = useCallback(async () => {
+    try {
+      await joinPublicMutation.mutateAsync(leagueId);
+    } catch (error: unknown) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to join league');
+    }
+  }, [joinPublicMutation, leagueId]);
+
   return {
     // Data
     league,
@@ -319,6 +428,8 @@ export function useLeagueDetail() {
     isLoadingPlayerRounds,
     isCreator,
     isArchived,
+    isMember,
+    isJoining: joinPublicMutation.isPending,
     leagueId,
     userId: user?.id,
 
@@ -332,8 +443,16 @@ export function useLeagueDetail() {
     hasActiveChallenge,
     eclecticLeaderboard: eclecticLeaderboard ?? [],
     eclecticBestScores: eclecticBestScores ?? [],
+    eclecticCourse: eclecticCourse ?? null,
     eclecticCourseHoles,
     eclecticCourseName,
+    myPartnership: myPartnership ?? null,
+    partnershipLeaderboard: partnershipLeaderboard ?? [],
+    partnershipCourseBests: partnershipCourseBests ?? [],
+    partnershipRounds: partnershipRounds ?? [],
+    selectedPartnershipEntry,
+    selectedPartnershipRounds: selectedPartnershipRounds ?? [],
+    isLoadingSelectedPartnershipRounds,
 
     // Tab state
     tabs,
@@ -355,5 +474,25 @@ export function useLeagueDetail() {
     handleChallengePress,
     handleAcceptChallenge,
     handleDeclineChallenge,
+
+    // Partnership handlers
+    handlePartnershipSetup,
+    handlePartnershipLeaderboardPress,
+    handleClosePartnershipRoundsModal,
+    handleUntagPartnershipRound,
+    handleRenamePartnership,
+
+    // Add players
+    showAddPlayers,
+    handleOpenAddPlayers,
+    handleCloseAddPlayers,
+
+    // Start round now
+    showStartRound,
+    handleStartRoundNow,
+    handleCloseStartRound,
+
+    // Public join
+    handleJoinPublicLeague,
   };
 }

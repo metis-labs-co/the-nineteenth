@@ -1,18 +1,24 @@
 /**
- * BallCountStep - Ball count selection for solo practice rounds
+ * BallCountStep - Solo round configuration
  *
  * Features:
+ * - 3 radio card options: Handicap, Social Index, Practice Round
+ * - Shows handicap values and daily HC inline on cards
+ * - Practice mode: shows ball count selection (1-4, multi-ball requires Social tier)
  * - Display selected course/tee/match type info
- * - Select number of balls to score per hole (1-4)
- * - Multi-ball (2-4) requires Social tier or higher
  */
 
-import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { memo, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { IconGolf, IconCircle, IconCircleCheck } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsPremium } from '@/context/SubscriptionContext';
+import { Pill } from '@/components/common';
+import { useAuth } from '@/hooks/useAuth';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { TeeBox, GameType } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 import type { BallCount } from '@/types/multiball.types';
 import { BALL_COUNT_OPTIONS } from '@/types/multiball.types';
 import type { SelectedCourse } from '../types';
@@ -24,8 +30,16 @@ interface BallCountStepProps {
   selectedMatchType: GameType;
   ballCount: BallCount;
   onBallCountChange: (ballCount: BallCount) => void;
+  handicapSource: HandicapSource;
+  onHandicapSourceChange: (source: HandicapSource) => void;
   onStartRound: () => void;
 }
+
+// Format handicap display value
+const formatHC = (value: number | null | undefined): string => {
+  if (value == null) return 'N/A';
+  return value >= 0 ? value.toFixed(1) : `+${Math.abs(value).toFixed(1)}`;
+};
 
 export const BallCountStep = memo(function BallCountStep({
   selectedCourse,
@@ -33,88 +47,234 @@ export const BallCountStep = memo(function BallCountStep({
   selectedMatchType,
   ballCount,
   onBallCountChange,
+  handicapSource,
+  onHandicapSourceChange,
   onStartRound,
 }: BallCountStepProps) {
   const colors = useThemeColors();
+  const { player } = useAuth();
+  const isPremium = useIsPremium();
+
+  const gaHandicap = player?.handicap ?? null;
+  const socialIndex = player?.handicap_index ?? null;
+
+  // Calculate daily HC for each handicap source (best-effort)
+  const dailyHC = useMemo(() => {
+    if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return { profile: null, calculated: null };
+    const holes = selectedCourse?.holes;
+    if (!holes?.length) return { profile: null, calculated: null };
+    const coursePar = holes.reduce((sum, h) => sum + h.par, 0);
+    if (coursePar <= 0) return { profile: null, calculated: null };
+
+    const calc = (baseHC: number) =>
+      calculateGADailyHandicap({
+        gaHandicap: baseHC,
+        slopeRating: selectedTee.slopeRating!,
+        courseRating: selectedTee.courseRating!,
+        par: coursePar,
+        gender: player?.gender,
+      }).dailyHandicap;
+
+    return {
+      profile: gaHandicap != null ? calc(gaHandicap) : null,
+      calculated: (socialIndex ?? gaHandicap) != null ? calc(socialIndex ?? gaHandicap ?? 0) : null,
+    };
+  }, [selectedTee, selectedCourse?.holes, gaHandicap, socialIndex, player?.gender]);
+
+  const isPractice = handicapSource === 'none';
+
+  // Round mode options
+  const modeOptions: {
+    value: HandicapSource;
+    label: string;
+    description: string;
+    dailyHandicap: number | null;
+    premium?: boolean;
+  }[] = [
+    {
+      value: 'profile',
+      label: 'Handicap',
+      description: gaHandicap != null
+        ? `Handicap: ${formatHC(gaHandicap)}`
+        : 'No handicap set in profile',
+      dailyHandicap: dailyHC.profile,
+    },
+    {
+      value: 'calculated',
+      label: 'Social Index',
+      description: socialIndex != null
+        ? `Social Index: ${formatHC(socialIndex)}`
+        : 'No rounds recorded yet',
+      dailyHandicap: dailyHC.calculated,
+      premium: !isPremium,
+    },
+    {
+      value: 'none',
+      label: 'Practice Round',
+      description: 'No handicap applied',
+      dailyHandicap: null,
+    },
+  ];
+
+  const handleSelectMode = (source: HandicapSource) => {
+    onHandicapSourceChange(source);
+    if (source !== 'none') {
+      onBallCountChange(1 as BallCount);
+    }
+  };
 
   return (
     <>
-      {/* Selected Course & Match Type Banner */}
-      <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
-        <IconGolf size={20} color={colors.primary} />
-        <View style={styles.selectedBannerText}>
-          <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
-            {selectedCourse?.courseName}
-            {selectedTee && (
-              <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
-            )}
-          </Text>
-          <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
-            {selectedCourse?.venue && (
-              <>
-                {selectedCourse.venue.name}
-                {(selectedCourse.venue.city || selectedCourse.venue.state) &&
-                  ` · ${[selectedCourse.venue.city, selectedCourse.venue.state]
-                    .filter(Boolean)
-                    .join(', ')}`}
-                {' · '}
-              </>
-            )}
-            {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
-          </Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Selected Course & Match Type Banner */}
+        <View style={[styles.selectedBanner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
+          <IconGolf size={20} color={colors.primary} />
+          <View style={styles.selectedBannerText}>
+            <Text style={[styles.selectedBannerName, { color: colors.textPrimary }]}>
+              {selectedCourse?.courseName}
+              {selectedTee && (
+                <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
+              )}
+            </Text>
+            <Text style={[styles.selectedBannerLocation, { color: colors.textSecondary }]}>
+              {selectedCourse?.venue && (
+                <>
+                  {selectedCourse.venue.name}
+                  {(selectedCourse.venue.city || selectedCourse.venue.state) &&
+                    ` · ${[selectedCourse.venue.city, selectedCourse.venue.state]
+                      .filter(Boolean)
+                      .join(', ')}`}
+                  {' · '}
+                </>
+              )}
+              {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Ball Count Selection */}
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
-          How many balls per hole?
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Multi-ball scoring is great for practice rounds
-        </Text>
+        {/* Round Mode Selection */}
+        <View style={styles.content}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
+            Round Type
+          </Text>
 
-        <View style={styles.optionsList}>
-          {BALL_COUNT_OPTIONS.map((option) => {
-            const isSelected = ballCount === option.value;
-            return (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.optionItem,
-                  {
-                    backgroundColor: isSelected ? colors.primaryLighter : colors.surface,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => onBallCountChange(option.value)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.optionContent}>
-                  {isSelected ? (
-                    <IconCircleCheck size={24} color={colors.primary} />
-                  ) : (
-                    <IconCircle size={24} color={colors.textSecondary} />
-                  )}
-                  <View style={styles.optionText}>
-                    <Text
-                      style={[
-                        styles.optionLabel,
-                        { color: isSelected ? colors.primary : colors.textPrimary },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-                      {option.description}
-                    </Text>
+          <View style={styles.optionsList}>
+            {modeOptions.map((option) => {
+              const isSelected = handicapSource === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.optionItem,
+                    {
+                      backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => handleSelectMode(option.value)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionContent}>
+                    {isSelected ? (
+                      <IconCircleCheck size={24} color={colors.primary} />
+                    ) : (
+                      <IconCircle size={24} color={colors.textSecondary} />
+                    )}
+                    <View style={styles.optionText}>
+                      <View style={styles.optionLabelRow}>
+                        <Text
+                          style={[
+                            styles.optionLabel,
+                            { color: isSelected ? colors.primary : colors.textPrimary },
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        {option.premium && (
+                          <Pill label="Premium" variant="warning" size="sm" />
+                        )}
+                      </View>
+                      <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                        {option.description}
+                      </Text>
+                      {option.dailyHandicap != null && isSelected && (
+                        <View style={[styles.dailyHCBadge, { backgroundColor: colors.primary + '20' }]}>
+                          <Text style={[styles.dailyHCText, { color: colors.primary }]}>
+                            Daily HC: {option.dailyHandicap}
+                          </Text>
+                          {selectedTee?.slopeRating && selectedTee?.courseRating && (
+                            <Text style={[styles.dailyHCDetail, { color: colors.textSecondary }]}>
+                              Slope {selectedTee.slopeRating} · CR {selectedTee.courseRating}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
+
+        {/* Ball Count Selection (Practice mode only) */}
+        {isPractice && (
+          <View style={styles.content}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              How many balls per hole?
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Multi-ball scoring is great for practice rounds
+            </Text>
+
+            <View style={styles.optionsList}>
+              {BALL_COUNT_OPTIONS.map((option) => {
+                const isSelected = ballCount === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.optionItem,
+                      {
+                        backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => onBallCountChange(option.value)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionContent}>
+                      {isSelected ? (
+                        <IconCircleCheck size={24} color={colors.primary} />
+                      ) : (
+                        <IconCircle size={24} color={colors.textSecondary} />
+                      )}
+                      <View style={styles.optionText}>
+                        <Text
+                          style={[
+                            styles.optionLabel,
+                            { color: isSelected ? colors.primary : colors.textPrimary },
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                          {option.description}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+      </ScrollView>
 
       {/* Start Round Button */}
       <View
@@ -126,7 +286,7 @@ export const BallCountStep = memo(function BallCountStep({
           activeOpacity={0.8}
         >
           <Text style={[styles.startButtonText, { color: colors.white }]}>
-            Start Solo Round
+            {isPractice ? 'Start Practice Round' : 'Start Handicap Round'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -142,6 +302,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
   },
   selectedBannerText: {
@@ -153,12 +314,21 @@ const styles = StyleSheet.create({
   selectedBannerLocation: {
     ...typography.caption,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
+  content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
   title: {
+    ...typography.h3,
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
     ...typography.h3,
     marginBottom: spacing.xs,
   },
@@ -176,11 +346,16 @@ const styles = StyleSheet.create({
   },
   optionContent: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   optionText: {
     flex: 1,
+  },
+  optionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   optionLabel: {
     ...typography.bodyBold,
@@ -188,6 +363,20 @@ const styles = StyleSheet.create({
   optionDescription: {
     ...typography.caption,
     marginTop: 2,
+  },
+  dailyHCBadge: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  dailyHCText: {
+    ...typography.smallBold,
+  },
+  dailyHCDetail: {
+    ...typography.caption,
+    marginTop: 1,
   },
   buttonContainer: {
     padding: spacing.lg,

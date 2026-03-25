@@ -28,6 +28,8 @@ interface BuildCourseHoleModalProps {
   usedStrokeIndexes: Set<number>;
   /** Whether a save is in progress */
   isSaving: boolean;
+  /** Error message from a failed save attempt */
+  saveError?: string | null;
   /** Called when user saves the hole configuration */
   onSave: (updatedHole: Hole, teeName?: string) => void;
   /** Called when tee is selected (hole 1 only) */
@@ -40,6 +42,7 @@ export function BuildCourseHoleModal({
   selectedTeeName,
   usedStrokeIndexes,
   isSaving,
+  saveError,
   onSave,
   onSelectTee,
 }: BuildCourseHoleModalProps) {
@@ -169,6 +172,13 @@ export function BuildCourseHoleModal({
           />
         </View>
 
+        {/* Save Error */}
+        {saveError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {saveError}. Tap to retry.
+          </Text>
+        )}
+
         {/* Save Button */}
         <TouchableOpacity
           onPress={handleSave}
@@ -215,6 +225,11 @@ const styles = StyleSheet.create({
     ...typography.h3,
     borderWidth: 1,
     textAlign: 'center',
+  },
+  errorText: {
+    ...typography.small,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   saveButton: {
     flexDirection: 'row',

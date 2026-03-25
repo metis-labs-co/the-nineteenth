@@ -86,7 +86,9 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
                 : round.isStandalone
                   ? round.players && round.players.length > 1
                     ? 'Match'
-                    : 'Practice Round'
+                    : round.handicapSource && round.handicapSource !== 'none'
+                      ? 'Handicap Round'
+                      : 'Practice Round'
                   : round.competition?.name || 'Competition'}
         </Text>
       </View>

@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: borderRadius.xxxl,
   },
   joinButton: {
     paddingHorizontal: spacing.md,
@@ -257,8 +257,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   joinButtonText: {
-    ...typography.bodyBold,
-    fontSize: 14,
+    ...typography.smallBold,
   },
   createButtonsContainer: {
     flexDirection: 'row',

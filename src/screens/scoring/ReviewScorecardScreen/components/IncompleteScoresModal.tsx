@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   FlatList,
 } from 'react-native';
-import { Text, Button, Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -118,14 +118,14 @@ export function IncompleteScoresModal({
 
           {/* Go Back Button */}
           <View style={styles.modalActions}>
-            <Button
-              mode="outlined"
+            <TouchableOpacity
               onPress={onClose}
               style={[styles.modalButton, { borderColor: colors.gray400 }]}
-              labelStyle={{ color: colors.textPrimary }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
             >
-              Go Back
-            </Button>
+              <Text style={[styles.modalButtonLabel, { color: colors.textPrimary }]}>Go Back</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -230,5 +230,13 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonLabel: {
+    ...typography.bodyBold,
   },
 });

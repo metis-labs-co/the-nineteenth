@@ -80,8 +80,8 @@ export const TeeSelectorList = memo(function TeeSelectorList({
             styles.listItem,
             { borderBottomColor: colors.borderLight },
             selected && {
-              backgroundColor: colors.primaryLighter,
-              borderBottomColor: 'transparent',
+              borderColor: colors.primary,
+              borderWidth: 2,
             },
           ]}
           onPress={() => handleSelect(tee)}

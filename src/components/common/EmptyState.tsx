@@ -1,8 +1,8 @@
 // src/components/common/EmptyState.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button, Icon } from 'react-native-paper';
-import { spacing, typography, iconSizes } from '@/constants/theme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
+import { spacing, typography, iconSizes, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 type EmptyStateIcon =
@@ -132,17 +132,18 @@ export const EmptyState = React.memo(function EmptyState({
 
       {/* Action Button */}
       {actionLabel && onAction && (
-        <Button
-          mode="contained"
+        <TouchableOpacity
           onPress={onAction}
           style={[styles.actionButton, { backgroundColor: colors.primary }, compact && styles.actionButtonCompact]}
-          contentStyle={styles.actionButtonContent}
-          labelStyle={[styles.actionButtonLabel, { color: colors.white }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
           accessibilityLabel={actionLabel}
           accessibilityHint={`Tap to ${actionLabel.toLowerCase()}`}
         >
-          {actionLabel}
-        </Button>
+          <Text style={[styles.actionButtonLabel, { color: colors.white }]}>
+            {actionLabel}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -192,15 +193,15 @@ const styles = StyleSheet.create({
     maxWidth: 250,
   },
   actionButton: {
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     minWidth: 160,
+    height: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.lg,
   },
   actionButtonCompact: {
     minWidth: 140,
-  },
-  actionButtonContent: {
-    height: 44, // Minimum touch target
-    paddingHorizontal: spacing.lg,
   },
   actionButtonLabel: {
     ...typography.bodyBold,

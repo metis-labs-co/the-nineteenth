@@ -11,7 +11,7 @@
  * - Team Score Summary: Collective gross, net, and stableford totals
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -25,7 +25,8 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { EmptyState } from '@/components/common';
 import type { Player, HoleScore, MultiBallHoleScore, Hole } from '@/types';
-import { isSingleBallScore } from '@/types/database';
+import { useContributionData } from './useContributionData';
+import type { LeaderboardEntry } from './useContributionData';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -33,86 +34,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 interface ContributionLeaderboardProps {
-  /** Team members */
   players: Player[];
-  /** Function to get team score for a hole (includes shotContributions) */
   getTeamScore: (holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  /** Total number of holes (typically 18) */
   totalHoles?: number;
-  /** Only show drives (for Shamble format) */
   showOnlyDrives?: boolean;
-  /** Function to get individual player score (for shamble team totals) */
   getPlayerScore?: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
-  /** Hole data for par values (for shamble team totals) */
   holes?: Hole[];
-}
-
-interface PlayerContribution {
-  playerId: string;
-  playerName: string;
-  drives: number;
-  approaches: number;
-  putts: number;
-  total: number;
-}
-
-interface LeaderboardEntry {
-  playerId: string;
-  playerName: string;
-  count: number;
-  percentage: number;
-}
-
-interface DriveEntryWithHoles {
-  playerId: string;
-  playerName: string;
-  count: number;
-  percentage: number;
-  holeNumbers: number[];
-}
-
-/** Calculate stableford points for a score relative to par */
-function calculateStablefordPoints(strokes: number, par: number, handicapStrokes: number): number {
-  const netStrokes = strokes - handicapStrokes;
-  const relativeToParNet = netStrokes - par;
-
-  if (relativeToParNet <= -3) return 5; // Double eagle or better
-  if (relativeToParNet === -2) return 4; // Eagle
-  if (relativeToParNet === -1) return 3; // Birdie
-  if (relativeToParNet === 0) return 2; // Par
-  if (relativeToParNet === 1) return 1; // Bogey
-  return 0; // Double bogey or worse
-}
-
-/** Calculate handicap strokes for a hole based on player handicap and stroke index */
-function getHandicapStrokesForHole(playerHandicap: number, strokeIndex: number): number {
-  if (playerHandicap <= 0) return 0;
-  if (playerHandicap >= 36) {
-    // 2 strokes on each hole up to the difference
-    const extraStrokes = playerHandicap - 18;
-    return strokeIndex <= extraStrokes ? 2 : 1;
-  }
-  // Standard: get stroke if handicap >= stroke index
-  return playerHandicap >= strokeIndex ? 1 : 0;
-}
-
-interface TeamScoreSummary {
-  grossTotal: number;
-  netTotal: number;
-  stablefordTotal: number;
-  holesScored: number;
-  parTotal: number;
-  toParNet: number; // Negative = under par, Positive = over par
-}
-
-interface PlayerScoreSummary {
-  playerId: string;
-  playerName: string;
-  handicap: number;
-  gross: number;
-  net: number;
-  toPar: number;
-  holesPlayed: number;
 }
 
 export function ContributionLeaderboard({
@@ -126,6 +53,25 @@ export function ContributionLeaderboard({
   const colors = useThemeColors();
   const [expandedPlayers, setExpandedPlayers] = useState<Set<string>>(new Set());
 
+  const {
+    hasContributions,
+    driveLeaderboard,
+    approachLeaderboard,
+    puttLeaderboard,
+    overallLeaderboard,
+    driveLeaderboardWithHoles,
+    teamScoreSummary,
+    playerScoreSummaries,
+    contributions,
+  } = useContributionData({
+    players,
+    getTeamScore,
+    totalHoles,
+    showOnlyDrives,
+    getPlayerScore,
+    holes,
+  });
+
   const togglePlayerExpanded = (playerId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedPlayers((prev) => {
@@ -138,237 +84,6 @@ export function ContributionLeaderboard({
       return next;
     });
   };
-
-  // Calculate contributions per player
-  const contributions: PlayerContribution[] = useMemo(() => {
-    const playerContribs = new Map<string, PlayerContribution>();
-
-    // Initialize contributions for all players
-    players.forEach((p) => {
-      playerContribs.set(p.id, {
-        playerId: p.id,
-        playerName: p.name,
-        drives: 0,
-        approaches: 0,
-        putts: 0,
-        total: 0,
-      });
-    });
-
-    // Count contributions from each hole
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const score = getTeamScore(holeNum);
-      if (!score || !isSingleBallScore(score)) continue;
-
-      const contribs = score.shotContributions;
-      if (!contribs) continue;
-
-      if (contribs.drive && playerContribs.has(contribs.drive)) {
-        const player = playerContribs.get(contribs.drive)!;
-        player.drives += 1;
-        player.total += 1;
-      }
-
-      if (contribs.approach && playerContribs.has(contribs.approach)) {
-        const player = playerContribs.get(contribs.approach)!;
-        player.approaches += 1;
-        player.total += 1;
-      }
-
-      if (contribs.putt && playerContribs.has(contribs.putt)) {
-        const player = playerContribs.get(contribs.putt)!;
-        player.putts += 1;
-        player.total += 1;
-      }
-    }
-
-    return Array.from(playerContribs.values());
-  }, [players, getTeamScore, totalHoles]);
-
-  // Check if any contributions have been recorded
-  const hasContributions = contributions.some((c) => c.total > 0);
-
-  // Create sorted leaderboards for each category
-  const driveLeaderboard: LeaderboardEntry[] = useMemo(() => {
-    const totalDrives = contributions.reduce((sum, c) => sum + c.drives, 0);
-    return contributions
-      .filter((c) => c.drives > 0)
-      .map((c) => ({
-        playerId: c.playerId,
-        playerName: c.playerName,
-        count: c.drives,
-        percentage: totalDrives > 0 ? (c.drives / totalDrives) * 100 : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [contributions]);
-
-  // Create drive leaderboard with hole numbers (for expandable view)
-  const driveLeaderboardWithHoles: DriveEntryWithHoles[] = useMemo(() => {
-    // Track which holes each player's drive was used
-    const playerDriveHoles = new Map<string, number[]>();
-
-    // Initialize for all players
-    players.forEach((p) => {
-      playerDriveHoles.set(p.id, []);
-    });
-
-    // Collect hole numbers for each player's drives
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const score = getTeamScore(holeNum);
-      if (!score || !isSingleBallScore(score)) continue;
-
-      const contribs = score.shotContributions;
-      if (!contribs?.drive) continue;
-
-      const existingHoles = playerDriveHoles.get(contribs.drive);
-      if (existingHoles) {
-        existingHoles.push(holeNum);
-      }
-    }
-
-    const totalDrives = contributions.reduce((sum, c) => sum + c.drives, 0);
-
-    return contributions
-      .filter((c) => c.drives > 0)
-      .map((c) => ({
-        playerId: c.playerId,
-        playerName: c.playerName,
-        count: c.drives,
-        percentage: totalDrives > 0 ? (c.drives / totalDrives) * 100 : 0,
-        holeNumbers: playerDriveHoles.get(c.playerId) || [],
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [contributions, players, getTeamScore, totalHoles]);
-
-  const approachLeaderboard: LeaderboardEntry[] = useMemo(() => {
-    const totalApproaches = contributions.reduce((sum, c) => sum + c.approaches, 0);
-    return contributions
-      .filter((c) => c.approaches > 0)
-      .map((c) => ({
-        playerId: c.playerId,
-        playerName: c.playerName,
-        count: c.approaches,
-        percentage: totalApproaches > 0 ? (c.approaches / totalApproaches) * 100 : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [contributions]);
-
-  const puttLeaderboard: LeaderboardEntry[] = useMemo(() => {
-    const totalPutts = contributions.reduce((sum, c) => sum + c.putts, 0);
-    return contributions
-      .filter((c) => c.putts > 0)
-      .map((c) => ({
-        playerId: c.playerId,
-        playerName: c.playerName,
-        count: c.putts,
-        percentage: totalPutts > 0 ? (c.putts / totalPutts) * 100 : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [contributions]);
-
-  // Overall contribution leaderboard
-  const overallLeaderboard: LeaderboardEntry[] = useMemo(() => {
-    const totalContribs = contributions.reduce((sum, c) => sum + c.total, 0);
-    return contributions
-      .filter((c) => c.total > 0)
-      .map((c) => ({
-        playerId: c.playerId,
-        playerName: c.playerName,
-        count: c.total,
-        percentage: totalContribs > 0 ? (c.total / totalContribs) * 100 : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [contributions]);
-
-  // Calculate team score summary for Shamble format
-  const teamScoreSummary: TeamScoreSummary | null = useMemo(() => {
-    if (!showOnlyDrives || !getPlayerScore || !holes || holes.length === 0) {
-      return null;
-    }
-
-    let grossTotal = 0;
-    let netTotal = 0;
-    let stablefordTotal = 0;
-    let holesScored = 0;
-    let parTotal = 0;
-
-    // For each hole, sum up all player scores
-    for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-      const holeData = holes.find((h) => h.number === holeNum);
-      if (!holeData) continue;
-
-      let holeHasScores = false;
-      let playersOnHole = 0;
-
-      for (const player of players) {
-        const score = getPlayerScore(player.id, holeNum);
-        if (!score || !isSingleBallScore(score) || !score.strokes) continue;
-
-        holeHasScores = true;
-        playersOnHole++;
-        const strokes = score.strokes;
-        const playerHandicap = player.handicap ?? 0;
-        const strokeIndex = holeData.strokeIndex ?? holeNum;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, strokeIndex);
-
-        grossTotal += strokes;
-        netTotal += strokes - handicapStrokes;
-        stablefordTotal += calculateStablefordPoints(strokes, holeData.par, handicapStrokes);
-      }
-
-      if (holeHasScores) {
-        holesScored++;
-        // Add par for each player who scored on this hole
-        parTotal += holeData.par * playersOnHole;
-      }
-    }
-
-    const toParNet = netTotal - parTotal;
-
-    return { grossTotal, netTotal, stablefordTotal, holesScored, parTotal, toParNet };
-  }, [showOnlyDrives, getPlayerScore, holes, totalHoles, players]);
-
-  // Calculate individual player score summaries for Shamble format
-  const playerScoreSummaries: PlayerScoreSummary[] = useMemo(() => {
-    if (!showOnlyDrives || !getPlayerScore || !holes || holes.length === 0) {
-      return [];
-    }
-
-    return players.map((player) => {
-      let gross = 0;
-      let net = 0;
-      let parForPlayer = 0;
-      let holesPlayed = 0;
-      const playerHandicap = player.handicap ?? 0;
-
-      for (let holeNum = 1; holeNum <= totalHoles; holeNum++) {
-        const holeData = holes.find((h) => h.number === holeNum);
-        if (!holeData) continue;
-
-        const score = getPlayerScore(player.id, holeNum);
-        if (!score || !isSingleBallScore(score) || !score.strokes) continue;
-
-        holesPlayed++;
-        const strokes = score.strokes;
-        const strokeIndex = holeData.strokeIndex ?? holeNum;
-        const handicapStrokes = getHandicapStrokesForHole(playerHandicap, strokeIndex);
-
-        gross += strokes;
-        net += strokes - handicapStrokes;
-        parForPlayer += holeData.par;
-      }
-
-      return {
-        playerId: player.id,
-        playerName: player.name,
-        handicap: playerHandicap,
-        gross,
-        net,
-        toPar: net - parForPlayer,
-        holesPlayed,
-      };
-    }).sort((a, b) => a.toPar - b.toPar); // Sort by best to-par score
-  }, [showOnlyDrives, getPlayerScore, holes, totalHoles, players]);
 
   const renderLeaderboardCard = (
     title: string,

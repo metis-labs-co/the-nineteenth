@@ -24,18 +24,22 @@ interface Props {
   players: LeaguePlayer[] | undefined;
   league: League;
   isCreator: boolean;
+  isArchived: boolean;
   currentUserId?: string;
   leaderboard?: { entry: LeagueLeaderboardEntry; isTied: boolean }[];
   onLeave: () => void;
+  onAddPlayers?: () => void;
 }
 
 export default React.memo(function PlayersTab({
   players,
   league,
   isCreator,
+  isArchived,
   currentUserId,
   leaderboard,
   onLeave,
+  onAddPlayers,
 }: Props) {
   const colors = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -70,6 +74,16 @@ export default React.memo(function PlayersTab({
 
   return (
     <View style={styles.section}>
+      {isCreator && !isArchived && (
+        <TouchableOpacity
+          onPress={onAddPlayers}
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.addButtonText, { color: colors.white }]}>Add Players</Text>
+        </TouchableOpacity>
+      )}
+
       {players && players.length > 0 ? (
         players.map((lp) => {
           const isMe = lp.player_id === currentUserId;
@@ -139,6 +153,16 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+  },
+  addButton: {
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  addButtonText: {
+    ...typography.bodyBold,
   },
   leaveButton: {
     height: 44,

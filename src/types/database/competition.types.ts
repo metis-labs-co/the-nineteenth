@@ -64,7 +64,7 @@ export interface Competition {
   start_date: string; // ISO date (YYYY-MM-DD)
   end_date: string | null; // ISO date - required for 'event', optional for 'knockout'
   handicap_system: HandicapSystem;
-  handicap_source: HandicapSource; // 'profile' = GA handicap, 'calculated' = Social Index, 'none' = no adjustments
+  handicap_source: HandicapSource; // 'profile' = profile handicap, 'calculated' = Social Index, 'none' = no adjustments
   visibility: CompetitionVisibility;
   invite_code: string; // e.g., "COMP-12345"
   organizer_id: string; // UUID, references auth.users(id)

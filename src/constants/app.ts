@@ -2,12 +2,13 @@
  * App Constants
  *
  * Centralized app-wide constants for version, support, and configuration.
- * Keep these in sync with app.json for version information.
  */
+
+import Constants from 'expo-constants';
 
 // App Information
 export const APP_NAME = 'The Nineteenth';
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = Constants.expoConfig?.version ?? '1.1.1';
 export const APP_TAGLINE = 'Made with \u26f3 in Australia';
 
 // Support Emails

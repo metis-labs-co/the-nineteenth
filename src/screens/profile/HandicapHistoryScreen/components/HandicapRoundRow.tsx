@@ -124,7 +124,6 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     ...typography.h4,
-    fontWeight: '600',
   },
   scoreLabel: {
     ...typography.caption,
@@ -142,6 +141,5 @@ const styles = StyleSheet.create({
   },
   differentialValue: {
     ...typography.h4,
-    fontWeight: '600',
   },
 });

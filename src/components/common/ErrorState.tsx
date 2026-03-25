@@ -1,8 +1,8 @@
 // src/components/common/ErrorState.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button, Icon } from 'react-native-paper';
-import { spacing, typography, iconSizes } from '@/constants/theme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
+import { spacing, typography, iconSizes, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 interface ErrorStateProps {
@@ -114,18 +114,19 @@ export const ErrorState = React.memo(function ErrorState({
 
       {/* Retry Button */}
       {onRetry && (
-        <Button
-          mode="contained"
+        <TouchableOpacity
           onPress={onRetry}
           style={[styles.retryButton, { backgroundColor: colors.primary }, compact && styles.retryButtonCompact]}
-          contentStyle={styles.retryButtonContent}
-          labelStyle={[styles.retryButtonLabel, { color: colors.white }]}
-          icon="refresh"
+          activeOpacity={0.8}
+          accessibilityRole="button"
           accessibilityLabel={retryLabel}
           accessibilityHint="Tap to retry the failed operation"
         >
-          {retryLabel}
-        </Button>
+          <Icon source="refresh" size={18} color={colors.white} />
+          <Text style={[styles.retryButtonLabel, { color: colors.white }]}>
+            {retryLabel}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -175,15 +176,17 @@ const styles = StyleSheet.create({
     maxWidth: 250,
   },
   retryButton: {
-    borderRadius: 12,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: borderRadius.lg,
     minWidth: 140,
+    height: 44,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   retryButtonCompact: {
     minWidth: 120,
-  },
-  retryButtonContent: {
-    height: 44, // Minimum touch target
-    paddingHorizontal: spacing.md,
   },
   retryButtonLabel: {
     ...typography.bodyBold,

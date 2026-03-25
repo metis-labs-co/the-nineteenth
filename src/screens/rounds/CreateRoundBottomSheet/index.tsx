@@ -20,13 +20,19 @@ import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useFriends } from '@/hooks/useFriends';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useCreateClubWithCourse } from '@/hooks/clubs/mutations';
+import { useCreateClubWithCourse, useCreateCourse } from '@/hooks/clubs/mutations';
 import { useDeleteCourse } from '@/hooks/useDeleteCourse';
+import { isLocalClub } from '@/hooks/clubs/helpers';
+import { courseService } from '@/services/courses';
+import { ClubAutocomplete } from '@/components/courses';
+import type { Club } from '@/types/database.types';
+import type { SearchResultItem } from '@/hooks/clubs/types';
 import {
   useSearchClubs,
   useClubsWithCourses,
   useFavoriteCoursesWithClubs,
   toClubCourseDisplayItem,
+  sortHomeClubFirst,
 } from '@/hooks/useClubs';
 import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
 import { BottomSheet } from '@/components/common';
@@ -60,27 +66,38 @@ export default function CreateRoundBottomSheet({
   onClose,
   onStartRound,
   initialCourse,
+  initialPartners,
+  initialMatchType,
+  skipPartnerStep,
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
   const isSuperAdmin = useIsSuperAdmin();
 
   // Inline course creation state
   const [showCreateCourseForm, setShowCreateCourseForm] = useState(false);
+  const [selectedExistingClub, setSelectedExistingClub] = useState<Club | null>(null);
+  const [isNewClub, setIsNewClub] = useState(false);
   const [newClubName, setNewClubName] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
+  const [isImportingClub, setIsImportingClub] = useState(false);
   const createClubWithCourse = useCreateClubWithCourse();
+  const createCourse = useCreateCourse();
   const deleteCourseMutation = useDeleteCourse();
 
   // Track inline-created course for orphan cleanup on cancel
+  // clubId is null when attaching to an existing club (don't delete the club)
   const [inlineCreatedCourse, setInlineCreatedCourse] = useState<{
     courseId: string;
-    clubId: string;
+    clubId: string | null;
   } | null>(null);
 
   // Wizard state
   const wizard = useCreateRoundWizard({
     visible,
     initialCourse,
+    initialPartners,
+    initialMatchType,
+    skipPartnerStep,
     onStartRound,
     onClose,
   });
@@ -96,52 +113,122 @@ export default function CreateRoundBottomSheet({
   // Handle "Add New Course" button press
   const handleAddNewCourse = useCallback(() => {
     setShowCreateCourseForm(true);
+    setSelectedExistingClub(null);
+    setIsNewClub(false);
+    setNewClubName('');
+    setNewCourseName('');
+    setIsImportingClub(false);
+  }, []);
+
+  // Autocomplete: user selected an existing club from dropdown
+  const handleSelectClubFromAutocomplete = useCallback(
+    async (item: SearchResultItem) => {
+      if (isLocalClub(item)) {
+        setSelectedExistingClub(item as Club);
+        setIsNewClub(false);
+      } else {
+        // API result — import the club first
+        setIsImportingClub(true);
+        try {
+          const result = await courseService.importClubWithCourses(item.golfapi_club_id);
+          setSelectedExistingClub(result.club);
+          setIsNewClub(false);
+        } catch (error) {
+          console.error('[CreateRound] Failed to import club:', error);
+        } finally {
+          setIsImportingClub(false);
+        }
+      }
+    },
+    []
+  );
+
+  // Autocomplete: user chose "Create new"
+  const handleCreateNewClub = useCallback((name: string) => {
+    setIsNewClub(true);
+    setNewClubName(name);
+    setSelectedExistingClub(null);
+  }, []);
+
+  // Autocomplete: user cleared their selection
+  const handleClearClubSelection = useCallback(() => {
+    setSelectedExistingClub(null);
+    setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
   }, []);
 
-  // Handle creating the new club+course
-  const handleCreateCourse = useCallback(async () => {
-    if (!newClubName.trim()) return;
-
-    try {
-      const result = await createClubWithCourse.mutateAsync({
-        club: { name: newClubName.trim() },
-        course: {
-          name: newCourseName.trim() || newClubName.trim(),
-          holes: [],
-        },
-      });
-
-      // Track created course for orphan cleanup if wizard is cancelled
-      setInlineCreatedCourse({ courseId: result.course.id, clubId: result.club.id });
-
-      // Auto-select the new course and mark as build-as-you-play
+  // Helper to finish course creation — auto-selects and starts build-as-you-play
+  const finishCourseCreation = useCallback(
+    (courseId: string, courseName: string, club: Club) => {
       wizard.setSearchQuery('');
       wizard.setBuildAsYouPlay(true);
 
-      // Simulate course selection — new course has no tees, skip to matchType
-      const courseData = {
-        id: result.course.id,
-        name: result.course.name,
-        tees: null,
-      };
+      const courseData = { id: courseId, name: courseName, tees: null };
       wizard.handleSelectCourse(
         courseData as Parameters<typeof wizard.handleSelectCourse>[0],
-        result.club
+        club
       );
 
       setShowCreateCourseForm(false);
+    },
+    [wizard]
+  );
+
+  // Handle creating course — branches on existing vs new club
+  const handleCreateCourse = useCallback(async () => {
+    try {
+      if (selectedExistingClub) {
+        // Path A: Add course to existing club
+        const courseName = newCourseName.trim();
+        if (!courseName) return;
+
+        const course = await createCourse.mutateAsync({
+          club_id: selectedExistingClub.id,
+          name: courseName,
+          holes: [],
+        });
+
+        // Only track courseId — don't delete the existing club on cancel
+        setInlineCreatedCourse({ courseId: course.id, clubId: null });
+        finishCourseCreation(course.id, course.name, selectedExistingClub);
+      } else if (isNewClub) {
+        // Path B: Create new club + course
+        if (!newClubName.trim()) return;
+
+        const result = await createClubWithCourse.mutateAsync({
+          club: { name: newClubName.trim() },
+          course: {
+            name: newCourseName.trim() || newClubName.trim(),
+            holes: [],
+          },
+        });
+
+        // Track both for orphan cleanup
+        setInlineCreatedCourse({ courseId: result.course.id, clubId: result.club.id });
+        finishCourseCreation(result.course.id, result.course.name, result.club);
+      }
     } catch (error) {
-      console.error('[CreateRound] Error creating club+course:', error);
+      console.error('[CreateRound] Error creating course:', error);
     }
-  }, [newClubName, newCourseName, createClubWithCourse, wizard]);
+  }, [
+    selectedExistingClub,
+    isNewClub,
+    newClubName,
+    newCourseName,
+    createCourse,
+    createClubWithCourse,
+    finishCourseCreation,
+  ]);
 
   // Cancel inline form
   const handleCancelCreateCourse = useCallback(() => {
     setShowCreateCourseForm(false);
+    setSelectedExistingClub(null);
+    setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setIsImportingClub(false);
   }, []);
 
   // Data fetching
@@ -155,11 +242,12 @@ export default function CreateRoundBottomSheet({
   );
   const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Transform clubs to display items (for both search and full list)
-  const displayItems: ClubCourseDisplayItem[] =
+  // Transform clubs to display items (for both search and full list), home club first
+  const displayItems: ClubCourseDisplayItem[] = sortHomeClubFirst(
     wizard.data.searchQuery.trim().length >= 2
       ? (searchResults ?? []).map(toClubCourseDisplayItem)
-      : (allClubs ?? []).map(toClubCourseDisplayItem);
+      : (allClubs ?? []).map(toClubCourseDisplayItem)
+  );
 
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
@@ -196,7 +284,7 @@ export default function CreateRoundBottomSheet({
       case 'partners':
         return 'Playing Partners';
       case 'ballCount':
-        return 'Practice Mode';
+        return 'Solo Round';
       case 'scoringSetup':
         return 'Scoring Setup';
     }
@@ -224,7 +312,10 @@ export default function CreateRoundBottomSheet({
     // starting a round, clean up the orphan course+club
     if (inlineCreatedCourse) {
       deleteCourseMutation.mutate(
-        { courseId: inlineCreatedCourse.courseId, clubId: inlineCreatedCourse.clubId },
+        {
+          courseId: inlineCreatedCourse.courseId,
+          clubId: inlineCreatedCourse.clubId ?? undefined,
+        },
         {
           onError: (error) => {
             console.warn('[CreateRound] Failed to clean up orphan course:', error);
@@ -235,8 +326,11 @@ export default function CreateRoundBottomSheet({
     }
 
     setShowCreateCourseForm(false);
+    setSelectedExistingClub(null);
+    setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setIsImportingClub(false);
     wizard.handleClose();
   }, [wizard, inlineCreatedCourse, deleteCourseMutation]);
 
@@ -257,11 +351,21 @@ export default function CreateRoundBottomSheet({
           // - With partners: course → tee → matchType → partners → scoringSetup
           // - Solo with ballCount step: course → tee → matchType → partners → ballCount
           // - Solo without ballCount: course → tee → matchType → partners
-          wizard.data.selectedPartners.length > 0
-            ? (['course', 'tee', 'matchType', 'partners', 'scoringSetup'] as const)
-            : wizard.currentStep === 'ballCount'
-              ? (['course', 'tee', 'matchType', 'partners', 'ballCount'] as const)
-              : (['course', 'tee', 'matchType', 'partners'] as const)
+          // - When initialMatchType is set: matchType step is skipped
+          // - When skipPartnerStep is set: partners/scoringSetup/ballCount steps are skipped
+          (() => {
+            let steps: readonly string[];
+            if (skipPartnerStep) {
+              steps = ['course', 'tee', 'matchType'];
+            } else if (wizard.data.selectedPartners.length > 0) {
+              steps = ['course', 'tee', 'matchType', 'partners', 'scoringSetup'];
+            } else if (wizard.currentStep === 'ballCount') {
+              steps = ['course', 'tee', 'matchType', 'partners', 'ballCount'];
+            } else {
+              steps = ['course', 'tee', 'matchType', 'partners'];
+            }
+            return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
+          })()
         ).map((step, index, arr) => (
           <React.Fragment key={step}>
             <View
@@ -302,76 +406,104 @@ export default function CreateRoundBottomSheet({
       {/* Inline course creation form */}
       {wizard.currentStep === 'course' && showCreateCourseForm && (
         <View style={styles.createCourseForm}>
+          {/* Club autocomplete */}
           <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
-            Club Name
+            Club
           </Text>
-          <TextInput
-            style={[
-              styles.formInput,
-              {
-                backgroundColor: colors.surfaceVariant,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-              },
-            ]}
-            value={newClubName}
-            onChangeText={setNewClubName}
-            placeholder="e.g. Royal Melbourne"
-            placeholderTextColor={colors.textDisabled}
-            autoFocus
-            returnKeyType="next"
-          />
-
-          <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
-            Course Name{' '}
-            <Text style={{ color: colors.textDisabled, fontWeight: '400' }}>
-              (optional)
-            </Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.formInput,
-              {
-                backgroundColor: colors.surfaceVariant,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-              },
-            ]}
-            value={newCourseName}
-            onChangeText={setNewCourseName}
-            placeholder="Defaults to club name"
-            placeholderTextColor={colors.textDisabled}
-            returnKeyType="done"
-            onSubmitEditing={handleCreateCourse}
-          />
-
-          <TouchableOpacity
-            onPress={handleCreateCourse}
-            disabled={!newClubName.trim() || createClubWithCourse.isPending}
-            style={[
-              styles.createButton,
-              {
-                backgroundColor:
-                  newClubName.trim() && !createClubWithCourse.isPending
-                    ? colors.primary
-                    : colors.gray300,
-              },
-              shadows.sm,
-            ]}
-          >
-            {createClubWithCourse.isPending ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <Text style={[styles.createButtonText, { color: colors.white }]}>
-                Create Course
+          {isNewClub ? (
+            <View style={[styles.chipContainer, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
+              <Text
+                style={[styles.chipText, { color: colors.textPrimary }]}
+                numberOfLines={1}
+              >
+                {newClubName} (new)
               </Text>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity onPress={handleClearClubSelection} hitSlop={8}>
+                <Text style={[styles.chipClear, { color: colors.textSecondary }]}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ClubAutocomplete
+              selectedClub={selectedExistingClub}
+              onSelectClub={handleSelectClubFromAutocomplete}
+              onCreateNew={handleCreateNewClub}
+              onClearSelection={handleClearClubSelection}
+              isImporting={isImportingClub}
+            />
+          )}
 
-          {createClubWithCourse.isError && (
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              Failed to create course. Please try again.
-            </Text>
+          {/* Course name — shown once a club is selected or "Create new" is chosen */}
+          {(selectedExistingClub || isNewClub) && (
+            <>
+              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
+                Course Name{' '}
+                {isNewClub && (
+                  <Text style={{ color: colors.textDisabled, fontWeight: '400' }}>
+                    (optional)
+                  </Text>
+                )}
+              </Text>
+              <TextInput
+                style={[
+                  styles.formInput,
+                  {
+                    backgroundColor: colors.surfaceVariant,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
+                value={newCourseName}
+                onChangeText={setNewCourseName}
+                placeholder={
+                  selectedExistingClub
+                    ? 'e.g. Championship Course'
+                    : 'Defaults to club name'
+                }
+                placeholderTextColor={colors.textDisabled}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleCreateCourse}
+              />
+
+              <TouchableOpacity
+                onPress={handleCreateCourse}
+                disabled={
+                  (selectedExistingClub && !newCourseName.trim()) ||
+                  (isNewClub && !newClubName.trim()) ||
+                  createClubWithCourse.isPending ||
+                  createCourse.isPending
+                }
+                style={[
+                  styles.createButton,
+                  {
+                    backgroundColor:
+                      ((selectedExistingClub && newCourseName.trim()) ||
+                        (isNewClub && newClubName.trim())) &&
+                      !createClubWithCourse.isPending &&
+                      !createCourse.isPending
+                        ? colors.primary
+                        : colors.gray300,
+                  },
+                  shadows.sm,
+                ]}
+              >
+                {createClubWithCourse.isPending || createCourse.isPending ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={[styles.createButtonText, { color: colors.white }]}>
+                    {selectedExistingClub ? 'Add Course' : 'Create Course'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {(createClubWithCourse.isError || createCourse.isError) && (
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  Failed to create course. Please try again.
+                </Text>
+              )}
+            </>
           )}
         </View>
       )}
@@ -418,6 +550,8 @@ export default function CreateRoundBottomSheet({
           selectedMatchType={wizard.data.selectedMatchType}
           ballCount={wizard.data.ballCount}
           onBallCountChange={wizard.handleSelectBallCount}
+          handicapSource={wizard.data.handicapSource}
+          onHandicapSourceChange={wizard.setHandicapSource}
           onStartRound={wizard.handleStartSoloRound}
         />
       )}
@@ -446,6 +580,8 @@ export default function CreateRoundBottomSheet({
             wolfConfig={wizard.data.wolfConfig}
             onWolfEnabledChange={wizard.setWolfEnabled}
             onWolfConfigChange={wizard.handleWolfConfigChange}
+            handicapSource={wizard.data.handicapSource}
+            onHandicapSourceChange={wizard.setHandicapSource}
             onStartScoring={wizard.handleStartScoring}
           />
         )}
@@ -508,5 +644,20 @@ const styles = StyleSheet.create({
     ...typography.small,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+  },
+  chipText: {
+    ...typography.body,
+    flex: 1,
+  },
+  chipClear: {
+    ...typography.smallBold,
   },
 });

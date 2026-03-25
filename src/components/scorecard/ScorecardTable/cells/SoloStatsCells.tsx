@@ -11,8 +11,10 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
+import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import { styles } from '../styles';
 import type { ScorecardTablePlayer } from '../types';
+import type { PlayerStats } from '@/utils/scorecardCalculations';
 import { isSingleBallScore, type Hole } from '@/types/database.types';
 
 // =====================================================
@@ -333,5 +335,93 @@ export const SoloStatsStablefordEmptyCells = React.memo(function SoloStatsStable
         </View>
       )}
     </>
+  );
+});
+
+// =====================================================
+// STABLEFORD PER-HOLE COLUMN
+// =====================================================
+
+export const SoloStablefordHeaderCell = React.memo(function SoloStablefordHeaderCell() {
+  const colors = useThemeColors();
+
+  return (
+    <View style={[styles.tableCell, styles.statCell, styles.headerCell, { backgroundColor: colors.primary }]}>
+      <Text style={[styles.headerText, { color: colors.textOnColored }]}>Pts</Text>
+    </View>
+  );
+});
+
+interface SoloStablefordHoleCellProps {
+  hole: Hole;
+  player: ScorecardTablePlayer;
+}
+
+export const SoloStablefordHoleCell = React.memo(function SoloStablefordHoleCell({
+  hole,
+  player,
+}: SoloStablefordHoleCellProps) {
+  const colors = useThemeColors();
+  const score = player.scores?.[String(hole.number)];
+  const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
+  const handicap = player.player?.handicap ?? 0;
+  const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+  const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
+
+  return (
+    <View style={[styles.tableCell, styles.statCell, { backgroundColor: colors.primary + '1A' }]}>
+      <Text style={[styles.indexCellText, { color: colors.primary, fontWeight: '600' }]}>
+        {strokes > 0 ? points : '-'}
+      </Text>
+    </View>
+  );
+});
+
+interface SoloStablefordSubtotalCellProps {
+  playerStats: PlayerStats;
+  isBack9: boolean;
+}
+
+export const SoloStablefordSubtotalCell = React.memo(function SoloStablefordSubtotalCell({
+  playerStats,
+  isBack9,
+}: SoloStablefordSubtotalCellProps) {
+  const colors = useThemeColors();
+  const stableford = isBack9 ? playerStats.back9Stableford : playerStats.front9Stableford;
+
+  return (
+    <View style={[styles.tableCell, styles.statCell, styles.subtotalCell, { backgroundColor: colors.primary + '33' }]}>
+      <Text style={[styles.subtotalText, { color: colors.primary }]}>
+        {stableford}
+      </Text>
+    </View>
+  );
+});
+
+interface SoloStablefordTotalCellProps {
+  playerStats: PlayerStats;
+}
+
+export const SoloStablefordTotalCell = React.memo(function SoloStablefordTotalCell({
+  playerStats,
+}: SoloStablefordTotalCellProps) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.primary + '33' }]}>
+      <Text style={[styles.totalText, { color: colors.primary }]}>
+        {playerStats.totalStableford}
+      </Text>
+    </View>
+  );
+});
+
+export const SoloStablefordEmptyCell = React.memo(function SoloStablefordEmptyCell() {
+  const colors = useThemeColors();
+
+  return (
+    <View style={[styles.tableCell, styles.statCell, styles.totalCell, { backgroundColor: colors.primary + '33' }]}>
+      <Text style={[styles.totalText, { color: colors.primary }]}>-</Text>
+    </View>
   );
 });

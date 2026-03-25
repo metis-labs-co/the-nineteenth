@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LoadingSpinner, GolfBallLoader, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, GolfBallLoader, ConfirmationDialog, ErrorState } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconGolf } from '@tabler/icons-react-native';
@@ -28,27 +28,21 @@ import { FeatureButton } from '@/components/common/FeatureButton';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useAddCourseFavorite, useRemoveCourseFavorite } from '@/hooks/useClubs';
 import { useHomeClub } from '@/hooks/useHomeClub';
-import { useUpdateCourseHoles, useCoordinateSummary } from '@/hooks';
+import { useCoordinateSummary } from '@/hooks';
+import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
-import { useAuth } from '@/hooks/useAuth';
-import { useScorecardStore } from '@/store/scorecardStore';
 import { useFormattedDistance } from '@/store/settingsStore';
-import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useDeleteCourse } from '@/hooks/useDeleteCourse';
-import { EditHoleBottomSheet } from '@/components/courses';
-import { supabase } from '@/services/supabase/client';
-import { courseService } from '@/services/courses/courseService';
+import { EditHoleBottomSheet, EditCourseBottomSheet, EditTeeBottomSheet } from '@/components/courses';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import type { TeeBox, GameType, Club, Hole } from '@/types/database.types';
-import type { Player } from '@/types';
+import type { TeeBox, Club } from '@/types/database.types';
 import { hydrateHolesWithTeeYardages, resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { teeToTeeBox } from '@/utils/teeTransformers';
 
+import { useStartSocialRound } from './hooks/useStartSocialRound';
+import { useCourseAdminActions } from './hooks/useCourseAdminActions';
 import { HoleTable } from './components';
 import { TeeSelector, getTeeColor } from '@/components/common';
-import { DEFAULT_HOLES } from './utils';
-import type { PlayingPartner } from './types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Course'>;
 
@@ -57,14 +51,10 @@ export default function CourseScreen({ route, navigation }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const cardBackground = colors.surface;
   const { formatDistance } = useFormattedDistance();
 
   // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
-
-  // Delete course mutation (manual courses only, super admin only)
-  const deleteCourseMutation = useDeleteCourse();
 
   // Fetch course details with tees from the normalized tees table
   const {
@@ -113,22 +103,56 @@ export default function CourseScreen({ route, navigation }: Props) {
   const { data: currentHomeClub } = useHomeClub();
   const isHomeClub = course?.club?.id === currentHomeClub?.id;
 
-  // Round creation state
-  const { user, player } = useAuth();
-  const { initializeRound } = useScorecardStore();
-  const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
-  const [isStartingRound, setIsStartingRound] = useState(false);
-
-  // Super admin hole editing
-  const isSuperAdmin = useIsSuperAdmin();
-  const [editingHole, setEditingHole] = useState<Hole | null>(null);
-  const updateCourseHolesMutation = useUpdateCourseHoles();
-
-  // API refresh state (re-imports course from Golf API)
-  const [isRefreshingFromApi, setIsRefreshingFromApi] = useState(false);
-
   // GPS coordinates summary
   const { data: coordSummary, refetch: refetchCoords } = useCoordinateSummary(courseId);
+
+  // Auto-backfill GPS coordinates from GolfAPI.io if missing
+  useCoordinateBackfill(courseId);
+
+  // Round creation
+  const {
+    isBottomSheetVisible,
+    isStartingRound,
+    openBottomSheet,
+    closeBottomSheet,
+    startRound: handleStartRound,
+  } = useStartSocialRound({
+    courseId: course?.id ?? courseId,
+    holesWithYardages,
+    navigation,
+    onError: showAlert,
+  });
+
+  // Super admin actions
+  const {
+    isSuperAdmin,
+    editingHole,
+    setEditingHole,
+    handleHolePress,
+    handleSaveHole,
+    updateCourseHolesMutation,
+    isEditingCourse,
+    setIsEditingCourse,
+    handleSaveCourse,
+    updateCourseMutation,
+    editingTee,
+    setEditingTee,
+    handleSaveTee,
+    handleTeeEditPress,
+    updateTeeMutation,
+    isRefreshingFromApi,
+    handleRefreshFromApi,
+    handleDeleteCourse,
+  } = useCourseAdminActions({
+    course,
+    selectedTee,
+    refetch,
+    refetchCoords,
+    navigation,
+    showAlert,
+    showDialog,
+    dismissDialog,
+  });
 
   // Hide React Navigation header (we use PageHeader)
   React.useLayoutEffect(() => {
@@ -158,36 +182,6 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course, addFavorite, removeFavorite, refetch, showAlert]);
 
-  // Handle refresh from Golf API (re-imports course data including tees and GPS coordinates)
-  const handleRefreshFromApi = useCallback(async () => {
-    if (isRefreshingFromApi) return; // Prevent double-clicks
-
-    if (!course?.golfapi_course_id) {
-      showAlert('Cannot Refresh', 'This course was not imported from the Golf API.');
-      return;
-    }
-
-    setIsRefreshingFromApi(true);
-    try {
-      const result = await courseService.importCourse(course.golfapi_course_id);
-      await refetch();
-      await refetchCoords();
-
-      // Build success message with details
-      const messages = ['Course data refreshed from Golf API.'];
-      if (result.coordinatesImported > 0) {
-        messages.push(`GPS coordinates imported: ${result.coordinatesImported} points`);
-      }
-
-      showAlert('Success', messages.join('\n'));
-    } catch (error) {
-      console.error('[CourseScreen] Failed to refresh from API:', error);
-      showAlert('Error', 'Failed to refresh course data. Please try again.');
-    } finally {
-      setIsRefreshingFromApi(false);
-    }
-  }, [course?.golfapi_course_id, refetch, refetchCoords, isRefreshingFromApi, showAlert]);
-
   // Navigate to club
   const handleClubPress = useCallback(() => {
     if (course?.club) {
@@ -195,203 +189,10 @@ export default function CourseScreen({ route, navigation }: Props) {
     }
   }, [course?.club, navigation]);
 
-  // Handle delete course (manual courses only, super admin only)
-  const handleDeleteCourse = useCallback(() => {
-    if (!course || course.golfapi_course_id) return;
-
-    showDialog({
-      title: 'Delete Course',
-      message:
-        'This course and its hole data will be permanently removed. Rounds that used this course will keep their scores but lose the course reference.',
-      confirmLabel: 'Delete',
-      confirmVariant: 'destructive',
-      icon: 'trash-can-outline',
-      onConfirm: () => {
-        dismissDialog();
-        deleteCourseMutation.mutate(
-          { courseId: course.id, clubId: course.club?.id },
-          {
-            onSuccess: () => {
-              navigation.goBack();
-            },
-            onError: (error) => {
-              showAlert(
-                'Error',
-                error instanceof Error ? error.message : 'Failed to delete course'
-              );
-            },
-          }
-        );
-      },
-    });
-  }, [course, showDialog, dismissDialog, deleteCourseMutation, navigation, showAlert]);
-
-  // Get selected tee box info (alias for compatibility)
-  const selectedTeeBox = selectedTee;
-
   // Handle opening social round bottom sheet
-  const handleOpenSocialRound = useCallback(() => {
-    setIsBottomSheetVisible(true);
-  }, []);
+  const handleOpenSocialRound = openBottomSheet;
 
-  // Super admin hole editing handlers
-  const handleHolePress = useCallback(
-    (hole: Hole) => {
-      if (isSuperAdmin) {
-        setEditingHole(hole);
-      }
-    },
-    [isSuperAdmin]
-  );
-
-  const handleSaveHole = useCallback(
-    async (updatedHole: Hole) => {
-      if (!course?.holes) return;
-
-      // Update the holes array with the edited hole
-      const updatedHoles = course.holes.map((h) =>
-        h.number === updatedHole.number ? updatedHole : h
-      );
-
-      try {
-        // Update in database
-        await updateCourseHolesMutation.mutateAsync({
-          courseId: course.id,
-          holes: updatedHoles,
-        });
-
-        // Refetch to get updated data
-        refetch();
-
-        // Close the modal
-        setEditingHole(null);
-      } catch {
-        showAlert('Error', 'Failed to save hole data. Please try again.');
-      }
-    },
-    [course, updateCourseHolesMutation, refetch, showAlert]
-  );
-
-  const handleCloseBottomSheet = useCallback(() => {
-    setIsBottomSheetVisible(false);
-  }, []);
-
-  // Handle starting a new round from the bottom sheet
-  const handleStartRound = useCallback(
-    async (
-      _courseId: string,
-      _courseName: string,
-      partners: PlayingPartner[],
-      roundSelectedTee?: TeeBox,
-      gameType: GameType = 'stableford'
-    ) => {
-      if (isStartingRound || !course) return;
-
-      setIsStartingRound(true);
-      setIsBottomSheetVisible(false);
-
-      try {
-        // Use hydrated holes (with yardages) or default holes (fallback if empty array)
-        const holes: Hole[] = holesWithYardages && holesWithYardages.length > 0 ? holesWithYardages : DEFAULT_HOLES;
-
-        // Create the round in Supabase
-        const { data: roundData, error: roundError } = await (supabase
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-          .from('rounds') as any)
-          .insert({
-            course_id: course.id,
-            user_id: user?.id,
-            competition_id: null,
-            round_number: 1,
-            date: new Date().toISOString().split('T')[0],
-            game_type: gameType,
-            status: 'in-progress',
-            selected_tee: roundSelectedTee ?? null,
-          })
-          .select('id')
-          .single();
-
-        if (roundError) {
-          throw new Error(`Failed to create round: ${roundError.message}`);
-        }
-
-        const roundId = roundData.id;
-
-        // Create player objects
-        const players: Player[] = [];
-
-        if (player) {
-          players.push({
-            id: player.id,
-            name: player.name,
-            email: player.email || '',
-            phone: player.phone || undefined,
-            handicap: player.handicap ?? 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        } else if (user) {
-          players.push({
-            id: user.id,
-            name: user.email?.split('@')[0] || 'Player 1',
-            email: user.email || '',
-            handicap: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
-
-        for (const partner of partners) {
-          players.push({
-            id: partner.id,
-            name: partner.name,
-            email: '',
-            handicap: partner.handicap ?? 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
-
-        // Create round_players records
-        if (user?.id) {
-          const roundPlayersToInsert = [
-            { round_id: roundId, player_id: user.id, added_by: null },
-            ...partners.map(partner => ({
-              round_id: roundId,
-              player_id: partner.id,
-              added_by: user.id,
-            })),
-          ];
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-          await (supabase.from('round_players') as any).insert(roundPlayersToInsert);
-        }
-
-        // Initialize the scorecard store
-        await initializeRound(roundId, players, holes, gameType, false);
-
-        // Navigate to appropriate scoring screen based on game type
-        if (gameType === 'match-play') {
-          navigation.navigate('MatchPlayScoring', {
-            roundId,
-            player1Id: players[0]?.id,
-            player2Id: players[1]?.id,
-          });
-        } else {
-          navigation.navigate('Scorecard', {
-            roundId,
-            competitionId: 'standalone',
-          });
-        }
-      } catch (err) {
-        console.error('[CourseScreen] Error starting round:', err);
-        showAlert('Error', 'Failed to start the round. Please try again.');
-      } finally {
-        setIsStartingRound(false);
-      }
-    },
-    [course, holesWithYardages, user, player, initializeRound, navigation, isStartingRound, showAlert]
-  );
+  const handleCloseBottomSheet = closeBottomSheet;
 
   // Prepare initial course data for bottom sheet
   const initialCourseData = useMemo(() => {
@@ -422,16 +223,11 @@ export default function CourseScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader variant="centered" title="Course" showBack onBack={handleBack} />
-        <View style={styles.centered}>
-          <Icon source="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Unable to load course</Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
-            {error instanceof Error ? error.message : 'An error occurred'}
-          </Text>
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} activeOpacity={0.7} onPress={() => refetch()}>
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          error={error}
+          title="Unable to load course"
+          onRetry={() => refetch()}
+        />
       </View>
     );
   }
@@ -441,14 +237,12 @@ export default function CourseScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <PageHeader variant="centered" title="Course" showBack onBack={handleBack} />
-        <View style={styles.centered}>
-          <Icon source="golf" size={48} color={colors.gray400} />
-          <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Course not found</Text>
-          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>This course may have been removed</Text>
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} activeOpacity={0.7} onPress={() => navigation.goBack()}>
-            <Text style={[styles.retryButtonText, { color: colors.white }]}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          error="This course may have been removed"
+          title="Course not found"
+          onRetry={() => navigation.goBack()}
+          retryLabel="Go Back"
+        />
       </View>
     );
   }
@@ -457,6 +251,28 @@ export default function CourseScreen({ route, navigation }: Props) {
   const totalPar = holesWithYardages?.reduce((sum, h) => sum + h.par, 0) || 0;
   const holeCount = holesWithYardages?.length || 0;
 
+  // Build header right actions
+  const headerRightActions = (() => {
+    const actions = [
+      ...(!isSuperAdmin && course.golfapi_course_id
+        ? [{
+            icon: isRefreshingFromApi ? 'loading' : 'refresh',
+            onPress: handleRefreshFromApi,
+            accessibilityLabel: 'Refresh course data from Golf API',
+          }]
+        : []),
+      ...(!course.golfapi_course_id && isSuperAdmin
+        ? [{
+            icon: 'trash-can-outline',
+            onPress: handleDeleteCourse,
+            accessibilityLabel: 'Delete course',
+            color: colors.error,
+          }]
+        : []),
+    ];
+    return actions.length > 0 ? actions : undefined;
+  })();
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
@@ -464,26 +280,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         title={course.name}
         showBack
         onBack={handleBack}
-        rightActions={(() => {
-          const actions = [
-            ...(course.golfapi_course_id
-              ? [{
-                  icon: isRefreshingFromApi ? 'loading' : 'refresh',
-                  onPress: handleRefreshFromApi,
-                  accessibilityLabel: 'Refresh course data from Golf API',
-                }]
-              : []),
-            ...(!course.golfapi_course_id && isSuperAdmin
-              ? [{
-                  icon: 'trash-can-outline',
-                  onPress: handleDeleteCourse,
-                  accessibilityLabel: 'Delete course',
-                  color: colors.error,
-                }]
-              : []),
-          ];
-          return actions.length > 0 ? actions : undefined;
-        })()}
+        rightActions={headerRightActions}
       />
       <ScrollView
         style={styles.scrollView}
@@ -493,7 +290,7 @@ export default function CourseScreen({ route, navigation }: Props) {
         }
       >
         {/* Course Header Card */}
-        <View style={[styles.headerCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+        <View style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.headerTop}>
             <View style={[styles.courseIconLarge, { backgroundColor: colors.primaryLighter }]}>
               <Icon source="golf" size={32} color={colors.primary} />
@@ -521,6 +318,18 @@ export default function CourseScreen({ route, navigation }: Props) {
 
             {/* Action Buttons */}
             <View style={styles.headerActions}>
+              {/* Super Admin Edit Button */}
+              {isSuperAdmin && (
+                <TouchableOpacity
+                  style={styles.actionButtonLarge}
+                  activeOpacity={0.7}
+                  onPress={() => setIsEditingCourse(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit course details"
+                >
+                  <Icon source="pencil" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              )}
               {/* Favorite Button */}
               <TouchableOpacity
                 style={[
@@ -584,19 +393,48 @@ export default function CourseScreen({ route, navigation }: Props) {
           </View>
 
           {/* Selected Tee Info */}
-          {selectedTeeBox && (
-            <View style={[styles.selectedTeeInfo, { backgroundColor: colors.surfaceVariant }]}>
-              <View
-                style={[styles.teeColorIndicator, { backgroundColor: getTeeColor(selectedTeeBox.color, colors.gray400) }]}
-              />
-              <View style={styles.selectedTeeDetails}>
-                <Text style={[styles.selectedTeeName, { color: colors.textPrimary }]}>{selectedTeeBox.name} Tees</Text>
-                <Text style={[styles.selectedTeeYardage, { color: colors.textSecondary }]}>
-                  {selectedTeeBox.totalYardage ? formatDistance(selectedTeeBox.totalYardage) : ''}
-                  {selectedTeeBox.courseRating && ` · CR: ${selectedTeeBox.courseRating}`}
-                  {selectedTeeBox.slopeRating && ` · Slope: ${selectedTeeBox.slopeRating}`}
-                </Text>
+          {selectedTee && (
+            <TouchableOpacity
+              disabled={!isSuperAdmin}
+              activeOpacity={isSuperAdmin ? 0.7 : 1}
+              onPress={handleTeeEditPress}
+              accessibilityLabel={isSuperAdmin ? `Edit ${selectedTee.name} tee ratings` : undefined}
+            >
+              <View style={[styles.selectedTeeInfo, { backgroundColor: colors.surfaceVariant }]}>
+                <View
+                  style={[styles.teeColorIndicator, { backgroundColor: getTeeColor(selectedTee.color, colors.gray400) }]}
+                />
+                <View style={styles.selectedTeeDetails}>
+                  <Text style={[styles.selectedTeeName, { color: colors.textPrimary }]}>{selectedTee.name} Tees</Text>
+                  <Text style={[styles.selectedTeeYardage, { color: colors.textSecondary }]}>
+                    {selectedTee.totalYardage ? formatDistance(selectedTee.totalYardage) : ''}
+                    {selectedTee.courseRating && ` · CR: ${selectedTee.courseRating}`}
+                    {selectedTee.slopeRating && ` · Slope: ${selectedTee.slopeRating}`}
+                  </Text>
+                </View>
+                {isSuperAdmin && (
+                  <Icon source="pencil" size={16} color={colors.textSecondary} />
+                )}
               </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Super Admin Actions */}
+          {isSuperAdmin && (
+            <View style={[styles.adminActions, { borderTopColor: colors.border }]}>
+              {course.golfapi_course_id && (
+                <TouchableOpacity
+                  style={[styles.adminActionButton, { borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                  onPress={handleRefreshFromApi}
+                  disabled={isRefreshingFromApi}
+                >
+                  <Icon source={isRefreshingFromApi ? 'loading' : 'refresh'} size={18} color={colors.primary} />
+                  <Text style={[styles.adminActionText, { color: colors.primary }]}>
+                    {isRefreshingFromApi ? 'Refreshing...' : 'Refresh from API'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -616,7 +454,7 @@ export default function CourseScreen({ route, navigation }: Props) {
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Hole Breakdown</Text>
 
           {!holesWithYardages || holesWithYardages.length === 0 ? (
-            <View style={[styles.emptyHolesCard, { backgroundColor: cardBackground, borderColor: colors.border }]}>
+            <View style={[styles.emptyHolesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Icon source="flag" size={32} color={colors.gray400} />
               <Text style={[styles.emptyHolesText, { color: colors.textSecondary }]}>
                 No hole information available for this course
@@ -667,6 +505,28 @@ export default function CourseScreen({ route, navigation }: Props) {
         />
       )}
 
+      {/* Super admin course editing modal */}
+      {isEditingCourse && course && (
+        <EditCourseBottomSheet
+          visible={isEditingCourse}
+          onClose={() => setIsEditingCourse(false)}
+          course={course}
+          onSave={handleSaveCourse}
+          loading={updateCourseMutation.isPending}
+        />
+      )}
+
+      {/* Super admin tee editing modal */}
+      {editingTee && (
+        <EditTeeBottomSheet
+          visible={!!editingTee}
+          onClose={() => setEditingTee(null)}
+          tee={editingTee}
+          onSave={handleSaveTee}
+          loading={updateTeeMutation.isPending}
+        />
+      )}
+
       {/* Confirmation/Alert Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </View>
@@ -686,26 +546,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
-  errorTitle: {
-    ...typography.h4,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.lg,
-  },
-  retryButtonText: {
-    ...typography.bodyBold,
-  },
-
   // Header Card
   headerCard: {
     margin: spacing.lg,
@@ -850,5 +690,26 @@ const styles = StyleSheet.create({
   featureButtonContainer: {
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+  },
+
+  // Admin Actions
+  adminActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  adminActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  adminActionText: {
+    ...typography.smallBold,
   },
 });

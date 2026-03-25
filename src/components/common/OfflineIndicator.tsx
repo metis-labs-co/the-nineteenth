@@ -1,9 +1,9 @@
 // src/components/common/OfflineIndicator.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { GolfBallLoader } from './GolfBallLoader';
-import { spacing, zIndex } from '@/constants/theme';
+import { spacing, typography, borderRadius, zIndex } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 
 type OfflineStatus = 'online' | 'offline' | 'syncing' | 'error';
@@ -131,28 +131,32 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
 
         {/* Sync Button */}
         {showSyncButton && onSyncPress && (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={onSyncPress}
             style={[styles.actionButton, { backgroundColor: colors.warning }]}
-            labelStyle={[styles.actionButtonText, { color: colors.white }]}
-            compact
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Sync pending changes"
           >
-            Sync
-          </Button>
+            <Text style={[styles.actionButtonText, { color: colors.white }]}>
+              Sync
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Retry Button */}
         {showRetryButton && onSyncPress && (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={onSyncPress}
             style={[styles.actionButton, { backgroundColor: colors.error }]}
-            labelStyle={[styles.actionButtonText, { color: colors.white }]}
-            compact
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Retry sync"
           >
-            Retry
-          </Button>
+            <Text style={[styles.actionButtonText, { color: colors.white }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -179,15 +183,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   message: {
-    fontWeight: '600',
+    ...typography.smallBold,
     flex: 1,
   },
   actionButton: {
     minHeight: 36,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.md,
   },
   actionButtonText: {
-    fontWeight: '600',
-    fontSize: 12,
+    ...typography.captionBold,
   },
 });

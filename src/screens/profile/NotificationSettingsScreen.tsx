@@ -9,14 +9,14 @@
 
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, Linking, Platform } from 'react-native';
-import { Text, Switch, Icon, Divider, ActivityIndicator } from 'react-native-paper';
+import { Text, Icon, Divider, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { PageHeader, SectionHeader } from '@/components/common';
+import { PageHeader, SectionHeader, ToggleSwitch } from '@/components/common';
 import { MenuItemRow } from './components';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -183,10 +183,9 @@ export default function NotificationSettingsScreen() {
               showChevron={false}
               disabled={masterToggleDisabled}
               rightContent={
-                <Switch
+                <ToggleSwitch
                   value={pushEnabled}
                   onValueChange={handlePushEnabledChange}
-                  color={colors.primary}
                   disabled={masterToggleDisabled}
                 />
               }
@@ -211,10 +210,9 @@ export default function NotificationSettingsScreen() {
                   showChevron={false}
                   disabled={isUpdatingPreferences}
                   rightContent={
-                    <Switch
+                    <ToggleSwitch
                       value={preferences?.pushCompetitionUpdates ?? true}
                       onValueChange={handleCompetitionUpdatesChange}
-                      color={colors.primary}
                       disabled={isUpdatingPreferences}
                     />
                   }
@@ -228,10 +226,9 @@ export default function NotificationSettingsScreen() {
                   showChevron={false}
                   disabled={isUpdatingPreferences}
                   rightContent={
-                    <Switch
+                    <ToggleSwitch
                       value={preferences?.pushFriendRequests ?? true}
                       onValueChange={handleFriendRequestsChange}
-                      color={colors.primary}
                       disabled={isUpdatingPreferences}
                     />
                   }
@@ -245,10 +242,9 @@ export default function NotificationSettingsScreen() {
                   showChevron={false}
                   disabled={isUpdatingPreferences}
                   rightContent={
-                    <Switch
+                    <ToggleSwitch
                       value={preferences?.pushScorecardUpdates ?? true}
                       onValueChange={handleScorecardUpdatesChange}
-                      color={colors.primary}
                       disabled={isUpdatingPreferences}
                     />
                   }

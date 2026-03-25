@@ -10,6 +10,7 @@ import {
   HOLE_CELL_WIDTH,
   INDEX_CELL_WIDTH,
   PAR_CELL_WIDTH,
+  STAT_CELL_WIDTH,
   CELL_HEIGHTS,
 } from '@/utils/scorecardLayout';
 
@@ -75,9 +76,10 @@ export const styles = StyleSheet.create({
   parCell: {
     width: PAR_CELL_WIDTH,
   },
-  // Stats cells (Putts, FIR, GIR) - used in solo mode
+  // Stats cells (Putts, FIR, GIR, Pts) - used in solo mode
+  // Uses flex: 1 for even distribution with player column in non-scroll path
   statCell: {
-    width: 40,
+    flex: 1,
   },
 
   // =====================================================

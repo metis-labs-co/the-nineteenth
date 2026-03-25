@@ -470,8 +470,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   scopeTabText: {
-    ...typography.small,
-    fontWeight: '600',
+    ...typography.smallBold,
   },
 
   // Leaderboard row

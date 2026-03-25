@@ -26,9 +26,11 @@ import { useCheckFeature } from '@/context/SubscriptionContext';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
+import type { HandicapSource } from '@/types/database';
 import type { SelectedCourse, PlayingPartner, ScrambleTeam } from '../../types';
 
 import { RoundSummary } from './RoundSummary';
+import { HandicapSourceSection } from './HandicapSourceSection';
 import { ScoringPairsSection } from './ScoringPairsSection';
 import { TeamFormationSection } from './TeamFormationSection';
 import { SkinsSection } from './SkinsSection';
@@ -60,6 +62,9 @@ interface ScoringSetupStepProps {
   wolfConfig: WolfConfig | null;
   onWolfEnabledChange: (enabled: boolean) => void;
   onWolfConfigChange: (config: WolfConfig) => void;
+  // Handicap source
+  handicapSource: HandicapSource;
+  onHandicapSourceChange: (source: HandicapSource) => void;
   // Actions
   onStartScoring: () => void;
 }
@@ -86,6 +91,8 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   wolfConfig,
   onWolfEnabledChange,
   onWolfConfigChange,
+  handicapSource,
+  onHandicapSourceChange,
   onStartScoring,
 }: ScoringSetupStepProps) {
   const colors = useThemeColors();
@@ -123,6 +130,14 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
           <Text style={[styles.scoringSetupTitle, { color: colors.textSecondary }]}>
             Scoring Configuration
           </Text>
+
+          {/* Handicap Mode - Premium Feature */}
+          <HandicapSourceSection
+            handicapSource={handicapSource}
+            onHandicapSourceChange={onHandicapSourceChange}
+            selectedTee={selectedTee}
+            holes={selectedCourse?.holes}
+          />
 
           {/* Scoring Pairs Toggle - Premium Feature */}
           <ScoringPairsSection

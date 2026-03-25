@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { IconMapPin, IconUsers } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
@@ -69,6 +69,16 @@ export const RoundCardMeta = React.memo(function RoundCardMeta({
           {getCourseDisplayName()}
         </Text>
       </View>
+
+      {/* Tee Box (for standalone rounds with tee selected) */}
+      {round.isStandalone && round.selectedTeeName && (
+        <View style={styles.teeRow}>
+          <Icon source="golf-tee" size={14} color={colors.textSecondary} />
+          <Text style={[styles.teeText, { color: colors.textSecondary }]}>
+            {round.selectedTeeName} Tees
+          </Text>
+        </View>
+      )}
 
       {/* Date */}
       {round.date && (
@@ -137,6 +147,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   courseName: {
+    ...typography.small,
+  },
+  teeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  teeText: {
     ...typography.small,
   },
   detailsRow: {

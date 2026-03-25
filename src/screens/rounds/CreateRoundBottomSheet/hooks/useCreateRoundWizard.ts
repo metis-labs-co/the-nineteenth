@@ -1,20 +1,17 @@
 /**
- * useCreateRoundWizard - State management for the create round wizard
+ * useCreateRoundWizard - Orchestrator for the create round wizard.
  *
- * Manages:
- * - Current step
- * - Course/tee/match type selection
- * - Partner selection
- * - Scoring pairs configuration
+ * Manages top-level [currentStep, data] state and delegates all logic to
+ * focused sub-hooks. The return type is identical to the original monolith
+ * so no consumer changes are needed.
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
-import { useHomeClub } from '@/hooks/useHomeClub';
-import { useAuth } from '@/hooks/useAuth';
 import { useIsSocial } from '@/store/subscriptionStore';
 import type { BallCount } from '@/types/multiball.types';
 import type {
@@ -26,37 +23,24 @@ import type {
   StandaloneSkinsConfig,
   StandaloneWolfConfig,
   InitialCourse,
-  ScrambleTeam,
   TeamConfig,
 } from '../types';
-import { MAX_PARTNERS } from '../types';
-
-/**
- * Generate a UUID v4 for team IDs
- * Uses crypto.randomUUID() if available, falls back to manual generation
- */
-const generateUUID = (): string => {
-  // Try native crypto.randomUUID() first (available in modern environments)
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  // Fallback: manual UUID v4 generation
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
-/** Team game types that require splitIntoTeams for skins */
-const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
-
-/** Game types that support optional team splitting (user can choose) */
-const OPTIONAL_TEAM_FORMATS: GameType[] = ['scramble', 'shamble', 'match-play'];
+import { useWizardInitialization } from './useWizardInitialization';
+import { useWizardCourseSelection } from './useWizardCourseSelection';
+import { useWizardTeeSelection } from './useWizardTeeSelection';
+import { useWizardPartners } from './useWizardPartners';
+import { useWizardSideGames } from './useWizardSideGames';
+import { useWizardNavigation } from './useWizardNavigation';
+import { useWizardTeams } from './useWizardTeams';
 
 interface UseCreateRoundWizardOptions {
   visible: boolean;
   initialCourse?: InitialCourse;
+  initialPartners?: PlayingPartner[];
+  /** Pre-selected match type — locks it and skips the match type step */
+  initialMatchType?: import('@/types/database.types').GameType;
+  /** Skip partner selection — starts the round immediately after tee selection */
+  skipPartnerStep?: boolean;
   onStartRound: (
     courseId: string,
     courseName: string,
@@ -68,7 +52,8 @@ interface UseCreateRoundWizardOptions {
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
-    isBuildAsYouPlay?: boolean
+    isBuildAsYouPlay?: boolean,
+    handicapSource?: HandicapSource
   ) => void;
   onClose: () => void;
 }
@@ -126,6 +111,9 @@ interface UseCreateRoundWizardReturn {
   // Build as you play
   setBuildAsYouPlay: (enabled: boolean) => void;
 
+  // Handicap source
+  setHandicapSource: (source: HandicapSource) => void;
+
   // Actions
   handleStartScoring: () => void;
   handleClose: () => void;
@@ -150,11 +138,15 @@ const initialData: WizardData = {
   wolfEnabled: false,
   wolfConfig: null,
   isBuildAsYouPlay: false,
+  handicapSource: 'profile',
 };
 
 export function useCreateRoundWizard({
   visible,
   initialCourse,
+  initialPartners,
+  initialMatchType,
+  skipPartnerStep,
   onStartRound,
   onClose,
 }: UseCreateRoundWizardOptions): UseCreateRoundWizardReturn {
@@ -164,577 +156,87 @@ export function useCreateRoundWizard({
   // Subscription tier for multi-ball feature gating
   const isSocialOrHigher = useIsSocial();
 
-  // Fetch home club for pre-fill
-  const { data: homeClub } = useHomeClub();
+  // --- Sub-hooks ---
 
-  // Get current user for team generation
-  const { user, player } = useAuth();
-
-  // Build current user as PlayingPartner for team generation
-  const currentUserAsPartner = useMemo((): PlayingPartner | null => {
-    if (player) {
-      return {
-        id: player.id,
-        name: player.name || user?.email?.split('@')[0] || 'You',
-        handicap: player.handicap ?? undefined,
-        handicapIndex: player.handicap_index ?? undefined,
-        gender: player.gender ?? undefined,
-      };
-    }
-    if (user) {
-      return {
-        id: user.id,
-        name: user.email?.split('@')[0] || 'You',
-        handicap: undefined,
-        handicapIndex: undefined,
-        gender: undefined,
-      };
-    }
-    return null;
-  }, [player, user]);
-
-  // Handle initial course when sheet opens (priority: initialCourse > homeClub single course)
-  useEffect(() => {
-    if (visible) {
-      // Determine which course to use:
-      // 1. Explicit initialCourse (passed from CourseDetailScreen)
-      // 2. Home club with single course (auto-select the only course)
-      // 3. Home club with multiple courses: don't pre-fill, user must select
-      let courseToUse: {
-        courseId: string;
-        courseName: string;
-        club: SelectedCourse['club'];
-        tees: TeeBox[] | null | undefined;
-      } | null = null;
-
-      if (initialCourse) {
-        courseToUse = {
-          courseId: initialCourse.courseId,
-          courseName: initialCourse.courseName,
-          club: initialCourse.club ?? initialCourse.venue, // Support both old and new property names
-          tees: initialCourse.tees,
-        };
-      } else if (homeClub && homeClub.courses && homeClub.courses.length === 1) {
-        // Single-course club: auto-select the only course
-        const singleCourse = homeClub.courses[0];
-        courseToUse = {
-          courseId: singleCourse.id,
-          courseName: singleCourse.name,
-          club: homeClub,
-          tees: singleCourse.tees,
-        };
-      }
-      // For multi-course clubs, don't pre-fill - user must select a course
-
-      if (courseToUse) {
-        const courseData: SelectedCourse = {
-          courseId: courseToUse.courseId,
-          courseName: courseToUse.courseName,
-          club: courseToUse.club,
-          venue: courseToUse.club, // Deprecated alias for backward compatibility
-          tees: courseToUse.tees,
-        };
-
-        setData((prev) => ({
-          ...prev,
-          selectedCourse: courseData,
-        }));
-
-        // Go to tee selection if tees available, otherwise match type
-        if (courseToUse.tees && courseToUse.tees.length > 0) {
-          setCurrentStep('tee');
-        } else {
-          setCurrentStep('matchType');
-        }
-      }
-    }
-  }, [visible, initialCourse, homeClub]);
-
-  // Reset state helper
-  const resetState = useCallback(() => {
-    setData(initialData);
-    setCurrentStep('course');
-  }, []);
-
-  // Course selection handlers
-  const setSearchQuery = useCallback((query: string) => {
-    setData((prev) => ({ ...prev, searchQuery: query }));
-  }, []);
-
-  const handleSelectCourse = useCallback(
-    (course: CourseWithFavoriteStatus, club: SelectedCourse['club']) => {
-      const courseData: SelectedCourse = {
-        courseId: course.id,
-        courseName: course.name,
-        club,
-        venue: club, // Deprecated alias for backward compatibility
-        tees: course.tees,
-      };
-
-      setData((prev) => ({
-        ...prev,
-        selectedCourse: courseData,
-        searchQuery: '',
-      }));
-
-      // If course has tees, go to tee selection; otherwise skip to match type
-      if (course.tees && course.tees.length > 0) {
-        setCurrentStep('tee');
-      } else {
-        setCurrentStep('matchType');
-      }
-    },
-    []
-  );
-
-  const handleSelectFavoriteCourse = useCallback(
-    (course: CourseWithFavoriteStatus & { club: SelectedCourse['club'] }) => {
-      const courseData: SelectedCourse = {
-        courseId: course.id,
-        courseName: course.name,
-        club: course.club,
-        venue: course.club, // Deprecated alias for backward compatibility
-        tees: course.tees,
-      };
-
-      setData((prev) => ({
-        ...prev,
-        selectedCourse: courseData,
-        searchQuery: '',
-      }));
-
-      // If course has tees, go to tee selection; otherwise skip to match type
-      if (course.tees && course.tees.length > 0) {
-        setCurrentStep('tee');
-      } else {
-        setCurrentStep('matchType');
-      }
-    },
-    []
-  );
-
-  // Tee selection handlers
-  const handleSelectTee = useCallback((tee: TeeBox) => {
-    setData((prev) => ({ ...prev, selectedTee: tee }));
-    setCurrentStep('matchType');
-  }, []);
-
-  const handleSkipTeeSelection = useCallback(() => {
-    setData((prev) => ({ ...prev, selectedTee: null }));
-    setCurrentStep('matchType');
-  }, []);
-
-  // Match type selection
-  const handleSelectMatchType = useCallback((matchType: GameType) => {
-    setData((prev) => ({ ...prev, selectedMatchType: matchType }));
-    setCurrentStep('partners');
-  }, []);
-
-  // Partner selection handlers
-  const setFriendSearchQuery = useCallback((query: string) => {
-    setData((prev) => ({ ...prev, friendSearchQuery: query }));
-  }, []);
-
-  const handleTogglePartner = useCallback((friend: Friend) => {
-    setData((prev) => {
-      const isSelected = prev.selectedPartners.some((p) => p.id === friend.id);
-
-      if (isSelected) {
-        return {
-          ...prev,
-          selectedPartners: prev.selectedPartners.filter((p) => p.id !== friend.id),
-        };
-      }
-
-      if (prev.selectedPartners.length >= MAX_PARTNERS) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        selectedPartners: [
-          ...prev.selectedPartners,
-          {
-            id: friend.id,
-            name: friend.name,
-            handicap: friend.handicap ?? undefined,
-            handicapIndex: friend.handicap_index ?? undefined,
-            gender: friend.gender ?? undefined,
-          },
-        ],
-      };
+  const { currentUserAsPartner, resetState, startRoundWithCurrentState } =
+    useWizardInitialization({
+      visible,
+      initialCourse,
+      initialPartners,
+      initialMatchType,
+      skipPartnerStep,
+      initialData,
+      setCurrentStep,
+      setData,
+      onStartRound,
     });
-  }, []);
 
-  const handleRemovePartner = useCallback((partnerId: string) => {
-    setData((prev) => ({
-      ...prev,
-      selectedPartners: prev.selectedPartners.filter((p) => p.id !== partnerId),
-    }));
-  }, []);
+  const { setSearchQuery, handleSelectCourse, handleSelectFavoriteCourse } =
+    useWizardCourseSelection({
+      initialMatchType,
+      initialPartners,
+      skipPartnerStep,
+      setCurrentStep,
+      setData,
+      startRoundWithCurrentState,
+    });
 
-  const isPartnerSelected = useCallback(
-    (friendId: string) => {
-      return data.selectedPartners.some((p) => p.id === friendId);
-    },
-    [data.selectedPartners]
-  );
+  const { handleSelectTee, handleSkipTeeSelection } =
+    useWizardTeeSelection({
+      initialMatchType,
+      skipPartnerStep,
+      setCurrentStep,
+      setData,
+      startRoundWithCurrentState,
+    });
 
-  // Scoring pairs handlers
-  const setScoringPairsEnabled = useCallback((enabled: boolean) => {
-    setData((prev) => ({
-      ...prev,
-      scoringPairsEnabled: enabled,
-      // Clear pairs when enabling so they get regenerated
-      scoringPairs: enabled ? [] : prev.scoringPairs,
-    }));
-  }, []);
+  const {
+    setFriendSearchQuery,
+    handleTogglePartner,
+    handleRemovePartner,
+    isPartnerSelected,
+    handleSelectMatchType,
+  } = useWizardPartners({ data, setData, setCurrentStep, skipPartnerStep });
 
-  const handleScoringPairsChange = useCallback(
-    (pairs: ScoringPairCreateInput[], type: 'reciprocal' | 'circular') => {
-      setData((prev) => ({
-        ...prev,
-        scoringPairs: pairs,
-        scoringPairingType: type,
-      }));
-    },
-    []
-  );
+  const {
+    setScoringPairsEnabled,
+    handleScoringPairsChange,
+    setSkinsEnabled,
+    handleSkinsConfigChange,
+    setWolfEnabled,
+    handleWolfConfigChange,
+    setBuildAsYouPlay,
+    handleSelectBallCount,
+    setHandicapSource,
+  } = useWizardSideGames({ setData });
 
-  // Skins game handlers
-  const setSkinsEnabled = useCallback((enabled: boolean) => {
-    setData((prev) => ({
-      ...prev,
-      skinsEnabled: enabled,
-      // Reset skins config when disabling
-      skinsConfig: enabled ? prev.skinsConfig : null,
-    }));
-  }, []);
+  const { shuffleTeams, setSplitIntoTeams } = useWizardTeams({
+    currentUserAsPartner,
+    data,
+    setData,
+  });
 
-  const handleSkinsConfigChange = useCallback((config: SkinsConfig) => {
-    setData((prev) => ({
-      ...prev,
-      skinsConfig: config,
-    }));
-  }, []);
+  const {
+    handleBackToCourse,
+    handleBackToTee,
+    handleBackToMatchType,
+    handleBackToPartners,
+    handleContinueToScoringSetup,
+    handleStartSoloRound,
+    handleStartScoring,
+    handleClose,
+  } = useWizardNavigation({
+    data,
+    initialMatchType,
+    isSocialOrHigher,
+    setCurrentStep,
+    setData,
+    resetState,
+    onStartRound,
+    onClose,
+  });
 
-  // Wolf game handlers
-  const setWolfEnabled = useCallback((enabled: boolean) => {
-    setData((prev) => ({
-      ...prev,
-      wolfEnabled: enabled,
-      // Reset wolf config when disabling
-      wolfConfig: enabled ? prev.wolfConfig : null,
-    }));
-  }, []);
-
-  const handleWolfConfigChange = useCallback((config: WolfConfig) => {
-    setData((prev) => ({
-      ...prev,
-      wolfConfig: config,
-    }));
-  }, []);
-
-  // Team generation for scramble format
-  // Creates teams of 2, with any odd remaining player as their own team (2v1)
-  const generateTeams = useCallback(
-    (players: PlayingPartner[]): ScrambleTeam[] => {
-      if (!currentUserAsPartner) return [];
-
-      const allPlayers = [currentUserAsPartner, ...players];
-      const teams: ScrambleTeam[] = [];
-
-      for (let i = 0; i < allPlayers.length; i += 2) {
-        const members = [allPlayers[i]];
-        if (i + 1 < allPlayers.length) {
-          members.push(allPlayers[i + 1]);
-        }
-        teams.push({
-          id: generateUUID(),
-          name: `Team ${teams.length + 1}`,
-          members,
-        });
-      }
-      return teams;
-    },
-    [currentUserAsPartner]
-  );
-
-  // Fisher-Yates shuffle for team randomization
-  const shuffleTeams = useCallback(() => {
-    if (data.teamsLocked || !currentUserAsPartner) return;
-
-    const allPlayers = [currentUserAsPartner, ...data.selectedPartners];
-
-    // Fisher-Yates shuffle
-    const shuffled = [...allPlayers];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    // Re-generate teams from shuffled players (odd player gets own team for 2v1)
-    const teams: ScrambleTeam[] = [];
-    for (let i = 0; i < shuffled.length; i += 2) {
-      const members = [shuffled[i]];
-      if (i + 1 < shuffled.length) {
-        members.push(shuffled[i + 1]);
-      }
-      teams.push({
-        id: generateUUID(),
-        name: `Team ${teams.length + 1}`,
-        members,
-      });
-    }
-
-    setData((prev) => ({ ...prev, teams }));
-  }, [data.teamsLocked, data.selectedPartners, currentUserAsPartner]);
-
-  // Handler for split into teams toggle
-  const setSplitIntoTeams = useCallback(
-    (enabled: boolean) => {
-      if (enabled && currentUserAsPartner) {
-        // Generate teams when toggle is turned on
-        const teams = generateTeams(data.selectedPartners);
-        // Auto-disable skins if fewer than 2 teams (no opponent to bet against)
-        const shouldDisableSkins = teams.length < 2;
-        setData((prev) => ({
-          ...prev,
-          splitIntoTeams: true,
-          teams,
-          skinsEnabled: shouldDisableSkins ? false : prev.skinsEnabled,
-          skinsConfig: shouldDisableSkins ? null : prev.skinsConfig,
-        }));
-      } else {
-        // Clear teams when toggle is turned off
-        // Also disable skins if this is a team game type (skins requires teams for team formats)
-        const isTeamFormat = data.selectedMatchType && TEAM_GAME_TYPES.includes(data.selectedMatchType);
-        setData((prev) => ({
-          ...prev,
-          splitIntoTeams: false,
-          teams: [],
-          // Auto-disable skins for team formats when teams are disabled
-          skinsEnabled: isTeamFormat ? false : prev.skinsEnabled,
-          skinsConfig: isTeamFormat ? null : prev.skinsConfig,
-        }));
-      }
-    },
-    [currentUserAsPartner, data.selectedPartners, data.selectedMatchType, generateTeams]
-  );
-
-  // Auto-enable teams for Best Ball format (it's always a team format)
-  // Clear split teams setting when match type changes away from team formats
-  // Also disable skins if switching from a team format (skins validation requires re-check)
-  useEffect(() => {
-    const isTeamFormat = data.selectedMatchType && TEAM_GAME_TYPES.includes(data.selectedMatchType);
-    const isBestBall = data.selectedMatchType === 'best-ball';
-
-    if (isBestBall && currentUserAsPartner && data.selectedPartners.length >= 1) {
-      // Best Ball: auto-enable teams when there are partners
-      if (!data.splitIntoTeams) {
-        const teams = generateTeams(data.selectedPartners);
-        setData((prev) => ({
-          ...prev,
-          splitIntoTeams: true,
-          teams,
-        }));
-      }
-    } else if (!isTeamFormat && data.splitIntoTeams && !OPTIONAL_TEAM_FORMATS.includes(data.selectedMatchType!)) {
-      // Non-team format (and not an optional team format like match-play): clear teams
-      setData((prev) => ({
-        ...prev,
-        splitIntoTeams: false,
-        teams: [],
-      }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- uses .length intentionally to avoid re-running on partner order changes
-  }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners.length, currentUserAsPartner, generateTeams]);
-
-  // Regenerate teams when partners change for Best Ball (teams must stay in sync)
-  useEffect(() => {
-    const isBestBall = data.selectedMatchType === 'best-ball';
-    if (isBestBall && data.splitIntoTeams && currentUserAsPartner) {
-      // Regenerate teams to include all current partners
-      const teams = generateTeams(data.selectedPartners);
-      setData((prev) => {
-        // Only update if teams actually changed (avoid infinite loop)
-        const currentMemberIds = prev.teams.flatMap((t) => t.members.map((m) => m.id)).sort().join(',');
-        const newMemberIds = teams.flatMap((t) => t.members.map((m) => m.id)).sort().join(',');
-        if (currentMemberIds !== newMemberIds) {
-          return { ...prev, teams };
-        }
-        return prev;
-      });
-    }
-  }, [data.selectedMatchType, data.splitIntoTeams, data.selectedPartners, currentUserAsPartner, generateTeams]);
-
-  // Build as you play
-  const setBuildAsYouPlay = useCallback((enabled: boolean) => {
-    setData((prev) => ({ ...prev, isBuildAsYouPlay: enabled }));
-  }, []);
-
-  // Navigation handlers
-  const handleBackToCourse = useCallback(() => {
-    setCurrentStep('course');
-    setData((prev) => ({
-      ...prev,
-      selectedTee: null,
-      friendSearchQuery: '',
-    }));
-  }, []);
-
-  const handleBackToTee = useCallback(() => {
-    setCurrentStep('tee');
-    setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-  }, []);
-
-  const handleBackToMatchType = useCallback(() => {
-    setCurrentStep('matchType');
-    setData((prev) => ({ ...prev, friendSearchQuery: '' }));
-  }, []);
-
-  const handleBackToPartners = useCallback(() => {
-    setCurrentStep('partners');
-  }, []);
-
-  const handleContinueToScoringSetup = useCallback(() => {
-    // Skip scoring setup for solo rounds - scoring pairs are only relevant with partners
-    if (data.selectedPartners.length === 0) {
-      // Solo round - check if user can access multi-ball feature
-      if (isSocialOrHigher) {
-        // Social+ tier: show ball count selection step
-        setCurrentStep('ballCount');
-      } else {
-        // Free tier: start single-ball round directly
-        if (data.selectedCourse) {
-          onStartRound(
-            data.selectedCourse.courseId,
-            data.selectedCourse.courseName,
-            [],
-            data.selectedTee ?? undefined,
-            data.selectedMatchType ?? undefined,
-            undefined, // No scoring pairs for solo rounds
-            1, // Single ball
-            undefined,
-            undefined,
-            undefined,
-            data.isBuildAsYouPlay || undefined
-          );
-          resetState();
-        }
-      }
-    } else {
-      setCurrentStep('scoringSetup');
-    }
-  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, onStartRound, resetState, isSocialOrHigher]);
-
-  // Ball count handlers (solo rounds only)
-  const handleSelectBallCount = useCallback((ballCount: BallCount) => {
-    setData((prev) => ({ ...prev, ballCount }));
-  }, []);
-
-  const handleStartSoloRound = useCallback(() => {
-    if (data.selectedCourse) {
-      onStartRound(
-        data.selectedCourse.courseId,
-        data.selectedCourse.courseName,
-        [],
-        data.selectedTee ?? undefined,
-        data.selectedMatchType ?? undefined,
-        undefined, // No scoring pairs for solo rounds
-        data.ballCount,
-        undefined,
-        undefined,
-        undefined,
-        data.isBuildAsYouPlay || undefined
-      );
-      resetState();
-    }
-  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, onStartRound, resetState]);
-
-  // Action handlers
-  const handleStartScoring = useCallback(() => {
-    if (data.selectedCourse) {
-      // Build scoring pairs config if enabled
-      const scoringPairsConfig: ScoringPairsConfig | undefined =
-        data.scoringPairsEnabled && data.scoringPairs.length > 0
-          ? {
-              enabled: true,
-              pairs: data.scoringPairs,
-              pairingType: data.scoringPairingType,
-            }
-          : undefined;
-
-      // Build skins config if enabled and config exists
-      const standaloneSkinsConfig: StandaloneSkinsConfig | undefined =
-        data.skinsEnabled && data.skinsConfig
-          ? {
-              enabled: true,
-              config: data.skinsConfig,
-            }
-          : undefined;
-
-      // Build team config for scramble format (only for standalone rounds, not competition)
-      const teamConfig: TeamConfig | undefined =
-        data.teams.length > 0 && !data.teamsLocked
-          ? {
-              teams: data.teams.map((t) => ({
-                id: t.id,
-                name: t.name,
-                memberIds: t.members.map((m) => m.id),
-              })),
-            }
-          : undefined;
-
-      // Build Wolf config if enabled and config exists
-      const standaloneWolfConfig: StandaloneWolfConfig | undefined =
-        data.wolfEnabled && data.wolfConfig
-          ? {
-              enabled: true,
-              config: data.wolfConfig,
-            }
-          : undefined;
-
-      // DEBUG: Log skins configuration being passed to round creation
-      console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
-        skinsEnabled: data.skinsEnabled,
-        hasSkinsConfig: !!data.skinsConfig,
-        skinsConfig: data.skinsConfig,
-        standaloneSkinsConfig,
-        partnersCount: data.selectedPartners.length,
-      });
-
-      // DEBUG: Log Wolf configuration being passed to round creation
-      console.log('[CreateRoundWizard] handleStartScoring - Wolf config:', {
-        wolfEnabled: data.wolfEnabled,
-        hasWolfConfig: !!data.wolfConfig,
-        wolfConfig: data.wolfConfig,
-        standaloneWolfConfig,
-        partnersCount: data.selectedPartners.length,
-      });
-
-      onStartRound(
-        data.selectedCourse.courseId,
-        data.selectedCourse.courseName,
-        data.selectedPartners,
-        data.selectedTee ?? undefined,
-        data.selectedMatchType ?? undefined,
-        scoringPairsConfig,
-        undefined, // ballCount is only for solo rounds
-        standaloneSkinsConfig,
-        teamConfig,
-        standaloneWolfConfig,
-        data.isBuildAsYouPlay || undefined
-      );
-
-      resetState();
-    }
-  }, [data, onStartRound, resetState]);
-
-  const handleClose = useCallback(() => {
-    resetState();
-    onClose();
-  }, [onClose, resetState]);
+  // --- Return identical shape ---
 
   return {
     currentStep,
@@ -765,6 +267,7 @@ export function useCreateRoundWizard({
     handleBackToPartners,
     handleContinueToScoringSetup,
     setBuildAsYouPlay,
+    setHandicapSource,
     handleStartScoring,
     handleClose,
   };

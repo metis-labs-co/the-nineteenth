@@ -3,6 +3,8 @@
  *
  * Functions for calculating net positions, simplifying debts,
  * and formatting debt transactions for both individual and team games.
+ *
+ * Uses the shared debt settlement algorithm from utils/debtSettlement.
  */
 
 import type {
@@ -13,6 +15,7 @@ import type {
   SkinsTeamDebtTransaction,
 } from '@/types/database';
 import { roundCurrency } from '../currency';
+import { simplifyDebts as simplifyDebtsGeneric } from '../debtSettlement';
 import type { CalculatedTeamPayout, TeamPayoutParticipant } from './payouts';
 
 /**
@@ -31,13 +34,6 @@ export type TeamNameMap = Record<string, string>;
  *
  * @param payouts - Array of player payouts
  * @returns Array of net positions sorted by amount (creditors first)
- *
- * @example
- * calculateNetPositions([
- *   { player_id: 'p1', net_result: 22.50 },
- *   { player_id: 'p2', net_result: -12.50 },
- * ])
- * // Returns: [{ player_id: 'p1', net_amount: 22.50 }, { player_id: 'p2', net_amount: -12.50 }]
  */
 export function calculateNetPositions(
   payouts: Pick<SkinsPayout, 'player_id' | 'net_result'>[]
@@ -47,7 +43,7 @@ export function calculateNetPositions(
       player_id: p.player_id as string,
       net_amount: p.net_result,
     }))
-    .sort((a, b) => b.net_amount - a.net_amount); // Creditors first
+    .sort((a, b) => b.net_amount - a.net_amount);
 }
 
 /**
@@ -56,55 +52,18 @@ export function calculateNetPositions(
  *
  * @param netPositions - Net positions for all players
  * @returns Minimal set of transactions to settle all debts
- *
- * @example
- * simplifyDebts([
- *   { player_id: 'p1', net_amount: 22.50 },
- *   { player_id: 'p2', net_amount: 2.50 },
- *   { player_id: 'p3', net_amount: -12.50 },
- *   { player_id: 'p4', net_amount: -12.50 },
- * ])
- * // Returns: [
- * //   { from_player_id: 'p3', to_player_id: 'p1', amount: 12.50 },
- * //   { from_player_id: 'p4', to_player_id: 'p1', amount: 10.00 },
- * //   { from_player_id: 'p4', to_player_id: 'p2', amount: 2.50 },
- * // ]
  */
 export function simplifyDebts(
   netPositions: SkinsNetPosition[]
 ): SkinsDebtTransaction[] {
-  const transactions: SkinsDebtTransaction[] = [];
-
-  // Create mutable copies
-  const positions = netPositions.map(p => ({ ...p }));
-
-  // Separate into creditors (positive) and debtors (negative)
-  const creditors = positions.filter(p => p.net_amount > 0);
-  const debtors = positions.filter(p => p.net_amount < 0);
-
-  // Match debtors to creditors
-  for (const debtor of debtors) {
-    let remaining = Math.abs(debtor.net_amount);
-
-    for (const creditor of creditors) {
-      if (remaining <= 0) break;
-      if (creditor.net_amount <= 0) continue;
-
-      const amount = Math.min(remaining, creditor.net_amount);
-      if (amount > 0.01) { // Skip tiny amounts
-        transactions.push({
-          from_player_id: debtor.player_id,
-          to_player_id: creditor.player_id,
-          amount: roundCurrency(amount),
-        });
-      }
-
-      remaining -= amount;
-      creditor.net_amount -= amount;
-    }
-  }
-
-  return transactions;
+  const generic = simplifyDebtsGeneric(
+    netPositions.map(p => ({ id: p.player_id, netAmount: p.net_amount }))
+  );
+  return generic.map(t => ({
+    from_player_id: t.fromId,
+    to_player_id: t.toId,
+    amount: t.amount,
+  }));
 }
 
 /**
@@ -113,13 +72,6 @@ export function simplifyDebts(
  * @param transactions - Array of debt transactions
  * @param playerMap - Map of player IDs to names
  * @returns Array of formatted strings like "John owes Sarah: $12.50"
- *
- * @example
- * formatDebtTransactions(
- *   [{ from_player_id: 'p1', to_player_id: 'p2', amount: 12.50 }],
- *   { p1: 'John', p2: 'Sarah' }
- * )
- * // Returns: ['John owes Sarah: $12.50']
  */
 export function formatDebtTransactions(
   transactions: SkinsDebtTransaction[],
@@ -153,7 +105,7 @@ export function calculateTeamNetPositions(
         per_member_amount: roundCurrency(p.net_result / memberCount),
       };
     })
-    .sort((a, b) => b.net_amount - a.net_amount); // Creditors first
+    .sort((a, b) => b.net_amount - a.net_amount);
 }
 
 /**
@@ -167,42 +119,19 @@ export function simplifyTeamDebts(
   netPositions: SkinsTeamNetPosition[],
   teams: TeamPayoutParticipant[]
 ): SkinsTeamDebtTransaction[] {
-  const transactions: SkinsTeamDebtTransaction[] = [];
-
-  // Create mutable copies
-  const positions = netPositions.map((p) => ({ ...p }));
-
-  // Separate into creditors (positive) and debtors (negative)
-  const creditors = positions.filter((p) => p.net_amount > 0);
-  const debtors = positions.filter((p) => p.net_amount < 0);
-
-  // Match debtors to creditors
-  for (const debtor of debtors) {
-    let remaining = Math.abs(debtor.net_amount);
-    const debtorTeam = teams.find((t) => t.id === debtor.team_id);
+  const generic = simplifyDebtsGeneric(
+    netPositions.map(p => ({ id: p.team_id, netAmount: p.net_amount }))
+  );
+  return generic.map(t => {
+    const debtorTeam = teams.find(team => team.id === t.fromId);
     const debtorMemberCount = debtorTeam?.member_count ?? 1;
-
-    for (const creditor of creditors) {
-      if (remaining <= 0) break;
-      if (creditor.net_amount <= 0) continue;
-
-      const amount = Math.min(remaining, creditor.net_amount);
-      if (amount > 0.01) {
-        // Skip tiny amounts
-        transactions.push({
-          from_team_id: debtor.team_id,
-          to_team_id: creditor.team_id,
-          amount: roundCurrency(amount),
-          per_member_amount: roundCurrency(amount / debtorMemberCount),
-        });
-      }
-
-      remaining -= amount;
-      creditor.net_amount -= amount;
-    }
-  }
-
-  return transactions;
+    return {
+      from_team_id: t.fromId,
+      to_team_id: t.toId,
+      amount: t.amount,
+      per_member_amount: roundCurrency(t.amount / debtorMemberCount),
+    };
+  });
 }
 
 /**

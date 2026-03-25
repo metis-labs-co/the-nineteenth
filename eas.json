@@ -70,7 +70,8 @@
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     },
     "production": {
@@ -81,7 +82,8 @@
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

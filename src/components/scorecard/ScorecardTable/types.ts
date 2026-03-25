@@ -5,6 +5,7 @@
  */
 
 import type { Hole, TeeBox, GameType } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
 import type { PlayerGender } from '@/types/database/player.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
@@ -58,6 +59,8 @@ export interface ScorecardTableProps {
   selectedTeeData?: TeeBox | null;
   /** Game type - affects score display (par shows +1/0/-1 instead of strokes) */
   gameType?: GameType;
+  /** Handicap source for calculating player stats ('profile' | 'calculated' | 'none') */
+  handicapSource?: HandicapSource;
 }
 
 /**

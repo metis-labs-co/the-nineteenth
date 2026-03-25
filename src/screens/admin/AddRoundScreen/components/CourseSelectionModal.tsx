@@ -2,7 +2,7 @@
  * CourseSelectionModal - Modal for selecting a course
  */
 
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +16,7 @@ import { LoadingSpinner, SearchBar, EmptyState } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCourses, useSearchCourses, type CourseWithFavorite } from '@/hooks/useCourses';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CourseSelectionModalProps {
   visible: boolean;
@@ -34,6 +35,8 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
 }: CourseSelectionModalProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+  const { player } = useAuth();
+  const homeClubId = player?.home_club_id ?? null;
 
   // Course data hooks
   const { data: allCourses = [], isLoading: isLoadingCourses } = useCourses();
@@ -42,8 +45,18 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
     undefined
   );
 
-  // Get courses to display
-  const displayCourses = searchQuery.length >= 2 ? searchResults : allCourses;
+  // Get courses to display, home club courses first
+  const displayCourses = useMemo(() => {
+    const courses = searchQuery.length >= 2 ? searchResults : allCourses;
+    if (!homeClubId) return courses;
+    return [...courses].sort((a, b) => {
+      const aIsHome = a.club_id === homeClubId;
+      const bIsHome = b.club_id === homeClubId;
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return 0;
+    });
+  }, [searchQuery, searchResults, allCourses, homeClubId]);
 
   const handleClose = useCallback(() => {
     onSearchQueryChange('');

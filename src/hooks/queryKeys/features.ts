@@ -103,6 +103,7 @@ export const leagueKeys = {
   all: ['leagues'] as const,
   lists: () => [...leagueKeys.all, 'list'] as const,
   list: (filters?: { status?: string }) => [...leagueKeys.lists(), filters] as const,
+  publicList: (search?: string) => [...leagueKeys.all, 'public', search] as const,
   details: () => [...leagueKeys.all, 'detail'] as const,
   detail: (id: string) => [...leagueKeys.details(), id] as const,
   leaderboard: (leagueId: string) => [...leagueKeys.all, 'leaderboard', leagueId] as const,
@@ -125,6 +126,12 @@ export const leagueKeys = {
   tagCount: (leagueId: string) => [...leagueKeys.all, 'tagCount', leagueId] as const,
   // Stats
   stats: (leagueId: string) => [...leagueKeys.all, 'stats', leagueId] as const,
+  // Partnership
+  partnerships: (leagueId: string) => [...leagueKeys.all, 'partnerships', leagueId] as const,
+  myPartnership: (leagueId: string) => [...leagueKeys.all, 'myPartnership', leagueId] as const,
+  partnershipLeaderboard: (leagueId: string) => [...leagueKeys.all, 'partnershipLb', leagueId] as const,
+  partnershipCourseBests: (leagueId: string) => [...leagueKeys.all, 'partnershipCB', leagueId] as const,
+  partnershipRounds: (partnershipId: string) => [...leagueKeys.all, 'partnershipRounds', partnershipId] as const,
 } as const;
 
 // =====================================================

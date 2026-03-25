@@ -3,7 +3,7 @@
  * Rounds, pairings, and round players
  */
 
-import type { GameType, RoundStatus, TeamFormat } from './enums';
+import type { GameType, HandicapSource, RoundStatus, TeamFormat } from './enums';
 import type { TeeBox } from './base';
 import type { Player } from './player.types';
 
@@ -34,6 +34,9 @@ export interface Round {
 
   // Multi-ball scoring (solo rounds only)
   ball_count: number; // 1-4, defaults to 1. Requires Social tier+ for > 1
+
+  // Handicap settings
+  handicap_source: HandicapSource | null; // NULL = inherit from competition or default to 'profile'
 
   // Status
   status: RoundStatus;

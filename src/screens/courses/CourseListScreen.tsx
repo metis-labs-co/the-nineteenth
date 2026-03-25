@@ -32,6 +32,7 @@ import {
   useFavoriteCoursesWithClubs,
   useAddCourseFavorite,
   useRemoveCourseFavorite,
+  sortHomeClubFirst,
   type CourseWithFavoriteStatus,
   type ClubCourseDisplayItem,
 } from '@/hooks/useClubs';
@@ -104,6 +105,7 @@ export default function CourseListScreen() {
     isLoading: isSearching,
     isSearchingApi,
     error: searchError,
+    refetch: refetchSearch,
   // Only pass region to search when the country has regions defined
   } = useSearchClubs(searchQuery, getRegionsForCountry(country).length > 0 ? selectedState : undefined);
 
@@ -221,24 +223,17 @@ export default function CourseListScreen() {
     }
 
     // Sort: home club first, then alphabetically by name
-    // API results (GolfApiSearchResultItem) have is_home: false so they sort after local home club
-    return items.sort((a, b) => {
-      const aIsHome = 'is_home' in a ? a.is_home : false;
-      const bIsHome = 'is_home' in b ? b.is_home : false;
-      if (aIsHome && !bIsHome) return -1;
-      if (!aIsHome && bIsHome) return 1;
-
-      const aName = isApiResult(a) ? a.name : a.club.name;
-      const bName = isApiResult(b) ? b.name : b.club.name;
-      return aName.localeCompare(bName);
-    });
+    return sortHomeClubFirst(items);
   }, [showFavoritesOnly, favoriteCourses, isSearchActive, searchResults, allClubs]);
 
   // Handlers
   const handleRefresh = useCallback(() => {
     refetchAll();
     refetchFavorites();
-  }, [refetchAll, refetchFavorites]);
+    if (isSearchActive) {
+      refetchSearch();
+    }
+  }, [refetchAll, refetchFavorites, isSearchActive, refetchSearch]);
 
   const handleToggleFavorite = useCallback(
     async (course: CourseWithFavoriteStatus) => {

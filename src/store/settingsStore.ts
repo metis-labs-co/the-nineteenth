@@ -34,6 +34,9 @@ interface SettingsState {
   // Developer settings
   debugModeEnabled: boolean;
 
+  // Pending league tags: roundId → leagueId (auto-tag after scorecard submission)
+  pendingLeagueTags: Record<string, string>;
+
   // Actions
   setDistanceUnit: (unit: DistanceUnit) => void;
   setShowPutts: (show: boolean) => void;
@@ -43,18 +46,21 @@ interface SettingsState {
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
+  setPendingLeagueTag: (roundId: string, leagueId: string) => void;
+  clearPendingLeagueTag: (roundId: string) => void;
   resetToDefaults: () => void;
 }
 
 const DEFAULT_SETTINGS = {
   distanceUnit: 'metres' as DistanceUnit, // Default for Australian market
   showPutts: true,
-  showFairwayHit: false,
-  showGreenInRegulation: false,
+  showFairwayHit: true,
+  showGreenInRegulation: true,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
   countryOverride: null as string | null,
   biometricEnabled: false,
   debugModeEnabled: false,
+  pendingLeagueTags: {} as Record<string, string>,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -79,6 +85,17 @@ export const useSettingsStore = create<SettingsState>()(
       setBiometricEnabled: (enabled) => set({ biometricEnabled: enabled }),
 
       setDebugModeEnabled: (enabled) => set({ debugModeEnabled: enabled }),
+
+      setPendingLeagueTag: (roundId, leagueId) =>
+        set((state) => ({
+          pendingLeagueTags: { ...state.pendingLeagueTags, [roundId]: leagueId },
+        })),
+
+      clearPendingLeagueTag: (roundId) =>
+        set((state) => {
+          const { [roundId]: _, ...rest } = state.pendingLeagueTags;
+          return { pendingLeagueTags: rest };
+        }),
 
       resetToDefaults: () => set((state) => ({ ...DEFAULT_SETTINGS, biometricEnabled: state.biometricEnabled })),
     }),
@@ -125,26 +142,17 @@ export function useStatsVisibility() {
 }
 
 /**
- * Hook to get visibility settings for stats - respects subscription tier
- *
- * FIR/GIR tracking requires Premium tier. This hook automatically returns
- * false for showFairwayHit and showGreenInRegulation if user is not Premium,
- * regardless of their settings preference.
- *
- * Use this hook in scorecard entry and display components.
- * Use useStatsVisibility() for the Settings screen itself.
+ * Hook to get visibility settings gated by subscription tier.
+ * FIR and GIR require Premium; putts are always available.
  */
 export function useStatsVisibilityWithTier() {
-  const showPutts = useSettingsStore((state) => state.showPutts);
-  const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
-  const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
+  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
   const isPremium = useIsPremium();
 
   return {
     showPutts,
-    // FIR/GIR requires Premium - gracefully degrade for lower tiers
-    showFairwayHit: isPremium && showFairwayHit,
-    showGreenInRegulation: isPremium && showGreenInRegulation,
+    showFairwayHit: isPremium ? showFairwayHit : false,
+    showGreenInRegulation: isPremium ? showGreenInRegulation : false,
   };
 }
 

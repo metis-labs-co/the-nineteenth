@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { LogoHorizontal } from '@/components/common/LogoHorizontal';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
@@ -46,6 +46,7 @@ export default function BiometricLockScreen({
   biometricType,
 }: BiometricLockScreenProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
   const insets = useSafeAreaInsets();
 
   const icon = getBiometricIcon(biometricType);
@@ -63,7 +64,7 @@ export default function BiometricLockScreen({
       ]}
     >
       <View style={styles.content}>
-        <LogoHorizontal width={200} />
+        <LogoHorizontal width={200} variant={isDark ? 'light' : 'dark'} />
 
         <View style={[styles.lockIconContainer, { backgroundColor: colors.gray100 }]}>
           <Icon source="lock" size={64} color={colors.textSecondary} />

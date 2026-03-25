@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { courseKeys } from '@/hooks/queryKeys';
 import { useFavoriteEnrichment, useIsFavorite } from '@/hooks/useFavoriteCourses';
-import { transformHolesIfNeeded } from '@/utils/holeTransformers';
+import { parseAndTransformHoles } from '@/utils/holeTransformers';
 import type { Course, Club, Tee } from '@/types/database.types';
 
 // =====================================================
@@ -130,6 +130,18 @@ export function useCourseDetails(courseId: string, options?: UseCourseDetailsOpt
       const courseData = course as Record<string, unknown>;
       const clubData = courseData.club as Club;
 
+      // Debug: log raw holes data type from Supabase
+      console.log('[useCourseDetails] Raw holes data:', {
+        type: typeof courseData.holes,
+        isArray: Array.isArray(courseData.holes),
+        isNull: courseData.holes === null,
+        isUndefined: courseData.holes === undefined,
+        sample: typeof courseData.holes === 'string' ? courseData.holes.slice(0, 100) : Array.isArray(courseData.holes) ? `array[${courseData.holes.length}]` : String(courseData.holes),
+      });
+
+      const parsedHoles = parseAndTransformHoles(courseData.holes as unknown[] | string | null);
+      console.log('[useCourseDetails] Parsed holes:', { length: parsedHoles.length, isArray: Array.isArray(parsedHoles) });
+
       return {
         id: courseData.id as string,
         club_id: courseData.club_id as string,
@@ -139,7 +151,7 @@ export function useCourseDetails(courseId: string, options?: UseCourseDetailsOpt
         description: courseData.description as string | null,
         num_holes: (courseData.num_holes as number) ?? 18,
         measure_unit: courseData.measure_unit as Course['measure_unit'],
-        holes: transformHolesIfNeeded(courseData.holes as unknown[] | null),
+        holes: parsedHoles,
         holes_women: courseData.holes_women as Course['holes_women'],
         match_play_indexes: courseData.match_play_indexes as Course['match_play_indexes'],
         tees: courseData.tees as Course['tees'],
@@ -204,7 +216,7 @@ export function useCoursesByClub(clubId: string) {
           description: courseData.description as string | null,
           num_holes: (courseData.num_holes as number) ?? 18,
           measure_unit: courseData.measure_unit as Course['measure_unit'],
-          holes: transformHolesIfNeeded(courseData.holes as unknown[] | null),
+          holes: parseAndTransformHoles(courseData.holes as unknown[] | string | null),
           holes_women: courseData.holes_women as Course['holes_women'],
           match_play_indexes: courseData.match_play_indexes as Course['match_play_indexes'],
           tees: courseData.tees as Course['tees'],

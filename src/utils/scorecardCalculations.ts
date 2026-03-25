@@ -100,7 +100,7 @@ export function getBaseHandicap(
       return player.handicap_index ?? player.handicap ?? 0;
     case 'profile':
     default:
-      // Use GA Handicap (profile)
+      // Use profile handicap
       return player.handicap ?? 0;
   }
 }
@@ -111,7 +111,7 @@ export function getBaseHandicap(
  * @param players Array of player data with scores
  * @param holes Array of hole data
  * @param selectedTee Optional tee data with slope/course ratings for daily handicap calculation
- * @param handicapSource Which handicap value to use ('profile' = GA, 'calculated' = Social Index, 'none' = no handicap)
+ * @param handicapSource Which handicap value to use ('profile' = profile handicap, 'calculated' = Social Index, 'none' = no handicap)
  * @returns Array of player statistics
  */
 export function calculatePlayerStats(

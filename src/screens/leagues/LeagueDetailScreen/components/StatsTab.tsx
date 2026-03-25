@@ -16,7 +16,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { LoadingSpinner } from '@/components/common';
+import { ErrorState, LoadingSpinner } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
 import { useLeagueStats } from '@/hooks/useLeagueStats';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -52,12 +52,7 @@ export default function StatsTab({ leagueId }: StatsTabProps) {
 
   if (error) {
     return (
-      <View style={styles.centered}>
-        <Icon source="alert-circle-outline" size={32} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-          Failed to load statistics
-        </Text>
-      </View>
+      <ErrorState error="Failed to load statistics" compact />
     );
   }
 
@@ -131,9 +126,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
   },
 });

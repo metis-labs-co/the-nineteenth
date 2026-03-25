@@ -20,6 +20,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useAuthSession } from './auth/useAuthSession';
 import { useAuthUser } from './auth/useAuthUser';
 import { useAuthMutations } from './auth/useAuthMutations';
+import { useSocialAuth } from './auth/useSocialAuth';
 import { usePasswordReset } from './auth/usePasswordReset';
 import { useProfileMutations } from './auth/useProfileMutations';
 import type { UseAuthReturn } from '@/types/auth';
@@ -38,6 +39,7 @@ export function useAuth(): UseAuthReturn {
   const sessionHook = useAuthSession();
   const userHook = useAuthUser(sessionHook.session);
   const authMutations = useAuthMutations();
+  const socialAuth = useSocialAuth();
   const passwordReset = usePasswordReset();
   const profileMutations = useProfileMutations(userHook.user);
 
@@ -54,7 +56,7 @@ export function useAuth(): UseAuthReturn {
     player: userHook.player,
     isLoading,
     isInitializing,
-    isAuthenticating: authMutations.isAuthenticating,
+    isAuthenticating: authMutations.isAuthenticating || socialAuth.isSocialLoggingIn,
     error: (sessionHook.error || authMutations.loginError || authMutations.signupError || null) as import('@supabase/supabase-js').AuthError | null,
     isAuthenticated,
 
@@ -65,6 +67,12 @@ export function useAuth(): UseAuthReturn {
     sendOtp: authMutations.sendOtp,
     verifyOtp: authMutations.verifyOtp,
     logout: authMutations.logout,
+
+    // Social auth
+    loginWithApple: socialAuth.loginWithApple,
+    loginWithGoogle: socialAuth.loginWithGoogle,
+    isSocialLoggingIn: socialAuth.isSocialLoggingIn,
+    isAppleAvailable: socialAuth.isAppleAvailable,
 
     // Password management
     resetPassword: passwordReset.resetPassword,

@@ -13,7 +13,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useWindowDimensions } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibilityWithTier } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
@@ -34,6 +34,7 @@ import {
 } from '@/utils/scorecardLayout';
 import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
 import { isSingleBallScore, type Hole, type Player, type TeeBox } from '@/types/database.types';
+import type { GameType, HandicapSource } from '@/types/database';
 
 // =====================================================
 // TYPES
@@ -49,6 +50,10 @@ interface RoundScorecardTabProps {
   onPlayerPress?: (playerId: string) => void;
   /** Selected tee data with slope/course ratings for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
+  /** Game type for the round (affects score display) */
+  gameType?: GameType;
+  /** Handicap source for daily HC calculation */
+  handicapSource?: HandicapSource;
 }
 
 // =====================================================
@@ -375,6 +380,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   holes,
   onPlayerPress,
   selectedTeeData,
+  gameType,
+  handicapSource,
 }: RoundScorecardTabProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
@@ -481,6 +488,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
           selectedTeeData={selectedTeeData}
+          gameType={gameType}
+          handicapSource={handicapSource}
         />
       ) : (
         <IndividualScorecardView

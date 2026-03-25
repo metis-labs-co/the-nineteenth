@@ -507,7 +507,7 @@ describe('ScorecardTable', () => {
         />
       );
 
-      expect(screen.getByText('Pts')).toBeTruthy();
+      expect(screen.getAllByText('Pts').length).toBeGreaterThanOrEqual(1);
     });
 
     it('displays total par in Gross row', () => {

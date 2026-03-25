@@ -5,7 +5,7 @@
  * Results are transformed to match local ClubWithCourses shape for seamless merging.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { golfApiClient } from '@/services/api/golfApiClient';
 import type { GolfApiClubSearchResult } from '@/services/api/golfApiTypes';
 import type { RegionFilter } from '@/types/database.types';
@@ -101,33 +101,40 @@ export function useGolfApiSearch(
   return useQuery({
     queryKey: ['golfapi', 'search', searchQuery, state, country],
     queryFn: async (): Promise<GolfApiSearchResultItem[]> => {
+      console.log(`[useGolfApiSearch] Searching: query="${searchQuery}", country="${country}", state="${state}"`);
+
       // Check if API is available
       if (!golfApiClient.isAvailable()) {
-        console.log('[useGolfApiSearch] GolfAPI.io not configured, skipping');
+        console.error('[useGolfApiSearch] SKIPPED: GolfAPI.io not configured/available. Check EXPO_PUBLIC_GOLFAPI_IO_KEY is set.');
         return [];
       }
 
       // Check quota before making request
       if (!golfApiClient.hasQuota(1)) {
-        console.warn('[useGolfApiSearch] Low API quota, skipping search');
+        console.error(`[useGolfApiSearch] SKIPPED: API quota exhausted. Remaining: ${golfApiClient.apiRequestsLeft}`);
         return [];
       }
 
       try {
+        console.log(`[useGolfApiSearch] Making API request... (quota: ${golfApiClient.apiRequestsLeft ?? 'unknown'})`);
         const results = await golfApiClient.searchClubs({
           query: searchQuery,
           country: country ?? undefined,
           state: state,
         });
 
+        console.log(`[useGolfApiSearch] Got ${results.length} results (quota remaining: ${golfApiClient.apiRequestsLeft})`);
         return results.map(transformApiResult);
       } catch (error) {
-        // Log error but don't fail - API search is optional
-        console.error('[useGolfApiSearch] Search failed:', error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
+        console.error(`[useGolfApiSearch] FAILED: ${errorName}: ${errorMsg}`);
+        console.error('[useGolfApiSearch] Full error:', error);
         return [];
       }
     },
     enabled: enabled && searchQuery.length >= 3,
+    placeholderData: keepPreviousData, // Prevent flicker between debounced queries
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: false, // Don't retry API failures

@@ -24,6 +24,7 @@ export {
   markScorecardsAsSynced,
   getUnsyncedScorecards,
   markAllScorecardsAsSynced,
+  markAllForResync,
   deleteOrphanedScorecards,
   clearInvalidMockData,
 } from './dao/ScorecardDAO';

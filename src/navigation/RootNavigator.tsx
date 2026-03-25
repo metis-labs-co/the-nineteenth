@@ -43,6 +43,7 @@ import CompetitionDetailScreen from '@/screens/competitions/CompetitionDetailScr
 
 // Competition Screens (Player View)
 import ViewRoundScreen from '@/screens/rounds/ViewRoundScreen';
+import RoundSettingsScreen from '@/screens/rounds/RoundSettingsScreen';
 import LeaderboardScreen from '@/screens/competitions/LeaderboardScreen';
 import JoinCompetitionScreen from '@/screens/competitions/JoinCompetitionScreen';
 
@@ -96,6 +97,8 @@ import JoinLeagueScreen from '@/screens/leagues/JoinLeagueScreen';
 import LeagueSettingsScreen from '@/screens/leagues/LeagueSettingsScreen';
 import TagRoundToLeagueScreen from '@/screens/leagues/TagRoundToLeagueScreen';
 import ChallengeDetailScreen from '@/screens/leagues/ChallengeDetailScreen';
+import PartnershipSetupScreen from '@/screens/leagues/PartnershipSetupScreen';
+import TagPartnershipRoundScreen from '@/screens/leagues/TagPartnershipRoundScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -277,6 +280,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={ViewRoundScreen}
               options={{
                 title: 'Round',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="RoundSettings"
+              component={RoundSettingsScreen}
+              options={{
+                title: 'Round Settings',
                 headerShown: false,
               }}
             />
@@ -610,6 +622,24 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={ChallengeDetailScreen}
               options={{
                 title: 'Challenge',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="PartnershipSetup"
+              component={PartnershipSetupScreen}
+              options={{
+                title: 'Choose Partner',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="TagPartnershipRound"
+              component={TagPartnershipRoundScreen}
+              options={{
+                title: 'Tag Round',
                 headerShown: false,
               }}
             />

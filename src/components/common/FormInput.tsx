@@ -136,6 +136,12 @@ export interface FormInputProps {
    */
   textContentType?: TextContentType;
 
+  /**
+   * Android autofill hint. Set to 'yes' on login/signup fields
+   * to enable the Android Autofill Manager to suggest saved credentials.
+   */
+  importantForAutofill?: 'auto' | 'yes' | 'no' | 'noExcludeDescendants' | 'yesExcludeDescendants';
+
   // Accessories
   leftAffix?: string;
   rightIcon?: string;
@@ -183,6 +189,7 @@ export function FormInput({
   editable = true,
   disabled = false,
   textContentType,
+  importantForAutofill,
 
   // Accessories
   leftAffix,
@@ -277,8 +284,9 @@ export function FormInput({
         testID={testID}
         accessibilityLabel={accessibilityLabel || label}
         accessibilityHint={accessibilityHint}
-        // Password manager integration (iOS)
+        // Password manager / autofill integration
         textContentType={textContentType}
+        importantForAutofill={importantForAutofill}
         style={[styles.input, { backgroundColor }]}
         outlineColor={isDisabled ? colors.border : outlineColor}
         activeOutlineColor={activeOutlineColor}

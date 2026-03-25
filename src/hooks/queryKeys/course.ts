@@ -12,7 +12,7 @@ export const clubKeys = {
   list: (filters?: { state?: string; search?: string }) =>
     [...clubKeys.lists(), filters] as const,
   withCourses: () => [...clubKeys.all, 'with-courses'] as const,
-  withCoursesFiltered: (filters?: { country?: string; state?: string; search?: string; featured?: boolean }) =>
+  withCoursesFiltered: (filters?: { country?: string; state?: string; search?: string; featured?: boolean; homeClubId?: string | null }) =>
     [...clubKeys.withCourses(), filters] as const,
   details: () => [...clubKeys.all, 'detail'] as const,
   detail: (id: string) => [...clubKeys.details(), id] as const,

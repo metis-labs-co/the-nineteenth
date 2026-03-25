@@ -8,8 +8,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows, borderRadius, typography } from '@/constants/theme';
 
@@ -47,54 +47,66 @@ export function MatchPlayFooter({
     >
       {/* View Full Scorecard Link */}
       <View style={styles.viewScorecardRow}>
-        <Button
-          mode="text"
+        <TouchableOpacity
           onPress={onViewScorecard}
           style={styles.viewScorecardButton}
-          labelStyle={[styles.viewScorecardLabel, { color: colors.primary }]}
-          compact
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          View Full Scorecard
-        </Button>
+          <Text style={[styles.viewScorecardLabel, { color: colors.primary }]}>
+            View Full Scorecard
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Navigation Buttons */}
       <View style={styles.navButtonsRow}>
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onPreviousHole}
           disabled={!canGoPrevious}
-          style={styles.navButton}
-          labelStyle={[styles.navButtonLabel, { color: colors.textPrimary }]}
-          contentStyle={styles.navButtonContent}
+          style={[
+            styles.navButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
+            !canGoPrevious && { opacity: 0.5 },
+          ]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Previous
-        </Button>
+          <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
+        </TouchableOpacity>
 
         {/* Show Next Hole when not on last hole, Submit Match on hole 18 */}
         {/* Allow navigation even after match complete so user can review/edit */}
         {canGoNext ? (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={onNextHole}
-            style={[styles.navButton, { backgroundColor: colors.primary }]}
-            labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
-            contentStyle={styles.navButtonContent}
+            style={[
+              styles.navButton,
+              styles.navButtonContent,
+              { backgroundColor: colors.primary },
+            ]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            Next Hole
-          </Button>
+            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Next Hole</Text>
+          </TouchableOpacity>
         ) : (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={onSubmitMatch}
-            loading={isSubmitting}
             disabled={isSubmitting || !isMatchComplete}
-            style={[styles.navButton, { backgroundColor: colors.success }]}
-            labelStyle={[styles.navButtonLabelPrimary, { color: colors.white }]}
-            contentStyle={styles.navButtonContent}
+            style={[
+              styles.navButton,
+              styles.navButtonContent,
+              { backgroundColor: colors.success, flexDirection: 'row' },
+              (isSubmitting || !isMatchComplete) && { opacity: 0.5 },
+            ]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            Submit Match
-          </Button>
+            {isSubmitting && <ActivityIndicator size="small" color={colors.white} style={{ marginRight: spacing.sm }} />}
+            <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Submit Match</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -114,7 +126,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   viewScorecardButton: {
-    marginVertical: 0,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   viewScorecardLabel: {
     ...typography.small,
@@ -131,6 +144,8 @@ const styles = StyleSheet.create({
   navButtonContent: {
     paddingVertical: spacing.sm,
     minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navButtonLabel: {
     ...typography.bodyBold,

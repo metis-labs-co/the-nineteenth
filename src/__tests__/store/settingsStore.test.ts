@@ -66,12 +66,12 @@ describe('SettingsStore', () => {
       expect(useSettingsStore.getState().showPutts).toBe(true);
     });
 
-    it('showFairwayHit defaults to false', () => {
-      expect(useSettingsStore.getState().showFairwayHit).toBe(false);
+    it('showFairwayHit defaults to true', () => {
+      expect(useSettingsStore.getState().showFairwayHit).toBe(true);
     });
 
-    it('showGreenInRegulation defaults to false', () => {
-      expect(useSettingsStore.getState().showGreenInRegulation).toBe(false);
+    it('showGreenInRegulation defaults to true', () => {
+      expect(useSettingsStore.getState().showGreenInRegulation).toBe(true);
     });
 
     it('can toggle showPutts', () => {
@@ -84,18 +84,18 @@ describe('SettingsStore', () => {
 
     it('can toggle showFairwayHit', () => {
       const store = useSettingsStore.getState();
-      store.setShowFairwayHit(true);
-      expect(useSettingsStore.getState().showFairwayHit).toBe(true);
       store.setShowFairwayHit(false);
       expect(useSettingsStore.getState().showFairwayHit).toBe(false);
+      store.setShowFairwayHit(true);
+      expect(useSettingsStore.getState().showFairwayHit).toBe(true);
     });
 
     it('can toggle showGreenInRegulation', () => {
       const store = useSettingsStore.getState();
-      store.setShowGreenInRegulation(true);
-      expect(useSettingsStore.getState().showGreenInRegulation).toBe(true);
       store.setShowGreenInRegulation(false);
       expect(useSettingsStore.getState().showGreenInRegulation).toBe(false);
+      store.setShowGreenInRegulation(true);
+      expect(useSettingsStore.getState().showGreenInRegulation).toBe(true);
     });
   });
 
@@ -131,8 +131,8 @@ describe('SettingsStore', () => {
       const newState = useSettingsStore.getState();
       expect(newState.distanceUnit).toBe('metres');
       expect(newState.showPutts).toBe(true);
-      expect(newState.showFairwayHit).toBe(false);
-      expect(newState.showGreenInRegulation).toBe(false);
+      expect(newState.showFairwayHit).toBe(true);
+      expect(newState.showGreenInRegulation).toBe(true);
       expect(newState.debugModeEnabled).toBe(false);
     });
   });

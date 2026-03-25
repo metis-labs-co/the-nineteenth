@@ -9,7 +9,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
-import type { PostgrestError } from '@supabase/supabase-js';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { useFinalizeSkinsForRound } from '@/hooks/useSkins';
@@ -24,13 +23,14 @@ import {
   getPartnerProgress,
 } from '@/services/scoreMismatch';
 import { getScoringPartner } from '@/services/scoringPairs';
-import { finalizeRound } from '@/services/rounds/roundResultsService';
 import { submitLogger } from '@/utils/debugLogger';
 import { useLeagues } from '@/hooks/useLeagues';
-import type { Scorecard, GameType, PointSystemConfig } from '@/types/database.types';
+import { useSettingsStore } from '@/store/settingsStore';
+import { tagRoundToLeague } from '@/services/api/leagues';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
+import { useRoundFinalization } from './useRoundFinalization';
 
 interface UseScoreSubmissionParams {
   isOnline: boolean;
@@ -114,6 +114,9 @@ export function useScoreSubmission({
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [partnerProgress, setPartnerProgress] = useState<{ completed: number; total: number } | null>(null);
 
+  // Round finalization (extracted hook)
+  const { updateRoundStatus, finalizeRoundResults } = useRoundFinalization();
+
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
 
@@ -162,102 +165,6 @@ export function useScoreSubmission({
       submitLogger.warn('Failed to refresh partner status', { error });
     }
   }, [currentRoundId, currentUserId, holeCount]);
-
-  // Update round status to completed in database
-  const updateRoundStatus = useCallback(async (roundId: string): Promise<void> => {
-    try {
-      submitLogger.info('Updating round status to completed', { roundId: roundId.substring(0, 8) + '...' });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-      const { error } = await (supabase as any)
-        .from('rounds')
-        .update({ status: 'completed' })
-        .eq('id', roundId);
-
-      if (error) {
-        submitLogger.error('Failed to update round status', error, { roundId: roundId.substring(0, 8) + '...' });
-        throw error;
-      }
-
-      submitLogger.info('Round status updated successfully', { roundId: roundId.substring(0, 8) + '...' });
-    } catch (error) {
-      submitLogger.error('Error updating round status', error);
-    }
-  }, []);
-
-  // Finalize round results (calculate positions and competition points)
-  const finalizeRoundResults = useCallback(async (roundId: string): Promise<void> => {
-    try {
-      submitLogger.info('Finalizing round results', { roundId: roundId.substring(0, 8) + '...' });
-
-      // Fetch round data to get game type and point system
-      const { data: round, error: roundError } = await supabase
-        .from('rounds')
-        .select('game_type, competition_id')
-        .eq('id', roundId)
-        .single() as unknown as { data: { game_type: string; competition_id: string | null } | null; error: PostgrestError | null };
-
-      if (roundError || !round) {
-        submitLogger.error('Failed to fetch round data for finalization', roundError, { roundId: roundId.substring(0, 8) + '...' });
-        return;
-      }
-
-      if (!round.competition_id) {
-        submitLogger.warn('Round has no competition_id, skipping finalization');
-        return;
-      }
-
-      // Fetch competition to get point system config
-      const { data: competition, error: compError } = await supabase
-        .from('competitions')
-        .select('point_system')
-        .eq('id', round.competition_id)
-        .single() as unknown as { data: { point_system: PointSystemConfig | null } | null; error: PostgrestError | null };
-
-      if (compError || !competition) {
-        submitLogger.error('Failed to fetch competition for finalization', compError, { competitionId: round.competition_id?.substring(0, 8) + '...' });
-        return;
-      }
-
-      // Fetch all scorecards for this round
-      const { data: scorecards, error: scError } = await supabase
-        .from('scorecards')
-        .select('*')
-        .eq('round_id', roundId)
-        .eq('status', 'completed') as unknown as { data: Scorecard[] | null; error: PostgrestError | null };
-
-      if (scError || !scorecards || scorecards.length === 0) {
-        submitLogger.warn('No completed scorecards found for finalization', { roundId: roundId.substring(0, 8) + '...' });
-        return;
-      }
-
-      // Scorecards are already typed as Scorecard[] from the query assertion
-      const scorecardsForFinalize: Scorecard[] = scorecards;
-
-      // Use default point system if none configured
-      const pointSystem: PointSystemConfig = competition.point_system || {
-        type: 'position',
-        rules: { '1': 10, '2': 8, '3': 6, '4': 5, '5': 4, '6': 3, '7': 2, '8': 1, 'default': 1 },
-      };
-
-      const gameType = round.game_type as GameType;
-
-      submitLogger.info('Calling finalizeRound', {
-        roundId: roundId.substring(0, 8) + '...',
-        gameType,
-        scorecardCount: scorecardsForFinalize.length,
-        pointSystemType: pointSystem.type,
-      });
-
-      // Call finalizeRound to calculate positions and competition points
-      await finalizeRound(roundId, scorecardsForFinalize, gameType, pointSystem);
-
-      submitLogger.info('Round results finalized successfully', { roundId: roundId.substring(0, 8) + '...' });
-    } catch (error) {
-      submitLogger.error('Error finalizing round results', error, { roundId: roundId.substring(0, 8) + '...' });
-      // Don't throw - this is a non-critical operation and shouldn't block the submission flow
-    }
-  }, []);
 
   const navigateAfterSubmit = useCallback((roundId: string | null | undefined) => {
     resetRound();
@@ -434,10 +341,71 @@ export function useScoreSubmission({
         } else {
           submitLogger.info('Online submission successful');
 
+          // Check for pending league tag (auto-tag when round started from league detail)
+          const pendingLeagueId = roundId
+            ? useSettingsStore.getState().pendingLeagueTags[roundId]
+            : undefined;
+          let leagueTagged = false;
+          let leagueTagError: string | null = null;
+
+          if (pendingLeagueId && roundId && currentUserId) {
+            try {
+              submitLogger.info('Auto-tagging round to league', { roundId: roundId.substring(0, 8) + '...', leagueId: pendingLeagueId.substring(0, 8) + '...' });
+
+              // Find the current user's scorecard for this round
+              const { data: userScorecard } = await supabase
+                .from('scorecards')
+                .select('id')
+                .eq('round_id', roundId)
+                .eq('player_id', currentUserId)
+                .single();
+
+              if (userScorecard) {
+                await tagRoundToLeague(pendingLeagueId, (userScorecard as unknown as { id: string }).id);
+                leagueTagged = true;
+                submitLogger.info('Round auto-tagged to league successfully');
+              } else {
+                submitLogger.warn('Could not find user scorecard for auto-tagging');
+                leagueTagError = 'Could not find your scorecard to tag to the league. You can tag it manually later.';
+              }
+            } catch (error) {
+              const msg = error instanceof Error ? error.message : 'Unknown error';
+              submitLogger.error('Failed to auto-tag round to league', error);
+              leagueTagError = `Auto-tag failed: ${msg}. You can tag it manually later.`;
+            } finally {
+              // Always clear the pending tag
+              useSettingsStore.getState().clearPendingLeagueTag(roundId);
+            }
+          }
+
           // Check if user has active leagues for tagging prompt (uses prefetched data)
           const hasLeagues = (leaguesData ?? []).some((l) => l.status === 'active');
 
-          if (hasLeagues) {
+          if (leagueTagged) {
+            showDialog({
+              title: 'Scores Submitted!',
+              message: 'All scores have been submitted and tagged to your league.',
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'check-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+            });
+          } else if (leagueTagError) {
+            showDialog({
+              title: 'Scores Submitted',
+              message: `Scores submitted successfully.\n\n${leagueTagError}`,
+              confirmLabel: 'View Round',
+              cancelLabel: '',
+              icon: 'alert-circle-outline',
+              onConfirm: () => {
+                dismissDialog();
+                navigateAfterSubmit(roundId);
+              },
+            });
+          } else if (hasLeagues) {
             showDialog({
               title: 'Scores Submitted!',
               message: 'All scores have been submitted successfully. Would you like to tag this round to a league?',

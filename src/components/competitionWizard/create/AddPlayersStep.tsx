@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Platform, ScrollView } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { View, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type PlayerFormData } from '@/schemas/competition';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -297,39 +297,33 @@ export default function AddPlayersStep({
           },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
-          theme={{ colors: { outline: colors.gray300 } }}
+          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Back
-        </Button>
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
         {onSkip && selectedPlayers.length < 2 ? (
-          <Button
-            mode="outlined"
+          <TouchableOpacity
             onPress={onSkip}
-            style={[styles.skipButton, { borderColor: colors.gray300 }]}
-            contentStyle={styles.buttonContent}
-            textColor={colors.textSecondary}
-            theme={{ colors: { outline: colors.gray300 } }}
+            style={[styles.skipButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
           >
-            Skip for Now
-          </Button>
+            <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Skip for Now</Text>
+          </TouchableOpacity>
         ) : (
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={handleNext}
-            style={styles.nextButton}
-            contentStyle={styles.buttonContent}
-            buttonColor={colors.primary}
-            textColor={colors.white}
+            style={[styles.nextButton, { backgroundColor: colors.primary }, selectedPlayers.length < 2 && { opacity: 0.5 }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
             disabled={selectedPlayers.length < 2}
           >
-            Next ({selectedPlayers.length} players)
-          </Button>
+            <Text style={[styles.buttonLabel, { color: colors.white }]}>Next ({selectedPlayers.length} players)</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -372,16 +366,25 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   skipButton: {
     flex: 2,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
 });

@@ -201,6 +201,7 @@ function createMockRound(
     team_format: null,
     scoring_pairs_required: false,
     ball_count: 1,
+    handicap_source: null,
     status: 'upcoming',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

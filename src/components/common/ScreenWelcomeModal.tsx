@@ -65,19 +65,12 @@ export function ScreenWelcomeModal({
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={onDismiss}
+      onRequestClose={() => {}}
     >
       <View
         style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         testID={testID}
       >
-        <TouchableOpacity
-          style={styles.backdropPressable}
-          onPress={onDismiss}
-          activeOpacity={1}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        />
         <Animated.View
           style={[
             styles.container,
@@ -161,10 +154,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backdropPressable: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  container: {
+container: {
     width: '90%',
     maxWidth: 380,
     borderRadius: borderRadius.xxl,

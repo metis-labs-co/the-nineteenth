@@ -51,6 +51,7 @@ export default function LeagueSettingsScreen() {
 
   const [name, setName] = useState(league?.name ?? '');
   const [description, setDescription] = useState(league?.description ?? '');
+  const [isPublic, setIsPublic] = useState(league?.is_public ?? false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [playerToRemove, setPlayerToRemove] = useState<{ id: string; name: string } | null>(null);
@@ -71,13 +72,14 @@ export default function LeagueSettingsScreen() {
       await updateMutation.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
+        is_public: isPublic,
       });
       setHasChanges(false);
       Alert.alert('Saved', 'League settings updated.');
     } catch (error: unknown) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
     }
-  }, [hasChanges, name, description, updateMutation]);
+  }, [hasChanges, name, description, isPublic, updateMutation]);
 
   const handleShare = useCallback(async () => {
     if (!league) return;
@@ -157,6 +159,25 @@ export default function LeagueSettingsScreen() {
               numberOfLines={3}
               accessibilityHint="Edit league description"
             />
+
+            <TouchableOpacity
+              onPress={() => { setIsPublic(!isPublic); setHasChanges(true); }}
+              style={[styles.toggleRow, { borderColor: colors.border }]}
+            >
+              <View style={styles.toggleTextContainer}>
+                <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                  Public League
+                </Text>
+                <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                  Allow anyone to find and join this league
+                </Text>
+              </View>
+              <Icon
+                source={isPublic ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                size={24}
+                color={isPublic ? colors.primary : colors.gray300}
+              />
+            </TouchableOpacity>
 
             {hasChanges && (
               <TouchableOpacity
@@ -378,5 +399,22 @@ const styles = StyleSheet.create({
     ...typography.caption,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    marginTop: spacing.md,
+  },
+  toggleTextContainer: {
+    flex: 1,
+  },
+  toggleLabel: {
+    ...typography.body,
+  },
+  toggleDescription: {
+    ...typography.small,
+    marginTop: 2,
   },
 });

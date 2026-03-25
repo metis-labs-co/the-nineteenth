@@ -3,11 +3,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 
 interface ReviewActionsProps {
   isOnline: boolean;
@@ -39,26 +39,28 @@ export function ReviewActions({
         },
       ]}
     >
-      <Button
-        mode="outlined"
+      <TouchableOpacity
         onPress={onEditScores}
-        style={[styles.editButton, { borderColor: colors.gray400 }]}
-        contentStyle={styles.buttonContent}
-        labelStyle={[styles.editButtonLabel, { color: colors.textPrimary }]}
+        style={[styles.editButton, styles.buttonContent, { borderColor: colors.gray400 }]}
+        activeOpacity={0.7}
+        accessibilityRole="button"
         accessibilityLabel="Edit scores"
         accessibilityHint="Go back to edit hole-by-hole scores"
       >
-        Edit Scores
-      </Button>
+        <Text style={[styles.editButtonLabel, { color: colors.textPrimary }]}>Edit Scores</Text>
+      </TouchableOpacity>
       {isAllComplete && (
-        <Button
-          mode="contained"
+        <TouchableOpacity
           onPress={onSubmit}
-          loading={isSubmitting}
           disabled={isSubmitting}
-          style={[styles.submitButton, { backgroundColor: colors.success }]}
-          contentStyle={styles.buttonContent}
-          labelStyle={[styles.submitButtonLabel, { color: colors.textInverse }]}
+          style={[
+            styles.submitButton,
+            styles.buttonContent,
+            { backgroundColor: colors.success },
+            isSubmitting && { opacity: 0.6 },
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
           accessibilityLabel="Submit all scores"
           accessibilityHint={
             isOnline
@@ -66,8 +68,11 @@ export function ReviewActions({
               : 'Save scores offline for later submission'
           }
         >
-          {isOnline ? 'Submit All Scores' : 'Save Offline'}
-        </Button>
+          {isSubmitting && <ActivityIndicator size="small" color={colors.textInverse} style={{ marginRight: spacing.sm }} />}
+          <Text style={[styles.submitButtonLabel, { color: colors.textInverse }]}>
+            {isOnline ? 'Submit All Scores' : 'Save Offline'}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -88,17 +93,22 @@ const styles = StyleSheet.create({
   editButton: {
     flex: 1,
     borderWidth: 2,
+    borderRadius: borderRadius.lg,
   },
   editButtonLabel: {
     ...typography.bodyBold,
   },
   submitButton: {
     flex: 2,
+    borderRadius: borderRadius.lg,
+    flexDirection: 'row',
   },
   submitButtonLabel: {
     ...typography.bodyBold,
   },
   buttonContent: {
     minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Platform, TouchableOpacity, LayoutAnimation, UIManager } from 'react-native';
-import { Text, Button, TextInput, Icon } from 'react-native-paper';
+import { Text, TextInput, Icon } from 'react-native-paper';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -340,25 +340,22 @@ export default function TeamSettingsStep({
           },
         ]}
       >
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300 }]}
-          contentStyle={styles.buttonContent}
-          textColor={colors.textSecondary}
+          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
         >
-          Back
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleSubmit(onComplete)}
-          style={styles.nextButton}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          textColor={colors.white}
+          style={[styles.nextButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          Next: Round Details
-        </Button>
+          <Text style={[styles.buttonLabel, { color: colors.white }]}>Next: Round Details</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -548,12 +545,18 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     borderRadius: borderRadius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButton: {
     flex: 2,
     borderRadius: borderRadius.md,
-  },
-  buttonContent: {
     height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    ...typography.bodyBold,
   },
 });

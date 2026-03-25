@@ -326,43 +326,9 @@ class TeesService {
         const color = normalizeTeeColor(teeData.color || null, teeData.name);
 
         if (existingTee) {
-          // Update existing tee - build update object explicitly
+          // Update existing tee using shared field mapping
           const updateData: TeeUpdateDb = {
-            name: teeData.name,
-            course_id: courseId,
-            color,
-            golfapi_tee_id: teeData.golfapi_tee_id,
-            slope: teeData.slope,
-            slope_front9: teeData.slope_front9,
-            slope_back9: teeData.slope_back9,
-            course_rating: teeData.course_rating,
-            course_rating_front9: teeData.course_rating_front9,
-            course_rating_back9: teeData.course_rating_back9,
-            slope_women: teeData.slope_women,
-            slope_women_front9: teeData.slope_women_front9,
-            slope_women_back9: teeData.slope_women_back9,
-            course_rating_women: teeData.course_rating_women,
-            course_rating_women_front9: teeData.course_rating_women_front9,
-            course_rating_women_back9: teeData.course_rating_women_back9,
-            measure_unit: teeData.measure_unit,
-            length_hole_1: teeData.length_hole_1,
-            length_hole_2: teeData.length_hole_2,
-            length_hole_3: teeData.length_hole_3,
-            length_hole_4: teeData.length_hole_4,
-            length_hole_5: teeData.length_hole_5,
-            length_hole_6: teeData.length_hole_6,
-            length_hole_7: teeData.length_hole_7,
-            length_hole_8: teeData.length_hole_8,
-            length_hole_9: teeData.length_hole_9,
-            length_hole_10: teeData.length_hole_10,
-            length_hole_11: teeData.length_hole_11,
-            length_hole_12: teeData.length_hole_12,
-            length_hole_13: teeData.length_hole_13,
-            length_hole_14: teeData.length_hole_14,
-            length_hole_15: teeData.length_hole_15,
-            length_hole_16: teeData.length_hole_16,
-            length_hole_17: teeData.length_hole_17,
-            length_hole_18: teeData.length_hole_18,
+            ...this.toInsertData(teeData, courseId, color),
             updated_at: new Date().toISOString(),
           };
 
@@ -380,44 +346,8 @@ class TeesService {
 
           results.push(data as Tee);
         } else {
-          // Insert new tee - build insert object explicitly
-          const insertData: TeeInsertDb = {
-            name: teeData.name,
-            course_id: courseId,
-            color,
-            golfapi_tee_id: teeData.golfapi_tee_id,
-            slope: teeData.slope,
-            slope_front9: teeData.slope_front9,
-            slope_back9: teeData.slope_back9,
-            course_rating: teeData.course_rating,
-            course_rating_front9: teeData.course_rating_front9,
-            course_rating_back9: teeData.course_rating_back9,
-            slope_women: teeData.slope_women,
-            slope_women_front9: teeData.slope_women_front9,
-            slope_women_back9: teeData.slope_women_back9,
-            course_rating_women: teeData.course_rating_women,
-            course_rating_women_front9: teeData.course_rating_women_front9,
-            course_rating_women_back9: teeData.course_rating_women_back9,
-            measure_unit: teeData.measure_unit,
-            length_hole_1: teeData.length_hole_1,
-            length_hole_2: teeData.length_hole_2,
-            length_hole_3: teeData.length_hole_3,
-            length_hole_4: teeData.length_hole_4,
-            length_hole_5: teeData.length_hole_5,
-            length_hole_6: teeData.length_hole_6,
-            length_hole_7: teeData.length_hole_7,
-            length_hole_8: teeData.length_hole_8,
-            length_hole_9: teeData.length_hole_9,
-            length_hole_10: teeData.length_hole_10,
-            length_hole_11: teeData.length_hole_11,
-            length_hole_12: teeData.length_hole_12,
-            length_hole_13: teeData.length_hole_13,
-            length_hole_14: teeData.length_hole_14,
-            length_hole_15: teeData.length_hole_15,
-            length_hole_16: teeData.length_hole_16,
-            length_hole_17: teeData.length_hole_17,
-            length_hole_18: teeData.length_hole_18,
-          };
+          // Insert new tee using shared field mapping
+          const insertData = this.toInsertData(teeData, courseId, color);
 
           const { data, error } = await supabase
             .from('tees')

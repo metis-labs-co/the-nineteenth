@@ -32,4 +32,9 @@ export {
   SoloStatsTotalCells,
   SoloStatsNetEmptyCells,
   SoloStatsStablefordEmptyCells,
+  SoloStablefordHeaderCell,
+  SoloStablefordHoleCell,
+  SoloStablefordSubtotalCell,
+  SoloStablefordTotalCell,
+  SoloStablefordEmptyCell,
 } from './SoloStatsCells';

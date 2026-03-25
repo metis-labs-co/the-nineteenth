@@ -541,6 +541,7 @@ jest.mock('react-native-paper', () => {
     useTheme: () => mockTheme,
     withTheme: (Component) => (props) => React.createElement(Component, { ...props, theme: mockTheme }),
     configureFonts: jest.fn(() => ({})),
+    Portal: ({ children }) => children,
   };
 });
 

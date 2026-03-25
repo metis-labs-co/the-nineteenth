@@ -8,13 +8,14 @@ import {
   Linking,
   TouchableOpacity,
 } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconMail } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { PageHeader, FormInput, AppIcon, LogoHorizontal } from '@/components/common';
+import { PageHeader, FormInput } from '@/components/common';
+import { SocialLoginButtons, OrDivider } from '@/components/auth';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/constants/app';
@@ -22,94 +23,45 @@ import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/constants/app';
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 
 /**
- * SignupScreen - Email + password signup with name fields
+ * SignupScreen - Simplified email + password signup with social login
  *
  * @description
- * User registration screen for MVP Phase 1. Supports first name, last name,
- * email, and password signup with validation, error handling, and auto-login
- * after successful registration.
- *
- * Features:
- * - Separate first name and last name input fields
- * - Email and password input fields
- * - Form validation (email format, password strength, required fields)
- * - Loading states during registration
- * - Error messages for failed signup attempts
- * - Auto-login after successful signup
- * - Navigation back to login screen
- *
- * @example
- * Navigation: navigation.navigate('Signup')
+ * Streamlined registration screen with social login options (Apple/Google)
+ * and a simplified email/password form (just email + password).
+ * Name is captured during onboarding instead.
  */
 
 export default function SignupScreen({ navigation }: Props) {
   // Theme colors
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   // Auth hook
-  const { signup, isAuthenticating } = useAuth();
+  const { signup, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleAvailable } = useAuth();
 
   // Form state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
 
   // Validation state
-  const [firstNameError, setFirstNameError] = useState<string | null>(null);
-  const [lastNameError, setLastNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
-  /**
-   * Validate first name
-   */
-  const validateFirstName = (value: string): boolean => {
-    if (!value.trim()) {
-      setFirstNameError('First name is required');
-      return false;
-    }
-    if (value.trim().length < 2) {
-      setFirstNameError('First name must be at least 2 characters');
-      return false;
-    }
-    setFirstNameError(null);
-    return true;
-  };
-
-  /**
-   * Validate last name
-   */
-  const validateLastName = (value: string): boolean => {
-    if (!value.trim()) {
-      setLastNameError('Last name is required');
-      return false;
-    }
-    if (value.trim().length < 2) {
-      setLastNameError('Last name must be at least 2 characters');
-      return false;
-    }
-    setLastNameError(null);
-    return true;
-  };
+  const allLoading = isAuthenticating || isSocialLoggingIn;
 
   /**
    * Validate email format
    */
-  const validateEmail = (email: string): boolean => {
+  const validateEmail = (value: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) {
+    if (!value) {
       setEmailError('Email is required');
       return false;
     }
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(value)) {
       setEmailError('Please enter a valid email address');
       return false;
     }
@@ -120,20 +72,20 @@ export default function SignupScreen({ navigation }: Props) {
   /**
    * Validate password strength
    */
-  const validatePassword = (password: string): boolean => {
-    if (!password) {
+  const validatePassword = (value: string): boolean => {
+    if (!value) {
       setPasswordError('Password is required');
       return false;
     }
-    if (password.length < 8) {
+    if (value.length < 8) {
       setPasswordError('Password must be at least 8 characters');
       return false;
     }
-    if (!/(?=.*[a-z])(?=.*[A-Z])/.test(password)) {
+    if (!/(?=.*[a-z])(?=.*[A-Z])/.test(value)) {
       setPasswordError('Password must contain uppercase and lowercase letters');
       return false;
     }
-    if (!/(?=.*\d)/.test(password)) {
+    if (!/(?=.*\d)/.test(value)) {
       setPasswordError('Password must contain at least one number');
       return false;
     }
@@ -142,62 +94,29 @@ export default function SignupScreen({ navigation }: Props) {
   };
 
   /**
-   * Validate password confirmation
-   */
-  const validateConfirmPassword = (confirmPassword: string): boolean => {
-    if (!confirmPassword) {
-      setConfirmPasswordError('Please confirm your password');
-      return false;
-    }
-    if (confirmPassword !== password) {
-      setConfirmPasswordError('Passwords do not match');
-      return false;
-    }
-    setConfirmPasswordError(null);
-    return true;
-  };
-
-  /**
    * Handle signup form submission
    */
   const handleSignup = async () => {
-    // Clear previous errors
     setError(null);
 
-    // Validate all fields
-    const isFirstNameValid = validateFirstName(firstName);
-    const isLastNameValid = validateLastName(lastName);
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
-    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (!isFirstNameValid || !isLastNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
-      return;
-    }
-
-    // Combine first and last name for storage
-    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    if (!isEmailValid || !isPasswordValid) return;
 
     try {
       const result = await signup({
         email,
         password,
-        name: fullName,
+        name: '', // Name captured during onboarding; ensurePlayerProfile falls back to email prefix
       });
 
-      console.log('Signup successful:', { name: fullName, email });
-
-      // Check if email confirmation is required
       if (result.emailConfirmationRequired) {
-        // Show email confirmation message instead of navigating
         setEmailConfirmationSent(true);
       }
-      // If no email confirmation required, navigation is handled automatically
-      // by RootNavigator's conditional rendering when isAuthenticated becomes true
     } catch (err: unknown) {
       console.error('Signup error:', err);
 
-      // Handle specific Supabase auth errors
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
         setError('This email is already registered. Please login instead.');
@@ -208,6 +127,34 @@ export default function SignupScreen({ navigation }: Props) {
       } else {
         setError(errorMessage || 'Failed to create account. Please try again.');
       }
+    }
+  };
+
+  /**
+   * Handle Apple social login
+   */
+  const handleAppleLogin = async () => {
+    setError(null);
+    try {
+      await loginWithApple();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('ERR_CANCELED') || message.includes('canceled')) return;
+      setError('Apple sign in failed. Please try again.');
+    }
+  };
+
+  /**
+   * Handle Google social login
+   */
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      await loginWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('ERR_CANCELED') || message.includes('canceled')) return;
+      setError('Google sign in failed. Please try again.');
     }
   };
 
@@ -240,16 +187,17 @@ export default function SignupScreen({ navigation }: Props) {
             Please check your inbox and click the link to activate your account.
             Once confirmed, you can log in.
           </Text>
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={handleBackToLogin}
-            style={styles.confirmationButton}
-            contentStyle={styles.signupButtonContent}
-            buttonColor={colors.primary}
-            textColor={colors.white}
+            style={[styles.confirmationButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Go to Login"
           >
-            Go to Login
-          </Button>
+            <Text style={[styles.signupButtonLabel, { color: colors.white }]}>
+              Go to Login
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.confirmationHint, { color: colors.textDisabled }]}>
             Didn&apos;t receive the email? Check your spam folder or try signing up again.
           </Text>
@@ -259,11 +207,12 @@ export default function SignupScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={[]}>
       <PageHeader
         title="Sign Up"
         showBack={true}
         onBack={handleBackToLogin}
+        skipTopInset
       />
 
       <KeyboardAvoidingView
@@ -275,19 +224,22 @@ export default function SignupScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Logo */}
-            <View style={styles.logoContainer}>
-              <AppIcon size={190} />
-              <LogoHorizontal width={200} variant={isDark ? 'light' : 'dark'} />
-            </View>
-
-            {/* Header Section */}
+            {/* Header */}
             <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>Create Account</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>Sign up with socials</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Join The Nineteenth and start organising golf competitions
+                The quickest way to get started — no password needed
               </Text>
             </View>
+
+            {/* Social Login Buttons */}
+            <SocialLoginButtons
+              onGooglePress={handleGoogleLogin}
+              isLoading={isSocialLoggingIn}
+              disabled={allLoading}
+            />
+
+            <OrDivider />
 
             {/* Error Message */}
             {error && (
@@ -298,49 +250,6 @@ export default function SignupScreen({ navigation }: Props) {
 
             {/* Form Section */}
             <View style={styles.form}>
-              {/* Name Row */}
-              <View style={styles.nameRow}>
-                {/* First Name Input */}
-                <View style={styles.nameField}>
-                  <FormInput
-                    label="First Name"
-                    floatingLabel
-                    value={firstName}
-                    onChangeText={(text) => {
-                      setFirstName(text);
-                      if (firstNameError) validateFirstName(text);
-                    }}
-                    onBlur={() => validateFirstName(firstName)}
-                    autoCapitalize="words"
-                    autoComplete="given-name"
-                    textContentType="givenName"
-                    error={firstNameError || undefined}
-                    disabled={isAuthenticating}
-                    accessibilityHint="Enter your first name"
-                  />
-                </View>
-
-                {/* Last Name Input */}
-                <View style={styles.nameField}>
-                  <FormInput
-                    label="Last Name"
-                    floatingLabel
-                    value={lastName}
-                    onChangeText={(text) => {
-                      setLastName(text);
-                      if (lastNameError) validateLastName(text);
-                    }}
-                    onBlur={() => validateLastName(lastName)}
-                    autoCapitalize="words"
-                    autoComplete="family-name"
-                    textContentType="familyName"
-                    error={lastNameError || undefined}
-                    disabled={isAuthenticating}
-                    accessibilityHint="Enter your last name"
-                  />
-                </View>
-              </View>
-
               {/* Email Input */}
               <FormInput
                 label="Email"
@@ -355,8 +264,9 @@ export default function SignupScreen({ navigation }: Props) {
                 autoCapitalize="none"
                 autoComplete="email"
                 textContentType="emailAddress"
+                importantForAutofill="yes"
                 error={emailError || undefined}
-                disabled={isAuthenticating}
+                disabled={allLoading}
                 accessibilityHint="Enter your email address"
               />
 
@@ -368,71 +278,54 @@ export default function SignupScreen({ navigation }: Props) {
                 onChangeText={(text) => {
                   setPassword(text);
                   if (passwordError) validatePassword(text);
-                  // Re-validate confirm password if it's been filled
-                  if (confirmPassword) validateConfirmPassword(confirmPassword);
                 }}
                 onBlur={() => validatePassword(password)}
                 secureTextEntry
                 autoCapitalize="none"
                 autoComplete="new-password"
                 textContentType="newPassword"
+                importantForAutofill="yes"
                 error={passwordError || undefined}
                 hint={!passwordError && password.length > 0 ? 'Use 8+ characters with uppercase, lowercase, and numbers' : undefined}
-                disabled={isAuthenticating}
+                disabled={allLoading}
                 accessibilityHint="Enter a strong password with at least 8 characters, uppercase, lowercase, and a number"
               />
 
-              {/* Confirm Password Input */}
-              <FormInput
-                label="Confirm Password"
-                floatingLabel
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (confirmPasswordError) validateConfirmPassword(text);
-                }}
-                onBlur={() => validateConfirmPassword(confirmPassword)}
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="new-password"
-                textContentType="newPassword"
-                error={confirmPasswordError || undefined}
-                disabled={isAuthenticating}
-                accessibilityHint="Re-enter your password to confirm"
-              />
-
               {/* Sign Up Button */}
-              <Button
-                mode="contained"
+              <TouchableOpacity
                 onPress={handleSignup}
-                disabled={isAuthenticating}
-                loading={isAuthenticating}
-                style={styles.signupButton}
-                contentStyle={styles.signupButtonContent}
-                labelStyle={styles.signupButtonLabel}
-                buttonColor={colors.primary}
-                textColor={colors.white}
+                disabled={allLoading}
+                style={[
+                  styles.signupButton,
+                  { backgroundColor: colors.primary },
+                  allLoading && styles.buttonDisabled,
+                ]}
+                activeOpacity={0.8}
+                accessibilityRole="button"
                 accessibilityLabel="Sign up button"
                 accessibilityHint="Tap to create your account"
               >
-                {isAuthenticating ? 'Creating Account...' : 'Sign Up'}
-              </Button>
+                <Text style={[styles.signupButtonLabel, { color: colors.white }]}>
+                  {isAuthenticating ? 'Creating Account...' : 'Sign Up'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Login Link */}
             <View style={styles.loginContainer}>
               <Text style={[styles.loginText, { color: colors.textSecondary }]}>Already have an account? </Text>
-              <Button
-                mode="text"
+              <TouchableOpacity
                 onPress={handleBackToLogin}
-                disabled={isAuthenticating}
-                labelStyle={styles.loginButtonLabel}
-                textColor={colors.primary}
+                disabled={allLoading}
+                activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Login button"
                 accessibilityHint="Navigate to login screen"
               >
-                Login
-              </Button>
+                <Text style={[styles.loginButtonLabel, { color: colors.primary }]}>
+                  Login
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Terms & Privacy Notice */}
@@ -477,16 +370,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  logoContainer: {
-    alignItems: 'center',
+  header: {
     marginBottom: spacing.lg,
   },
-  header: {
-    marginBottom: spacing.xl,
-  },
   title: {
-    ...typography.h2,
-    marginBottom: spacing.sm,
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.body,
@@ -503,23 +392,19 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.sm,
   },
-  nameRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  nameField: {
-    flex: 1,
-  },
   signupButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginTop: spacing.lg,
     borderRadius: borderRadius.md,
-  },
-  signupButtonContent: {
     height: 48,
   },
   signupButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   loginContainer: {
     flexDirection: 'row',
@@ -531,8 +416,7 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
   loginButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   termsContainer: {
     marginTop: spacing.xl,
@@ -590,9 +474,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   confirmationButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginTop: spacing.xxl,
     width: '100%',
     borderRadius: borderRadius.md,
+    height: 48,
   },
   confirmationHint: {
     ...typography.caption,

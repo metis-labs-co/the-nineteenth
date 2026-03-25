@@ -9,7 +9,7 @@
 
 export type LeagueStatus = 'active' | 'archived';
 
-export type LeagueType = 'ongoing' | 'season' | 'round_limit' | 'ladder' | 'eclectic';
+export type LeagueType = 'ongoing' | 'season' | 'round_limit' | 'ladder' | 'eclectic' | 'partnership';
 
 export type LeaguePlayerStatus = 'invited' | 'accepted' | 'declined' | 'removed';
 
@@ -18,6 +18,12 @@ export type LadderChallengeStatus = 'pending' | 'accepted' | 'declined' | 'compl
 export type LadderSeeding = 'join_order' | 'handicap' | 'random';
 
 export type EclecticScoring = 'gross' | 'net';
+
+export type PartnershipFormat = 'combined_stroke' | 'scramble' | 'shamble' | 'best_ball';
+
+export type DifficultyLevel = 'easy' | 'standard' | 'challenge' | 'heroic';
+
+export type PartnershipStatus = 'active' | 'dissolved';
 
 // =====================================================
 // TABLES
@@ -53,6 +59,12 @@ export interface League {
   course_id: string | null; // UUID, references courses(id)
   tee_id: string | null; // UUID, references tees(id)
   eclectic_scoring: EclecticScoring | null;
+
+  // Partnership fields
+  partnership_format: PartnershipFormat | null;
+
+  // Visibility
+  is_public: boolean;
 }
 
 /**
@@ -231,4 +243,80 @@ export interface LeagueStatsResponse {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   score_data: { scores: Record<string, any>[]; holes: { number: number; par: number }[] }[] | null;
+}
+
+// =====================================================
+// PARTNERSHIP TYPES
+// =====================================================
+
+/**
+ * Partnership within a partnership league (always 2 players)
+ */
+export interface LeaguePartnership {
+  id: string; // UUID
+  league_id: string; // UUID
+  player_1_id: string; // UUID, always < player_2_id
+  player_2_id: string; // UUID
+  name: string | null; // Display name, e.g. "Sam & Mike"
+  status: PartnershipStatus;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Tagged round for a partnership with target tracking
+ */
+export interface PartnershipRound {
+  id: string; // UUID
+  league_id: string; // UUID
+  partnership_id: string; // UUID
+  scorecard_1_id: string; // UUID
+  scorecard_2_id: string | null; // UUID, NULL for scramble
+  player_1_id: string; // UUID
+  player_2_id: string; // UUID
+  course_id: string | null; // UUID
+  course_name: string;
+  course_rating: number | null;
+  slope_rating: number | null;
+  par: number | null;
+  combined_gross: number;
+  target_score: number;
+  difficulty_level: DifficultyLevel;
+  target_differential: number; // combined_gross - target_score
+  player_1_handicap: number | null;
+  player_2_handicap: number | null;
+  played_at: string | null; // DATE
+  tagged_at: string; // ISO timestamp
+}
+
+/**
+ * Partnership leaderboard entry returned by get_partnership_leaderboard()
+ */
+export interface PartnershipLeaderboardEntry {
+  partnership_id: string;
+  partnership_name: string | null;
+  player_1_id: string;
+  player_1_name: string;
+  player_1_photo_url: string | null;
+  player_2_id: string;
+  player_2_name: string;
+  player_2_photo_url: string | null;
+  rounds_played: number;
+  avg_target_differential: number | null;
+  best_differential: number | null;
+  times_under_target: number;
+  rank: number;
+}
+
+/**
+ * Course best for a partnership returned by get_partnership_course_bests()
+ */
+export interface PartnershipCourseBest {
+  partnership_id: string;
+  partnership_name: string | null;
+  course_id: string | null;
+  course_name: string;
+  best_combined_gross: number;
+  best_differential: number;
+  times_played: number;
 }

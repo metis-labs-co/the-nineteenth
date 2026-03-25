@@ -21,8 +21,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { Button, Card, Divider } from 'react-native-paper';
+import { Card, Divider } from 'react-native-paper';
 import { IconSearch } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -357,19 +359,25 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
               accessibilityHint="Enter the competition invite code shared by the organiser"
             />
 
-            <Button
-              mode="contained"
+            <TouchableOpacity
               onPress={handleLookup}
               disabled={!canLookup}
-              loading={isLookingUp}
-              style={[styles.lookupButton, { backgroundColor: colors.primary }]}
-              contentStyle={styles.buttonContent}
-              labelStyle={[styles.buttonLabel, { color: colors.white }]}
+              style={[
+                styles.lookupButton,
+                styles.buttonContent,
+                { backgroundColor: colors.primary },
+                !canLookup && styles.buttonDisabled,
+              ]}
+              activeOpacity={0.8}
+              accessibilityRole="button"
               accessibilityLabel="Look up competition"
               accessibilityHint="Looks up the competition with the entered invite code"
             >
-              {isLookingUp ? 'Looking up...' : 'Look Up'}
-            </Button>
+              {isLookingUp && <ActivityIndicator size="small" color={colors.white} />}
+              <Text style={[styles.buttonLabel, { color: colors.white }]}>
+                {isLookingUp ? 'Looking up...' : 'Look Up'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Competition Preview Card */}
@@ -442,19 +450,25 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
               )}
 
               {/* Join Button */}
-              <Button
-                mode="contained"
+              <TouchableOpacity
                 onPress={handleJoin}
                 disabled={isJoining || competition.status === 'completed' || competition.status === 'cancelled'}
-                loading={isJoining}
-                style={[styles.joinButton, { backgroundColor: colors.success }]}
-                contentStyle={styles.joinButtonContent}
-                labelStyle={[styles.buttonLabel, { color: colors.white }]}
+                style={[
+                  styles.joinButton,
+                  styles.joinButtonContent,
+                  { backgroundColor: colors.success },
+                  (isJoining || competition.status === 'completed' || competition.status === 'cancelled') && styles.buttonDisabled,
+                ]}
+                activeOpacity={0.8}
+                accessibilityRole="button"
                 accessibilityLabel="Join competition"
                 accessibilityHint={`Join ${competition.name} competition`}
               >
-                {isJoining ? 'Joining...' : 'Join Competition'}
-              </Button>
+                {isJoining && <ActivityIndicator size="small" color={colors.white} />}
+                <Text style={[styles.buttonLabel, { color: colors.white }]}>
+                  {isJoining ? 'Joining...' : 'Join Competition'}
+                </Text>
+              </TouchableOpacity>
 
               {/* Warning for non-joinable competitions */}
               {(competition.status === 'completed' || competition.status === 'cancelled') && (
@@ -528,10 +542,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 48,
+    gap: spacing.sm,
   },
   buttonLabel: {
     ...typography.bodyBold,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 
   // Preview Section
@@ -594,7 +615,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   joinButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 52,
+    gap: spacing.sm,
   },
   joinError: {
     ...typography.caption,

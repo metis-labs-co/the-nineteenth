@@ -76,6 +76,8 @@ export interface ScorecardScoreContentProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
+  // Playing handicap map (daily HC for Premium, raw HC for Free)
+  playerHandicapMap?: Map<string, number>;
   // Wolf game props
   wolfGame?: WolfGameWithParticipants | null;
   wolfDecision?: WolfHoleDecision | null;
@@ -117,6 +119,8 @@ export function ScorecardScoreContent({
   // Stats visibility
   showFIR = false,
   showGIR = false,
+  // Playing handicap map (daily HC for Premium, raw HC for Free)
+  playerHandicapMap,
   // Wolf game props
   wolfGame,
   wolfDecision,
@@ -153,6 +157,12 @@ export function ScorecardScoreContent({
       }
     },
     [handleShotContributionsChange]
+  );
+
+  // Helper: get the playing handicap for a player (daily HC if Premium, raw otherwise)
+  const getHandicap = useCallback(
+    (player: Player): number => playerHandicapMap?.get(player.id) ?? player.handicap ?? 0,
+    [playerHandicapMap]
   );
 
   // Determine which players to render based on scoring pairs setting
@@ -403,7 +413,7 @@ export function ScorecardScoreContent({
           />
         )}
         {playersToRender.map((player) => {
-          const handicap = player.handicap ?? 0;
+          const handicap = getHandicap(player);
           const { gross, net } = getRunningGrossNet(player.id, handicap);
           return (
             <StrokePlayScoreCard
@@ -461,7 +471,7 @@ export function ScorecardScoreContent({
           onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
           onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
           onPlayerPress={onPlayerPress}
-          runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, player.handicap ?? 0) : undefined}
+          runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, getHandicap(player)) : undefined}
           showPointsPreview={isStableford}
           isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
         />

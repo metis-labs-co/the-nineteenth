@@ -20,6 +20,7 @@ import { useGolfApiSearch } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
 import type { Club } from '@/types/database.types';
+import { mergeTees } from './helpers';
 import type {
   SupabaseClubWithCourses,
   SupabaseFavoriteCourseWithClub,
@@ -49,14 +50,14 @@ export function useClubsWithCourses(options?: {
   const homeClubId = player?.home_club_id ?? null;
 
   const query = useQuery({
-    queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly }),
+    queryKey: clubKeys.withCoursesFiltered({ country, state: region, featured: featuredOnly, homeClubId: featuredOnly ? homeClubId : undefined }),
     queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let clubQuery = supabase
         .from('clubs')
         .select(
           `
           *,
-          courses!inner (*)
+          courses!inner (*, tees_from_table:tees(*))
         `
         )
         .order('name', { ascending: true });
@@ -70,7 +71,12 @@ export function useClubsWithCourses(options?: {
       }
 
       if (featuredOnly) {
-        clubQuery = clubQuery.eq('is_featured', true);
+        if (homeClubId) {
+          // Always include home club even if not featured
+          clubQuery = clubQuery.or(`is_featured.eq.true,id.eq.${homeClubId}`);
+        } else {
+          clubQuery = clubQuery.eq('is_featured', true);
+        }
       }
 
       const { data: clubs, error: clubsError } = await clubQuery;
@@ -87,7 +93,7 @@ export function useClubsWithCourses(options?: {
   const data = query.data
     ? query.data.map((club: SupabaseClubWithCourses) => {
         const courses = (club.courses ?? []).map((course) => ({
-          ...course,
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -133,7 +139,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
     queryFn: async (): Promise<SupabaseClubWithCourses[]> => {
       let queryBuilder = supabase.from('clubs').select(`
           *,
-          courses!inner (*)
+          courses!inner (*, tees_from_table:tees(*))
         `);
 
       // Apply search filter (case-insensitive)
@@ -162,7 +168,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   const localResults: ClubWithCourses[] | undefined = localQuery.data
     ? localQuery.data.map((club: SupabaseClubWithCourses) => {
         const courses = (club.courses ?? []).map((course) => ({
-          ...course,
+          ...mergeTees(course),
           is_favorite: isFavorite(course.id),
         }));
 
@@ -180,6 +186,11 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   // Only when local search finished AND local results < 3 AND debounced query is 3+ chars
   const shouldSearchApi =
     !localQuery.isLoading && (localResults?.length ?? 0) < 3 && debouncedQuery.length >= 3;
+
+  // Log search decision for debugging
+  if (debouncedQuery.length >= 3 && !localQuery.isLoading) {
+    console.log(`[useSearchClubs] query="${debouncedQuery}", localResults=${localResults?.length ?? 0}, shouldSearchApi=${shouldSearchApi}`);
+  }
 
   // GolfAPI.io search (using debounced query)
   const apiQuery = useGolfApiSearch(debouncedQuery, state, shouldSearchApi);
@@ -339,7 +350,8 @@ export function useFavoriteCoursesWithClubs() {
           course_id,
           courses:course_id (
             *,
-            club:club_id (*)
+            club:club_id (*),
+            tees_from_table:tees(*)
           )
         `
         )
@@ -350,7 +362,7 @@ export function useFavoriteCoursesWithClubs() {
       const typedData = data as SupabaseFavoriteCourseWithClub[] | null;
       return (typedData ?? [])
         .map((item: SupabaseFavoriteCourseWithClub) => ({
-          ...item.courses,
+          ...mergeTees(item.courses),
           club: item.courses.club,
           venue: item.courses.club, // @deprecated - use club
           is_favorite: true,

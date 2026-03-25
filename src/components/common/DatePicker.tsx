@@ -6,7 +6,7 @@ import {
   Modal,
   TouchableOpacity,
 } from 'react-native';
-import { TextInput, Button, Text } from 'react-native-paper';
+import { TextInput, Text } from 'react-native-paper';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -211,9 +211,17 @@ export function DatePicker({
                     { borderBottomColor: colors.border },
                   ]}
                 >
-                  <Button onPress={handleDismiss} textColor={colors.primary}>
-                    Done
-                  </Button>
+                  <TouchableOpacity
+                    onPress={handleDismiss}
+                    style={styles.doneButton}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                  >
+                    <Text style={[styles.doneButtonText, { color: colors.primary }]}>
+                      Done
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <DateTimePicker
                   value={getPickerValue()}
@@ -276,6 +284,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     borderBottomWidth: 1,
+  },
+  doneButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  doneButtonText: {
+    ...typography.bodyBold,
   },
 });
 

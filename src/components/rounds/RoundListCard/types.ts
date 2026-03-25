@@ -91,6 +91,10 @@ export interface RoundListCardData {
   hasSkins?: boolean;
   /** Whether this round has an active wolf game */
   hasWolf?: boolean;
+  /** Handicap source for round mode display ('profile', 'calculated', 'none') */
+  handicapSource?: string | null;
+  /** Selected tee box name */
+  selectedTeeName?: string | null;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {

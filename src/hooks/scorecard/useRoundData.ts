@@ -225,7 +225,8 @@ export function useRoundData({
       gameType as GameType,
       false, // isStandalone
       [], // allowedPlayerIds
-      metadata.data?.selectedTeeData ?? null // selectedTeeData for daily handicap
+      metadata.data?.selectedTeeData ?? null, // selectedTeeData for daily handicap
+      metadata.data?.handicapSource ?? 'profile' // handicapSource
     );
   }, [
     roundId,

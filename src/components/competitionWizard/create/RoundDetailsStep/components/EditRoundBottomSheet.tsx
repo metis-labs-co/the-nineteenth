@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Icon, TextInput, Button } from 'react-native-paper';
+import { Text, Icon, TextInput } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
@@ -19,7 +19,7 @@ import { TeeSelectionModal } from './TeeSelectionModal';
 import { GAME_TYPE_LABELS, getFilteredGameTypes } from '../types';
 import type { TeeBox, Club } from '@/types/database.types';
 import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
-import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem } from '@/hooks/useClubs';
+import { useClubsWithCourses, useSearchClubs, useFavoriteCoursesWithClubs, toClubCourseDisplayItem, sortHomeClubFirst } from '@/hooks/useClubs';
 
 export interface EditRoundBottomSheetProps {
   visible: boolean;
@@ -60,10 +60,10 @@ export function EditRoundBottomSheet({
     undefined
   );
 
-  // Transform clubs to display items
+  // Transform clubs to display items, home club first
   const displayItems: ClubCourseDisplayItem[] = React.useMemo(() => {
     const clubs = clubSearchQuery.length >= 2 ? searchResults : allClubs;
-    return (clubs ?? []).map(toClubCourseDisplayItem);
+    return sortHomeClubFirst((clubs ?? []).map(toClubCourseDisplayItem));
   }, [clubSearchQuery, searchResults, allClubs]);
 
   // Reset local state when round changes
@@ -378,22 +378,22 @@ export function EditRoundBottomSheet({
 
         {/* Footer Buttons */}
         <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.gray200 }]}>
-          <Button
-            mode="outlined"
+          <TouchableOpacity
             onPress={onClose}
-            style={styles.footerButton}
-            textColor={colors.textPrimary}
+            style={[styles.footerButton, styles.footerButtonOutlined, { borderColor: colors.gray300 }]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
           >
-            Cancel
-          </Button>
-          <Button
-            mode="contained"
+            <Text style={[styles.footerButtonLabel, { color: colors.textPrimary }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={handleSave}
-            style={styles.footerButton}
-            buttonColor={colors.primary}
+            style={[styles.footerButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            Save Round
-          </Button>
+            <Text style={[styles.footerButtonLabel, { color: colors.white }]}>Save Round</Text>
+          </TouchableOpacity>
         </View>
       </BottomSheet>
 
@@ -538,5 +538,15 @@ const styles = StyleSheet.create({
   },
   footerButton: {
     flex: 1,
+    height: 48,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerButtonOutlined: {
+    borderWidth: 1,
+  },
+  footerButtonLabel: {
+    ...typography.bodyBold,
   },
 });

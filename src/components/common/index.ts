@@ -130,6 +130,7 @@ export { GolfBallLoader } from './GolfBallLoader';
 export type { GolfBallLoaderProps, GolfBallSize } from './GolfBallLoader';
 export { ProgressBar } from './ProgressBar';
 export { OfflineIndicator } from './OfflineIndicator';
+export { ToggleSwitch } from './ToggleSwitch';
 
 // === Navigation Components ===
 // Step indicators, progress navigation, and action buttons

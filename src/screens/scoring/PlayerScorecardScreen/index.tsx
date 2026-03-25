@@ -20,13 +20,13 @@
 
 import React, { useCallback, useState, useMemo } from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View, TouchableOpacity } from 'react-native';
-import { Text, Portal, Dialog, Button } from 'react-native-paper';
+import { Text, Portal, Dialog } from 'react-native-paper';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibilityWithTier } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useFinalizeSkinsForRound } from '@/hooks';
 import { scoringLogger } from '@/utils/debugLogger';
@@ -295,8 +295,22 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowIncompleteDialog(false)}>Cancel</Button>
-            <Button onPress={performSubmit}>Submit Anyway</Button>
+            <TouchableOpacity
+              onPress={() => setShowIncompleteDialog(false)}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={performSubmit}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.primary }]}>Submit Anyway</Text>
+            </TouchableOpacity>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -311,7 +325,14 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowSubmitErrorDialog(false)}>OK</Button>
+            <TouchableOpacity
+              onPress={() => setShowSubmitErrorDialog(false)}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.primary }]}>OK</Text>
+            </TouchableOpacity>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -347,6 +368,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitButtonText: {
+    ...typography.bodyBold,
+  },
+  dialogButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  dialogButtonText: {
     ...typography.bodyBold,
   },
 });

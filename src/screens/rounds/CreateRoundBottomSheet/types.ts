@@ -4,6 +4,7 @@
 
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { Club, TeeBox, GameType } from '@/types/database.types';
+import type { HandicapSource, Hole } from '@/types/database';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
 import type { WolfConfig } from '@/types/database/wolf.types';
@@ -54,6 +55,8 @@ export interface SelectedCourse {
   /** @deprecated Use club instead */
   venue?: Club;
   tees?: TeeBox[] | null;
+  /** Course holes for par calculation (daily handicap) */
+  holes?: Hole[] | null;
 }
 
 /**
@@ -140,6 +143,8 @@ export interface WizardData {
   wolfConfig: WolfConfig | null;
   /** Whether this round uses build-as-you-play course creation (super admin only) */
   isBuildAsYouPlay: boolean;
+  /** Handicap source for daily HC calculation (Premium feature) */
+  handicapSource: HandicapSource;
 }
 
 /**
@@ -159,10 +164,17 @@ export interface CreateRoundBottomSheetProps {
     skinsConfig?: StandaloneSkinsConfig,
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
-    isBuildAsYouPlay?: boolean
+    isBuildAsYouPlay?: boolean,
+    handicapSource?: HandicapSource
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;
+  /** Pre-selected partners to add to the round automatically */
+  initialPartners?: PlayingPartner[];
+  /** Pre-selected match type — locks the match type step (skips it) */
+  initialMatchType?: GameType;
+  /** Skip the partner selection step entirely — starts the round after tee selection */
+  skipPartnerStep?: boolean;
 }
 
 /**

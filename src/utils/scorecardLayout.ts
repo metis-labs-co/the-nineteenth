@@ -27,6 +27,9 @@ export const PAR_CELL_WIDTH = 44;
 /** Minimum width for player score columns */
 export const MIN_PLAYER_CELL_WIDTH = 72;
 
+/** Width of stat columns (Putts, FIR, GIR, Pts) in solo mode */
+export const STAT_CELL_WIDTH = 40;
+
 /** Total horizontal padding (both sides) */
 export const HORIZONTAL_PADDING = spacing.md * 2;
 
@@ -60,9 +63,11 @@ export interface ScorecardLayout {
  */
 export function calculateScorecardLayout(
   screenWidth: number,
-  playerCount: number
+  playerCount: number,
+  statsColumnCount = 0
 ): ScorecardLayout {
-  const availableWidth = screenWidth - HORIZONTAL_PADDING - FIXED_COLUMNS_WIDTH;
+  const statsWidth = STAT_CELL_WIDTH * statsColumnCount;
+  const availableWidth = screenWidth - HORIZONTAL_PADDING - FIXED_COLUMNS_WIDTH - statsWidth;
   const widthPerPlayer = availableWidth / playerCount;
 
   // Use the larger of minimum width or calculated width (fills screen for fewer players)

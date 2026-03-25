@@ -1,0 +1,228 @@
+/**
+ * useWizardNavigation - Handles all back/continue/start/close navigation in the wizard.
+ *
+ * Responsibilities:
+ * - Back navigation between steps (with match-type lock awareness)
+ * - Continue to scoring setup (with solo round shortcut)
+ * - Start scoring (group round) and start solo round actions
+ * - Close and reset the wizard
+ */
+
+import { useCallback } from 'react';
+import type { TeeBox, GameType } from '@/types/database.types';
+import type { HandicapSource } from '@/types/database';
+import type { BallCount } from '@/types/multiball.types';
+import type {
+  WizardStep,
+  WizardData,
+  PlayingPartner,
+  ScoringPairsConfig,
+  StandaloneSkinsConfig,
+  StandaloneWolfConfig,
+  TeamConfig,
+} from '../types';
+
+interface UseWizardNavigationParams {
+  data: WizardData;
+  initialMatchType?: GameType;
+  isSocialOrHigher: boolean;
+  setCurrentStep: React.Dispatch<React.SetStateAction<WizardStep>>;
+  setData: React.Dispatch<React.SetStateAction<WizardData>>;
+  resetState: () => void;
+  onStartRound: (
+    courseId: string,
+    courseName: string,
+    partners: PlayingPartner[],
+    selectedTee?: TeeBox,
+    gameType?: GameType,
+    scoringPairs?: ScoringPairsConfig,
+    ballCount?: BallCount,
+    skinsConfig?: StandaloneSkinsConfig,
+    teamConfig?: TeamConfig,
+    wolfConfig?: StandaloneWolfConfig,
+    isBuildAsYouPlay?: boolean,
+    handicapSource?: HandicapSource
+  ) => void;
+  onClose: () => void;
+}
+
+export function useWizardNavigation({
+  data,
+  initialMatchType,
+  isSocialOrHigher,
+  setCurrentStep,
+  setData,
+  resetState,
+  onStartRound,
+  onClose,
+}: UseWizardNavigationParams) {
+  const handleBackToCourse = useCallback(() => {
+    setCurrentStep('course');
+    setData((prev) => ({
+      ...prev,
+      selectedTee: null,
+      friendSearchQuery: '',
+    }));
+  }, [setCurrentStep, setData]);
+
+  const handleBackToTee = useCallback(() => {
+    setCurrentStep('tee');
+    setData((prev) => ({ ...prev, friendSearchQuery: '' }));
+  }, [setCurrentStep, setData]);
+
+  const handleBackToMatchType = useCallback(() => {
+    if (initialMatchType) {
+      setData((prev) => {
+        const hasTees = prev.selectedCourse?.tees && prev.selectedCourse.tees.length > 0;
+        setCurrentStep(hasTees ? 'tee' : 'course');
+        return { ...prev, friendSearchQuery: '' };
+      });
+    } else {
+      setCurrentStep('matchType');
+      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
+    }
+  }, [initialMatchType, setCurrentStep, setData]);
+
+  const handleBackToPartners = useCallback(() => {
+    setCurrentStep('partners');
+  }, [setCurrentStep]);
+
+  const handleContinueToScoringSetup = useCallback(() => {
+    if (data.selectedPartners.length === 0) {
+      if (isSocialOrHigher) {
+        setCurrentStep('ballCount');
+      } else {
+        if (data.selectedCourse) {
+          onStartRound(
+            data.selectedCourse.courseId,
+            data.selectedCourse.courseName,
+            [],
+            data.selectedTee ?? undefined,
+            data.selectedMatchType ?? undefined,
+            undefined,
+            1,
+            undefined,
+            undefined,
+            undefined,
+            data.isBuildAsYouPlay || undefined,
+            data.handicapSource
+          );
+          resetState();
+        }
+      }
+    } else {
+      setCurrentStep('scoringSetup');
+    }
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, data.handicapSource, onStartRound, resetState, isSocialOrHigher, setCurrentStep]);
+
+  const handleStartSoloRound = useCallback(() => {
+    if (data.selectedCourse) {
+      onStartRound(
+        data.selectedCourse.courseId,
+        data.selectedCourse.courseName,
+        [],
+        data.selectedTee ?? undefined,
+        data.selectedMatchType ?? undefined,
+        undefined,
+        data.ballCount,
+        undefined,
+        undefined,
+        undefined,
+        data.isBuildAsYouPlay || undefined,
+        data.handicapSource
+      );
+      resetState();
+    }
+  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, data.handicapSource, onStartRound, resetState]);
+
+  const handleStartScoring = useCallback(() => {
+    if (data.selectedCourse) {
+      const scoringPairsConfig: ScoringPairsConfig | undefined =
+        data.scoringPairsEnabled && data.scoringPairs.length > 0
+          ? {
+              enabled: true,
+              pairs: data.scoringPairs,
+              pairingType: data.scoringPairingType,
+            }
+          : undefined;
+
+      const standaloneSkinsConfig: StandaloneSkinsConfig | undefined =
+        data.skinsEnabled && data.skinsConfig
+          ? {
+              enabled: true,
+              config: data.skinsConfig,
+            }
+          : undefined;
+
+      const teamConfig: TeamConfig | undefined =
+        data.teams.length > 0 && !data.teamsLocked
+          ? {
+              teams: data.teams.map((t) => ({
+                id: t.id,
+                name: t.name,
+                memberIds: t.members.map((m) => m.id),
+              })),
+            }
+          : undefined;
+
+      const standaloneWolfConfig: StandaloneWolfConfig | undefined =
+        data.wolfEnabled && data.wolfConfig
+          ? {
+              enabled: true,
+              config: data.wolfConfig,
+            }
+          : undefined;
+
+      // DEBUG: Log skins configuration being passed to round creation
+      console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
+        skinsEnabled: data.skinsEnabled,
+        hasSkinsConfig: !!data.skinsConfig,
+        skinsConfig: data.skinsConfig,
+        standaloneSkinsConfig,
+        partnersCount: data.selectedPartners.length,
+      });
+
+      // DEBUG: Log Wolf configuration being passed to round creation
+      console.log('[CreateRoundWizard] handleStartScoring - Wolf config:', {
+        wolfEnabled: data.wolfEnabled,
+        hasWolfConfig: !!data.wolfConfig,
+        wolfConfig: data.wolfConfig,
+        standaloneWolfConfig,
+        partnersCount: data.selectedPartners.length,
+      });
+
+      onStartRound(
+        data.selectedCourse.courseId,
+        data.selectedCourse.courseName,
+        data.selectedPartners,
+        data.selectedTee ?? undefined,
+        data.selectedMatchType ?? undefined,
+        scoringPairsConfig,
+        undefined,
+        standaloneSkinsConfig,
+        teamConfig,
+        standaloneWolfConfig,
+        data.isBuildAsYouPlay || undefined,
+        data.handicapSource
+      );
+
+      resetState();
+    }
+  }, [data, onStartRound, resetState]);
+
+  const handleClose = useCallback(() => {
+    resetState();
+    onClose();
+  }, [onClose, resetState]);
+
+  return {
+    handleBackToCourse,
+    handleBackToTee,
+    handleBackToMatchType,
+    handleBackToPartners,
+    handleContinueToScoringSetup,
+    handleStartSoloRound,
+    handleStartScoring,
+    handleClose,
+  };
+}

@@ -565,23 +565,13 @@ describe('RoundCard', () => {
       render(
         <RoundCard
           {...createMockProps({
-            status: 'completed',
-            onViewScorecard: jest.fn(),
-          })}
-        />
-      );
-
-      const { UNSAFE_root } = render(
-        <RoundCard
-          {...createMockProps({
             status: 'upcoming',
             onStartRound: jest.fn(),
           })}
         />
       );
 
-      const buttons = UNSAFE_root.findAllByType(require('react-native-paper').Button);
-      expect(buttons.length).toBeGreaterThan(0);
+      expect(screen.getByText('Start Round')).toBeTruthy();
     });
   });
 

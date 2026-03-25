@@ -12,7 +12,7 @@
 
 import React, { useCallback, useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { Text, Portal, Dialog, Button } from 'react-native-paper';
+import { Text, Portal, Dialog } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -408,8 +408,22 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowIncompleteDialog(false)}>Cancel</Button>
-            <Button onPress={performSubmit}>Submit Anyway</Button>
+            <TouchableOpacity
+              onPress={() => setShowIncompleteDialog(false)}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={performSubmit}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.primary }]}>Submit Anyway</Text>
+            </TouchableOpacity>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -424,7 +438,14 @@ export default function MatchPlayScorecardScreen({ navigation, route }: Props) {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowSubmitErrorDialog(false)}>OK</Button>
+            <TouchableOpacity
+              onPress={() => setShowSubmitErrorDialog(false)}
+              style={styles.dialogButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dialogButtonText, { color: colors.primary }]}>OK</Text>
+            </TouchableOpacity>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -505,6 +526,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitButtonText: {
+    ...typography.bodyBold,
+  },
+  dialogButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  dialogButtonText: {
     ...typography.bodyBold,
   },
 });

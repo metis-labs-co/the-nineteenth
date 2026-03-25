@@ -37,6 +37,7 @@ export type RootStackParamList = {
   AddRound: { competitionId: string };
   EditRound: { roundId: string; competitionId?: string }; // Edit round details (organizers only)
   ViewRound: { roundId: string; competitionId?: string }; // For standalone or competition rounds
+  RoundSettings: { roundId: string; competitionId?: string }; // Round settings (organizers only)
 
   // Scorecard
   Scorecard: { roundId: string; competitionId: string; isBuildAsYouPlay?: boolean };
@@ -83,6 +84,8 @@ export type RootStackParamList = {
   LeagueSettings: { leagueId: string };
   TagRoundToLeague: { leagueId: string };
   ChallengeDetail: { challengeId: string; leagueId: string };
+  PartnershipSetup: { leagueId: string };
+  TagPartnershipRound: { leagueId: string; partnershipId: string };
   FriendProfile: { friendId: string };
 
   // Stats Comparison

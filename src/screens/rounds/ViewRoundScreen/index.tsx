@@ -24,21 +24,17 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorState } from '@/components/common/ErrorState';
-import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { Tabs } from '@/components/common/Tabs';
 import {
   RoundDetailsTab,
-  RoundGameSetupTab,
   RoundScorecardTab,
 } from '@/components/rounds/ViewRound';
-import { ScoringPairsConfigBottomSheet } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
-import { SkinsConfigBottomSheet } from '@/components/skins';
 import { CourseSelectionModal } from '../../admin/AddRoundScreen/components';
 import { TagToLeagueBottomSheet } from '@/components/leagues/TagToLeagueBottomSheet';
 import { FeatureLockCompact } from '@/components/subscription/FeatureLockCompact';
 import { Pill } from '@/components/common/Pill';
 import { COMPETITION_TYPE_LABELS } from '@/components/rounds/ViewRound/RoundDetailsTab/constants';
-import type { Player, Hole } from '@/types';
+import type { Hole } from '@/types';
 import type { SkinsResultWithWinner } from '@/types/database/skins.types';
 
 import { useViewRoundScreen, type TabKey } from './useViewRoundScreen';
@@ -142,13 +138,12 @@ export default function ViewRoundScreen(props: Props) {
         showBack
         onBack={vm.handleBack}
         rightActions={
-          vm.canDelete
+          vm.isOrganizer
             ? [
                 {
-                  icon: 'delete-outline',
-                  onPress: vm.handleDeletePress,
-                  accessibilityLabel: 'Delete round',
-                  color: colors.error,
+                  icon: 'cog-outline',
+                  onPress: vm.handleSettingsPress,
+                  accessibilityLabel: 'Round settings',
                 },
               ]
             : undefined
@@ -255,15 +250,6 @@ export default function ViewRoundScreen(props: Props) {
             onCourseSelectPress={vm.handleCourseSelectPress}
           />
         )}
-        {vm.activeTab === 'gameSetup' && (
-          <RoundGameSetupTab
-            round={round}
-            isOrganizer={vm.isOrganizer}
-            players={(vm.roundPlayers || []) as Player[]}
-            onScoringPairsEditPress={vm.handleScoringPairsEditPress}
-            onSkinsEditPress={vm.handleSkinsEditPress}
-          />
-        )}
         {vm.activeTab === 'scorecard' && (
           <RoundScorecardTab
             scorecards={vm.scorecards || []}
@@ -271,6 +257,8 @@ export default function ViewRoundScreen(props: Props) {
             holes={round.course?.holes || null}
             onPlayerPress={vm.handlePlayerPress}
             selectedTeeData={round.selected_tee}
+            gameType={round.game_type}
+            handicapSource={round.handicap_source ?? undefined}
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
@@ -370,48 +358,12 @@ export default function ViewRoundScreen(props: Props) {
       </ScrollView>
 
       {/* Modals and Bottom Sheets - rendered last to appear on top */}
-      <ConfirmationDialog
-        visible={vm.showDeleteDialog}
-        title="Delete Round"
-        message={vm.getDeleteMessage()}
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        onConfirm={vm.handleDeleteConfirm}
-        onCancel={vm.handleDeleteCancel}
-        loading={vm.isDeleting}
-        icon="delete-outline"
-      />
-
       <CourseSelectionModal
         visible={vm.showCourseModal}
         onClose={vm.handleCourseModalClose}
         onSelect={vm.handleCourseSelect}
         searchQuery={vm.courseSearchQuery}
         onSearchQueryChange={vm.setCourseSearchQuery}
-      />
-
-      <ScoringPairsConfigBottomSheet
-        visible={vm.showScoringPairsSheet}
-        onDismiss={vm.handleScoringPairsSheetClose}
-        roundId={vm.roundId}
-        competitionId={vm.competitionId}
-        scoringPairsRequired={round?.scoring_pairs_required ?? false}
-      />
-
-      <SkinsConfigBottomSheet
-        visible={vm.showSkinsConfigSheet}
-        onDismiss={vm.handleSkinsConfigClose}
-        initialConfig={
-          vm.skinsGames?.[0]
-            ? {
-                pot_type: vm.skinsGames[0].pot_type,
-                pot_value: vm.skinsGames[0].pot_value,
-                scoring_type: vm.skinsGames[0].scoring_type,
-                currency: vm.skinsGames[0].currency,
-              }
-            : null
-        }
-        onSave={vm.handleSkinsConfigSave}
       />
 
       {/* Tag to League Bottom Sheet */}
@@ -423,8 +375,6 @@ export default function ViewRoundScreen(props: Props) {
         />
       )}
 
-      {/* Alert Dialog */}
-      <ConfirmationDialog {...vm.dialogConfig} onCancel={vm.dismissDialog} />
     </View>
   );
 }
