@@ -5,11 +5,13 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useUpdateCourseHoles, useDeleteCourse } from '@/hooks';
 import { useUpdateCourse } from '@/hooks/useUpdateCourse';
 import { useUpdateTee } from '@/hooks/useTees';
 import { courseService } from '@/services/courses/courseService';
+import { clubKeys, courseKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Hole, TeeBox } from '@/types/database.types';
@@ -46,6 +48,7 @@ export function useCourseAdminActions({
   dismissDialog,
 }: UseCourseAdminActionsOptions) {
   const isSuperAdmin = useIsSuperAdmin();
+  const queryClient = useQueryClient();
 
   // Editing state
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
@@ -148,6 +151,13 @@ export function useCourseAdminActions({
       const result = await courseService.importCourse(course.golfapi_course_id);
       await refetch();
       await refetchCoords();
+
+      // Invalidate parent list queries so course list and club detail screens pick up changes
+      queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: clubKeys.withCourses() });
+      if (course.club?.id) {
+        queryClient.invalidateQueries({ queryKey: clubKeys.detail(course.club.id) });
+      }
 
       const messages = ['Course data refreshed from Golf API.'];
       if (result.coordinatesImported > 0) {

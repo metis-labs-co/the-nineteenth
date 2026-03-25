@@ -32,6 +32,7 @@ import { useCoordinateSummary } from '@/hooks';
 import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useFormattedDistance } from '@/store/settingsStore';
+import { useIsSocial } from '@/store/subscriptionStore';
 import { EditHoleBottomSheet, EditCourseBottomSheet, EditTeeBottomSheet } from '@/components/courses';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -52,6 +53,7 @@ export default function CourseScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
 
   const { formatDistance } = useFormattedDistance();
+  const isSocialOrHigher = useIsSocial();
 
   // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
@@ -254,7 +256,7 @@ export default function CourseScreen({ route, navigation }: Props) {
   // Build header right actions
   const headerRightActions = (() => {
     const actions = [
-      ...(!isSuperAdmin && course.golfapi_course_id
+      ...(isSocialOrHigher && course.golfapi_course_id
         ? [{
             icon: isRefreshingFromApi ? 'loading' : 'refresh',
             onPress: handleRefreshFromApi,
@@ -419,24 +421,6 @@ export default function CourseScreen({ route, navigation }: Props) {
             </TouchableOpacity>
           )}
 
-          {/* Super Admin Actions */}
-          {isSuperAdmin && (
-            <View style={[styles.adminActions, { borderTopColor: colors.border }]}>
-              {course.golfapi_course_id && (
-                <TouchableOpacity
-                  style={[styles.adminActionButton, { borderColor: colors.border }]}
-                  activeOpacity={0.7}
-                  onPress={handleRefreshFromApi}
-                  disabled={isRefreshingFromApi}
-                >
-                  <Icon source={isRefreshingFromApi ? 'loading' : 'refresh'} size={18} color={colors.primary} />
-                  <Text style={[styles.adminActionText, { color: colors.primary }]}>
-                    {isRefreshingFromApi ? 'Refreshing...' : 'Refresh from API'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
         </View>
 
         {/* Tee Selector */}
@@ -690,26 +674,5 @@ const styles = StyleSheet.create({
   featureButtonContainer: {
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-  },
-
-  // Admin Actions
-  adminActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  adminActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  adminActionText: {
-    ...typography.smallBold,
   },
 });
