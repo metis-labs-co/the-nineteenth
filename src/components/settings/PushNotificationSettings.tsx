@@ -178,6 +178,13 @@ export const PushNotificationSettings = React.memo(function PushNotificationSett
     [updatePreferences]
   );
 
+  const handleSideGameUpdatesChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushSideGameUpdates: enabled });
+    },
+    [updatePreferences]
+  );
+
   // Get permission status text and icon
   const getPermissionStatusInfo = () => {
     if (!isPhysicalDevice) {
@@ -331,6 +338,16 @@ export const PushNotificationSettings = React.memo(function PushNotificationSett
             disabled={isUpdatingPreferences}
             accessibilityLabel="League updates notifications toggle"
             testID={testID ? `${testID}-league-toggle` : undefined}
+          />
+
+          <SettingRow
+            label="Side Games & Payouts"
+            description="Skins, Wolf, and prize pool results"
+            value={preferences?.pushSideGameUpdates ?? true}
+            onValueChange={handleSideGameUpdatesChange}
+            disabled={isUpdatingPreferences}
+            accessibilityLabel="Side games and payouts notifications toggle"
+            testID={testID ? `${testID}-side-games-toggle` : undefined}
           />
         </View>
       )}

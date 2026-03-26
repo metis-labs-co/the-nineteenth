@@ -10,7 +10,7 @@
 
 **Information you provide:**
 - Account information: email address, name, profile photo
-- Golf profile: handicap, Golf Australia ID (optional), home club (optional)
+- Golf profile: handicap, National Golf ID (optional), home club (optional)
 - Competition data: scores, rounds, competition participation
 - Social connections: friends list and player comparisons
 

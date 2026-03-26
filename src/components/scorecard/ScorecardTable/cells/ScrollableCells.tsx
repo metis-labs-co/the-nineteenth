@@ -10,13 +10,14 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet as RNStyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { getScoreColor, calculateParScore, getStrokesReceived } from '@/utils/scoring';
-import { getFirstName } from '@/utils/displayHelpers';
+import { getScoreColor, calculateParScore, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
+import { getFirstName, getScoreBackgroundColor } from '@/utils/displayHelpers';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { PICKUP_SCORE } from '@/constants/scoring';
 import { ScoreIndicator } from '../../ScoreIndicator';
-import { spacing } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
 import { styles } from '../styles';
-import type { ScorecardTablePlayer } from '../types';
+import type { ScorecardTablePlayer, ScoreDisplayMode } from '../types';
 import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
 import type { PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
@@ -135,6 +136,7 @@ interface ScrollableHoleCellsProps {
   players: ScorecardTablePlayer[];
   playerCellWidth: number;
   gameType?: string;
+  scoreDisplayMode?: ScoreDisplayMode;
 }
 
 export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
@@ -142,6 +144,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
   players,
   playerCellWidth,
   gameType,
+  scoreDisplayMode,
 }: ScrollableHoleCellsProps) {
   const colors = useThemeColors();
 
@@ -150,6 +153,34 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
       {players.map((playerData) => {
         const score = playerData.scores?.[String(hole.number)];
         const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
+
+        // Stableford points mode: show points with colored pills
+        if (scoreDisplayMode === 'points' && gameType === 'stableford') {
+          if (!strokes || strokes === 0) {
+            return (
+              <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
+                <Text style={[pointsPillStyles.text, { color: colors.textSecondary }]}>-</Text>
+              </View>
+            );
+          }
+
+          const handicap = playerData.player?.handicap ?? 0;
+          const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+          const netStrokes = strokes - strokesReceived;
+          const points = strokes >= PICKUP_SCORE
+            ? 0
+            : calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
+          const bgColor = getScoreBackgroundColor(netStrokes, hole.par, colors);
+          const textColor = getScoreColor(netStrokes, hole.par, colors);
+
+          return (
+            <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
+              <View style={[pointsPillStyles.pill, bgColor ? { backgroundColor: bgColor } : undefined]}>
+                <Text style={[pointsPillStyles.text, { color: textColor }]}>{points}</Text>
+              </View>
+            </View>
+          );
+        }
 
         // For par game type, show +1/0/-1 instead of strokes
         if (gameType === 'par' && strokes !== undefined && strokes > 0) {
@@ -162,6 +193,22 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
           return (
             <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
               <Text style={[styles.parScoreText, { color: parScoreColor }]}>{parScoreText}</Text>
+            </View>
+          );
+        }
+
+        // Show stableford points below stroke score for stableford game type
+        if (gameType === 'stableford' && strokes && strokes > 0 && strokes < PICKUP_SCORE) {
+          const handicap = playerData.player?.handicap ?? 0;
+          const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+          const points = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
+
+          return (
+            <View key={playerData.id} style={[styles.tableCell, cellSizeStyle(playerCellWidth)]}>
+              <ScoreIndicator strokes={strokes} par={hole.par} display="compact" />
+              <Text style={[styles.stablefordSubscript, { color: colors.textSecondary }]}>
+                {points}pt
+              </Text>
             </View>
           );
         }
@@ -185,6 +232,7 @@ interface ScrollableSubtotalCellsProps {
   isBack9: boolean;
   playerCellWidth: number;
   gameType?: string;
+  scoreDisplayMode?: ScoreDisplayMode;
 }
 
 export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCells({
@@ -192,12 +240,28 @@ export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCel
   isBack9,
   playerCellWidth,
   gameType,
+  scoreDisplayMode,
 }: ScrollableSubtotalCellsProps) {
   const colors = useThemeColors();
 
   return (
     <>
       {playerStats.map((stats) => {
+        // Stableford points mode: show point subtotals
+        if (scoreDisplayMode === 'points' && gameType === 'stableford') {
+          const stableford = isBack9 ? stats.back9Stableford : stats.front9Stableford;
+          return (
+            <View
+              key={stats.playerId}
+              style={[styles.tableCell, styles.subtotalCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.surfaceVariant }]}
+            >
+              <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
+                {stats.hasScores ? stableford : '-'}
+              </Text>
+            </View>
+          );
+        }
+
         // For par game type, show par score subtotal
         if (gameType === 'par') {
           const parScore = isBack9 ? stats.back9ParScore : stats.front9ParScore;
@@ -216,6 +280,7 @@ export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCel
         }
 
         const gross = isBack9 ? stats.back9Gross : stats.front9Gross;
+        const stableford = isBack9 ? stats.back9Stableford : stats.front9Stableford;
         return (
           <View
             key={stats.playerId}
@@ -224,6 +289,11 @@ export const ScrollableSubtotalCells = React.memo(function ScrollableSubtotalCel
             <Text style={[styles.subtotalText, { color: colors.textPrimary }]}>
               {gross || '-'}
             </Text>
+            {gameType === 'stableford' && stats.hasScores && (
+              <Text style={[styles.stablefordSubscript, { color: colors.textSecondary }]}>
+                {stableford}pt
+              </Text>
+            )}
           </View>
         );
       })}
@@ -239,12 +309,14 @@ interface ScrollableGrossCellsProps {
   playerStats: PlayerStats[];
   parTotals: ParTotals;
   playerCellWidth: number;
+  gameType?: string;
 }
 
 export const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
   playerStats,
   parTotals,
   playerCellWidth,
+  gameType,
 }: ScrollableGrossCellsProps) {
   const colors = useThemeColors();
 
@@ -258,6 +330,11 @@ export const ScrollableGrossCells = React.memo(function ScrollableGrossCells({
           <Text style={[styles.totalText, { color: getScoreColor(stats.totalGross, parTotals.total, colors) }]}>
             {stats.totalGross || '-'}
           </Text>
+          {gameType === 'stableford' && stats.hasScores && (
+            <Text style={[styles.stablefordSubscript, { color: colors.textSecondary }]}>
+              {stats.totalStableford}pt
+            </Text>
+          )}
         </View>
       ))}
     </>
@@ -305,18 +382,33 @@ interface ScrollableStablefordCellsProps {
   playerStats: PlayerStats[];
   playerCellWidth: number;
   gameType?: string;
+  /** When true, show "-" instead of totals (used when a dedicated Pts column exists) */
+  hideTotals?: boolean;
 }
 
 export const ScrollableStablefordCells = React.memo(function ScrollableStablefordCells({
   playerStats,
   playerCellWidth,
   gameType,
+  hideTotals,
 }: ScrollableStablefordCellsProps) {
   const colors = useThemeColors();
 
   return (
     <>
       {playerStats.map((stats) => {
+        // When a dedicated Pts column exists (solo stableford), don't duplicate the total here
+        if (hideTotals) {
+          return (
+            <View
+              key={stats.playerId}
+              style={[styles.tableCell, styles.stablefordCell, { ...cellSizeStyle(playerCellWidth), backgroundColor: colors.primary }]}
+            >
+              <Text style={[styles.stablefordText, { color: colors.textOnColored }]}>-</Text>
+            </View>
+          );
+        }
+
         // For par game type, show total par score in +3/-2/E format
         if (gameType === 'par') {
           const parScore = stats.totalParScore;
@@ -346,4 +438,23 @@ export const ScrollableStablefordCells = React.memo(function ScrollableStablefor
       })}
     </>
   );
+});
+
+// =====================================================
+// POINTS PILL STYLES
+// =====================================================
+
+const pointsPillStyles = RNStyleSheet.create({
+  pill: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  text: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

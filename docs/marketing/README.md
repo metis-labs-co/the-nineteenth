@@ -43,7 +43,7 @@ This folder contains ready-to-use marketing copy extracted from the project docu
 1. **Competition-first** (not individual scoring with leaderboard added)
 2. **Group scoring** (one device for whole fourball)
 3. **True offline** (full functionality without signal)
-4. **Australian-built** (Golf Australia handicaps, local formats)
+4. **Australian-built** (WHS handicaps, local formats)
 
 ---
 

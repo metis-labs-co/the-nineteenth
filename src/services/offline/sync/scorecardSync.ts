@@ -233,9 +233,9 @@ function calculateHandicapData(scorecard: Scorecard): {
       courseRatingUsed = ratings.courseRating;
       slopeRatingUsed = ratings.slopeRating;
 
-      // Calculate daily handicap if player has a GA handicap
+      // Calculate daily handicap if player has a WHS handicap index
       if (playerHandicap != null) {
-        // Capture the GA handicap used for this round (historical snapshot)
+        // Capture the WHS handicap index used for this round (historical snapshot)
         gaHandicapUsed = playerHandicap;
 
         const dailyResult = calculateGADailyHandicap({

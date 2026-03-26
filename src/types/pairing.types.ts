@@ -75,7 +75,7 @@ export interface PairingPlayer {
   handicap: number | null;
   /** Social Handicap Index (calculated from app rounds) */
   handicapIndex?: number | null;
-  /** Player gender for GA daily handicap consistency factor */
+  /** Player gender for WHS daily handicap consistency factor */
   gender?: 'male' | 'female' | null;
   photoUrl?: string | null;
 }

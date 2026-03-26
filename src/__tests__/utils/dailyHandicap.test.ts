@@ -1,10 +1,10 @@
 /**
  * Daily Handicap Utility Tests
  *
- * Tests for the Golf Australia 2025 Daily Handicap calculation.
+ * Tests for the WHS Daily Handicap calculation.
  *
- * GA Formula (18-hole):
- * Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+ * WHS Formula (18-hole):
+ * Daily HC = ((Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  *
  * Consistency Factors:
  * - Men/Boys: 0.9986
@@ -26,7 +26,7 @@ describe('Daily Handicap Calculation', () => {
   // ============================================================================
 
   describe('Constants', () => {
-    it('has correct GA handicap multiplier', () => {
+    it('has correct WHS handicap multiplier', () => {
       expect(GA_HANDICAP_MULTIPLIER).toBe(0.93);
     });
 
@@ -186,7 +186,7 @@ describe('Daily Handicap Calculation', () => {
           gender: 'male',
         });
 
-        // Course HC should be exactly the GA handicap when slope is 113
+        // Course HC should be exactly the handicap index when slope is 113
         expect(result.courseHandicap).toBe(18.0);
       });
 
@@ -274,7 +274,7 @@ describe('Daily Handicap Calculation', () => {
         expect(result.courseHandicap).toBeCloseTo(39.8, 1);
       });
 
-      it('handles 54 handicap (maximum GA handicap)', () => {
+      it('handles 54 handicap (maximum WHS handicap)', () => {
         // HC 54, Slope 125, CR 72.5, Par 72
         // Course HC: 54 × 125 ÷ 113 = 59.73
         // Adjustment: 0.5

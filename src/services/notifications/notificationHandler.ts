@@ -95,6 +95,15 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
 
   // Round completed -> ViewRound
   round_completed: 'ViewRound',
+
+  // Side-game notifications -> ViewRound (skins/wolf are round-level)
+  skins_game_completed: 'ViewRound',
+  skins_game_cancelled: 'ViewRound',
+  wolf_game_completed: 'ViewRound',
+  wolf_game_cancelled: 'ViewRound',
+
+  // Prize pool -> CompetitionDetail
+  prize_pool_settled: 'CompetitionDetail',
 };
 
 // =====================================================
@@ -566,6 +575,13 @@ export function getCategoryForNotificationType(
     case 'partnership_created':
     case 'partnership_round_tagged':
       return NotificationCategories.LEAGUE;
+
+    case 'skins_game_completed':
+    case 'skins_game_cancelled':
+    case 'wolf_game_completed':
+    case 'wolf_game_cancelled':
+    case 'prize_pool_settled':
+      return NotificationCategories.SIDE_GAME;
 
     default:
       return undefined;

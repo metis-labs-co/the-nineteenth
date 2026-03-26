@@ -58,6 +58,7 @@ export interface Notification {
   round_id: string | null; // UUID, references rounds(id)
   player_id: string | null; // UUID, references players(id) - sender/related player
   friendship_id: string | null; // UUID, references friendships(id)
+  league_id: string | null; // UUID, references leagues(id)
   is_read: boolean;
   read_at: string | null; // ISO timestamp
   created_at: string; // ISO timestamp

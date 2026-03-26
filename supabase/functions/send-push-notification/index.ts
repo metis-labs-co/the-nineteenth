@@ -103,6 +103,13 @@ const NOTIFICATION_CATEGORY_MAP: Record<string, string> = {
   league_player_removed: 'LEAGUE',
   league_round_tagged: 'LEAGUE',
   league_leaderboard_changed: 'LEAGUE',
+  partnership_created: 'LEAGUE',
+  partnership_round_tagged: 'LEAGUE',
+  skins_game_completed: 'SIDE_GAME',
+  skins_game_cancelled: 'SIDE_GAME',
+  wolf_game_completed: 'SIDE_GAME',
+  wolf_game_cancelled: 'SIDE_GAME',
+  prize_pool_settled: 'SIDE_GAME',
 };
 
 // Android notification channels
@@ -121,6 +128,13 @@ const ANDROID_CHANNEL_MAP: Record<string, string> = {
   league_player_removed: 'league-updates',
   league_round_tagged: 'league-updates',
   league_leaderboard_changed: 'league-updates',
+  partnership_created: 'league-updates',
+  partnership_round_tagged: 'league-updates',
+  skins_game_completed: 'side-game-updates',
+  skins_game_cancelled: 'side-game-updates',
+  wolf_game_completed: 'side-game-updates',
+  wolf_game_cancelled: 'side-game-updates',
+  prize_pool_settled: 'side-game-updates',
 };
 
 // =====================================================

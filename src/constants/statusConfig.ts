@@ -107,7 +107,7 @@ export const GAME_TYPE_LABELS: Record<GameType, string> = {
  */
 export const HANDICAP_SYSTEM_LABELS: Record<HandicapSystem, string> = {
   honor: 'Honour System',
-  'golf-australia': 'Golf Australia',
+  whs: 'World Handicap System',
   'gross-only': 'Gross Only',
 };
 

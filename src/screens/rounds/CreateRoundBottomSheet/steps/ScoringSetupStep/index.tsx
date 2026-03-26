@@ -137,6 +137,7 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             onHandicapSourceChange={onHandicapSourceChange}
             selectedTee={selectedTee}
             holes={selectedCourse?.holes}
+            selectedPartners={selectedPartners}
           />
 
           {/* Scoring Pairs Toggle - Premium Feature */}

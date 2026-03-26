@@ -86,8 +86,8 @@ describe('handicapUtils', () => {
       });
     });
 
-    describe('with course rating and par (GA 2025 formula)', () => {
-      // GA Formula: Daily HC = ((GA HC × Slope ÷ 113) + (CR − Par)) × 0.93 × 0.9986
+    describe('with course rating and par (WHS formula)', () => {
+      // WHS Formula: Daily HC = ((HC × Slope ÷ 113) + (CR − Par)) × 0.93 × 0.9986
       // Then apply game type allowance (default 95%)
 
       it('adjusts for course rating above par', () => {
@@ -122,8 +122,8 @@ describe('handicapUtils', () => {
       });
     });
 
-    describe('with gender parameter (GA 2025 formula)', () => {
-      // GA Formula: Daily HC = ((GA HC × Slope ÷ 113) + (CR − Par)) × 0.93 × consistencyFactor
+    describe('with gender parameter (WHS formula)', () => {
+      // WHS Formula: Daily HC = ((HC × Slope ÷ 113) + (CR − Par)) × 0.93 × consistencyFactor
       // Male consistency factor: 0.9986
       // Female consistency factor: 1.0483
 

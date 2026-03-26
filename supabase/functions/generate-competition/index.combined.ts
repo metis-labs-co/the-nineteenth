@@ -32,7 +32,7 @@ type GameType =
 type TeamMode = 'none' | 'fixed' | 'per-round';
 
 // Handicap system enum
-type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
+type HandicapSystem = 'honor' | 'whs' | 'gross-only';
 
 // Competition type enum
 type CompetitionType = 'knockout' | 'event';
@@ -204,7 +204,7 @@ const gameTypeSchema = z.enum([
 
 const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
 
-const handicapSystemSchema = z.enum(['honor', 'golf-australia', 'gross-only']);
+const handicapSystemSchema = z.enum(['honor', 'whs', 'gross-only']);
 
 const competitionTypeSchema = z.enum(['knockout', 'event']);
 
@@ -350,7 +350,7 @@ You MUST return valid JSON matching this exact schema:
   "competitionType": "event" | "knockout",
   "startDate": "DD/MM/YYYY - First round date (Australian format)",
   "endDate": "DD/MM/YYYY | null - Last round date (for events only)",
-  "handicapSystem": "honor" | "golf-australia" | "gross-only",
+  "handicapSystem": "honor" | "whs" | "gross-only",
   "teamMode": "none" | "fixed" | "per-round",
   "teamSize": number | null (2-4 when teams enabled, null otherwise),
   "rounds": [

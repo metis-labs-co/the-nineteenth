@@ -10,8 +10,10 @@ import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useUpdateCourseHoles, useDeleteCourse } from '@/hooks';
 import { useUpdateCourse } from '@/hooks/useUpdateCourse';
 import { useUpdateTee } from '@/hooks/useTees';
+import { supabase } from '@/services/supabase/client';
 import { courseService } from '@/services/courses/courseService';
-import { clubKeys, courseKeys } from '@/hooks/queryKeys';
+import { clubKeys, courseKeys, teeKeys } from '@/hooks/queryKeys';
+import { resolveTeeYardageKey } from '@/utils/holeTransformers';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Hole, TeeBox } from '@/types/database.types';
@@ -81,17 +83,38 @@ export function useCourseAdminActions({
       );
 
       try {
+        // Update the tees table FIRST if it has per-hole distance data.
+        // This must happen before the JSONB save because the mutation's onSuccess
+        // invalidates course queries and triggers a refetch — if tees aren't updated
+        // yet, hydrateHolesWithTeeYardages overwrites the JSONB edits with stale data.
+        if (course.teesFromTable && course.teesFromTable.length > 0 && updatedHole.yardages) {
+          const lengthColumn = `length_hole_${updatedHole.number}`;
+
+          for (const tee of course.teesFromTable) {
+            const teeKey = resolveTeeYardageKey(tee.color, tee.name);
+            const newDistance = updatedHole.yardages[teeKey];
+
+            if (newDistance !== undefined) {
+              await supabase
+                .from('tees')
+                .update({ [lengthColumn]: newDistance } as never)
+                .eq('id', tee.id);
+            }
+          }
+        }
+
+        // Now save to courses.holes JSONB (triggers onSuccess → query invalidation → refetch)
         await updateCourseHolesMutation.mutateAsync({
           courseId: course.id,
           holes: updatedHoles,
         });
-        refetch();
+
         setEditingHole(null);
       } catch {
         showAlert('Error', 'Failed to save hole data. Please try again.');
       }
     },
-    [course, updateCourseHolesMutation, refetch, showAlert]
+    [course, updateCourseHolesMutation, showAlert]
   );
 
   // Course editing

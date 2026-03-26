@@ -11,7 +11,7 @@
 -- ENUMS
 -- ============================================
 
-CREATE TYPE handicap_system AS ENUM ('honor', 'golf-australia', 'gross-only');
+CREATE TYPE handicap_system AS ENUM ('honor', 'whs', 'gross-only');
 CREATE TYPE game_type AS ENUM ('stableford', 'stroke', 'match-play', 'ambrose', 'best-ball');
 CREATE TYPE australian_state AS ENUM ('NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT');
 CREATE TYPE round_status AS ENUM ('upcoming', 'in-progress', 'completed');

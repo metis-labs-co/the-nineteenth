@@ -1,6 +1,6 @@
 # CreateCompetitionScreen
 
-**File:** `src/screens/admin/CreateCompetitionScreen.tsx`
+**File:** `src/screens/admin/CreateCompetitionScreen/index.tsx`
 
 ## Overview
 

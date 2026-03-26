@@ -22,7 +22,7 @@ export interface SupabasePlayerData {
   email: string | null;
   phone: string | null;
   handicap: number | null;
-  gender?: PlayerGender | null; // For GA Daily Handicap consistency factor
+  gender?: PlayerGender | null; // For WHS Daily Handicap consistency factor
   photo_url?: string | null;
 }
 
@@ -190,7 +190,7 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     email: data.email || '',
     phone: data.phone,
     handicap: data.handicap,
-    gender: data.gender ?? null, // For GA Daily Handicap consistency factor
+    gender: data.gender ?? null, // For WHS Daily Handicap consistency factor
     photo_url: data.photo_url ?? null,
     // Default values for required fields not fetched
     golf_id: null,

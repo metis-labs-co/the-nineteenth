@@ -1,6 +1,6 @@
 # LeaderboardScreen
 
-**File:** `src/screens/player/LeaderboardScreen.tsx`
+**File:** `src/screens/competitions/LeaderboardScreen.tsx`
 
 ## Overview
 

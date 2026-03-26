@@ -1,6 +1,6 @@
 # CompareStatsScreen
 
-**File:** `src/screens/player/CompareStatsScreen.tsx`
+**File:** `src/screens/social/CompareStatsScreen.tsx`
 
 ## Overview
 

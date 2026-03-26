@@ -459,10 +459,10 @@ src/
 - Update all player scorecards simultaneously
 - Show visual feedback for each player
 
-### Australian Golf Specifics
+### Golf Specifics
 - Date format: DD/MM/YYYY
-- Australian states for course search
-- Golf Australia terminology
+- Regional course search
+- WHS (World Handicap System) terminology
 
 ---
 

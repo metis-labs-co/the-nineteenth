@@ -22,7 +22,7 @@ interface GeneratedPreviewProps {
 
 const HANDICAP_LABELS: Record<string, string> = {
   honor: 'Honour System',
-  'golf-australia': 'Golf Australia',
+  whs: 'World Handicap System',
   'gross-only': 'Gross Only',
 };
 

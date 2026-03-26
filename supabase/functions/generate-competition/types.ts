@@ -24,7 +24,7 @@ export type TeamFormat =
 export type TeamMode = 'none' | 'fixed' | 'per-round';
 
 // Handicap system enum
-export type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
+export type HandicapSystem = 'honor' | 'whs' | 'gross-only';
 
 // Competition type enum
 export type CompetitionType = 'knockout' | 'event';

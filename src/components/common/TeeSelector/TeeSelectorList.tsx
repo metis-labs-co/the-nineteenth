@@ -145,16 +145,16 @@ export const TeeSelectorList = memo(function TeeSelectorList({
       {/* Course Banner */}
       {showBanner && courseInfo && (
         <View
-          style={[styles.banner, { backgroundColor: colors.primaryLighter }]}
+          style={[styles.banner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
           testID={testID ? `${testID}-banner` : undefined}
         >
           <IconGolf size={20} color={colors.primary} />
           <View style={styles.bannerText}>
-            <Text style={[styles.bannerName, { color: colors.primaryDark }]}>
+            <Text style={[styles.bannerName, { color: colors.textPrimary }]}>
               {courseInfo.courseName}
             </Text>
             {courseInfo.venue && (
-              <Text style={[styles.bannerLocation, { color: colors.primary }]}>
+              <Text style={[styles.bannerLocation, { color: colors.textSecondary }]}>
                 {courseInfo.venue.name}
                 {(courseInfo.venue.city || courseInfo.venue.state) &&
                   ` · ${[courseInfo.venue.city, courseInfo.venue.state]
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
   },
   bannerText: {

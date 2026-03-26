@@ -36,11 +36,12 @@ export interface EligibleScorecard {
   id: string;
   round_id: string | null;
   player_id: string;
-  handicap_differential: number;
+  handicap_differential: number | null;
   status: string;
   created_at: string;
   course_name: string | null;
   club_name: string | null;
   total_gross: number | null;
   course_id?: string | null;
+  needs_recalculation?: boolean;
 }

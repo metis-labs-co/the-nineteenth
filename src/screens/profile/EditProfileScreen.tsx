@@ -77,8 +77,8 @@ const editProfileSchema = z.object({
     .string()
     .optional()
     .refine(
-      (val) => !val || /^[0-9]{10}$/.test(val),
-      'Golf ID must be exactly 10 digits'
+      (val) => !val || /^[A-Za-z0-9]{4,15}$/.test(val),
+      'Golf ID must be 4-15 alphanumeric characters'
     ),
 });
 
@@ -442,12 +442,12 @@ export default function EditProfileScreen() {
                 onChangeText={onChange}
                 onBlur={onBlur}
                 placeholder="1234567890"
-                keyboardType="number"
-                maxLength={10}
+                keyboardType="default"
+                maxLength={15}
                 error={errors.golf_id?.message}
-                hint="10-digit Golf Australia ID (check the GA app)"
-                leftAffix="GA:"
-                accessibilityHint="Enter your 10-digit Golf Australia ID"
+                hint="Your national golf body ID"
+                leftAffix="ID:"
+                accessibilityHint="Enter your national golf body ID"
               />
             )}
           />

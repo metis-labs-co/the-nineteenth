@@ -73,7 +73,7 @@ export interface SignupCredentials {
   name: string;
   phone?: string;
   handicap?: number;
-  golf_id?: string; // 10-digit Golf Australia ID
+  golf_id?: string; // 4-15 character national golf body ID
 }
 
 /**
@@ -121,10 +121,10 @@ export interface ProfileUpdateInput {
   name?: string;
   phone?: string;
   handicap?: number;
-  golf_id?: string; // 10-digit Golf Australia ID
+  golf_id?: string; // 4-15 character national golf body ID
   handicap_updated_at?: string; // ISO timestamp
   photoUrl?: string;
-  gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
+  gender?: 'male' | 'female' | null; // For WHS Daily Handicap consistency factor
   home_club_id?: string | null;
 }
 

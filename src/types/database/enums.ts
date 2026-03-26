@@ -58,7 +58,12 @@ export type NotificationType =
   | 'league_leaderboard_changed'
   | 'partnership_created'
   | 'partnership_round_tagged'
-  | 'round_completed';
+  | 'round_completed'
+  | 'skins_game_completed'
+  | 'skins_game_cancelled'
+  | 'wolf_game_completed'
+  | 'wolf_game_cancelled'
+  | 'prize_pool_settled';
 
 // Feature enums
 export type TierFeature =

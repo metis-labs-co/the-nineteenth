@@ -185,16 +185,16 @@ export const PartnersStep = memo(function PartnersStep({
         keyboardShouldPersistTaps="handled"
       >
         {/* Selected Course & Match Type Banner */}
-        <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
+        <View style={[styles.selectedBanner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
           <IconGolf size={20} color={colors.primary} />
           <View style={styles.selectedBannerText}>
-            <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
+            <Text style={[styles.selectedBannerName, { color: colors.textPrimary }]}>
               {selectedCourse?.courseName}
               {selectedTee && (
                 <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
               )}
             </Text>
-            <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
+            <Text style={[styles.selectedBannerLocation, { color: colors.textSecondary }]}>
               {selectedCourse?.venue && (
                 <>
                   {selectedCourse.venue.name}
@@ -243,7 +243,7 @@ export const PartnersStep = memo(function PartnersStep({
           activeOpacity={0.8}
         >
           <Text style={[styles.continueButtonText, { color: colors.white }]}>
-            {selectedPartners.length === 0 ? 'Start Solo Round' : 'Continue'}
+            Continue
           </Text>
         </TouchableOpacity>
       </View>
@@ -277,6 +277,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
   },
   selectedBannerText: {

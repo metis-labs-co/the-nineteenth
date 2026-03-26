@@ -224,7 +224,7 @@ BEGIN
         'prize_payout',
         -(SELECT payout_amount FROM prize_pool_placements WHERE id = v_placement.id),
         'Prize payout for position ' || v_placement.position,
-        0
+        get_pool_balance(p_pool_id)
       );
     END IF;
   END LOOP;
@@ -246,7 +246,7 @@ BEGIN
   WHERE pool_id = COALESCE(NEW.pool_id, OLD.pool_id);
 
   IF v_total > 100 THEN
-    RAISE EXCEPTION 'Placement percentages cannot exceed 100%% (current total: %%)', v_total;
+    RAISE EXCEPTION 'Placement percentages cannot exceed 100%% (current total: %)', v_total;
   END IF;
 
   RETURN COALESCE(NEW, OLD);

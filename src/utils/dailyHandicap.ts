@@ -1,8 +1,8 @@
 /**
- * Golf Australia Daily Handicap Calculation
+ * WHS Daily Handicap Calculation
  *
- * Implements the GA 2025 Daily Handicap formula:
- * Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+ * Implements the WHS Daily Handicap formula:
+ * Daily HC = ((WHS Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  *
  * Consistency Factors:
  * - Men/Boys: 0.9986
@@ -20,7 +20,7 @@ import type { DailyHandicapParams, DailyHandicapResult } from '@/types/handicap.
 // =====================================================
 
 /**
- * GA handicap multiplier applied to the intermediate calculation
+ * WHS handicap multiplier applied to the intermediate calculation
  * This reduces the daily handicap compared to course handicap
  */
 export const GA_HANDICAP_MULTIPLIER = 0.93;
@@ -50,13 +50,13 @@ export function getConsistencyFactor(gender: 'male' | 'female' | null | undefine
 }
 
 /**
- * Calculate GA Daily Handicap
+ * Calculate WHS Daily Handicap
  *
- * Applies the Golf Australia 2025 formula:
- * Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+ * Applies the WHS formula:
+ * Daily HC = ((WHS Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  *
  * @param params - Calculation parameters
- * @param params.gaHandicap - Player's GA Handicap Index
+ * @param params.gaHandicap - Player's WHS Handicap Index
  * @param params.slopeRating - Course/tee slope rating (default: 113)
  * @param params.courseRating - Course/tee scratch rating (default: par)
  * @param params.par - Course par (sum of hole pars)
@@ -93,14 +93,14 @@ export function calculateGADailyHandicap(params: DailyHandicapParams): DailyHand
   const consistencyFactor = getConsistencyFactor(gender);
 
   // Step 1: Calculate course handicap
-  // Course HC = GA Handicap × Slope ÷ 113
+  // Course HC = WHS Handicap Index × Slope ÷ 113
   const courseHandicap = (gaHandicap * slopeRating) / STANDARD_SLOPE_RATING;
 
   // Step 2: Add course rating adjustment
   // Adjustment = Course Rating - Par
   const courseRatingAdjustment = effectiveCourseRating - par;
 
-  // Step 3: Apply GA multiplier and consistency factor
+  // Step 3: Apply WHS multiplier and consistency factor
   // Raw Daily HC = (Course HC + Adjustment) × 0.93 × Consistency Factor
   const rawDailyHandicap =
     (courseHandicap + courseRatingAdjustment) * GA_HANDICAP_MULTIPLIER * consistencyFactor;

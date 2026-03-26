@@ -47,7 +47,7 @@ Phase 1 is about **validation, not perfection**. Build the simplest version that
 - [x] Competition name (required)
 - [x] Description (optional, text area)
 - [x] Start date (required, date picker)
-- [x] Handicap system (dropdown: Honor System, Golf Australia, Gross Only)
+- [x] Handicap system (dropdown: Honor System, WHS, Gross Only)
 - [x] Private competition (checkbox, default checked)
 
 **Step 2: Add Round (SINGLE ROUND ONLY)**

@@ -121,6 +121,11 @@ export const styles = StyleSheet.create({
     ...typography.bodyBold,
     textAlign: 'center',
   },
+  stablefordSubscript: {
+    fontSize: 10,
+    lineHeight: 12,
+    textAlign: 'center' as const,
+  },
 });
 
 export default styles;

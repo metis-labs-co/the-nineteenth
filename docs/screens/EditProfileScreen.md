@@ -4,7 +4,7 @@
 
 ## Overview
 
-Form screen for editing player profile data including name, phone number, handicap, and Golf Australia ID. Uses React Hook Form with Zod validation and integrates with the auth hook for profile updates.
+Form screen for editing player profile data including name, phone number, handicap, and National Golf ID. Uses React Hook Form with Zod validation and integrates with the auth hook for profile updates.
 
 ## Features
 

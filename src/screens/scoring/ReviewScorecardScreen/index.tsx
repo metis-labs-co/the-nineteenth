@@ -18,6 +18,7 @@ import {
   ScrollView,
   RefreshControl,
   useWindowDimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -28,7 +29,9 @@ import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable, Contribut
 import { PageHeader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
 import { MismatchResolutionModal } from '@/components/scoring';
-import { spacing } from '@/constants/theme';
+import { Text } from 'react-native-paper';
+import { spacing, typography, borderRadius } from '@/constants/theme';
+import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
@@ -78,6 +81,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('scorecard');
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
+  const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>('strokes');
 
   // Authentication
   const { player } = useAuth();
@@ -418,51 +422,98 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
 
       {/* Tab Content */}
       {activeTab === 'scorecard' && (
-        /* Scorecard Content - Different view for scramble vs individual */
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 100 },
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.textPrimary]}
-              tintColor={colors.textPrimary}
-            />
-          }
-          showsVerticalScrollIndicator={true}
-        >
-          {isScramble ? (
-            <>
-              {/* Team selector */}
-              <ScrambleTeamSelector
-                teams={scrambleTeams}
-                selectedIndex={selectedTeamIndex}
-                onSelectTeam={setSelectedTeamIndex}
-                getTeamPlayers={getScrambleTeamPlayersByIndex}
-              />
-              {/* Selected team's scorecard */}
-              <ScrambleScorecardTable
-                holes={holes}
-                teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
-                teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
-                getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
-                onHolePress={handleHolePress}
-              />
-            </>
-          ) : (
-            <ScorecardTable
-              players={tablePlayerData}
-              holes={holes}
-              screenWidth={screenWidth}
-              onHolePress={handleHolePress}
-              gameType={effectiveGameType}
-            />
+        <>
+          {/* Stableford score display toggle */}
+          {effectiveGameType === 'stableford' && (
+            <View style={styles.segmentedControlContainer}>
+              <View style={[styles.segmentedControl, { backgroundColor: colors.surfaceVariant }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    scoreDisplayMode === 'strokes' && [styles.segmentButtonActive, { backgroundColor: colors.primary }],
+                  ]}
+                  onPress={() => setScoreDisplayMode('strokes')}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: scoreDisplayMode === 'strokes' }}
+                  testID="score-display-strokes"
+                >
+                  <Text style={[
+                    styles.segmentText,
+                    { color: scoreDisplayMode === 'strokes' ? colors.textOnColored : colors.textSecondary },
+                    scoreDisplayMode === 'strokes' && styles.segmentTextActive,
+                  ]}>
+                    Strokes
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    scoreDisplayMode === 'points' && [styles.segmentButtonActive, { backgroundColor: colors.primary }],
+                  ]}
+                  onPress={() => setScoreDisplayMode('points')}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: scoreDisplayMode === 'points' }}
+                  testID="score-display-points"
+                >
+                  <Text style={[
+                    styles.segmentText,
+                    { color: scoreDisplayMode === 'points' ? colors.textOnColored : colors.textSecondary },
+                    scoreDisplayMode === 'points' && styles.segmentTextActive,
+                  ]}>
+                    Points
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
-        </ScrollView>
+
+          {/* Scorecard Content - Different view for scramble vs individual */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 100 },
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.textPrimary]}
+                tintColor={colors.textPrimary}
+              />
+            }
+            showsVerticalScrollIndicator={true}
+          >
+            {isScramble ? (
+              <>
+                {/* Team selector */}
+                <ScrambleTeamSelector
+                  teams={scrambleTeams}
+                  selectedIndex={selectedTeamIndex}
+                  onSelectTeam={setSelectedTeamIndex}
+                  getTeamPlayers={getScrambleTeamPlayersByIndex}
+                />
+                {/* Selected team's scorecard */}
+                <ScrambleScorecardTable
+                  holes={holes}
+                  teamName={scrambleTeams[selectedTeamIndex]?.name || 'Team'}
+                  teamHandicap={getScrambleTeamHandicapByIndex(selectedTeamIndex)}
+                  getTeamScore={(holeNumber) => getScrambleTeamScoreByIndex(selectedTeamIndex, holeNumber)}
+                  onHolePress={handleHolePress}
+                />
+              </>
+            ) : (
+              <ScorecardTable
+                players={tablePlayerData}
+                holes={holes}
+                screenWidth={screenWidth}
+                onHolePress={handleHolePress}
+                gameType={effectiveGameType}
+                scoreDisplayMode={scoreDisplayMode}
+              />
+            )}
+          </ScrollView>
+        </>
       )}
 
       {activeTab === 'contributions' && (isScramble || isShamble) && (
@@ -626,5 +677,30 @@ const styles = StyleSheet.create({
   },
   leaderboardScrollContent: {
     flexGrow: 1,
+  },
+  segmentedControlContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: borderRadius.lg,
+    padding: 3,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+  },
+  segmentButtonActive: {
+    // backgroundColor set dynamically
+  },
+  segmentText: {
+    ...typography.small,
+    fontWeight: '500',
+  },
+  segmentTextActive: {
+    fontWeight: '600',
   },
 });

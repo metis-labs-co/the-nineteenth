@@ -146,15 +146,20 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     (data: PushNotificationData) => {
       const nav = navigationRef.current;
 
-      // Navigate based on notification type or data (more specific conditions first)
-      if (data.roundId && data.competitionId) {
+      // Navigate based on notification data (most specific first)
+      // roundId alone is sufficient — standalone rounds have no competitionId
+      if (data.roundId) {
         nav.navigate('ViewRound', {
-          competitionId: data.competitionId,
           roundId: data.roundId,
+          competitionId: data.competitionId,
         });
       } else if (data.competitionId) {
         nav.navigate('CompetitionDetail', {
           id: data.competitionId,
+        });
+      } else if (data.leagueId) {
+        nav.navigate('LeagueDetail', {
+          id: data.leagueId,
         });
       } else if (data.friendshipId || data.type === 'friend_request_received' || data.type === 'friend_request_accepted') {
         nav.navigate('Friends', { fromProfile: true });
@@ -188,10 +193,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         roundId: (rawData as Record<string, unknown>).roundId as string | undefined,
         playerId: (rawData as Record<string, unknown>).playerId as string | undefined,
         friendshipId: (rawData as Record<string, unknown>).friendshipId as string | undefined,
+        leagueId: (rawData as Record<string, unknown>).leagueId as string | undefined,
         data: (rawData as Record<string, unknown>).data as Record<string, unknown> | undefined,
       } : undefined;
 
-      if (data && (data.competitionId || data.roundId || data.friendshipId || data.type)) {
+      if (data && (data.competitionId || data.roundId || data.friendshipId || data.leagueId || data.type)) {
         navigateToNotificationTarget(data as PushNotificationData);
       } else {
         // No data or no navigation context, just go to notifications list
@@ -292,10 +298,20 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       }
       showNotificationToast(notification, () => {
         const nav = navigationRef.current;
-        // Navigate based on notification type
-        if (notification.competition_id) {
+        // Navigate based on notification data
+        // round_id first: round-specific notifications should land on the round
+        if (notification.round_id) {
+          nav.navigate('ViewRound', {
+            roundId: notification.round_id,
+            competitionId: notification.competition_id ?? undefined,
+          });
+        } else if (notification.competition_id) {
           nav.navigate('CompetitionDetail', {
             id: notification.competition_id,
+          });
+        } else if (notification.league_id) {
+          nav.navigate('LeagueDetail', {
+            id: notification.league_id,
           });
         } else if (notification.friendship_id) {
           nav.navigate('Friends', { fromProfile: true });

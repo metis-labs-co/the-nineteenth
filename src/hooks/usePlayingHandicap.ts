@@ -2,8 +2,8 @@
  * usePlayingHandicap - Calculate effective handicap for scoring
  *
  * Encapsulates all handicap logic:
- * 1. Selects base handicap (GA or Social) based on handicap source
- * 2. Calculates daily handicap using GA 2025 formula (Premium only)
+ * 1. Selects base handicap (WHS or Social) based on handicap source
+ * 2. Calculates daily handicap using WHS formula (Premium only)
  * 3. Applies game type allowance
  *
  * Premium gating: Free tier uses raw base handicap. Premium gets
@@ -32,7 +32,7 @@ interface UsePlayingHandicapParams {
 }
 
 interface PlayingHandicapResult {
-  /** GA or Social handicap value before any course adjustment */
+  /** WHS or Social handicap value before any course adjustment */
   baseHandicap: number;
   /** Course-adjusted handicap (if Premium and tee data available) */
   dailyHandicap: number;
@@ -65,7 +65,7 @@ export function usePlayingHandicap({
   return useMemo(() => {
     const source = handicapSource ?? 'profile';
 
-    // Step 1: Get base handicap (GA or Social)
+    // Step 1: Get base handicap (WHS or Social)
     const baseHandicap = getBaseHandicap(player as Parameters<typeof getBaseHandicap>[0], source);
 
     // Step 2: Calculate daily handicap (Premium only, requires tee data)

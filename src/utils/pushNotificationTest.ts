@@ -99,6 +99,25 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
     competitionId: 'test-comp-123',
     roundId: 'test-round-789',
   },
+  skins_game_completed: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
+  skins_game_cancelled: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
+  wolf_game_completed: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
+  wolf_game_cancelled: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
+  prize_pool_settled: {
+    competitionId: 'test-comp-123',
+  },
 };
 
 /**
@@ -121,6 +140,11 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   partnership_created: 'Partnership Created',
   partnership_round_tagged: 'Partnership Round Tagged',
   round_completed: 'Round Complete',
+  skins_game_completed: 'Skins Game Complete',
+  skins_game_cancelled: 'Skins Game Cancelled',
+  wolf_game_completed: 'Wolf Game Complete',
+  wolf_game_cancelled: 'Wolf Game Cancelled',
+  prize_pool_settled: 'Prize Pool Settled',
 };
 
 /**
@@ -143,6 +167,11 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   partnership_created: 'Test Player created a partnership in Test League',
   partnership_round_tagged: 'Test Player tagged a round for your partnership in Test League',
   round_completed: 'All scorecards submitted for Round 1 of Test Competition',
+  skins_game_completed: 'Skins game completed for Round 1 of Test Competition',
+  skins_game_cancelled: 'Skins game for Round 1 of Test Competition has been cancelled',
+  wolf_game_completed: 'Wolf game completed for Round 1 of Test Competition',
+  wolf_game_cancelled: 'Wolf game for Round 1 of Test Competition has been cancelled',
+  prize_pool_settled: 'Prize pool for Test Competition has been settled',
 };
 
 // =====================================================

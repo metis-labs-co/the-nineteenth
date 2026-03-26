@@ -60,16 +60,24 @@ export default function NotificationsScreen() {
         markRead.mutate(notification.id);
       }
 
-      // Navigate based on notification type
-      if (notification.competition_id) {
+      // Navigate based on notification data
+      // round_id first: round-specific notifications should land on the round
+      if (notification.round_id) {
+        navigation.navigate('ViewRound', {
+          roundId: notification.round_id,
+          competitionId: notification.competition_id ?? undefined,
+        });
+      } else if (notification.competition_id) {
         navigation.navigate('CompetitionDetail', {
           id: notification.competition_id,
+        });
+      } else if (notification.league_id) {
+        navigation.navigate('LeagueDetail', {
+          id: notification.league_id,
         });
       } else if (notification.friendship_id) {
         navigation.navigate('Friends', { fromProfile: true });
       }
-      // For other notification types without navigation targets,
-      // just mark as read (already done above)
     },
     [navigation, markRead]
   );

@@ -59,7 +59,7 @@ export interface CompetitionData {
  */
 export const HANDICAP_SYSTEM_LABELS: Record<HandicapSystem, string> = {
   'honor': 'Honour System',
-  'golf-australia': 'Golf Australia',
+  whs: 'World Handicap System',
   'gross-only': 'Gross Only',
 };
 

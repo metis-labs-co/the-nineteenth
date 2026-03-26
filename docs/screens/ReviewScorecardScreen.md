@@ -1,6 +1,6 @@
 # ReviewScorecardScreen
 
-**File:** `src/screens/player/ReviewScorecardScreen.tsx`
+**File:** `src/screens/scoring/ReviewScorecardScreen.tsx`
 
 ## Overview
 

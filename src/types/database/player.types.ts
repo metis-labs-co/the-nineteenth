@@ -6,7 +6,7 @@
 import type { FriendshipStatus } from './enums';
 
 /**
- * Player gender for GA Daily Handicap consistency factor
+ * Player gender for WHS Daily Handicap consistency factor
  * Male: 0.9986, Female: 1.0483
  */
 export type PlayerGender = 'male' | 'female';
@@ -22,19 +22,19 @@ export interface Player {
   email: string;
   phone: string | null;
   /**
-   * Player's GA Handicap (manually entered or imported from Golf Australia).
+   * Player's WHS Handicap Index (manually entered or imported from national golf body).
    * This is the official handicap index used for daily handicap calculation.
    */
   handicap: number | null; // NUMERIC(4,1) - e.g., 12.5 (nullable for players without handicap)
-  golf_id: string | null; // 10-digit Golf Australia ID (formerly GOLF Link number)
+  golf_id: string | null; // 4-15 character national golf body ID (e.g., Golf Australia, England Golf, USGA)
   handicap_updated_at: string | null; // ISO timestamp when handicap was last updated
-  gender: PlayerGender | null; // Player gender for GA Daily Handicap consistency factor
+  gender: PlayerGender | null; // Player gender for WHS Daily Handicap consistency factor
   /**
    * Calculated Social Handicap Index from last 20 rounds in this app.
    * Uses WHS formula: best X of 20 differentials × 0.96
-   * This is separate from the official GA Handicap above.
+   * This is separate from the official WHS Handicap Index above.
    */
-  handicap_index: number | null; // NUMERIC(4,1) - calculated WHS handicap index (max 54.0)
+  handicap_index: number | null; // NUMERIC(4,1) - calculated social handicap index (max 54.0)
   handicap_index_updated_at: string | null; // ISO timestamp when index was last calculated
   photo_url: string | null;
   home_club_id: string | null; // UUID, reference to player's designated home golf club (renamed from home_venue_id)
@@ -48,6 +48,7 @@ export interface Player {
   push_friend_requests: boolean; // Friend request notifications
   push_scorecard_updates: boolean; // Scorecard notifications
   push_league_updates: boolean; // League-related notifications
+  push_side_game_updates?: boolean; // Side-game and prize pool notifications (optional for backwards compat)
   // Equipped cosmetics (achievement rewards)
   equipped_badge_id: string | null; // UUID, reference to cosmetic_definitions
   equipped_frame_id: string | null; // UUID, reference to cosmetic_definitions
@@ -65,6 +66,7 @@ export interface PushPreferences {
   push_friend_requests: boolean;
   push_scorecard_updates: boolean;
   push_league_updates: boolean;
+  push_side_game_updates?: boolean;
 }
 
 /**

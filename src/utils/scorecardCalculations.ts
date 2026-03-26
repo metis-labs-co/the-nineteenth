@@ -29,7 +29,7 @@ export type ScoresRecord = Record<string, HoleScore | MultiBallHoleScore>;
 export interface ScorecardPlayerInfo {
   id: string;
   name: string;
-  handicap?: number | null; // GA Handicap (profile)
+  handicap?: number | null; // WHS Handicap Index (profile)
   handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   gender?: PlayerGender | null; // For daily handicap calculation
 }
@@ -40,7 +40,7 @@ export interface ScorecardPlayerInfo {
 export interface PlayerStats {
   playerId: string;
   playerName: string;
-  handicap: number; // Raw GA handicap index
+  handicap: number; // Raw WHS handicap index
   dailyHandicap: number; // Daily handicap (calculated from tee ratings)
   front9Gross: number;
   back9Gross: number;
@@ -96,7 +96,7 @@ export function getBaseHandicap(
     case 'none':
       return 0;
     case 'calculated':
-      // Use Social Handicap Index, fallback to GA handicap if not available
+      // Use Social Handicap Index, fallback to WHS handicap index if not available
       return player.handicap_index ?? player.handicap ?? 0;
     case 'profile':
     default:

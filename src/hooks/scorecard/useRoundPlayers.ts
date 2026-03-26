@@ -112,7 +112,7 @@ export function useRoundPlayers(
           email: cp.players!.email || '',
           phone: cp.players!.phone,
           handicap: cp.players!.handicap || 0,
-          gender: cp.players!.gender ?? null, // For GA Daily Handicap consistency factor
+          gender: cp.players!.gender ?? null, // For WHS Daily Handicap consistency factor
           createdAt: new Date(),
           updatedAt: new Date(),
         }));

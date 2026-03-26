@@ -315,7 +315,7 @@ type AustralianState =
 
 ### Terminology
 - "Honour system" (not "honor")
-- Golf Australia (governing body)
+- WHS (World Handicap System)
 - Private competitions by default
 
 ## 🐛 Troubleshooting

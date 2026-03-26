@@ -41,7 +41,7 @@ export interface PlayingPartner {
   handicap?: number | undefined;
   /** Social Handicap Index (calculated from app rounds) */
   handicapIndex?: number | undefined;
-  /** Player gender for GA daily handicap consistency factor */
+  /** Player gender for WHS daily handicap consistency factor */
   gender?: 'male' | 'female' | undefined;
 }
 

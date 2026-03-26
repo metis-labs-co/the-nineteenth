@@ -1,6 +1,6 @@
 # CompetitionDetailScreen
 
-**File:** `src/screens/admin/CompetitionDetailScreen.tsx`
+**File:** `src/screens/competitions/CompetitionDetailScreen/index.tsx`
 
 ## Overview
 
@@ -125,7 +125,7 @@ function isRoundAvailableForScoring(round, allRounds): boolean {
 | Value | Display |
 |-------|---------|
 | `honor` | "Honor System" |
-| `golf-australia` | "Golf Australia" |
+| `whs` | "WHS" |
 | `gross-only` | "Gross Only" |
 
 ## RoundListItem Component

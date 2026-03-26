@@ -91,7 +91,7 @@
 >
 > **And the best part?** It's free to start. Create up to 3 competitions with 8 players each, no credit card needed.
 >
-> Built in Australia, for Australian golfers. Golf Australia handicap system built in, dates in DD/MM format (obviously).
+> Built in Australia, for Australian golfers. World Handicap System (WHS) built in, dates in DD/MM format (obviously).
 >
 > Download now and have your next comp set up before your next tee time.
 >
@@ -119,7 +119,7 @@
 >
 > We're launching with a generous free tier. If you run a corporate golf day, a monthly comp with colleagues, or just want to add some structure to your weekend round—give it a try.
 >
-> Australian-made, Golf Australia handicap system supported.
+> Australian-made, World Handicap System (WHS) supported.
 >
 > Download: [Link]
 >

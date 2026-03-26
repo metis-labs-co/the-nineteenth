@@ -245,10 +245,10 @@ describe('GeneratedPreview', () => {
       expect(screen.getByText('Honour System')).toBeTruthy();
     });
 
-    it('renders handicap system label for golf-australia', () => {
-      const competition = createTestCompetition({ handicapSystem: 'golf-australia' });
+    it('renders handicap system label for whs', () => {
+      const competition = createTestCompetition({ handicapSystem: 'whs' });
       render(<GeneratedPreview {...defaultProps} competition={competition} />);
-      expect(screen.getByText('Golf Australia')).toBeTruthy();
+      expect(screen.getByText('World Handicap System')).toBeTruthy();
     });
 
     it('renders handicap system label for gross-only', () => {

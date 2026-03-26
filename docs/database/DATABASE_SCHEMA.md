@@ -28,7 +28,7 @@ interface Competition {
   competitionType: 'knockout' | 'event'; // knockout = bracket-style elimination, event = fixed-term with end_date
   startDate: Date;
   endDate?: Date;  // Required for 'event' type, auto-deactivates at midnight
-  handicapSystem: 'honor' | 'golf-australia' | 'gross-only';
+  handicapSystem: 'honor' | 'whs' | 'gross-only';
   handicapSource: HandicapSource; // Source for daily handicap calculation
   visibility: 'private';  // Future: 'public' | 'unlisted'
   inviteCode: string;     // e.g., 'COMP-94821' (unique among active competitions only)
@@ -72,7 +72,7 @@ interface Round {
   courseId?: string;       // Can be NULL for TBD course selection
   date?: Date;
   teeTime?: string;
-  gameType: 'stroke' | 'stableford' | 'match-play' | 'ambrose' | 'best-ball' | 'scramble' | 'shamble' | 'par';
+  gameType: 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
   status: 'upcoming' | 'in-progress' | 'completed';
   // Team settings
   isTeamRound: boolean;    // TRUE if round uses team scoring
@@ -258,11 +258,11 @@ interface Player {
   email: string;
   phone?: string;
   handicap?: number;
-  handicapUpdatedAt?: Date; // Timestamp when GA handicap was last updated
+  handicapUpdatedAt?: Date; // Timestamp when WHS Handicap Index was last updated
   handicapIndex?: number;   // Calculated Social Handicap Index from last 20 app rounds (max 54.0)
   handicapIndexUpdatedAt?: Date; // Timestamp when handicap_index was last calculated
-  golfId?: string;          // 10-digit Golf Australia ID
-  gender?: 'male' | 'female'; // For GA Daily Handicap consistency factor (male=0.9986, female=1.0483)
+  golfId?: string;          // National golf body ID
+  gender?: 'male' | 'female'; // For WHS Daily Handicap consistency factor (male=0.9986, female=1.0483)
   photoUrl?: string;
   homeClubId?: string;      // Reference to player's home golf club
 
@@ -341,7 +341,7 @@ interface Scorecard {
   bypassed: boolean;        // TRUE if submitted without partner verification (30-minute bypass)
   // Handicap snapshot at submission time
   dailyHandicapUsed?: number;    // Strokes received (WHS daily handicap calculation)
-  gaHandicapUsed?: number;       // Player GA handicap input value
+  gaHandicapUsed?: number;       // Player WHS Handicap Index input value
   handicapDifferential?: number; // WHS differential: (113/slope) × (gross - course_rating)
   courseRatingUsed?: number;     // Course rating snapshot from tee selection
   slopeRatingUsed?: number;     // Slope rating snapshot from tee selection
@@ -1121,11 +1121,11 @@ Placeholder players (guests) are created without an auth account and can be link
 | `email` | TEXT | NOT NULL, UNIQUE | Contact email (generated for placeholders: `{uuid}@placeholder.local`) |
 | `phone` | TEXT | NULL | Contact phone (optional) |
 | `handicap` | NUMERIC(4,1) | DEFAULT 0 | Golf handicap (e.g., 12.5) |
-| `handicap_updated_at` | TIMESTAMPTZ | NULL | Timestamp when GA handicap was last updated |
+| `handicap_updated_at` | TIMESTAMPTZ | NULL | Timestamp when WHS Handicap Index was last updated |
 | `handicap_index` | NUMERIC(4,1) | NULL | Calculated Social Handicap Index from last 20 app rounds (max 54.0) |
 | `handicap_index_updated_at` | TIMESTAMPTZ | NULL | Timestamp when handicap_index was last calculated |
-| `golf_id` | TEXT | NULL, CHECK (10 digits) | 10-digit Golf Australia ID |
-| `gender` | TEXT | NULL | Player gender for GA Daily Handicap consistency factor ('male' or 'female') |
+| `golf_id` | TEXT | NULL, CHECK (4-15 alphanumeric) | National golf body ID (e.g., Golf Australia, England Golf, USGA) |
+| `gender` | TEXT | NULL | Player gender for WHS Daily Handicap consistency factor ('male' or 'female') |
 | `photo_url` | TEXT | NULL | Profile photo URL |
 | `is_placeholder` | BOOLEAN | NOT NULL DEFAULT FALSE | TRUE for guest/placeholder players |
 | `created_by` | UUID | FK → auth.users(id) | User who created this placeholder (NULL for real players) |
@@ -1142,7 +1142,7 @@ Placeholder players (guests) are created without an auth account and can be link
 - `idx_players_is_placeholder` on `is_placeholder`
 
 **Constraints:**
-- `golf_id_format` - CHECK (golf_id IS NULL OR golf_id ~ '^[0-9]{10}$')
+- `golf_id_format` - CHECK (golf_id IS NULL OR golf_id ~ '^[A-Za-z0-9]{4,15}$')
 - `chk_real_player_no_creator` - Real players (is_placeholder=FALSE) must have NULL created_by
 - `chk_placeholder_has_creator` - Placeholders (is_placeholder=TRUE) must have non-NULL created_by
 - `chk_only_placeholders_linkable` - Only placeholders can have linked_player_id set
@@ -1209,8 +1209,8 @@ Competition metadata and settings.
 | `competition_type` | TEXT | CHECK(enum), DEFAULT 'event' | 'knockout' (bracket elimination) or 'event' (fixed-term) |
 | `start_date` | DATE | NOT NULL | Competition start date |
 | `end_date` | DATE | NULL (required for 'event') | End date - auto-deactivates event competitions at midnight |
-| `handicap_system` | TEXT | CHECK(enum), NOT NULL | 'honor', 'golf-australia', 'gross-only' |
-| `handicap_source` | handicap_source | NOT NULL, DEFAULT 'profile' | Source for daily handicap: 'profile' (GA), 'calculated' (Social HI), 'none' |
+| `handicap_system` | TEXT | CHECK(enum), NOT NULL | 'honor', 'whs', 'gross-only' |
+| `handicap_source` | handicap_source | NOT NULL, DEFAULT 'profile' | Source for daily handicap: 'profile' (WHS Handicap Index), 'calculated' (Social HI), 'none' |
 | `visibility` | TEXT | CHECK(enum), DEFAULT 'private' | 'private', 'public', 'unlisted' |
 | `invite_code` | TEXT | UNIQUE (active only), NOT NULL | e.g., "COMP-12345" - unique among active competitions |
 | `organizer_id` | UUID | FK → auth.users(id), NOT NULL | Competition creator |
@@ -1661,7 +1661,7 @@ Individual rounds within competitions or standalone (social) rounds.
 | `course_id` | UUID | FK → courses(id), NULL | Course played (NULL for TBD course selection) |
 | `date` | DATE | NULL | Round date |
 | `tee_time` | TIME | NULL | Tee time |
-| `game_type` | TEXT | CHECK(enum), DEFAULT 'stableford' | 'stroke', 'stableford', 'match-play', 'ambrose', 'best-ball', 'scramble', 'shamble', 'par' |
+| `game_type` | TEXT | CHECK(enum), DEFAULT 'stableford' | 'stroke', 'stableford', 'par', 'match-play', 'best-ball', 'scramble', 'shamble' |
 | `status` | TEXT | CHECK(enum), DEFAULT 'upcoming' | 'upcoming', 'in-progress', 'completed' |
 | `is_team_round` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if round uses team scoring |
 | `team_format` | team_format | NULL | 'best-ball', 'scramble', 'shamble', 'aggregate', 'match-play-team' |
@@ -1940,7 +1940,7 @@ Player scorecards with hole-by-hole scores.
 | `submitted_by` | UUID | FK → players(id), NULL | Submitter (could be partner) |
 | `bypassed` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE if submitted without partner verification |
 | `daily_handicap_used` | INTEGER | NULL | Strokes received for this round (WHS daily handicap, snapshot at submission) |
-| `ga_handicap_used` | NUMERIC | NULL | Player GA handicap at time of round (input value for daily handicap) |
+| `ga_handicap_used` | NUMERIC | NULL | Player WHS Handicap Index at time of round (input value for daily handicap) |
 | `handicap_differential` | NUMERIC(4,1) | NULL | WHS differential: (113/slope) × (gross - course_rating) |
 | `course_rating_used` | NUMERIC | NULL | Course rating snapshot from tee selection |
 | `slope_rating_used` | INTEGER | NULL | Slope rating snapshot from tee selection |
@@ -4090,7 +4090,7 @@ user_can_use_game_type(
 ) RETURNS BOOLEAN
 ```
 
-**Game Types:** 'stableford', 'stroke', 'match-play', 'ambrose', 'best-ball', 'scramble'
+**Game Types:** 'stableford', 'stroke', 'par', 'match-play', 'best-ball', 'scramble', 'shamble'
 
 **Example:**
 ```typescript
@@ -5732,7 +5732,7 @@ SELECT * FROM players;
 
 **Completed in Phase 2:**
 - [x] Multi-round competitions
-- [x] Multiple game types (stroke play, match play, ambrose, best-ball, scramble)
+- [x] Multiple game types (stroke play, stableford, par, match play, best-ball, scramble, shamble)
 - [x] Detailed statistics (putts, fairways, GIR in `scores` JSONB)
 - [x] GolfAPI.io integration (clubs, courses, tees, GPS coordinates)
 - [x] Team competitions (`teams`, `team_members` tables)

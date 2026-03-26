@@ -1,13 +1,13 @@
-# Plan: Daily Handicap System (Golf Australia 2025)
+# Plan: Daily Handicap System (WHS 2025)
 
 ## Overview
 
-Implement the Golf Australia (GA) 2025 Daily Handicap calculation system to provide course-adjusted handicaps for all rounds (standalone and competition). This replaces the current simplified USGA-style calculation with the official GA formula that includes the 0.93 multiplier and gender-based consistency factors.
+Implement the WHS (World Handicap System) 2025 Daily Handicap calculation system to provide course-adjusted handicaps for all rounds (standalone and competition). This replaces the current simplified USGA-style calculation with the official WHS formula that includes the 0.93 multiplier and gender-based consistency factors.
 
 ## Approach
 
 1. Add player gender to database (required for consistency factor)
-2. Create new daily handicap calculation utility with GA formula
+2. Create new daily handicap calculation utility with WHS formula
 3. Fix data flow to preserve full tee data through hooks
 4. Add tee selection to competition rounds (currently missing)
 5. Update UI to display daily handicap and collect required data
@@ -21,7 +21,7 @@ Implement the Golf Australia (GA) 2025 Daily Handicap calculation system to prov
 | Daily HC storage | Calculate on-the-fly | Always current, no sync issues |
 | Missing data | Silent defaults | Smooth UX, no warnings shown |
 | Gender default | Male factor (0.9986) | More conservative value |
-| Slope default | 113 (neutral) | GA standard neutral slope |
+| Slope default | 113 (neutral) | WHS standard neutral slope |
 | Course rating default | Par | Reasonable fallback |
 | Course par source | Sum of hole pars | Most reliable, always available |
 
@@ -42,7 +42,7 @@ Requirements:
 - Column name: gender
 - Type: TEXT with CHECK constraint for 'male' or 'female'
 - Default: NULL (optional field)
-- Add comment explaining purpose: "Player gender for GA Daily Handicap consistency factor"
+- Add comment explaining purpose: "Player gender for WHS Daily Handicap consistency factor"
 
 Reference existing migration pattern in:
 - supabase/migrations/20250109000000_mvp_phase_1_schema.sql
@@ -93,11 +93,11 @@ File: src/types/handicap.types.ts
 
 Contents:
 /**
- * Golf Australia Daily Handicap Types
+ * WHS Daily Handicap Types
  */
 
 export interface DailyHandicapParams {
-  gaHandicap: number;           // Player's GA Handicap Index
+  gaHandicap: number;           // Player's WHS Handicap Index
   slopeRating?: number;         // Course/tee slope rating (default 113)
   courseRating?: number;        // Course/tee scratch rating (default par)
   par: number;                  // Course par
@@ -134,8 +134,8 @@ Create the core daily handicap calculation utility.
 
 File: src/utils/dailyHandicap.ts
 
-GA Formula (18-hole):
-Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+WHS Formula (18-hole):
+Daily HC = ((Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
 
 Consistency Factors:
 - Men/Boys: 0.9986
@@ -144,9 +144,9 @@ Consistency Factors:
 Implementation:
 
 1. Constants:
-   - GA_HANDICAP_MULTIPLIER = 0.93
-   - GA_CONSISTENCY_FACTOR_MALE = 0.9986
-   - GA_CONSISTENCY_FACTOR_FEMALE = 1.0483
+   - WHS_HANDICAP_MULTIPLIER = 0.93
+   - WHS_CONSISTENCY_FACTOR_MALE = 0.9986
+   - WHS_CONSISTENCY_FACTOR_FEMALE = 1.0483
    - STANDARD_SLOPE_RATING = 113 (import from existing constants)
 
 2. Functions:
@@ -234,7 +234,7 @@ Reference existing test patterns in:
 
 **Prompt:**
 ```
-Update the existing getPlayingHandicap function to use the GA formula.
+Update the existing getPlayingHandicap function to use the WHS formula.
 
 File: src/services/scoring/utils/handicapUtils.ts
 
@@ -245,7 +245,7 @@ Changes to getPlayingHandicap():
 2. Import calculateGADailyHandicap from '@/utils/dailyHandicap'
 
 3. Update logic:
-   - When courseRating and par are provided, use GA formula
+   - When courseRating and par are provided, use WHS formula
    - Get dailyHandicap from calculateGADailyHandicap()
    - Apply game type allowance to the daily handicap (not before)
    - Return Math.round(dailyHandicap * allowance)
@@ -268,7 +268,7 @@ Maintain backward compatibility - existing calls without gender will work.
 
 **Deliverables:**
 - [x] Updated `src/services/scoring/utils/handicapUtils.ts`
-- [x] Updated test expectations to match GA formula (50 tests passing)
+- [x] Updated test expectations to match WHS formula (50 tests passing)
 
 **Dependencies:** Step 2.1
 **Notes:** Ensure all existing tests still pass
@@ -576,9 +576,9 @@ Styling:
 - Added `selectedTeeData` prop to `ScorecardTableProps` in types.ts
 - Added `gender` field to `ScorecardPlayerInfo` interface for daily handicap calculation
 - Updated `ScrollableHeaderCells` to accept `selectedTeeData` and `coursePar`
-- Calculate daily handicap using `calculateGADailyHandicap` when tee has slope/course ratings
+- Calculate daily handicap using `calculateWHSDailyHandicap` when tee has slope/course ratings
 - Display "DHC: {value}" when daily handicap calculated, fallback to "HC: {value}" otherwise
-- Imported `calculateGADailyHandicap` from `@/utils/dailyHandicap`
+- Imported `calculateWHSDailyHandicap` from `@/utils/dailyHandicap`
 
 ---
 
@@ -819,7 +819,7 @@ This hook manages individual player scoring. Update it to:
 - Updated `usePlayerScorecard` hook:
   - Gets `selectedTeeData` from scorecardStore
   - Calculates course par from holes
-  - Calculates daily handicap using `calculateGADailyHandicap`
+  - Calculates daily handicap using `calculateWHSDailyHandicap`
   - Uses daily handicap for strokes received in both single-ball and multi-ball modes
   - Added `handicap` and `dailyHandicap` to `PlayerStats` interface
   - Exposes both values in `playerStats` return value
@@ -840,7 +840,7 @@ File: src/__tests__/services/scoring/handicapUtils.test.ts
 
 Add test cases for getPlayingHandicap with gender:
 
-1. "applies GA formula when course rating provided"
+1. "applies WHS formula when course rating provided"
    - Verify the 0.93 multiplier and consistency factor are applied
 
 2. "uses male consistency factor by default"
@@ -869,7 +869,7 @@ pnpm test
 **Notes:** Some existing test values may need updating due to formula change
 
 **Completed:** (2026-01-24)
-- Added new test block `with gender parameter (GA 2025 formula)` with 8 test cases:
+- Added new test block `with gender parameter (WHS 2025 formula)` with 8 test cases:
   - Uses male consistency factor by default
   - Uses male consistency factor when gender is male
   - Uses male consistency factor when gender is null
@@ -956,7 +956,7 @@ Manual testing checklist:
 
 6. Scoring Accuracy:
    - [ ] Create round with course that has tee ratings
-   - [ ] Add male and female players with same GA handicap
+   - [ ] Add male and female players with same WHS Handicap Index
    - [ ] Verify female gets slightly more strokes (higher DHC)
    - [ ] Verify strokes on holes match expected based on DHC
 
@@ -983,7 +983,7 @@ Manual testing checklist:
 - `src/screens/admin/AddRoundScreen/types.ts` - Add selectedTee to RoundFormData
 - `src/screens/admin/AddRoundScreen/hooks/useAddRoundForm.ts` - Handle tee selection
 - `src/screens/admin/AddRoundScreen/index.tsx` - Add TeeSelector UI
-- `src/services/scoring/utils/handicapUtils.ts` - Use GA formula
+- `src/services/scoring/utils/handicapUtils.ts` - Use WHS formula
 - `src/utils/scorecardCalculations.ts` - Accept selectedTee, use daily handicap
 - `src/components/scorecard/ScorecardTable/ScorecardTable.tsx` - Display DHC, pass tee data
 - `src/components/rounds/ViewRound/RoundScorecardTab.tsx` - Pass tee data to calculatePlayerStats
@@ -1017,7 +1017,7 @@ How to verify the plan is complete:
 - [ ] calculatePlayerStats receives and uses selectedTee for daily handicap
 - [ ] Scorecard displays "DHC" with calculated daily handicap
 - [ ] Strokes received calculated using daily handicap (not raw)
-- [ ] Male and female players with same GA handicap get different DHC
+- [ ] Male and female players with same WHS Handicap Index get different DHC
 - [ ] Missing data (no ratings, no gender, no tee) handled silently with defaults
 
 ---

@@ -59,16 +59,17 @@ export function useEditHoleForm({
   allHoles,
 }: UseEditHoleFormProps): UseEditHoleFormReturn {
   // Initialize form state from hole (with normalized keys)
+  // Fallback strokeIndex to hole.number if undefined/null (defensive against bad DB data)
   const [formState, setFormState] = useState<EditHoleFormState>(() => ({
     par: hole.par,
-    strokeIndex: hole.strokeIndex,
+    strokeIndex: hole.strokeIndex ?? hole.number,
     yardages: normalizeYardages(hole.yardages),
   }));
 
   // Track the original values at the time of reset (for accurate isDirty check)
   const originalValuesRef = useRef<EditHoleFormState>({
     par: hole.par,
-    strokeIndex: hole.strokeIndex,
+    strokeIndex: hole.strokeIndex ?? hole.number,
     yardages: normalizeYardages(hole.yardages),
   });
 
@@ -150,20 +151,20 @@ export function useEditHoleForm({
     setFormState((prev) => ({ ...prev, par }));
   }, []);
 
-  // Increment stroke index
+  // Increment stroke index (guard against NaN/undefined)
   const incrementSI = useCallback(() => {
-    setFormState((prev) => ({
-      ...prev,
-      strokeIndex: Math.min(18, prev.strokeIndex + 1),
-    }));
+    setFormState((prev) => {
+      const current = Number.isFinite(prev.strokeIndex) ? prev.strokeIndex : 0;
+      return { ...prev, strokeIndex: Math.min(18, current + 1) };
+    });
   }, []);
 
-  // Decrement stroke index
+  // Decrement stroke index (guard against NaN/undefined)
   const decrementSI = useCallback(() => {
-    setFormState((prev) => ({
-      ...prev,
-      strokeIndex: Math.max(1, prev.strokeIndex - 1),
-    }));
+    setFormState((prev) => {
+      const current = Number.isFinite(prev.strokeIndex) ? prev.strokeIndex : 2;
+      return { ...prev, strokeIndex: Math.max(1, current - 1) };
+    });
   }, []);
 
   // Update yardage for a specific tee
@@ -203,7 +204,7 @@ export function useEditHoleForm({
     const normalizedYardages = normalizeYardages(hole.yardages);
     const newState: EditHoleFormState = {
       par: hole.par,
-      strokeIndex: hole.strokeIndex,
+      strokeIndex: hole.strokeIndex ?? hole.number,
       yardages: normalizedYardages,
     };
     setFormState(newState);

@@ -437,7 +437,7 @@ if (response.status === 429) {
 
 ## Daily Handicap Integration
 
-GolfAPI.io provides the data needed for GA Daily Handicap calculation:
+GolfAPI.io provides the data needed for WHS Daily Handicap calculation:
 
 | Required Data | Source |
 |---------------|--------|

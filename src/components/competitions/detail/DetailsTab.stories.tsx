@@ -263,14 +263,14 @@ export const PerRoundTeamsCompetition: Story = {
 };
 
 /**
- * Golf Australia handicap system
+ * World Handicap System
  */
-export const GolfAustraliaHandicap: Story = {
+export const WHSHandicap: Story = {
   args: {
     competition: createCompetition({
       name: 'Official Club Championship',
-      description: 'Competition using official Golf Australia handicaps',
-      handicap_system: 'golf-australia',
+      description: 'Competition using World Handicap System',
+      handicap_system: 'whs',
     }),
     rounds: defaultRounds,
     playerCount: 32,

@@ -32,7 +32,7 @@ You MUST return valid JSON matching this exact schema:
   "competitionType": "event" | "knockout",
   "startDate": "DD/MM/YYYY - First round date (Australian format)",
   "endDate": "DD/MM/YYYY | null - Last round date (for events only)",
-  "handicapSystem": "honor" | "golf-australia" | "gross-only",
+  "handicapSystem": "honor" | "whs" | "gross-only",
   "visibility": "private" | "public" | "unlisted" (default "private"),
   "handicapSource": "profile" | "calculated" | "none" (default "profile"),
   "teamMode": "none" | "fixed" | "per-round",
@@ -95,7 +95,7 @@ When teamMode != "none", set teamFormat on each round. For team game types (best
 - Default to "private". Only set "public" or "unlisted" if the user explicitly requests it.
 
 ## Handicap Source
-- "profile": Use handicaps from player profiles (default for "honor" and "golf-australia" handicap systems)
+- "profile": Use handicaps from player profiles (default for "honor" and "whs" handicap systems)
 - "calculated": Calculate handicaps from competition results
 - "none": No handicap adjustments (use for "gross-only" handicap system)
 

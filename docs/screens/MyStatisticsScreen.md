@@ -1,6 +1,6 @@
 # MyStatisticsScreen
 
-**File:** `src/screens/profile/MyStatisticsScreen.tsx`
+**File:** `src/screens/profile/MyStatisticsScreen/index.tsx`
 
 ## Overview
 

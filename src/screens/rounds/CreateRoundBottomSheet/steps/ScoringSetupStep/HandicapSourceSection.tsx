@@ -1,11 +1,11 @@
 /**
  * HandicapSourceSection - Handicap mode selector for round creation
  *
- * Allows Premium users to choose between GA Handicap and Social Handicap Index
+ * Allows Premium users to choose between profile Handicap and Social Handicap Index
  * for daily handicap calculations. Locked for Free tier users.
  *
  * When tee and course data is provided, also displays:
- * - The selected handicap value (GA or Social Index)
+ * - The selected handicap value (profile or Social Index)
  * - The calculated Daily Handicap based on the selected course/tee
  */
 
@@ -17,10 +17,10 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { SegmentedButton, Pill } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
-import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { TeeBox } from '@/types/database.types';
 import type { HandicapSource, Hole } from '@/types/database';
+import type { PlayingPartner } from '../../types';
 
 interface HandicapSourceSectionProps {
   handicapSource: HandicapSource;
@@ -29,6 +29,16 @@ interface HandicapSourceSectionProps {
   selectedTee?: TeeBox | null;
   /** Course holes for par calculation (passed directly to avoid async fetch) */
   holes?: Hole[] | null;
+  /** Playing partners selected for the round */
+  selectedPartners?: PlayingPartner[];
+}
+
+interface PlayerHandicapInfo {
+  id: string;
+  name: string;
+  handicap: number | null;
+  socialIndex: number | null;
+  dailyHandicap: number | null;
 }
 
 export const HandicapSourceSection = memo(function HandicapSourceSection({
@@ -36,51 +46,81 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
   onHandicapSourceChange,
   selectedTee,
   holes,
+  selectedPartners = [],
 }: HandicapSourceSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const { player } = useAuth();
 
-  // Calculate handicap values
+  // Calculate handicap values for the current user (used in segmented button labels)
   const handicapInfo = useMemo(() => {
     if (!player) return null;
+    return {
+      gaHandicap: player.handicap ?? null,
+      socialIndex: player.handicap_index ?? null,
+    };
+  }, [player]);
 
-    const gaHandicap = player.handicap ?? null;
-    const socialIndex = player.handicap_index ?? null;
+  // Build player list with handicap info (current user + partners)
+  const allPlayers = useMemo((): PlayerHandicapInfo[] => {
+    const canCalcDaily =
+      selectedTee?.slopeRating && selectedTee?.courseRating && holes?.length;
+    const coursePar = canCalcDaily
+      ? holes!.reduce((sum, h) => sum + h.par, 0)
+      : 0;
 
-    // Get the base handicap for the selected source
-    const baseHandicap = getBaseHandicap(
-      player as Parameters<typeof getBaseHandicap>[0],
-      handicapSource
-    );
+    const calcDaily = (
+      baseHC: number | null,
+      gender?: 'male' | 'female' | null
+    ): number | null => {
+      if (baseHC == null || !canCalcDaily || coursePar <= 0) return null;
+      return calculateGADailyHandicap({
+        gaHandicap: baseHC,
+        slopeRating: selectedTee!.slopeRating!,
+        courseRating: selectedTee!.courseRating!,
+        par: coursePar,
+        gender: gender ?? undefined,
+      }).dailyHandicap;
+    };
 
-    // Calculate daily handicap if tee data and holes are available
-    let dailyHandicap: number | null = null;
-    if (
-      selectedTee?.slopeRating &&
-      selectedTee?.courseRating &&
-      holes?.length
-    ) {
-      const coursePar = holes.reduce((sum, h) => sum + h.par, 0);
-      if (coursePar > 0) {
-        const result = calculateGADailyHandicap({
-          gaHandicap: baseHandicap,
-          slopeRating: selectedTee.slopeRating,
-          courseRating: selectedTee.courseRating,
-          par: coursePar,
-          gender: player.gender,
-        });
-        dailyHandicap = result.dailyHandicap;
-      }
+    const getBase = (
+      handicap: number | null | undefined,
+      socialIdx: number | null | undefined
+    ): number | null => {
+      if (handicapSource === 'calculated') return socialIdx ?? handicap ?? null;
+      return handicap ?? null;
+    };
+
+    const players: PlayerHandicapInfo[] = [];
+
+    // Current user first
+    if (player) {
+      const hc = player.handicap ?? null;
+      const si = player.handicap_index ?? null;
+      players.push({
+        id: player.id,
+        name: player.name ?? 'You',
+        handicap: hc,
+        socialIndex: si,
+        dailyHandicap: calcDaily(getBase(hc, si), player.gender),
+      });
     }
 
-    return {
-      gaHandicap,
-      socialIndex,
-      baseHandicap,
-      dailyHandicap,
-    };
-  }, [player, handicapSource, selectedTee, holes]);
+    // Playing partners
+    for (const p of selectedPartners) {
+      const hc = p.handicap ?? null;
+      const si = p.handicapIndex ?? null;
+      players.push({
+        id: p.id,
+        name: p.name,
+        handicap: hc,
+        socialIndex: si,
+        dailyHandicap: calcDaily(getBase(hc, si), p.gender),
+      });
+    }
+
+    return players;
+  }, [player, selectedPartners, handicapSource, selectedTee, holes]);
 
   const hintText = handicapSource === 'calculated'
     ? 'Uses Social Handicap Index from your app rounds (profile handicap fallback)'
@@ -144,21 +184,47 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
         {hintText}
       </Text>
 
-      {/* Daily Handicap display */}
-      {handicapInfo && handicapInfo.dailyHandicap !== null && (
-        <View style={[styles.dailyHandicapRow, { backgroundColor: colors.primaryLighter }]}>
-          <Icon source="calculator-variant" size={16} color={colors.primary} />
-          <View style={styles.dailyHandicapText}>
-            <Text style={[styles.dailyHandicapLabel, { color: colors.primary }]}>
-              Daily Handicap
+      {/* Player handicap list */}
+      {allPlayers.length > 0 && (
+        <View style={[styles.playerList, { backgroundColor: colors.surfaceVariant }]}>
+          {/* Tee info header */}
+          {selectedTee?.slopeRating && selectedTee?.courseRating && (
+            <Text style={[styles.teeInfoText, { color: colors.textSecondary }]}>
+              {selectedTee.name} tees · Slope {selectedTee.slopeRating} · CR {selectedTee.courseRating}
             </Text>
-            <Text style={[styles.dailyHandicapHint, { color: colors.textSecondary }]}>
-              {selectedTee?.name} tees · Slope {selectedTee?.slopeRating} · CR {selectedTee?.courseRating}
-            </Text>
+          )}
+
+          {/* Column headers */}
+          <View style={styles.playerHeaderRow}>
+            <Text style={[styles.playerHeaderName, { color: colors.textSecondary }]}>Player</Text>
+            <Text style={[styles.playerHeaderStat, { color: colors.textSecondary }]}>HC</Text>
+            <Text style={[styles.playerHeaderStat, { color: colors.textSecondary }]}>Daily</Text>
+            <Text style={[styles.playerHeaderStat, { color: colors.textSecondary }]}>Social</Text>
           </View>
-          <Text style={[styles.dailyHandicapValue, { color: colors.primary }]}>
-            {handicapInfo.dailyHandicap}
-          </Text>
+
+          {/* Player rows */}
+          {allPlayers.map((p, idx) => (
+            <View
+              key={p.id}
+              style={[
+                styles.playerRow,
+                idx < allPlayers.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {p.name}
+              </Text>
+              <Text style={[styles.playerStat, { color: colors.textPrimary }]}>
+                {formatHandicap(p.handicap)}
+              </Text>
+              <Text style={[styles.playerStat, { color: colors.primary, ...typography.smallBold }]}>
+                {p.dailyHandicap != null ? p.dailyHandicap : '-'}
+              </Text>
+              <Text style={[styles.playerStat, { color: colors.textSecondary }]}>
+                {formatHandicap(p.socialIndex)}
+              </Text>
+            </View>
+          ))}
         </View>
       )}
     </View>
@@ -203,25 +269,41 @@ const styles = StyleSheet.create({
     ...typography.small,
     lineHeight: 18,
   },
-  dailyHandicapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  playerList: {
+    borderRadius: borderRadius.md,
     padding: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
   },
-  dailyHandicapText: {
+  teeInfoText: {
+    ...typography.caption,
+    marginBottom: spacing.xs,
+  },
+  playerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: spacing.xs,
+  },
+  playerHeaderName: {
+    ...typography.caption,
     flex: 1,
   },
-  dailyHandicapLabel: {
-    ...typography.smallBold,
-  },
-  dailyHandicapHint: {
+  playerHeaderStat: {
     ...typography.caption,
-    lineHeight: 16,
+    width: 50,
+    textAlign: 'right',
   },
-  dailyHandicapValue: {
-    ...typography.h3,
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  playerName: {
+    ...typography.smallBold,
+    flex: 1,
+  },
+  playerStat: {
+    ...typography.small,
+    width: 50,
+    textAlign: 'right',
   },
 });

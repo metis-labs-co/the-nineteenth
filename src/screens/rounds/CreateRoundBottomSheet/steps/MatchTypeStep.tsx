@@ -37,17 +37,17 @@ export const MatchTypeStep = memo(function MatchTypeStep({
   return (
     <>
       {/* Selected Course Banner */}
-      <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
+      <View style={[styles.selectedBanner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
         <IconGolf size={20} color={colors.primary} />
         <View style={styles.selectedBannerText}>
-          <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
+          <Text style={[styles.selectedBannerName, { color: colors.textPrimary }]}>
             {selectedCourse?.courseName}
             {selectedTee && (
               <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
             )}
           </Text>
           {selectedCourse?.venue && (
-            <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
+            <Text style={[styles.selectedBannerLocation, { color: colors.textSecondary }]}>
               {selectedCourse.venue.name}
               {(selectedCourse.venue.city || selectedCourse.venue.state) &&
                 ` · ${[selectedCourse.venue.city, selectedCourse.venue.state]
@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
   },
   selectedBannerText: {

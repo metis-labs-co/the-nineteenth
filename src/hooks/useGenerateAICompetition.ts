@@ -89,7 +89,7 @@ export interface GeneratedCompetition {
   competitionType: 'knockout' | 'event';
   startDate: string; // DD/MM/YYYY format
   endDate: string | null; // DD/MM/YYYY format
-  handicapSystem: 'honor' | 'golf-australia' | 'gross-only';
+  handicapSystem: 'honor' | 'whs' | 'gross-only';
   teamMode: 'none' | 'fixed' | 'per-round';
   teamSize: number | null;
   visibility?: 'private' | 'public' | 'unlisted';

@@ -30,16 +30,16 @@ export const RoundSummary = memo(function RoundSummary({
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.selectedBanner, { backgroundColor: colors.primaryLighter }]}>
+    <View style={[styles.selectedBanner, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
       <IconGolf size={20} color={colors.primary} />
       <View style={styles.selectedBannerText}>
-        <Text style={[styles.selectedBannerName, { color: colors.primaryDark }]}>
+        <Text style={[styles.selectedBannerName, { color: colors.textPrimary }]}>
           {selectedCourse?.courseName}
           {selectedTee && (
             <Text style={{ color: colors.primary }}> · {selectedTee.name}</Text>
           )}
         </Text>
-        <Text style={[styles.selectedBannerLocation, { color: colors.primary }]}>
+        <Text style={[styles.selectedBannerLocation, { color: colors.textSecondary }]}>
           {MATCH_TYPES.find((m) => m.value === selectedMatchType)?.label}
           {' · '}
           {selectedPartners.length + 1} players
@@ -57,6 +57,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
   },
   selectedBannerText: {

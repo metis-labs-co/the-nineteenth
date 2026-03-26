@@ -20,6 +20,7 @@ import type { Tee, TeeBox } from '@/types/database.types';
  */
 export function teeToTeeBox(tee: Tee): TeeBox {
   return {
+    tee_id: tee.id,
     name: tee.name,
     color: tee.color ?? tee.name.toLowerCase(),
     totalYardage: tee.total_length ?? null,

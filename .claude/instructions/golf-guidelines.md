@@ -94,7 +94,7 @@ const AUSTRALIAN_STATES = [
 
 ### Terminology
 - Use "honour system" (not "honor system" in UI text, though code uses American spelling)
-- Reference "Golf Australia" for official handicap system
+- Reference "WHS" (World Handicap System) for official handicap system
 - Use metric distances (meters, not yards)
 
 ### Currency

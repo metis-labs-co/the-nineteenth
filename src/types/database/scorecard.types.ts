@@ -45,9 +45,9 @@ export interface Scorecard {
 
   // Handicap Tracking (captured at submission time)
   // These fields store the handicap data when the scorecard is synced for historical accuracy.
-  // Player's GA handicap may change later, but these snapshots preserve the round context.
-  ga_handicap_used: number | null; // Player's GA handicap at time of round (input value)
-  daily_handicap_used: number | null; // Strokes received for this round (calculated from GA handicap + course/slope)
+  // Player's WHS handicap index may change later, but these snapshots preserve the round context.
+  ga_handicap_used: number | null; // Player's WHS handicap index at time of round (input value)
+  daily_handicap_used: number | null; // Strokes received for this round (calculated from WHS handicap index + course/slope)
   handicap_differential: number | null; // WHS score differential (for Social Handicap Index calculation)
   course_rating_used: number | null; // Snapshot of course rating at time of round
   slope_rating_used: number | null; // Snapshot of slope rating at time of round

@@ -95,7 +95,7 @@ export const BallCountStep = memo(function BallCountStep({
       value: 'profile',
       label: 'Handicap',
       description: gaHandicap != null
-        ? `Handicap: ${formatHC(gaHandicap)}`
+        ? `HC: ${formatHC(gaHandicap)}  ·  DHC: ${dailyHC.profile ?? 'N/A'}  ·  Social: ${socialIndex != null ? formatHC(socialIndex) : 'N/A'}`
         : 'No handicap set in profile',
       dailyHandicap: dailyHC.profile,
     },
@@ -103,7 +103,7 @@ export const BallCountStep = memo(function BallCountStep({
       value: 'calculated',
       label: 'Social Index',
       description: socialIndex != null
-        ? `Social Index: ${formatHC(socialIndex)}`
+        ? `Social: ${formatHC(socialIndex)}  ·  DHC: ${dailyHC.calculated ?? 'N/A'}  ·  HC: ${gaHandicap != null ? formatHC(gaHandicap) : 'N/A'}`
         : 'No rounds recorded yet',
       dailyHandicap: dailyHC.calculated,
       premium: !isPremium,
@@ -202,18 +202,6 @@ export const BallCountStep = memo(function BallCountStep({
                       <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
                         {option.description}
                       </Text>
-                      {option.dailyHandicap != null && isSelected && (
-                        <View style={[styles.dailyHCBadge, { backgroundColor: colors.primary + '20' }]}>
-                          <Text style={[styles.dailyHCText, { color: colors.primary }]}>
-                            Daily HC: {option.dailyHandicap}
-                          </Text>
-                          {selectedTee?.slopeRating && selectedTee?.courseRating && (
-                            <Text style={[styles.dailyHCDetail, { color: colors.textSecondary }]}>
-                              Slope {selectedTee.slopeRating} · CR {selectedTee.courseRating}
-                            </Text>
-                          )}
-                        </View>
-                      )}
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -363,20 +351,6 @@ const styles = StyleSheet.create({
   optionDescription: {
     ...typography.caption,
     marginTop: 2,
-  },
-  dailyHCBadge: {
-    marginTop: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    alignSelf: 'flex-start',
-  },
-  dailyHCText: {
-    ...typography.smallBold,
-  },
-  dailyHCDetail: {
-    ...typography.caption,
-    marginTop: 1,
   },
   buttonContainer: {
     padding: spacing.lg,

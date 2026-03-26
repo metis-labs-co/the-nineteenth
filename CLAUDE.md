@@ -71,7 +71,7 @@ Detailed implementation guides for specific topics:
 **All tech stack decisions finalized.** See [PROJECT_SETUP.md](docs/PROJECT_SETUP.md) for installation instructions.
 
 ### Frontend
-- **Expo** (SDK 50+) - React Native development framework
+- **Expo** (SDK 54) - React Native development framework
 - **React Native** - iOS + Android native apps
 - **TypeScript** - Type safety throughout
 - **React Navigation** - Native navigation
@@ -171,6 +171,14 @@ See [PUSH_NOTIFICATIONS.md](docs/guides/PUSH_NOTIFICATIONS.md) for complete impl
 24. **League** - Cross-course league competition using WHS handicap differentials
 25. **LeaguePlayer** - Join table linking players to leagues
 26. **LeagueRound** - Scorecards tagged to a league with handicap differential for leaderboard
+27. **RoundPlayer** - Join table linking players to standalone rounds
+28. **RoundResult** - Final results for each player in a round
+29. **ScoreEntry** - Individual score entries for multi-scorer validation
+30. **ScoreSubmissionStatus** - Tracks scorecard submission state per player
+31. **ScoreMismatch** - Records scoring discrepancies between scorers
+32. **KnockoutMatch** - Bracket/knockout match pairings and results
+33. **PartnershipLeague** - Partnership-based league competitions
+34. **PartnershipRound** - Rounds within partnership leagues
 
 ### Subscription Tiers
 
@@ -179,8 +187,8 @@ The app uses a **tiered subscription model** to control feature access:
 | Tier | Description | Key Limits |
 |------|-------------|------------|
 | **Free** | Default for all users | 3 competitions, 1 league, 2 rounds, 10 friends, Stableford only |
-| **Social** | Casual golfers | 8 competitions, 3 leagues, 5 rounds, 16 players, +Stroke Play, Match Play, Team formats, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
-| **Premium** | Serious organizers | Unlimited competitions/leagues, 10 rounds, 40 players, all game types, skins, wolf, prize pools |
+| **Social** | Casual golfers | 8 competitions, 3 leagues, 5 rounds, 16 players, 25 friends, +Stroke Play, Match Play, team formats enabled, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
+| **Premium** | Serious organizers | Unlimited competitions/leagues/friends, 10 rounds, 40 players, all game types (incl. Best Ball, Scramble, Shamble, Par), skins, wolf, prize pools |
 | **Super Admin** | Internal team only | No limits, admin tools, never expires |
 
 **Key Behaviors:**
@@ -270,16 +278,25 @@ All Phase 2 features have been implemented:
 - Detailed statistics (putts, fairways, GIR)
 
 ### Phase 3 - Implemented
-- Team formats (Ambrose, Best Ball, Scramble, Shamble)
+- Team formats (Best Ball, Scramble, Shamble)
 - Social features (friends, player comparison)
 - Player statistics dashboard
 - Achievements and cosmetics system
 
-### Current Development
+### Phase 4 - Implemented
 - Leagues (cross-course competition using WHS handicap differentials)
 - Skins and Wolf side-games with prize pools
-- Multi-country support (Australia, UK/EU, USA)
 - Subscription tier system (Free, Social, Premium, Super Admin)
+- Partnership leagues and knockout brackets
+- Standalone rounds (non-competition)
+- Social auth (Apple Sign-In, Google Sign-In)
+- Account deletion
+- League visibility (public/private)
+- Push notifications with deep linking
+
+### Current Development
+- Multi-country support (Australia, UK/EU, USA)
+- App Store / Google Play launch preparation
 
 ---
 
@@ -425,7 +442,7 @@ const styles = StyleSheet.create({
 - **Date Format**: DD/MM/YYYY (not MM/DD/YYYY)
 - **Currency**: AUD for paid features
 - **Timezone**: Handle AEST, AEDT, ACST, AWST
-- **Terminology**: "Honour system", Golf Australia, NSW/VIC/QLD/SA/WA/TAS/NT/ACT
+- **Terminology**: "Honour system", WHS (World Handicap System), NSW/VIC/QLD/SA/WA/TAS/NT/ACT
 - **Privacy**: Default to private competitions
 
 ### Privacy & Security
@@ -709,8 +726,9 @@ eas update --branch production  # OTA update
 - ✅ Phase 1 (MVP) complete
 - ✅ Phase 2 features complete
 - ✅ Phase 3 features complete
-- 🔄 Leagues feature (in development)
+- ✅ Phase 4 features complete (leagues, skins, wolf, subscriptions, partnerships, knockouts)
+- 🔄 Multi-country support & app store launch prep
 
 ---
 
-*Last Updated: February 2026*
+*Last Updated: March 2026*

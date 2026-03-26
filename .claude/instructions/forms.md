@@ -25,7 +25,7 @@ export const createCompetitionSchema = z.object({
   description: z.string().optional(),
   startDate: z.date(),
   endDate: z.date().optional(),
-  handicapSystem: z.enum(['honor', 'golf-australia', 'gross-only'], {
+  handicapSystem: z.enum(['honor', 'whs', 'gross-only'], {
     errorMap: () => ({ message: 'Please select a handicap system' }),
   }),
   visibility: z.enum(['private', 'public', 'unlisted']).default('private'),
@@ -409,7 +409,7 @@ const mutation = useMutation({
 ```tsx
 <FormInput
   label="Handicap"
-  helperText="Enter your official Golf Australia handicap or honor system handicap (0-54)"
+  helperText="Enter your handicap index or honor system handicap (0-54)"
   keyboardType="number-pad"
 />
 ```

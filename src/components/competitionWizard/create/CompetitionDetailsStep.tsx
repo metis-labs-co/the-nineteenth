@@ -66,7 +66,7 @@ export default function CompetitionDetailsStep({
       competitionType: 'event',
       startDate: '',
       endDate: '',
-      handicapSystem: 'golf-australia', // Always GA - no toggle exposed
+      handicapSystem: 'whs', // Always WHS - no toggle exposed
       handicapSource: 'calculated', // Default to Social Index
       inviteCode: '',
       enableTeams: false,

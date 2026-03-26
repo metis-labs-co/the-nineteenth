@@ -25,7 +25,7 @@ const teamFormatSchema = z.enum([
 
 const teamModeSchema = z.enum(['none', 'fixed', 'per-round']);
 
-const handicapSystemSchema = z.enum(['honor', 'golf-australia', 'gross-only']);
+const handicapSystemSchema = z.enum(['honor', 'whs', 'gross-only']);
 
 const competitionTypeSchema = z.enum(['knockout', 'event']);
 

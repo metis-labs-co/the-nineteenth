@@ -17,7 +17,7 @@ export interface PlayerCardData {
   id: string;
   name: string;
   email?: string | null;
-  handicap?: number | null; // GA Handicap (profile)
+  handicap?: number | null; // WHS Handicap Index (profile)
   handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   photo_url?: string | null;
 }
@@ -180,7 +180,7 @@ export const PlayerCard = React.memo(function PlayerCard({
         {showHandicap && (player.handicap != null || player.handicap_index != null) && (
           <View style={styles.handicapRow}>
             <Text style={[styles.handicap, { color: handicapColor || colors.textSecondary }]}>
-              GA: {player.handicap != null ? player.handicap : '-'}
+              HC: {player.handicap != null ? player.handicap : '-'}
             </Text>
             <Text style={[styles.handicapSeparator, { color: colors.textTertiary }]}>|</Text>
             <Text style={[styles.handicap, { color: colors.primary }]}>

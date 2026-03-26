@@ -1,15 +1,15 @@
 /**
- * Golf Australia Daily Handicap Types
+ * WHS Daily Handicap Types
  *
- * Types for the GA 2025 Daily Handicap calculation system.
- * Formula: Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+ * Types for the WHS Daily Handicap calculation system.
+ * Formula: Daily HC = ((WHS Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  */
 
 /**
  * Input parameters for daily handicap calculation
  */
 export interface DailyHandicapParams {
-  /** Player's GA Handicap Index */
+  /** Player's WHS Handicap Index */
   gaHandicap: number;
   /** Course/tee slope rating (default 113 - neutral slope) */
   slopeRating?: number;
@@ -27,7 +27,7 @@ export interface DailyHandicapParams {
 export interface DailyHandicapResult {
   /** Final rounded value for strokes received */
   dailyHandicap: number;
-  /** Intermediate value: GA HC × Slope ÷ 113 (1 decimal) */
+  /** Intermediate value: WHS HC × Slope ÷ 113 (1 decimal) */
   courseHandicap: number;
   /** Applied consistency factor: 0.9986 (male) or 1.0483 (female) */
   consistencyFactor: number;

@@ -18,7 +18,7 @@
 
 ## Overview
 
-Implement Golf Australia's World Handicap System (WHS) handicap tracking to calculate and display a player's Social Handicap Index based on their last 20 rounds.
+Implement World Handicap System (WHS) handicap tracking to calculate and display a player's Social Handicap Index based on their last 20 rounds.
 
 ## Approach
 
@@ -108,7 +108,7 @@ Update `src/types/database/scorecard.types.ts` to add the new handicap fields to
 - slope_rating_used: number | null - snapshot of slope rating
 
 These fields store the handicap data calculated at submission time. The daily_handicap_used
-captures strokes received for historical accuracy (player's GA handicap may change later).
+captures strokes received for historical accuracy (player's WHS Handicap Index may change later).
 The differential is used for calculating the player's Social Handicap Index.
 ```
 
@@ -174,7 +174,7 @@ Add after the existing handicap fields (around line 26):
 - handicap_index_updated_at: string | null - ISO timestamp when index was last calculated
 
 Add JSDoc comment explaining the difference between:
-- handicap: Player's GA Handicap (manually entered or imported from Golf Australia)
+- handicap: Player's WHS Handicap Index (manually entered or imported from national golf body)
 - handicap_index: Calculated Social Handicap Index from last 20 rounds in this app
 ```
 

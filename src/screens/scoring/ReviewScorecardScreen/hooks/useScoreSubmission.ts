@@ -378,8 +378,29 @@ export function useScoreSubmission({
             }
           }
 
-          // Check if user has active leagues for tagging prompt (uses prefetched data)
+          // Check if user has active leagues AND the scorecard has a valid differential
+          // Tagging requires a handicap differential (needs slope + course rating from tee data)
           const hasLeagues = (leaguesData ?? []).some((l) => l.status === 'active');
+          let canTagToLeague = hasLeagues;
+
+          if (hasLeagues && !leagueTagged && roundId && currentUserId) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+              const { data: diffCheck } = await (supabase
+                .from('scorecards') as any)
+                .select('handicap_differential')
+                .eq('round_id', roundId)
+                .eq('player_id', currentUserId)
+                .single();
+
+              // Allow tagging even if differential is null — tagRoundToLeague will
+              // attempt retroactive recalculation if tee data has been updated since
+              const diff = (diffCheck as { handicap_differential: number | null } | null);
+              canTagToLeague = diff != null;
+            } catch {
+              canTagToLeague = false;
+            }
+          }
 
           if (leagueTagged) {
             showDialog({
@@ -405,7 +426,7 @@ export function useScoreSubmission({
                 navigateAfterSubmit(roundId);
               },
             });
-          } else if (hasLeagues) {
+          } else if (canTagToLeague) {
             showDialog({
               title: 'Scores Submitted!',
               message: 'All scores have been submitted successfully. Would you like to tag this round to a league?',

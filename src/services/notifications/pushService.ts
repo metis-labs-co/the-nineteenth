@@ -377,6 +377,7 @@ export const NotificationCategories = {
   FRIEND_REQUEST: 'FRIEND_REQUEST',
   SCORECARD: 'SCORECARD',
   LEAGUE: 'LEAGUE',
+  SIDE_GAME: 'SIDE_GAME',
 } as const;
 
 export type NotificationCategory = (typeof NotificationCategories)[keyof typeof NotificationCategories];
@@ -448,6 +449,17 @@ async function configureNotificationCategories(): Promise<void> {
 
   // LEAGUE category - View action
   await Notifications.setNotificationCategoryAsync(NotificationCategories.LEAGUE, [
+    {
+      identifier: NotificationActions.VIEW,
+      buttonTitle: 'View',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
+  ]);
+
+  // SIDE_GAME category - View action
+  await Notifications.setNotificationCategoryAsync(NotificationCategories.SIDE_GAME, [
     {
       identifier: NotificationActions.VIEW,
       buttonTitle: 'View',
@@ -529,6 +541,13 @@ async function setupAndroidNotificationChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#1B5E20',
+  });
+
+  // Side game updates channel
+  await Notifications.setNotificationChannelAsync('side-game-updates', {
+    name: 'Side Game Updates',
+    description: 'Skins, Wolf, and prize pool results',
+    importance: Notifications.AndroidImportance.DEFAULT,
   });
 
   console.log('[PushService] Android notification channels configured');

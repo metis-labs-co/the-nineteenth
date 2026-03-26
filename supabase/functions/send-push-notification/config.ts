@@ -47,7 +47,20 @@ export type NotificationType =
   | 'scorecard_submitted'
   | 'friend_request_received'
   | 'friend_request_accepted'
-  | 'social_round_invitation';
+  | 'social_round_invitation'
+  | 'league_player_joined'
+  | 'league_player_left'
+  | 'league_player_removed'
+  | 'league_round_tagged'
+  | 'league_leaderboard_changed'
+  | 'round_completed'
+  | 'partnership_created'
+  | 'partnership_round_tagged'
+  | 'skins_game_completed'
+  | 'skins_game_cancelled'
+  | 'wolf_game_completed'
+  | 'wolf_game_cancelled'
+  | 'prize_pool_settled';
 
 /**
  * Template for notification messages
@@ -127,6 +140,58 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationType, NotificationTempla
   social_round_invitation: {
     title: 'Round Invitation',
     body: '{player_name} invited you to play at {course_name}',
+  },
+  league_player_joined: {
+    title: 'Player Joined League',
+    body: '{player_name} joined {league_name}',
+  },
+  league_player_left: {
+    title: 'Player Left League',
+    body: '{player_name} left {league_name}',
+  },
+  league_player_removed: {
+    title: 'Removed from League',
+    body: 'You were removed from {league_name}',
+  },
+  league_round_tagged: {
+    title: 'Round Tagged',
+    body: '{player_name} tagged a round to {league_name}',
+  },
+  league_leaderboard_changed: {
+    title: 'Leaderboard Update',
+    body: 'Your rank changed in {league_name}',
+  },
+  round_completed: {
+    title: 'Round Complete',
+    body: 'All scorecards submitted for {round_name}',
+  },
+  partnership_created: {
+    title: 'Partnership Created',
+    body: '{player_name} created a partnership with you in {league_name}',
+  },
+  partnership_round_tagged: {
+    title: 'Partnership Round Tagged',
+    body: '{player_name} tagged a round to {league_name}',
+  },
+  skins_game_completed: {
+    title: 'Skins Game Complete',
+    body: 'Skins game completed for {round_name} of {competition_name}',
+  },
+  skins_game_cancelled: {
+    title: 'Skins Game Cancelled',
+    body: 'Skins game for {round_name} of {competition_name} has been cancelled',
+  },
+  wolf_game_completed: {
+    title: 'Wolf Game Complete',
+    body: 'Wolf game completed for {round_name} of {competition_name}',
+  },
+  wolf_game_cancelled: {
+    title: 'Wolf Game Cancelled',
+    body: 'Wolf game for {round_name} of {competition_name} has been cancelled',
+  },
+  prize_pool_settled: {
+    title: 'Prize Pool Settled',
+    body: 'Prize pool for {competition_name} has been settled',
   },
 };
 
@@ -229,6 +294,19 @@ export function getCategoryId(type: NotificationType): string {
     friend_request_received: 'FRIEND_REQUEST',
     friend_request_accepted: 'FRIEND_REQUEST',
     social_round_invitation: 'COMPETITION',
+    league_player_joined: 'LEAGUE',
+    league_player_left: 'LEAGUE',
+    league_player_removed: 'LEAGUE',
+    league_round_tagged: 'LEAGUE',
+    league_leaderboard_changed: 'LEAGUE',
+    round_completed: 'COMPETITION',
+    partnership_created: 'LEAGUE',
+    partnership_round_tagged: 'LEAGUE',
+    skins_game_completed: 'SIDE_GAME',
+    skins_game_cancelled: 'SIDE_GAME',
+    wolf_game_completed: 'SIDE_GAME',
+    wolf_game_cancelled: 'SIDE_GAME',
+    prize_pool_settled: 'SIDE_GAME',
   };
 
   return categoryMap[type] || 'DEFAULT';

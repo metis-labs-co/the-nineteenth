@@ -30,6 +30,12 @@ interface NotificationConfig {
   getMessage: (data: Notification['data']) => string;
 }
 
+function formatCurrency(amount: number, currency?: string): string {
+  const symbols: Record<string, string> = { AUD: '$', USD: '$', GBP: '£', EUR: '€', NZD: '$' };
+  const symbol = symbols[String(currency ?? '').toUpperCase()] || '$';
+  return `${symbol}${Math.abs(amount).toFixed(2)}`;
+}
+
 /**
  * Maps notification types to their icon, title, and message formatters
  */
@@ -141,6 +147,75 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
     getTitle: (_data) => 'Round Complete',
     getMessage: (data) =>
       `All scorecards submitted for Round ${data.round_number || ''} of ${data.competition_name || 'a competition'}`,
+  },
+  skins_game_completed: {
+    icon: 'cards-playing-outline',
+    getTitle: (_data) => 'Skins Game Complete',
+    getMessage: (data) => {
+      const base = data.competition_name
+        ? `Skins game completed for Round ${data.round_number || ''} of ${data.competition_name}`
+        : `Skins game completed at ${data.course_name || 'the course'}`;
+      if (data.holes_won != null && data.net_result != null) {
+        const sign = Number(data.net_result) >= 0 ? '+' : '-';
+        return `${base}. You won ${data.holes_won} holes (${sign}${formatCurrency(Number(data.net_result), data.currency as string)})`;
+      }
+      return base;
+    },
+  },
+  skins_game_cancelled: {
+    icon: 'cards-playing-outline',
+    getTitle: (_data) => 'Skins Game Cancelled',
+    getMessage: (data) => {
+      const context = data.competition_name
+        ? `for Round ${data.round_number || ''} of ${data.competition_name}`
+        : `at ${data.course_name || 'the course'}`;
+      return `Skins game ${context} has been cancelled`;
+    },
+  },
+  wolf_game_completed: {
+    icon: 'paw',
+    getTitle: (_data) => 'Wolf Game Complete',
+    getMessage: (data) => {
+      const base = data.competition_name
+        ? `Wolf game completed for Round ${data.round_number || ''} of ${data.competition_name}`
+        : `Wolf game completed at ${data.course_name || 'the course'}`;
+      if (data.total_points != null && data.net_result != null) {
+        const sign = Number(data.net_result) >= 0 ? '+' : '-';
+        return `${base}. You finished with ${data.total_points} pts (${sign}${formatCurrency(Number(data.net_result), data.currency as string)})`;
+      }
+      return base;
+    },
+  },
+  wolf_game_cancelled: {
+    icon: 'paw',
+    getTitle: (_data) => 'Wolf Game Cancelled',
+    getMessage: (data) => {
+      const context = data.competition_name
+        ? `for Round ${data.round_number || ''} of ${data.competition_name}`
+        : `at ${data.course_name || 'the course'}`;
+      return `Wolf game ${context} has been cancelled`;
+    },
+  },
+  prize_pool_settled: {
+    icon: 'trophy',
+    getTitle: (_data) => 'Prize Pool Settled',
+    getMessage: (data) => {
+      if (data.position != null && data.payout_amount != null) {
+        const pos = Number(data.position);
+        const suffix =
+          pos % 100 >= 11 && pos % 100 <= 13
+            ? 'th'
+            : pos % 10 === 1
+              ? 'st'
+              : pos % 10 === 2
+                ? 'nd'
+                : pos % 10 === 3
+                  ? 'rd'
+                  : 'th';
+        return `Prize pool settled for ${data.competition_name || 'a competition'}. You placed ${pos}${suffix} and won ${formatCurrency(Number(data.payout_amount), data.currency as string)}`;
+      }
+      return `Prize pool for ${data.competition_name || 'a competition'} has been settled. Check the results!`;
+    },
   },
 };
 

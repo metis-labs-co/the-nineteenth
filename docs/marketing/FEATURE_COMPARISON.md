@@ -17,7 +17,7 @@
 | **Team formats (Ambrose, etc.)** | ✅ | ❌ | ⚠️ | ⚠️ | ❌ |
 | **Invite via code** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Free tier available** | ✅ Generous | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | N/A |
-| **Australian handicap system** | ✅ Native | ⚠️ | ⚠️ | ⚠️ | ❌ |
+| **WHS handicap system** | ✅ Native | ⚠️ | ⚠️ | ⚠️ | ❌ |
 | **GPS/shot tracking** | ❌ Phase 3 | ✅ | ✅ | ✅ | ⚠️ |
 | **Course booking** | ❌ Not focus | ❌ | ❌ | ⚠️ | ✅ Core |
 | **Privacy-first (no social login)** | ✅ | ⚠️ | ❌ | ❌ | ❌ |
@@ -40,7 +40,7 @@ If you're organizing competitions for your regular group, mates league, or work 
 | **True offline** - Full functionality without signal | Requires connection or loses data |
 | **Auto-pairing algorithm** - Fair, rotating groups calculated for you | Manual pairing or none at all |
 | **Simple setup** - 4 steps to first competition | Complex configuration, steep learning curve |
-| **Australian-built** - Golf Australia handicaps, local formats, AUD pricing | US-centric, adapted for Australia |
+| **Australian-built** - WHS handicaps, local formats, AUD pricing | US-centric, adapted for Australia |
 
 ---
 

@@ -12,9 +12,9 @@ Modern TypeScript-based stack optimized for mobile-first development with offlin
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| **Expo SDK** | 50+ | Managed React Native workflow with OTA updates |
-| **React Native** | 0.73+ | Cross-platform mobile framework (iOS + Android) |
-| **TypeScript** | 5.3+ | Type safety and developer experience |
+| **Expo SDK** | 54 | Managed React Native workflow with OTA updates |
+| **React Native** | 0.81+ | Cross-platform mobile framework (iOS + Android) |
+| **TypeScript** | 5.9+ | Type safety and developer experience |
 | **pnpm** | 9+ | Fast, efficient package manager |
 
 **Why Expo?**
@@ -480,7 +480,7 @@ supabase
 | **States** | NSW, VIC, QLD, SA, WA, TAS, NT, ACT |
 | **Timezone** | AEST, AEDT, ACST, AWST handling |
 | **Terminology** | "Honour system" (not "honor") |
-| **Golf Body** | Golf Australia (governing body) |
+| **Handicap System** | WHS (World Handicap System) |
 | **Privacy** | Australian Privacy Principles (APP) compliant |
 
 ### Golf Course Data

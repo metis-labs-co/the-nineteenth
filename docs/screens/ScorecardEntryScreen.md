@@ -1,6 +1,6 @@
 # ScorecardEntryScreen
 
-**File:** `src/screens/player/ScorecardEntryScreen.tsx`
+**File:** `src/screens/scoring/ScorecardEntryScreen.tsx`
 
 ## Overview
 

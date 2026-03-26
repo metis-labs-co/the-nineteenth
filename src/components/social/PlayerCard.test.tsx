@@ -162,7 +162,7 @@ describe('PlayerCard', () => {
 
     it('renders player handicap when showHandicap is true (default)', () => {
       render(<PlayerCard {...defaultProps} />);
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('renders with testID', () => {
@@ -191,7 +191,7 @@ describe('PlayerCard', () => {
       render(<PlayerCard {...defaultProps} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('john@example.com')).toBeTruthy();
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('handles player with null email', () => {
@@ -211,37 +211,37 @@ describe('PlayerCard', () => {
       const player = createPlayer({ handicap: null });
       render(<PlayerCard player={player} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
 
     it('handles player with undefined handicap', () => {
       const player = createPlayer({ handicap: undefined });
       render(<PlayerCard player={player} />);
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
 
     it('displays zero handicap correctly', () => {
       const player = createPlayer({ handicap: 0 });
       render(<PlayerCard player={player} />);
-      expect(screen.getByText('GA: 0')).toBeTruthy();
+      expect(screen.getByText('HC: 0')).toBeTruthy();
     });
 
     it('displays negative handicap (plus handicap)', () => {
       const player = createPlayer({ handicap: -2 });
       render(<PlayerCard player={player} />);
-      expect(screen.getByText('GA: -2')).toBeTruthy();
+      expect(screen.getByText('HC: -2')).toBeTruthy();
     });
 
     it('displays high handicap', () => {
       const player = createPlayer({ handicap: 36 });
       render(<PlayerCard player={player} />);
-      expect(screen.getByText('GA: 36')).toBeTruthy();
+      expect(screen.getByText('HC: 36')).toBeTruthy();
     });
 
     it('displays decimal handicap', () => {
       const player = createPlayer({ handicap: 12.5 });
       render(<PlayerCard player={player} />);
-      expect(screen.getByText('GA: 12.5')).toBeTruthy();
+      expect(screen.getByText('HC: 12.5')).toBeTruthy();
     });
   });
 
@@ -259,14 +259,14 @@ describe('PlayerCard', () => {
     it('hides handicap when showHandicap is false', () => {
       render(<PlayerCard {...defaultProps} showHandicap={false} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
 
     it('hides both email and handicap when both are false', () => {
       render(<PlayerCard {...defaultProps} showEmail={false} showHandicap={false} />);
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.queryByText('john@example.com')).toBeNull();
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
 
     it('shows email when showEmail is true explicitly', () => {
@@ -276,7 +276,7 @@ describe('PlayerCard', () => {
 
     it('shows handicap when showHandicap is true explicitly', () => {
       render(<PlayerCard {...defaultProps} showHandicap={true} />);
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
   });
 
@@ -378,17 +378,17 @@ describe('PlayerCard', () => {
   describe('Handicap Color', () => {
     it('uses default color when handicapColor not provided', () => {
       render(<PlayerCard {...defaultProps} />);
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('applies custom handicapColor', () => {
       render(<PlayerCard {...defaultProps} handicapColor="#FF0000" />);
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('ignores handicapColor when handicap not shown', () => {
       render(<PlayerCard {...defaultProps} showHandicap={false} handicapColor="#FF0000" />);
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
   });
 
@@ -464,7 +464,7 @@ describe('PlayerCard', () => {
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('john@example.com')).toBeTruthy();
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('displays badge in non-pressable mode', () => {
@@ -636,7 +636,7 @@ describe('PlayerCard', () => {
         />
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
       expect(screen.queryByText('john@example.com')).toBeNull();
     });
 
@@ -691,7 +691,7 @@ describe('PlayerCard', () => {
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.getByText('john@example.com')).toBeTruthy();
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('renders player in search results', () => {
@@ -747,7 +747,7 @@ describe('PlayerCard', () => {
       );
       expect(screen.getByText('John Smith')).toBeTruthy();
       expect(screen.queryByText('john@example.com')).toBeNull();
-      expect(screen.queryByText(/GA:/)).toBeNull();
+      expect(screen.queryByText(/HC:/)).toBeNull();
     });
 
     it('renders list-item with badge and custom handicap color', () => {
@@ -761,7 +761,7 @@ describe('PlayerCard', () => {
         />
       );
       expect(screen.getByText('Leader')).toBeTruthy();
-      expect(screen.getByText('GA: 12')).toBeTruthy();
+      expect(screen.getByText('HC: 12')).toBeTruthy();
     });
 
     it('renders with all props combined', () => {

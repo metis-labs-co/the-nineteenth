@@ -31,6 +31,7 @@ function createMockNotification(
     round_id: null,
     player_id: null,
     friendship_id: null,
+    league_id: null,
     is_read: false,
     read_at: null,
     created_at: new Date().toISOString(),
@@ -194,6 +195,66 @@ export const SocialRoundInvitation: Story = {
   },
 };
 
+export const SkinsGameCompleted: Story = {
+  args: {
+    notification: createMockNotification('skins_game_completed', {
+      competition_name: 'Summer Cup',
+      round_number: 3,
+      holes_won: 2,
+      net_result: 45.00,
+      currency: 'AUD',
+    }),
+    onPress: () => console.log('Navigate to skins results'),
+  },
+};
+
+export const SkinsGameCancelled: Story = {
+  args: {
+    notification: createMockNotification('skins_game_cancelled', {
+      competition_name: 'Summer Cup',
+      round_number: 3,
+    }),
+    onPress: () => console.log('Navigate to competition'),
+  },
+};
+
+export const WolfGameCompleted: Story = {
+  args: {
+    notification: createMockNotification('wolf_game_completed', {
+      competition_name: 'Summer Cup',
+      round_number: 3,
+      total_points: 8,
+      net_result: 32.00,
+      pot_enabled: true,
+      currency: 'AUD',
+    }),
+    onPress: () => console.log('Navigate to wolf results'),
+  },
+};
+
+export const WolfGameCancelled: Story = {
+  args: {
+    notification: createMockNotification('wolf_game_cancelled', {
+      competition_name: 'Summer Cup',
+      round_number: 3,
+    }),
+    onPress: () => console.log('Navigate to competition'),
+  },
+};
+
+export const PrizePoolSettled: Story = {
+  args: {
+    notification: createMockNotification('prize_pool_settled', {
+      competition_name: 'Summer Cup',
+      position: 2,
+      position_text: '2nd',
+      payout_amount: 150.00,
+      currency: 'AUD',
+    }),
+    onPress: () => console.log('Navigate to prize pool results'),
+  },
+};
+
 // ===========================================================================
 // ALL NOTIFICATION TYPES GALLERY
 // ===========================================================================
@@ -278,6 +339,64 @@ export const AllNotificationTypes: Story = {
             notification={createMockNotification('social_round_invitation', {
               inviter_name: 'Mike Johnson',
               venue_name: 'Victoria Golf Club',
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+      </Section>
+
+      <Section title="Side Game Notifications">
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('skins_game_completed', {
+              competition_name: 'Summer Cup',
+              round_number: 3,
+              holes_won: 2,
+              net_result: 45.00,
+              currency: 'AUD',
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('skins_game_cancelled', {
+              competition_name: 'Summer Cup',
+              round_number: 3,
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('wolf_game_completed', {
+              competition_name: 'Summer Cup',
+              round_number: 3,
+              total_points: 8,
+              net_result: 32.00,
+              pot_enabled: true,
+              currency: 'AUD',
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('wolf_game_cancelled', {
+              competition_name: 'Summer Cup',
+              round_number: 3,
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('prize_pool_settled', {
+              competition_name: 'Summer Cup',
+              position: 2,
+              position_text: '2nd',
+              payout_amount: 150.00,
+              currency: 'AUD',
             })}
             onPress={() => {}}
           />
@@ -833,6 +952,41 @@ export const AllIcons: Story = {
           <NotificationToastComponent
             notification={createMockNotification('social_round_invitation', {
               inviter_name: 'Test',
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+      </Section>
+
+      <Section title="cards-playing-outline (Skins Game)">
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('skins_game_completed', {
+              competition_name: 'Test',
+              round_number: 1,
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+      </Section>
+
+      <Section title="paw (Wolf Game)">
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('wolf_game_completed', {
+              competition_name: 'Test',
+              round_number: 1,
+            })}
+            onPress={() => {}}
+          />
+        </ToastPreview>
+      </Section>
+
+      <Section title="trophy (Prize Pool Settled)">
+        <ToastPreview>
+          <NotificationToastComponent
+            notification={createMockNotification('prize_pool_settled', {
+              competition_name: 'Test',
             })}
             onPress={() => {}}
           />

@@ -207,7 +207,7 @@ This document tracks the implementation progress of MVP Phase 1 for The Nineteen
 - [x] Name field (required)
 - [x] Description field (optional, textarea)
 - [x] Start date picker (required)
-- [x] Handicap system dropdown (Honor System, Golf Australia, Gross Only)
+- [x] Handicap system dropdown (Honor System, WHS, Gross Only)
 - [x] Stepper indicator showing step 1/4
 - [x] Next button with validation
 

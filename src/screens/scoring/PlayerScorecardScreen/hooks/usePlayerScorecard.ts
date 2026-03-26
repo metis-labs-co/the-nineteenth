@@ -33,7 +33,7 @@ export interface PlayerStats {
   front9Par: number;
   back9Par: number;
   // Handicap stats
-  handicap: number; // Raw GA handicap index
+  handicap: number; // Raw WHS handicap index
   dailyHandicap: number; // Daily handicap (calculated from tee ratings)
   // FIR/GIR stats
   totalFairwaysHit: number;
@@ -153,7 +153,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     return Array.isArray(holes) ? holes.reduce((sum, hole) => sum + hole.par, 0) : 0;
   }, [holes]);
 
-  // Calculate daily handicap using GA formula
+  // Calculate daily handicap using WHS formula
   const { handicap, dailyHandicap } = useMemo(() => {
     const rawHandicap = player?.handicap || 0;
 

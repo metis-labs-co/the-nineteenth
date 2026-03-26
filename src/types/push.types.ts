@@ -71,6 +71,8 @@ export interface PushPreferences {
   pushScorecardUpdates: boolean;
   /** Notifications about league updates (joins, round tags, leaderboard changes) */
   pushLeagueUpdates: boolean;
+  /** Notifications about side-game results and prize pool settlements */
+  pushSideGameUpdates: boolean;
 }
 
 /**
@@ -82,6 +84,7 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   pushFriendRequests: true,
   pushScorecardUpdates: true,
   pushLeagueUpdates: true,
+  pushSideGameUpdates: true,
 };
 
 // =====================================================
@@ -292,7 +295,19 @@ export function getEnabledNotificationTypes(
       'league_player_left',
       'league_player_removed',
       'league_round_tagged',
-      'league_leaderboard_changed'
+      'league_leaderboard_changed',
+      'partnership_created',
+      'partnership_round_tagged'
+    );
+  }
+
+  if (preferences.pushSideGameUpdates) {
+    types.push(
+      'skins_game_completed',
+      'skins_game_cancelled',
+      'wolf_game_completed',
+      'wolf_game_cancelled',
+      'prize_pool_settled'
     );
   }
 

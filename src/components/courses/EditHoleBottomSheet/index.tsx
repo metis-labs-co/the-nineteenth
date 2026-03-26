@@ -16,6 +16,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { useSettingsStore } from '@/store/settingsStore';
+import { resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { useEditHoleForm } from './hooks/useEditHoleForm';
 import { ParSelector, StrokeIndexSelector, YardageInputRow } from './components';
 import type { EditHoleBottomSheetProps, ParValue } from './types';
@@ -115,11 +116,11 @@ export const EditHoleBottomSheet = React.memo(function EditHoleBottomSheet({
     [isDirty, isValid, loading]
   );
 
-  // Memoized yardage display values - use tee COLOR as key (matches hole.yardages format)
+  // Memoized yardage display values - resolve tee color to consistent key (hex → name)
   const yardageDisplayValues = useMemo(() => {
     const values: Record<string, string> = {};
     courseTees.forEach((tee) => {
-      const teeKey = tee.color.toLowerCase();
+      const teeKey = resolveTeeYardageKey(tee.color, tee.name);
       values[teeKey] = yardsToDisplayUnit(formState.yardages[teeKey]);
     });
     return values;
@@ -158,15 +159,15 @@ export const EditHoleBottomSheet = React.memo(function EditHoleBottomSheet({
               Distance ({isMetres ? 'metres' : 'yards'})
             </Text>
             {courseTees.map((tee) => {
-              // Use tee COLOR as key (matches hole.yardages format: { blue: 400, white: 380 })
-              const teeKey = tee.color.toLowerCase();
+              // Resolve tee color to consistent key (hex → name, e.g. "#00CCFF" → "blue")
+              const teeKey = resolveTeeYardageKey(tee.color, tee.name);
               return (
                 <YardageInputRow
                   key={tee.color}
                   tee={tee}
                   value={yardageDisplayValues[teeKey]}
                   onChangeText={createDistanceHandler(teeKey)}
-                  isSelectedTee={selectedTee?.toLowerCase() === teeKey}
+                  isSelectedTee={resolveTeeYardageKey(selectedTee) === teeKey}
                   isMetres={isMetres}
                   error={errors.yardages?.[teeKey]}
                 />

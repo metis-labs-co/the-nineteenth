@@ -1,6 +1,6 @@
 # PlayerDetailScreen
 
-**File:** `src/screens/player/PlayerDetailScreen.tsx`
+**File:** `src/screens/social/PlayerDetailScreen.tsx`
 
 ## Overview
 

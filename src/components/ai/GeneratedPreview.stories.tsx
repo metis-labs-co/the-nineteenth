@@ -169,10 +169,10 @@ export const HonourSystem: Story = {
   },
 };
 
-export const GolfAustralia: Story = {
+export const WHS: Story = {
   args: {
     competition: createCompetition({
-      handicapSystem: 'golf-australia',
+      handicapSystem: 'whs',
     }),
     isCreating: false,
   },

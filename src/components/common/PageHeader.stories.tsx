@@ -472,7 +472,7 @@ export const LongTitleAndSubtitle: Story = {
     <PageWrapper>
       <PageHeader
         title="Annual Summer Golf Championship 2024"
-        subtitle="Sponsored by Golf Australia - Round 3 of 4 at Royal Melbourne Golf Club"
+        subtitle="Round 3 of 4 at Royal Melbourne Golf Club"
         showBack
         onBack={handleBack}
       />

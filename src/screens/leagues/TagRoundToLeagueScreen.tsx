@@ -66,11 +66,11 @@ export default function TagRoundToLeagueScreen() {
           style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
           activeOpacity={0.7}
           disabled={tagMutation.isPending}
-          accessibilityLabel={`Tag round from ${formattedDate} with differential ${item.handicap_differential.toFixed(1)}`}
+          accessibilityLabel={`Tag round from ${formattedDate}${item.handicap_differential != null ? ` with differential ${item.handicap_differential.toFixed(1)}` : ' (needs recalculation)'}`}
         >
           <View style={[styles.diffBadge, { backgroundColor: colors.primaryBackground }]}>
             <Text style={[styles.diffValue, { color: colors.primary }]}>
-              {item.handicap_differential.toFixed(1)}
+              {item.handicap_differential != null ? item.handicap_differential.toFixed(1) : '—'}
             </Text>
           </View>
 

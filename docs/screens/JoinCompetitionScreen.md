@@ -1,6 +1,6 @@
 # JoinCompetitionScreen
 
-**File:** `src/screens/player/JoinCompetitionScreen.tsx`
+**File:** `src/screens/competitions/JoinCompetitionScreen.tsx`
 
 ## Overview
 

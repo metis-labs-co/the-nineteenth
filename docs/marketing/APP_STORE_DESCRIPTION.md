@@ -37,7 +37,7 @@ Watch the standings update in real-time as groups submit scores. Check from the 
 • Ambrose, Best Ball, Scramble (Premium tier)
 
 **BUILT FOR AUSTRALIAN GOLFERS**
-Designed with Golf Australia handicap system in mind. Australian date formats, local terminology, and privacy-first approach.
+Designed with the World Handicap System (WHS) in mind. Australian date formats, local terminology, and privacy-first approach.
 
 **FREE TO START**
 Create up to 3 competitions with 8 players each, completely free. Upgrade to Social or Premium when you need more players, more rounds, or more formats.
@@ -116,7 +116,7 @@ Watch the standings update in real-time as groups submit scores. Check from the 
 • Ambrose, Best Ball, Scramble (Premium tier)
 
 <b>BUILT FOR AUSTRALIAN GOLFERS</b>
-Designed with Golf Australia handicap system in mind. Australian date formats, local terminology, and privacy-first approach.
+Designed with the World Handicap System (WHS) in mind. Australian date formats, local terminology, and privacy-first approach.
 
 <b>FREE TO START</b>
 Create up to 3 competitions with 8 players each, completely free. Upgrade to Social or Premium when you need more players, more rounds, or more formats.

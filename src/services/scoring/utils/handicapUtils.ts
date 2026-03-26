@@ -2,7 +2,7 @@
  * Handicap Utilities
  *
  * Functions for calculating handicap-related adjustments.
- * Updated to use Golf Australia 2025 Daily Handicap formula.
+ * Updated to use WHS Daily Handicap formula.
  */
 
 import type { Hole } from '../types';
@@ -26,8 +26,8 @@ export const calculateStrokesForHole = getStrokesReceived;
 /**
  * Get the playing handicap adjusted for the course and game type.
  *
- * Uses the Golf Australia 2025 Daily Handicap formula when course data is available:
- * Daily HC = ((GA Handicap × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
+ * Uses the WHS Daily Handicap formula when course data is available:
+ * Daily HC = ((WHS Handicap Index × Slope ÷ 113) + (Course Rating − Par)) × 0.93 × Consistency Factor
  *
  * Consistency Factors:
  * - Men/Boys: 0.9986
@@ -36,10 +36,10 @@ export const calculateStrokesForHole = getStrokesReceived;
  * Falls back to simplified formula when course data is missing:
  * Course Handicap = Handicap Index × (Slope Rating ÷ 113)
  *
- * @param handicapIndex - Player's GA handicap index
+ * @param handicapIndex - Player's WHS handicap index
  * @param slopeRating - Course slope rating (55-155, default 113)
- * @param courseRating - Course rating (optional, enables GA formula)
- * @param par - Course par (optional, enables GA formula)
+ * @param courseRating - Course rating (optional, enables WHS formula)
+ * @param par - Course par (optional, enables WHS formula)
  * @param gameType - The game type (may affect handicap allowance)
  * @param gender - Player gender for consistency factor (optional, defaults to male)
  * @returns Adjusted playing handicap (rounded to nearest integer)
@@ -54,7 +54,7 @@ export function getPlayingHandicap(
 ): number {
   let dailyHandicap: number;
 
-  // Use GA formula when we have complete course data
+  // Use WHS formula when we have complete course data
   if (par !== undefined && par > 0) {
     const result = calculateGADailyHandicap({
       gaHandicap: handicapIndex,

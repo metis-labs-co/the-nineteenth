@@ -1,6 +1,6 @@
 # PlayerScorecardScreen
 
-**File:** `src/screens/player/PlayerScorecardScreen.tsx`
+**File:** `src/screens/scoring/PlayerScorecardScreen.tsx`
 
 ## Overview
 

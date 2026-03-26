@@ -1,6 +1,6 @@
 # FriendsScreen
 
-**File:** `src/screens/player/FriendsScreen.tsx`
+**File:** `src/screens/social/FriendsScreen.tsx`
 
 ## Overview
 

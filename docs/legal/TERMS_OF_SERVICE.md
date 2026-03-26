@@ -109,7 +109,7 @@ While we provide tools for score entry and calculation:
 - Players are responsible for entering accurate scores
 - The App performs calculations based on entered data
 - We do not verify or guarantee score accuracy
-- Official handicaps should be obtained from Golf Australia or relevant governing bodies
+- Official handicaps should be obtained from relevant governing bodies
 
 ### 6.3 Skins, Wolf, and Monetary Tracking
 

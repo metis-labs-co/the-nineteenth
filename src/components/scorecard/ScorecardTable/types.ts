@@ -9,6 +9,8 @@ import type { HandicapSource } from '@/types/database';
 import type { PlayerGender } from '@/types/database/player.types';
 import type { ScoresRecord, PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
 
+export type ScoreDisplayMode = 'strokes' | 'points';
+
 /**
  * Minimal player info needed for scorecard display
  */
@@ -61,6 +63,8 @@ export interface ScorecardTableProps {
   gameType?: GameType;
   /** Handicap source for calculating player stats ('profile' | 'calculated' | 'none') */
   handicapSource?: HandicapSource;
+  /** Score display mode for Stableford - 'strokes' shows gross strokes, 'points' shows Stableford points */
+  scoreDisplayMode?: ScoreDisplayMode;
 }
 
 /**

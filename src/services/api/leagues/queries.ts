@@ -282,7 +282,6 @@ export async function getEligibleScorecards(
     `)
     .eq('player_id', user.id)
     .in('status', ['completed', 'confirmed'])
-    .not('handicap_differential', 'is', null)
     .order('created_at', { ascending: false });
 
   if (taggedIds.length > 0) {
@@ -304,7 +303,7 @@ export async function getEligibleScorecards(
     id: string;
     round_id: string | null;
     player_id: string;
-    handicap_differential: number;
+    handicap_differential: number | null;
     status: string;
     created_at: string;
     total_gross: number | null;
@@ -321,6 +320,7 @@ export async function getEligibleScorecards(
     course_name: sc.rounds?.courses?.name ?? null,
     club_name: null,
     course_id: sc.rounds?.course_id ?? null,
+    needs_recalculation: sc.handicap_differential == null,
   }));
 }
 

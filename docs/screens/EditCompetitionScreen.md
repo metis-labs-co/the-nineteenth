@@ -1,6 +1,6 @@
 # EditCompetitionScreen
 
-**File:** `src/screens/admin/EditCompetitionScreen.tsx`
+**File:** `src/screens/admin/EditCompetitionScreen/index.tsx`
 
 ## Overview
 
@@ -50,7 +50,7 @@ const editCompetitionSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   startDate: z.date(),
   endDate: z.date().optional().nullable(),
-  handicapSystem: z.enum(['honor', 'golf-australia', 'gross-only']),
+  handicapSystem: z.enum(['honor', 'whs', 'gross-only']),
   visibility: z.enum(['private', 'public', 'unlisted']),
 });
 ```
@@ -117,7 +117,7 @@ EditCompetitionScreen
 | Value | Label | Description |
 |-------|-------|-------------|
 | `honor` | Honor | Players self-report their handicap |
-| `golf-australia` | GA | Uses Golf Australia handicap system |
+| `whs` | WHS | Uses World Handicap System |
 | `gross-only` | Gross | No handicap adjustments - gross scores only |
 
 ### Visibility Options

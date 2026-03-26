@@ -79,7 +79,7 @@ const knockoutCompetitionData: CompetitionDetailsFormData = {
   description: '',
   competitionType: 'knockout',
   startDate: '01/02/2025',
-  handicapSystem: 'golf-australia',
+  handicapSystem: 'whs',
   handicapSource: 'profile',
   enableTeams: false,
 };
@@ -340,7 +340,7 @@ describe('ReviewStep', () => {
       expect(screen.getByText('Honour System')).toBeTruthy();
     });
 
-    it('displays Golf Australia Verified handicap system', () => {
+    it('displays WHS Verified handicap system', () => {
       render(
         <ReviewStep
           {...defaultProps}
@@ -348,7 +348,7 @@ describe('ReviewStep', () => {
         />
       );
 
-      expect(screen.getByText('Golf Australia Verified')).toBeTruthy();
+      expect(screen.getByText('WHS Verified')).toBeTruthy();
     });
 
     it('displays Gross Scores Only handicap system', () => {

@@ -26,6 +26,7 @@ export interface Hole {
  * Tee box configuration (stored in Course.tees JSONB array)
  */
 export interface TeeBox {
+  tee_id?: string; // UUID from tees table (for recalculation lookups)
   name: string; // 'Championship', 'Men', 'Women', etc.
   color: string; // 'blue', 'white', 'red', etc.
   totalYardage?: number | null; // Optional - some tees may not have yardage data

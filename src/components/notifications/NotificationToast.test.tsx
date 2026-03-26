@@ -86,6 +86,7 @@ function createMockNotification(
     round_id: null,
     player_id: null,
     friendship_id: null,
+    league_id: null,
     is_read: false,
     read_at: null,
     created_at: '2024-12-25T10:00:00Z',
@@ -466,6 +467,173 @@ describe('NotificationToastComponent', () => {
         expect(screen.getByText('Someone invited you to play at Pebble Beach')).toBeTruthy();
       });
     });
+
+    describe('skins_game_completed', () => {
+      it('renders correct icon', () => {
+        const notification = createMockNotification('skins_game_completed');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByTestId('icon-cards-playing-outline')).toBeTruthy();
+      });
+
+      it('renders correct title', () => {
+        const notification = createMockNotification('skins_game_completed');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins Game Complete')).toBeTruthy();
+      });
+
+      it('renders message with competition and results', () => {
+        const notification = createMockNotification('skins_game_completed', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+          holes_won: 2,
+          net_result: 45.00,
+          currency: 'AUD',
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins game completed for Round 3 of Summer Cup. You won 2 holes (+$45.00)')).toBeTruthy();
+      });
+
+      it('renders message without results', () => {
+        const notification = createMockNotification('skins_game_completed', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins game completed for Round 3 of Summer Cup')).toBeTruthy();
+      });
+    });
+
+    describe('skins_game_cancelled', () => {
+      it('renders correct icon', () => {
+        const notification = createMockNotification('skins_game_cancelled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByTestId('icon-cards-playing-outline')).toBeTruthy();
+      });
+
+      it('renders correct title', () => {
+        const notification = createMockNotification('skins_game_cancelled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins Game Cancelled')).toBeTruthy();
+      });
+
+      it('renders message with competition and round', () => {
+        const notification = createMockNotification('skins_game_cancelled', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins game for Round 3 of Summer Cup has been cancelled')).toBeTruthy();
+      });
+
+      it('renders fallback message without competition_name', () => {
+        const notification = createMockNotification('skins_game_cancelled', {
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Skins game at the course has been cancelled')).toBeTruthy();
+      });
+    });
+
+    describe('wolf_game_completed', () => {
+      it('renders correct icon', () => {
+        const notification = createMockNotification('wolf_game_completed');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByTestId('icon-paw')).toBeTruthy();
+      });
+
+      it('renders correct title', () => {
+        const notification = createMockNotification('wolf_game_completed');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf Game Complete')).toBeTruthy();
+      });
+
+      it('renders message with competition and results', () => {
+        const notification = createMockNotification('wolf_game_completed', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+          total_points: 8,
+          net_result: 32.00,
+          pot_enabled: true,
+          currency: 'AUD',
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf game completed for Round 3 of Summer Cup. You finished with 8 pts (+$32.00)')).toBeTruthy();
+      });
+
+      it('renders message without results', () => {
+        const notification = createMockNotification('wolf_game_completed', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf game completed for Round 3 of Summer Cup')).toBeTruthy();
+      });
+    });
+
+    describe('wolf_game_cancelled', () => {
+      it('renders correct icon', () => {
+        const notification = createMockNotification('wolf_game_cancelled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByTestId('icon-paw')).toBeTruthy();
+      });
+
+      it('renders correct title', () => {
+        const notification = createMockNotification('wolf_game_cancelled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf Game Cancelled')).toBeTruthy();
+      });
+
+      it('renders message with competition and round', () => {
+        const notification = createMockNotification('wolf_game_cancelled', {
+          competition_name: 'Summer Cup',
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf game for Round 3 of Summer Cup has been cancelled')).toBeTruthy();
+      });
+
+      it('renders fallback message without competition_name', () => {
+        const notification = createMockNotification('wolf_game_cancelled', {
+          round_number: 3,
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Wolf game at the course has been cancelled')).toBeTruthy();
+      });
+    });
+
+    describe('prize_pool_settled', () => {
+      it('renders correct icon', () => {
+        const notification = createMockNotification('prize_pool_settled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByTestId('icon-trophy')).toBeTruthy();
+      });
+
+      it('renders correct title', () => {
+        const notification = createMockNotification('prize_pool_settled');
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Prize Pool Settled')).toBeTruthy();
+      });
+
+      it('renders message with placement and payout', () => {
+        const notification = createMockNotification('prize_pool_settled', {
+          competition_name: 'Summer Cup',
+          position: 2,
+          position_text: '2nd',
+          payout_amount: 150.00,
+          currency: 'AUD',
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Prize pool settled for Summer Cup. You placed 2nd and won $150.00')).toBeTruthy();
+      });
+
+      it('renders fallback message without placement data', () => {
+        const notification = createMockNotification('prize_pool_settled', {
+          competition_name: 'Summer Cup',
+        });
+        render(<NotificationToastComponent notification={notification} />);
+        expect(screen.getByText('Prize pool for Summer Cup has been settled. Check the results!')).toBeTruthy();
+      });
+    });
   });
 
   // ===========================================================================
@@ -542,6 +710,11 @@ describe('NotificationToastComponent', () => {
         'friend_request_received',
         'friend_request_accepted',
         'social_round_invitation',
+        'skins_game_completed',
+        'skins_game_cancelled',
+        'wolf_game_completed',
+        'wolf_game_cancelled',
+        'prize_pool_settled',
       ];
 
       types.forEach((type) => {

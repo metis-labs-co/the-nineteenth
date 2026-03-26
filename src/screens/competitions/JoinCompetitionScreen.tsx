@@ -67,8 +67,8 @@ const getHandicapSystemLabel = (system: string): string => {
   switch (system) {
     case 'honor':
       return 'Honour System';
-    case 'golf-australia':
-      return 'Golf Australia';
+    case 'whs':
+      return 'World Handicap System';
     case 'gross-only':
       return 'Gross Only';
     default:

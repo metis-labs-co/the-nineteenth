@@ -1,620 +1,278 @@
 # Authentication Flow - The Nineteenth
 
 **Backend:** Supabase Auth
-**Storage:** AsyncStorage (persistent sessions)
-**MVP Scope:** Email + Password only
+**Session Storage:** AsyncStorage (persistent sessions)
+**State Management:** React Query (session/user caching) + React Context (initialization state)
 
 ---
 
 ## Overview
 
-Phase 1 MVP uses simple email/password authentication via Supabase Auth. No magic links, no social login, no password reset.
+The app supports multiple authentication methods:
 
-**Deferred to Phase 2:**
-- Magic link authentication
-- Social login (Google, Apple)
-- Password reset flow
-- Email verification
-- Biometric authentication (Face ID / Touch ID)
+- **Email + Password** -- Traditional sign-up and sign-in
+- **Email OTP (One-Time Password)** -- Passwordless sign-in via emailed 6-8 digit code (default on the Login screen)
+- **Magic Link** -- Passwordless sign-in via emailed link
+- **Google OAuth** -- Server-side OAuth flow via in-app browser (all platforms)
+- **Apple Sign In** -- Native iOS flow via `expo-apple-authentication` (iOS only)
+- **Biometric Unlock** -- Face ID / fingerprint for returning users (opt-in via settings)
+- **Password Reset** -- Email-based reset flow with deep link callback
+- **Email Verification** -- Confirmation email sent on sign-up; deep link handling for OTP token verification
 
 ---
 
 ## Authentication Screens
 
-### 1. Welcome Screen (Initial Load)
+### 1. Login Screen
 
-**Route:** `/welcome`
-**When:** App first opens, no authenticated session
+**Route:** `Login`
+**File:** `src/screens/auth/LoginScreen.tsx`
+**When:** App opens with no authenticated session (initial screen in the auth stack)
 
-```
-┌─────────────────────────────────────┐
-│                                     │
-│                                     │
-│            🏌️ Trophy Icon           │
-│                                     │
-│         The Nineteenth              │
-│   Golf Competition Management       │
-│                                     │
-│                                     │
-│   ┌───────────────────────────┐   │
-│   │       Get Started          │   │ ← Navigate to Login
-│   └───────────────────────────┘   │
-│                                     │
-│   ┌───────────────────────────┐   │
-│   │   Already have an account? │   │ ← Navigate to Login
-│   │          Sign In           │   │
-│   └───────────────────────────┘   │
-│                                     │
-└─────────────────────────────────────┘
-```
+The Login screen is the default landing screen for unauthenticated users. It displays:
 
-**Logic:**
-```typescript
-useEffect(() => {
-  // Check for existing session on mount
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) {
-      navigate('Home'); // Already logged in
-    } else {
-      navigate('Welcome'); // Show welcome screen
-    }
-  });
+- App logo and branding
+- **Google Sign In button** (via `SocialLoginButtons` component)
+- An "or" divider
+- **Email input** with two sign-in modes, toggled by the user:
+  - **OTP mode (default):** Enter email, tap "Send Code", then enter the verification code
+  - **Password mode:** Enter email and password, tap "Login"
+- Link to toggle between OTP and password sign-in
+- Link to navigate to Sign Up screen
 
-  // Listen for auth changes
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-      if (event === 'SIGNED_IN') {
-        navigate('Home');
-      } else if (event === 'SIGNED_OUT') {
-        navigate('Welcome');
-      }
-    }
-  );
-
-  return () => subscription.unsubscribe();
-}, []);
-```
-
----
+The Login screen uses the `useAuth` hook which exposes `login`, `sendOtp`, `verifyOtp`, `loginWithApple`, and `loginWithGoogle`.
 
 ### 2. Sign Up Screen
 
-**Route:** `/signup`
+**Route:** `Signup`
+**File:** `src/screens/auth/SignupScreen.tsx`
+**When:** User taps "Sign Up" from the Login screen (presented as a modal)
 
-```
-┌─────────────────────────────────────┐
-│  ← Back           Sign Up           │
-├─────────────────────────────────────┤
-│                                     │
-│   Create Your Account               │
-│   Join or create golf competitions  │
-│                                     │
-│   Name *                            │
-│   ┌───────────────────────────────┐│
-│   │ John Doe                      ││
-│   └───────────────────────────────┘│
-│                                     │
-│   Email *                           │
-│   ┌───────────────────────────────┐│
-│   │ john@example.com              ││
-│   └───────────────────────────────┘│
-│                                     │
-│   Password *                        │
-│   ┌───────────────────────────────┐│
-│   │ ••••••••                      ││
-│   └───────────────────────────────┘│
-│   At least 8 characters             │
-│                                     │
-│   ┌───────────────────────────────┐│
-│   │       Create Account          ││ ← Submit
-│   └───────────────────────────────┘│
-│                                     │
-│   Already have an account? Sign In  │ ← Navigate to Login
-│                                     │
-└─────────────────────────────────────┘
-```
+The Sign Up screen collects minimal information:
 
-**Implementation:**
+- **Google Sign In button** (via `SocialLoginButtons`)
+- An "or" divider
+- **Email** and **Password** fields (name is captured during onboarding instead)
+- Password validation: 8+ characters, uppercase + lowercase, at least one number
+- Terms of Service and Privacy Policy links
+- Link back to Login screen
 
-```typescript
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, Text, HelperText } from 'react-native-paper';
-import { supabase } from '@services/supabase';
-import { useNavigation } from '@react-navigation/native';
+On successful email/password sign-up, if email confirmation is required, the screen transitions to a **confirmation state** that tells the user to check their inbox and click the confirmation link.
 
-export function SignUpScreen() {
-  const navigation = useNavigation();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+### 3. Onboarding Screen
 
-  const handleSignUp = async () => {
-    setLoading(true);
-    setError('');
+**Route:** `Onboarding`
+**File:** `src/screens/onboarding/OnboardingScreen.tsx`
+**When:** User is authenticated but has not completed onboarding (`player.handicap_updated_at === null`)
 
-    // Validation
-    if (!name || !email || !password) {
-      setError('All fields are required');
-      setLoading(false);
-      return;
-    }
+A 7-step swipeable flow shown to new users after authentication:
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      setLoading(false);
-      return;
-    }
+1. Welcome
+2. Name capture
+3. Create Competitions overview
+4. Push notification permission request
+5. Handicap input (0-54)
+6. Home club selection
+7. Biometric setup (opt-in)
 
-    // Sign up with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name, // Store in user_metadata
-        },
-      },
-    });
+The onboarding gate is enforced by `RootNavigator`, which checks whether the player record exists and has completed setup.
 
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
+### 4. Biometric Lock Screen
 
-    // Create profile in public.users table
-    const { error: profileError } = await supabase.from('users').insert({
-      id: authData.user.id,
-      name,
-      email,
-    });
+**File:** `src/components/biometric/BiometricLockScreen.tsx`
+**When:** App resumes and biometric lock is enabled (after 5 min of inactivity or cold start)
 
-    if (profileError) {
-      setError('Failed to create profile: ' + profileError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Success - navigate to home (auth state listener will handle)
-    setLoading(false);
-  };
-
-  return (
-    <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Create Your Account
-      </Text>
-      <Text variant="bodyMedium" style={styles.subtitle}>
-        Join or create golf competitions
-      </Text>
-
-      <TextInput
-        label="Name *"
-        value={name}
-        onChangeText={setName}
-        mode="outlined"
-        style={styles.input}
-        autoCapitalize="words"
-        autoComplete="name"
-      />
-
-      <TextInput
-        label="Email *"
-        value={email}
-        onChangeText={setEmail}
-        mode="outlined"
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="email"
-      />
-
-      <TextInput
-        label="Password *"
-        value={password}
-        onChangeText={setPassword}
-        mode="outlined"
-        style={styles.input}
-        secureTextEntry
-        autoCapitalize="none"
-        autoComplete="password"
-      />
-      <HelperText type="info" visible={true}>
-        At least 8 characters
-      </HelperText>
-
-      {error && (
-        <HelperText type="error" visible={true}>
-          {error}
-        </HelperText>
-      )}
-
-      <Button
-        mode="contained"
-        onPress={handleSignUp}
-        loading={loading}
-        disabled={loading}
-        style={styles.button}
-      >
-        Create Account
-      </Button>
-
-      <Button
-        mode="text"
-        onPress={() => navigation.navigate('Login')}
-        style={styles.linkButton}
-      >
-        Already have an account? Sign In
-      </Button>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
-  },
-  title: {
-    marginBottom: 8,
-  },
-  subtitle: {
-    marginBottom: 24,
-    opacity: 0.7,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginTop: 24,
-  },
-  linkButton: {
-    marginTop: 16,
-  },
-});
-```
+Displays:
+- App logo and lock icon
+- "Unlock with Face ID" / "Unlock with Fingerprint" button
+- "Use password instead" option (signs out, returning to Login)
+- Error state with retry
 
 ---
 
-### 3. Login Screen
+## Supported Auth Methods
 
-**Route:** `/login`
+### Email + Password
 
-```
-┌─────────────────────────────────────┐
-│  ← Back            Sign In          │
-├─────────────────────────────────────┤
-│                                     │
-│   Welcome Back                      │
-│   Sign in to your account           │
-│                                     │
-│   Email *                           │
-│   ┌───────────────────────────────┐│
-│   │ john@example.com              ││
-│   └───────────────────────────────┘│
-│                                     │
-│   Password *                        │
-│   ┌───────────────────────────────┐│
-│   │ ••••••••                      ││
-│   └───────────────────────────────┘│
-│                                     │
-│   ┌───────────────────────────────┐│
-│   │          Sign In              ││ ← Submit
-│   └───────────────────────────────┘│
-│                                     │
-│   Don't have an account? Sign Up    │ ← Navigate to Sign Up
-│                                     │
-└─────────────────────────────────────┘
-```
+Standard Supabase `signInWithPassword` / `signUp` flow. Sign-up stores `name`, `phone`, and `handicap` in `user_metadata` and triggers a database function to create the player profile.
 
-**Implementation:**
+### Email OTP (Default Login Method)
 
-```typescript
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, Text, HelperText } from 'react-native-paper';
-import { supabase } from '@services/supabase';
-import { useNavigation } from '@react-navigation/native';
+Uses `supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })` to send a numeric code. The user enters the code and it is verified via `supabase.auth.verifyOtp({ email, token, type: 'email' })`. This creates a new account if one does not exist.
 
-export function LoginScreen() {
-  const navigation = useNavigation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+### Magic Link
 
-  const handleLogin = async () => {
-    setLoading(true);
-    setError('');
+Uses `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo } })` with the deep link `thenineteenth://auth/magic-link`. The user clicks the link in their email, which opens the app and completes authentication via the deep link handler in `AuthProvider`.
 
-    // Validation
-    if (!email || !password) {
-      setError('Email and password are required');
-      setLoading(false);
-      return;
-    }
+### Google OAuth
 
-    // Sign in with Supabase Auth
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+Implemented in `src/hooks/auth/useSocialAuth.ts`. Uses Supabase's server-side OAuth flow:
 
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
+1. Call `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, skipBrowserRedirect: true } })`
+2. Open the returned URL in an in-app browser via `expo-web-browser`
+3. Google redirects to Supabase callback, which redirects to the app via deep link
+4. Extract `access_token` and `refresh_token` from the redirect URL fragment
+5. Set the session via `supabase.auth.setSession()`
 
-    // Success - navigate to home (auth state listener will handle)
-    setLoading(false);
-  };
+Platform-specific Google client IDs are configured via environment variables (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`).
 
-  return (
-    <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Welcome Back
-      </Text>
-      <Text variant="bodyMedium" style={styles.subtitle}>
-        Sign in to your account
-      </Text>
+### Apple Sign In (iOS Only)
 
-      <TextInput
-        label="Email *"
-        value={email}
-        onChangeText={setEmail}
-        mode="outlined"
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="email"
-      />
+Implemented in `src/services/auth/socialAuth.ts` and `src/hooks/auth/useSocialAuth.ts`. Uses the native iOS flow:
 
-      <TextInput
-        label="Password *"
-        value={password}
-        onChangeText={setPassword}
-        mode="outlined"
-        style={styles.input}
-        secureTextEntry
-        autoCapitalize="none"
-        autoComplete="password"
-      />
+1. Generate a random nonce and SHA256 hash it
+2. Call `AppleAuthentication.signInAsync()` with the hashed nonce, requesting full name and email scopes
+3. Pass the identity token and raw nonce to `supabase.auth.signInWithIdToken({ provider: 'apple', token, nonce })`
+4. On first sign-in, Apple provides the user's name; this is stored in `user_metadata`
 
-      {error && (
-        <HelperText type="error" visible={true}>
-          {error}
-        </HelperText>
-      )}
+Availability is checked at runtime via `AppleAuthentication.isAvailableAsync()` (iOS 13+).
 
-      <Button
-        mode="contained"
-        onPress={handleLogin}
-        loading={loading}
-        disabled={loading}
-        style={styles.button}
-      >
-        Sign In
-      </Button>
+### Biometric Unlock (Face ID / Fingerprint)
 
-      <Button
-        mode="text"
-        onPress={() => navigation.navigate('SignUp')}
-        style={styles.linkButton}
-      >
-        Don't have an account? Sign Up
-      </Button>
-    </View>
-  );
-}
+Implemented in `src/services/biometric/biometricService.ts` and `src/hooks/useBiometricLock.ts`. This is not a standalone auth method but a session-resumption mechanism:
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
-  },
-  title: {
-    marginBottom: 8,
-  },
-  subtitle: {
-    marginBottom: 24,
-    opacity: 0.7,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginTop: 24,
-  },
-  linkButton: {
-    marginTop: 16,
-  },
-});
-```
+- Uses `expo-local-authentication` for Face ID / fingerprint prompts
+- Stores the Supabase refresh token in `expo-secure-store`
+- On sign-in, if biometric is enabled, the refresh token is saved to SecureStore
+- On `TOKEN_REFRESHED` events, the stored token is updated
+- On sign-out, the stored token is cleared
+
+**Lock behavior** (managed by `useBiometricLock` in `RootNavigator`):
+- **Cold start:** Locks immediately if biometric is enabled and hardware is available
+- **Warm resume:** Locks after 5 minutes of inactivity (app in background/inactive)
+- **Fail-open:** If biometrics become unavailable (e.g., removed from device settings), the lock screen is bypassed
+
+### Password Reset
+
+Implemented in `src/hooks/auth/usePasswordReset.ts`:
+- `resetPassword`: Sends a reset email via `supabase.auth.resetPasswordForEmail()` with deep link `thenineteenth://auth/reset-password`
+- `updatePassword`: Updates the password for a logged-in user via `supabase.auth.updateUser({ password })`
 
 ---
 
 ## Auth State Management
 
-### Zustand Auth Store
+### Architecture
 
-```typescript
-// src/store/authStore.ts
-import { create } from 'zustand';
-import { supabase } from '@services/supabase';
-import type { User, Session } from '@supabase/supabase-js';
+Auth state is managed through a combination of React Context and React Query, composed by the `useAuth` hook:
 
-interface AuthState {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-
-  setUser: (user: User | null) => void;
-  setSession: (session: Session | null) => void;
-  signOut: () => Promise<void>;
-}
-
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  session: null,
-  loading: true,
-
-  setUser: (user) => set({ user }),
-  setSession: (session) => set({ session }),
-
-  signOut: async () => {
-    await supabase.auth.signOut();
-    set({ user: null, session: null });
-  },
-}));
+```
+AuthProvider (Context)          -- Singleton auth listener, isInitializing state
+  useAuthSession                -- Session query (React Query)
+  useAuthUser                   -- User + player profile queries
+  useAuthMutations              -- Login, signup, OTP, magic link, logout mutations
+  useSocialAuth                 -- Apple + Google login mutations
+  usePasswordReset              -- Password reset/update mutations
+  useProfileMutations           -- Profile update mutations
 ```
 
-### Auth Provider (Root Component)
+### AuthProvider (`src/context/AuthContext.tsx`)
+
+Sets up a **single** `supabase.auth.onAuthStateChange` listener at the app level. Responsibilities:
+
+- Updates React Query cache for session and user on every auth event
+- Sets `isInitializing = false` after receiving the `INITIAL_SESSION` event
+- On `SIGNED_IN`: Invalidates player profile query, logs in to RevenueCat, stores biometric refresh token, registers push notification token
+- On `SIGNED_OUT`: Clears player cache, logs out of RevenueCat, clears biometric credentials, clears push registration status
+- On `TOKEN_REFRESHED`: Updates the biometric refresh token in SecureStore
+- Handles deep links for email confirmation / magic links (OTP token verification via `Linking`)
+
+### useAuth Hook (`src/hooks/useAuth.ts`)
+
+Thin composition layer that combines all focused auth hooks into a single unified API:
 
 ```typescript
-// App.tsx or _layout.tsx
-import React, { useEffect } from 'react';
-import { supabase } from '@services/supabase';
-import { useAuthStore } from '@store/authStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+const {
+  // State
+  user, session, player, isLoading, isInitializing, isAuthenticating, isAuthenticated, error,
 
-export default function App() {
-  const { setUser, setSession } = useAuthStore();
+  // Auth actions
+  login, signup, loginWithMagicLink, sendOtp, verifyOtp, logout,
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+  // Social auth
+  loginWithApple, loginWithGoogle, isSocialLoggingIn, isAppleAvailable,
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+  // Password management
+  resetPassword, updatePassword,
 
-    return () => subscription.unsubscribe();
-  }, []);
+  // Profile management
+  updateProfile, refreshProfile,
 
-  return <NavigationContainer>{/* Routes */}</NavigationContainer>;
-}
+  // Token management
+  getToken, refreshSession,
+} = useAuth();
+```
+
+For granular usage, individual hooks can be imported directly:
+
+```typescript
+import { useAuthSession } from '@/hooks/auth/useAuthSession';
+import { useAuthUser } from '@/hooks/auth/useAuthUser';
 ```
 
 ---
 
 ## Navigation Setup
 
-### Root Navigator
+### RootNavigator (`src/navigation/RootNavigator.tsx`)
 
-```typescript
-// src/navigation/RootNavigator.tsx
-import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useAuthStore } from '@store/authStore';
+Uses conditional rendering based on auth state:
 
-import WelcomeScreen from '@screens/auth/WelcomeScreen';
-import LoginScreen from '@screens/auth/LoginScreen';
-import SignUpScreen from '@screens/auth/SignUpScreen';
-import HomeScreen from '@screens/HomeScreen';
-
-const Stack = createNativeStackNavigator();
-
-export function RootNavigator() {
-  const { user } = useAuthStore();
-
-  return (
-    <Stack.Navigator>
-      {user ? (
-        // Authenticated stack
-        <>
-          <Stack.Screen name="Home" component={HomeScreen} />
-          {/* Other authenticated screens */}
-        </>
-      ) : (
-        // Unauthenticated stack
-        <>
-          <Stack.Screen
-            name="Welcome"
-            component={WelcomeScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="SignUp" component={SignUpScreen} />
-        </>
-      )}
-    </Stack.Navigator>
-  );
-}
 ```
+if isInitializing || (isAuthenticated && isLoading):
+  -> Loading screen
+
+if isAuthenticated && isLocked (biometric):
+  -> BiometricLockScreen
+
+if !isAuthenticated:
+  -> Auth Stack: Login, Signup
+
+if isAuthenticated && needsOnboarding:
+  -> Onboarding screen
+
+if isAuthenticated && onboarded:
+  -> Main app (tabs + detail screens)
+```
+
+There is no separate Welcome screen. The Login screen serves as the initial landing page with app branding, social login buttons, and the email sign-in form.
 
 ---
 
 ## Session Persistence
 
-Supabase Auth automatically persists sessions to AsyncStorage:
+Supabase Auth persists sessions to AsyncStorage automatically:
 
 ```typescript
-// Configured in src/services/supabase.ts
-export const supabase = createClient(url, key, {
+// src/services/supabase/client.ts
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: AsyncStorage, // Persist sessions
-    autoRefreshToken: true, // Auto-refresh before expiry
-    persistSession: true,   // Save session across app restarts
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false, // Not needed for mobile apps
   },
 });
 ```
 
-**Session Lifecycle:**
-1. User logs in → Session saved to AsyncStorage
-2. App reopens → Session loaded from AsyncStorage
-3. Token expires (60 min) → Auto-refreshed with refresh token
-4. User logs out → Session cleared from AsyncStorage
+**Session lifecycle:**
+1. User authenticates -> Session saved to AsyncStorage
+2. App reopens -> Session loaded from AsyncStorage, `INITIAL_SESSION` event fires
+3. Token nears expiry -> Auto-refreshed via refresh token, `TOKEN_REFRESHED` event fires
+4. User signs out -> Session cleared from AsyncStorage, push token unregistered, biometric credentials cleared
 
 ---
 
-## Protected Routes
+## Deep Link Handling
 
-### Require Auth Hook
+The `AuthProvider` handles incoming deep links for auth callbacks:
 
-```typescript
-// src/hooks/useRequireAuth.ts
-import { useEffect } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { useAuthStore } from '@store/authStore';
+- **Email confirmation:** `thenineteenth://auth/confirm` -- Extracts `token_hash` and `type` from query params, calls `supabase.auth.verifyOtp()`
+- **Magic link:** `thenineteenth://auth/magic-link` -- Same OTP verification flow
+- **Password reset:** `thenineteenth://auth/reset-password` -- Handled by Supabase's `PASSWORD_RECOVERY` auth event
+- **Google OAuth callback:** `thenineteenth://google-auth` -- Tokens extracted from URL fragment by `useSocialAuth`
 
-export function useRequireAuth() {
-  const { user } = useAuthStore();
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    if (!user) {
-      navigation.navigate('Login');
-    }
-  }, [user, navigation]);
-
-  return user;
-}
-```
-
-**Usage:**
-
-```typescript
-function CreateCompetitionScreen() {
-  const user = useRequireAuth(); // Redirect to login if not authenticated
-
-  if (!user) return null; // Or loading spinner
-
-  return <View>{/* Protected content */}</View>;
-}
-```
+Both initial URLs (app opened via deep link) and runtime URLs (link tapped while app is running) are handled.
 
 ---
 
@@ -622,143 +280,120 @@ function CreateCompetitionScreen() {
 
 ### Common Auth Errors
 
-| Error Code | Message | Handling |
-|------------|---------|----------|
-| `invalid_credentials` | Invalid login credentials | Show "Email or password incorrect" |
-| `email_not_confirmed` | Email not verified | Show "Please verify your email" (Phase 2) |
-| `user_already_exists` | Email already registered | Show "Account with this email already exists" |
-| `weak_password` | Password too weak | Show "Password must be at least 8 characters" |
+| Error | Context | User-Facing Message |
+|-------|---------|---------------------|
+| `Invalid login credentials` | Email/password login | "Invalid email or password. Please try again." |
+| `Email not confirmed` | Login before verification | "Please check your email and confirm your account." |
+| `already registered` / `already exists` | Duplicate signup | "This email is already registered. Please login instead." |
+| `weak password` | Signup validation | "Password is too weak. Please use a stronger password." |
+| `rate limit` | Too many OTP requests | "Too many requests. Please wait a moment and try again." |
+| `Invalid` / `expired` | OTP verification | "Invalid or expired code. Please try again." |
+| `ERR_CANCELED` / `canceled` | Social login cancelled | Silently ignored (user-initiated cancellation) |
 
-### Error Display
+### Client-Side Validation
 
-```typescript
-const getErrorMessage = (error: AuthError) => {
-  switch (error.message) {
-    case 'Invalid login credentials':
-      return 'Email or password is incorrect';
-    case 'User already registered':
-      return 'An account with this email already exists';
-    case 'Password should be at least 8 characters':
-      return 'Password must be at least 8 characters long';
-    default:
-      return error.message;
-  }
-};
-```
+- **Email:** Required, must match `^[^\s@]+@[^\s@]+\.[^\s@]+$`
+- **Password (login):** Required, minimum 6 characters
+- **Password (signup):** Required, minimum 8 characters, must contain uppercase + lowercase + number
+- **OTP code:** Required, digits only, 6-8 characters
 
 ---
 
-## Logout Flow
+## Sign-Out Flow
 
-### Logout Button (Settings Screen)
+Sign-out is triggered from the Settings screen and performs the following in order:
 
-```typescript
-import { Button } from 'react-native-paper';
-import { useAuthStore } from '@store/authStore';
-
-function SettingsScreen() {
-  const { signOut } = useAuthStore();
-  const [loading, setLoading] = useState(false);
-
-  const handleLogout = async () => {
-    setLoading(true);
-    await signOut();
-    // Auth state change listener will navigate to Welcome
-    setLoading(false);
-  };
-
-  return (
-    <View>
-      <Button mode="outlined" onPress={handleLogout} loading={loading}>
-        Sign Out
-      </Button>
-    </View>
-  );
-}
-```
+1. Attempt to unregister the push notification token from the database
+2. Call `supabase.auth.signOut()` which clears the session from AsyncStorage
+3. The `SIGNED_OUT` auth event triggers cleanup in `AuthProvider`:
+   - Clear player profile cache
+   - Log out of RevenueCat
+   - Clear push token registration status from AsyncStorage
+   - Clear biometric refresh token from SecureStore
+   - Clear push notification queries
+4. `RootNavigator` detects `isAuthenticated = false` and renders the Login screen
 
 ---
 
-## Phase 2 Enhancements (Deferred)
+## Integration Points
 
-### Password Reset
+Authentication connects to several other systems on sign-in:
 
-```typescript
-// Send reset email
-const { error } = await supabase.auth.resetPasswordForEmail(email, {
-  redirectTo: 'https://yourdomain.com/reset-password',
-});
+| System | Action | When |
+|--------|--------|------|
+| **Player Profile** | Fetch or create via `ensurePlayerProfile()` | Every login/social login/OTP verify |
+| **RevenueCat** | `loginToRevenueCat(userId)` | `SIGNED_IN` event |
+| **Push Notifications** | `attemptPushTokenRegistration(userId)` | `SIGNED_IN` event (non-blocking) |
+| **Biometric** | Store refresh token in SecureStore | `SIGNED_IN` and `TOKEN_REFRESHED` events |
+| **Onboarding** | Gate check via `player.handicap_updated_at` | Navigation rendering |
 
-// User clicks link → Opens app → Reset password screen
-const { error } = await supabase.auth.updateUser({
-  password: newPassword,
-});
-```
+---
 
-### Magic Link Login
+## Key Files
 
-```typescript
-// Send magic link
-const { error } = await supabase.auth.signInWithOtp({
-  email: 'user@example.com',
-});
-
-// User clicks link → Auto-login
-```
-
-### Social Login
-
-```typescript
-// Google
-const { data, error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-});
-
-// Apple
-const { data, error } = await supabase.auth.signInWithOAuth({
-  provider: 'apple',
-});
-```
-
-### Email Verification
-
-```typescript
-// On signup, Supabase sends verification email
-// User clicks link → Email verified
-
-// Check if verified
-const { data: { user } } = await supabase.auth.getUser();
-if (user?.email_confirmed_at) {
-  // Verified
-}
-```
+| File | Purpose |
+|------|---------|
+| `src/context/AuthContext.tsx` | AuthProvider with singleton auth listener |
+| `src/hooks/useAuth.ts` | Unified auth hook (composes sub-hooks) |
+| `src/hooks/auth/useAuthSession.ts` | Session query and token management |
+| `src/hooks/auth/useAuthUser.ts` | User and player profile queries |
+| `src/hooks/auth/useAuthMutations.ts` | Login, signup, OTP, magic link, logout |
+| `src/hooks/auth/useSocialAuth.ts` | Apple and Google social login |
+| `src/hooks/auth/usePasswordReset.ts` | Password reset and update |
+| `src/hooks/auth/useProfileMutations.ts` | Profile update mutations |
+| `src/hooks/auth/utils.ts` | `ensurePlayerProfile()` helper |
+| `src/services/auth/socialAuth.ts` | Native Apple Sign In + Google client config |
+| `src/services/biometric/biometricService.ts` | Face ID / fingerprint + SecureStore |
+| `src/hooks/useBiometricLock.ts` | Lock screen orchestration |
+| `src/components/biometric/BiometricLockScreen.tsx` | Lock screen UI |
+| `src/components/auth/SocialLoginButtons.tsx` | Google sign-in button component |
+| `src/screens/auth/LoginScreen.tsx` | Login screen (OTP + password + social) |
+| `src/screens/auth/SignupScreen.tsx` | Sign-up screen (email/password + social) |
+| `src/screens/onboarding/OnboardingScreen.tsx` | Post-auth onboarding flow |
+| `src/navigation/RootNavigator.tsx` | Auth-gated navigation |
+| `src/services/supabase/client.ts` | Supabase client with session persistence |
+| `src/types/auth.ts` | TypeScript types for all auth interfaces |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Sign up with valid email/password
-- [ ] Sign up with duplicate email (error handling)
-- [ ] Sign up with weak password (error handling)
-- [ ] Login with correct credentials
-- [ ] Login with incorrect credentials (error handling)
+- [ ] Sign up with email/password (valid credentials)
+- [ ] Sign up with duplicate email (shows error)
+- [ ] Sign up with weak password (shows validation errors)
+- [ ] Email confirmation flow (deep link opens app, verifies token)
+- [ ] Login with email/password (correct credentials)
+- [ ] Login with incorrect credentials (shows error)
+- [ ] OTP flow: send code, enter code, verify
+- [ ] OTP flow: resend code, change email
+- [ ] OTP flow: expired/invalid code (shows error)
+- [ ] Google sign-in (opens in-app browser, redirects back)
+- [ ] Apple sign-in on iOS (native prompt, authenticates)
+- [ ] Social login cancellation (no error shown)
 - [ ] Session persists after app restart
 - [ ] Session auto-refreshes before expiry
-- [ ] Logout clears session
-- [ ] Protected routes redirect to login
-- [ ] Auth state updates trigger navigation
+- [ ] Password reset email sends and deep link works
+- [ ] Biometric lock on cold start (when enabled)
+- [ ] Biometric lock after 5 min inactivity
+- [ ] Biometric fail-open when hardware unavailable
+- [ ] Sign-out clears session, push token, biometric credentials
+- [ ] Onboarding shown for new users, skipped for returning users
+- [ ] Protected routes redirect to login when unauthenticated
 
 ---
 
-## Security Best Practices
+## Security Practices
 
-1. **Never store passwords** - Supabase handles hashing
-2. **Use HTTPS only** - Supabase enforces this
-3. **Secure token storage** - AsyncStorage is encrypted on iOS/Android
-4. **Row-Level Security** - All database queries filtered by user ID
-5. **Rate limiting** - Supabase provides built-in rate limiting
-6. **No credentials in code** - Use environment variables
+1. **No password storage** -- Supabase handles hashing server-side
+2. **HTTPS only** -- Supabase enforces TLS
+3. **Secure token storage** -- Biometric refresh tokens stored in `expo-secure-store` (Keychain on iOS, Keystore on Android)
+4. **Session storage** -- AsyncStorage for session persistence (encrypted on device)
+5. **Row-Level Security** -- All database queries filtered by authenticated user ID
+6. **Rate limiting** -- Supabase built-in rate limiting on auth endpoints
+7. **No credentials in code** -- All keys via environment variables
+8. **Nonce validation** -- Apple Sign In uses SHA256-hashed nonces to prevent replay attacks
+9. **Ephemeral browser sessions** -- Google OAuth uses `preferEphemeralSession` to skip cookie persistence
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: March 2026*

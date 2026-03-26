@@ -2,7 +2,7 @@
  * HandicapInfoSheet - Bottom sheet explaining handicap terminology
  *
  * Displays clear explanations for:
- * - GA Handicap (HC) - Official Golf Australia handicap from profile
+ * - Handicap (HC) - Player's handicap from profile
  * - Social Handicap Index - Calculated from app rounds
  * - Daily Handicap (DHC) - Strokes received for a specific round
  */
@@ -95,14 +95,14 @@ export function HandicapInfoSheet({ visible, onClose }: HandicapInfoSheetProps) 
           icon="golf"
           title="Daily Handicap"
           abbreviation="DHC"
-          description="The number of strokes you receive for a specific round. This is calculated using your GA or Social handicap combined with the course and slope ratings of the tees you're playing. A harder course gives you more strokes."
+          description="The number of strokes you receive for a specific round. This is calculated using your profile or Social handicap combined with the course and slope ratings of the tees you're playing. A harder course gives you more strokes."
           formula="(HC × Slope ÷ 113) + (CR - Par) × 0.93"
         />
 
         <View style={[styles.tipContainer, { backgroundColor: colors.infoLight }]}>
           <Icon source="lightbulb-outline" size={20} color={colors.infoDark} />
           <Text style={[styles.tipText, { color: colors.infoDark }]}>
-            Competition organizers can choose whether to use GA Handicap or Social Handicap Index for daily handicap calculations.
+            Competition organizers can choose whether to use your profile Handicap or Social Handicap Index for daily handicap calculations.
           </Text>
         </View>
       </ScrollView>

@@ -8,6 +8,7 @@ import { supabase } from '@/services/supabase/client';
 import type { League, LeagueRound } from '@/types/database';
 import type { CreateLeagueInput } from './types';
 import { getPlayerTagCount } from './queries';
+import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
 
 // Helper to bypass Supabase generated types for new tables.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -193,7 +194,16 @@ export async function tagRoundToLeague(
   }
 
   if (sc.handicap_differential == null) {
-    throw new Error('This scorecard does not have a handicap differential');
+    // Attempt retroactive recalculation — tee data may have been updated since round was scored
+    try {
+      const result = await recalculateScorecardDifferential(scorecardId);
+      sc.handicap_differential = result.handicapDifferential;
+    } catch (recalcError) {
+      const msg = recalcError instanceof Error ? recalcError.message : 'Unknown error';
+      throw new Error(
+        `This scorecard does not have a handicap differential and recalculation failed: ${msg}`
+      );
+    }
   }
 
   const scores = sc.scores;
