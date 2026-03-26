@@ -16,9 +16,6 @@ export type SkinsScoringType = 'gross' | 'net';
 /** Status of a skins game */
 export type SkinsGameStatus = 'active' | 'completed' | 'cancelled';
 
-/** Where the pot money comes from */
-export type SkinsPoolSource = 'direct' | 'prize_pool';
-
 // =====================================================
 // HOLE SCORE DATA
 // =====================================================
@@ -83,11 +80,6 @@ export interface SkinsGame {
   pot_value: number;
   currency: string;
   scoring_type: SkinsScoringType;
-  pool_source: SkinsPoolSource;
-  /** Amount drawn from competition prize pool (when pool_source='prize_pool') */
-  pool_draw_amount: number;
-  /** Amount of carryover returned to pool on game completion */
-  carryover_returned: number;
   status: SkinsGameStatus;
   disclaimer_accepted_at: string;
   disclaimer_accepted_by: string;
@@ -263,9 +255,6 @@ export interface CreateSkinsGameInput {
   pot_value: number;
   currency?: string;
   scoring_type: SkinsScoringType;
-  pool_source?: SkinsPoolSource;
-  /** Prize pool ID when funding from competition prize pool */
-  pool_id?: string;
   /** TRUE if this is a team-based skins game */
   is_team_skins?: boolean;
   /** Team UUIDs participating (required for team skins) */
@@ -283,9 +272,6 @@ export interface CreateTeamSkinsGameInput {
   pot_value: number;
   currency?: string;
   scoring_type: SkinsScoringType;
-  pool_source?: SkinsPoolSource;
-  /** Prize pool ID when funding from competition prize pool */
-  pool_id?: string;
 }
 
 /**
@@ -336,19 +322,6 @@ export interface SkinsConfig {
   pot_value: number;
   scoring_type: SkinsScoringType;
   currency?: string;
-}
-
-/**
- * Configuration for skins game pool source
- * Specifies where the pot money comes from
- */
-export interface SkinsPoolSourceConfig {
-  /** Source of the pot funds */
-  source: SkinsPoolSource;
-  /** Prize pool ID when source is 'prize_pool' */
-  pool_id: string | null;
-  /** Amount to draw from prize pool (may be less than pot_value if insufficient funds) */
-  draw_amount: number | null;
 }
 
 /**

@@ -151,8 +151,6 @@ export type {
   ShotContributions,
   // Skins types
   SkinsConfig,
-  SkinsPoolSource,
-  SkinsPoolSourceConfig,
   SkinsGame,
   SkinsGameSummary,
   SkinsResultWithWinner,
@@ -179,13 +177,12 @@ export type {
   PoolStatus,
   PoolTransactionType,
   CompetitionPrizePool,
+  PrizePoolPlacement,
   PoolTransaction,
   CreatePrizePoolInput,
   UpdatePrizePoolInput,
-  PoolAllocationDetail,
-  PoolAllocationSummary,
-  PoolBalanceSummary,
-  PrizePoolWithSummary,
+  PlacementInput,
+  PrizePoolWithPlacements,
 } from './database.types';
 
 // App-specific type (not in database schema)
@@ -316,9 +313,9 @@ export interface Player {
   name: string;
   email: string;
   phone?: string | null;
-  handicap?: number | null; // GA Handicap (profile), nullable to match database type
+  handicap?: number | null; // WHS Handicap Index (profile), nullable to match database type
   handicapIndex?: number | null; // Social Handicap Index (calculated from app rounds)
-  gender?: 'male' | 'female' | null; // For GA Daily Handicap consistency factor
+  gender?: 'male' | 'female' | null; // For WHS Daily Handicap consistency factor
   photoUrl?: string | null;
   // Optional since most components don't need these
   createdAt?: Date | string;
@@ -384,7 +381,7 @@ export interface Scorecard {
   teeData?: TeeBox | null;
   /** Player gender for selecting appropriate tee ratings */
   playerGender?: 'male' | 'female' | null;
-  /** Player's GA handicap at time of round */
+  /** Player's WHS handicap index at time of round */
   playerHandicap?: number | null;
   /** Course par (sum of hole pars) */
   coursePar?: number;

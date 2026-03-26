@@ -4,7 +4,7 @@
  */
 
 // Competition enums
-export type HandicapSystem = 'honor' | 'golf-australia' | 'gross-only';
+export type HandicapSystem = 'honor' | 'whs' | 'gross-only';
 export type HandicapSource = 'profile' | 'calculated' | 'none';
 export type CompetitionVisibility = 'private' | 'public' | 'unlisted';
 export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
@@ -94,5 +94,4 @@ export type {
   SkinsPotType,
   SkinsScoringType,
   SkinsGameStatus,
-  SkinsPoolSource,
 } from './skins.types';

@@ -1,6 +1,6 @@
 /**
  * Prize Pool Types
- * Types for competition prize pools that fund skins games and other prizes
+ * Types for competition prize pools with placement-based payouts
  */
 
 // =====================================================
@@ -14,12 +14,7 @@ export type PoolFundingType = 'per_player' | 'fixed_total';
 export type PoolStatus = 'draft' | 'active' | 'settled';
 
 /** Type of pool transaction */
-export type PoolTransactionType =
-  | 'allocation'
-  | 'skins_draw'
-  | 'skins_return'
-  | 'prize_payout'
-  | 'adjustment';
+export type PoolTransactionType = 'prize_payout' | 'adjustment';
 
 // =====================================================
 // COMPETITION PRIZE POOL
@@ -27,7 +22,7 @@ export type PoolTransactionType =
 
 /**
  * A prize pool associated with a competition
- * Funds skins games and other competition prizes
+ * Distributes prizes to top finishers based on placement splits
  */
 export interface CompetitionPrizePool {
   id: string;
@@ -41,21 +36,6 @@ export interface CompetitionPrizePool {
   /** Calculated total pool amount */
   total_pool_amount: number;
 
-  /** Allocation percentages (0-100, must sum to <= 100) */
-  skins_allocation_percent: number;
-  winner_allocation_percent: number;
-  other_allocation_percent: number;
-
-  /** Calculated budget amounts (derived from percentages) */
-  skins_budget: number;
-  winner_budget: number;
-  other_budget: number;
-
-  /** Auto-split skins configuration */
-  auto_split_skins: boolean;
-  /** Calculated pot per round when auto_split enabled (null otherwise) */
-  skins_pot_per_round: number | null;
-
   /** Locking state (pool locked when any round starts) */
   is_locked: boolean;
   locked_at: string | null;
@@ -65,6 +45,25 @@ export interface CompetitionPrizePool {
 
   /** Audit fields */
   created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// =====================================================
+// PRIZE POOL PLACEMENT
+// =====================================================
+
+/**
+ * A placement row defining how a portion of the pool is distributed
+ */
+export interface PrizePoolPlacement {
+  id: string;
+  pool_id: string;
+  position: number;
+  percent: number;
+  payout_amount: number;
+  player_id: string | null;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,9 +84,6 @@ export interface PoolTransaction {
   /** Amount (positive for credits, negative for debits) */
   amount: number;
 
-  /** Optional round association (for skins transactions) */
-  round_id: string | null;
-
   /** Description for audit trail */
   description: string | null;
 
@@ -103,6 +99,12 @@ export interface PoolTransaction {
 // INPUT TYPES
 // =====================================================
 
+/** Input for a single placement split */
+export interface PlacementInput {
+  position: number;
+  percent: number;
+}
+
 /**
  * Input for creating a new prize pool
  */
@@ -111,10 +113,7 @@ export interface CreatePrizePoolInput {
   funding_type: PoolFundingType;
   funding_amount: number;
   currency?: string;
-  skins_allocation_percent: number;
-  winner_allocation_percent?: number;
-  other_allocation_percent?: number;
-  auto_split_skins?: boolean;
+  placements: PlacementInput[];
 }
 
 /**
@@ -123,59 +122,16 @@ export interface CreatePrizePoolInput {
 export interface UpdatePrizePoolInput {
   funding_type?: PoolFundingType;
   funding_amount?: number;
-  skins_allocation_percent?: number;
-  winner_allocation_percent?: number;
-  other_allocation_percent?: number;
-  auto_split_skins?: boolean;
+  placements?: PlacementInput[];
 }
 
 // =====================================================
-// SUMMARY / AGGREGATE TYPES
+// SUMMARY TYPES
 // =====================================================
 
 /**
- * Budget allocation details for a single category
+ * Prize pool with its placement breakdown
  */
-export interface PoolAllocationDetail {
-  /** Allocation percentage (0-100) */
-  percent: number;
-  /** Total budget for this category */
-  budget: number;
-  /** Amount already used */
-  used: number;
-  /** Remaining available amount */
-  remaining: number;
-}
-
-/**
- * Summary of pool allocations with usage tracking
- */
-export interface PoolAllocationSummary {
-  skins: PoolAllocationDetail;
-  winner: PoolAllocationDetail;
-  other: PoolAllocationDetail;
-}
-
-/**
- * Summary of current pool balances
- */
-export interface PoolBalanceSummary {
-  /** Total pool amount */
-  total: number;
-  /** Remaining skins budget */
-  skins_remaining: number;
-  /** Remaining winner budget */
-  winner_remaining: number;
-  /** Remaining other budget */
-  other_remaining: number;
-  /** Total number of transactions */
-  transactions_count: number;
-}
-
-/**
- * Prize pool with calculated allocation summary
- */
-export interface PrizePoolWithSummary extends CompetitionPrizePool {
-  allocation_summary: PoolAllocationSummary;
-  balance_summary: PoolBalanceSummary;
+export interface PrizePoolWithPlacements extends CompetitionPrizePool {
+  placements: PrizePoolPlacement[];
 }

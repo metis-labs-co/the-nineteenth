@@ -42,7 +42,6 @@ export type {
   SkinsPotType,
   SkinsScoringType,
   SkinsGameStatus,
-  SkinsPoolSource,
   // Score data types
   SkinsHoleScoreData,
   SkinsHoleScores,
@@ -72,7 +71,6 @@ export type {
   // Summary types
   SkinsGameSummary,
   SkinsConfig,
-  SkinsPoolSourceConfig,
   SkinsDebtTransaction,
   SkinsTeamDebtTransaction,
   SkinsNetPosition,
@@ -119,21 +117,16 @@ export { WOLF_POINTS } from './wolf.types';
 
 // Prize Pool types
 export type {
-  // Enums
   PoolFundingType,
   PoolStatus,
   PoolTransactionType,
-  // Main types
   CompetitionPrizePool,
+  PrizePoolPlacement,
   PoolTransaction,
-  // Input types
   CreatePrizePoolInput,
   UpdatePrizePoolInput,
-  // Summary types
-  PoolAllocationDetail,
-  PoolAllocationSummary,
-  PoolBalanceSummary,
-  PrizePoolWithSummary,
+  PlacementInput,
+  PrizePoolWithPlacements,
 } from './prizePool.types';
 
 // Base types
