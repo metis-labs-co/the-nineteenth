@@ -1,14 +1,14 @@
 /**
- * PrizePoolSummaryCard - Display prize pool summary with balances
+ * PrizePoolSummaryCard - Display prize pool summary with placement payouts
  *
- * Shows the prize pool configuration with allocation breakdowns, usage tracking,
- * and remaining balances. Used in competition details screen to show pool status.
+ * Shows the prize pool configuration with placement-based payout breakdown.
+ * Used in competition details screen to show pool status and prize distribution.
  *
  * @example
  * ```tsx
  * <PrizePoolSummaryCard
  *   pool={prizePool}
- *   summary={allocationSummary}
+ *   placements={placements}
  *   isLocked={true}
  *   onEditPress={handleEdit}
  *   onViewTransactionsPress={handleViewTransactions}
@@ -22,15 +22,13 @@ import { Text, Surface } from 'react-native-paper';
 import {
   IconTrophy,
   IconLock,
-  IconDice,
-  IconMedal,
-  IconDots,
   IconReceipt,
   IconEdit,
+  IconCheck,
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { CompetitionPrizePool, PoolAllocationSummary } from '@/types';
+import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 
 // ============================================================================
 // TYPES
@@ -39,16 +37,14 @@ import type { CompetitionPrizePool, PoolAllocationSummary } from '@/types';
 export interface PrizePoolSummaryCardProps {
   /** The prize pool to display */
   pool: CompetitionPrizePool;
-  /** Allocation summary with used/remaining amounts */
-  summary: PoolAllocationSummary;
+  /** Placement breakdown with payout amounts */
+  placements: PrizePoolPlacement[];
   /** Whether the pool is locked (any round has started) */
   isLocked: boolean;
   /** Handler for edit button press (optional, hidden if not provided or locked) */
   onEditPress?: () => void;
   /** Handler for view transactions link press (optional) */
   onViewTransactionsPress?: () => void;
-  /** Number of rounds in competition (for auto-split display) */
-  roundCount?: number;
 }
 
 // ============================================================================
@@ -56,9 +52,37 @@ export interface PrizePoolSummaryCardProps {
 // ============================================================================
 
 const PRIZE_POOL_COLOR = '#059669'; // Emerald/success color for prize money
-const SKINS_COLOR = '#8B5CF6'; // Purple for skins
-const WINNER_COLOR = '#F59E0B'; // Amber for winner prizes
-const OTHER_COLOR = '#6B7280'; // Gray for other
+const GOLD_COLOR = '#F59E0B'; // 1st place
+const SILVER_COLOR = '#9CA3AF'; // 2nd place
+const BRONZE_COLOR = '#CD7F32'; // 3rd place
+const DEFAULT_COLOR = '#6B7280'; // 4th+ place
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Get medal color for a given position */
+const getMedalColor = (position: number): string => {
+  switch (position) {
+    case 1:
+      return GOLD_COLOR;
+    case 2:
+      return SILVER_COLOR;
+    case 3:
+      return BRONZE_COLOR;
+    default:
+      return DEFAULT_COLOR;
+  }
+};
+
+/** Get ordinal suffix for a position (1st, 2nd, 3rd, 4th...) */
+const getOrdinal = (position: number): string => {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const remainder = position % 100;
+  const suffix =
+    suffixes[(remainder - 20) % 10] || suffixes[remainder] || suffixes[0];
+  return `${position}${suffix}`;
+};
 
 // ============================================================================
 // COMPONENT
@@ -66,28 +90,21 @@ const OTHER_COLOR = '#6B7280'; // Gray for other
 
 export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
   pool,
-  summary,
+  placements,
   isLocked,
   onEditPress,
   onViewTransactionsPress,
-  roundCount,
 }: PrizePoolSummaryCardProps) {
   const colors = useThemeColors();
 
   // Format currency helper
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
-  // Format percentage helper
-  const _formatPercent = (percent: number) => `${percent}%`;
-
-  // Calculate progress percentage (0-100)
-  const _getUsagePercent = (used: number, budget: number) => {
-    if (budget === 0) return 0;
-    return Math.min((used / budget) * 100, 100);
-  };
-
   // Determine if edit should be shown
   const showEdit = onEditPress && !isLocked;
+
+  // Sort placements by position
+  const sortedPlacements = [...placements].sort((a, b) => a.position - b.position);
 
   return (
     <Surface
@@ -134,64 +151,21 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
         </Text>
         <Text style={[styles.fundingValue, { color: colors.textPrimary }]}>
           {pool.funding_type === 'per_player'
-            ? `${formatCurrency(pool.funding_amount)} × players`
+            ? `${formatCurrency(pool.funding_amount)} \u00D7 players`
             : formatCurrency(pool.funding_amount)}
         </Text>
       </View>
 
-      {/* Allocations */}
-      <View style={styles.allocations}>
-        {/* Skins Budget */}
-        <AllocationRow
-          icon={IconDice}
-          iconColor={SKINS_COLOR}
-          label="Skins Games"
-          percent={summary.skins.percent}
-          budget={summary.skins.budget}
-          used={summary.skins.used}
-          remaining={summary.skins.remaining}
-          colors={colors}
-        />
-
-        {/* Winner Prizes */}
-        <AllocationRow
-          icon={IconMedal}
-          iconColor={WINNER_COLOR}
-          label="Winner Prizes"
-          percent={summary.winner.percent}
-          budget={summary.winner.budget}
-          used={summary.winner.used}
-          remaining={summary.winner.remaining}
-          colors={colors}
-        />
-
-        {/* Other */}
-        <AllocationRow
-          icon={IconDots}
-          iconColor={OTHER_COLOR}
-          label="Other"
-          percent={summary.other.percent}
-          budget={summary.other.budget}
-          used={summary.other.used}
-          remaining={summary.other.remaining}
-          colors={colors}
-        />
-      </View>
-
-      {/* Auto-Split Info */}
-      {pool.auto_split_skins && pool.skins_pot_per_round !== null && (
-        <View style={[styles.autoSplitInfo, { backgroundColor: `${SKINS_COLOR}10` }]}>
-          <IconDice size={16} color={SKINS_COLOR} />
-          <Text style={[styles.autoSplitText, { color: colors.textSecondary }]}>
-            Auto-split:{' '}
-            <Text style={{ color: SKINS_COLOR, fontWeight: '600' }}>
-              {formatCurrency(pool.skins_pot_per_round)}
-            </Text>{' '}
-            per round
-            {roundCount !== undefined && roundCount > 0 && (
-              <Text style={{ color: colors.textTertiary }}> × {roundCount} rounds</Text>
-            )}
-          </Text>
+      {/* Placements */}
+      {sortedPlacements.length > 0 && (
+        <View style={styles.placements}>
+          {sortedPlacements.map((placement) => (
+            <PlacementRow
+              key={placement.id}
+              placement={placement}
+              colors={colors}
+            />
+          ))}
         </View>
       )}
 
@@ -214,93 +188,48 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
 });
 
 // ============================================================================
-// ALLOCATION ROW COMPONENT
+// PLACEMENT ROW COMPONENT
 // ============================================================================
 
-interface AllocationRowProps {
-  icon: React.ComponentType<{ size: number; color: string }>;
-  iconColor: string;
-  label: string;
-  percent: number;
-  budget: number;
-  used: number;
-  remaining: number;
+interface PlacementRowProps {
+  placement: PrizePoolPlacement;
   colors: ReturnType<typeof useThemeColors>;
 }
 
-const AllocationRow = memo(function AllocationRow({
-  icon: IconComponent,
-  iconColor,
-  label,
-  percent,
-  budget,
-  used,
-  remaining,
+const PlacementRow = memo(function PlacementRow({
+  placement,
   colors,
-}: AllocationRowProps) {
-  // Don't show row if no allocation
-  if (percent === 0 && budget === 0) {
-    return null;
-  }
-
-  const usagePercent = budget > 0 ? (used / budget) * 100 : 0;
+}: PlacementRowProps) {
+  const medalColor = getMedalColor(placement.position);
+  const isSettled = placement.paid_at !== null;
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
   return (
-    <View style={styles.allocationRow}>
-      {/* Header */}
-      <View style={styles.allocationHeader}>
-        <View style={styles.allocationLeft}>
-          <View style={[styles.allocationIcon, { backgroundColor: `${iconColor}20` }]}>
-            <IconComponent size={16} color={iconColor} />
-          </View>
-          <View>
-            <Text style={[styles.allocationLabel, { color: colors.textPrimary }]}>{label}</Text>
-            <Text style={[styles.allocationPercent, { color: colors.textSecondary }]}>
-              {percent}%
-            </Text>
-          </View>
-        </View>
-        <View style={styles.allocationRight}>
-          <Text style={[styles.allocationBudget, { color: colors.textPrimary }]}>
-            {formatCurrency(budget)}
-          </Text>
-        </View>
+    <View style={styles.placementRow}>
+      {/* Position badge */}
+      <View style={[styles.positionBadge, { backgroundColor: `${medalColor}20` }]}>
+        <Text style={[styles.positionText, { color: medalColor }]}>
+          {getOrdinal(placement.position)}
+        </Text>
       </View>
 
-      {/* Progress Bar */}
-      <View style={[styles.progressContainer, { backgroundColor: colors.surfaceVariant }]}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${Math.min(usagePercent, 100)}%`,
-              backgroundColor: iconColor,
-            },
-          ]}
-        />
+      {/* Percentage and amount */}
+      <View style={styles.placementDetails}>
+        <Text style={[styles.placementAmount, { color: colors.textPrimary }]}>
+          {formatCurrency(placement.payout_amount)}
+        </Text>
+        <Text style={[styles.placementPercent, { color: colors.textSecondary }]}>
+          {placement.percent}%
+        </Text>
       </View>
 
-      {/* Used / Remaining */}
-      <View style={styles.allocationDetails}>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Used</Text>
-          <Text style={[styles.detailValue, { color: colors.textSecondary }]}>
-            {formatCurrency(used)}
-          </Text>
+      {/* Settlement status */}
+      {isSettled && (
+        <View style={[styles.settledBadge, { backgroundColor: `${colors.success}15` }]}>
+          <IconCheck size={14} color={colors.success} />
+          <Text style={[styles.settledText, { color: colors.success }]}>Settled</Text>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: colors.textTertiary }]}>Remaining</Text>
-          <Text
-            style={[
-              styles.detailValue,
-              { color: remaining > 0 ? colors.success : colors.textSecondary },
-            ]}
-          >
-            {formatCurrency(remaining)}
-          </Text>
-        </View>
-      </View>
+      )}
     </View>
   );
 });
@@ -384,79 +313,48 @@ const styles = StyleSheet.create({
     ...typography.small,
     fontWeight: '500',
   },
-  allocations: {
-    gap: spacing.lg,
-  },
-  allocationRow: {
+  placements: {
     gap: spacing.sm,
   },
-  allocationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  allocationLeft: {
+  placementRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
   },
-  allocationIcon: {
-    width: 32,
+  positionBadge: {
+    width: 40,
     height: 32,
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  allocationLabel: {
-    ...typography.small,
-    fontWeight: '500',
+  positionText: {
+    ...typography.smallBold,
   },
-  allocationPercent: {
-    ...typography.caption,
-  },
-  allocationRight: {
-    alignItems: 'flex-end',
-  },
-  allocationBudget: {
-    ...typography.bodyBold,
-  },
-  progressContainer: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  allocationDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  detailItem: {
+  placementDetails: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-  detailLabel: {
-    ...typography.caption,
-  },
-  detailValue: {
-    ...typography.caption,
-    fontWeight: '500',
-  },
-  autoSplitInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.lg,
     gap: spacing.sm,
   },
-  autoSplitText: {
-    ...typography.small,
-    flex: 1,
+  placementAmount: {
+    ...typography.bodyBold,
+  },
+  placementPercent: {
+    ...typography.caption,
+  },
+  settledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    gap: 4,
+  },
+  settledText: {
+    ...typography.caption,
+    fontWeight: '500',
   },
   transactionsLink: {
     flexDirection: 'row',
