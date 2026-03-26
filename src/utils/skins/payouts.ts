@@ -35,22 +35,10 @@ export interface CalculatedPayout {
 export interface FinalPayoutResult {
   /** Payouts for each participant */
   payouts: CalculatedPayout[];
-  /** Remaining carryover (for pool-sourced games, this should be returned to pool) */
+  /** Remaining carryover (always 0 - hole 18 carryover is always split) */
   remainingCarryover: number;
-  /** Whether hole 18 carryover was split among participants */
+  /** Whether hole 18 carryover was split among participants (always true when there is carryover) */
   hole18CarryoverSplit: boolean;
-}
-
-/**
- * Options for final payout calculation
- */
-export interface FinalPayoutOptions {
-  /**
-   * Whether the game is funded from a prize pool.
-   * If true, hole 18 carryover is NOT split among participants
-   * and should be returned to the pool instead.
-   */
-  poolSourced?: boolean;
 }
 
 /**
@@ -83,9 +71,9 @@ export interface CalculatedTeamPayout {
 export interface FinalTeamPayoutResult {
   /** Payouts for each team */
   payouts: CalculatedTeamPayout[];
-  /** Remaining carryover (for pool-sourced games) */
+  /** Remaining carryover (always 0 - hole 18 carryover is always split) */
   remainingCarryover: number;
-  /** Whether hole 18 carryover was split among teams */
+  /** Whether hole 18 carryover was split among teams (always true when there is carryover) */
   hole18CarryoverSplit: boolean;
 }
 
@@ -111,39 +99,25 @@ export function calculateFinalPayouts(
 }
 
 /**
- * Calculate final payouts with carryover handling for pool-sourced games.
+ * Calculate final payouts with carryover handling.
  *
- * For direct pot games (poolSourced=false or undefined):
- * - Hole 18 carryover is split evenly among all participants
- *
- * For pool-sourced games (poolSourced=true):
- * - Hole 18 carryover is NOT split - it's returned to the pool
- * - The remainingCarryover field indicates the amount to return
+ * Hole 18 carryover is always split evenly among all participants.
  *
  * @param game - The skins game configuration
  * @param results - All hole results (should include all 18 holes)
  * @param participants - List of participants
- * @param options - Options including poolSourced flag
  * @returns Final payout result with payouts and carryover info
  *
  * @example
- * // Direct pot game - carryover is split
  * const result = calculateFinalPayoutsWithCarryover(game, results, participants);
  * // result.hole18CarryoverSplit = true, result.remainingCarryover = 0
- *
- * @example
- * // Pool-sourced game - carryover returns to pool
- * const result = calculateFinalPayoutsWithCarryover(game, results, participants, { poolSourced: true });
- * // result.hole18CarryoverSplit = false, result.remainingCarryover = 10 (to return to pool)
  */
 export function calculateFinalPayoutsWithCarryover(
   game: Pick<SkinsGame, 'pot_type' | 'pot_value' | 'participant_ids'>,
   results: Pick<SkinsResult, 'hole_number' | 'winner_id' | 'is_carryover' | 'payout_amount' | 'carryover_to_next' | 'hole_scores'>[],
-  participants: PayoutParticipant[],
-  options?: FinalPayoutOptions
+  participants: PayoutParticipant[]
 ): FinalPayoutResult {
   const buyIn = calculateBuyIn(game.pot_type, game.pot_value, participants.length);
-  const poolSourced = options?.poolSourced ?? false;
 
   // Initialize payout tracking for each participant
   const payoutMap = new Map<string, CalculatedPayout>();
@@ -191,9 +165,8 @@ export function calculateFinalPayoutsWithCarryover(
   const remainingCarryover = calculateCurrentCarryover(results);
   let hole18CarryoverSplit = false;
 
-  // For direct pot games, split hole 18 carryover among participants
-  // For pool-sourced games, don't split - return to pool instead
-  if (remainingCarryover > 0 && !poolSourced) {
+  // Always split hole 18 carryover evenly among participants
+  if (remainingCarryover > 0) {
     const splitAmount = calculateHole18Split(remainingCarryover, participants.length);
     for (const payout of payoutMap.values()) {
       payout.total_winnings += splitAmount;
@@ -210,7 +183,7 @@ export function calculateFinalPayoutsWithCarryover(
 
   return {
     payouts,
-    remainingCarryover: poolSourced ? remainingCarryover : 0,
+    remainingCarryover: 0,
     hole18CarryoverSplit,
   };
 }
@@ -221,7 +194,6 @@ export function calculateFinalPayoutsWithCarryover(
  * @param game - The skins game configuration
  * @param results - All hole results
  * @param teams - List of teams with member counts
- * @param options - Options including poolSourced flag
  * @returns Team payout result with payouts and carryover info
  */
 export function calculateTeamFinalPayouts(
@@ -235,11 +207,9 @@ export function calculateTeamFinalPayouts(
     | 'carryover_to_next'
     | 'hole_scores'
   >[],
-  teams: TeamPayoutParticipant[],
-  options?: FinalPayoutOptions
+  teams: TeamPayoutParticipant[]
 ): FinalTeamPayoutResult {
   const buyIn = calculateBuyIn(game.pot_type, game.pot_value, teams.length);
-  const poolSourced = options?.poolSourced ?? false;
 
   // Initialize payout tracking for each team
   const payoutMap = new Map<string, CalculatedTeamPayout>();
@@ -288,8 +258,8 @@ export function calculateTeamFinalPayouts(
   const remainingCarryover = calculateCurrentCarryover(results);
   let hole18CarryoverSplit = false;
 
-  // For direct pot games, split hole 18 carryover among teams
-  if (remainingCarryover > 0 && !poolSourced) {
+  // Always split hole 18 carryover evenly among teams
+  if (remainingCarryover > 0) {
     const splitAmount = calculateHole18Split(remainingCarryover, teams.length);
     for (const payout of payoutMap.values()) {
       payout.total_winnings += splitAmount;
@@ -312,7 +282,7 @@ export function calculateTeamFinalPayouts(
 
   return {
     payouts,
-    remainingCarryover: poolSourced ? remainingCarryover : 0,
+    remainingCarryover: 0,
     hole18CarryoverSplit,
   };
 }

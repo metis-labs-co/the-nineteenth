@@ -131,7 +131,6 @@ export type {
   PayoutParticipant,
   CalculatedPayout,
   FinalPayoutResult,
-  FinalPayoutOptions,
   ValidationResult,
   HoleScoresValidationResult,
   PlayerNameMap,

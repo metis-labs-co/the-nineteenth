@@ -1216,8 +1216,8 @@ describe('Skins Game Scenarios', () => {
     });
   });
 
-  describe('Pool-sourced game carryover handling', () => {
-    it('splits hole 18 carryover for direct pot games', () => {
+  describe('Carryover handling', () => {
+    it('splits hole 18 carryover evenly among participants', () => {
       const game = createMockGame();
       const participants = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }];
 
@@ -1238,7 +1238,7 @@ describe('Skins Game Scenarios', () => {
         hole_scores: tiedScores,
       }));
 
-      // Direct pot game - carryover should be split
+      // Carryover should be split
       const result = calculateFinalPayoutsWithCarryover(game, results, participants);
 
       // Carryover was split
@@ -1254,45 +1254,7 @@ describe('Skins Game Scenarios', () => {
       }
     });
 
-    it('does NOT split carryover for pool-sourced games', () => {
-      const game = createMockGame();
-      const participants = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }];
-
-      const tiedScores = createMockHoleScores([
-        { playerId: 'p1', gross: 4, net: 4, strokes_received: 0 },
-        { playerId: 'p2', gross: 4, net: 4, strokes_received: 0 },
-        { playerId: 'p3', gross: 4, net: 4, strokes_received: 0 },
-        { playerId: 'p4', gross: 4, net: 4, strokes_received: 0 },
-      ]);
-
-      // All 18 holes tied - $90 total carryover at end
-      const results = Array.from({ length: 18 }, (_, i) => ({
-        hole_number: i + 1,
-        winner_id: null as string | null,
-        is_carryover: true,
-        payout_amount: 0,
-        carryover_to_next: (i + 1) * 5, // Accumulating carryover
-        hole_scores: tiedScores,
-      }));
-
-      // Pool-sourced game - carryover should NOT be split, returns to pool
-      const result = calculateFinalPayoutsWithCarryover(game, results, participants, {
-        poolSourced: true,
-      });
-
-      // Carryover was NOT split
-      expect(result.hole18CarryoverSplit).toBe(false);
-      expect(result.remainingCarryover).toBe(90); // Full pot returns to pool
-
-      // No one gets any winnings
-      for (const payout of result.payouts) {
-        expect(payout.total_winnings).toBe(0);
-        // Net result: $0 winnings - $22.50 buy-in = -$22.50
-        expect(payout.net_result).toBe(-22.5);
-      }
-    });
-
-    it('returns partial carryover for pool-sourced game with some winners', () => {
+    it('splits partial carryover when some holes are won', () => {
       const game = createMockGame();
       const participants = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }];
 
@@ -1311,8 +1273,7 @@ describe('Skins Game Scenarios', () => {
       ]);
 
       // Holes 1-9: p1 wins ($45 total)
-      // Holes 10-17: tied (carryover building)
-      // Hole 18: tied ($45 carryover)
+      // Holes 10-18: tied ($45 carryover, split among 4)
       const results = [
         // Holes 1-9: p1 wins each
         ...Array.from({ length: 9 }, (_, i) => ({
@@ -1334,25 +1295,23 @@ describe('Skins Game Scenarios', () => {
         })),
       ];
 
-      // Pool-sourced game
-      const result = calculateFinalPayoutsWithCarryover(game, results, participants, {
-        poolSourced: true,
-      });
+      const result = calculateFinalPayoutsWithCarryover(game, results, participants);
 
-      // Carryover was NOT split
-      expect(result.hole18CarryoverSplit).toBe(false);
-      expect(result.remainingCarryover).toBe(45); // Half pot returns to pool
+      // Carryover was split
+      expect(result.hole18CarryoverSplit).toBe(true);
+      expect(result.remainingCarryover).toBe(0);
 
       const p1Payout = result.payouts.find((p) => p.player_id === 'p1')!;
-      expect(p1Payout.total_winnings).toBe(45); // Won 9 holes * $5
+      // Won 9 holes * $5 = $45 + $45/4 = $11.25 from split = $56.25
+      expect(p1Payout.total_winnings).toBe(56.25);
       expect(p1Payout.holes_won).toBe(9);
       expect(p1Payout.holes_tied).toBe(9);
-      expect(p1Payout.net_result).toBe(45 - 22.5); // $22.50 profit
+      expect(p1Payout.net_result).toBe(56.25 - 22.5); // $33.75 profit
 
-      // Others won nothing
+      // Others got only the split: $11.25
       const losers = result.payouts.filter((p) => p.player_id !== 'p1');
-      expect(losers.every((p) => p.total_winnings === 0)).toBe(true);
-      expect(losers.every((p) => p.net_result === -22.5)).toBe(true);
+      expect(losers.every((p) => p.total_winnings === 11.25)).toBe(true);
+      expect(losers.every((p) => p.net_result === 11.25 - 22.5)).toBe(true);
     });
 
     it('returns zero carryover when hole 18 is won', () => {
@@ -1376,13 +1335,11 @@ describe('Skins Game Scenarios', () => {
         hole_scores: p1WinsScores,
       }));
 
-      // Pool-sourced game - but no carryover anyway
-      const result = calculateFinalPayoutsWithCarryover(game, results, participants, {
-        poolSourced: true,
-      });
+      const result = calculateFinalPayoutsWithCarryover(game, results, participants);
 
+      // No carryover to split
       expect(result.hole18CarryoverSplit).toBe(false);
-      expect(result.remainingCarryover).toBe(0); // Nothing to return
+      expect(result.remainingCarryover).toBe(0);
 
       const p1Payout = result.payouts.find((p) => p.player_id === 'p1')!;
       expect(p1Payout.total_winnings).toBe(90);

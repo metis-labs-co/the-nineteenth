@@ -41,7 +41,6 @@ export type {
   PayoutParticipant,
   CalculatedPayout,
   FinalPayoutResult,
-  FinalPayoutOptions,
   TeamPayoutParticipant,
   CalculatedTeamPayout,
   FinalTeamPayoutResult,
