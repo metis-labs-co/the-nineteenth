@@ -13,7 +13,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { skinsKeys, prizePoolKeys } from '@/hooks/queryKeys';
+import { skinsKeys } from '@/hooks/queryKeys';
 import {
   calculateHoleValue,
   calculateCurrentCarryover,
@@ -63,13 +63,11 @@ interface PlayerRow {
 // =====================================================
 
 /**
- * Extended input for creating skins game with pool support
+ * Input for creating a skins game with disclaimer acceptance
  */
-export interface CreateSkinsGameWithPoolInput extends CreateSkinsGameInput {
+export interface CreateSkinsGameWithDisclaimerInput extends CreateSkinsGameInput {
   /** User ID who accepted disclaimer and is creating the game */
   disclaimerAcceptedBy: string;
-  /** Pool ID when using prize_pool source (required if pool_source is 'prize_pool') */
-  pool_id?: string;
 }
 
 // =====================================================
@@ -83,81 +81,17 @@ export function useCreateSkinsGame() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateSkinsGameWithPoolInput): Promise<SkinsGame> => {
-      const { disclaimerAcceptedBy, pool_id, ...gameInput } = input;
-
-      let potValue = gameInput.pot_value;
-      let poolDrawAmount = 0;
-
-      // When using prize pool, draw from pool first
-      if (gameInput.pool_source === 'prize_pool') {
-        if (!pool_id) {
-          throw createError('Pool ID is required when using prize_pool source', 'VALIDATION');
-        }
-
-        // Calculate total pot needed
-        const totalPotNeeded = gameInput.pot_type === 'per_hole'
-          ? gameInput.pot_value * 18
-          : gameInput.pot_value;
-
-        // Check if we can draw the full amount
-        const { data: canDraw, error: canDrawError } = await supabase.rpc(
-          'can_draw_from_pool' as never,
-          {
-            p_pool_id: pool_id,
-            p_amount: totalPotNeeded,
-          } as never
-        );
-
-        if (canDrawError) {
-          throw createError(`Failed to check pool balance: ${canDrawError.message}`, 'DATABASE');
-        }
-
-        if (canDraw !== true) {
-          const { data: remaining } = await supabase.rpc('get_pool_balance' as never, {
-            p_pool_id: pool_id,
-            p_category: 'skins',
-          } as never);
-
-          throw createError(
-            `Insufficient skins budget. Requested $${totalPotNeeded.toFixed(2)} but only $${((remaining as unknown as number) ?? 0).toFixed(2)} available.`,
-            'VALIDATION'
-          );
-        }
-
-        // Draw from pool
-        const { data: drawnAmount, error: drawError } = await supabase.rpc(
-          'draw_from_pool' as never,
-          {
-            p_pool_id: pool_id,
-            p_round_id: gameInput.round_id,
-            p_amount: totalPotNeeded,
-          } as never
-        );
-
-        if (drawError) {
-          throw createError(`Failed to draw from pool: ${drawError.message}`, 'DATABASE');
-        }
-
-        poolDrawAmount = (drawnAmount as unknown as number) ?? 0;
-
-        if (gameInput.pot_type === 'per_hole') {
-          potValue = poolDrawAmount / 18;
-        } else {
-          potValue = poolDrawAmount;
-        }
-      }
+    mutationFn: async (input: CreateSkinsGameWithDisclaimerInput): Promise<SkinsGame> => {
+      const { disclaimerAcceptedBy, ...gameInput } = input;
 
       const insertData = {
         round_id: gameInput.round_id,
         pairing_id: gameInput.pairing_id ?? null,
         participant_ids: gameInput.participant_ids,
         pot_type: gameInput.pot_type,
-        pot_value: potValue,
+        pot_value: gameInput.pot_value,
         currency: gameInput.currency ?? 'AUD',
         scoring_type: gameInput.scoring_type,
-        pool_source: gameInput.pool_source ?? 'direct',
-        pool_draw_amount: poolDrawAmount,
         status: 'active' as const,
         disclaimer_accepted_at: new Date().toISOString(),
         disclaimer_accepted_by: disclaimerAcceptedBy,
@@ -173,15 +107,6 @@ export function useCreateSkinsGame() {
         .single();
 
       if (error) {
-        if (poolDrawAmount > 0 && pool_id) {
-          console.error('[useCreateSkinsGame] Insert failed after pool draw, attempting to return funds...');
-          await supabase.rpc('return_to_pool' as never, {
-            p_pool_id: pool_id,
-            p_round_id: gameInput.round_id,
-            p_amount: poolDrawAmount,
-            p_description: 'Refund: Skins game creation failed',
-          } as never);
-        }
         throw createError(`Failed to create skins game: ${error.message}`, 'DATABASE');
       }
 
@@ -192,10 +117,6 @@ export function useCreateSkinsGame() {
       queryClient.invalidateQueries({
         queryKey: skinsKeys.gamesByRound(data.round_id),
       });
-
-      if (data.pool_source === 'prize_pool') {
-        queryClient.invalidateQueries({ queryKey: prizePoolKeys.all });
-      }
     },
 
     onError: (error) => {
@@ -499,13 +420,10 @@ export function useFinalizeSkinsGame() {
         handicap: p.handicap,
       }));
 
-      const isPoolSourced = game.pool_source === 'prize_pool';
-
       const payoutResult = calculateFinalPayoutsWithCarryover(
         game as SkinsGame,
         results as unknown as SkinsResult[],
-        participants,
-        { poolSourced: isPoolSourced }
+        participants
       );
 
       await supabase.from('skins_payouts').delete().eq('skins_game_id', gameId);
@@ -554,10 +472,6 @@ export function useFinalizeSkinsGame() {
       queryClient.invalidateQueries({ queryKey: skinsKeys.payouts(data.id) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.summary(data.id) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.gamesByRound(data.round_id) });
-
-      if (data.pool_source === 'prize_pool') {
-        queryClient.invalidateQueries({ queryKey: prizePoolKeys.all });
-      }
     },
 
     onError: (error) => {

@@ -14,7 +14,6 @@
  * - useActiveSkinsGameForRound.ts: Active skins game query hook
  * - useProcessSkinsIfNeeded.ts: Hole completion processing hook
  * - useFinalizeSkinsForRound.ts: Round finalization hook
- * - useAutoSplitSkinsForCompetition.ts: Auto-split management hook
  * - statistics.ts: Statistics and leaderboard hooks
  *
  * @example
@@ -34,9 +33,6 @@ export type {
   ProcessTeamSkinsHoleInput,
   ProcessSkinsInput,
   ProcessSkinsResult,
-  AutoSplitSkinsInput,
-  AutoSplitSkinsResult,
-  SyncSkinsResult,
   SkinsPlayerStatistics,
   SkinsLeaderboardEntry,
   SkinsGameHistoryEntry,
@@ -64,7 +60,7 @@ export {
   useFinalizeSkinsGame,
   useCancelSkinsGame,
 } from './mutations';
-export type { CreateSkinsGameWithPoolInput } from './mutations';
+export type { CreateSkinsGameWithDisclaimerInput } from './mutations';
 
 // Re-export team skins processor
 export { processTeamSkins } from './teamSkinsProcessor';
@@ -74,7 +70,6 @@ export { useCanUseSkins } from './useCanUseSkins';
 export { useActiveSkinsGameForRound } from './useActiveSkinsGameForRound';
 export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
 export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
-export { useAutoSplitSkinsForCompetition } from './useAutoSplitSkinsForCompetition';
 
 // Re-export statistics hooks
 export {

@@ -7,7 +7,6 @@
  * - useActiveSkinsGameForRound.ts — active game query
  * - useProcessSkinsIfNeeded.ts — hole completion processing
  * - useFinalizeSkinsForRound.ts — round finalization
- * - useAutoSplitSkinsForCompetition.ts — auto-split management
  *
  * This barrel file preserves backward compatibility for any
  * direct imports from './utilities'.
@@ -18,4 +17,3 @@ export { useCanUseSkins } from './useCanUseSkins';
 export { useActiveSkinsGameForRound } from './useActiveSkinsGameForRound';
 export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
 export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
-export { useAutoSplitSkinsForCompetition } from './useAutoSplitSkinsForCompetition';

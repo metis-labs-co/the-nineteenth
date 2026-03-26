@@ -77,56 +77,6 @@ export interface ProcessSkinsResult {
   error?: string;
 }
 
-/**
- * Input for auto-split skins for competition
- */
-export interface AutoSplitSkinsInput {
-  /** Competition ID */
-  competitionId: string;
-  /** Prize pool ID */
-  poolId: string;
-  /** Pot value per round */
-  potPerRound: number;
-  /** Scoring type */
-  scoringType: SkinsScoringType;
-  /** User ID who is creating the games */
-  createdBy: string;
-}
-
-/**
- * Result from auto-split skins
- */
-export interface AutoSplitSkinsResult {
-  /** Whether the operation succeeded */
-  success: boolean;
-  /** Number of games created */
-  gamesCreated: number;
-  /** Total amount drawn from pool */
-  totalDrawn: number;
-  /** IDs of created games */
-  gameIds: string[];
-  /** Error message if failed */
-  error?: string;
-}
-
-/**
- * Result from syncing skins
- */
-export interface SyncSkinsResult {
-  /** Whether sync was successful */
-  success: boolean;
-  /** Number of games created */
-  gamesCreated: number;
-  /** Number of games cancelled */
-  gamesCancelled: number;
-  /** Amount drawn from pool */
-  amountDrawn: number;
-  /** Amount returned to pool */
-  amountReturned: number;
-  /** Error message if failed */
-  error?: string;
-}
-
 // =====================================================
 // STATISTICS TYPES
 // =====================================================

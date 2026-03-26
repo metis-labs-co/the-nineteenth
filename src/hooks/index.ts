@@ -417,7 +417,6 @@ export {
   useActiveSkinsGameForRound,
   useProcessSkinsIfNeeded,
   useFinalizeSkinsForRound,
-  useAutoSplitSkinsForCompetition,
   // Statistics & Leaderboard
   useSkinsStatistics,
   useMySkinsStatistics,
@@ -430,10 +429,7 @@ export type {
   ProcessSkinsHoleInput,
   ProcessSkinsInput,
   ProcessSkinsResult,
-  AutoSplitSkinsInput,
-  AutoSplitSkinsResult,
-  SyncSkinsResult,
-  CreateSkinsGameWithPoolInput,
+  CreateSkinsGameWithDisclaimerInput,
   // Statistics types
   SkinsPlayerStatistics,
   SkinsLeaderboardEntry,

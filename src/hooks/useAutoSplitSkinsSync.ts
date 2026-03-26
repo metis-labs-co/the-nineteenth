@@ -9,9 +9,6 @@
  * - useAddRoundForm (on round add)
  * - useDeleteRound/useRoundActions (on round delete)
  *
- * These mutations call the `redistribute_skins_pots` RPC which handles all
- * skins game creation and pot redistribution.
- *
  * @deprecated This hook is simplified and will be removed in a future version.
  * Use useCompetitionPrizePool directly for prize pool status.
  */
@@ -34,7 +31,7 @@ export interface UseAutoSplitSkinsSyncReturn {
   potPerRound: number;
   /** Number of upcoming rounds */
   roundCount: number;
-  /** Number of existing skins games (pool-sourced) */
+  /** Number of existing skins games */
   skinsGamesCreated: number;
   /** Number of players in competition */
   playerCount: number;
@@ -110,13 +107,12 @@ export function useAutoSplitSkinsSync(
         return { playerCount: playerCount ?? 0, upcomingRoundCount: 0, existingGames: 0 };
       }
 
-      // Count existing skins games (pool-sourced) for this competition's upcoming rounds
+      // Count existing skins games for this competition's upcoming rounds
       const { count: gamesCount, error: gamesError } = await supabase
         .from('skins_games')
         .select('*, rounds!inner(*)', { count: 'exact', head: true })
         .eq('rounds.competition_id', competitionId)
         .eq('rounds.status', 'upcoming')
-        .eq('pool_source', 'prize_pool')
         .neq('status', 'cancelled');
 
       if (gamesError) {
