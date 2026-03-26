@@ -109,6 +109,11 @@ DROP FUNCTION IF EXISTS create_auto_split_skins_batch(UUID, UUID, UUID[], DECIMA
 DROP FUNCTION IF EXISTS redistribute_skins_pots(UUID);
 DROP FUNCTION IF EXISTS calculate_pool_allocations(UUID);
 
+-- Drop recalculate_pool_total which references dropped columns (skins_budget,
+-- auto_split_skins) and dropped functions (calculate_pool_allocations,
+-- auto_split_pool_for_skins)
+DROP FUNCTION IF EXISTS recalculate_pool_total(UUID);
+
 -- ============================================================================
 -- 5. Drop allocation columns from competition_prize_pools
 -- ============================================================================
@@ -173,9 +178,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Settle a prize pool by assigning players to placements based on final_position
--- NOTE: competition_players.final_position must exist for this to work.
--- That column should be added separately when competition finalization is implemented.
+-- Settle a prize pool by assigning players to placements based on final_position.
+--
+-- IMPORTANT: This function depends on competition_players.final_position which
+-- does NOT yet exist. A future migration must add this column to the
+-- competition_players table before settle_prize_pool can be called.
+-- Calling this function without that column will result in a runtime error.
 CREATE OR REPLACE FUNCTION settle_prize_pool(p_pool_id UUID)
 RETURNS VOID AS $$
 DECLARE
