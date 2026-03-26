@@ -30,7 +30,7 @@ export type { SkinsSettlementCardProps } from './SkinsSettlementCard';
 
 // Section (for Add/Edit Round screens)
 export { SkinsSection } from './SkinsSection';
-export type { SkinsSectionProps, SkinsEditState, PoolSourceData } from './SkinsSection';
+export type { SkinsSectionProps, SkinsEditState } from './SkinsSection';
 
 // Statistics & Leaderboards
 export { SkinsStatsCard } from './SkinsStatsCard';

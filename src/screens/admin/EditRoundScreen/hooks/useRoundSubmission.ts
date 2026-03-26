@@ -23,8 +23,6 @@ interface UseRoundSubmissionOptions {
   userId: string | undefined;
   /** Participant IDs for the skins game (competition players) */
   participantIds: string[];
-  /** Prize pool ID (for pool source funding) */
-  poolId?: string;
   onSuccess: () => void;
 }
 
@@ -52,7 +50,6 @@ export function useRoundSubmission({
   wolfEditState,
   userId,
   participantIds,
-  poolId,
   onSuccess,
 }: UseRoundSubmissionOptions): UseRoundSubmissionReturn {
   const queryClient = useQueryClient();
@@ -65,13 +62,8 @@ export function useRoundSubmission({
     // Skip if skins can't be edited (round has started)
     if (!skinsEditState.canEditSkins) return;
 
-    const { skinsEnabled, skinsConfig, skinsPoolSource } = formData;
+    const { skinsEnabled, skinsConfig } = formData;
     const existingGameId = skinsEditState.existingSkinsGameId;
-
-    // Calculate pool draw amount if using prize pool
-    const poolDrawAmount = skinsPoolSource === 'prize_pool' && skinsConfig
-      ? (skinsConfig.pot_type === 'per_hole' ? skinsConfig.pot_value * 18 : skinsConfig.pot_value)
-      : 0;
 
     try {
       if (skinsEnabled && skinsConfig) {
@@ -86,8 +78,6 @@ export function useRoundSubmission({
               pot_value: skinsConfig.pot_value,
               currency: skinsConfig.currency || 'AUD',
               scoring_type: skinsConfig.scoring_type,
-              pool_source: skinsPoolSource,
-              pool_draw_amount: poolDrawAmount,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingGameId);
@@ -98,7 +88,7 @@ export function useRoundSubmission({
           }
         } else if (userId && participantIds.length >= 2) {
           // Create new skins game
-          console.log('[useRoundSubmission] Creating new skins game for round:', roundId, 'pool source:', skinsPoolSource);
+          console.log('[useRoundSubmission] Creating new skins game for round:', roundId);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
           const { error } = await (supabase.from('skins_games') as any).insert({
             round_id: roundId,
@@ -108,8 +98,6 @@ export function useRoundSubmission({
             pot_value: skinsConfig.pot_value,
             currency: skinsConfig.currency || 'AUD',
             scoring_type: skinsConfig.scoring_type,
-            pool_source: skinsPoolSource,
-            pool_draw_amount: poolDrawAmount,
             status: 'active',
             disclaimer_accepted_at: new Date().toISOString(),
             disclaimer_accepted_by: userId,
@@ -119,21 +107,6 @@ export function useRoundSubmission({
           if (error) {
             console.error('[useRoundSubmission] Failed to create skins game:', error);
             throw new Error('Failed to create skins game');
-          }
-
-          // If using prize pool, draw from pool
-          if (skinsPoolSource === 'prize_pool' && poolId && poolDrawAmount > 0) {
-            try {
-              await supabase.rpc('draw_from_pool' as never, {
-                p_pool_id: poolId,
-                p_round_id: roundId,
-                p_amount: poolDrawAmount,
-              } as never);
-              console.log('[useRoundSubmission] Drew from pool:', poolDrawAmount);
-            } catch (drawError) {
-              console.error('[useRoundSubmission] Failed to draw from pool:', drawError);
-              // Don't fail the skins creation, just log the error
-            }
           }
         }
       } else if (!skinsEnabled && existingGameId) {

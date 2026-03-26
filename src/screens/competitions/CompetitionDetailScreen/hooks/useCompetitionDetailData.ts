@@ -17,7 +17,7 @@ import { useCompetitionDetailsData, getCurrentPlayerStanding } from '@/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/useTeams';
-import { useCompetitionPrizePool, usePoolAllocationSummary } from '@/hooks/usePrizePool';
+import { useCompetitionPrizePool, usePrizePoolPlacements } from '@/hooks/prizePool';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
 
@@ -52,8 +52,8 @@ export function useCompetitionDetailData(id: string) {
     refetch: refetchPrizePool,
   } = useCompetitionPrizePool(id);
 
-  // Fetch prize pool allocation summary
-  const { data: prizePoolSummary } = usePoolAllocationSummary(id);
+  // Fetch prize pool placements
+  const { data: prizePoolPlacements } = usePrizePoolPlacements(prizePool?.id);
 
   // Get rounds that require scoring pairs (only when user is organizer)
   const roundsRequiringScoringPairs = useMemo(() => {
@@ -121,7 +121,7 @@ export function useCompetitionDetailData(id: string) {
     refetchTeams,
     prizePool,
     refetchPrizePool,
-    prizePoolSummary,
+    prizePoolPlacements,
     scoringPairsStatus,
     isOrganizer,
     hasStartedRound,

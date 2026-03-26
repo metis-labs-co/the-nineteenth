@@ -3,7 +3,7 @@
  */
 
 import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
-import type { CompetitionPrizePool, PoolAllocationSummary } from '@/types';
+import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { RoundWithCourse } from '../types';
 
 // =====================================================
@@ -36,18 +36,12 @@ export interface CoursesSectionProps {
 export interface PrizePoolSectionProps {
   /** The prize pool (null if none configured) */
   pool: CompetitionPrizePool | null;
-  /** Allocation summary with used/remaining amounts (null if no pool) */
-  summary: PoolAllocationSummary | null;
+  /** Placement breakdown with payout amounts */
+  placements: PrizePoolPlacement[];
   /** Whether the current user is the competition organizer */
   isOrganizer: boolean;
   /** Whether the pool is locked (any round has started) */
   isLocked: boolean;
-  /** Number of rounds in the competition (for auto-split display) */
-  roundCount?: number;
-  /** Competition ID (for auto-split status) */
-  competitionId?: string;
-  /** Number of players in the competition (for auto-split status) */
-  playerCount?: number;
   /** Handler for add pool button (organizers only, when no pool) */
   onAddPress?: () => void;
   /** Handler for edit pool button (organizers only, when pool exists and not locked) */
@@ -82,7 +76,7 @@ export const competitionTypeDescriptions: Record<CompetitionType, string> = {
 
 export const handicapSystemLabels: Record<HandicapSystem, string> = {
   'honor': 'Honour System',
-  'golf-australia': 'Golf Australia',
+  whs: 'World Handicap System',
   'gross-only': 'Gross Only',
 };
 

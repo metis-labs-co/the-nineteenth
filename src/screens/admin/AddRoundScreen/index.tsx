@@ -304,7 +304,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
             skinsConfig={form.formData.skinsConfig}
             onSkinsTogglePress={handleSkinsTogglePress}
             onSkinsEditPress={handleSkinsEditPress}
-            poolSource={form.formData.skinsPoolSource}
             canEnableSkins={form.canEnableSkins}
             skinsDisabledReason={form.skinsDisabledReason}
             wolfEnabled={form.formData.wolfEnabled}

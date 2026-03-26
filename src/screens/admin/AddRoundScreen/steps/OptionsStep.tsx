@@ -21,7 +21,7 @@ import { spacing, typography, borderRadius, skinsColor, wolfColor } from '@/cons
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
-import type { SkinsConfig, SkinsPoolSource } from '@/types';
+import type { SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 
 interface OptionsStepProps {
@@ -35,7 +35,6 @@ interface OptionsStepProps {
   skinsConfig: SkinsConfig | null;
   onSkinsTogglePress: () => void;
   onSkinsEditPress: () => void;
-  poolSource: SkinsPoolSource;
   canEnableSkins: boolean;
   skinsDisabledReason: string | null;
 
@@ -63,7 +62,6 @@ export const OptionsStep = memo(function OptionsStep({
   skinsConfig,
   onSkinsTogglePress,
   onSkinsEditPress,
-  poolSource,
   canEnableSkins,
   skinsDisabledReason,
   wolfEnabled,
@@ -301,12 +299,6 @@ export const OptionsStep = memo(function OptionsStep({
                 {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net (with handicap)'}
               </Text>
             </View>
-            {poolSource === 'prize_pool' && (
-              <View style={styles.configRow}>
-                <Text style={[styles.configLabel, { color: colors.textSecondary }]}>Source:</Text>
-                <Text style={[styles.configValue, { color: colors.primary }]}>Prize Pool</Text>
-              </View>
-            )}
           </View>
           <Text style={[styles.configTapHint, { color: skinsColor }]}>Tap to edit</Text>
         </TouchableOpacity>

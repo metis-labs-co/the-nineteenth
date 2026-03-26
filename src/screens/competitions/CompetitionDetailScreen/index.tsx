@@ -65,7 +65,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     isLoadingTeams,
     prizePool,
     refetchPrizePool,
-    prizePoolSummary,
+    prizePoolPlacements,
     scoringPairsStatus,
     isOrganizer,
     hasStartedRound,
@@ -231,7 +231,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             currentStanding={currentStanding}
             isOrganizer={isOrganizer}
             prizePool={prizePool}
-            prizePoolSummary={prizePoolSummary}
+            prizePoolPlacements={prizePoolPlacements}
             isPrizePoolLocked={isPrizePoolLocked}
             onEdit={handleEdit}
             onAddPrizePool={handleAddPrizePool}

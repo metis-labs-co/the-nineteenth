@@ -3,10 +3,9 @@
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { GameType, TeeBox, Course, SkinsConfig, SkinsPoolSource } from '@/types/database.types';
+import type { GameType, TeeBox, Course, SkinsConfig } from '@/types/database.types';
 import type { WolfConfig } from '@/types/database/wolf.types';
-import type { RoundFormData, RoundWithCourse, SkinsEditState, PoolSourceData, WolfEditState } from '../types';
-import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
+import type { RoundFormData, RoundWithCourse, SkinsEditState, WolfEditState } from '../types';
 import {
   parseISODate,
   formatDateAustralian,
@@ -16,7 +15,7 @@ import {
 
 interface UseEditRoundFormOptions {
   round: RoundWithCourse | undefined;
-  /** Competition ID for fetching prize pool (Phase 2) */
+  /** Competition ID (kept for potential future use) */
   competitionId?: string;
   /** Existing skins game for this round (if any) */
   existingSkinsGame?: {
@@ -25,7 +24,6 @@ interface UseEditRoundFormOptions {
     pot_value: number;
     currency: string;
     scoring_type: 'gross' | 'net';
-    pool_source?: 'direct' | 'prize_pool';
   } | null;
   /** Existing Wolf game for this round (if any) */
   existingWolfGame?: {
@@ -59,16 +57,10 @@ interface UseEditRoundFormReturn {
   // Skins handlers
   setSkinsEnabled: (enabled: boolean) => void;
   setSkinsConfig: (config: SkinsConfig) => void;
-  // Pool source handlers (Phase 2)
-  setPoolSource: (source: SkinsPoolSource) => void;
 
   // Wolf handlers
   setWolfEnabled: (enabled: boolean) => void;
   setWolfConfig: (config: WolfConfig) => void;
-
-  // Pool data (Phase 2)
-  poolData: PoolSourceData | undefined;
-  isLoadingPool: boolean;
 
   // Date/time picker helpers
   getSelectedDate: () => Date;
@@ -95,30 +87,12 @@ export function useEditRoundForm({
     courseName: '',
     skinsEnabled: false,
     skinsConfig: null,
-    skinsPoolSource: 'direct',
     wolfEnabled: false,
     wolfConfig: null,
   });
 
   // Original values for dirty check
   const [originalData, setOriginalData] = useState<RoundFormData | null>(null);
-
-  // Fetch prize pool for this competition (Phase 2)
-  const { data: prizePool, isLoading: isLoadingPrizePool } = useCompetitionPrizePool(competitionId);
-  const { data: poolBalance, isLoading: isLoadingBalance } = usePoolBalance(prizePool?.id);
-
-  // Compute pool data for SkinsSection
-  const poolData = useMemo((): PoolSourceData | undefined => {
-    if (!prizePool) return undefined;
-
-    return {
-      pool: prizePool,
-      balance: poolBalance ?? null,
-      isLocked: prizePool.is_locked,
-    };
-  }, [prizePool, poolBalance]);
-
-  const isLoadingPool = isLoadingPrizePool || isLoadingBalance;
 
   // Populate form when data loads
   useEffect(() => {
@@ -157,7 +131,6 @@ export function useEditRoundForm({
         courseName: round.courses?.name || '',
         skinsEnabled: !!existingSkinsGame,
         skinsConfig,
-        skinsPoolSource: existingSkinsGame?.pool_source ?? 'direct',
         wolfEnabled: !!existingWolfGame,
         wolfConfig,
       };
@@ -209,8 +182,7 @@ export function useEditRoundForm({
       formData.skinsEnabled !== originalData.skinsEnabled ||
       formData.skinsConfig?.pot_type !== originalData.skinsConfig?.pot_type ||
       formData.skinsConfig?.pot_value !== originalData.skinsConfig?.pot_value ||
-      formData.skinsConfig?.scoring_type !== originalData.skinsConfig?.scoring_type ||
-      formData.skinsPoolSource !== originalData.skinsPoolSource;
+      formData.skinsConfig?.scoring_type !== originalData.skinsConfig?.scoring_type;
 
     // Check Wolf config changes
     const wolfChanged =
@@ -290,11 +262,6 @@ export function useEditRoundForm({
     }));
   }, []);
 
-  // Pool source handler (Phase 2)
-  const setPoolSource = useCallback((source: SkinsPoolSource) => {
-    setFormData((prev) => ({ ...prev, skinsPoolSource: source }));
-  }, []);
-
   // Wolf handlers
   const setWolfEnabled = useCallback((enabled: boolean) => {
     setFormData((prev) => ({
@@ -344,11 +311,8 @@ export function useEditRoundForm({
     setCourse,
     setSkinsEnabled,
     setSkinsConfig,
-    setPoolSource,
     setWolfEnabled,
     setWolfConfig,
-    poolData,
-    isLoadingPool,
     getSelectedDate,
     getSelectedTime,
   };

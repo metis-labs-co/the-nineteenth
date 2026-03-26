@@ -7,23 +7,21 @@
  * - Course, date, time selection
  * - Team round configuration
  * - Scoring pairs toggle
- * - Pool source for skins (Phase 2: Prize Pool integration)
+ * - Skins and Wolf game configuration
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useCompetitionPrizePool, usePoolBalance } from '@/hooks/usePrizePool';
-import { skinsKeys, roundKeys, wolfKeys } from '@/hooks/queryKeys';
-import type { GameType, TeamFormat, Competition, SkinsPoolSource, TeeBox } from '@/types/database.types';
+import { wolfKeys } from '@/hooks/queryKeys';
+import type { GameType, TeamFormat, Competition, TeeBox } from '@/types/database.types';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
-import type { PoolSourceData } from '@/components/skins';
 import type { RoundFormData, FormErrors } from '../types';
 import { INITIAL_FORM_DATA } from '../types';
 import {
@@ -94,7 +92,6 @@ async function createRound(
       // Skins config stored on round - actual skins_games created when pairings assigned
       skins_enabled: data.skinsEnabled,
       skins_config: skinsConfig,
-      skins_pool_source: data.skinsPoolSource ?? 'direct',
     })
     .select('id')
     .single();
@@ -209,12 +206,6 @@ interface UseAddRoundFormReturn {
   // Skins handlers
   handleSkinsEnabledChange: (enabled: boolean) => void;
   handleSkinsConfigChange: (config: SkinsConfig) => void;
-  // Pool source handlers (Phase 2)
-  handlePoolSourceChange: (source: SkinsPoolSource) => void;
-
-  // Pool data (Phase 2)
-  poolData: PoolSourceData | undefined;
-  isLoadingPool: boolean;
 
   // Wolf handlers
   handleWolfEnabledChange: (enabled: boolean) => void;
@@ -277,23 +268,6 @@ export function useAddRoundForm({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch prize pool for this competition (Phase 2)
-  const { data: prizePool, isLoading: isLoadingPrizePool } = useCompetitionPrizePool(competitionId);
-  const { data: poolBalance, isLoading: isLoadingBalance } = usePoolBalance(prizePool?.id);
-
-  // Compute pool data for SkinsSection
-  const poolData = useMemo((): PoolSourceData | undefined => {
-    if (!prizePool) return undefined;
-
-    return {
-      pool: prizePool,
-      balance: poolBalance ?? null,
-      isLocked: prizePool.is_locked,
-    };
-  }, [prizePool, poolBalance]);
-
-  const isLoadingPool = isLoadingPrizePool || isLoadingBalance;
-
   // Computed values
   const supportsTeams = competition?.team_mode !== 'none';
   const isTeamMatchPlay = formData.isTeamRound && formData.teamFormat === 'match-play-team';
@@ -322,12 +296,11 @@ export function useAddRoundForm({
       const nextRoundNumber = await getNextRoundNumber(competitionId);
       const roundId = await createRound(competitionId, formData, nextRoundNumber);
 
-      // Note: Skins config is stored on the round itself (skins_enabled, skins_config, skins_pool_source)
+      // Note: Skins config is stored on the round itself (skins_enabled, skins_config).
       // The actual skins_games record will be created when pairings are assigned,
       // because we need to know the participants (players/teams) for the skins game.
       if (formData.skinsEnabled) {
         console.log('[AddRound] Skins config saved to round (skins_games created when pairings assigned):', {
-          poolSource: formData.skinsPoolSource,
           isTeamSkins: formData.isTeamRound && formData.teamFormat && TEAM_GAME_TYPES.includes(formData.teamFormat),
         });
       }
@@ -354,31 +327,6 @@ export function useAddRoundForm({
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['skins'] });
       queryClient.invalidateQueries({ queryKey: wolfKeys.all });
-
-      // Trigger redistribution for auto-split skins (non-blocking)
-      // Only if prize pool has auto_split_skins enabled and user didn't manually configure skins
-      if (prizePool?.auto_split_skins && !formData.skinsEnabled) {
-        try {
-          const { data, error } = await supabase.rpc(
-            'redistribute_skins_pots' as never,
-            {
-              p_competition_id: competitionId,
-            } as never
-          );
-
-          if (error) {
-            console.warn('[AddRound] Redistribution failed:', error);
-          } else {
-            console.log('[AddRound] Redistribution result:', data);
-            // Invalidate skins queries
-            queryClient.invalidateQueries({ queryKey: skinsKeys.all });
-            queryClient.invalidateQueries({ queryKey: roundKeys.all });
-          }
-        } catch (redistError) {
-          // Non-blocking - round was created successfully
-          console.warn('[AddRound] Redistribution error:', redistError);
-        }
-      }
 
       onSuccess(result.roundId, result.scoringPairsRequired);
     },
@@ -497,11 +445,6 @@ export function useAddRoundForm({
     setFormData((prev) => ({ ...prev, skinsConfig: config }));
   }, []);
 
-  // Handle pool source change (Phase 2)
-  const handlePoolSourceChange = useCallback((source: SkinsPoolSource) => {
-    setFormData((prev) => ({ ...prev, skinsPoolSource: source }));
-  }, []);
-
   // Handle Wolf enabled toggle
   const handleWolfEnabledChange = useCallback((enabled: boolean) => {
     setFormData((prev) => ({
@@ -592,9 +535,6 @@ export function useAddRoundForm({
     handleScoringPairsToggle,
     handleSkinsEnabledChange,
     handleSkinsConfigChange,
-    handlePoolSourceChange,
-    poolData,
-    isLoadingPool,
     handleWolfEnabledChange,
     handleWolfConfigChange,
     handleSubmit,

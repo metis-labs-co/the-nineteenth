@@ -99,7 +99,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
       pot_value: activeSkinsGame.pot_value,
       currency: activeSkinsGame.currency,
       scoring_type: activeSkinsGame.scoring_type,
-      pool_source: activeSkinsGame.pool_source,
     };
   }, [activeSkinsGame]);
 
@@ -152,10 +151,8 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     setCourse,
     setSkinsEnabled,
     setSkinsConfig,
-    setPoolSource,
     setWolfEnabled,
     setWolfConfig,
-    poolData,
     getSelectedDate,
     getSelectedTime,
   } = useEditRoundForm({ round, competitionId, existingSkinsGame, existingWolfGame });
@@ -176,7 +173,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
     wolfEditState,
     userId: user?.id,
     participantIds: competitionPlayers ?? [],
-    poolId: poolData?.pool?.id,
     onSuccess: () => navigation.goBack(),
   });
 
@@ -321,10 +317,6 @@ export default function EditRoundScreen({ navigation, route }: Props) {
               onSkinsConfigChange={setSkinsConfig}
               onUpgradePress={handleUpgradePress}
               disabled={isSubmitting}
-              // Pool source props (Phase 2: Prize Pool integration)
-              poolData={poolData}
-              poolSource={formData.skinsPoolSource}
-              onPoolSourceChange={setPoolSource}
             />
 
             {/* Wolf Game Section (3-4 players only, not team rounds) */}

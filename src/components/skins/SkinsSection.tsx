@@ -10,15 +10,10 @@
  * - Changes label text based on existing skins state
  * - Displays locked reason message
  *
- * Phase 2: Pool Source Selection
- * When prizePool is provided:
- * - Shows toggle between 'Direct Pot' and 'From Prize Pool'
- * - Displays available skins budget from pool
- * - Validates amount doesn't exceed budget
- * - When auto_split_skins enabled, pre-fills pot value with skins_pot_per_round
+ * Skins config is always direct (players pay in). Pool source toggle has been removed.
  */
 
-import React, { memo, useState, useCallback, useEffect } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -30,14 +25,13 @@ import { IconDice, IconLock, IconAlertCircle } from '@tabler/icons-react-native'
 import { spacing, typography, borderRadius, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
-import { Pill, SegmentedButton } from '@/components/common';
+import { Pill } from '@/components/common';
 import {
   SkinsConfigBottomSheet,
   SkinsDisclaimerModal,
   hasAcceptedSkinsDisclaimer,
 } from '@/components/skins';
-import type { SkinsConfig, SkinsPoolSource, CompetitionPrizePool, TeamFormat } from '@/types';
-import type { PoolBalanceSummary } from '@/types/database/prizePool.types';
+import type { SkinsConfig, TeamFormat } from '@/types';
 
 /**
  * Team format types that require team mode for skins
@@ -67,18 +61,6 @@ export interface SkinsEditState {
   lockedReason: string | null;
 }
 
-/**
- * Prize pool data for pool source selection
- */
-export interface PoolSourceData {
-  /** The prize pool for this competition (null if no pool configured) */
-  pool: CompetitionPrizePool | null;
-  /** Balance summary showing remaining skins budget */
-  balance: PoolBalanceSummary | null;
-  /** Whether the pool is locked (round has started) */
-  isLocked: boolean;
-}
-
 export interface SkinsSectionProps {
   skinsEnabled: boolean;
   skinsConfig: SkinsConfig | null;
@@ -88,12 +70,6 @@ export interface SkinsSectionProps {
   disabled?: boolean;
   /** Optional edit mode state - when provided, component behaves in "Edit" mode */
   editState?: SkinsEditState;
-  /** Optional pool source data - when provided, shows pool source selection */
-  poolData?: PoolSourceData;
-  /** Current pool source selection */
-  poolSource?: SkinsPoolSource;
-  /** Handler for pool source change */
-  onPoolSourceChange?: (source: SkinsPoolSource) => void;
   /** Whether this is a team round (splitIntoTeams=true) */
   isTeamRound?: boolean;
   /** The team format (best-ball, scramble, shamble, etc.) */
@@ -110,9 +86,6 @@ export const SkinsSection = memo(function SkinsSection({
   onUpgradePress,
   disabled,
   editState,
-  poolData,
-  poolSource = 'direct',
-  onPoolSourceChange,
   isTeamRound = false,
   teamFormat,
   teams,
@@ -139,47 +112,6 @@ export const SkinsSection = memo(function SkinsSection({
 
   // Combined disabled state
   const isDisabled = !!(disabled || isLocked || needsTeamModeForSkins);
-
-  // Pool source state
-  const hasPool = poolData?.pool !== null;
-  const hasSkinsBudget = (poolData?.pool?.skins_budget ?? 0) > 0;
-  const _canUsePool = hasPool && hasSkinsBudget && !poolData?.isLocked;
-  const skinsRemaining = poolData?.balance?.skins_remaining ?? poolData?.pool?.skins_budget ?? 0;
-  const autoSplitEnabled = poolData?.pool?.auto_split_skins ?? false;
-  const autoSplitAmount = poolData?.pool?.skins_pot_per_round ?? 0;
-
-  // When auto-split is enabled and we're using pool source, apply the auto-split value
-  useEffect(() => {
-    if (
-      skinsEnabled &&
-      poolSource === 'prize_pool' &&
-      autoSplitEnabled &&
-      autoSplitAmount > 0 &&
-      skinsConfig &&
-      onSkinsConfigChange
-    ) {
-      // Only apply if pot_value is different from auto-split amount
-      if (skinsConfig.pot_value !== autoSplitAmount) {
-        onSkinsConfigChange({
-          ...skinsConfig,
-          pot_value: autoSplitAmount,
-        });
-      }
-    }
-  }, [poolSource, autoSplitEnabled, autoSplitAmount, skinsEnabled, skinsConfig, onSkinsConfigChange]);
-
-  // Validate pot amount against pool budget when using prize_pool source
-  const potExceedsBudget =
-    poolSource === 'prize_pool' &&
-    skinsConfig &&
-    skinsConfig.pot_type === 'total_pot' &&
-    skinsConfig.pot_value > skinsRemaining;
-
-  const perHoleExceedsBudget =
-    poolSource === 'prize_pool' &&
-    skinsConfig &&
-    skinsConfig.pot_type === 'per_hole' &&
-    skinsConfig.pot_value * 18 > skinsRemaining;
 
   /**
    * Handle skins toggle press
@@ -306,76 +238,6 @@ export const SkinsSection = memo(function SkinsSection({
             )}
           </View>
 
-          {/* Pool Source Selection (when pool available and skins enabled) */}
-          {skinsEnabled && hasPool && hasSkinsBudget && onPoolSourceChange && (
-            <View style={styles.poolSourceContainer}>
-              <Text style={[styles.poolSourceLabel, { color: colors.textPrimary }]}>
-                Pot Source
-              </Text>
-              <SegmentedButton
-                value={poolSource}
-                onValueChange={(value) => onPoolSourceChange(value as SkinsPoolSource)}
-                buttons={[
-                  {
-                    value: 'direct',
-                    label: 'Direct Pot',
-                    icon: 'currency-usd',
-                    disabled: isDisabled,
-                  },
-                  {
-                    value: 'prize_pool',
-                    label: 'From Pool',
-                    icon: 'trophy',
-                    disabled: isDisabled || skinsRemaining <= 0,
-                  },
-                ]}
-                size="large"
-              />
-
-              {/* Pool budget exhausted warning */}
-              {skinsRemaining <= 0 && (
-                <View style={[styles.warningBox, { backgroundColor: colors.warningLight, marginTop: spacing.sm }]}>
-                  <IconAlertCircle size={20} color={colors.warning} />
-                  <Text style={[styles.warningText, { color: colors.warningDark }]}>
-                    Pool skins budget fully allocated to other rounds. This round will use direct pot (players pay in).
-                  </Text>
-                </View>
-              )}
-
-              {/* Pool budget info when using prize pool */}
-              {poolSource === 'prize_pool' && skinsRemaining > 0 && (
-                <View style={[styles.poolBudgetInfo, { backgroundColor: colors.surfaceVariant }]}>
-                  <View style={styles.poolBudgetRow}>
-                    <Text style={[styles.poolBudgetLabel, { color: colors.textSecondary }]}>
-                      Available Skins Budget:
-                    </Text>
-                    <Text style={[styles.poolBudgetValue, { color: skinsRemaining > 0 ? colors.success : colors.error }]}>
-                      ${skinsRemaining.toFixed(2)}
-                    </Text>
-                  </View>
-                  {autoSplitEnabled && autoSplitAmount > 0 && (
-                    <View style={[styles.autoSplitBadge, { backgroundColor: colors.infoLight }]}>
-                      <Icon source="information-outline" size={14} color={colors.info} />
-                      <Text style={[styles.autoSplitText, { color: colors.infoDark }]}>
-                        Auto-split: ${autoSplitAmount.toFixed(2)} per round
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Low budget warning */}
-              {poolSource === 'prize_pool' && skinsRemaining > 0 && skinsRemaining < (skinsConfig?.pot_value ?? 0) && (
-                <View style={[styles.warningBox, { backgroundColor: colors.warningLight, marginTop: spacing.sm }]}>
-                  <IconAlertCircle size={20} color={colors.warning} />
-                  <Text style={[styles.warningText, { color: colors.warningDark }]}>
-                    Pot value exceeds remaining budget. Reduce the pot or use direct pot instead.
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
           {/* Config Summary (when enabled) */}
           {skinsEnabled && skinsConfig && (
             <TouchableOpacity
@@ -385,7 +247,6 @@ export const SkinsSection = memo(function SkinsSection({
                   backgroundColor: isLocked ? colors.surfaceVariant : `${skinsColor}10`,
                   borderColor: isLocked ? colors.border : `${skinsColor}40`,
                 },
-                (potExceedsBudget || perHoleExceedsBudget) && { borderColor: colors.error },
               ]}
               onPress={handleEditSkinsConfig}
               activeOpacity={isLocked ? 1 : 0.7}
@@ -397,7 +258,7 @@ export const SkinsSection = memo(function SkinsSection({
               <View style={styles.configSummaryContent}>
                 <View style={styles.configRow}>
                   <Text style={[styles.configLabel, { color: colors.textSecondary }]}>Pot:</Text>
-                  <Text style={[styles.configValue, { color: (potExceedsBudget || perHoleExceedsBudget) ? colors.error : colors.textPrimary }]}>
+                  <Text style={[styles.configValue, { color: colors.textPrimary }]}>
                     ${skinsConfig.pot_value}
                     {skinsConfig.pot_type === 'per_hole' ? '/hole' : ' total'}
                     {skinsConfig.pot_type === 'per_hole' && ` ($${(skinsConfig.pot_value * 18).toFixed(2)} total)`}
@@ -411,16 +272,6 @@ export const SkinsSection = memo(function SkinsSection({
                     {skinsConfig.scoring_type === 'gross' ? 'Gross' : 'Net (with handicap)'}
                   </Text>
                 </View>
-                {poolSource === 'prize_pool' && (
-                  <View style={styles.configRow}>
-                    <Text style={[styles.configLabel, { color: colors.textSecondary }]}>
-                      Source:
-                    </Text>
-                    <Text style={[styles.configValue, { color: colors.primary }]}>
-                      Prize Pool
-                    </Text>
-                  </View>
-                )}
                 {isTeamSkins && (
                   <View style={styles.configRow}>
                     <Text style={[styles.configLabel, { color: colors.textSecondary }]}>
@@ -441,16 +292,6 @@ export const SkinsSection = memo(function SkinsSection({
                 <Text style={[styles.configTapHint, { color: skinsColor }]}>Tap to edit</Text>
               )}
             </TouchableOpacity>
-          )}
-
-          {/* Error when pot exceeds pool budget */}
-          {skinsEnabled && (potExceedsBudget || perHoleExceedsBudget) && (
-            <View style={[styles.warningBox, { backgroundColor: colors.errorLight }]}>
-              <IconAlertCircle size={20} color={colors.error} />
-              <Text style={[styles.warningText, { color: colors.errorDark }]}>
-                Pot amount exceeds available skins budget (${skinsRemaining.toFixed(2)}). Reduce the pot value or switch to Direct Pot.
-              </Text>
-            </View>
           )}
 
           {/* Warning for team skins without enough teams */}
@@ -649,41 +490,5 @@ const styles = StyleSheet.create({
   warningText: {
     ...typography.small,
     flex: 1,
-  },
-  // Pool source styles
-  poolSourceContainer: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  poolSourceLabel: {
-    ...typography.smallBold,
-  },
-  poolBudgetInfo: {
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  poolBudgetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  poolBudgetLabel: {
-    ...typography.small,
-  },
-  poolBudgetValue: {
-    ...typography.bodyBold,
-  },
-  autoSplitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  autoSplitText: {
-    ...typography.caption,
   },
 });
