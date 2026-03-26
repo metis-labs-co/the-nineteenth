@@ -40,14 +40,8 @@ export interface PrizePoolFormConfig {
   fundingType: PoolFundingType;
   /** Amount per player or total amount */
   fundingAmount: number;
-  /** Skins games allocation (0-100) */
-  skinsAllocationPercent: number;
-  /** Winner prizes allocation (0-100) */
-  winnerAllocationPercent: number;
-  /** Other allocation (0-100) */
-  otherAllocationPercent: number;
-  /** Auto-split skins across all rounds */
-  autoSplitSkins: boolean;
+  /** Placement-based payout splits */
+  placements: { position: number; percent: number }[];
 }
 
 /**
@@ -71,8 +65,9 @@ export const DEFAULT_PRIZE_POOL_CONFIG: PrizePoolFormConfig = {
   enabled: false,
   fundingType: 'per_player',
   fundingAmount: 50,
-  skinsAllocationPercent: 60,
-  winnerAllocationPercent: 30,
-  otherAllocationPercent: 10,
-  autoSplitSkins: true,
+  placements: [
+    { position: 1, percent: 60 },
+    { position: 2, percent: 30 },
+    { position: 3, percent: 10 },
+  ],
 };
