@@ -28,10 +28,7 @@ import {
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import {
-  IconArrowDown,
-  IconArrowUp,
   IconTrophy,
-  IconDice,
   IconAdjustmentsAlt,
   IconReceipt,
 } from '@tabler/icons-react-native';
@@ -43,7 +40,7 @@ import type { PoolTransaction, PoolTransactionType } from '@/types';
 // TYPES
 // ============================================================================
 
-export type TransactionFilter = 'all' | 'skins' | 'prizes';
+export type TransactionFilter = 'all' | 'payouts' | 'adjustments';
 
 export interface PoolTransactionsListProps {
   /** Array of pool transactions to display */
@@ -67,14 +64,13 @@ export interface PoolTransactionsListProps {
 // ============================================================================
 
 const PRIZE_POOL_COLOR = '#059669'; // Emerald/success
-const _SKINS_COLOR = '#8B5CF6'; // Purple
-const ERROR_COLOR = '#DC2626'; // Red for draws/debits
+const ERROR_COLOR = '#DC2626'; // Red for debits
 const ADJUSTMENT_COLOR = '#6B7280'; // Gray for adjustments
 
 const FILTER_TABS: { key: TransactionFilter; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'skins', label: 'Skins' },
-  { key: 'prizes', label: 'Prizes' },
+  { key: 'payouts', label: 'Payouts' },
+  { key: 'adjustments', label: 'Adjustments' },
 ];
 
 // ============================================================================
@@ -88,14 +84,8 @@ function getTransactionIcon(
   type: PoolTransactionType
 ): React.ComponentType<{ size: number; color: string }> {
   switch (type) {
-    case 'skins_draw':
-      return IconArrowDown;
-    case 'skins_return':
-      return IconArrowUp;
     case 'prize_payout':
       return IconTrophy;
-    case 'allocation':
-      return IconDice;
     case 'adjustment':
       return IconAdjustmentsAlt;
     default:
@@ -107,16 +97,13 @@ function getTransactionIcon(
  * Get the color for a transaction type
  */
 function getTransactionColor(type: PoolTransactionType, amount: number): string {
-  // Returns (positive) are always success color
-  if (type === 'skins_return') return PRIZE_POOL_COLOR;
+  // Payouts (negative) are error color
+  if (type === 'prize_payout') return ERROR_COLOR;
 
-  // Draws and payouts (negative) are error color
-  if (type === 'skins_draw' || type === 'prize_payout') return ERROR_COLOR;
+  // Adjustments depend on sign
+  if (type === 'adjustment') return amount >= 0 ? PRIZE_POOL_COLOR : ERROR_COLOR;
 
-  // Allocations depend on sign
-  if (type === 'allocation') return amount >= 0 ? PRIZE_POOL_COLOR : ERROR_COLOR;
-
-  // Adjustments are neutral
+  // Default neutral
   return ADJUSTMENT_COLOR;
 }
 
@@ -125,14 +112,8 @@ function getTransactionColor(type: PoolTransactionType, amount: number): string 
  */
 function getTransactionLabel(type: PoolTransactionType): string {
   switch (type) {
-    case 'skins_draw':
-      return 'Skins Draw';
-    case 'skins_return':
-      return 'Carryover Return';
     case 'prize_payout':
       return 'Prize Payout';
-    case 'allocation':
-      return 'Pool Allocation';
     case 'adjustment':
       return 'Adjustment';
     default:
@@ -188,16 +169,12 @@ function filterTransactions(
 ): PoolTransaction[] {
   if (filter === 'all') return transactions;
 
-  if (filter === 'skins') {
-    return transactions.filter((t) =>
-      ['skins_draw', 'skins_return', 'allocation'].includes(t.transaction_type)
-    );
+  if (filter === 'payouts') {
+    return transactions.filter((t) => t.transaction_type === 'prize_payout');
   }
 
-  if (filter === 'prizes') {
-    return transactions.filter((t) =>
-      ['prize_payout'].includes(t.transaction_type)
-    );
+  if (filter === 'adjustments') {
+    return transactions.filter((t) => t.transaction_type === 'adjustment');
   }
 
   return transactions;
@@ -279,10 +256,10 @@ interface EmptyStateProps {
 const EmptyState = memo(function EmptyState({ filter, colors }: EmptyStateProps) {
   const getMessage = () => {
     switch (filter) {
-      case 'skins':
-        return 'No skins transactions yet';
-      case 'prizes':
+      case 'payouts':
         return 'No prize payouts yet';
+      case 'adjustments':
+        return 'No adjustments yet';
       default:
         return 'No transactions yet';
     }
