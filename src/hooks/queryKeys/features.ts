@@ -55,11 +55,9 @@ export const wolfKeys = {
 export const prizePoolKeys = {
   all: ['prizePool'] as const,
   pool: (competitionId: string) => [...prizePoolKeys.all, competitionId] as const,
+  placements: (poolId: string) => [...prizePoolKeys.all, 'placements', poolId] as const,
   transactions: (poolId: string) =>
     [...prizePoolKeys.all, 'transactions', poolId] as const,
-  balance: (poolId: string) => [...prizePoolKeys.all, 'balance', poolId] as const,
-  summary: (competitionId: string) =>
-    [...prizePoolKeys.all, 'summary', competitionId] as const,
 } as const;
 
 // =====================================================

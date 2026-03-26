@@ -479,23 +479,16 @@ export type {
 // Prize pool hooks
 export {
   useCompetitionPrizePool,
+  usePrizePoolPlacements,
   usePoolTransactions,
-  usePoolBalance,
-  usePoolAllocationSummary,
-  useCanDrawFromPool,
   useCreatePrizePool,
   useUpdatePrizePool,
   useDeletePrizePool,
-  useAutoSplitPool,
-  useDrawFromPool,
-  useReturnToPool,
-  useSkinsAllocationStatus,
+  useSettlePrizePool,
 } from './usePrizePool';
 export type {
   PrizePoolServiceError,
   PoolTransactionsOptions,
-  RoundSkinsAllocation,
-  SkinsAllocationStatus,
 } from './usePrizePool';
 
 // Auto-split skins sync hook (deprecated - now read-only status hook)

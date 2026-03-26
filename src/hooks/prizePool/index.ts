@@ -24,8 +24,6 @@
 export type {
   PrizePoolServiceError,
   PoolTransactionsOptions,
-  RoundSkinsAllocation,
-  SkinsAllocationStatus,
 } from './types';
 
 // Re-export helpers
@@ -34,11 +32,8 @@ export { createError } from './helpers';
 // Re-export query hooks
 export {
   useCompetitionPrizePool,
+  usePrizePoolPlacements,
   usePoolTransactions,
-  usePoolBalance,
-  usePoolAllocationSummary,
-  useCanDrawFromPool,
-  useSkinsAllocationStatus,
 } from './queries';
 
 // Re-export mutation hooks
@@ -46,7 +41,5 @@ export {
   useCreatePrizePool,
   useUpdatePrizePool,
   useDeletePrizePool,
-  useAutoSplitPool,
-  useDrawFromPool,
-  useReturnToPool,
+  useSettlePrizePool,
 } from './mutations';
