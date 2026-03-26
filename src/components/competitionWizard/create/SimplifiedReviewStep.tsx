@@ -13,7 +13,7 @@ import React from 'react';
 import { View, StyleSheet, Platform, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Divider, Chip, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconTrophy, IconDice, IconMedal, IconDots } from '@tabler/icons-react-native';
+import { IconTrophy } from '@tabler/icons-react-native';
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
@@ -96,7 +96,7 @@ export default function SimplifiedReviewStep({
   const formatHandicapSystem = (system: string) => {
     const mapping: Record<string, string> = {
       honor: 'Honour System',
-      'golf-australia': 'Golf Australia Verified',
+      whs: 'WHS Verified',
       'gross-only': 'Gross Scores Only',
     };
     return mapping[system] || system;
@@ -350,60 +350,28 @@ export default function SimplifiedReviewStep({
                 </View>
               )}
 
-              {/* Allocation breakdown */}
+              {/* Placement breakdown */}
               <View style={styles.allocationContainer}>
-                {prizePoolData.skinsAllocationPercent > 0 && (
-                  <View style={styles.allocationRow}>
+                {prizePoolData.placements.map((placement) => (
+                  <View key={placement.position} style={styles.allocationRow}>
                     <View style={styles.allocationLabel}>
-                      <View style={[styles.colorDot, { backgroundColor: '#8B5CF6' }]} />
-                      <IconDice size={14} color="#8B5CF6" />
+                      <View style={[styles.colorDot, { backgroundColor: PRIZE_POOL_COLOR }]} />
                       <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                        Skins Games
+                        {placement.position === 1
+                          ? '1st Place'
+                          : placement.position === 2
+                            ? '2nd Place'
+                            : placement.position === 3
+                              ? '3rd Place'
+                              : `${placement.position}th Place`}
                       </Text>
                     </View>
                     <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                      {prizePoolData.skinsAllocationPercent}%
+                      {placement.percent}%
                     </Text>
                   </View>
-                )}
-                {prizePoolData.winnerAllocationPercent > 0 && (
-                  <View style={styles.allocationRow}>
-                    <View style={styles.allocationLabel}>
-                      <View style={[styles.colorDot, { backgroundColor: '#F59E0B' }]} />
-                      <IconMedal size={14} color="#F59E0B" />
-                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                        Winner Prizes
-                      </Text>
-                    </View>
-                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                      {prizePoolData.winnerAllocationPercent}%
-                    </Text>
-                  </View>
-                )}
-                {prizePoolData.otherAllocationPercent > 0 && (
-                  <View style={styles.allocationRow}>
-                    <View style={styles.allocationLabel}>
-                      <View style={[styles.colorDot, { backgroundColor: '#6B7280' }]} />
-                      <IconDots size={14} color="#6B7280" />
-                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                        Other
-                      </Text>
-                    </View>
-                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                      {prizePoolData.otherAllocationPercent}%
-                    </Text>
-                  </View>
-                )}
+                ))}
               </View>
-
-              {prizePoolData.autoSplitSkins && prizePoolData.skinsAllocationPercent > 0 && (
-                <View style={[styles.autoSplitNote, { backgroundColor: colors.infoLight }]}>
-                  <Icon source="dice-6" size={14} color={colors.info} />
-                  <Text style={[styles.autoSplitNoteText, { color: colors.infoDark }]}>
-                    Skins auto-split across {roundsData.length} round{roundsData.length !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
         )}
@@ -718,18 +686,6 @@ const styles = StyleSheet.create({
   },
   allocationValue: {
     ...typography.small,
-  },
-  autoSplitNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.sm,
-  },
-  autoSplitNoteText: {
-    ...typography.caption,
-    flex: 1,
   },
   // Players styles
   playersContainer: {

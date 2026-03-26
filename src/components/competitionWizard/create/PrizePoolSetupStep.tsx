@@ -7,13 +7,12 @@
  * Features:
  * - Funding type selection (per player / fixed total)
  * - Funding amount input
- * - Allocation percentages (skins, winner, other)
- * - Auto-split toggle for skins
+ * - Placement-based prize distribution
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconTrophy, IconInfoCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -41,10 +40,11 @@ export interface PrizePoolSetupStepProps {
 const DEFAULT_CONFIG: PrizePoolConfigFormData = {
   fundingType: 'per_player',
   fundingAmount: 50,
-  skinsAllocationPercent: 60,
-  winnerAllocationPercent: 30,
-  otherAllocationPercent: 10,
-  autoSplitSkins: true,
+  placements: [
+    { position: 1, percent: 60 },
+    { position: 2, percent: 30 },
+    { position: 3, percent: 10 },
+  ],
 };
 
 export function PrizePoolSetupStep({
@@ -69,23 +69,15 @@ export function PrizePoolSetupStep({
         ? config.fundingAmount * playerCount
         : config.fundingAmount;
 
-    const totalAllocated =
-      config.skinsAllocationPercent +
-      config.winnerAllocationPercent +
-      config.otherAllocationPercent;
-
-    const skinsBudget = (totalPool * config.skinsAllocationPercent) / 100;
-    const skinsPerRound =
-      config.autoSplitSkins && roundCount > 0 ? skinsBudget / roundCount : null;
+    const totalPercent = config.placements.reduce((sum, p) => sum + p.percent, 0);
+    const isValidAllocation = Math.abs(totalPercent - 100) < 0.01;
 
     return {
       totalPool,
-      totalAllocated,
-      skinsBudget,
-      skinsPerRound,
-      isValidAllocation: totalAllocated <= 100,
+      totalPercent,
+      isValidAllocation,
     };
-  }, [config, playerCount, roundCount]);
+  }, [config, playerCount]);
 
   // Handle pool configuration changes from PrizePoolSection
   const handlePoolChange = useCallback((poolConfig: PrizePoolConfig | null) => {
@@ -93,10 +85,7 @@ export function PrizePoolSetupStep({
       setConfig({
         fundingType: poolConfig.fundingType,
         fundingAmount: poolConfig.fundingAmount,
-        skinsAllocationPercent: poolConfig.skinsAllocationPercent,
-        winnerAllocationPercent: poolConfig.winnerAllocationPercent,
-        otherAllocationPercent: poolConfig.otherAllocationPercent,
-        autoSplitSkins: poolConfig.autoSplitSkins,
+        placements: poolConfig.placements,
       });
     }
   }, []);
@@ -122,7 +111,7 @@ export function PrizePoolSetupStep({
       >
         {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Configure your competition prize pool. This funds skins games and other prizes.
+          Configure your competition prize pool. Set up funding and how prizes are distributed.
         </Text>
 
         {/* Summary Card */}
@@ -139,7 +128,7 @@ export function PrizePoolSetupStep({
             <Text style={[styles.summarySubtitle, { color: colors.textSecondary }]}>
               {config.fundingType === 'per_player'
                 ? playerCount > 0
-                  ? `${formatCurrency(config.fundingAmount)} × ${playerCount} players`
+                  ? `${formatCurrency(config.fundingAmount)} x ${playerCount} players`
                   : `${formatCurrency(config.fundingAmount)} per player`
                 : 'Fixed total amount'}
             </Text>
@@ -174,77 +163,40 @@ export function PrizePoolSetupStep({
           </View>
         )}
 
-        {/* Allocation Summary */}
-        {calculations.totalAllocated > 0 && (
-          <View style={[styles.allocationSummary, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.allocationTitle, { color: colors.textPrimary }]}>
-              Allocation Summary
+        {/* Distribution Summary */}
+        {config.placements.length > 0 && (
+          <View style={[styles.distributionSummary, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.distributionTitle, { color: colors.textPrimary }]}>
+              Distribution Summary
             </Text>
 
-            {config.skinsAllocationPercent > 0 && (
-              <View style={styles.allocationRow}>
-                <View style={styles.allocationLabel}>
-                  <View style={[styles.colorDot, { backgroundColor: '#8B5CF6' }]} />
-                  <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                    Skins Games
-                  </Text>
+            {config.placements.map((placement) => {
+              const amount = (calculations.totalPool * placement.percent) / 100;
+              return (
+                <View key={placement.position} style={styles.summaryRow}>
+                  <View style={styles.summaryLabel}>
+                    <View style={[styles.colorDot, { backgroundColor: PRIZE_POOL_COLOR }]} />
+                    <Text style={[styles.summaryRowText, { color: colors.textPrimary }]}>
+                      {placement.position === 1
+                        ? '1st Place'
+                        : placement.position === 2
+                          ? '2nd Place'
+                          : placement.position === 3
+                            ? '3rd Place'
+                            : `${placement.position}th Place`}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryValues}>
+                    <Text style={[styles.summaryPercent, { color: colors.textSecondary }]}>
+                      {placement.percent}%
+                    </Text>
+                    <Text style={[styles.summaryAmount, { color: PRIZE_POOL_COLOR }]}>
+                      {formatCurrency(amount)}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                  {config.skinsAllocationPercent}%
-                </Text>
-              </View>
-            )}
-
-            {config.winnerAllocationPercent > 0 && (
-              <View style={styles.allocationRow}>
-                <View style={styles.allocationLabel}>
-                  <View style={[styles.colorDot, { backgroundColor: '#F59E0B' }]} />
-                  <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                    Winner Prizes
-                  </Text>
-                </View>
-                <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                  {config.winnerAllocationPercent}%
-                </Text>
-              </View>
-            )}
-
-            {config.otherAllocationPercent > 0 && (
-              <View style={styles.allocationRow}>
-                <View style={styles.allocationLabel}>
-                  <View style={[styles.colorDot, { backgroundColor: '#6B7280' }]} />
-                  <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                    Other Prizes
-                  </Text>
-                </View>
-                <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                  {config.otherAllocationPercent}%
-                </Text>
-              </View>
-            )}
-
-            {calculations.totalAllocated < 100 && (
-              <View style={styles.allocationRow}>
-                <View style={styles.allocationLabel}>
-                  <View style={[styles.colorDot, { backgroundColor: colors.gray300 }]} />
-                  <Text style={[styles.allocationText, { color: colors.textTertiary }]}>
-                    Unallocated
-                  </Text>
-                </View>
-                <Text style={[styles.allocationValue, { color: colors.textTertiary }]}>
-                  {100 - calculations.totalAllocated}%
-                </Text>
-              </View>
-            )}
-
-            {config.autoSplitSkins && roundCount > 0 && calculations.skinsPerRound && (
-              <View style={[styles.autoSplitInfo, { backgroundColor: colors.infoLight }]}>
-                <Icon source="dice-6" size={16} color={colors.info} />
-                <Text style={[styles.autoSplitText, { color: colors.infoDark }]}>
-                  Skins auto-split: {formatCurrency(calculations.skinsPerRound)} per round × {roundCount} rounds
-                </Text>
-              </View>
-            )}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -346,22 +298,22 @@ const styles = StyleSheet.create({
   infoText: {
     ...typography.small,
   },
-  allocationSummary: {
+  distributionSummary: {
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.sm,
   },
-  allocationTitle: {
+  distributionTitle: {
     ...typography.bodyBold,
     marginBottom: spacing.md,
   },
-  allocationRow: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
-  allocationLabel: {
+  summaryLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -371,23 +323,23 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  allocationText: {
+  summaryRowText: {
     ...typography.body,
   },
-  allocationValue: {
-    ...typography.body,
-  },
-  autoSplitInfo: {
+  summaryValues: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  autoSplitText: {
-    ...typography.small,
-    flex: 1,
+  summaryPercent: {
+    ...typography.body,
+    minWidth: 36,
+    textAlign: 'right',
+  },
+  summaryAmount: {
+    ...typography.bodyBold,
+    minWidth: 70,
+    textAlign: 'right',
   },
   footer: {
     flexDirection: 'row',

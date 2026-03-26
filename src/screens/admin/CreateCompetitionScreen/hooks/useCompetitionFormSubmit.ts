@@ -129,10 +129,7 @@ export function useCompetitionFormSubmit({
             competition_id: result.competition.id,
             funding_type: prizePoolConfig.fundingType,
             funding_amount: prizePoolConfig.fundingAmount,
-            skins_allocation_percent: prizePoolConfig.skinsAllocationPercent,
-            winner_allocation_percent: prizePoolConfig.winnerAllocationPercent,
-            other_allocation_percent: prizePoolConfig.otherAllocationPercent,
-            auto_split_skins: prizePoolConfig.autoSplitSkins,
+            placements: prizePoolConfig.placements,
             created_by: user.id,
             player_count: 0,
           });

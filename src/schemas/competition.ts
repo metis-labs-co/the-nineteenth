@@ -51,14 +51,21 @@ const parseAustralianDate = (dateString: string): Date | null => {
 export const poolFundingTypes = ['per_player', 'fixed_total'] as const;
 export type PoolFundingType = (typeof poolFundingTypes)[number];
 
+// Placement entry for prize distribution
+export const placementEntrySchema = z.object({
+  position: z.number().min(1),
+  percent: z.number().min(0).max(100),
+});
+
 // Prize pool configuration for wizard
 export const prizePoolConfigSchema = z.object({
   fundingType: z.enum(poolFundingTypes).default('per_player'),
   fundingAmount: z.number().min(1, 'Amount must be at least $1').default(50),
-  skinsAllocationPercent: z.number().min(0).max(100).default(60),
-  winnerAllocationPercent: z.number().min(0).max(100).default(30),
-  otherAllocationPercent: z.number().min(0).max(100).default(10),
-  autoSplitSkins: z.boolean().default(true),
+  placements: z.array(placementEntrySchema).min(1, 'At least one placement is required').default([
+    { position: 1, percent: 60 },
+    { position: 2, percent: 30 },
+    { position: 3, percent: 10 },
+  ]),
 });
 
 export type PrizePoolConfigFormData = z.infer<typeof prizePoolConfigSchema>;
@@ -92,7 +99,7 @@ const competitionDetailsBaseSchema = z.object({
       (date) => !date || parseAustralianDate(date) !== null,
       'Invalid date format'
     ),
-  handicapSystem: z.enum(['honor', 'golf-australia', 'gross-only'], {
+  handicapSystem: z.enum(['honor', 'whs', 'gross-only'], {
     required_error: 'Please select a handicap system',
   }),
   handicapSource: z.enum(handicapSources),
@@ -405,8 +412,8 @@ export const playerSchema = z.object({
     .optional()
     .or(z.literal(''))
     .refine(
-      (id) => !id || /^[0-9]{10}$/.test(id),
-      'Golf ID must be exactly 10 digits'
+      (id) => !id || /^[A-Za-z0-9]{4,15}$/.test(id),
+      'Golf ID must be 4-15 alphanumeric characters'
     ),
 });
 

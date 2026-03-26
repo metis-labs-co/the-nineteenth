@@ -71,10 +71,7 @@ function poolToConfig(pool: CompetitionPrizePool | null | undefined): PrizePoolF
     enabled: true,
     fundingType: pool.funding_type,
     fundingAmount: pool.funding_amount,
-    skinsAllocationPercent: pool.skins_allocation_percent,
-    winnerAllocationPercent: pool.winner_allocation_percent,
-    otherAllocationPercent: pool.other_allocation_percent,
-    autoSplitSkins: pool.auto_split_skins,
+    placements: DEFAULT_PRIZE_POOL_CONFIG.placements,
   };
 }
 
@@ -85,14 +82,18 @@ function configsAreEqual(
   a: PrizePoolFormConfig,
   b: PrizePoolFormConfig
 ): boolean {
-  return (
-    a.enabled === b.enabled &&
-    a.fundingType === b.fundingType &&
-    a.fundingAmount === b.fundingAmount &&
-    a.skinsAllocationPercent === b.skinsAllocationPercent &&
-    a.winnerAllocationPercent === b.winnerAllocationPercent &&
-    a.otherAllocationPercent === b.otherAllocationPercent &&
-    a.autoSplitSkins === b.autoSplitSkins
+  if (
+    a.enabled !== b.enabled ||
+    a.fundingType !== b.fundingType ||
+    a.fundingAmount !== b.fundingAmount ||
+    a.placements.length !== b.placements.length
+  ) {
+    return false;
+  }
+  return a.placements.every(
+    (p, i) =>
+      p.position === b.placements[i].position &&
+      p.percent === b.placements[i].percent
   );
 }
 
@@ -185,10 +186,7 @@ export function EditPrizePoolBottomSheet({
         enabled: true,
         fundingType: newConfig.fundingType,
         fundingAmount: newConfig.fundingAmount,
-        skinsAllocationPercent: newConfig.skinsAllocationPercent,
-        winnerAllocationPercent: newConfig.winnerAllocationPercent,
-        otherAllocationPercent: newConfig.otherAllocationPercent,
-        autoSplitSkins: newConfig.autoSplitSkins,
+        placements: newConfig.placements,
       });
     }
   }, [config]);
@@ -241,10 +239,7 @@ export function EditPrizePoolBottomSheet({
           competition_id: competitionId,
           funding_type: config.fundingType,
           funding_amount: config.fundingAmount,
-          skins_allocation_percent: config.skinsAllocationPercent,
-          winner_allocation_percent: config.winnerAllocationPercent,
-          other_allocation_percent: config.otherAllocationPercent,
-          auto_split_skins: config.autoSplitSkins,
+          placements: config.placements,
           created_by: user.id,
           player_count: playerCount,
         });
@@ -256,10 +251,7 @@ export function EditPrizePoolBottomSheet({
           updates: {
             funding_type: config.fundingType,
             funding_amount: config.fundingAmount,
-            skins_allocation_percent: config.skinsAllocationPercent,
-            winner_allocation_percent: config.winnerAllocationPercent,
-            other_allocation_percent: config.otherAllocationPercent,
-            auto_split_skins: config.autoSplitSkins,
+            placements: config.placements,
           },
           player_count: playerCount,
         });
@@ -311,10 +303,6 @@ export function EditPrizePoolBottomSheet({
           config.fundingType === 'per_player'
             ? config.fundingAmount * playerCount
             : config.fundingAmount,
-        skins_allocation_percent: config.skinsAllocationPercent,
-        winner_allocation_percent: config.winnerAllocationPercent,
-        other_allocation_percent: config.otherAllocationPercent,
-        auto_split_skins: config.autoSplitSkins,
       };
     }
 
@@ -331,14 +319,6 @@ export function EditPrizePoolBottomSheet({
       funding_amount: config.fundingAmount,
       currency: 'AUD',
       total_pool_amount: totalPoolAmount,
-      skins_allocation_percent: config.skinsAllocationPercent,
-      winner_allocation_percent: config.winnerAllocationPercent,
-      other_allocation_percent: config.otherAllocationPercent,
-      skins_budget: (totalPoolAmount * config.skinsAllocationPercent) / 100,
-      winner_budget: (totalPoolAmount * config.winnerAllocationPercent) / 100,
-      other_budget: (totalPoolAmount * config.otherAllocationPercent) / 100,
-      auto_split_skins: config.autoSplitSkins,
-      skins_pot_per_round: null,
       is_locked: false,
       locked_at: null,
       status: 'draft',
@@ -386,7 +366,7 @@ export function EditPrizePoolBottomSheet({
           >
             {/* Description */}
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              Configure the prize pool for your competition. Allocate funds for skins games, winner prizes, and other rewards.
+              Configure the prize pool for your competition. Set up funding and distribute prizes to top finishers.
             </Text>
 
             {/* Prize Pool Form */}

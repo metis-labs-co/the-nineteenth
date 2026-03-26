@@ -2,14 +2,14 @@
  * PrizePoolSection - Prize pool configuration section for competition setup
  *
  * Allows organizers to enable and configure prize pools for competitions.
- * Prize pools fund skins games and other competition prizes.
+ * Prize pools distribute payouts to top finishers based on placement splits.
  *
  * Supports both Add (no editState) and Edit (with editState) scenarios.
  *
  * When editState is provided:
  * - Shows lock icon instead of switch when pool is locked
  * - Displays locked reason message
- * - Prevents editing of funding/allocation fields
+ * - Prevents editing of funding/placement fields
  *
  * @example
  * ```tsx
@@ -38,9 +38,8 @@ import {
   IconLock,
   IconCurrencyDollar,
   IconInfoCircle,
-  IconDice,
-  IconMedal,
-  IconDots,
+  IconPlus,
+  IconTrash,
 } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -69,15 +68,20 @@ export interface PrizePoolEditState {
 }
 
 /**
+ * A single placement split entry
+ */
+export interface PlacementEntry {
+  position: number;
+  percent: number;
+}
+
+/**
  * Prize pool configuration values used during setup
  */
 export interface PrizePoolConfig {
   fundingType: PoolFundingType;
   fundingAmount: number;
-  skinsAllocationPercent: number;
-  winnerAllocationPercent: number;
-  otherAllocationPercent: number;
-  autoSplitSkins: boolean;
+  placements: PlacementEntry[];
 }
 
 export interface PrizePoolSectionProps {
@@ -112,14 +116,24 @@ const FUNDING_TYPE_OPTIONS = [
 
 const PRIZE_POOL_COLOR = '#059669'; // Emerald/success color for prize money
 
+const DEFAULT_PLACEMENTS: PlacementEntry[] = [
+  { position: 1, percent: 60 },
+  { position: 2, percent: 30 },
+  { position: 3, percent: 10 },
+];
+
 const DEFAULT_CONFIG: PrizePoolConfig = {
   fundingType: 'per_player',
   fundingAmount: 50,
-  skinsAllocationPercent: 60,
-  winnerAllocationPercent: 30,
-  otherAllocationPercent: 10,
-  autoSplitSkins: true,
+  placements: DEFAULT_PLACEMENTS,
 };
+
+/** Ordinal suffix for position labels */
+function getOrdinal(n: number): string {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
+}
 
 // ============================================================================
 // COMPONENT
@@ -129,7 +143,7 @@ export const PrizePoolSection = memo(function PrizePoolSection({
   competitionId: _competitionId,
   pool,
   playerCount,
-  roundCount,
+  roundCount: _roundCount,
   onPoolChange,
   onUpgradePress,
   disabled,
@@ -154,10 +168,7 @@ export const PrizePoolSection = memo(function PrizePoolSection({
       return {
         fundingType: pool.funding_type,
         fundingAmount: pool.funding_amount,
-        skinsAllocationPercent: pool.skins_allocation_percent,
-        winnerAllocationPercent: pool.winner_allocation_percent,
-        otherAllocationPercent: pool.other_allocation_percent,
-        autoSplitSkins: pool.auto_split_skins,
+        placements: DEFAULT_PLACEMENTS,
       };
     }
     return DEFAULT_CONFIG;
@@ -170,12 +181,11 @@ export const PrizePoolSection = memo(function PrizePoolSection({
       setConfig({
         fundingType: pool.funding_type,
         fundingAmount: pool.funding_amount,
-        skinsAllocationPercent: pool.skins_allocation_percent,
-        winnerAllocationPercent: pool.winner_allocation_percent,
-        otherAllocationPercent: pool.other_allocation_percent,
-        autoSplitSkins: pool.auto_split_skins,
+        // Placements come from parent context; keep current if pool doesn't carry them
+        placements: config.placements,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool]);
 
   // When hideToggle is true, notify parent of initial config on mount
@@ -194,30 +204,18 @@ export const PrizePoolSection = memo(function PrizePoolSection({
         ? config.fundingAmount * playerCount
         : config.fundingAmount;
 
-    const totalAllocated =
-      config.skinsAllocationPercent +
-      config.winnerAllocationPercent +
-      config.otherAllocationPercent;
-
-    const skinsBudget = (totalPool * config.skinsAllocationPercent) / 100;
-    const winnerBudget = (totalPool * config.winnerAllocationPercent) / 100;
-    const otherBudget = (totalPool * config.otherAllocationPercent) / 100;
-    const unallocated = totalPool - skinsBudget - winnerBudget - otherBudget;
-
-    const skinsPerRound =
-      config.autoSplitSkins && roundCount > 0 ? skinsBudget / roundCount : null;
+    const totalPercent = config.placements.reduce((sum, p) => sum + p.percent, 0);
+    const isValidAllocation = Math.abs(totalPercent - 100) < 0.01;
 
     return {
       totalPool,
-      totalAllocated,
-      skinsBudget,
-      winnerBudget,
-      otherBudget,
-      unallocated,
-      skinsPerRound,
-      isValidAllocation: totalAllocated <= 100,
+      totalPercent,
+      isValidAllocation,
     };
-  }, [config, playerCount, roundCount]);
+  }, [config, playerCount]);
+
+  // Max placements capped at player count (minimum 1)
+  const maxPlacements = Math.max(playerCount, 1);
 
   // Handle toggle change
   const handleToggle = useCallback(() => {
@@ -262,20 +260,36 @@ export const PrizePoolSection = memo(function PrizePoolSection({
     [updateConfig]
   );
 
-  // Handle allocation changes
-  const handleAllocationChange = useCallback(
-    (field: 'skinsAllocationPercent' | 'winnerAllocationPercent' | 'otherAllocationPercent') =>
-      (text: string) => {
-        const value = Math.min(100, Math.max(0, parseInt(text) || 0));
-        updateConfig({ [field]: value });
-      },
-    [updateConfig]
+  // Handle placement percent change
+  const handlePlacementPercentChange = useCallback(
+    (index: number) => (text: string) => {
+      const value = Math.min(100, Math.max(0, parseInt(text) || 0));
+      const newPlacements = [...config.placements];
+      newPlacements[index] = { ...newPlacements[index], percent: value };
+      updateConfig({ placements: newPlacements });
+    },
+    [config.placements, updateConfig]
   );
 
-  // Handle auto-split toggle
-  const handleAutoSplitToggle = useCallback(() => {
-    updateConfig({ autoSplitSkins: !config.autoSplitSkins });
-  }, [config.autoSplitSkins, updateConfig]);
+  // Handle add placement
+  const handleAddPlacement = useCallback(() => {
+    if (config.placements.length >= maxPlacements) return;
+    const nextPosition = config.placements.length + 1;
+    const newPlacements = [...config.placements, { position: nextPosition, percent: 0 }];
+    updateConfig({ placements: newPlacements });
+  }, [config.placements, maxPlacements, updateConfig]);
+
+  // Handle remove placement
+  const handleRemovePlacement = useCallback(
+    (index: number) => {
+      if (config.placements.length <= 1) return;
+      const newPlacements = config.placements
+        .filter((_, i) => i !== index)
+        .map((p, i) => ({ ...p, position: i + 1 }));
+      updateConfig({ placements: newPlacements });
+    },
+    [config.placements, updateConfig]
+  );
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -287,7 +301,7 @@ export const PrizePoolSection = memo(function PrizePoolSection({
   const descriptionText =
     isLocked && editState?.lockedReason
       ? editState.lockedReason
-      : 'Fund skins games and competition prizes';
+      : 'Distribute prizes to top finishers';
 
   return (
     <>
@@ -378,7 +392,7 @@ export const PrizePoolSection = memo(function PrizePoolSection({
                   {config.fundingType === 'per_player' && (
                     <View style={styles.calculatedTotal}>
                       <Text style={[styles.calculatedLabel, { color: colors.textSecondary }]}>
-                        × {playerCount} players =
+                        x {playerCount} players =
                       </Text>
                       <Text style={[styles.calculatedValue, { color: PRIZE_POOL_COLOR }]}>
                         {formatCurrency(calculations.totalPool)}
@@ -412,145 +426,83 @@ export const PrizePoolSection = memo(function PrizePoolSection({
                 </Text>
               </View>
 
-              {/* Allocations Section */}
+              {/* Prize Distribution Section */}
               <View style={styles.configSection}>
-                <Text style={[styles.configSectionTitle, { color: colors.textPrimary }]}>
-                  Allocations
-                </Text>
-                <Text style={[styles.configSectionDescription, { color: colors.textSecondary }]}>
-                  How the prize pool will be divided
-                </Text>
-
-                {/* Skins Allocation */}
-                <AllocationRow
-                  icon={IconDice}
-                  iconColor="#8B5CF6"
-                  label="Skins Games"
-                  percent={config.skinsAllocationPercent}
-                  amount={calculations.skinsBudget}
-                  onPercentChange={handleAllocationChange('skinsAllocationPercent')}
-                  disabled={isDisabled}
-                  colors={colors}
-                />
-
-                {/* Winner Allocation */}
-                <AllocationRow
-                  icon={IconMedal}
-                  iconColor="#F59E0B"
-                  label="Winner Prizes"
-                  percent={config.winnerAllocationPercent}
-                  amount={calculations.winnerBudget}
-                  onPercentChange={handleAllocationChange('winnerAllocationPercent')}
-                  disabled={isDisabled}
-                  colors={colors}
-                />
-
-                {/* Other Allocation */}
-                <AllocationRow
-                  icon={IconDots}
-                  iconColor="#6B7280"
-                  label="Other"
-                  percent={config.otherAllocationPercent}
-                  amount={calculations.otherBudget}
-                  onPercentChange={handleAllocationChange('otherAllocationPercent')}
-                  disabled={isDisabled}
-                  colors={colors}
-                />
-
-                {/* Allocation Summary Bar */}
-                <View style={styles.allocationBarContainer}>
-                  <View style={styles.allocationBarLabels}>
-                    <Text style={[styles.allocationBarLabel, { color: colors.textSecondary }]}>
-                      {calculations.totalAllocated}% allocated
+                <View style={styles.distributionHeader}>
+                  <Text style={[styles.configSectionTitle, { color: colors.textPrimary }]}>
+                    Prize Distribution
+                  </Text>
+                  <View
+                    style={[
+                      styles.percentBadge,
+                      {
+                        backgroundColor: calculations.isValidAllocation
+                          ? `${PRIZE_POOL_COLOR}20`
+                          : `${colors.error}20`,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.percentBadgeText,
+                        {
+                          color: calculations.isValidAllocation
+                            ? PRIZE_POOL_COLOR
+                            : colors.error,
+                        },
+                      ]}
+                    >
+                      {calculations.totalPercent}%
                     </Text>
-                    {calculations.unallocated > 0 && (
-                      <Text style={[styles.allocationBarLabel, { color: colors.textTertiary }]}>
-                        {formatCurrency(calculations.unallocated)} unallocated
-                      </Text>
-                    )}
-                  </View>
-                  <View style={[styles.allocationBar, { backgroundColor: colors.surfaceVariant }]}>
-                    <View
-                      style={[
-                        styles.allocationBarFill,
-                        {
-                          width: `${Math.min(config.skinsAllocationPercent, 100)}%`,
-                          backgroundColor: '#8B5CF6',
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.allocationBarFill,
-                        {
-                          width: `${Math.min(config.winnerAllocationPercent, 100 - config.skinsAllocationPercent)}%`,
-                          backgroundColor: '#F59E0B',
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.allocationBarFill,
-                        {
-                          width: `${Math.min(config.otherAllocationPercent, 100 - config.skinsAllocationPercent - config.winnerAllocationPercent)}%`,
-                          backgroundColor: '#6B7280',
-                        },
-                      ]}
-                    />
                   </View>
                 </View>
+                <Text style={[styles.configSectionDescription, { color: colors.textSecondary }]}>
+                  How the prize pool will be split among top finishers
+                </Text>
 
+                {/* Placement Rows */}
+                {config.placements.map((placement, index) => (
+                  <PlacementRow
+                    key={placement.position}
+                    position={placement.position}
+                    percent={placement.percent}
+                    amount={(calculations.totalPool * placement.percent) / 100}
+                    onPercentChange={handlePlacementPercentChange(index)}
+                    onRemove={() => handleRemovePlacement(index)}
+                    canRemove={config.placements.length > 1}
+                    disabled={isDisabled}
+                    colors={colors}
+                  />
+                ))}
+
+                {/* Add Placement Button */}
+                {config.placements.length < maxPlacements && !isDisabled && (
+                  <TouchableOpacity
+                    style={[styles.addPlacementButton, { borderColor: `${PRIZE_POOL_COLOR}40` }]}
+                    onPress={handleAddPlacement}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add placement"
+                  >
+                    <IconPlus size={16} color={PRIZE_POOL_COLOR} />
+                    <Text style={[styles.addPlacementText, { color: PRIZE_POOL_COLOR }]}>
+                      Add Placement
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Validation Message */}
                 {!calculations.isValidAllocation && (
                   <View style={[styles.errorBox, { backgroundColor: colors.errorLight }]}>
                     <IconInfoCircle size={16} color={colors.error} />
                     <Text style={[styles.errorText, { color: colors.error }]}>
-                      Allocations cannot exceed 100%
+                      {calculations.totalPercent > 100
+                        ? 'Percentages cannot exceed 100%'
+                        : 'Percentages must add up to exactly 100%'}
                     </Text>
                   </View>
                 )}
               </View>
-
-              {/* Auto-Split Skins */}
-              {config.skinsAllocationPercent > 0 && (
-                <View style={styles.configSection}>
-                  <View style={styles.autoSplitRow}>
-                    <View style={styles.autoSplitContent}>
-                      <Text style={[styles.autoSplitLabel, { color: colors.textPrimary }]}>
-                        Auto-split for skins
-                      </Text>
-                      <Text style={[styles.autoSplitDescription, { color: colors.textSecondary }]}>
-                        Automatically enable skins on all rounds with equal pots
-                      </Text>
-                    </View>
-                    <Switch
-                      value={config.autoSplitSkins}
-                      onValueChange={handleAutoSplitToggle}
-                      trackColor={{ false: colors.gray300, true: `${PRIZE_POOL_COLOR}80` }}
-                      thumbColor={config.autoSplitSkins ? PRIZE_POOL_COLOR : colors.gray100}
-                      disabled={isDisabled}
-                    />
-                  </View>
-
-                  {config.autoSplitSkins && roundCount > 0 && (
-                    <View style={[styles.autoSplitSummary, { backgroundColor: colors.infoLight }]}>
-                      <IconDice size={16} color={colors.info} />
-                      <Text style={[styles.autoSplitSummaryText, { color: colors.infoDark }]}>
-                        {formatCurrency(calculations.skinsPerRound || 0)} per round × {roundCount}{' '}
-                        rounds
-                      </Text>
-                    </View>
-                  )}
-
-                  {config.autoSplitSkins && roundCount === 0 && (
-                    <View style={[styles.autoSplitSummary, { backgroundColor: colors.warningLight }]}>
-                      <IconInfoCircle size={16} color={colors.warning} />
-                      <Text style={[styles.autoSplitSummaryText, { color: colors.warningDark }]}>
-                        Add rounds to calculate per-round amount
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
 
               {/* Locked State Info */}
               {isLocked && editState?.lockedReason && (
@@ -605,56 +557,69 @@ export const PrizePoolSection = memo(function PrizePoolSection({
 });
 
 // ============================================================================
-// ALLOCATION ROW COMPONENT
+// PLACEMENT ROW COMPONENT
 // ============================================================================
 
-interface AllocationRowProps {
-  icon: React.ComponentType<{ size: number; color: string }>;
-  iconColor: string;
-  label: string;
+interface PlacementRowProps {
+  position: number;
   percent: number;
   amount: number;
   onPercentChange: (text: string) => void;
+  onRemove: () => void;
+  canRemove: boolean;
   disabled: boolean;
   colors: ReturnType<typeof useThemeColors>;
 }
 
-const AllocationRow = memo(function AllocationRow({
-  icon: IconComponent,
-  iconColor,
-  label,
+const PlacementRow = memo(function PlacementRow({
+  position,
   percent,
   amount,
   onPercentChange,
+  onRemove,
+  canRemove,
   disabled,
   colors,
-}: AllocationRowProps) {
+}: PlacementRowProps) {
   return (
-    <View style={styles.allocationRow}>
-      <View style={styles.allocationInfo}>
-        <View style={[styles.allocationIcon, { backgroundColor: `${iconColor}20` }]}>
-          <IconComponent size={16} color={iconColor} />
-        </View>
-        <View style={styles.allocationLabels}>
-          <Text style={[styles.allocationLabel, { color: colors.textPrimary }]}>{label}</Text>
-          <Text style={[styles.allocationAmount, { color: colors.textSecondary }]}>
-            ${amount.toFixed(2)}
+    <View style={styles.placementRow}>
+      <View style={styles.placementInfo}>
+        <View style={[styles.positionBadge, { backgroundColor: `${PRIZE_POOL_COLOR}15` }]}>
+          <Text style={[styles.positionText, { color: PRIZE_POOL_COLOR }]}>
+            {getOrdinal(position)}
           </Text>
         </View>
+        <Text style={[styles.placementAmount, { color: colors.textSecondary }]}>
+          ${amount.toFixed(2)}
+        </Text>
       </View>
-      <View style={styles.allocationInputContainer}>
-        <TextInput
-          mode="outlined"
-          value={percent.toString()}
-          onChangeText={onPercentChange}
-          keyboardType="number-pad"
-          disabled={disabled}
-          right={<TextInput.Affix text="%" />}
-          style={[styles.allocationInput, { backgroundColor: colors.surface }]}
-          outlineColor={colors.border}
-          activeOutlineColor={iconColor}
-          dense
-        />
+      <View style={styles.placementActions}>
+        <View style={styles.placementInputContainer}>
+          <TextInput
+            mode="outlined"
+            value={percent.toString()}
+            onChangeText={onPercentChange}
+            keyboardType="number-pad"
+            disabled={disabled}
+            right={<TextInput.Affix text="%" />}
+            style={[styles.placementInput, { backgroundColor: colors.surface }]}
+            outlineColor={colors.border}
+            activeOutlineColor={PRIZE_POOL_COLOR}
+            dense
+          />
+        </View>
+        {canRemove && !disabled && (
+          <TouchableOpacity
+            onPress={onRemove}
+            style={styles.removeButton}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${getOrdinal(position)} place`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <IconTrash size={18} color={colors.error} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -752,98 +717,72 @@ const styles = StyleSheet.create({
   totalValue: {
     ...typography.h4,
   },
-  allocationRow: {
+  distributionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  percentBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  percentBadgeText: {
+    ...typography.captionBold,
+  },
+  placementRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
   },
-  allocationInfo: {
+  placementInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     flex: 1,
   },
-  allocationIcon: {
-    width: 32,
-    height: 32,
+  positionBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
-    justifyContent: 'center',
+    minWidth: 40,
     alignItems: 'center',
   },
-  allocationLabels: {
-    flex: 1,
+  positionText: {
+    ...typography.smallBold,
   },
-  allocationLabel: {
-    ...typography.small,
-  },
-  allocationAmount: {
+  placementAmount: {
     ...typography.caption,
   },
-  allocationInputContainer: {
+  placementActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  placementInputContainer: {
     width: 80,
   },
-  allocationInput: {
+  placementInput: {
     height: 40,
     fontSize: 14,
   },
-  allocationBarContainer: {
-    marginTop: spacing.sm,
+  removeButton: {
+    padding: spacing.xs,
   },
-  allocationBarLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  allocationBarLabel: {
-    ...typography.caption,
-  },
-  allocationBar: {
-    height: 8,
-    borderRadius: borderRadius.full,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  allocationBarFill: {
-    height: '100%',
-  },
-  autoSplitRow: {
+  addPlacementButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  autoSplitContent: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  autoSplitLabel: {
-    ...typography.small,
-  },
-  autoSplitDescription: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  autoSplitSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  autoSplitSummaryText: {
-    ...typography.small,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
-  infoText: {
+  addPlacementText: {
     ...typography.small,
-    flex: 1,
   },
   errorBox: {
     flexDirection: 'row',
@@ -854,6 +793,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   errorText: {
+    ...typography.small,
+    flex: 1,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  infoText: {
     ...typography.small,
     flex: 1,
   },
