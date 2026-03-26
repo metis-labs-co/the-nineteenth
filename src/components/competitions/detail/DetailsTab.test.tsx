@@ -101,17 +101,6 @@ jest.mock('@/components/common/Pill', () => {
   };
 });
 
-// Mock useAutoSplitSkinsSync (used by PrizePoolSection, requires QueryClient)
-jest.mock('@/hooks/useAutoSplitSkinsSync', () => ({
-  useAutoSplitSkinsSync: () => ({
-    isLoading: false,
-    potPerRound: 0,
-    roundCount: 0,
-    skinsGamesCreated: 0,
-    playerCount: 0,
-  }),
-}));
-
 // Mock formatting utils
 jest.mock('@/utils/formatting', () => ({
   formatDateAustralian: (date: string) => {
@@ -452,10 +441,10 @@ describe('DetailsTab', () => {
       expect(screen.getByText('Honour System')).toBeTruthy();
     });
 
-    it('displays handicap system - Golf Australia', () => {
-      const comp = createTestCompetition({ handicap_system: 'golf-australia' });
+    it('displays handicap system - World Handicap System', () => {
+      const comp = createTestCompetition({ handicap_system: 'whs' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('Golf Australia')).toBeTruthy();
+      expect(screen.getByText('World Handicap System')).toBeTruthy();
     });
 
     it('displays handicap system - Gross Only', () => {
@@ -765,14 +754,6 @@ describe('DetailsTab', () => {
         funding_amount: 50,
         currency: 'AUD',
         total_pool_amount: 400,
-        skins_allocation_percent: 60,
-        winner_allocation_percent: 30,
-        other_allocation_percent: 10,
-        skins_budget: 240,
-        winner_budget: 120,
-        other_budget: 40,
-        auto_split_skins: false,
-        skins_pot_per_round: null,
         is_locked: false,
         locked_at: null,
         status: 'draft' as const,
@@ -792,14 +773,6 @@ describe('DetailsTab', () => {
         funding_amount: 50,
         currency: 'AUD',
         total_pool_amount: 400,
-        skins_allocation_percent: 60,
-        winner_allocation_percent: 30,
-        other_allocation_percent: 10,
-        skins_budget: 240,
-        winner_budget: 120,
-        other_budget: 40,
-        auto_split_skins: false,
-        skins_pot_per_round: null,
         is_locked: true,
         locked_at: new Date().toISOString(),
         status: 'active' as const,

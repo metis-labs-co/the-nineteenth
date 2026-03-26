@@ -251,7 +251,6 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
                 pot_value: skinsConfig.config.pot_value,
                 currency: skinsConfig.config.currency ?? 'AUD',
                 scoring_type: skinsConfig.config.scoring_type,
-                pool_source: 'direct',
                 status: 'active',
                 disclaimer_accepted_at: new Date().toISOString(),
                 disclaimer_accepted_by: user.id,

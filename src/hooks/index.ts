@@ -487,10 +487,6 @@ export type {
   PoolTransactionsOptions,
 } from './usePrizePool';
 
-// Auto-split skins sync hook (deprecated - now read-only status hook)
-export { useAutoSplitSkinsSync } from './useAutoSplitSkinsSync';
-export type { UseAutoSplitSkinsSyncReturn } from './useAutoSplitSkinsSync';
-
 // UI hooks
 export { useConfirmationDialog } from './useConfirmationDialog';
 export type { DialogConfig, UseConfirmationDialogReturn } from './useConfirmationDialog';

@@ -5,6 +5,8 @@
 import { useCallback } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useUpdateCourseHoles, useProcessSkinsIfNeeded } from '@/hooks';
+import { supabase } from '@/services/supabase/client';
+import { resolveTeeYardageKey } from '@/utils/holeTransformers';
 import { scoringLogger } from '@/utils/debugLogger';
 import type { HoleScore, Hole } from '@/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -199,6 +201,33 @@ export function useScoreHandlers({
       );
 
       try {
+        // Sync distances to the tees table FIRST (if tees exist for this course)
+        // so that when the JSONB mutation triggers a refetch, hydrateHolesWithTeeYardages
+        // picks up the new values instead of overwriting with stale tees data
+        if (updatedHole.yardages && Object.keys(updatedHole.yardages).length > 0) {
+          const lengthColumn = `length_hole_${updatedHole.number}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+          const { data: tees } = await (supabase.from('tees') as any)
+            .select('id, color, name')
+            .eq('course_id', courseId);
+
+          const teesTyped = tees as { id: string; color: string | null; name: string }[] | null;
+
+          if (teesTyped && teesTyped.length > 0) {
+            for (const tee of teesTyped) {
+              const teeKey = resolveTeeYardageKey(tee.color, tee.name);
+              const newDistance = updatedHole.yardages[teeKey];
+              if (newDistance !== undefined) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+                await (supabase.from('tees') as any)
+                  .update({ [lengthColumn]: newDistance })
+                  .eq('id', tee.id);
+              }
+            }
+          }
+        }
+
+        // Now save to courses.holes JSONB (triggers refetch via onSuccess)
         await updateCourseHolesMutation.mutateAsync({
           courseId,
           holes: updatedHoles,
