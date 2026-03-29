@@ -16,8 +16,8 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
-import type { ScoringPairsConfig, StandaloneSkinsConfig, StandaloneWolfConfig, TeamConfig } from '../../CreateRoundBottomSheet';
-import type { PlayingPartner } from '../types';
+import type { NineType, HandicapSource } from '@/types/database/enums';
+import type { ScoringPairsConfig, StandaloneSkinsConfig, StandaloneWolfConfig, TeamConfig, PlayingPartner } from '../../CreateRoundBottomSheet';
 
 // Default holes (used when course has no hole data)
 const DEFAULT_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
@@ -36,6 +36,12 @@ const PLACEHOLDER_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
   strokeIndex: i + 1,
 }));
 
+function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[] {
+  if (nineType === 'front9') return holes.filter((h) => h.number <= 9);
+  if (nineType === 'back9') return holes.filter((h) => h.number >= 10);
+  return holes;
+}
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export interface UseStartNewRoundReturn {
@@ -51,7 +57,8 @@ export interface UseStartNewRoundReturn {
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
-    handicapSource?: string
+    handicapSource?: HandicapSource,
+    nineType?: NineType
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
@@ -82,7 +89,8 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
       teamConfig?: TeamConfig,
       wolfConfig?: StandaloneWolfConfig,
       isBuildAsYouPlay?: boolean,
-      handicapSource?: string
+      handicapSource?: HandicapSource,
+      nineType: NineType = 'full'
     ) => {
       if (isStartingRound) return;
 
@@ -135,6 +143,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             // Set team round fields for team formats (scramble, shamble, best-ball, match-play with teams)
             is_team_round: isTeamFormat,
             team_format: isMatchPlayWithTeams ? 'match-play-team' : (isStandardTeamFormat ? gameType : null),
+            nine_type: nineType,
             ...(handicapSource ? { handicap_source: handicapSource } : {}),
           })
           .select('id')
@@ -188,11 +197,12 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         // Create round_players records
         if (user?.id) {
           const roundPlayersToInsert = [
-            { round_id: roundId, player_id: user.id, added_by: null },
+            { round_id: roundId, player_id: user.id, added_by: null, selected_tee: selectedTee ?? null },
             ...partners.map(partner => ({
               round_id: roundId,
               player_id: partner.id,
               added_by: user.id,
+              selected_tee: partner.selectedTee ?? selectedTee ?? null,
             })),
           ];
 
@@ -351,8 +361,24 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
           console.log('[useStartNewRound] Stored pending league tag:', { roundId, leagueId: pendingLeagueId });
         }
 
+        // Build per-player tee map
+        const playerTeeMap = new Map<string, TeeBox>();
+        const currentUser = player ?? (user ? { id: user.id } : null);
+        if (selectedTee && currentUser) {
+          playerTeeMap.set(currentUser.id, selectedTee);
+        }
+        for (const partner of partners) {
+          const tee = partner.selectedTee ?? selectedTee;
+          if (tee) {
+            playerTeeMap.set(partner.id, tee);
+          }
+        }
+
+        // Filter holes to the selected nine
+        const filteredHoles = filterHolesByNineType(holes, nineType);
+
         // Initialize the scorecard store
-        await initializeRound(roundId, players, holes, gameType, false);
+        await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, nineType);
 
         // Navigate to appropriate scoring screen based on game type
         // Individual match play (2 players) goes to dedicated MatchPlayScoring screen
