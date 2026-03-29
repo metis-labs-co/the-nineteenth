@@ -27,6 +27,9 @@ import { WolfDecisionPrompt } from '@/components/wolf';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, ShotContributions, HoleShotContributions } from '@/types';
 import type { WolfGameWithParticipants, WolfHoleDecision } from '@/types/database/wolf.types';
 import type { TeamFormat, TeamWithMembers, GameType } from '@/types/database.types';
+import type { TeeBox } from '@/types/database/base';
+import { resolvePlayerTee } from '@/utils/teeResolution';
+import { getTeeColor } from '@/services/courses';
 import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
 import { calculateStablefordPoints, calculateNetScore, calculateParScore, getStrokesOnHole } from '@/utils/scoring';
@@ -78,6 +81,10 @@ export interface ScorecardScoreContentProps {
   showGIR?: boolean;
   // Playing handicap map (daily HC for Premium, raw HC for Free)
   playerHandicapMap?: Map<string, number>;
+  // Tee dot indicators (shown when players play from different tees)
+  showTeeDots?: boolean;
+  playerTeeMap?: Map<string, TeeBox>;
+  selectedTeeData?: TeeBox | null;
   // Wolf game props
   wolfGame?: WolfGameWithParticipants | null;
   wolfDecision?: WolfHoleDecision | null;
@@ -121,6 +128,10 @@ export function ScorecardScoreContent({
   showGIR = false,
   // Playing handicap map (daily HC for Premium, raw HC for Free)
   playerHandicapMap,
+  // Tee dot indicators
+  showTeeDots = false,
+  playerTeeMap,
+  selectedTeeData,
   // Wolf game props
   wolfGame,
   wolfDecision,
@@ -415,6 +426,9 @@ export function ScorecardScoreContent({
         {playersToRender.map((player) => {
           const handicap = getHandicap(player);
           const { gross, net } = getRunningGrossNet(player.id, handicap);
+          const teeDotColor = showTeeDots && playerTeeMap
+            ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.color ?? '')
+            : undefined;
           return (
             <StrokePlayScoreCard
               key={player.id}
@@ -429,6 +443,7 @@ export function ScorecardScoreContent({
               displayMode={isPar ? 'par' : 'stroke'}
               runningParScore={isPar ? getRunningParScore(player.id, handicap) : undefined}
               isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
+              teeDotColor={teeDotColor}
             />
           );
         })}
@@ -462,20 +477,26 @@ export function ScorecardScoreContent({
           isProcessing={isWolfProcessing}
         />
       )}
-      {playersToRender.map((player) => (
-        <PlayerScoreCard
-          key={player.id}
-          player={player}
-          currentHole={currentHoleData}
-          currentScore={getPlayerScore(player.id, currentHole)}
-          onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
-          onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
-          onPlayerPress={onPlayerPress}
-          runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, getHandicap(player)) : undefined}
-          showPointsPreview={isStableford}
-          isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
-        />
-      ))}
+      {playersToRender.map((player) => {
+        const teeDotColor = showTeeDots && playerTeeMap
+          ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.color ?? '')
+          : undefined;
+        return (
+          <PlayerScoreCard
+            key={player.id}
+            player={player}
+            currentHole={currentHoleData}
+            currentScore={getPlayerScore(player.id, currentHole)}
+            onScoreSelect={(strokes) => onScoreSelect(player.id, strokes)}
+            onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
+            onPlayerPress={onPlayerPress}
+            runningTotalPoints={isStableford ? getRunningTotalPoints(player.id, getHandicap(player)) : undefined}
+            showPointsPreview={isStableford}
+            isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
+            teeDotColor={teeDotColor}
+          />
+        );
+      })}
     </>
   );
 }

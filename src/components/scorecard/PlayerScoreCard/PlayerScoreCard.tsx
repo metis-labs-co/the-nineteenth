@@ -86,6 +86,8 @@ interface PlayerScoreCardProps {
   showPointsPreview?: boolean;
   /** Whether this is the current user's own score (for visual distinction in scoring pairs) */
   isOwnScore?: boolean;
+  /** Tee color dot to show before the player name when players have different tees */
+  teeDotColor?: string;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -99,6 +101,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   runningTotalPoints,
   showPointsPreview = true,
   isOwnScore,
+  teeDotColor,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -173,9 +176,14 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
           accessibilityRole="button"
           accessibilityHint="Opens the player's detailed scorecard"
         >
-          <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {player.name}
-          </ScaledText>
+          <View style={styles.playerNameRow}>
+            {teeDotColor && (
+              <View style={[styles.teeDot, { backgroundColor: teeDotColor }]} />
+            )}
+            <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {player.name}
+            </ScaledText>
+          </View>
           <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {handicap}</ScaledText>
         </TouchableOpacity>
 
@@ -305,9 +313,20 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
     marginTop: -spacing.xs,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  teeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
   playerName: {
     ...typography.h3,
-    marginBottom: spacing.xs,
     flexShrink: 1,
   },
   handicapLabel: {

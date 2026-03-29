@@ -57,6 +57,8 @@ interface StrokePlayScoreCardProps {
   displayMode?: 'stroke' | 'par';
   /** Running par score (only used when displayMode='par') */
   runningParScore?: number;
+  /** Tee color dot to show before the player name when players have different tees */
+  teeDotColor?: string;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -72,6 +74,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   isOwnScore,
   displayMode = 'stroke',
   runningParScore = 0,
+  teeDotColor,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
@@ -222,9 +225,14 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
           accessibilityLabel={`View ${player.name}'s scorecard`}
           accessibilityRole="button"
         >
-          <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {player.name}
-          </Text>
+          <View style={styles.playerNameRow}>
+            {teeDotColor && (
+              <View style={[styles.teeDot, { backgroundColor: teeDotColor }]} />
+            )}
+            <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {player.name}
+            </Text>
+          </View>
           <View style={styles.handicapRow}>
             <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
               HC: {handicap}
@@ -469,9 +477,20 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
     marginTop: -spacing.xs,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  teeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
   playerName: {
     ...typography.h3,
-    marginBottom: spacing.xs,
     flexShrink: 1,
   },
   handicapRow: {

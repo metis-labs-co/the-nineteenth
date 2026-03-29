@@ -38,6 +38,8 @@ import { useAuth } from '@/hooks';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
+import { hasMultipleTees, resolvePlayerTee } from '@/utils/teeResolution';
+import { getTeeColor } from '@/services/courses';
 
 // Local hooks and components
 import {
@@ -94,19 +96,21 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     getMultiBallScores,
     selectedTeeData,
     handicapSource,
+    playerTeeMap,
   } = useScorecardStore();
 
   // Stats visibility (respects Premium tier)
   const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
   const isPremium = useIsPremium();
 
-  // Pre-compute daily handicap for each player (Premium-gated)
+  // Pre-compute daily handicap for each player (Premium-gated), using per-player tees
   const playerHandicapMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const player of currentPlayers) {
+      const playerTee = playerTeeMap.get(player.id) || selectedTeeData;
       const { playingHandicap } = calculatePlayingHandicap({
         player,
-        selectedTeeData,
+        selectedTeeData: playerTee,
         holes,
         handicapSource,
         gameType: undefined, // Game type allowance applied separately per format
@@ -115,7 +119,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       map.set(player.id, playingHandicap);
     }
     return map;
-  }, [currentPlayers, selectedTeeData, holes, handicapSource, isPremium]);
+  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, isPremium]);
+
+  // Show tee color dots when players have different tees assigned
+  const showTeeDots = hasMultipleTees(
+    currentPlayers.map((p) => p.id),
+    playerTeeMap,
+    selectedTeeData,
+  );
 
   // Data fetching hook
   const {
@@ -330,6 +341,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               showFIR={showFairwayHit}
               showGIR={showGreenInRegulation}
               playerHandicapMap={playerHandicapMap}
+              showTeeDots={showTeeDots}
+              playerTeeMap={playerTeeMap}
+              selectedTeeData={selectedTeeData}
               wolfGame={wolf.wolfGame}
               wolfDecision={wolf.wolfDecision}
               onWolfChoosePartner={() => wolf.setShowWolfDecisionModal(true)}
@@ -367,6 +381,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       scoreHandlers.handleMultiBallStatsChange, getMultiBallScores,
       showFairwayHit, showGreenInRegulation, holes, playersToRender, isHoleComplete,
       nav.handleHolePress, wolf.wolfGame, wolf.wolfDecision, wolf.isWolfProcessing,
+      showTeeDots, playerTeeMap, selectedTeeData,
     ]
   );
 
