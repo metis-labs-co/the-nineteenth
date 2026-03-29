@@ -986,49 +986,6 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
         round-1
       </Text>
     </View>
-    <View
-      style={
-        {
-          "marginBottom": 12,
-        }
-      }
-    >
-      <Text
-        style={
-          [
-            {
-              "fontSize": 18,
-              "fontWeight": "600",
-              "lineHeight": 26,
-            },
-            {
-              "color": "#1A1A1A",
-            },
-          ]
-        }
-      >
-        Hole Breakdown
-      </Text>
-      <View
-        testID="hole-table"
-      >
-        <Text
-          testID="hole-table-count"
-        >
-          18
-        </Text>
-        <Text
-          testID="hole-table-tee"
-        >
-          White
-        </Text>
-        <Text
-          testID="hole-table-units"
-        >
-          metres
-        </Text>
-      </View>
-    </View>
   </View>
 </View>
 `;
@@ -1874,82 +1831,6 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
       >
         round-1
       </Text>
-    </View>
-    <View
-      style={
-        {
-          "marginBottom": 12,
-        }
-      }
-    >
-      <Text
-        style={
-          [
-            {
-              "fontSize": 18,
-              "fontWeight": "600",
-              "lineHeight": 26,
-            },
-            {
-              "color": "#1A1A1A",
-            },
-          ]
-        }
-      >
-        Hole Breakdown
-      </Text>
-      <View
-        style={
-          [
-            {
-              "alignItems": "center",
-              "borderRadius": 12,
-              "borderWidth": 1,
-              "elevation": 2,
-              "padding": 24,
-              "shadowColor": "#000",
-              "shadowOffset": {
-                "height": 1,
-                "width": 0,
-              },
-              "shadowOpacity": 0.05,
-              "shadowRadius": 2,
-            },
-            {
-              "backgroundColor": "#FFFFFF",
-              "borderColor": "#E0E0E0",
-            },
-          ]
-        }
-      >
-        <View
-          style={
-            {
-              "height": 32,
-              "width": 32,
-            }
-          }
-          testID="icon-flag"
-        />
-        <Text
-          style={
-            [
-              {
-                "fontSize": 16,
-                "fontWeight": "400",
-                "lineHeight": 24,
-                "marginTop": 12,
-                "textAlign": "center",
-              },
-              {
-                "color": "#6B6B6B",
-              },
-            ]
-          }
-        >
-          No hole information available for this course
-        </Text>
-      </View>
     </View>
   </View>
 </View>
@@ -2888,49 +2769,6 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
       >
         round-1
       </Text>
-    </View>
-    <View
-      style={
-        {
-          "marginBottom": 12,
-        }
-      }
-    >
-      <Text
-        style={
-          [
-            {
-              "fontSize": 18,
-              "fontWeight": "600",
-              "lineHeight": 26,
-            },
-            {
-              "color": "#1A1A1A",
-            },
-          ]
-        }
-      >
-        Hole Breakdown
-      </Text>
-      <View
-        testID="hole-table"
-      >
-        <Text
-          testID="hole-table-count"
-        >
-          18
-        </Text>
-        <Text
-          testID="hole-table-tee"
-        >
-          White
-        </Text>
-        <Text
-          testID="hole-table-units"
-        >
-          metres
-        </Text>
-      </View>
     </View>
   </View>
 </View>

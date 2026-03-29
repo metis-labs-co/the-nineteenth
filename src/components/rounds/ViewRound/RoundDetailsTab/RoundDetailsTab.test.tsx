@@ -18,7 +18,7 @@ import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { RoundDetailsTab } from './index';
 import { create18Holes } from '@/__tests__/utils/testFixtures';
 import type { RoundWithCourse, CourseWithClub, CompetitionSummary } from '@/hooks/useRoundDetails';
-import type { Hole, GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
+import type { GameType, RoundStatus, AustralianState, CompetitionStatus, TeeBox } from '@/types/database.types';
 
 // Store reference to mock navigate function
 const mockNavigate = jest.fn();
@@ -50,21 +50,6 @@ jest.mock('@/store/settingsStore', () => ({
 jest.mock('./components', () => {
   const { View, Text } = require('react-native');
   return {
-    HoleTable: ({
-      holes,
-      selectedTee,
-      useMetres,
-    }: {
-      holes: any[];
-      selectedTee: string | null;
-      useMetres: boolean;
-    }) => (
-      <View testID="hole-table">
-        <Text testID="hole-table-count">{String(holes.length)}</Text>
-        <Text testID="hole-table-tee">{selectedTee || 'none'}</Text>
-        <Text testID="hole-table-units">{useMetres ? 'metres' : 'yards'}</Text>
-      </View>
-    ),
     PlayersSection: ({
       roundId,
     }: {
@@ -229,7 +214,6 @@ describe('RoundDetailsTab', () => {
       render(<RoundDetailsTab round={round} />);
 
       expect(screen.getByText('Round Details')).toBeTruthy();
-      expect(screen.getByText('Hole Breakdown')).toBeTruthy();
     });
 
     it('renders the course name', () => {
@@ -558,91 +542,39 @@ describe('RoundDetailsTab', () => {
 
 
   // ===========================================================================
-  // HOLE BREAKDOWN TESTS
+  // COURSE STATS TESTS
   // ===========================================================================
 
-  describe('Hole Breakdown', () => {
-    it('renders hole table when holes available', () => {
+  describe('Course Stats', () => {
+    it('displays hole count from course', () => {
       const round = createRoundWithCourse();
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByTestId('hole-table')).toBeTruthy();
+      // 18 holes displayed in the stats bar
+      expect(screen.getAllByText('18').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('passes holes to hole table', () => {
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('hole-table-count').children[0]).toBe('18');
-    });
-
-    it('passes selected tee to hole table', () => {
-      const round = createRoundWithCourse({
-        selected_tee: { name: 'Blue', color: 'blue', totalYardage: 6800 } as TeeBox,
-      });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('hole-table-tee').children[0]).toBe('Blue');
-    });
-
-    it('passes units preference to hole table', () => {
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('hole-table-units').children[0]).toBe('metres');
-    });
-
-    it('shows empty state when no holes', () => {
+    it('shows dash when no holes', () => {
       const round = createRoundWithCourse({
         course: createCourseWithVenue({ holes: [] }),
       });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('No hole information available for this course')).toBeTruthy();
+      // Should show "-" for holes and par when empty
+      const dashes = screen.getAllByText('-');
+      expect(dashes.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('shows empty state when course is null', () => {
+    it('shows course stats when course is null', () => {
       const round = createRoundWithCourse({ course: null });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('No hole information available for this course')).toBeTruthy();
-    });
-
-    it('derives tee from course tees when no selected tee', () => {
-      const round = createRoundWithCourse({
-        selected_tee: null,
-        course: createCourseWithVenue({
-          tees: [
-            { name: 'Gold', color: 'gold', totalYardage: 7000, courseRating: 74, slopeRating: 135 },
-          ],
-        }),
-      });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('hole-table-tee').children[0]).toBe('Gold');
-    });
-
-    it('derives tee from hole yardages when no tees defined', () => {
-      const round = createRoundWithCourse({
-        selected_tee: null,
-        course: createCourseWithVenue({
-          tees: [],
-          holes: [
-            { number: 1, par: 4, strokeIndex: 1, yardages: { championship: 450 } },
-          ] as Hole[],
-        }),
-      });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('hole-table-tee').children[0]).toBe('championship');
+      // Stats show '-' when no course
+      const dashes = screen.getAllByText('-');
+      expect(dashes.length).toBeGreaterThanOrEqual(1);
     });
   });
 

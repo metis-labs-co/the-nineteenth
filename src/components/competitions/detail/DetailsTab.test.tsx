@@ -220,7 +220,6 @@ describe('DetailsTab', () => {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: mockOnViewCourse,
-    onEdit: mockOnEdit,
     onUpdateCompetition: mockOnUpdateCompetition,
   };
 
@@ -493,34 +492,27 @@ describe('DetailsTab', () => {
   // ===========================================================================
 
   describe('Edit Functionality', () => {
-    it('shows edit button for organizers', () => {
+    it('renders correctly for organizers', () => {
       render(<DetailsTab {...defaultProps} isOrganizer={true} />);
-      const editButton = screen.getByLabelText('Edit competition');
-      expect(editButton).toBeTruthy();
+      // Editing is handled externally (CompetitionSettingsScreen), not inline
+      expect(screen.getByText('Summer Championship')).toBeTruthy();
     });
 
-    it('does not show edit button for non-organizers', () => {
+    it('renders correctly for non-organizers', () => {
       render(<DetailsTab {...defaultProps} isOrganizer={false} />);
-      expect(screen.queryByLabelText('Edit competition')).toBeNull();
+      expect(screen.getByText('Summer Championship')).toBeTruthy();
     });
 
-    it('calls onEdit when edit competition button pressed', () => {
-      render(<DetailsTab {...defaultProps} isOrganizer={true} />);
-      const editButton = screen.getByLabelText('Edit competition');
-      fireEvent.press(editButton);
-      expect(mockOnEdit).toHaveBeenCalledTimes(1);
+    it('shows add prize pool button for organizers', () => {
+      const mockOnAddPrizePool = jest.fn();
+      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onAddPrizePool={mockOnAddPrizePool} />);
+      const addButton = screen.getByLabelText('Add prize pool');
+      expect(addButton).toBeTruthy();
     });
 
-    it('calls onEdit when edit settings button pressed', () => {
-      render(<DetailsTab {...defaultProps} isOrganizer={true} />);
-      const editSettingsButton = screen.getByLabelText('Edit settings');
-      fireEvent.press(editSettingsButton);
-      expect(mockOnEdit).toHaveBeenCalled();
-    });
-
-    it('does not show settings edit button for non-organizers', () => {
-      render(<DetailsTab {...defaultProps} isOrganizer={false} />);
-      expect(screen.queryByLabelText('Edit settings')).toBeNull();
+    it('does not show add prize pool button for non-organizers', () => {
+      render(<DetailsTab {...defaultProps} isOrganizer={false} prizePool={null} />);
+      expect(screen.queryByLabelText('Add prize pool')).toBeNull();
     });
   });
 
@@ -603,12 +595,6 @@ describe('DetailsTab', () => {
   // ===========================================================================
 
   describe('Accessibility', () => {
-    it('edit buttons have accessibility role button', () => {
-      render(<DetailsTab {...defaultProps} isOrganizer={true} />);
-      const editButton = screen.getByLabelText('Edit competition');
-      expect(editButton.props.accessibilityRole).toBe('button');
-    });
-
     it('invite code button has accessibility role button', () => {
       render(<DetailsTab {...defaultProps} />);
       const inviteCodeButton = screen.getByLabelText('Copy invite code SUMMER25');
@@ -619,6 +605,13 @@ describe('DetailsTab', () => {
       render(<DetailsTab {...defaultProps} />);
       const courseCard = screen.getByTestId('course-card-course-1');
       expect(courseCard.props.accessibilityRole).toBe('button');
+    });
+
+    it('add prize pool button has accessibility role button', () => {
+      const mockOnAddPrizePool = jest.fn();
+      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onAddPrizePool={mockOnAddPrizePool} />);
+      const addButton = screen.getByLabelText('Add prize pool');
+      expect(addButton.props.accessibilityRole).toBe('button');
     });
   });
 

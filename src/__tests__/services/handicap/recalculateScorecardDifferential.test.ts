@@ -24,6 +24,7 @@ function mockCreateChain(resolveValue: { data: unknown; error: unknown }) {
   chain.order = jest.fn().mockReturnValue(chain);
   chain.limit = jest.fn().mockReturnValue(chain);
   chain.single = jest.fn(() => Promise.resolve(resolveValue));
+  chain.maybeSingle = jest.fn(() => Promise.resolve(resolveValue));
   return chain;
 }
 
@@ -170,6 +171,10 @@ function setupMocks(overrides: {
     });
   }
   mockChains['tees'] = teeChain;
+
+  // round_players table mock (per-player tee override — default: no override)
+  const roundPlayerChain = mockCreateChain({ data: null, error: null });
+  mockChains['round_players'] = roundPlayerChain;
 
   // Players table mock
   const playerChain = mockCreateChain({
