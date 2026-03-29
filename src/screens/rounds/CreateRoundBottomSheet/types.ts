@@ -8,6 +8,7 @@ import type { HandicapSource, Hole } from '@/types/database';
 import type { SubscriptionTier } from '@/types/subscription.types';
 import type { BallCount } from '@/types/multiball.types';
 import type { WolfConfig } from '@/types/database/wolf.types';
+import type { NineType } from '@/types/database/enums';
 
 /**
  * Skins configuration for standalone rounds
@@ -30,7 +31,7 @@ export interface StandaloneWolfConfig {
 /**
  * Wizard step identifiers
  */
-export type WizardStep = 'course' | 'tee' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup';
+export type WizardStep = 'course' | 'nineType' | 'matchType' | 'partners' | 'ballCount' | 'scoringSetup' | 'yourSetup';
 
 /**
  * Playing partner selected for the round
@@ -43,6 +44,8 @@ export interface PlayingPartner {
   handicapIndex?: number | undefined;
   /** Player gender for WHS daily handicap consistency factor */
   gender?: 'male' | 'female' | undefined;
+  /** Per-player tee override */
+  selectedTee?: TeeBox;
 }
 
 /**
@@ -145,6 +148,8 @@ export interface WizardData {
   isBuildAsYouPlay: boolean;
   /** Handicap source for daily HC calculation (Premium feature) */
   handicapSource: HandicapSource;
+  /** Nine type selection for 9-hole rounds */
+  nineType: NineType;
 }
 
 /**
@@ -165,7 +170,8 @@ export interface CreateRoundBottomSheetProps {
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
-    handicapSource?: HandicapSource
+    handicapSource?: HandicapSource,
+    nineType?: NineType
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;
