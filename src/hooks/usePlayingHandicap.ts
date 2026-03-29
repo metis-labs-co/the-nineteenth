@@ -15,7 +15,9 @@ import { useIsPremium } from '@/context/SubscriptionContext';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { getHandicapAllowance } from '@/services/scoring/utils/handicapUtils';
+import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import type { Hole, TeeBox, GameType, HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 
 interface ScorecardPlayerInfo {
   handicap?: number | null;
@@ -29,6 +31,7 @@ interface UsePlayingHandicapParams {
   holes?: Hole[];
   handicapSource?: HandicapSource | null;
   gameType?: GameType;
+  nineType?: NineType;
 }
 
 interface PlayingHandicapResult {
@@ -52,6 +55,7 @@ interface PlayingHandicapResult {
  * @param params.holes - Course holes (for calculating par)
  * @param params.handicapSource - Which base handicap to use ('profile' | 'calculated' | 'none')
  * @param params.gameType - Game type for allowance calculation
+ * @param params.nineType - Nine type for selecting appropriate slope/CR ratings (default: 'full')
  */
 export function usePlayingHandicap({
   player,
@@ -59,6 +63,7 @@ export function usePlayingHandicap({
   holes,
   handicapSource,
   gameType,
+  nineType,
 }: UsePlayingHandicapParams): PlayingHandicapResult {
   const isPremium = useIsPremium();
 
@@ -72,26 +77,25 @@ export function usePlayingHandicap({
     let dailyHandicap = baseHandicap;
     let isDailyHandicap = false;
 
-    if (
-      isPremium &&
-      source !== 'none' &&
-      selectedTeeData?.slopeRating &&
-      selectedTeeData?.courseRating
-    ) {
-      const coursePar = Array.isArray(holes)
-        ? holes.reduce((sum, h) => sum + h.par, 0)
-        : 0;
+    if (isPremium && source !== 'none' && selectedTeeData) {
+      const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
 
-      if (coursePar > 0) {
-        const result = calculateGADailyHandicap({
-          gaHandicap: baseHandicap,
-          slopeRating: selectedTeeData.slopeRating,
-          courseRating: selectedTeeData.courseRating,
-          par: coursePar,
-          gender: player?.gender,
-        });
-        dailyHandicap = result.dailyHandicap;
-        isDailyHandicap = true;
+      if (slope && cr) {
+        const coursePar = Array.isArray(holes)
+          ? holes.reduce((sum, h) => sum + h.par, 0)
+          : 0;
+
+        if (coursePar > 0) {
+          const result = calculateGADailyHandicap({
+            gaHandicap: baseHandicap,
+            slopeRating: slope,
+            courseRating: cr,
+            par: coursePar,
+            gender: player?.gender,
+          });
+          dailyHandicap = result.dailyHandicap;
+          isDailyHandicap = true;
+        }
       }
     }
 
@@ -106,7 +110,7 @@ export function usePlayingHandicap({
       handicapLabel: isDailyHandicap ? 'DHC' : 'HC',
       isDailyHandicap,
     };
-  }, [player, selectedTeeData, holes, handicapSource, gameType, isPremium]);
+  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType, isPremium]);
 }
 
 /**
@@ -120,8 +124,9 @@ export function calculatePlayingHandicap(params: {
   handicapSource?: HandicapSource | null;
   gameType?: GameType;
   applyDailyHandicap?: boolean;
+  nineType?: NineType;
 }): PlayingHandicapResult {
-  const { player, selectedTeeData, holes, handicapSource, gameType, applyDailyHandicap = true } = params;
+  const { player, selectedTeeData, holes, handicapSource, gameType, applyDailyHandicap = true, nineType } = params;
   const source = handicapSource ?? 'profile';
 
   const baseHandicap = getBaseHandicap(player as Parameters<typeof getBaseHandicap>[0], source);
@@ -129,26 +134,25 @@ export function calculatePlayingHandicap(params: {
   let dailyHandicap = baseHandicap;
   let isDailyHandicap = false;
 
-  if (
-    applyDailyHandicap &&
-    source !== 'none' &&
-    selectedTeeData?.slopeRating &&
-    selectedTeeData?.courseRating
-  ) {
-    const coursePar = Array.isArray(holes)
-      ? holes.reduce((sum, h) => sum + h.par, 0)
-      : 0;
+  if (applyDailyHandicap && source !== 'none' && selectedTeeData) {
+    const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
 
-    if (coursePar > 0) {
-      const result = calculateGADailyHandicap({
-        gaHandicap: baseHandicap,
-        slopeRating: selectedTeeData.slopeRating,
-        courseRating: selectedTeeData.courseRating,
-        par: coursePar,
-        gender: player?.gender,
-      });
-      dailyHandicap = result.dailyHandicap;
-      isDailyHandicap = true;
+    if (slope && cr) {
+      const coursePar = Array.isArray(holes)
+        ? holes.reduce((sum, h) => sum + h.par, 0)
+        : 0;
+
+      if (coursePar > 0) {
+        const result = calculateGADailyHandicap({
+          gaHandicap: baseHandicap,
+          slopeRating: slope,
+          courseRating: cr,
+          par: coursePar,
+          gender: player?.gender,
+        });
+        dailyHandicap = result.dailyHandicap;
+        isDailyHandicap = true;
+      }
     }
   }
 

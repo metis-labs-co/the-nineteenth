@@ -13,7 +13,9 @@ import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handica
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
+import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import type { TeeBox, Hole } from '@/types/database/base';
+import type { NineType } from '@/types/database/enums';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const from = (table: string) => (supabase as any).from(table);
@@ -48,7 +50,12 @@ interface RoundRecord {
   id: string;
   course_id: string;
   selected_tee: TeeBox | null;
+  nine_type: NineType | null;
   courses: { holes: Hole[] | null } | null;
+}
+
+interface RoundPlayerRecord {
+  selected_tee: TeeBox | null;
 }
 
 interface PlayerRecord {
@@ -167,7 +174,7 @@ export async function recalculateScorecardDifferential(
 
   // 2. Fetch the round with course data
   const { data: roundData, error: roundError } = await from('rounds')
-    .select('id, course_id, selected_tee, courses!course_id (holes)')
+    .select('id, course_id, selected_tee, nine_type, courses!course_id (holes)')
     .eq('id', scorecard.round_id)
     .single();
 
@@ -181,8 +188,18 @@ export async function recalculateScorecardDifferential(
     throw new Error('Round has no associated course');
   }
 
+  // 2b. Check for per-player tee override from round_players
+  const { data: roundPlayerData } = await from('round_players')
+    .select('selected_tee')
+    .eq('round_id', scorecard.round_id)
+    .eq('player_id', scorecard.player_id)
+    .maybeSingle();
+
+  const roundPlayer = roundPlayerData as RoundPlayerRecord | null;
+  const effectiveSelectedTee = roundPlayer?.selected_tee ?? round.selected_tee;
+
   // 3. Resolve the canonical tee from tees table
-  const tee = await resolveTeeForRound(round.course_id, round.selected_tee);
+  const tee = await resolveTeeForRound(round.course_id, effectiveSelectedTee);
 
   // 4. Map to TeeWithRatings format for getRatingsForGender
   const teeWithRatings = {
@@ -202,12 +219,39 @@ export async function recalculateScorecardDifferential(
   const player = playerData as unknown as PlayerRecord | null;
   const playerGender = player?.gender ?? null;
 
-  // 6. Get ratings for gender
-  const ratings = getRatingsForGender(teeWithRatings, playerGender);
+  // 6. Get ratings for gender (full-round ratings from canonical tee record)
+  const baseRatings = getRatingsForGender(teeWithRatings, playerGender);
 
-  if (!ratings) {
+  if (!baseRatings) {
     throw new Error('Tee still has no valid slope/course ratings');
   }
+
+  // 6b. Apply 9-hole rating selection if round has a non-full nine_type.
+  // The 9-hole ratings come from the effectiveSelectedTee TeeBox (stored on round/round_player),
+  // which may carry slopeRatingFront9/Back9 and courseRatingFront9/Back9 fields.
+  // We build a TeeBox merging the canonical full-round ratings with 9-hole overrides from the tee JSON.
+  const nineType: NineType = round.nine_type ?? 'full';
+  let finalSlopeRating = baseRatings.slopeRating;
+  let finalCourseRating = baseRatings.courseRating;
+
+  if (nineType !== 'full' && effectiveSelectedTee) {
+    // Build a TeeBox with gender-resolved full ratings plus 9-hole overrides
+    const teeBoxForResolution: TeeBox = {
+      name: effectiveSelectedTee.name,
+      color: effectiveSelectedTee.color,
+      slopeRating: baseRatings.slopeRating,
+      courseRating: baseRatings.courseRating,
+      slopeRatingFront9: effectiveSelectedTee.slopeRatingFront9,
+      courseRatingFront9: effectiveSelectedTee.courseRatingFront9,
+      slopeRatingBack9: effectiveSelectedTee.slopeRatingBack9,
+      courseRatingBack9: effectiveSelectedTee.courseRatingBack9,
+    };
+    const { slope, cr } = getEffectiveTeeRatings(teeBoxForResolution, nineType);
+    if (slope != null) finalSlopeRating = slope;
+    if (cr != null) finalCourseRating = cr;
+  }
+
+  const ratings = { slopeRating: finalSlopeRating, courseRating: finalCourseRating };
 
   // 7. Calculate differential
   const handicapDifferential = calculateScoreDifferential({
