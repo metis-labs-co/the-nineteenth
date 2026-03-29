@@ -183,6 +183,7 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
     date: `2025-01-${15 + roundNumber - 1}`,
     tee_time: '08:00:00',
     game_type: 'stableford',
+    nine_type: 'full',
     selected_tee: null,
     is_team_round: false,
     team_format: null,

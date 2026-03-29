@@ -32,6 +32,10 @@ export interface TeeBox {
   totalYardage?: number | null; // Optional - some tees may not have yardage data
   courseRating?: number; // NUMERIC(4,1)
   slopeRating?: number; // NUMERIC(4,1)
+  courseRatingFront9?: number; // 9-hole course rating (front)
+  slopeRatingFront9?: number; // 9-hole slope rating (front)
+  courseRatingBack9?: number; // 9-hole course rating (back)
+  slopeRatingBack9?: number; // 9-hole slope rating (back)
 }
 
 /**

@@ -54,6 +54,7 @@ function createMockRound(
     date: '2025-01-15',
     tee_time: '08:00',
     game_type: 'stableford',
+    nine_type: 'full',
     selected_tee: { name: 'White', color: 'white', totalYardage: 6200, courseRating: 72, slopeRating: 125 },
     is_team_round: false,
     team_format: null,

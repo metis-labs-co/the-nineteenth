@@ -13,6 +13,7 @@ import type {
   InvitationStatus,
 } from './enums';
 import type { KnockoutConfig } from './knockout.types';
+import type { TeeBox } from './base';
 
 /**
  * Point system configuration (stored in Competition.point_system JSONB)
@@ -94,6 +95,7 @@ export interface CompetitionPlayer {
   invited_at: string; // ISO timestamp
   responded_at: string | null; // ISO timestamp
   created_at: string; // ISO timestamp
+  selected_tee: TeeBox | null; // Per-player tee default for the competition (null = use round default)
 }
 
 /**

@@ -3,7 +3,7 @@
  * Rounds, pairings, and round players
  */
 
-import type { GameType, HandicapSource, RoundStatus, TeamFormat } from './enums';
+import type { GameType, HandicapSource, NineType, RoundStatus, TeamFormat } from './enums';
 import type { TeeBox } from './base';
 import type { Player } from './player.types';
 
@@ -23,6 +23,7 @@ export interface Round {
 
   // Game Configuration
   game_type: GameType; // 'stableford' for MVP
+  nine_type: NineType; // 'full' | 'front9' | 'back9' — standalone only
   selected_tee: TeeBox | null; // Selected tee box for this round (JSONB)
 
   // Team round settings (added for team support)
@@ -70,6 +71,7 @@ export interface RoundPlayer {
   player_id: string; // UUID, references players(id)
   added_by: string | null; // UUID, references players(id) - who invited them (NULL if self)
   created_at: string; // ISO timestamp
+  selected_tee: TeeBox | null; // Per-player tee override (null = use round default)
 }
 
 /**

@@ -5,6 +5,8 @@
  * Import from '@/constants/scoring' for all scoring-related constants.
  */
 
+import type { NineType } from '@/types/database/enums';
+
 /**
  * Score used when player picks up (max strokes for stableford)
  * Also used as the maximum strokes per hole for any format
@@ -94,3 +96,21 @@ export const HOLES_PER_HALF = 9;
  * Standard slope rating (USGA baseline)
  */
 export const STANDARD_SLOPE_RATING = 113;
+
+/**
+ * Get the number of holes for a given nine type
+ */
+export function getHoleCount(nineType: NineType): number {
+  return nineType === 'full' ? HOLES_PER_ROUND : HOLES_PER_HALF;
+}
+
+/**
+ * Get the hole number range for a given nine type
+ */
+export function getHoleRange(nineType: NineType): { start: number; end: number } {
+  switch (nineType) {
+    case 'front9': return { start: 1, end: 9 };
+    case 'back9': return { start: 10, end: 18 };
+    default: return { start: 1, end: 18 };
+  }
+}

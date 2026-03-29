@@ -6,6 +6,13 @@
 // Competition enums
 export type HandicapSystem = 'honor' | 'whs' | 'gross-only';
 export type HandicapSource = 'profile' | 'calculated' | 'none';
+
+/**
+ * Which holes to play in a round
+ * 'full' = all 18, 'front9' = holes 1-9, 'back9' = holes 10-18
+ */
+export type NineType = 'full' | 'front9' | 'back9';
+
 export type CompetitionVisibility = 'private' | 'public' | 'unlisted';
 export type CompetitionStatus = 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
 export type CompetitionType = 'knockout' | 'event';
