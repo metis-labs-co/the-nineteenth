@@ -11,6 +11,7 @@
 import { useCallback } from 'react';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type {
   WizardStep,
@@ -41,7 +42,8 @@ interface UseWizardNavigationParams {
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
-    handicapSource?: HandicapSource
+    handicapSource?: HandicapSource,
+    nineType?: NineType
   ) => void;
   onClose: () => void;
 }
@@ -65,18 +67,16 @@ export function useWizardNavigation({
     }));
   }, [setCurrentStep, setData]);
 
-  const handleBackToTee = useCallback(() => {
-    setCurrentStep('tee');
+  const handleBackToNineType = useCallback(() => {
+    setCurrentStep('nineType');
     setData((prev) => ({ ...prev, friendSearchQuery: '' }));
   }, [setCurrentStep, setData]);
 
   const handleBackToMatchType = useCallback(() => {
     if (initialMatchType) {
-      setData((prev) => {
-        const hasTees = prev.selectedCourse?.tees && prev.selectedCourse.tees.length > 0;
-        setCurrentStep(hasTees ? 'tee' : 'course');
-        return { ...prev, friendSearchQuery: '' };
-      });
+      // Match type is locked — go back to nineType (skipping the locked matchType step)
+      setCurrentStep('nineType');
+      setData((prev) => ({ ...prev, friendSearchQuery: '' }));
     } else {
       setCurrentStep('matchType');
       setData((prev) => ({ ...prev, friendSearchQuery: '' }));
@@ -89,31 +89,41 @@ export function useWizardNavigation({
 
   const handleContinueToScoringSetup = useCallback(() => {
     if (data.selectedPartners.length === 0) {
+      // Solo round — go to yourSetup for tee + ball count selection
       if (isSocialOrHigher) {
-        setCurrentStep('ballCount');
+        setCurrentStep('yourSetup');
       } else {
-        if (data.selectedCourse) {
-          onStartRound(
-            data.selectedCourse.courseId,
-            data.selectedCourse.courseName,
-            [],
-            data.selectedTee ?? undefined,
-            data.selectedMatchType ?? undefined,
-            undefined,
-            1,
-            undefined,
-            undefined,
-            undefined,
-            data.isBuildAsYouPlay || undefined,
-            data.handicapSource
-          );
-          resetState();
+        // Free tier solo — check if there are tees to pick from
+        const hasTees = data.selectedCourse?.tees && data.selectedCourse.tees.length > 0;
+        if (hasTees) {
+          // Show yourSetup step even for free tier when tees are available
+          setCurrentStep('yourSetup');
+        } else {
+          // No tees and free tier — start round directly
+          if (data.selectedCourse) {
+            onStartRound(
+              data.selectedCourse.courseId,
+              data.selectedCourse.courseName,
+              [],
+              data.selectedTee ?? undefined,
+              data.selectedMatchType ?? undefined,
+              undefined,
+              1,
+              undefined,
+              undefined,
+              undefined,
+              data.isBuildAsYouPlay || undefined,
+              data.handicapSource,
+              data.nineType
+            );
+            resetState();
+          }
         }
       }
     } else {
       setCurrentStep('scoringSetup');
     }
-  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, data.handicapSource, onStartRound, resetState, isSocialOrHigher, setCurrentStep]);
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, data.handicapSource, data.nineType, onStartRound, resetState, isSocialOrHigher, setCurrentStep]);
 
   const handleStartSoloRound = useCallback(() => {
     if (data.selectedCourse) {
@@ -129,11 +139,12 @@ export function useWizardNavigation({
         undefined,
         undefined,
         data.isBuildAsYouPlay || undefined,
-        data.handicapSource
+        data.handicapSource,
+        data.nineType
       );
       resetState();
     }
-  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, data.handicapSource, onStartRound, resetState]);
+  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, data.handicapSource, data.nineType, onStartRound, resetState]);
 
   const handleStartScoring = useCallback(() => {
     if (data.selectedCourse) {
@@ -203,7 +214,8 @@ export function useWizardNavigation({
         teamConfig,
         standaloneWolfConfig,
         data.isBuildAsYouPlay || undefined,
-        data.handicapSource
+        data.handicapSource,
+        data.nineType
       );
 
       resetState();
@@ -217,7 +229,7 @@ export function useWizardNavigation({
 
   return {
     handleBackToCourse,
-    handleBackToTee,
+    handleBackToNineType,
     handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,

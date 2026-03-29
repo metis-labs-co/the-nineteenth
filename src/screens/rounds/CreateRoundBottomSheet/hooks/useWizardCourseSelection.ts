@@ -61,12 +61,24 @@ export function useWizardCourseSelection({
         searchQuery: '',
       }));
 
+      // Auto-select default tee if available
       if (course.tees && course.tees.length > 0) {
-        setCurrentStep('tee');
+        setData((prev) => ({ ...prev, selectedTee: course.tees![0] }));
+      }
+
+      // Auto-skip nineType for 9-hole courses (or fewer)
+      const holeCount = course.holes?.length ?? 18;
+      if (holeCount <= 9) {
+        setData((prev) => ({ ...prev, nineType: 'front9' as import('@/types/database/enums').NineType }));
+        if (initialMatchType && skipPartnerStep) {
+          startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
+        } else {
+          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+        }
       } else if (initialMatchType && skipPartnerStep) {
-        startRoundWithCurrentState(courseData, null, initialPartners ?? [], initialMatchType);
+        startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
       } else {
-        setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+        setCurrentStep('nineType');
       }
     },
     [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData]
@@ -89,12 +101,24 @@ export function useWizardCourseSelection({
         searchQuery: '',
       }));
 
+      // Auto-select default tee if available
       if (course.tees && course.tees.length > 0) {
-        setCurrentStep('tee');
+        setData((prev) => ({ ...prev, selectedTee: course.tees![0] }));
+      }
+
+      // Auto-skip nineType for 9-hole courses (or fewer)
+      const holeCount = course.holes?.length ?? 18;
+      if (holeCount <= 9) {
+        setData((prev) => ({ ...prev, nineType: 'front9' as import('@/types/database/enums').NineType }));
+        if (initialMatchType && skipPartnerStep) {
+          startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
+        } else {
+          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+        }
       } else if (initialMatchType && skipPartnerStep) {
-        startRoundWithCurrentState(courseData, null, initialPartners ?? [], initialMatchType);
+        startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
       } else {
-        setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+        setCurrentStep('nineType');
       }
     },
     [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData]

@@ -55,6 +55,7 @@ export function useWizardPartners({
             handicap: friend.handicap ?? undefined,
             handicapIndex: friend.handicap_index ?? undefined,
             gender: friend.gender ?? undefined,
+            selectedTee: prev.selectedTee ?? undefined,
           },
         ],
       };

@@ -4,22 +4,22 @@
  * Features:
  * - Slides up from bottom of screen
  * - Step 1: Search/select club and course
- * - Step 2: Select tee box (optional)
+ * - Step 2: Select nine type (full 18, front 9, back 9)
  * - Step 3: Select match type (Stableford, Stroke, Match Play)
- * - Step 4: Select playing partners (up to 3 from friends)
- * - Step 5: Configure scoring setup
+ * - Step 4: Select playing partners (with inline tee pickers)
+ * - Step 5: Configure scoring setup (group) or Your Setup (solo)
  * - Quick-start scoring
  * - Backdrop dismissal
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { IconChevronLeft } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useFriends } from '@/hooks/useFriends';
-import { useIsSuperAdmin } from '@/store/subscriptionStore';
+import { useIsSuperAdmin, useIsSocial } from '@/store/subscriptionStore';
 import { useCreateClubWithCourse, useCreateCourse } from '@/hooks/clubs/mutations';
 import { useDeleteCourse } from '@/hooks/useDeleteCourse';
 import { isLocalClub } from '@/hooks/clubs/helpers';
@@ -46,11 +46,12 @@ import { useCreateRoundWizard } from './hooks';
 // Steps
 import {
   CourseSelectionStep,
-  TeeSelectionStep,
+  NineTypeStep,
   MatchTypeStep,
   PartnersStep,
   ScoringSetupStep,
   BallCountStep,
+  YourSetupStep,
 } from './steps';
 export type {
   CreateRoundBottomSheetProps,
@@ -72,6 +73,7 @@ export default function CreateRoundBottomSheet({
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
   const isSuperAdmin = useIsSuperAdmin();
+  const isSocialOrHigher = useIsSocial();
 
   // Inline course creation state
   const [showCreateCourseForm, setShowCreateCourseForm] = useState(false);
@@ -252,16 +254,22 @@ export default function CreateRoundBottomSheet({
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
 
+  // Available tees from the selected course
+  const availableTees = useMemo(
+    () => wizard.data.selectedCourse?.tees ?? [],
+    [wizard.data.selectedCourse?.tees]
+  );
+
   // Get back button handler based on current step
   const getBackHandler = () => {
     switch (wizard.currentStep) {
-      case 'tee':
+      case 'nineType':
         return wizard.handleBackToCourse;
       case 'matchType':
-        return wizard.data.selectedCourse?.tees?.length
-          ? wizard.handleBackToTee
-          : wizard.handleBackToCourse;
+        return wizard.handleBackToNineType;
       case 'partners':
+        return wizard.handleBackToMatchType;
+      case 'yourSetup':
         return wizard.handleBackToMatchType;
       case 'ballCount':
         return wizard.handleBackToPartners;
@@ -277,12 +285,14 @@ export default function CreateRoundBottomSheet({
     switch (wizard.currentStep) {
       case 'course':
         return showCreateCourseForm ? 'Add New Course' : 'Select Course';
-      case 'tee':
-        return 'Select Tee';
+      case 'nineType':
+        return 'Holes';
       case 'matchType':
         return 'Match Type';
       case 'partners':
         return 'Playing Partners';
+      case 'yourSetup':
+        return 'Solo Round';
       case 'ballCount':
         return 'Solo Round';
       case 'scoringSetup':
@@ -348,21 +358,23 @@ export default function CreateRoundBottomSheet({
       <View style={styles.stepIndicator}>
         {(
           // Adjust steps based on flow:
-          // - With partners: course → tee → matchType → partners → scoringSetup
-          // - Solo with ballCount step: course → tee → matchType → partners → ballCount
-          // - Solo without ballCount: course → tee → matchType → partners
+          // - With partners: course → nineType → matchType → partners → scoringSetup
+          // - Solo with yourSetup step: course → nineType → matchType → partners → yourSetup
+          // - Solo without yourSetup: course → nineType → matchType → partners
           // - When initialMatchType is set: matchType step is skipped
-          // - When skipPartnerStep is set: partners/scoringSetup/ballCount steps are skipped
+          // - When skipPartnerStep is set: partners/scoringSetup/yourSetup steps are skipped
           (() => {
             let steps: readonly string[];
             if (skipPartnerStep) {
-              steps = ['course', 'tee', 'matchType'];
+              steps = ['course', 'nineType', 'matchType'];
             } else if (wizard.data.selectedPartners.length > 0) {
-              steps = ['course', 'tee', 'matchType', 'partners', 'scoringSetup'];
+              steps = ['course', 'nineType', 'matchType', 'partners', 'scoringSetup'];
+            } else if (wizard.currentStep === 'yourSetup') {
+              steps = ['course', 'nineType', 'matchType', 'partners', 'yourSetup'];
             } else if (wizard.currentStep === 'ballCount') {
-              steps = ['course', 'tee', 'matchType', 'partners', 'ballCount'];
+              steps = ['course', 'nineType', 'matchType', 'partners', 'ballCount'];
             } else {
-              steps = ['course', 'tee', 'matchType', 'partners'];
+              steps = ['course', 'nineType', 'matchType', 'partners'];
             }
             return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
           })()
@@ -508,12 +520,10 @@ export default function CreateRoundBottomSheet({
         </View>
       )}
 
-      {wizard.currentStep === 'tee' && wizard.data.selectedCourse && (
-        <TeeSelectionStep
-          selectedCourse={wizard.data.selectedCourse}
-          selectedTee={wizard.data.selectedTee}
-          onSelectTee={wizard.handleSelectTee}
-          onSkipTeeSelection={wizard.handleSkipTeeSelection}
+      {wizard.currentStep === 'nineType' && (
+        <NineTypeStep
+          selectedNineType={wizard.data.nineType}
+          onSelectNineType={wizard.handleSelectNineType}
         />
       )}
 
@@ -540,6 +550,26 @@ export default function CreateRoundBottomSheet({
           onRemovePartner={wizard.handleRemovePartner}
           isPartnerSelected={wizard.isPartnerSelected}
           onContinue={wizard.handleContinueToScoringSetup}
+          availableTees={availableTees}
+          currentUserTee={wizard.data.selectedTee}
+          onCurrentUserTeeChange={wizard.handleCurrentUserTeeChange}
+          onPartnerTeeChange={wizard.handlePlayerTeeChange}
+        />
+      )}
+
+      {wizard.currentStep === 'yourSetup' && wizard.data.selectedMatchType && (
+        <YourSetupStep
+          selectedCourse={wizard.data.selectedCourse}
+          selectedTee={wizard.data.selectedTee}
+          selectedMatchType={wizard.data.selectedMatchType}
+          availableTees={availableTees}
+          onTeeChange={wizard.handleCurrentUserTeeChange}
+          ballCount={wizard.data.ballCount}
+          onBallCountChange={wizard.handleSelectBallCount}
+          handicapSource={wizard.data.handicapSource}
+          onHandicapSourceChange={wizard.setHandicapSource}
+          onStartRound={wizard.handleStartSoloRound}
+          isSocialOrHigher={isSocialOrHigher}
         />
       )}
 

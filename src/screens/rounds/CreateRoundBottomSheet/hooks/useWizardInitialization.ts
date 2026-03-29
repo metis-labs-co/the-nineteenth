@@ -150,14 +150,15 @@ export function useWizardInitialization({
         setData((prev) => ({
           ...prev,
           selectedCourse: courseData,
+          // Auto-select default tee if available
+          selectedTee: courseToUse.tees?.[0] ?? null,
         }));
 
-        if (courseToUse.tees && courseToUse.tees.length > 0) {
-          setCurrentStep('tee');
-        } else if (initialMatchType && skipPartnerStep) {
-          setCurrentStep('tee');
+        if (initialMatchType && skipPartnerStep) {
+          // Skip everything - start round immediately (handled by course selection)
+          setCurrentStep('nineType');
         } else {
-          setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+          setCurrentStep('nineType');
         }
       }
     }

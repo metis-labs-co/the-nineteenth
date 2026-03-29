@@ -6,9 +6,10 @@
  * so no consumer changes are needed.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { Friend, TeeBox, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
@@ -53,7 +54,8 @@ interface UseCreateRoundWizardOptions {
     teamConfig?: TeamConfig,
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
-    handicapSource?: HandicapSource
+    handicapSource?: HandicapSource,
+    nineType?: NineType
   ) => void;
   onClose: () => void;
 }
@@ -68,9 +70,14 @@ interface UseCreateRoundWizardReturn {
   handleSelectCourse: (course: CourseWithFavoriteStatus, club: SelectedCourse['club']) => void;
   handleSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: SelectedCourse['club'] }) => void;
 
+  // Nine type selection
+  handleSelectNineType: (nineType: NineType) => void;
+
   // Tee selection
   handleSelectTee: (tee: TeeBox) => void;
   handleSkipTeeSelection: () => void;
+  handlePlayerTeeChange: (playerId: string, tee: TeeBox) => void;
+  handleCurrentUserTeeChange: (tee: TeeBox) => void;
 
   // Match type selection
   handleSelectMatchType: (matchType: GameType) => void;
@@ -103,7 +110,7 @@ interface UseCreateRoundWizardReturn {
 
   // Navigation
   handleBackToCourse: () => void;
-  handleBackToTee: () => void;
+  handleBackToNineType: () => void;
   handleBackToMatchType: () => void;
   handleBackToPartners: () => void;
   handleContinueToScoringSetup: () => void;
@@ -139,6 +146,7 @@ const initialData: WizardData = {
   wolfConfig: null,
   isBuildAsYouPlay: false,
   handicapSource: 'profile',
+  nineType: 'full' as NineType,
 };
 
 export function useCreateRoundWizard({
@@ -181,13 +189,9 @@ export function useCreateRoundWizard({
       startRoundWithCurrentState,
     });
 
-  const { handleSelectTee, handleSkipTeeSelection } =
+  const { handleSelectTee, handleSkipTeeSelection, handlePlayerTeeChange, handleCurrentUserTeeChange } =
     useWizardTeeSelection({
-      initialMatchType,
-      skipPartnerStep,
-      setCurrentStep,
       setData,
-      startRoundWithCurrentState,
     });
 
   const {
@@ -216,9 +220,15 @@ export function useCreateRoundWizard({
     setData,
   });
 
+  // NineType selection handler
+  const handleSelectNineType = useCallback((nineType: NineType) => {
+    setData((prev) => ({ ...prev, nineType }));
+    setCurrentStep(initialMatchType ? 'partners' : 'matchType');
+  }, [initialMatchType, setData, setCurrentStep]);
+
   const {
     handleBackToCourse,
-    handleBackToTee,
+    handleBackToNineType,
     handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,
@@ -244,8 +254,11 @@ export function useCreateRoundWizard({
     setSearchQuery,
     handleSelectCourse,
     handleSelectFavoriteCourse,
+    handleSelectNineType,
     handleSelectTee,
     handleSkipTeeSelection,
+    handlePlayerTeeChange,
+    handleCurrentUserTeeChange,
     handleSelectMatchType,
     setFriendSearchQuery,
     handleTogglePartner,
@@ -262,7 +275,7 @@ export function useCreateRoundWizard({
     handleSelectBallCount,
     handleStartSoloRound,
     handleBackToCourse,
-    handleBackToTee,
+    handleBackToNineType,
     handleBackToMatchType,
     handleBackToPartners,
     handleContinueToScoringSetup,

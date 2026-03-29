@@ -5,6 +5,7 @@
  * - Display selected course/tee/match type info
  * - Search and select playing partners from friends
  * - Display selected partners as chips
+ * - Inline tee selection for current user and each partner
  */
 
 import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
@@ -15,9 +16,10 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
 import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
+import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../types';
-import { MAX_PARTNERS, MATCH_TYPES } from '../types';
+import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
 
 interface PartnersStepProps {
   selectedCourse: SelectedCourse | null;
@@ -32,6 +34,10 @@ interface PartnersStepProps {
   onRemovePartner: (partnerId: string) => void;
   isPartnerSelected: (friendId: string) => boolean;
   onContinue: () => void;
+  availableTees: TeeBox[];
+  currentUserTee: TeeBox | null;
+  onCurrentUserTeeChange: (tee: TeeBox) => void;
+  onPartnerTeeChange: (partnerId: string, tee: TeeBox) => void;
 }
 
 export const PartnersStep = memo(function PartnersStep({
@@ -45,8 +51,13 @@ export const PartnersStep = memo(function PartnersStep({
   friendsLoading,
   onTogglePartner,
   onContinue,
+  availableTees,
+  currentUserTee,
+  onCurrentUserTeeChange,
+  onPartnerTeeChange,
 }: PartnersStepProps) {
   const colors = useThemeColors();
+  const { player } = useAuth();
 
   // State for Add Guest modal
   const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
@@ -154,12 +165,12 @@ export const PartnersStep = memo(function PartnersStep({
   // The useEffect above will detect when the placeholder appears in the list
   // and add it to selected partners, solving timing issues with React Query
   const handlePlaceholderCreated = useCallback(
-    (player: Player) => {
+    (createdPlayer: Player) => {
       // Store the pending placeholder info
       pendingPlaceholderRef.current = {
-        id: player.id,
-        name: player.name,
-        handicap: player.handicap,
+        id: createdPlayer.id,
+        name: createdPlayer.name,
+        handicap: createdPlayer.handicap,
       };
       setShowAddPlaceholderModal(false);
     },
@@ -175,6 +186,11 @@ export const PartnersStep = memo(function PartnersStep({
   // Course par for daily handicap calculation
   // TeeBox doesn't carry hole data, so default to standard 72
   const coursePar = 72;
+
+  // Current user display name
+  const currentUserName = player?.name || 'You';
+
+  const hasTees = availableTees.length > 0;
 
   return (
     <View style={styles.container}>
@@ -209,6 +225,93 @@ export const PartnersStep = memo(function PartnersStep({
             </Text>
           </View>
         </View>
+
+        {/* Inline Tee Selection for Current User & Partners */}
+        {hasTees && selectedPartners.length > 0 && (
+          <View style={styles.teeSection}>
+            <Text style={[styles.teeSectionTitle, { color: colors.textPrimary }]}>
+              Tee Selection
+            </Text>
+
+            {/* Current user tee */}
+            <View style={[styles.playerTeeRow, { borderColor: colors.border }]}>
+              <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {currentUserName} (you)
+              </Text>
+              <View style={styles.teePills}>
+                {availableTees.map((tee) => {
+                  const isSelected = currentUserTee?.name === tee.name;
+                  const dotColor = getTeeColor(tee.color, colors.textSecondary);
+                  return (
+                    <TouchableOpacity
+                      key={tee.name}
+                      style={[
+                        styles.teePill,
+                        {
+                          backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => onCurrentUserTeeChange(tee)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.teeDot, { backgroundColor: dotColor }]} />
+                      <Text
+                        style={[
+                          styles.teePillText,
+                          { color: isSelected ? colors.primary : colors.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {tee.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Partner tees */}
+            {selectedPartners.map((partner) => (
+              <View key={partner.id} style={[styles.playerTeeRow, { borderColor: colors.border }]}>
+                <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {partner.name}
+                </Text>
+                <View style={styles.teePills}>
+                  {availableTees.map((tee) => {
+                    const isSelected = partner.selectedTee?.name === tee.name;
+                    const dotColor = getTeeColor(tee.color, colors.textSecondary);
+                    return (
+                      <TouchableOpacity
+                        key={tee.name}
+                        style={[
+                          styles.teePill,
+                          {
+                            backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                            borderColor: isSelected ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => onPartnerTeeChange(partner.id, tee)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.teeDot, { backgroundColor: dotColor }]} />
+                        <Text
+                          style={[
+                            styles.teePillText,
+                            { color: isSelected ? colors.primary : colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {tee.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Friend Selector */}
         <FriendSelector
@@ -287,6 +390,44 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
   },
   selectedBannerLocation: {
+    ...typography.caption,
+  },
+  teeSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  teeSectionTitle: {
+    ...typography.smallBold,
+    marginBottom: spacing.sm,
+  },
+  playerTeeRow: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  playerTeeName: {
+    ...typography.bodyBold,
+    marginBottom: spacing.xs,
+  },
+  teePills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  teePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    gap: 4,
+  },
+  teeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  teePillText: {
     ...typography.caption,
   },
   buttonContainer: {
