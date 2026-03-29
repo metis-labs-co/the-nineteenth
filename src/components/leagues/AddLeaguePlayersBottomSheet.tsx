@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { GolfBallLoader } from '@/components/common/GolfBallLoader';
@@ -62,8 +62,15 @@ export default function AddLeaguePlayersBottomSheet({
 
   const handleAddPlayers = useCallback(() => {
     if (selectedPlayers.length > 0) {
+      const count = selectedPlayers.length;
       addPlayersMutation.mutate(selectedPlayers.map((p) => p.id), {
-        onSuccess: handleClose,
+        onSuccess: () => {
+          Alert.alert('Done', `${count} player${count !== 1 ? 's' : ''} added to the league.`);
+          handleClose();
+        },
+        onError: (error) => {
+          Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add players. Please try again.');
+        },
       });
     }
   }, [selectedPlayers, addPlayersMutation, handleClose]);

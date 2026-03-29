@@ -14,8 +14,6 @@ export interface CompetitionInfoSectionProps {
   competition: Competition;
   rounds: RoundWithCourse[];
   playerCount: number;
-  isOrganizer: boolean;
-  onEdit: () => void;
 }
 
 export interface CurrentStandingSectionProps {
@@ -24,8 +22,6 @@ export interface CurrentStandingSectionProps {
 
 export interface SettingsSectionProps {
   competition: Competition;
-  isOrganizer: boolean;
-  onEdit: () => void;
 }
 
 export interface CoursesSectionProps {

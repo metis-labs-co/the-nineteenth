@@ -37,7 +37,6 @@ import {
   useCompetitionDetailData,
   useCompetitionDetailHandlers,
   usePrizePoolManagement,
-  useDeleteCompetition,
 } from './hooks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
@@ -78,7 +77,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Handlers hook
   const {
     dialogConfig,
-    showAlert,
     dismissDialog,
     showRoundUpgradePrompt,
     setShowRoundUpgradePrompt,
@@ -94,7 +92,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     removePlayerDialogConfig,
     dismissRemovePlayerDialog,
     handleBack,
-    handleEdit,
     handleAddRound,
     handleAddPlayers,
     handleRemovePlayer,
@@ -123,18 +120,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     handlePrizePoolSuccess,
     handleViewPrizePoolTransactions,
   } = usePrizePoolManagement({ refetchPrizePool });
-
-  // Delete competition
-  const {
-    showDeleteDialog,
-    setShowDeleteDialog,
-    isDeleting,
-    handleDeleteCompetition,
-  } = useDeleteCompetition({
-    id,
-    onDeleted: () => navigation.goBack(),
-    showAlert,
-  });
 
   // Loading state
   if (isLoading) {
@@ -179,10 +164,9 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           isOrganizer
             ? [
                 {
-                  icon: 'delete-outline',
-                  onPress: () => setShowDeleteDialog(true),
-                  accessibilityLabel: 'Delete competition',
-                  color: colors.error,
+                  icon: 'cog-outline',
+                  onPress: () => navigation.navigate('CompetitionSettings', { competitionId: id }),
+                  accessibilityLabel: 'Competition settings',
                 },
               ]
             : []
@@ -233,7 +217,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             prizePool={prizePool}
             prizePoolPlacements={prizePoolPlacements}
             isPrizePoolLocked={isPrizePoolLocked}
-            onEdit={handleEdit}
             onAddPrizePool={handleAddPrizePool}
             onEditPrizePool={handleEditPrizePool}
             onViewPrizePoolTransactions={handleViewPrizePoolTransactions}
@@ -367,20 +350,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           navigation.navigate('Subscription');
         }}
         onDismiss={() => setShowPlayerUpgradePrompt(false)}
-      />
-
-      {/* Delete Competition Confirmation Dialog */}
-      <ConfirmationDialog
-        visible={showDeleteDialog}
-        title="Delete Competition"
-        message="Are you sure you want to delete this competition? All rounds, scores, and player data will be permanently removed. This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        confirmVariant="destructive"
-        icon="alert-circle-outline"
-        onConfirm={handleDeleteCompetition}
-        onCancel={() => setShowDeleteDialog(false)}
-        loading={isDeleting}
       />
 
       {/* Alert Dialog */}

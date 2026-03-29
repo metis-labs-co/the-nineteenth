@@ -46,7 +46,6 @@ export interface DetailsTabProps {
   /** Whether the prize pool is locked */
   isPrizePoolLocked?: boolean;
   onViewCourse?: (course: Course) => void;
-  onEdit: () => void;
   onUpdateCompetition?: (updates: Partial<Competition>) => Promise<void>;
   /** Handler for adding a prize pool */
   onAddPrizePool?: () => void;
@@ -70,7 +69,6 @@ export const DetailsTab = React.memo(function DetailsTab({
   prizePoolPlacements,
   isPrizePoolLocked = false,
   onViewCourse,
-  onEdit,
   onUpdateCompetition: _onUpdateCompetition,
   onAddPrizePool,
   onEditPrizePool,
@@ -96,8 +94,6 @@ export const DetailsTab = React.memo(function DetailsTab({
         competition={competition}
         rounds={rounds}
         playerCount={playerCount}
-        isOrganizer={isOrganizer}
-        onEdit={onEdit}
       />
 
       {/* Current Standing Card - shown for non-organizers who are players */}
@@ -108,8 +104,6 @@ export const DetailsTab = React.memo(function DetailsTab({
       {/* Competition Settings Section */}
       <SettingsSection
         competition={competition}
-        isOrganizer={isOrganizer}
-        onEdit={onEdit}
       />
 
       {/* Prize Pool Section */}

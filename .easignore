@@ -1,0 +1,25 @@
+# Tests
+**/__tests__/**
+**/*.test.ts
+**/*.test.tsx
+**/__snapshots__/**
+
+# Storybook
+**/*.stories.tsx
+**/*.stories.ts
+.storybook/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development tools
+scripts/
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+!.env.example

@@ -40,6 +40,7 @@ import LinkPlaceholderScreen from '@/screens/admin/LinkPlaceholderScreen';
 
 // Competition Detail Screen (moved from admin)
 import CompetitionDetailScreen from '@/screens/competitions/CompetitionDetailScreen';
+import CompetitionSettingsScreen from '@/screens/competitions/CompetitionSettingsScreen';
 
 // Competition Screens (Player View)
 import ViewRoundScreen from '@/screens/rounds/ViewRoundScreen';
@@ -252,6 +253,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 title: 'Edit Competition',
                 headerShown: false,
                 presentation: 'modal',
+              }}
+            />
+
+            <Stack.Screen
+              name="CompetitionSettings"
+              component={CompetitionSettingsScreen}
+              options={{
+                title: 'Competition Settings',
+                headerShown: false,
               }}
             />
 

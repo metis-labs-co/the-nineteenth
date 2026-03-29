@@ -27,8 +27,6 @@ export function CompetitionInfoSection({
   competition,
   rounds,
   playerCount,
-  isOrganizer,
-  onEdit,
 }: CompetitionInfoSectionProps) {
   const colors = useThemeColors();
 
@@ -70,18 +68,6 @@ export function CompetitionInfoSection({
           </View>
         </View>
 
-        {/* Edit Button (Organizer only) */}
-        {isOrganizer && (
-          <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: colors.gray100 }]}
-            onPress={onEdit}
-            accessibilityLabel="Edit competition"
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <Icon source="pencil" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Description */}
@@ -163,13 +149,6 @@ const styles = StyleSheet.create({
   },
   dateText: {
     ...typography.small,
-  },
-  editButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   description: {
     ...typography.body,

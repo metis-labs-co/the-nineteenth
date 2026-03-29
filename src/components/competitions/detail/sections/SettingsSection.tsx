@@ -89,8 +89,6 @@ function EditableDetailRow({
 
 export function SettingsSection({
   competition,
-  isOrganizer,
-  onEdit,
 }: SettingsSectionProps) {
   const colors = useThemeColors();
 
@@ -100,19 +98,6 @@ export function SettingsSection({
         title="Settings"
         icon="cog-outline"
         primaryIcon={false}
-        rightContent={
-          isOrganizer ? (
-            <TouchableOpacity
-              style={[styles.sectionEditButton, { backgroundColor: colors.gray100 }]}
-              onPress={onEdit}
-              accessibilityLabel="Edit settings"
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <Icon source="pencil" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          ) : undefined
-        }
       />
 
       <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
@@ -190,15 +175,6 @@ const styles = StyleSheet.create({
   // Section
   section: {
     marginTop: spacing.md,
-  },
-
-  // Section Edit Button
-  sectionEditButton: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // Settings Card

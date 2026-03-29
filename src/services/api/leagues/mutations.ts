@@ -116,7 +116,7 @@ export async function joinLeague(inviteCode: string): Promise<League> {
 
   if (joinError) {
     console.error('[Leagues] Error joining league:', joinError);
-    throw new Error(`Failed to join league: ${joinError.message}`);
+    throw new Error('Unable to join this league. Please ask the organiser to add you directly, or try again later.');
   }
 
   return league as League;
@@ -151,7 +151,7 @@ export async function joinPublicLeague(leagueId: string): Promise<void> {
 
   if (joinError) {
     console.error('[Leagues] Error joining public league:', joinError);
-    throw new Error(`Failed to join league: ${joinError.message}`);
+    throw new Error('Unable to join this league. Please ask the organiser to add you directly, or try again later.');
   }
 }
 

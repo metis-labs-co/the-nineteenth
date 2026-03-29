@@ -13,6 +13,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "cache": {
+        "key": "preview-v1"
+      },
       "ios": {
         "simulator": false
       },
@@ -30,6 +33,9 @@
     "staging": {
       "distribution": "store",
       "channel": "staging",
+      "cache": {
+        "key": "staging-v1"
+      },
       "ios": {
         "simulator": false
       },
@@ -46,11 +52,15 @@
     },
     "production": {
       "autoIncrement": true,
+      "cache": {
+        "key": "production-v1"
+      },
       "ios": {
         "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "resourceClass": "m-medium"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bvnxfhuvocxyilhlenka.supabase.co",

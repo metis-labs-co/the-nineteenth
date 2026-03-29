@@ -30,6 +30,7 @@ export type RootStackParamList = {
   CreateCompetition: { initialState?: import('@/utils/aiToWizardState').WizardState } | undefined;
   AICompetition: undefined;
   EditCompetition: { id: string };
+  CompetitionSettings: { competitionId: string };
 
   // Rounds
   Rounds: { competitionId: string };

@@ -160,7 +160,7 @@ export const OrganizerView: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
     onUpdateCompetition: async (updates) => console.log('Update:', updates),
   },
 };
@@ -176,7 +176,7 @@ export const PlayerView: Story = {
     currentStanding: { position: 3, points: 32 },
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -191,7 +191,7 @@ export const PlayerInFirstPlace: Story = {
     currentStanding: { position: 1, points: 45 },
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -218,7 +218,7 @@ export const KnockoutCompetition: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -238,7 +238,7 @@ export const FixedTeamsCompetition: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -258,7 +258,7 @@ export const PerRoundTeamsCompetition: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -277,7 +277,7 @@ export const WHSHandicap: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -296,7 +296,7 @@ export const GrossOnlyCompetition: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -318,7 +318,7 @@ export const SingleCourse: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -341,7 +341,7 @@ export const MultipleCourses: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -363,7 +363,7 @@ export const NoCourses: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -382,7 +382,7 @@ export const NoRounds: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -402,7 +402,7 @@ export const InProgressCompetition: Story = {
     currentStanding: { position: 5, points: 28 },
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -422,7 +422,7 @@ export const CompletedCompetition: Story = {
     currentStanding: { position: 2, points: 42 },
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -439,7 +439,7 @@ export const NoDescription: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -457,7 +457,7 @@ export const LongCompetitionName: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };
 
@@ -477,6 +477,6 @@ export const LargeCompetition: Story = {
     currentStanding: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
-    onEdit: () => console.log('Edit clicked'),
+
   },
 };

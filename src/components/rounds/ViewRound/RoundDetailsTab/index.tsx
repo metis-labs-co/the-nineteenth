@@ -29,7 +29,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
 import { GAME_TYPE_LABELS } from './constants';
-import { HoleTable, PlayersSection } from './components';
+import { PlayersSection } from './components';
 import type { RoundDetailsTabProps } from './types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -275,23 +275,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         cardBackground={colors.surface}
       />
 
-      {/* Hole Breakdown Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-          Hole Breakdown
-        </Text>
-
-        {holes.length > 0 ? (
-          <HoleTable holes={holes} selectedTee={selectedTeeName} useMetres={useMetres} />
-        ) : (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Icon source="flag" size={32} color={colors.gray400} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No hole information available for this course
-            </Text>
-          </View>
-        )}
-      </View>
     </View>
   );
 });

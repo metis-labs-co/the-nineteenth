@@ -87,10 +87,6 @@ export function useCompetitionDetailHandlers({
     navigation.goBack();
   }, [navigation]);
 
-  const handleEdit = useCallback(() => {
-    navigation.navigate('EditCompetition', { id });
-  }, [navigation, id]);
-
   const handleAddRound = useCallback(() => {
     const currentRoundCount = competitionData?.rounds?.length ?? 0;
     const access = checkCanAddRound(id, currentRoundCount);
@@ -219,7 +215,6 @@ export function useCompetitionDetailHandlers({
     dismissRemovePlayerDialog,
     // Navigation handlers
     handleBack,
-    handleEdit,
     handleAddRound,
     handleAddPlayers,
     handleRemovePlayer,
