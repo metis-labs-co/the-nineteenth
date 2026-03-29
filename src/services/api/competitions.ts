@@ -187,6 +187,7 @@ export async function createCompetition(
       is_team_round: isTeamRound,
       team_format: teamFormat,
       scoring_pairs_required: scoringPairsRequired,
+      selected_tee: (roundInput as RoundCreateInput).selectedTee || null,
       status: 'upcoming' as RoundStatus,
     };
     console.log(`[API] Round ${i + 1} insert payload:`, JSON.stringify(roundInsertPayload, null, 2));

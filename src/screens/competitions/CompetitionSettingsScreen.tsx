@@ -242,6 +242,11 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
           </TouchableOpacity>
         </View>
 
+        {/* Player Tees */}
+        {/* TODO: Add per-player tee assignment UI here.
+            Use updateCompetitionPlayerTee() and upsertRoundPlayerTee() from competitionPlayersService
+            to allow organisers to set default tees per-player and per-round overrides. */}
+
         {/* Delete Competition */}
         {!isArchived && (
           <>

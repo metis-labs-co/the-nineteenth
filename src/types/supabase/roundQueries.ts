@@ -51,6 +51,7 @@ export interface StandaloneTeamConfig {
  */
 export interface SupabaseRoundData {
   id: string;
+  competition_id: string | null;
   status: string | null;
   game_type: string | null;
   is_team_round: boolean | null;
@@ -102,6 +103,7 @@ export interface SupabaseCompetitionPlayerData {
  */
 export const ROUND_METADATA_SELECT = `
   id,
+  competition_id,
   status,
   game_type,
   is_team_round,

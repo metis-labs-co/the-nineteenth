@@ -36,6 +36,8 @@ export interface RoundMetadata {
   teamConfig: StandaloneTeamConfig | null;
   /** Handicap source for daily HC calculation ('profile' = GA, 'calculated' = Social, 'none') */
   handicapSource: HandicapSource;
+  /** Per-player tee overrides: playerId -> TeeBox. Round overrides take precedence over competition defaults. */
+  playerTeeMap: Map<string, TeeBox>;
 }
 
 interface UseRoundMetadataResult {
@@ -44,6 +46,9 @@ interface UseRoundMetadataResult {
   error: string | null;
   refetch: () => Promise<void>;
 }
+
+/** Row shape returned when querying player_id + selected_tee columns */
+type PlayerTeeRow = { player_id: string; selected_tee: TeeBox | null };
 
 /**
  * Hook for fetching round metadata (game type, team settings, course info)
@@ -123,6 +128,50 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         }
       }
 
+      // Build per-player tee map
+      const playerTeeMap = new Map<string, TeeBox>();
+      const competitionId = roundData.competition_id;
+
+      if (competitionId) {
+        // Competition round: layer competition defaults then round overrides
+        const { data: compDefaults } = await supabase
+          .from('competition_players')
+          .select('player_id, selected_tee')
+          .eq('competition_id', competitionId)
+          .not('selected_tee', 'is', null) as unknown as { data: PlayerTeeRow[] | null };
+
+        const { data: roundOverrides } = await supabase
+          .from('competition_round_player_tees')
+          .select('player_id, selected_tee')
+          .eq('round_id', roundId) as unknown as { data: PlayerTeeRow[] | null };
+
+        // Layer 1: competition defaults (lowest priority)
+        if (compDefaults) {
+          for (const row of compDefaults) {
+            if (row.selected_tee) playerTeeMap.set(row.player_id, row.selected_tee);
+          }
+        }
+        // Layer 2: round-specific overrides (highest priority)
+        if (roundOverrides) {
+          for (const row of roundOverrides) {
+            if (row.selected_tee) playerTeeMap.set(row.player_id, row.selected_tee);
+          }
+        }
+      } else {
+        // Standalone round: fetch round_players per-player tees
+        const { data: roundPlayers } = await supabase
+          .from('round_players')
+          .select('player_id, selected_tee')
+          .eq('round_id', roundId)
+          .not('selected_tee', 'is', null) as unknown as { data: PlayerTeeRow[] | null };
+
+        if (roundPlayers) {
+          for (const row of roundPlayers) {
+            if (row.selected_tee) playerTeeMap.set(row.player_id, row.selected_tee);
+          }
+        }
+      }
+
       const metadata: RoundMetadata = {
         id: roundData.id,
         gameType: (roundData.game_type || 'stableford') as GameType,
@@ -138,6 +187,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         roundStatus: (roundData.status || 'upcoming') as RoundStatus,
         teamConfig: roundData.team_config ?? null,
         handicapSource: (roundData.handicap_source as HandicapSource) ?? 'profile',
+        playerTeeMap,
       };
 
       roundDataLogger.debug('Round metadata loaded', {

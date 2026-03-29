@@ -12,6 +12,7 @@
 import { supabase } from '@/services/supabase/client';
 import { getCurrentTier, hasPremiumAccess } from '@/store/subscriptionStore';
 import type { FeatureAccess } from '@/types/subscription.types';
+import type { TeeBox } from '@/types/database/base';
 
 // =====================================================
 // TYPES
@@ -359,6 +360,53 @@ export async function getAffectedRoundIds(
 }
 
 // =====================================================
+// TEE ASSIGNMENT FUNCTIONS
+// =====================================================
+
+/**
+ * Update a competition player's default tee selection.
+ */
+export async function updateCompetitionPlayerTee(
+  competitionId: string,
+  playerId: string,
+  selectedTee: TeeBox | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('competition_players')
+    .update({ selected_tee: selectedTee } as unknown as never)
+    .eq('competition_id', competitionId)
+    .eq('player_id', playerId);
+
+  if (error) {
+    throw Object.assign(new Error(`Failed to update player tee: ${error.message}`), {
+      code: 'DATABASE' as const,
+    });
+  }
+}
+
+/**
+ * Set a per-round tee override for a competition player.
+ */
+export async function upsertRoundPlayerTee(
+  roundId: string,
+  playerId: string,
+  selectedTee: TeeBox,
+): Promise<void> {
+  const { error } = await supabase
+    .from('competition_round_player_tees')
+    .upsert(
+      { round_id: roundId, player_id: playerId, selected_tee: selectedTee, updated_at: new Date().toISOString() } as unknown as never,
+      { onConflict: 'round_id,player_id' },
+    );
+
+  if (error) {
+    throw Object.assign(new Error(`Failed to upsert round player tee: ${error.message}`), {
+      code: 'DATABASE' as const,
+    });
+  }
+}
+
+// =====================================================
 // SUBSCRIPTION FEATURE CHECKS
 // =====================================================
 
@@ -414,6 +462,8 @@ export const competitionPlayersService = {
   removePlayerFromCompetition,
   getAffectedRoundIds,
   checkCanUseScoringPairs,
+  updateCompetitionPlayerTee,
+  upsertRoundPlayerTee,
 };
 
 export default competitionPlayersService;

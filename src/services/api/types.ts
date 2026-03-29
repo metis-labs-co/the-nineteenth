@@ -5,6 +5,7 @@
 
 import type { GameType, RoundResultData, TeamFormat } from '@/types/database.types';
 import type { Player } from '@/types';
+import type { TeeBox } from '@/types/database/base';
 
 /** Input for creating a round */
 export interface RoundCreateInput {
@@ -17,6 +18,7 @@ export interface RoundCreateInput {
   isTeamRound?: boolean;
   teamFormat?: TeamFormat;
   scoringPairsRequired?: boolean;
+  selectedTee?: TeeBox | null;
 }
 
 /** Input for creating a team */
