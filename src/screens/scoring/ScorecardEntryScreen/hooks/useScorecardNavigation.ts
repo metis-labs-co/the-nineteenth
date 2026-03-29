@@ -13,6 +13,7 @@ import { BackHandler } from 'react-native';
 import { scoringLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
+import type { Hole } from '@/types';
 
 export interface UseScorecardNavigationParams {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Scorecard'>;
@@ -21,6 +22,7 @@ export interface UseScorecardNavigationParams {
   pendingSyncCount: number;
   onLeaveAttempt: () => void;
   triggerSync: () => void;
+  holes: Hole[];
 }
 
 export interface UseScorecardNavigationReturn {
@@ -40,7 +42,11 @@ export function useScorecardNavigation({
   pendingSyncCount,
   onLeaveAttempt,
   triggerSync,
+  holes,
 }: UseScorecardNavigationParams): UseScorecardNavigationReturn {
+  const firstHole = holes[0]?.number ?? 1;
+  const lastHole = holes[holes.length - 1]?.number ?? 18;
+
   // Handle back button press (both header and Android)
   const handleBackPress = useCallback(() => {
     if (pendingSyncCount > 0) {
@@ -58,25 +64,25 @@ export function useScorecardNavigation({
 
   // Navigate to previous hole
   const handlePreviousHole = useCallback(() => {
-    if (currentHole > 1) {
+    if (currentHole > firstHole) {
       scoringLogger.info('Navigation: Previous hole', {
         from: currentHole,
         to: currentHole - 1,
       });
       setCurrentHole(currentHole - 1);
     }
-  }, [currentHole, setCurrentHole]);
+  }, [currentHole, setCurrentHole, firstHole]);
 
   // Navigate to next hole
   const handleNextHole = useCallback(() => {
-    if (currentHole < 18) {
+    if (currentHole < lastHole) {
       scoringLogger.info('Navigation: Next hole', {
         from: currentHole,
         to: currentHole + 1,
       });
       setCurrentHole(currentHole + 1);
     }
-  }, [currentHole, setCurrentHole]);
+  }, [currentHole, setCurrentHole, lastHole]);
 
   // Jump to a specific hole
   const handleHolePress = useCallback(
@@ -105,7 +111,7 @@ export function useScorecardNavigation({
     handlePreviousHole,
     handleNextHole,
     handleHolePress,
-    canGoPrevious: currentHole > 1,
-    canGoNext: currentHole < 18,
+    canGoPrevious: currentHole > firstHole,
+    canGoNext: currentHole < lastHole,
   };
 }

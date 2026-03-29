@@ -20,11 +20,14 @@ export function determineHoleWinner(
 /**
  * Calculate match status from hole results
  */
-export function calculateMatchStatus(holeResults: Record<number, HoleResult>): MatchStatus {
+export function calculateMatchStatus(
+  holeResults: Record<number, HoleResult>,
+  totalHoles: number = 18
+): MatchStatus {
   let player1Up = 0;
   let holesPlayed = 0;
 
-  for (let i = 1; i <= 18; i++) {
+  for (let i = 1; i <= totalHoles; i++) {
     const result = holeResults[i];
     if (result?.winner) {
       holesPlayed++;
@@ -36,7 +39,7 @@ export function calculateMatchStatus(holeResults: Record<number, HoleResult>): M
     }
   }
 
-  const holesRemaining = 18 - holesPlayed;
+  const holesRemaining = totalHoles - holesPlayed;
   const absLead = Math.abs(player1Up);
 
   // Check for early finish (dormie or beyond)

@@ -97,10 +97,10 @@ export function useScorecardSubmission({
     const completedCount = getCompletedHolesCount();
     scoringLogger.info('SUBMIT: Submit button pressed', {
       completedHoles: completedCount,
-      totalHoles: 18,
-      isComplete: completedCount === 18,
+      totalHoles: holes.length,
+      isComplete: completedCount === holes.length,
     });
-    if (completedCount < 18) {
+    if (completedCount < holes.length) {
       onIncompleteRound(completedCount);
     } else {
       await performSubmit();

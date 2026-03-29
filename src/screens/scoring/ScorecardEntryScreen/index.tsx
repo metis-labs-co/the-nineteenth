@@ -185,6 +185,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     pendingSyncCount,
     onLeaveAttempt: dialogs.openLeaveDialog,
     triggerSync,
+    holes,
   });
 
   // Submission hook
