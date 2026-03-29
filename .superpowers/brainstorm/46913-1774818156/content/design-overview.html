@@ -1,0 +1,173 @@
+<h2>Design Overview: 9-Hole Rounds + Per-Player Tees</h2>
+<p class="subtitle">Two bundled features for the round system</p>
+
+<div class="section">
+  <h3>Feature 1: 9-Hole Rounds (Standalone Only)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Wizard: Nine Type Step</div>
+    <div class="mockup-body" style="display:flex; gap:12px; padding:16px;">
+      <div style="flex:1; border:2px solid #666; border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; font-weight:bold;">18</div>
+        <div style="font-size:13px; opacity:0.7;">Full Round</div>
+        <div style="font-size:11px; opacity:0.5; margin-top:4px;">All holes</div>
+      </div>
+      <div style="flex:1; border:2px solid #4CAF50; border-radius:12px; padding:16px; text-align:center; background:rgba(76,175,80,0.1);">
+        <div style="font-size:28px; font-weight:bold;">9</div>
+        <div style="font-size:13px; opacity:0.7;">Front 9</div>
+        <div style="font-size:11px; opacity:0.5; margin-top:4px;">Holes 1–9</div>
+      </div>
+      <div style="flex:1; border:2px solid #666; border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; font-weight:bold;">9</div>
+        <div style="font-size:13px; opacity:0.7;">Back 9</div>
+        <div style="font-size:11px; opacity:0.5; margin-top:4px;">Holes 10–18</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Feature 2: Per-Player Tee Selection (Standalone + Competitions)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Partners Step: Inline Tee Pickers</div>
+    <div class="mockup-body" style="padding:16px;">
+      <!-- Player 1 - You -->
+      <div style="display:flex; align-items:center; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+        <div style="width:36px; height:36px; border-radius:50%; background:#555; display:flex; align-items:center; justify-content:center; font-size:14px; margin-right:12px;">SK</div>
+        <div style="flex:1;">
+          <div style="font-weight:bold; font-size:14px;">You</div>
+          <div style="font-size:12px; opacity:0.6;">HC 18</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:2px solid #2196F3; background:rgba(33,150,243,0.15); color:#2196F3;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2196F3; margin-right:4px; vertical-align:middle;"></span>Blue
+          </div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">White</div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">Red</div>
+        </div>
+      </div>
+      <!-- Player 2 -->
+      <div style="display:flex; align-items:center; padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+        <div style="width:36px; height:36px; border-radius:50%; background:#555; display:flex; align-items:center; justify-content:center; font-size:14px; margin-right:12px;">JD</div>
+        <div style="flex:1;">
+          <div style="font-weight:bold; font-size:14px;">John D.</div>
+          <div style="font-size:12px; opacity:0.6;">HC 12</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:2px solid #2196F3; background:rgba(33,150,243,0.15); color:#2196F3;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2196F3; margin-right:4px; vertical-align:middle;"></span>Blue
+          </div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">White</div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">Red</div>
+        </div>
+      </div>
+      <!-- Player 3 - different tee -->
+      <div style="display:flex; align-items:center; padding:12px;">
+        <div style="width:36px; height:36px; border-radius:50%; background:#555; display:flex; align-items:center; justify-content:center; font-size:14px; margin-right:12px;">SJ</div>
+        <div style="flex:1;">
+          <div style="font-weight:bold; font-size:14px;">Sarah J.</div>
+          <div style="font-size:12px; opacity:0.6;">HC 24</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">Blue</div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:1px solid rgba(255,255,255,0.2); opacity:0.5;">White</div>
+          <div style="padding:4px 10px; border-radius:20px; font-size:11px; border:2px solid #F44336; background:rgba(244,67,54,0.15); color:#F44336;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#F44336; margin-right:4px; vertical-align:middle;"></span>Red
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Scorecard: Tee Indicator</h3>
+  <div class="mockup">
+    <div class="mockup-header">Scoring Screen: Player Names with Tee Dots</div>
+    <div class="mockup-body" style="padding:16px;">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid rgba(255,255,255,0.2);">
+            <th style="text-align:left; padding:8px;">Player</th>
+            <th style="text-align:center; padding:8px; width:40px;">1</th>
+            <th style="text-align:center; padding:8px; width:40px;">2</th>
+            <th style="text-align:center; padding:8px; width:40px;">3</th>
+            <th style="text-align:center; padding:8px; width:40px;">...</th>
+            <th style="text-align:center; padding:8px; width:50px;">TOT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+            <td style="padding:8px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2196F3; margin-right:6px; vertical-align:middle;"></span>You</td>
+            <td style="text-align:center; padding:8px;">4</td>
+            <td style="text-align:center; padding:8px;">5</td>
+            <td style="text-align:center; padding:8px;">3</td>
+            <td style="text-align:center; padding:8px; opacity:0.4;">—</td>
+            <td style="text-align:center; padding:8px; font-weight:bold;">12</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+            <td style="padding:8px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2196F3; margin-right:6px; vertical-align:middle;"></span>John D.</td>
+            <td style="text-align:center; padding:8px;">5</td>
+            <td style="text-align:center; padding:8px;">4</td>
+            <td style="text-align:center; padding:8px;">4</td>
+            <td style="text-align:center; padding:8px; opacity:0.4;">—</td>
+            <td style="text-align:center; padding:8px; font-weight:bold;">13</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#F44336; margin-right:6px; vertical-align:middle;"></span>Sarah J.</td>
+            <td style="text-align:center; padding:8px;">6</td>
+            <td style="text-align:center; padding:8px;">5</td>
+            <td style="text-align:center; padding:8px;">4</td>
+            <td style="text-align:center; padding:8px; opacity:0.4;">—</td>
+            <td style="text-align:center; padding:8px; font-weight:bold;">15</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key Decisions Summary</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">9-hole scope</td>
+      <td style="padding:8px;">Standalone rounds only</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Per-player tees scope</td>
+      <td style="padding:8px;">Standalone + Competitions</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Wizard flow (group)</td>
+      <td style="padding:8px;">Course → Nine Type → Match Type → Partners (inline tees) → Scoring Setup</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Wizard flow (solo)</td>
+      <td style="padding:8px;">Course → Nine Type → Match Type → Your Setup (tee + ball count)</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Partner tee default</td>
+      <td style="padding:8px;">Inherit creator's tee, override individually</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">No tees available</td>
+      <td style="padding:8px;">Skip tee picker, use base handicap</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Competition tees</td>
+      <td style="padding:8px;">Default in settings + per-round override</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Competition round overrides</td>
+      <td style="padding:8px;">New <code>competition_round_player_tees</code> table</td>
+    </tr>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.15);">
+      <td style="padding:8px; opacity:0.6;">Scorecard display</td>
+      <td style="padding:8px;">Colored tee dot next to player name</td>
+    </tr>
+    <tr>
+      <td style="padding:8px; opacity:0.6;">Side games on 9-hole</td>
+      <td style="padding:8px;">Skins + Wolf both available</td>
+    </tr>
+  </table>
+</div>

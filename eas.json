@@ -60,7 +60,7 @@
       },
       "android": {
         "buildType": "app-bundle",
-        "resourceClass": "m-medium"
+        "resourceClass": "medium"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bvnxfhuvocxyilhlenka.supabase.co",
