@@ -13,6 +13,7 @@ import { HOLES_PER_ROUND } from '@/constants/scoring';
  *
  * @param potType - 'per_hole' or 'total_pot'
  * @param potValue - Dollar amount configured
+ * @param totalHoles - Number of holes in the round (default 18)
  * @returns Value per hole rounded to 2 decimal places
  *
  * @example
@@ -21,12 +22,13 @@ import { HOLES_PER_ROUND } from '@/constants/scoring';
  */
 export function calculateHoleValue(
   potType: SkinsPotType,
-  potValue: number
+  potValue: number,
+  totalHoles: number = HOLES_PER_ROUND,
 ): number {
   if (potType === 'per_hole') {
     return roundCurrency(potValue);
   }
-  return roundCurrency(potValue / HOLES_PER_ROUND);
+  return roundCurrency(potValue / totalHoles);
 }
 
 /**
@@ -34,7 +36,8 @@ export function calculateHoleValue(
  *
  * @param potType - 'per_hole' or 'total_pot'
  * @param potValue - Dollar amount configured
- * @returns Total pot value for 18 holes
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @returns Total pot value for the round
  *
  * @example
  * calculateTotalPot('per_hole', 5) // Returns 90.00 (5*18)
@@ -42,10 +45,11 @@ export function calculateHoleValue(
  */
 export function calculateTotalPot(
   potType: SkinsPotType,
-  potValue: number
+  potValue: number,
+  totalHoles: number = HOLES_PER_ROUND,
 ): number {
   if (potType === 'per_hole') {
-    return roundCurrency(potValue * HOLES_PER_ROUND);
+    return roundCurrency(potValue * totalHoles);
   }
   return roundCurrency(potValue);
 }
@@ -56,6 +60,7 @@ export function calculateTotalPot(
  * @param potType - 'per_hole' or 'total_pot'
  * @param potValue - Dollar amount configured
  * @param participantCount - Number of players (2-4)
+ * @param totalHoles - Number of holes in the round (default 18)
  * @returns Buy-in per player rounded to 2 decimal places
  *
  * @example
@@ -65,8 +70,9 @@ export function calculateTotalPot(
 export function calculateBuyIn(
   potType: SkinsPotType,
   potValue: number,
-  participantCount: number
+  participantCount: number,
+  totalHoles: number = HOLES_PER_ROUND,
 ): number {
-  const totalPot = calculateTotalPot(potType, potValue);
+  const totalPot = calculateTotalPot(potType, potValue, totalHoles);
   return roundCurrency(totalPot / participantCount);
 }

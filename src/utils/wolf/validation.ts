@@ -115,32 +115,39 @@ export function canDeclareBlindWolf(
 }
 
 /**
- * Check if a Wolf game is complete (all 18 holes have decisions and results).
+ * Check if a Wolf game is complete (all holes have decisions and results).
  *
  * @param decisions - Array of hole decisions
- * @returns True if all 18 holes are complete
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @returns True if all holes are complete
  */
 export function isWolfGameComplete(
-  decisions: Pick<WolfHoleDecision, 'hole_number' | 'calculated_at'>[]
+  decisions: Pick<WolfHoleDecision, 'hole_number' | 'calculated_at'>[],
+  totalHoles: number = HOLES_PER_ROUND,
 ): boolean {
   const completedHoles = decisions.filter((d) => d.calculated_at !== null);
-  return completedHoles.length >= HOLES_PER_ROUND;
+  return completedHoles.length >= totalHoles;
 }
 
 /**
  * Get the next hole number that needs a decision.
  *
  * @param decisions - Array of existing decisions
- * @returns Next hole number (1-18) or null if all decided
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @param startHole - First hole number (default 1)
+ * @returns Next hole number or null if all decided
  */
 export function getNextHoleForDecision(
-  decisions: Pick<WolfHoleDecision, 'hole_number' | 'decided_at'>[]
+  decisions: Pick<WolfHoleDecision, 'hole_number' | 'decided_at'>[],
+  totalHoles: number = HOLES_PER_ROUND,
+  startHole: number = 1,
 ): number | null {
+  const endHole = startHole + totalHoles - 1;
   const decidedHoles = new Set(
     decisions.filter((d) => d.decided_at !== null).map((d) => d.hole_number)
   );
 
-  for (let hole = 1; hole <= HOLES_PER_ROUND; hole++) {
+  for (let hole = startHole; hole <= endHole; hole++) {
     if (!decidedHoles.has(hole)) return hole;
   }
   return null;

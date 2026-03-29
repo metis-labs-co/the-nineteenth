@@ -44,14 +44,21 @@ export function determineWolfForHole(
  * Get the Wolf player for each hole in a round.
  *
  * @param wolfOrder - Array of player IDs in rotation order
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @param startHole - First hole number (default 1)
  * @returns Map of hole number to Wolf player ID
  */
 export function getWolfRotationForRound(
-  wolfOrder: string[]
+  wolfOrder: string[],
+  totalHoles: number = HOLES_PER_ROUND,
+  startHole: number = 1,
 ): Map<number, string> {
   const rotation = new Map<number, string>();
-  for (let hole = 1; hole <= HOLES_PER_ROUND; hole++) {
-    rotation.set(hole, determineWolfForHole(wolfOrder, hole));
+  const playerCount = wolfOrder.length;
+  if (playerCount === 0) return rotation;
+  for (let i = 0; i < totalHoles; i++) {
+    const hole = startHole + i;
+    rotation.set(hole, wolfOrder[i % playerCount]);
   }
   return rotation;
 }

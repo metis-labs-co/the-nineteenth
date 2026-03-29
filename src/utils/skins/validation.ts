@@ -85,30 +85,37 @@ export function validateHoleScores(
 }
 
 /**
- * Check if a skins game is complete (all 18 holes played).
+ * Check if a skins game is complete (all holes played).
  *
  * @param results - Array of hole results
- * @returns True if all 18 holes have results
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @returns True if all holes have results
  */
 export function isSkinsGameComplete(
-  results: Pick<SkinsResult, 'hole_number'>[]
+  results: Pick<SkinsResult, 'hole_number'>[],
+  totalHoles: number = HOLES_PER_ROUND,
 ): boolean {
-  return results.length >= HOLES_PER_ROUND;
+  return results.length >= totalHoles;
 }
 
 /**
  * Get the next hole number to process.
  *
  * @param results - Array of existing results
- * @returns Next hole number (1-18) or null if complete
+ * @param totalHoles - Number of holes in the round (default 18)
+ * @param startHole - First hole number (default 1)
+ * @returns Next hole number or null if complete
  */
 export function getNextHoleNumber(
-  results: Pick<SkinsResult, 'hole_number'>[]
+  results: Pick<SkinsResult, 'hole_number'>[],
+  totalHoles: number = HOLES_PER_ROUND,
+  startHole: number = 1,
 ): number | null {
-  if (results.length >= HOLES_PER_ROUND) return null;
+  const endHole = startHole + totalHoles - 1;
+  if (results.length >= totalHoles) return null;
 
   const completedHoles = new Set(results.map(r => r.hole_number));
-  for (let i = 1; i <= HOLES_PER_ROUND; i++) {
+  for (let i = startHole; i <= endHole; i++) {
     if (!completedHoles.has(i)) return i;
   }
   return null;
