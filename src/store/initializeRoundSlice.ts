@@ -4,6 +4,7 @@
 
 import { Scorecard, Player, Hole, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   saveScorecard,
@@ -27,6 +28,8 @@ export async function initializeRound(
   allowedPlayerIds: string[] = [],
   selectedTeeData: TeeBox | null = null,
   handicapSource: HandicapSource = 'profile',
+  playerTeeMap: Map<string, TeeBox> = new Map(),
+  nineType: NineType = 'full',
 ): Promise<void> {
   storeLogger.info('Initializing round', {
     roundId,
@@ -80,6 +83,8 @@ export async function initializeRound(
       handicapSource,
       groupScorecards: newScorecards,
       allowedPlayerIds,
+      playerTeeMap,
+      nineType,
       isLoading: false,
       isInitialized: true,
     });
@@ -147,8 +152,9 @@ export async function loadFromOffline(
       }
     }
 
-    let currentHole = 1;
-    for (let h = 1; h <= 18; h++) {
+    const holeNumbers = holes.map((h: any) => h.number ?? h.hole_number);
+    let currentHole = holeNumbers[0] ?? 1;
+    for (const h of holeNumbers) {
       const allComplete = players.every((player) => {
         const sc = newScorecards.get(player.id);
         const score = sc?.scores[h];
@@ -158,8 +164,8 @@ export async function loadFromOffline(
         currentHole = h;
         break;
       }
-      if (h === 18) {
-        currentHole = 18;
+      if (h === holeNumbers[holeNumbers.length - 1]) {
+        currentHole = h;
       }
     }
 

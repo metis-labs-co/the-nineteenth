@@ -15,6 +15,7 @@
 import { create } from 'zustand';
 import { Scorecard, HoleScore, Player, Hole, GameType, TeeBox, HoleShotContributions } from '@/types';
 import type { HandicapSource } from '@/types/database';
+import type { NineType } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import type { MultiBallHoleScore, BallTotals } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
@@ -35,6 +36,8 @@ interface ScorecardState {
   gameType: GameType;
   handicapSource: HandicapSource;
   selectedTeeData: TeeBox | null;
+  playerTeeMap: Map<string, TeeBox>;
+  nineType: NineType;
 
   // Multi-ball scoring (solo rounds only)
   ballCount: BallCount;
@@ -65,7 +68,9 @@ interface ScorecardState {
     isStandalone?: boolean,
     allowedPlayerIds?: string[],
     selectedTeeData?: TeeBox | null,
-    handicapSource?: HandicapSource
+    handicapSource?: HandicapSource,
+    playerTeeMap?: Map<string, TeeBox>,
+    nineType?: NineType
   ) => Promise<void>;
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
@@ -77,6 +82,7 @@ interface ScorecardState {
   updateLocalScore: (roundId: string, playerId: string, holeNumber: number, strokes: number) => Promise<void>;
   getPlayerScore: (playerId: string, hole: number) => HoleScore | MultiBallHoleScore | undefined;
   getPlayerTotals: (playerId: string) => { gross: number; net: number; points: number };
+  getPlayerTee: (playerId: string) => TeeBox | null;
   getHoleInfo: (holeNumber: number) => Hole | undefined;
   isHoleComplete: (hole: number) => boolean;
   getCompletedHolesCount: () => number;
@@ -119,6 +125,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     gameType: 'stableford',
     handicapSource: 'profile',
     selectedTeeData: null,
+    playerTeeMap: new Map(),
+    nineType: 'full' as NineType,
     ballCount: 1,
     isMultiBall: false,
     groupScorecards: new Map(),
@@ -131,15 +139,17 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     isInitialized: false,
 
     // Initialization (delegated to initializeRoundSlice)
-    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource) =>
-      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource),
+    initializeRound: (roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType) =>
+      initSlice.initializeRound(set, initSyncListener, roundId, players, holes, gameType, isStandalone, allowedPlayerIds, selectedTeeData, handicapSource, playerTeeMap, nineType),
 
     loadFromOffline: (roundId) =>
       initSlice.loadFromOffline(set, initSyncListener, roundId),
 
     // Simple setters
     setCurrentHole: (hole) => {
-      if (hole >= 1 && hole <= 18) {
+      const { holes } = get();
+      const validNumbers = new Set(holes.map((h) => h.number));
+      if (validNumbers.has(hole as any)) {
         set({ currentHole: hole });
       }
     },
@@ -188,6 +198,11 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       return calculatePlayerTotals(scorecard, holes, gameType);
     },
 
+    getPlayerTee: (playerId) => {
+      const { playerTeeMap, selectedTeeData } = get();
+      return playerTeeMap.get(playerId) ?? selectedTeeData;
+    },
+
     getHoleInfo: (holeNumber) => {
       const { holes } = get();
       return holes.find((h) => h.number === holeNumber);
@@ -203,9 +218,10 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     getCompletedHolesCount: () => {
+      const { holes } = get();
       let count = 0;
-      for (let h = 1; h <= 18; h++) {
-        if (get().isHoleComplete(h)) count++;
+      for (const hole of holes) {
+        if (get().isHoleComplete(hole.number)) count++;
       }
       return count;
     },
@@ -281,6 +297,8 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
         holes: [],
         gameType: 'stableford',
         selectedTeeData: null,
+        playerTeeMap: new Map(),
+        nineType: 'full' as NineType,
         ballCount: 1,
         isMultiBall: false,
         groupScorecards: new Map(),
