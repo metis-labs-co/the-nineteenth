@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 import type { CompetitionInfo } from '@/hooks/useCompetitionInfo';
+import { getHoleCount } from '@/constants/scoring';
 
 interface UseViewRoundPermissionsParams {
   user: User | null;
@@ -57,7 +58,8 @@ export function useViewRoundPermissions({
     const scoredHoles = Object.values(scores).filter(
       (s) => s && 'strokes' in s && s.strokes != null && s.strokes > 0
     );
-    return scoredHoles.length >= 18;
+    const expectedHoles = round?.nine_type ? getHoleCount(round.nine_type) : 18;
+    return scoredHoles.length >= expectedHoles;
   }, [user?.id, scorecards, round]);
 
   return {

@@ -115,6 +115,7 @@ export function applyBackNineTiebreaker<
   // Calculate back 9, back 6, and back 3 totals
   const getBackNineScores = (id: string) => {
     const scores = holeScores.get(id) || [];
+    if (scores.length < 18) return { back9: 0, back6: 0, back3: 0 }; // Skip tiebreaker for 9-hole rounds
     const back9 = scores.slice(9).reduce((sum, s) => sum + (s || 0), 0);
     const back6 = scores.slice(12).reduce((sum, s) => sum + (s || 0), 0);
     const back3 = scores.slice(15).reduce((sum, s) => sum + (s || 0), 0);

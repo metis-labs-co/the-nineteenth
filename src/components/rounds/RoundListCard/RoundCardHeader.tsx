@@ -5,7 +5,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { IconDog } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, skinsColor, wolfColor } from '@/constants/theme';
+import { spacing, typography, borderRadius, skinsColor, wolfColor } from '@/constants/theme';
 import { Pill, StatusBadge } from '@/components/common';
 import { getGameTypeLabel } from '@/constants/statusConfig';
 import { RoundListCardData, formatUserScore } from './types';
@@ -48,6 +48,15 @@ export const RoundCardHeader = React.memo(function RoundCardHeader({
           {/* Round Pill - only show for competition rounds */}
           {!round.isStandalone && round.totalRounds > 1 && (
             <Pill label={`Round ${round.roundNumber} of ${round.totalRounds}`} size="sm" />
+          )}
+
+          {/* 9-hole badge */}
+          {round.nineType && round.nineType !== 'full' && (
+            <View style={[styles.badge, { backgroundColor: colors.primary + '20' }]}>
+              <Text style={[styles.badgeText, { color: colors.primary }]}>
+                {round.nineType === 'front9' ? 'Front 9' : 'Back 9'}
+              </Text>
+            </View>
           )}
 
           {/* Stale indicator - in-progress rounds past their date */}
@@ -121,6 +130,15 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   competitionName: {
     ...typography.bodyBold,

@@ -70,6 +70,7 @@ export function useRoundList(): UseRoundListReturn {
         status: string;
         date: string | null;
         tee_time: string | null;
+        nine_type: string | null;
         handicap_source: string | null;
         selected_tee: { name: string; color?: string } | null;
         courses: {
@@ -96,6 +97,7 @@ export function useRoundList(): UseRoundListReturn {
           status,
           date,
           tee_time,
+          nine_type,
           handicap_source,
           selected_tee,
           courses!course_id(
@@ -144,6 +146,7 @@ export function useRoundList(): UseRoundListReturn {
             players: [], // Will be populated below
             handicapSource: round.handicap_source,
             selectedTeeName: round.selected_tee?.name ?? null,
+            nineType: round.nine_type ?? null,
           });
         }
       }
@@ -169,6 +172,7 @@ export function useRoundList(): UseRoundListReturn {
               status,
               date,
               tee_time,
+              nine_type,
               handicap_source,
               selected_tee,
               courses!course_id(
@@ -223,6 +227,7 @@ export function useRoundList(): UseRoundListReturn {
               players: [], // Will be populated below
               handicapSource: round.handicap_source,
               selectedTeeName: round.selected_tee?.name ?? null,
+              nineType: round.nine_type ?? null,
             });
           }
         }

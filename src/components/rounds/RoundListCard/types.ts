@@ -95,6 +95,8 @@ export interface RoundListCardData {
   handicapSource?: string | null;
   /** Selected tee box name */
   selectedTeeName?: string | null;
+  /** Nine-hole type ('full' | 'front9' | 'back9') */
+  nineType?: string | null;
 }
 
 export interface RoundListCardProps<T extends RoundListCardData = RoundListCardData> {
