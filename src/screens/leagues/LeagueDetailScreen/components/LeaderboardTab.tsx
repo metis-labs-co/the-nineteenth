@@ -95,36 +95,33 @@ export default React.memo(function LeaderboardTab({
         <View style={[styles.leaderboardCard, { backgroundColor: colors.surface }]}>
           {/* Table Header */}
           <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
-            <ScaledText
-              category="caption"
-              style={[styles.tableHeaderCell, styles.positionHeaderCol, { color: colors.textSecondary }]}
-            >
-              #
-            </ScaledText>
-            <ScaledText
-              category="caption"
-              style={[styles.tableHeaderCell, styles.playerHeaderCol, { color: colors.textSecondary }]}
-            >
-              Player
-            </ScaledText>
-            <ScaledText
-              category="caption"
-              style={[styles.tableHeaderCell, styles.hcHeaderCol, { color: colors.textSecondary }]}
-            >
-              HC
-            </ScaledText>
-            <ScaledText
-              category="caption"
-              style={[styles.tableHeaderCell, styles.avgHeaderCol, { color: colors.textSecondary }]}
-            >
-              Avg
-            </ScaledText>
-            <ScaledText
-              category="caption"
-              style={[styles.tableHeaderCell, styles.bestHeaderCol, { color: colors.textSecondary }]}
-            >
-              Best
-            </ScaledText>
+            <View style={styles.positionCol}>
+              <ScaledText category="caption" style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>
+                #
+              </ScaledText>
+            </View>
+            <View style={styles.playerCol}>
+              <ScaledText category="caption" style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>
+                Player
+              </ScaledText>
+            </View>
+            <View style={styles.hcCol}>
+              <ScaledText category="caption" style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>
+                HC
+              </ScaledText>
+            </View>
+            <View style={styles.avgCol}>
+              <ScaledText category="caption" style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>
+                Avg
+              </ScaledText>
+            </View>
+            <View style={styles.bestCol}>
+              <ScaledText category="caption" style={[styles.tableHeaderCell, { color: colors.textSecondary }]}>
+                Best
+              </ScaledText>
+            </View>
+            {/* Spacer matching row chevron column */}
+            <View style={styles.chevronSpacer} />
           </View>
 
           {/* Rows */}
@@ -185,29 +182,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
+    alignItems: 'center',
   },
   tableHeaderCell: {
     ...typography.captionBold,
     textTransform: 'uppercase',
   },
-  positionHeaderCol: {
+  // Shared column widths (used by both header and rows)
+  positionCol: {
     minWidth: 32,
-    textAlign: 'center',
+    alignItems: 'center',
   },
-  playerHeaderCol: {
+  playerCol: {
     flex: 1,
     paddingRight: spacing.sm,
   },
-  hcHeaderCol: {
+  hcCol: {
     minWidth: 40,
-    textAlign: 'right',
+    alignItems: 'flex-end',
   },
-  avgHeaderCol: {
+  avgCol: {
     minWidth: 46,
-    textAlign: 'right',
+    alignItems: 'flex-end',
   },
-  bestHeaderCol: {
+  bestCol: {
     minWidth: 46,
-    textAlign: 'right',
+    alignItems: 'flex-end',
+  },
+  chevronSpacer: {
+    width: 20,
+    marginLeft: spacing.xs,
   },
 });
