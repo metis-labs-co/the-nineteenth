@@ -27,6 +27,10 @@ import { useCompetitionData } from '@/screens/admin/EditCompetitionScreen/hooks/
 import { useCompetitionSubmission } from '@/screens/admin/EditCompetitionScreen/hooks/useCompetitionSubmission';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
 import type { EditCompetitionFormData } from '@/screens/admin/EditCompetitionScreen/hooks/useCompetitionValidation';
+import { supabase } from '@/services/supabase/client';
+import { competitionPlayersService } from '@/services/competitionPlayers/competitionPlayersService';
+import { getTeeColor } from '@/screens/rounds/CreateRoundBottomSheet/types';
+import type { TeeBox } from '@/types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
 
@@ -42,6 +46,12 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   const [description, setDescription] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Player tees state
+  const [players, setPlayers] = useState<
+    { player_id: string; selected_tee: TeeBox | null; players: { id: string; name: string; handicap: number | null } }[]
+  >([]);
+  const [availableTees, setAvailableTees] = useState<TeeBox[]>([]);
+
   // Sync form state when competition data loads
   useEffect(() => {
     if (competition) {
@@ -49,6 +59,44 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       setDescription(competition.description || '');
     }
   }, [competition]);
+
+  // Fetch player tees and available tee options
+  useEffect(() => {
+    if (!competitionId) return;
+
+    // Fetch competition players with player details and selected tee
+    supabase
+      .from('competition_players')
+      .select('player_id, selected_tee, players!player_id(id, name, handicap)')
+      .eq('competition_id', competitionId)
+      .eq('status', 'accepted')
+      .then(({ data }) => {
+        if (data) {
+          setPlayers(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (data as any[]).map((d) => ({
+              player_id: d.player_id,
+              selected_tee: d.selected_tee as TeeBox | null,
+              players: d.players as { id: string; name: string; handicap: number | null },
+            })),
+          );
+        }
+      });
+
+    // Fetch rounds with course tees to get available tee options
+    supabase
+      .from('rounds')
+      .select('id, round_number, courses!course_id(id, name, tees)')
+      .eq('competition_id', competitionId)
+      .order('round_number')
+      .then(({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const firstRoundCourse = (data as any)?.[0]?.courses;
+        if (firstRoundCourse?.tees) {
+          setAvailableTees(firstRoundCourse.tees as TeeBox[]);
+        }
+      });
+  }, [competitionId]);
 
   // Submission hook
   const {
@@ -104,6 +152,26 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
 
     submitUpdate(formData);
   }, [hasChanges, name, description, competition, submitUpdate]);
+
+  const handleTeeChange = useCallback(async (playerId: string, tee: TeeBox) => {
+    // Save previous state for rollback
+    const previousPlayers = players;
+
+    // Optimistic update
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.player_id === playerId ? { ...p, selected_tee: tee } : p,
+      ),
+    );
+
+    try {
+      await competitionPlayersService.updateCompetitionPlayerTee(competitionId, playerId, tee);
+    } catch {
+      // Revert on failure
+      setPlayers(previousPlayers);
+      Alert.alert('Error', 'Failed to update tee selection. Please try again.');
+    }
+  }, [competitionId, players]);
 
   const handleShare = useCallback(async () => {
     if (!competition) return;
@@ -243,9 +311,96 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         </View>
 
         {/* Player Tees */}
-        {/* TODO: Add per-player tee assignment UI here.
-            Use updateCompetitionPlayerTee() and upsertRoundPlayerTee() from competitionPlayersService
-            to allow organisers to set default tees per-player and per-round overrides. */}
+        {players.length > 0 && (
+          <>
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.section}>
+              <SectionHeader title="Player Tees" />
+              {availableTees.length === 0 ? (
+                <Text style={[styles.noTeesText, { color: colors.textSecondary }]}>
+                  No tee data available for this course
+                </Text>
+              ) : (
+                players.map((cp) => {
+                  const player = cp.players;
+                  if (!player) return null;
+
+                  return (
+                    <View
+                      key={cp.player_id}
+                      style={[styles.playerTeeRow, { backgroundColor: colors.surface }]}
+                    >
+                      <View style={styles.playerTeeInfo}>
+                        <Text
+                          style={[styles.playerTeeName, { color: colors.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {player.name}
+                        </Text>
+                        {player.handicap != null && (
+                          <Text style={[styles.playerTeeHandicap, { color: colors.textSecondary }]}>
+                            HC {player.handicap}
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.teePillsRow}>
+                        {availableTees.map((tee) => {
+                          const isSelected =
+                            cp.selected_tee?.name === tee.name &&
+                            cp.selected_tee?.color === tee.color;
+                          const dotColor = getTeeColor(tee.color, colors.textSecondary);
+
+                          return (
+                            <TouchableOpacity
+                              key={`${tee.name}-${tee.color}`}
+                              onPress={() => handleTeeChange(cp.player_id, tee)}
+                              style={[
+                                styles.teePill,
+                                {
+                                  borderWidth: 1,
+                                  borderColor: isSelected ? colors.primary : colors.border,
+                                  backgroundColor: isSelected
+                                    ? `${colors.primary}26`
+                                    : 'transparent',
+                                },
+                              ]}
+                              activeOpacity={0.7}
+                              accessibilityLabel={`Select ${tee.name} tee for ${player.name}`}
+                            >
+                              <View
+                                style={[
+                                  styles.teeDot,
+                                  {
+                                    backgroundColor: dotColor,
+                                    borderWidth: tee.color.toLowerCase() === 'white' ? 1 : 0,
+                                    borderColor: colors.border,
+                                  },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.teePillText,
+                                  {
+                                    color: isSelected
+                                      ? colors.primary
+                                      : colors.textSecondary,
+                                  },
+                                ]}
+                              >
+                                {tee.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </>
+        )}
 
         {/* Delete Competition */}
         {!isArchived && (
@@ -376,5 +531,48 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.body,
     textAlign: 'center',
+  },
+  noTeesText: {
+    ...typography.body,
+    fontStyle: 'italic',
+  },
+  playerTeeRow: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  playerTeeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  playerTeeName: {
+    ...typography.bodyBold,
+    flex: 1,
+  },
+  playerTeeHandicap: {
+    ...typography.caption,
+  },
+  teePillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  teePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 6,
+  },
+  teeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  teePillText: {
+    ...typography.caption,
   },
 });
