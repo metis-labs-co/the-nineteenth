@@ -149,8 +149,11 @@ export interface EclecticBestScore {
 // COMPOSITE / VIEW TYPES
 // =====================================================
 
+/** Sort mode for league leaderboard: gross (raw differential) or net (adjusted for handicap) */
+export type LeagueSortMode = 'gross' | 'net';
+
 /**
- * League leaderboard entry returned by get_league_leaderboard()
+ * League leaderboard entry returned by get_league_leaderboard_v2()
  */
 export interface LeagueLeaderboardEntry {
   player_id: string;
@@ -160,6 +163,7 @@ export interface LeagueLeaderboardEntry {
   rounds_counting: number; // Best N of last 20
   avg_differential: number; // Avg of counting rounds (lower = better)
   best_differential: number;
+  avg_handicap: number | null; // Avg ga_handicap_used of counting rounds
   rank: number;
 }
 

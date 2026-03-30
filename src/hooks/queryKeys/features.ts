@@ -104,7 +104,9 @@ export const leagueKeys = {
   publicList: (search?: string) => [...leagueKeys.all, 'public', search] as const,
   details: () => [...leagueKeys.all, 'detail'] as const,
   detail: (id: string) => [...leagueKeys.details(), id] as const,
-  leaderboard: (leagueId: string) => [...leagueKeys.all, 'leaderboard', leagueId] as const,
+  leaderboardBase: (leagueId: string) => [...leagueKeys.all, 'leaderboard', leagueId] as const,
+  leaderboard: (leagueId: string, sortMode?: string) =>
+    [...leagueKeys.leaderboardBase(leagueId), sortMode ?? 'gross'] as const,
   players: (leagueId: string) => [...leagueKeys.all, 'players', leagueId] as const,
   rounds: (leagueId: string) => [...leagueKeys.all, 'rounds', leagueId] as const,
   eligibleScorecards: (leagueId: string) => [...leagueKeys.all, 'eligible', leagueId] as const,

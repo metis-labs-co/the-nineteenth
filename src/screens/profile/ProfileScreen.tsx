@@ -5,7 +5,7 @@
  * Accessible via the Profile tab in bottom navigation.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { Text } from 'react-native-paper';
@@ -26,6 +26,7 @@ import { NotificationBell } from './components';
 import { APP_NAME, APP_VERSION } from '@/constants/app';
 import type { Club } from '@/types/database.types';
 import { useSettingsStore } from '@/store/settingsStore';
+import { biometricService } from '@/services/biometric';
 
 // Local components and hooks
 import { useProfileData } from './hooks';
@@ -63,6 +64,12 @@ export default function ProfileScreen() {
   // Country label for menu display
   const countryOverride = useSettingsStore((state) => state.countryOverride);
   const currentCountryLabel = countryOverride ?? 'Auto';
+
+  // Biometric availability for security menu item
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  useEffect(() => {
+    biometricService.checkAvailability().then((result) => setBiometricAvailable(result.isAvailable));
+  }, []);
 
   // Modal states
   const [showClubModal, setShowClubModal] = useState(false);
@@ -173,6 +180,7 @@ export default function ProfileScreen() {
           achievementPoints={achievementPoints}
           placeholderPlayersCount={placeholderPlayers?.length ?? 0}
           currentCountryLabel={currentCountryLabel}
+          biometricAvailable={biometricAvailable}
           onEditProfile={() => navigation.navigate('EditProfile')}
           onFriends={() => navigation.navigate('Friends', { fromProfile: true })}
           onMyStatistics={() => navigation.navigate('MyStatistics')}
@@ -183,7 +191,10 @@ export default function ProfileScreen() {
           onSubscription={() => navigation.navigate('Subscription')}
           onGuestPlayers={() => navigation.navigate('LinkPlaceholder')}
           onPrivacyData={() => navigation.navigate('PrivacyData')}
-          onSettings={() => navigation.navigate('Settings')}
+          onAppearance={() => navigation.navigate('Appearance')}
+          onGameSettings={() => navigation.navigate('GameSettings')}
+          onSecurity={() => navigation.navigate('Security')}
+          onDeveloper={() => navigation.navigate('Developer')}
           onCountryRegion={() => navigation.navigate('CountryRegion')}
           onNotifications={() => navigation.navigate('NotificationSettings')}
           onHelpAndSupport={() => navigation.navigate('HelpAndSupport')}

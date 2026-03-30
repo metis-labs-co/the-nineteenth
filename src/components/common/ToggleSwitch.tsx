@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 
 const TRACK_WIDTH = 44;
@@ -39,30 +39,32 @@ export function ToggleSwitch({ value, onValueChange, disabled = false, accessibi
   });
 
   return (
-    <Pressable
-      onPress={() => !disabled && onValueChange(!value)}
-      accessibilityRole="switch"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ checked: value, disabled }}
-      disabled={disabled}
-      testID={testID}
-      hitSlop={4}
-    >
-      <Animated.View
-        style={[
-          styles.track,
-          { backgroundColor: trackColor },
-          disabled && styles.disabled,
-        ]}
+    <View onStartShouldSetResponder={() => true}>
+      <Pressable
+        onPress={() => !disabled && onValueChange(!value)}
+        accessibilityRole="switch"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ checked: value, disabled }}
+        disabled={disabled}
+        testID={testID}
+        hitSlop={4}
       >
         <Animated.View
           style={[
-            styles.thumb,
-            { transform: [{ translateX }] },
+            styles.track,
+            { backgroundColor: trackColor },
+            disabled && styles.disabled,
           ]}
-        />
-      </Animated.View>
-    </Pressable>
+        >
+          <Animated.View
+            style={[
+              styles.thumb,
+              { transform: [{ translateX }] },
+            ]}
+          />
+        </Animated.View>
+      </Pressable>
+    </View>
   );
 }
 

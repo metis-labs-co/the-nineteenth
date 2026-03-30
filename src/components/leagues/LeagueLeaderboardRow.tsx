@@ -82,6 +82,16 @@ export default React.memo(function LeagueLeaderboardRow({
         </ScaledText>
       </View>
 
+      {/* Handicap */}
+      <View style={[styles.cell, styles.hcCol]}>
+        <ScaledText
+          category="caption"
+          style={[styles.hcText, { color: colors.textSecondary }]}
+        >
+          {entry.avg_handicap != null ? entry.avg_handicap.toFixed(1) : '-'}
+        </ScaledText>
+      </View>
+
       {/* Avg Differential */}
       <View style={[styles.cell, styles.avgCol]}>
         <ScaledText
@@ -127,7 +137,7 @@ export default React.memo(function LeagueLeaderboardRow({
     isFirstPlace && [styles.rowFirst, { backgroundColor: withOpacity(colors.warningLight, 0.13) }],
   ];
 
-  const accessibilityLabel = `Position ${entry.rank}${isTied ? ' tied' : ''}: ${isCurrentUser ? 'You' : entry.name}, Average ${entry.avg_differential?.toFixed(1) ?? 'none'}, Best ${entry.best_differential?.toFixed(1) ?? 'none'}, ${entry.rounds_counting} of ${entry.rounds_played} rounds counting`;
+  const accessibilityLabel = `Position ${entry.rank}${isTied ? ' tied' : ''}: ${isCurrentUser ? 'You' : entry.name}, Handicap ${entry.avg_handicap?.toFixed(1) ?? 'none'}, Average ${entry.avg_differential?.toFixed(1) ?? 'none'}, Best ${entry.best_differential?.toFixed(1) ?? 'none'}, ${entry.rounds_counting} of ${entry.rounds_played} rounds counting`;
 
   if (isPressable) {
     return (
@@ -170,19 +180,23 @@ const styles = StyleSheet.create({
   },
   // Column widths matching LeaderboardTable pattern
   positionCol: {
-    minWidth: 40,
+    minWidth: 32,
     alignItems: 'center',
   },
   playerCol: {
     flex: 1,
     paddingRight: spacing.sm,
   },
+  hcCol: {
+    minWidth: 40,
+    alignItems: 'flex-end',
+  },
   avgCol: {
-    minWidth: 50,
+    minWidth: 46,
     alignItems: 'flex-end',
   },
   bestCol: {
-    minWidth: 50,
+    minWidth: 46,
     alignItems: 'flex-end',
   },
   chevronCol: {
@@ -206,6 +220,9 @@ const styles = StyleSheet.create({
   roundsText: {
     ...typography.caption,
     marginTop: 2,
+  },
+  hcText: {
+    ...typography.small,
   },
   avgText: {
     ...typography.h4,

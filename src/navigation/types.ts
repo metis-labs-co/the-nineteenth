@@ -72,7 +72,10 @@ export type RootStackParamList = {
   EditProfile: undefined;
   MyStatistics: undefined;
   HandicapHistory: undefined;
-  Settings: undefined;
+  Appearance: undefined;
+  GameSettings: undefined;
+  Security: undefined;
+  Developer: undefined;
   NotificationSettings: undefined;
 
   // Friends

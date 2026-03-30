@@ -60,7 +60,10 @@ import { MatchPlayScorecardScreen } from '@/screens/scoring';
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
 import MyStatisticsScreen from '@/screens/profile/MyStatisticsScreen';
 import HandicapHistoryScreen from '@/screens/profile/HandicapHistoryScreen';
-import SettingsScreen from '@/screens/profile/SettingsScreen';
+import AppearanceScreen from '@/screens/profile/AppearanceScreen';
+import GameSettingsScreen from '@/screens/profile/GameSettingsScreen';
+import SecurityScreen from '@/screens/profile/SecurityScreen';
+import DeveloperScreen from '@/screens/profile/DeveloperScreen';
 import NotificationSettingsScreen from '@/screens/profile/NotificationSettingsScreen';
 import HelpAndSupportScreen from '@/screens/profile/HelpAndSupportScreen';
 import PrivacyDataScreen from '@/screens/profile/PrivacyDataScreen';
@@ -430,10 +433,37 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
             />
 
             <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
+              name="Appearance"
+              component={AppearanceScreen}
               options={{
-                title: 'Settings',
+                title: 'Appearance',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="GameSettings"
+              component={GameSettingsScreen}
+              options={{
+                title: 'Game Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="Security"
+              component={SecurityScreen}
+              options={{
+                title: 'Security',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="Developer"
+              component={DeveloperScreen}
+              options={{
+                title: 'Developer',
                 headerShown: false,
               }}
             />

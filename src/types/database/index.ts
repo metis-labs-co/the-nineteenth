@@ -294,6 +294,7 @@ export type {
   LadderChallengeStatus,
   LadderSeeding,
   EclecticScoring,
+  LeagueSortMode,
   League,
   LeaguePlayer,
   LeagueRound,

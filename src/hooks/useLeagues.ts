@@ -43,7 +43,7 @@ import {
   cancelChallenge,
 } from '@/services/api/ladderChallenges';
 import type { CreateLeagueInput } from '@/services/api/leagues';
-import type { League } from '@/types/database';
+import type { League, LeagueSortMode } from '@/types/database';
 
 // =====================================================
 // QUERY HOOKS
@@ -83,10 +83,10 @@ export function useLeaguePlayers(leagueId: string, enabled = true) {
   });
 }
 
-export function useLeagueLeaderboard(leagueId: string, enabled = true) {
+export function useLeagueLeaderboard(leagueId: string, enabled = true, sortMode: LeagueSortMode = 'gross') {
   return useQuery({
-    queryKey: leagueKeys.leaderboard(leagueId),
-    queryFn: () => getLeagueLeaderboard(leagueId),
+    queryKey: leagueKeys.leaderboard(leagueId, sortMode),
+    queryFn: () => getLeagueLeaderboard(leagueId, sortMode),
     enabled: !!leagueId && enabled,
     staleTime: 2 * 60 * 1000, // Refresh more often
   });
@@ -251,7 +251,7 @@ export function useTagRoundToLeague() {
     mutationFn: ({ leagueId, scorecardId }: { leagueId: string; scorecardId: string }) =>
       tagRoundToLeague(leagueId, scorecardId),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboard(variables.leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboardBase(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.rounds(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eligibleScorecards(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.scorecardTags(variables.scorecardId) });
@@ -272,7 +272,7 @@ export function useUntagRound(leagueId: string) {
   return useMutation({
     mutationFn: (leagueRoundId: string) => untagRound(leagueRoundId, leagueId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboard(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboardBase(leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.rounds(leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eligibleScorecards(leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.tagCount(leagueId) });
@@ -305,7 +305,7 @@ export function useRemoveLeaguePlayer(leagueId: string) {
     mutationFn: (playerId: string) => removePlayer(leagueId, playerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.players(leagueId) });
-      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboard(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboardBase(leagueId) });
     },
     onError: (error) => {
       console.error('[useRemoveLeaguePlayer] Failed:', error);
@@ -320,7 +320,7 @@ export function useAddLeaguePlayers(leagueId: string) {
     mutationFn: (playerIds: string[]) => addPlayersToLeague(leagueId, playerIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.players(leagueId) });
-      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboard(leagueId) });
+      queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboardBase(leagueId) });
     },
     onError: (error) => {
       console.error('[useAddLeaguePlayers] Failed:', error);

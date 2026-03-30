@@ -306,17 +306,24 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       await queryClient.cancelQueries({ queryKey: pushKeys.preferences(userId) });
 
       // Snapshot previous value
-      const previousPreferences = queryClient.getQueryData<PushPreferences>(
+      const previousPreferences = queryClient.getQueryData<PushPreferences | null>(
         pushKeys.preferences(userId)
       );
 
-      // Optimistically update
-      if (previousPreferences) {
-        queryClient.setQueryData<PushPreferences>(pushKeys.preferences(userId), {
-          ...previousPreferences,
-          ...input,
-        });
-      }
+      // Optimistically update (use defaults if preferences haven't loaded yet)
+      const basePreferences: PushPreferences = previousPreferences ?? {
+        pushEnabled: false,
+        pushCompetitionUpdates: true,
+        pushFriendRequests: true,
+        pushScorecardUpdates: true,
+        pushLeagueUpdates: true,
+        pushSideGameUpdates: true,
+      };
+
+      queryClient.setQueryData<PushPreferences>(pushKeys.preferences(userId), {
+        ...basePreferences,
+        ...input,
+      });
 
       return { previousPreferences };
     },

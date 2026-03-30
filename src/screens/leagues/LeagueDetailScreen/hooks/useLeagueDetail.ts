@@ -37,7 +37,7 @@ import {
   useUpdatePartnershipName,
 } from '@/hooks/usePartnershipLeague';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
-import type { LeagueLeaderboardEntry, PartnershipLeaderboardEntry } from '@/types/database';
+import type { LeagueLeaderboardEntry, LeagueSortMode, PartnershipLeaderboardEntry } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, 'LeagueDetail'>;
@@ -55,9 +55,11 @@ export function useLeagueDetail() {
 
   // Standard leaderboard (ongoing, season, round_limit)
   const isStandardType = leagueType === 'ongoing' || leagueType === 'season' || leagueType === 'round_limit';
+  const [leaderboardSortMode, setLeaderboardSortMode] = useState<LeagueSortMode>('gross');
   const { data: leaderboard, refetch: refetchLeaderboard } = useLeagueLeaderboard(
     leagueId,
-    isStandardType
+    isStandardType,
+    leaderboardSortMode
   );
 
   const { data: players } = useLeaguePlayers(leagueId);
@@ -420,6 +422,8 @@ export function useLeagueDetail() {
     league,
     leagueType,
     leaderboardWithTied,
+    leaderboardSortMode,
+    setLeaderboardSortMode,
     players,
     myRounds,
     playerRounds,

@@ -10,6 +10,7 @@ import type {
   LeaguePlayer,
   LeagueRound,
   LeagueLeaderboardEntry,
+  LeagueSortMode,
   LeagueRoundDetail,
   LeagueWithPlayerCount,
   EclecticBestScore,
@@ -100,10 +101,13 @@ export async function getLeaguePlayers(leagueId: string): Promise<(LeaguePlayer 
 /**
  * Fetch league leaderboard using the DB function
  */
-export async function getLeagueLeaderboard(leagueId: string): Promise<LeagueLeaderboardEntry[]> {
+export async function getLeagueLeaderboard(
+  leagueId: string,
+  sortMode: LeagueSortMode = 'gross'
+): Promise<LeagueLeaderboardEntry[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
-    .rpc('get_league_leaderboard', { p_league_id: leagueId });
+    .rpc('get_league_leaderboard_v2', { p_league_id: leagueId, p_sort_mode: sortMode });
 
   if (error) {
     console.error('[Leagues] Error fetching leaderboard:', error);

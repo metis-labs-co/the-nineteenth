@@ -10,3 +10,4 @@ export { RadioButtonOption } from './RadioButtonOption';
 export type { RadioButtonOptionProps } from './RadioButtonOption';
 export { MenuItemRow } from './MenuItemRow';
 export type { MenuItemRowProps } from './MenuItemRow';
+export { SettingRow } from './SettingRow';

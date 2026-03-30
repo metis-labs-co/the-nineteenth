@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { MenuItemRow } from './MenuItemRow';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useCheckFeature } from '@/context/SubscriptionContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { FeatureId } from '@/types/subscription.types';
 
@@ -21,6 +22,8 @@ interface ProfileMenuSectionProps {
   placeholderPlayersCount: number;
   /** Current country name for display (e.g. 'Australia' or 'Auto') */
   currentCountryLabel: string;
+  /** Whether biometric authentication is available on this device */
+  biometricAvailable: boolean;
   /** Navigation callbacks */
   onEditProfile: () => void;
   onMyStatistics: () => void;
@@ -30,7 +33,10 @@ interface ProfileMenuSectionProps {
   onSubscription: () => void;
   onGuestPlayers: () => void;
   onPrivacyData: () => void;
-  onSettings: () => void;
+  onAppearance: () => void;
+  onGameSettings: () => void;
+  onSecurity: () => void;
+  onDeveloper: () => void;
   onCountryRegion: () => void;
   onNotifications: () => void;
   onHelpAndSupport: () => void;
@@ -43,6 +49,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   achievementPoints,
   placeholderPlayersCount,
   currentCountryLabel,
+  biometricAvailable,
   onEditProfile,
   onMyStatistics,
   onHandicapHistory,
@@ -52,7 +59,10 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
   onGameResults,
   onGuestPlayers,
   onPrivacyData,
-  onSettings,
+  onAppearance,
+  onGameSettings,
+  onSecurity,
+  onDeveloper,
   onCountryRegion,
   onNotifications,
   onFriends,
@@ -61,6 +71,7 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
 }: ProfileMenuSectionProps) {
   const colors = useThemeColors();
   const checkFeature = useCheckFeature();
+  const { isSuperAdmin } = useSubscription();
 
   // Check which features are locked for current tier
   const isHandicapHistoryLocked = !checkFeature('handicap_history').allowed;
@@ -184,11 +195,25 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
         </Text>
         <View style={[styles.menuGroup, { backgroundColor: colors.surface }]}>
           <MenuItemRow
-            icon="cog"
-            title="Settings"
-            onPress={onSettings}
-            testID="menu-settings"
+            icon="palette-outline"
+            title="Appearance"
+            onPress={onAppearance}
+            testID="menu-appearance"
           />
+          <MenuItemRow
+            icon="cog-outline"
+            title="Game Settings"
+            onPress={onGameSettings}
+            testID="menu-game-settings"
+          />
+          {biometricAvailable && (
+            <MenuItemRow
+              icon="shield-lock-outline"
+              title="Security"
+              onPress={onSecurity}
+              testID="menu-security"
+            />
+          )}
           <MenuItemRow
             icon="earth"
             title="Country / Region"
@@ -212,6 +237,14 @@ export const ProfileMenuSection = React.memo(function ProfileMenuSection({
             onPress={onHelpAndSupport}
             testID="menu-help"
           />
+          {isSuperAdmin && (
+            <MenuItemRow
+              icon="code-tags"
+              title="Developer"
+              onPress={onDeveloper}
+              testID="menu-developer"
+            />
+          )}
         </View>
       </View>
 

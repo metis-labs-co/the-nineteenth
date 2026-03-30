@@ -48,6 +48,8 @@ export default function LeagueDetailScreen() {
     league,
     leagueType,
     leaderboardWithTied,
+    leaderboardSortMode,
+    setLeaderboardSortMode,
     players,
     myRounds,
     playerRounds,
@@ -274,6 +276,8 @@ export default function LeagueDetailScreen() {
             leaderboard={leaderboardWithTied}
             currentUserId={userId}
             onRowPress={handleLeaderboardRowPress}
+            sortMode={leaderboardSortMode}
+            onSortModeChange={setLeaderboardSortMode}
           />
         )}
 

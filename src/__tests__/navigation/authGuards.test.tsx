@@ -242,11 +242,32 @@ jest.mock('@/screens/profile/MyStatisticsScreen', () => {
     return React.createElement(View, { testID: 'mystatistics-screen' }, React.createElement(Text, null, 'MyStatistics'));
   };
 });
-jest.mock('@/screens/profile/SettingsScreen', () => {
+jest.mock('@/screens/profile/AppearanceScreen', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
   return function MockScreen() {
-    return React.createElement(View, { testID: 'settings-screen' }, React.createElement(Text, null, 'Settings'));
+    return React.createElement(View, { testID: 'appearance-screen' }, React.createElement(Text, null, 'Appearance'));
+  };
+});
+jest.mock('@/screens/profile/GameSettingsScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'gamesettings-screen' }, React.createElement(Text, null, 'GameSettings'));
+  };
+});
+jest.mock('@/screens/profile/SecurityScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'security-screen' }, React.createElement(Text, null, 'Security'));
+  };
+});
+jest.mock('@/screens/profile/DeveloperScreen', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScreen() {
+    return React.createElement(View, { testID: 'developer-screen' }, React.createElement(Text, null, 'Developer'));
   };
 });
 jest.mock('@/screens/profile/NotificationSettingsScreen', () => {

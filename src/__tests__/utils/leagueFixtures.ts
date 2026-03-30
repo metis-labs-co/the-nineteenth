@@ -225,6 +225,7 @@ export function createTestLeaderboardEntry(
     rounds_counting: 3, // Best 3 of 8 (WHS table)
     avg_differential: 9.1,
     best_differential: 7.4,
+    avg_handicap: 12.3,
     rank: 1,
     ...overrides,
   };
@@ -246,6 +247,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 4,
       avg_differential: 8.6,
       best_differential: 7.4,
+      avg_handicap: 10.2,
       rank: 1,
     },
     {
@@ -256,6 +258,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 3,
       avg_differential: 10.2,
       best_differential: 8.2,
+      avg_handicap: 14.5,
       rank: 2,
     },
     {
@@ -266,6 +269,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 3,
       avg_differential: 11.5,
       best_differential: 9.3,
+      avg_handicap: 15.0,
       rank: 3,
     },
     {
@@ -276,6 +280,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 5,
       avg_differential: 12.8,
       best_differential: 10.1,
+      avg_handicap: 18.3,
       rank: 4,
     },
     {
@@ -286,6 +291,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 2,
       avg_differential: 14.3,
       best_differential: 12.5,
+      avg_handicap: 20.1,
       rank: 5,
     },
     {
@@ -296,6 +302,7 @@ export function createTestLeaderboard(playerCount: number = 6): LeagueLeaderboar
       rounds_counting: 1,
       avg_differential: 16.1,
       best_differential: 16.1,
+      avg_handicap: 22.4,
       rank: 6,
     },
   ];
