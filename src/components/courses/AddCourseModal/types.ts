@@ -68,7 +68,7 @@ export interface Step3Data {
 
 export interface WizardState {
   step1: Step1Data;
-  step2: Step2Data;
+  step2: Step2Data & { numHoles: 9 | 18 };
   step3: Step3Data;
 }
 
@@ -88,8 +88,8 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
 }
 
-export function createDefaultHoles(): HoleFormData[] {
-  return Array.from({ length: 18 }, (_, i) => ({
+export function createDefaultHoles(count: 9 | 18 = 18): HoleFormData[] {
+  return Array.from({ length: count }, (_, i) => ({
     number: i + 1,
     par: 4,
     strokeIndex: i + 1,
@@ -107,6 +107,7 @@ export function getDefaultWizardState(): WizardState {
     step2: {
       courseName: '',
       tees: [],
+      numHoles: 18,
     },
     step3: {
       holes: createDefaultHoles(),

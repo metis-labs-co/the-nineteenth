@@ -81,6 +81,7 @@ export default function CreateRoundBottomSheet({
   const [isNewClub, setIsNewClub] = useState(false);
   const [newClubName, setNewClubName] = useState('');
   const [newCourseName, setNewCourseName] = useState('');
+  const [numHoles, setNumHoles] = useState<9 | 18>(18);
   const [isImportingClub, setIsImportingClub] = useState(false);
   const createClubWithCourse = useCreateClubWithCourse();
   const createCourse = useCreateCourse();
@@ -119,6 +120,7 @@ export default function CreateRoundBottomSheet({
     setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setNumHoles(18);
     setIsImportingClub(false);
   }, []);
 
@@ -158,11 +160,12 @@ export default function CreateRoundBottomSheet({
     setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setNumHoles(18);
   }, []);
 
   // Helper to finish course creation — auto-selects and starts build-as-you-play
   const finishCourseCreation = useCallback(
-    (courseId: string, courseName: string, club: Club) => {
+    (courseId: string, courseName: string, club: Club, courseNumHoles: 9 | 18 = 18) => {
       wizard.setSearchQuery('');
       wizard.setBuildAsYouPlay(true);
 
@@ -171,6 +174,11 @@ export default function CreateRoundBottomSheet({
         courseData as Parameters<typeof wizard.handleSelectCourse>[0],
         club
       );
+
+      // Auto-select front9 for 9-hole courses
+      if (courseNumHoles === 9) {
+        wizard.handleSelectNineType('front9');
+      }
 
       setShowCreateCourseForm(false);
     },
@@ -189,26 +197,28 @@ export default function CreateRoundBottomSheet({
           club_id: selectedExistingClub.id,
           name: courseName,
           holes: [],
+          num_holes: numHoles,
         });
 
         // Only track courseId — don't delete the existing club on cancel
         setInlineCreatedCourse({ courseId: course.id, clubId: null });
-        finishCourseCreation(course.id, course.name, selectedExistingClub);
+        finishCourseCreation(course.id, course.name, selectedExistingClub, numHoles);
       } else if (isNewClub) {
         // Path B: Create new club + course
         if (!newClubName.trim()) return;
 
         const result = await createClubWithCourse.mutateAsync({
-          club: { name: newClubName.trim() },
+          club: { name: newClubName.trim(), total_holes: numHoles },
           course: {
             name: newCourseName.trim() || newClubName.trim(),
             holes: [],
+            num_holes: numHoles,
           },
         });
 
         // Track both for orphan cleanup
         setInlineCreatedCourse({ courseId: result.course.id, clubId: result.club.id });
-        finishCourseCreation(result.course.id, result.course.name, result.club);
+        finishCourseCreation(result.course.id, result.course.name, result.club, numHoles);
       }
     } catch (error) {
       console.error('[CreateRound] Error creating course:', error);
@@ -218,6 +228,7 @@ export default function CreateRoundBottomSheet({
     isNewClub,
     newClubName,
     newCourseName,
+    numHoles,
     createCourse,
     createClubWithCourse,
     finishCourseCreation,
@@ -230,6 +241,7 @@ export default function CreateRoundBottomSheet({
     setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setNumHoles(18);
     setIsImportingClub(false);
   }, []);
 
@@ -340,6 +352,7 @@ export default function CreateRoundBottomSheet({
     setIsNewClub(false);
     setNewClubName('');
     setNewCourseName('');
+    setNumHoles(18);
     setIsImportingClub(false);
     wizard.handleClose();
   }, [wizard, inlineCreatedCourse, deleteCourseMutation]);
@@ -478,6 +491,57 @@ export default function CreateRoundBottomSheet({
                 returnKeyType="done"
                 onSubmitEditing={handleCreateCourse}
               />
+
+              {/* 9/18 Holes Toggle (Super Admin only) */}
+              {isSuperAdmin && (
+                <>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
+                    Number of Holes
+                  </Text>
+                  <View style={styles.numHolesToggle}>
+                    <TouchableOpacity
+                      onPress={() => setNumHoles(9)}
+                      style={[
+                        styles.numHolesPill,
+                        { borderColor: colors.primary },
+                        numHoles === 9
+                          ? { backgroundColor: colors.primary }
+                          : { backgroundColor: colors.surface },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.numHolesPillText,
+                          { color: numHoles === 9 ? colors.white : colors.primary },
+                        ]}
+                      >
+                        9 Holes
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setNumHoles(18)}
+                      style={[
+                        styles.numHolesPill,
+                        { borderColor: colors.primary },
+                        numHoles === 18
+                          ? { backgroundColor: colors.primary }
+                          : { backgroundColor: colors.surface },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.numHolesPillText,
+                          { color: numHoles === 18 ? colors.white : colors.primary },
+                        ]}
+                      >
+                        18 Holes
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
 
               <TouchableOpacity
                 onPress={handleCreateCourse}
@@ -689,5 +753,20 @@ const styles = StyleSheet.create({
   },
   chipClear: {
     ...typography.smallBold,
+  },
+  numHolesToggle: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  numHolesPill: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numHolesPillText: {
+    ...typography.bodyBold,
   },
 });

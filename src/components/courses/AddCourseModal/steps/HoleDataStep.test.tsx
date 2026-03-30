@@ -84,6 +84,7 @@ const defaultProps = {
     createTestTee('tee-white', 'White', 'white'),
     createTestTee('tee-red', 'Red', 'red'),
   ],
+  numHoles: 18 as 9 | 18,
   duplicateSiValues: [],
   onHoleChange: jest.fn(),
   onHoleYardageChange: jest.fn(),

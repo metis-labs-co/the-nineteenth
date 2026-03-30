@@ -96,6 +96,7 @@ export interface CreateClubCourseInput {
   tees?: Course['tees'];
   slope_rating?: number | null;
   course_rating?: number | null;
+  num_holes?: number;
 }
 
 /**

@@ -36,6 +36,14 @@ const PLACEHOLDER_HOLES: Hole[] = Array.from({ length: 18 }, (_, i) => ({
   strokeIndex: i + 1,
 }));
 
+function createPlaceholderHoles(count: number): Hole[] {
+  return Array.from({ length: count }, (_, i) => ({
+    number: (i + 1) as Hole['number'],
+    par: 4 as Hole['par'],
+    strokeIndex: i + 1,
+  }));
+}
+
 function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[] {
   if (nineType === 'front9') return holes.filter((h) => h.number <= 9);
   if (nineType === 'back9') return holes.filter((h) => h.number >= 10);
@@ -98,10 +106,10 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
       onStarted?.();
 
       try {
-        // Fetch course data including holes
+        // Fetch course data including holes and num_holes
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
-          .select('id, name, holes')
+          .select('id, name, holes, num_holes')
           .eq('id', courseId)
           .single();
 
@@ -112,12 +120,17 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         // Use course holes, placeholder holes (build-as-you-play), or default holes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Raw JSONB data from database
         const rawHoles = (courseData as any)?.holes;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Raw JSONB data from database
+        const courseNumHoles: number = (courseData as any)?.num_holes ?? 18;
         const parsedHoles = parseAndTransformHoles(rawHoles);
         const holes: Hole[] = parsedHoles.length > 0
           ? parsedHoles
           : isBuildAsYouPlay
-            ? PLACEHOLDER_HOLES
+            ? createPlaceholderHoles(courseNumHoles)
             : DEFAULT_HOLES;
+
+        // Auto-select front9 for 9-hole courses
+        const effectiveNineType: NineType = courseNumHoles === 9 ? 'front9' : nineType;
 
         // Determine if this is a team format (scramble, shamble, best-ball, or match-play with teams)
         const isStandardTeamFormat = ['scramble', 'shamble', 'best-ball'].includes(gameType);
@@ -143,7 +156,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             // Set team round fields for team formats (scramble, shamble, best-ball, match-play with teams)
             is_team_round: isTeamFormat,
             team_format: isMatchPlayWithTeams ? 'match-play-team' : (isStandardTeamFormat ? gameType : null),
-            nine_type: nineType,
+            nine_type: effectiveNineType,
             ...(handicapSource ? { handicap_source: handicapSource } : {}),
           })
           .select('id')
@@ -375,10 +388,10 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         }
 
         // Filter holes to the selected nine
-        const filteredHoles = filterHolesByNineType(holes, nineType);
+        const filteredHoles = filterHolesByNineType(holes, effectiveNineType);
 
         // Initialize the scorecard store
-        await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, nineType);
+        await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, effectiveNineType);
 
         // Navigate to appropriate scoring screen based on game type
         // Individual match play (2 players) goes to dedicated MatchPlayScoring screen

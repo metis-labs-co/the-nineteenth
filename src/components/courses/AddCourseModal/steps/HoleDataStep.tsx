@@ -18,6 +18,7 @@ interface HoleDataStepProps {
   holes: HoleFormData[];
   currentHoleIndex: number;
   tees: TeeFormData[];
+  numHoles: 9 | 18;
   duplicateSiValues: number[];
   onHoleChange: (holeIndex: number, updates: Partial<HoleFormData>) => void;
   onHoleYardageChange: (holeIndex: number, teeId: string, yardage: string) => void;
@@ -30,6 +31,7 @@ export const HoleDataStep = React.memo(function HoleDataStep({
   holes,
   currentHoleIndex,
   tees,
+  numHoles,
   duplicateSiValues,
   onHoleChange,
   onHoleYardageChange,
@@ -38,7 +40,8 @@ export const HoleDataStep = React.memo(function HoleDataStep({
   onJumpToHole,
 }: HoleDataStepProps) {
   const colors = useThemeColors();
-  const currentHole = holes[currentHoleIndex];
+  const visibleHoles = holes.slice(0, numHoles);
+  const currentHole = visibleHoles[currentHoleIndex];
   const isCurrentHoleSiDuplicate = duplicateSiValues.includes(currentHole?.strokeIndex);
 
   return (
@@ -47,7 +50,7 @@ export const HoleDataStep = React.memo(function HoleDataStep({
       <View style={[styles.holeDotsContainer, { borderBottomColor: colors.borderLight }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.holeDots}>
-            {holes.map((hole, index) => {
+            {visibleHoles.map((hole, index) => {
               const isActive = index === currentHoleIndex;
               const hasData = hole.par && hole.strokeIndex;
               const hasSiError = duplicateSiValues.includes(hole.strokeIndex);
@@ -100,15 +103,15 @@ export const HoleDataStep = React.memo(function HoleDataStep({
           </View>
           <TouchableOpacity
             onPress={onNextHole}
-            disabled={currentHoleIndex === 17}
-            style={[styles.holeNavButton, { opacity: currentHoleIndex === 17 ? 0.3 : 1 }]}
+            disabled={currentHoleIndex === numHoles - 1}
+            style={[styles.holeNavButton, { opacity: currentHoleIndex === numHoles - 1 ? 0.3 : 1 }]}
           >
             <Icon source="chevron-right" size={32} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         <Text style={[styles.holeLabel, { color: colors.textSecondary }]}>
-          Hole {currentHole.number} of 18
+          Hole {currentHole.number} of {numHoles}
         </Text>
 
         {/* Par Selection */}
@@ -169,7 +172,7 @@ export const HoleDataStep = React.memo(function HoleDataStep({
             <TouchableOpacity
               onPress={() =>
                 onHoleChange(currentHoleIndex, {
-                  strokeIndex: Math.min(18, currentHole.strokeIndex + 1),
+                  strokeIndex: Math.min(numHoles, currentHole.strokeIndex + 1),
                 })
               }
               style={[styles.siButton, { backgroundColor: colors.gray100 }]}

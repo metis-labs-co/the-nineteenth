@@ -71,6 +71,7 @@ export function useCreateCourse() {
           tees: input.tees ?? null,
           slope_rating: input.slope_rating ?? null,
           course_rating: input.course_rating ?? null,
+          num_holes: input.num_holes ?? 18,
         })
         .select()
         .single();
@@ -129,6 +130,7 @@ export function useCreateClubWithCourse() {
           tees: input.course?.tees ?? null,
           slope_rating: input.course?.slope_rating ?? null,
           course_rating: input.course?.course_rating ?? null,
+          num_holes: input.course?.num_holes ?? 18,
         })
         .select()
         .single();

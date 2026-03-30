@@ -18,6 +18,7 @@ import {
   type TeeFormData,
   type TeeColor,
   getDefaultWizardState,
+  createDefaultHoles,
   generateId,
 } from '../types';
 
@@ -52,6 +53,7 @@ interface UseAddCourseWizardReturn {
 
   // Step 2 handlers
   handleCourseNameChange: (text: string) => void;
+  handleNumHolesChange: (numHoles: 9 | 18) => void;
   handleAddTee: () => string;
   handleUpdateTee: (teeId: string, updates: Partial<TeeFormData>) => void;
   handleDeleteTee: (teeId: string) => void;
@@ -91,19 +93,23 @@ export function useAddCourseWizard({
     return hasCourseName && hasAtLeastOneTee && allTeesHaveNames;
   }, [wizardData.step2]);
 
+  const numHoles = wizardData.step2.numHoles;
+
   const isStep3Valid = useMemo(() => {
-    const allHolesComplete = wizardData.step3.holes.every(
-      (h) => h.par && h.strokeIndex >= 1 && h.strokeIndex <= 18
+    const holesSlice = wizardData.step3.holes.slice(0, numHoles);
+    const allHolesComplete = holesSlice.every(
+      (h) => h.par && h.strokeIndex >= 1 && h.strokeIndex <= numHoles
     );
-    const siValues = wizardData.step3.holes.map((h) => h.strokeIndex);
+    const siValues = holesSlice.map((h) => h.strokeIndex);
     const uniqueSiValues = new Set(siValues);
-    const siUnique = uniqueSiValues.size === 18;
+    const siUnique = uniqueSiValues.size === numHoles;
     return allHolesComplete && siUnique;
-  }, [wizardData.step3.holes]);
+  }, [wizardData.step3.holes, numHoles]);
 
   const duplicateSiValues = useMemo(() => {
     const siCount: Record<number, number[]> = {};
-    wizardData.step3.holes.forEach((h) => {
+    const holesSlice = wizardData.step3.holes.slice(0, numHoles);
+    holesSlice.forEach((h) => {
       if (!siCount[h.strokeIndex]) {
         siCount[h.strokeIndex] = [];
       }
@@ -112,7 +118,7 @@ export function useAddCourseWizard({
     return Object.entries(siCount)
       .filter(([_, holes]) => holes.length > 1)
       .map(([si]) => parseInt(si, 10));
-  }, [wizardData.step3.holes]);
+  }, [wizardData.step3.holes, numHoles]);
 
   const progress = useMemo(() => {
     return (currentStep / 3) * 100;
@@ -187,6 +193,18 @@ export function useAddCourseWizard({
     setWizardData((prev) => ({
       ...prev,
       step2: { ...prev.step2, courseName: text },
+    }));
+  }, []);
+
+  const handleNumHolesChange = useCallback((newNumHoles: 9 | 18) => {
+    setWizardData((prev) => ({
+      ...prev,
+      step2: { ...prev.step2, numHoles: newNumHoles },
+      step3: {
+        ...prev.step3,
+        holes: createDefaultHoles(newNumHoles),
+        currentHoleIndex: 0,
+      },
     }));
   }, []);
 
@@ -265,7 +283,7 @@ export function useAddCourseWizard({
       ...prev,
       step3: {
         ...prev.step3,
-        currentHoleIndex: Math.min(prev.step3.currentHoleIndex + 1, 17),
+        currentHoleIndex: Math.min(prev.step3.currentHoleIndex + 1, prev.step2.numHoles - 1),
       },
     }));
   }, []);
@@ -297,9 +315,12 @@ export function useAddCourseWizard({
   const handleCreate = useCallback(async () => {
     if (!isStep1Valid || !isStep2Valid || !isStep3Valid) return;
 
+    const effectiveNumHoles = wizardData.step2.numHoles;
+    const holesSlice = wizardData.step3.holes.slice(0, effectiveNumHoles);
+
     try {
       const tees: TeeBox[] = wizardData.step2.tees.map((t) => {
-        const totalYardage = wizardData.step3.holes.reduce((sum, h) => {
+        const totalYardage = holesSlice.reduce((sum, h) => {
           return sum + (h.yardages[t.id] || 0);
         }, 0);
         return {
@@ -309,7 +330,7 @@ export function useAddCourseWizard({
         };
       });
 
-      const holes: Hole[] = wizardData.step3.holes.map((h) => {
+      const holes: Hole[] = holesSlice.map((h) => {
         const yardages: Record<string, number> = {};
         wizardData.step2.tees.forEach((t) => {
           if (h.yardages[t.id]) {
@@ -329,12 +350,13 @@ export function useAddCourseWizard({
           name: wizardData.step1.clubName.trim(),
           city: wizardData.step1.city.trim() || null,
           state: wizardData.step1.state,
-          total_holes: 18,
+          total_holes: effectiveNumHoles,
         },
         course: {
           name: wizardData.step2.courseName.trim(),
           holes,
           tees,
+          num_holes: effectiveNumHoles,
         },
       });
 
@@ -379,6 +401,7 @@ export function useAddCourseWizard({
 
     // Step 2 handlers
     handleCourseNameChange,
+    handleNumHolesChange,
     handleAddTee,
     handleUpdateTee,
     handleDeleteTee,

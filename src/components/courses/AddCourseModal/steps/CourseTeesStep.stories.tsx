@@ -606,7 +606,10 @@ export const InteractiveDemo: Story = {
           newTeeColor={newTeeColor}
           newSlopeRating={newSlopeRating}
           newCourseRating={newCourseRating}
+          numHoles={18}
+          showNumHolesToggle={false}
           onCourseNameChange={setCourseName}
+          onNumHolesChange={() => {}}
           onAddTee={handleAddTee}
           onEditTee={handleEditTee}
           onSaveTee={handleSaveTee}
@@ -720,7 +723,10 @@ export const PrePopulatedDemo: Story = {
           newTeeColor={newTeeColor}
           newSlopeRating={newSlopeRating}
           newCourseRating={newCourseRating}
+          numHoles={18}
+          showNumHolesToggle={false}
           onCourseNameChange={setCourseName}
+          onNumHolesChange={() => {}}
           onAddTee={handleAddTee}
           onEditTee={handleEditTee}
           onSaveTee={handleSaveTee}

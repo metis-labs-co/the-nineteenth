@@ -14,6 +14,7 @@ import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { StepIndicator } from '@/components/common/StepIndicator';
 import { useAddCourseWizard } from './hooks/useAddCourseWizard';
@@ -27,6 +28,7 @@ export type { AddCourseModalProps };
 
 export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseModalProps) {
   const colors = useThemeColors();
+  const isSuperAdmin = useIsSuperAdmin();
 
   const wizard = useAddCourseWizard({ onClose, onClubCreated: onVenueCreated ?? (() => {}) });
 
@@ -132,7 +134,10 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
               newTeeColor={teeManagement.newTeeColor}
               newSlopeRating={teeManagement.newSlopeRating}
               newCourseRating={teeManagement.newCourseRating}
+              numHoles={wizard.wizardData.step2.numHoles}
+              showNumHolesToggle={isSuperAdmin}
               onCourseNameChange={wizard.handleCourseNameChange}
+              onNumHolesChange={wizard.handleNumHolesChange}
               onAddTee={teeManagement.handleAddTee}
               onEditTee={teeManagement.handleEditTee}
               onSaveTee={teeManagement.handleSaveTee}
@@ -149,6 +154,7 @@ export function AddCourseModal({ visible, onClose, onVenueCreated }: AddCourseMo
               holes={wizard.wizardData.step3.holes}
               currentHoleIndex={wizard.wizardData.step3.currentHoleIndex}
               tees={wizard.wizardData.step2.tees}
+              numHoles={wizard.wizardData.step2.numHoles}
               duplicateSiValues={wizard.duplicateSiValues}
               onHoleChange={wizard.handleHoleChange}
               onHoleYardageChange={wizard.handleHoleYardageChange}

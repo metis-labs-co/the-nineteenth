@@ -24,7 +24,10 @@ interface CourseTeesStepProps {
   newTeeColor: TeeColor;
   newSlopeRating: string;
   newCourseRating: string;
+  numHoles: 9 | 18;
+  showNumHolesToggle: boolean;
   onCourseNameChange: (text: string) => void;
+  onNumHolesChange: (numHoles: 9 | 18) => void;
   onAddTee: () => void;
   onEditTee: (tee: TeeFormData) => void;
   onSaveTee: () => void;
@@ -44,7 +47,10 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
   newTeeColor,
   newSlopeRating,
   newCourseRating,
+  numHoles,
+  showNumHolesToggle,
   onCourseNameChange,
+  onNumHolesChange,
   onAddTee,
   onEditTee,
   onSaveTee,
@@ -77,6 +83,55 @@ export const CourseTeesStep = React.memo(function CourseTeesStep({
         required
         accessibilityLabel="Course name"
       />
+
+      {/* 9/18 Holes Toggle (Super Admin only) */}
+      {showNumHolesToggle && (
+        <View style={styles.inputGroup}>
+          <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Number of Holes</Text>
+          <View style={styles.numHolesToggle}>
+            <TouchableOpacity
+              onPress={() => onNumHolesChange(9)}
+              style={[
+                styles.numHolesPill,
+                { borderColor: colors.primary },
+                numHoles === 9
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.surface },
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.numHolesPillText,
+                  { color: numHoles === 9 ? colors.white : colors.primary },
+                ]}
+              >
+                9 Holes
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onNumHolesChange(18)}
+              style={[
+                styles.numHolesPill,
+                { borderColor: colors.primary },
+                numHoles === 18
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.surface },
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.numHolesPillText,
+                  { color: numHoles === 18 ? colors.white : colors.primary },
+                ]}
+              >
+                18 Holes
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Tees Section */}
       <View style={styles.inputGroup}>
@@ -270,6 +325,21 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...typography.smallBold,
     marginBottom: spacing.sm,
+  },
+  numHolesToggle: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  numHolesPill: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numHolesPillText: {
+    ...typography.bodyBold,
   },
   sectionHeader: {
     flexDirection: 'row',
