@@ -7,7 +7,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useRoundDetails } from '@/hooks/useRoundDetails';
+import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useQuickScoreSubmit } from '@/hooks/scorecard/useQuickScoreSubmit';
 import {
   getStrokesReceived,
@@ -26,8 +26,12 @@ interface UseQuickScoreEntryParams {
 
 export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryParams) {
   const navigation = useNavigation();
-  const { data: roundData, isLoading } = useRoundDetails(roundId);
+  const { data: round, isLoading: isLoadingRound } = useRoundDetails(roundId);
+  const { data: scorecards, isLoading: isLoadingScorecards } = useRoundScorecards(roundId);
+  const { data: roundPlayers, isLoading: isLoadingPlayers } = useRoundPlayers(roundId);
   const submitMutation = useQuickScoreSubmit();
+
+  const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers;
 
   // Score state: { "1": 4, "2": 5, ... }
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -35,7 +39,6 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   const [initialized, setInitialized] = useState(false);
 
   // Extract round data
-  const round = roundData?.round;
   const course = round?.course;
   const allHoles: Hole[] = useMemo(() => {
     if (!course?.holes || !Array.isArray(course.holes)) return [];
@@ -57,9 +60,8 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
 
   // Find the target player from scorecards or round_players
   const player: ScorecardPlayerInfo | null = useMemo(() => {
-    if (!roundData) return null;
     // Check scorecards first
-    const sc = roundData.scorecards?.find((s: any) => s.player_id === playerId);
+    const sc = scorecards?.find((s) => s.player_id === playerId);
     if (sc?.player) {
       return {
         id: sc.player.id,
@@ -70,23 +72,23 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       };
     }
     // Check round_players
-    const rp = roundData.roundPlayers?.find((p: any) => p.id === playerId || p.player_id === playerId);
+    const rp = roundPlayers?.find((p) => p.id === playerId);
     if (rp) {
       return {
-        id: (rp as any).player_id ?? rp.id,
-        name: (rp as any).name ?? 'Player',
-        handicap: (rp as any).handicap ?? null,
+        id: rp.id,
+        name: rp.name,
+        handicap: rp.handicap ?? null,
         handicap_index: (rp as any).handicap_index ?? null,
         gender: (rp as any).gender ?? null,
       };
     }
     return null;
-  }, [roundData, playerId]);
+  }, [scorecards, roundPlayers, playerId]);
 
   // Pre-populate from existing scorecard
   const existingScorecard = useMemo(() => {
-    return roundData?.scorecards?.find((s: any) => s.player_id === playerId);
-  }, [roundData?.scorecards, playerId]);
+    return scorecards?.find((s) => s.player_id === playerId);
+  }, [scorecards, playerId]);
 
   // Initialize scores from existing scorecard on first load
   useEffect(() => {
