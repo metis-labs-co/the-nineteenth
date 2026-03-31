@@ -5,9 +5,9 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import { useQuickScoreSubmit } from '@/hooks/scorecard/useQuickScoreSubmit';
 import {
   getStrokesReceived,
@@ -30,6 +30,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   const { data: scorecards, isLoading: isLoadingScorecards } = useRoundScorecards(roundId);
   const { data: roundPlayers, isLoading: isLoadingPlayers } = useRoundPlayers(roundId);
   const submitMutation = useQuickScoreSubmit();
+  const { showAlert, dialogConfig, dismissDialog } = useConfirmationDialog();
 
   const isLoading = isLoadingRound || isLoadingScorecards || isLoadingPlayers;
 
@@ -193,7 +194,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   // Save
   const handleSave = useCallback(() => {
     if (totals.holesEntered === 0) {
-      Alert.alert('No Scores', 'Please enter at least one hole score before saving.');
+      showAlert('No Scores', 'Please enter at least one hole score before saving.');
       return;
     }
     setShowReview(true);
@@ -226,7 +227,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       setShowReview(false);
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save scores');
+      showAlert('Error', error instanceof Error ? error.message : 'Failed to save scores');
     }
   }, [player, scores, roundId, playerId, totals, selectedTee, allHoles, handicapSource, submitMutation, navigation]);
 
@@ -257,5 +258,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
     showReview,
     setShowReview,
     isSaving: submitMutation.isPending,
+
+    // Dialog
+    dialogConfig,
+    dismissDialog,
   };
 }

@@ -5,8 +5,8 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { useLeaguePlayers } from '@/hooks/useLeagues';
@@ -39,6 +39,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const submitScorecard = useQuickScoreSubmit();
+  const { showAlert, dialogConfig, dismissDialog } = useConfirmationDialog();
 
   // Wizard state
   const [step, setStep] = useState<WizardStep>('player');
@@ -151,7 +152,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   const handleSelectTee = useCallback((tee: TeeBox) => {
     if (!tee.courseRating || !tee.slopeRating) {
-      Alert.alert(
+      showAlert(
         'Missing Ratings',
         'This tee does not have Course Rating or Slope Rating data. Please select a different tee with complete ratings for league rounds.'
       );
@@ -164,7 +165,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   const handleGoToReview = useCallback(() => {
     if (totals.holesEntered === 0) {
-      Alert.alert('No Scores', 'Please enter at least one hole score.');
+      showAlert('No Scores', 'Please enter at least one hole score.');
       return;
     }
     setStep('review');
@@ -268,7 +269,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save round');
+      showAlert('Error', error instanceof Error ? error.message : 'Failed to save round');
     } finally {
       setIsSaving(false);
     }
@@ -311,5 +312,9 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     // Save
     handleConfirmSave,
     isSaving,
+
+    // Dialog
+    dialogConfig,
+    dismissDialog,
   };
 }

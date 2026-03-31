@@ -14,6 +14,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { ConfirmationDialog } from '@/components/common';
 
 import { useQuickScoreEntry } from './useQuickScoreEntry';
 import QuickScoreHoleRow from './QuickScoreHoleRow';
@@ -102,6 +103,9 @@ export default function QuickScoreEntryScreen({ route }: Props) {
         onConfirm={vm.handleConfirmSave}
         onCancel={() => vm.setShowReview(false)}
       />
+
+      {/* Confirmation dialog (replaces Alert.alert) */}
+      <ConfirmationDialog {...vm.dialogConfig} onCancel={vm.dismissDialog} />
     </View>
   );
 }

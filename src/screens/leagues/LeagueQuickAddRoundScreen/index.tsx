@@ -12,6 +12,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ConfirmationDialog } from '@/components/common';
 import { CourseSelectionStep } from '@/screens/rounds/CreateRoundBottomSheet/steps/CourseSelectionStep';
 import {
   useSearchClubs,
@@ -237,6 +238,9 @@ export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Pr
           onCancel={() => vm.goToStep('scores')}
         />
       )}
+
+      {/* Confirmation dialog (replaces Alert.alert) */}
+      <ConfirmationDialog {...vm.dialogConfig} onCancel={vm.dismissDialog} />
     </View>
   );
 }
