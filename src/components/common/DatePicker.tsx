@@ -231,7 +231,7 @@ export function DatePicker({
                   minimumDate={mode === 'date' && minimumDate ? startOfDay(minimumDate) : undefined}
                   maximumDate={mode === 'date' ? maximumDate : undefined}
                   is24Hour={mode === 'time'}
-                  textColor={isDark ? colors.white : colors.textPrimary}
+                  textColor={isDark ? '#ffffff' : colors.textPrimary}
                   themeVariant={isDark ? 'dark' : 'light'}
                 />
               </View>
