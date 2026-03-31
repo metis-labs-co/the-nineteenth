@@ -55,6 +55,8 @@ import PlayerScorecardScreen from '@/screens/scoring/PlayerScorecardScreen';
 import MatchPlayScoringScreen from '@/screens/scoring/MatchPlayScoringScreen';
 import TeamMatchPlayScoringScreen from '@/screens/scoring/TeamMatchPlayScoringScreen';
 import { MatchPlayScorecardScreen } from '@/screens/scoring';
+import QuickScoreEntryScreen from '@/screens/scoring/QuickScoreEntryScreen';
+import LeagueQuickAddRoundScreen from '@/screens/leagues/LeagueQuickAddRoundScreen';
 
 // Profile Screens
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
@@ -398,6 +400,24 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={MatchPlayScorecardScreen}
               options={{
                 title: 'Match Scorecard',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="QuickScoreEntry"
+              component={QuickScoreEntryScreen}
+              options={{
+                title: 'Quick Score Entry',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="LeagueQuickAddRound"
+              component={LeagueQuickAddRoundScreen}
+              options={{
+                title: 'Add Round',
                 headerShown: false,
               }}
             />

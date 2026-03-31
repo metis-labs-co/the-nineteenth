@@ -52,6 +52,18 @@ export type RootStackParamList = {
     roundId: string;
   };
 
+  // Quick Score Entry (admin/organizer backfill)
+  QuickScoreEntry: {
+    roundId: string;
+    playerId: string;
+    competitionId?: string;
+  };
+
+  // League Quick Add Round (superadmin)
+  LeagueQuickAddRound: {
+    leagueId: string;
+  };
+
   // Leaderboard
   Leaderboard: { competitionId: string };
 
