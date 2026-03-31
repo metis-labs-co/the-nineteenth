@@ -215,6 +215,23 @@ export function formatRoundsCount(count: number): string {
 }
 
 /**
+ * Mask an email address for privacy display
+ *
+ * @param email - Full email address
+ * @returns Masked email with only first character of local part visible
+ *
+ * @example
+ * maskEmail('sam@example.com')       // 's**@example.com'
+ * maskEmail('alexander@example.com') // 'a*****@example.com'
+ * maskEmail('s@example.com')         // 's@example.com'
+ */
+export function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain || local.length <= 1) return email;
+  return `${local[0]}${'*'.repeat(Math.min(local.length - 1, 5))}@${domain}`;
+}
+
+/**
  * Format date with weekday for round display
  *
  * @param dateString - ISO date string (YYYY-MM-DD) or null

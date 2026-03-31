@@ -255,7 +255,7 @@ export const PartnersStep = memo(function PartnersStep({
                       onPress={() => onCurrentUserTeeChange(tee)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.teeDot, { backgroundColor: dotColor }]} />
+                      <View style={[styles.teeDot, { backgroundColor: dotColor, borderColor: colors.border }]} />
                       <Text
                         style={[
                           styles.teePillText,
@@ -294,7 +294,7 @@ export const PartnersStep = memo(function PartnersStep({
                         onPress={() => onPartnerTeeChange(partner.id, tee)}
                         activeOpacity={0.7}
                       >
-                        <View style={[styles.teeDot, { backgroundColor: dotColor }]} />
+                        <View style={[styles.teeDot, { backgroundColor: dotColor, borderColor: colors.border }]} />
                         <Text
                           style={[
                             styles.teePillText,
@@ -423,9 +423,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   teeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
   },
   teePillText: {
     ...typography.caption,

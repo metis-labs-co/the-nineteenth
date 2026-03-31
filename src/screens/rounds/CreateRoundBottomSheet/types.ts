@@ -253,6 +253,9 @@ export const getTeeColor = (
   color: string,
   fallbackColor: string
 ): string => {
+  if (!color) return fallbackColor;
+  if (color.startsWith('#')) return color;
+
   const colorMap: Record<string, string> = {
     black: '#1a1a1a',
     blue: '#2563eb',

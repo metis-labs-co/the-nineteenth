@@ -14,9 +14,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -24,9 +21,10 @@ import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, FormInput } from '@/components/common';
+import { FormInput, FullScreenWizard, useWizard } from '@/components/common';
+import type { WizardStepConfig } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import {
   SeasonConfig,
   RoundLimitConfig,
@@ -69,9 +67,6 @@ export default function CreateLeagueScreen() {
   const navigation = useNavigation<NavigationProp>();
   const createLeague = useCreateLeague();
   const { checkAccess } = useFeatureAccess();
-
-  // Step state
-  const [step, setStep] = useState(1);
 
   // Step 1: Type + Name
   const [leagueType, setLeagueType] = useState<LeagueType>('ongoing');
@@ -255,187 +250,147 @@ export default function CreateLeagueScreen() {
     navigation.navigate('Subscription');
   }, [navigation]);
 
-  const handleBack = useCallback(() => {
-    if (step === 2) {
-      setStep(1);
-    } else {
-      navigation.goBack();
-    }
-  }, [step, navigation]);
+  // --- Wizard step configs ---
+
+  const steps: WizardStepConfig[] = useMemo(() => [
+    {
+      key: 'type',
+      title: 'League Type',
+      canProceed: canProceedStep1,
+      render: () => (
+        <View style={styles.form}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+            League Type
+          </Text>
+          <LeagueTypeSelector
+            selectedType={leagueType}
+            onSelectType={setLeagueType}
+            canCreatePremium={canCreatePremium}
+            onPremiumPress={handlePremiumPress}
+          />
+
+          <View style={styles.nameSection}>
+            <FormInput
+              label="League Name"
+              floatingLabel
+              placeholder="e.g. Sunday Social League"
+              value={name}
+              onChangeText={setName}
+              maxLength={50}
+              accessibilityHint="Enter a name for your league"
+            />
+
+            <FormInput
+              label="Description"
+              floatingLabel
+              placeholder="Optional description"
+              value={description}
+              onChangeText={setDescription}
+              maxLength={200}
+              multiline
+              numberOfLines={3}
+              accessibilityHint="Optionally describe your league"
+            />
+
+            <TouchableOpacity
+              onPress={() => setIsPublic(!isPublic)}
+              style={[styles.toggleRow, { borderColor: colors.border }]}
+            >
+              <View style={styles.toggleTextContainer}>
+                <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                  Public League
+                </Text>
+                <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                  Allow anyone to find and join this league
+                </Text>
+              </View>
+              <Icon
+                source={isPublic ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                size={24}
+                color={isPublic ? colors.primary : colors.gray300}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ),
+    },
+    {
+      key: 'config',
+      title: 'Configuration',
+      canProceed: canCreateLeague,
+      isSubmit: true,
+      nextLabel: 'Create League',
+      render: () => (
+        <View style={styles.form}>
+          {leagueType === 'ongoing' && <OngoingConfig />}
+          {leagueType === 'season' && (
+            <SeasonConfig
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+            />
+          )}
+          {leagueType === 'round_limit' && (
+            <RoundLimitConfig
+              maxRounds={maxRounds}
+              countingRounds={countingRounds}
+              useBestOf={useBestOf}
+              onMaxRoundsChange={setMaxRounds}
+              onCountingRoundsChange={setCountingRounds}
+              onUseBestOfChange={setUseBestOf}
+            />
+          )}
+          {leagueType === 'ladder' && (
+            <LadderConfig
+              challengeRange={challengeRange}
+              seeding={ladderSeeding}
+              onChallengeRangeChange={setChallengeRange}
+              onSeedingChange={setLadderSeeding}
+            />
+          )}
+          {leagueType === 'eclectic' && (
+            <EclecticConfig
+              courseName={courseName}
+              teeName={teeName}
+              scoring={eclecticScoring}
+              onCoursePress={handleCoursePress}
+              onTeePress={handleTeePress}
+              onScoringChange={setEclecticScoring}
+            />
+          )}
+          {leagueType === 'partnership' && (
+            <PartnershipConfig
+              format={partnershipFormat}
+              onFormatChange={setPartnershipFormat}
+            />
+          )}
+        </View>
+      ),
+    },
+  ], [
+    canProceedStep1, canCreateLeague, colors, leagueType, name, description, isPublic,
+    canCreatePremium, handlePremiumPress, startDate, endDate, maxRounds, countingRounds,
+    useBestOf, challengeRange, ladderSeeding, courseId, courseName, teeId, teeName,
+    eclecticScoring, partnershipFormat, handleCoursePress, handleTeePress,
+  ]);
+
+  const wizard = useWizard({
+    steps,
+    onSubmit: handleCreate,
+    onClose: () => navigation.goBack(),
+  });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+    <>
+      <FullScreenWizard
+        title="Create League"
+        wizard={wizard}
+        isSubmitting={createLeague.isPending}
+        onClose={() => navigation.goBack()}
       >
-        <PageHeader
-          title={step === 1 ? 'Create League' : 'Configure League'}
-          showBack
-          onBack={handleBack}
-        />
-
-        {/* Step Indicator */}
-        <View style={styles.stepIndicator}>
-          <View style={[styles.stepDot, { backgroundColor: colors.primary }]} />
-          <View style={[styles.stepLine, { backgroundColor: step === 2 ? colors.primary : colors.gray200 }]} />
-          <View style={[styles.stepDot, { backgroundColor: step === 2 ? colors.primary : colors.gray200 }]} />
-        </View>
-
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {step === 1 ? (
-            <View style={styles.form}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                League Type
-              </Text>
-              <LeagueTypeSelector
-                selectedType={leagueType}
-                onSelectType={setLeagueType}
-                canCreatePremium={canCreatePremium}
-                onPremiumPress={handlePremiumPress}
-              />
-
-              <View style={styles.nameSection}>
-                <FormInput
-                  label="League Name"
-                  floatingLabel
-                  placeholder="e.g. Sunday Social League"
-                  value={name}
-                  onChangeText={setName}
-                  maxLength={50}
-                  accessibilityHint="Enter a name for your league"
-                />
-
-                <FormInput
-                  label="Description"
-                  floatingLabel
-                  placeholder="Optional description"
-                  value={description}
-                  onChangeText={setDescription}
-                  maxLength={200}
-                  multiline
-                  numberOfLines={3}
-                  accessibilityHint="Optionally describe your league"
-                />
-
-                <TouchableOpacity
-                  onPress={() => setIsPublic(!isPublic)}
-                  style={[styles.toggleRow, { borderColor: colors.border }]}
-                >
-                  <View style={styles.toggleTextContainer}>
-                    <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
-                      Public League
-                    </Text>
-                    <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
-                      Allow anyone to find and join this league
-                    </Text>
-                  </View>
-                  <Icon
-                    source={isPublic ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                    size={24}
-                    color={isPublic ? colors.primary : colors.gray300}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.form}>
-              {leagueType === 'ongoing' && <OngoingConfig />}
-              {leagueType === 'season' && (
-                <SeasonConfig
-                  startDate={startDate}
-                  endDate={endDate}
-                  onStartDateChange={setStartDate}
-                  onEndDateChange={setEndDate}
-                />
-              )}
-              {leagueType === 'round_limit' && (
-                <RoundLimitConfig
-                  maxRounds={maxRounds}
-                  countingRounds={countingRounds}
-                  useBestOf={useBestOf}
-                  onMaxRoundsChange={setMaxRounds}
-                  onCountingRoundsChange={setCountingRounds}
-                  onUseBestOfChange={setUseBestOf}
-                />
-              )}
-              {leagueType === 'ladder' && (
-                <LadderConfig
-                  challengeRange={challengeRange}
-                  seeding={ladderSeeding}
-                  onChallengeRangeChange={setChallengeRange}
-                  onSeedingChange={setLadderSeeding}
-                />
-              )}
-              {leagueType === 'eclectic' && (
-                <EclecticConfig
-                  courseName={courseName}
-                  teeName={teeName}
-                  scoring={eclecticScoring}
-                  onCoursePress={handleCoursePress}
-                  onTeePress={handleTeePress}
-                  onScoringChange={setEclecticScoring}
-                />
-              )}
-              {leagueType === 'partnership' && (
-                <PartnershipConfig
-                  format={partnershipFormat}
-                  onFormatChange={setPartnershipFormat}
-                />
-              )}
-            </View>
-          )}
-
-          <View style={styles.footer}>
-            {step === 1 ? (
-              <TouchableOpacity
-                onPress={() => setStep(2)}
-                disabled={!canProceedStep1}
-                style={[
-                  styles.createButton,
-                  { backgroundColor: canProceedStep1 ? colors.primary : colors.gray200 },
-                ]}
-                activeOpacity={0.7}
-                accessibilityLabel="Continue to configuration"
-              >
-                <Text
-                  style={[
-                    styles.createButtonText,
-                    { color: canProceedStep1 ? colors.white : colors.textSecondary },
-                  ]}
-                >
-                  Continue
-                </Text>
-                <Icon source="arrow-right" size={20} color={canProceedStep1 ? colors.white : colors.textSecondary} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handleCreate}
-                disabled={!canCreateLeague || createLeague.isPending}
-                style={[
-                  styles.createButton,
-                  { backgroundColor: canCreateLeague ? colors.primary : colors.gray200 },
-                ]}
-                activeOpacity={0.7}
-                accessibilityLabel="Create league"
-              >
-                <Text
-                  style={[
-                    styles.createButtonText,
-                    { color: canCreateLeague ? colors.white : colors.textSecondary },
-                  ]}
-                >
-                  {createLeague.isPending ? 'Creating...' : 'Create League'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {wizard.currentStep.render()}
+      </FullScreenWizard>
 
       {/* Course Selection Modal (for eclectic) */}
       <CourseSelectionModal
@@ -458,36 +413,11 @@ export default function CreateLeagueScreen() {
         onSelect={handleTeeSelect}
         onClose={() => setShowTeeModal(false)}
       />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
-  stepIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: 0,
-  },
-  stepDot: {
-    width: 10,
-    height: 10,
-    borderRadius: borderRadius.sm,
-  },
-  stepLine: {
-    width: 40,
-    height: 2,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
   form: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -517,21 +447,5 @@ const styles = StyleSheet.create({
   toggleDescription: {
     ...typography.small,
     marginTop: 2,
-  },
-  footer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
-  },
-  createButton: {
-    height: 52,
-    borderRadius: borderRadius.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  createButtonText: {
-    ...typography.bodyBold,
   },
 });

@@ -229,6 +229,8 @@ export interface UseAuthReturn extends AuthState {
   loginWithApple: () => Promise<SocialLoginResponse>;
   loginWithGoogle: () => Promise<SocialLoginResponse>;
   isSocialLoggingIn: boolean;
+  isAppleLoggingIn: boolean;
+  isGoogleLoggingIn: boolean;
   isAppleAvailable: boolean;
 
   // Password Management

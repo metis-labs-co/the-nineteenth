@@ -17,6 +17,7 @@ export type RootStackParamList = {
   // Auth Flow
   Login: undefined;
   Signup: undefined;
+  OTPVerification: { email: string };
 
   // Onboarding (shown for users who haven't set handicap)
   Onboarding: undefined;

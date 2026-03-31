@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
+import { LoadingSpinner, ConfirmationDialog, FullScreenWizard } from '@/components/common';
+import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
 import { Text, Snackbar, Icon } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { UpgradePrompt } from '@/components/subscription/UpgradePrompt';
 
@@ -197,6 +198,29 @@ export default function CreateCompetitionScreen() {
     return null;
   };
 
+  // Build wizard-compatible object for FullScreenWizard (must be before early returns)
+  const wizardCompat = useMemo((): UseWizardReturn => {
+    const steps: WizardStepConfig[] = STEPS.map((step) => ({
+      key: `step-${step.number}`,
+      title: step.title,
+      canProceed: true,
+      render: () => null,
+    }));
+    const currentIndex = currentStep - 1;
+
+    return {
+      currentStepIndex: currentIndex,
+      currentStep: steps[currentIndex] || steps[0],
+      steps,
+      goNext: () => {},
+      goBack: handleBack,
+      goToStep: () => {},
+      isFirstStep: currentStep === 1,
+      isLastStep: currentIndex === steps.length - 1,
+      totalSteps: steps.length,
+    };
+  }, [STEPS, currentStep, handleBack]);
+
   // Show loading state while fetching subscription data
   if (isSubscriptionLoading || isCountLoading) {
     return (
@@ -254,64 +278,18 @@ export default function CreateCompetitionScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with Stepper */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: colors.gray900 }]}>Create Competition</Text>
-            <TouchableOpacity
-              style={[styles.resetButton, { backgroundColor: colors.gray100 }]}
-              onPress={handleReset}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon source="refresh" size={16} color={colors.textSecondary} />
-              <Text style={[styles.resetButtonText, { color: colors.textSecondary }]}>Reset</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.stepTitle, { color: colors.textSecondary }]}>
-            Step {currentStep}: {STEPS[currentStep - 1].title}
-          </Text>
-
-          <View style={styles.stepIndicator}>
-            {STEPS.map((step, index) => (
-              <React.Fragment key={step.number}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    { backgroundColor: colors.gray300 },
-                    currentStep === step.number && {
-                      backgroundColor: colors.primary,
-                      width: 10,
-                      height: 10,
-                    },
-                    currentStep > step.number && {
-                      backgroundColor: colors.primary,
-                    },
-                  ]}
-                />
-                {index < STEPS.length - 1 && (
-                  <View
-                    style={[
-                      styles.stepLine,
-                      { backgroundColor: colors.gray200 },
-                      currentStep > step.number && {
-                        backgroundColor: colors.primary,
-                      },
-                    ]}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </View>
+    <>
+      <FullScreenWizard
+        title="Create Competition"
+        wizard={wizardCompat}
+        showFooter={false}
+        scrollable={false}
+        onClose={() => navigation.goBack()}
+      >
+        <View style={styles.stepContent}>
+          {renderStep()}
         </View>
-      </View>
-
-      {/* Step Content */}
-      <View style={styles.stepContent}>
-        {renderStep()}
-      </View>
+      </FullScreenWizard>
 
       {/* Toast/Snackbar */}
       <Snackbar
@@ -338,7 +316,7 @@ export default function CreateCompetitionScreen() {
 
       {/* Confirmation Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
-    </View>
+    </>
   );
 }
 
@@ -350,16 +328,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
-  },
   stepContent: {
     flex: 1,
   },
-  header: {
-    ...shadows.sm,
-  },
+  header: {},
   headerContent: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -396,25 +368,6 @@ const styles = StyleSheet.create({
   limitReachedHint: {
     ...typography.small,
     textAlign: 'center',
-  },
-  stepTitle: {
-    ...typography.small,
-    marginBottom: spacing.sm,
-  },
-  stepIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: borderRadius.full,
-  },
-  stepLine: {
-    width: 32,
-    height: 2,
   },
   resetButton: {
     flexDirection: 'row',

@@ -186,7 +186,7 @@ export const YourSetupStep = memo(function YourSetupStep({
                     onPress={() => onTeeChange(tee)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.teeDot, { backgroundColor: dotColor }]} />
+                    <View style={[styles.teeDot, { backgroundColor: dotColor, borderColor: colors.border }]} />
                     <Text
                       style={[
                         styles.teePillText,
@@ -385,9 +385,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   teeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
   },
   teePillText: {
     ...typography.bodyBold,

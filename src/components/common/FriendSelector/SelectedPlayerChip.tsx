@@ -33,7 +33,7 @@ export const SelectedPlayerChip = memo(function SelectedPlayerChip({
       style={[
         styles.chip,
         {
-          backgroundColor: isCurrentUser ? colors.primary : colors.primaryLighter,
+          backgroundColor: isCurrentUser ? colors.primary : colors.primary + '25',
           borderColor: colors.primary,
         },
       ]}
@@ -41,7 +41,7 @@ export const SelectedPlayerChip = memo(function SelectedPlayerChip({
       <Text
         style={[
           styles.name,
-          { color: isCurrentUser ? colors.white : colors.primaryDark },
+          { color: isCurrentUser ? colors.white : colors.textPrimary },
         ]}
         numberOfLines={1}
       >

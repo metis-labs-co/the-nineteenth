@@ -22,7 +22,7 @@ export function teeToTeeBox(tee: Tee): TeeBox {
   return {
     tee_id: tee.id,
     name: tee.name,
-    color: tee.color ?? tee.name.toLowerCase(),
+    color: tee.color || tee.name.toLowerCase(),
     totalYardage: tee.total_length ?? null,
     courseRating: tee.course_rating ?? undefined,
     slopeRating: tee.slope ?? undefined,

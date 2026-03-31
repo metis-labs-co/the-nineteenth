@@ -4,15 +4,15 @@
  * Steps: Player → Course → Tee → Scores → Review
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
-import { PageHeader } from '@/components/common/PageHeader';
-import { ConfirmationDialog, DatePicker } from '@/components/common';
+import { ConfirmationDialog, DatePicker, FullScreenWizard } from '@/components/common';
+import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
 import { CourseSelectionStep } from '@/screens/rounds/CreateRoundBottomSheet/steps/CourseSelectionStep';
 import {
   useSearchClubs,
@@ -31,6 +31,16 @@ import QuickScoreTotalsBar from '@/screens/scoring/QuickScoreEntryScreen/QuickSc
 import QuickScoreReviewModal from '@/screens/scoring/QuickScoreEntryScreen/QuickScoreReviewModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueQuickAddRound'>;
+
+const STEP_ORDER: WizardStep[] = ['player', 'course', 'tee', 'scores', 'review'];
+
+const STEP_TITLES: Record<WizardStep, string> = {
+  player: 'Select Player',
+  course: 'Select Course',
+  tee: 'Select Tee',
+  scores: 'Enter Scores',
+  review: 'Review',
+};
 
 export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Props) {
   const { leagueId } = route.params;
@@ -54,33 +64,46 @@ export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Pr
   );
   const coursesLoading = searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
 
-  const stepTitles: Record<WizardStep, string> = {
-    player: 'Select Player',
-    course: 'Select Course',
-    tee: 'Select Tee',
-    scores: 'Enter Scores',
-    review: 'Review',
-  };
-
-  const handleBack = () => {
-    const order: WizardStep[] = ['player', 'course', 'tee', 'scores', 'review'];
-    const idx = order.indexOf(vm.step);
+  const handleBack = useCallback(() => {
+    const idx = STEP_ORDER.indexOf(vm.step);
     if (idx <= 0) {
-      // On first step, navigate back to league detail
       nav.goBack();
     } else {
-      vm.goToStep(order[idx - 1]);
+      vm.goToStep(STEP_ORDER[idx - 1]);
     }
-  };
+  }, [vm.step, vm.goToStep, nav]);
+
+  // Build wizard-compatible object for FullScreenWizard
+  const wizardCompat = useMemo((): UseWizardReturn => {
+    const steps: WizardStepConfig[] = STEP_ORDER.map((key) => ({
+      key,
+      title: STEP_TITLES[key],
+      canProceed: true,
+      render: () => null,
+    }));
+    const currentIndex = Math.max(0, STEP_ORDER.indexOf(vm.step));
+
+    return {
+      currentStepIndex: currentIndex,
+      currentStep: steps[currentIndex] || steps[0],
+      steps,
+      goNext: () => {},
+      goBack: handleBack,
+      goToStep: () => {},
+      isFirstStep: currentIndex === 0,
+      isLastStep: currentIndex === steps.length - 1,
+      totalSteps: steps.length,
+    };
+  }, [vm.step, handleBack]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <PageHeader
-        title={`Add Round — ${stepTitles[vm.step]}`}
-        showBack
-        onBack={handleBack}
-      />
-
+    <FullScreenWizard
+      title="Add Round"
+      wizard={wizardCompat}
+      showFooter={false}
+      scrollable={false}
+      onClose={() => nav.goBack()}
+    >
       {/* Step 1: Player Selection */}
       {vm.step === 'player' && (
         <FlatList
@@ -239,14 +262,11 @@ export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Pr
 
       {/* Confirmation dialog (replaces Alert.alert) */}
       <ConfirmationDialog {...vm.dialogConfig} onCancel={vm.dismissDialog} />
-    </View>
+    </FullScreenWizard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   flex: {
     flex: 1,
   },

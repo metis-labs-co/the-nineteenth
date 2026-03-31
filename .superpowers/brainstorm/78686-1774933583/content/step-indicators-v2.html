@@ -1,0 +1,113 @@
+<h2>Step Indicator Styles</h2>
+<p class="subtitle">Which step indicator feels right for your full-screen wizards? Each mockup shows a phone-width preview at Step 2 of 4.</p>
+
+<!-- Option A -->
+<div class="option" data-choice="a" onclick="toggleSelect(this)" style="margin-bottom: 20px;">
+  <div class="letter">A</div>
+  <div class="content" style="flex: 1;">
+    <h3>Minimal Dots + Line</h3>
+    <p style="margin-bottom: 12px;">Clean numbered circles connected by lines. Completed = checkmark. Current step gets a glow ring. Step title centered below.</p>
+    <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; max-width: 400px;">
+      <!-- Step indicator -->
+      <div style="display: flex; align-items: center; justify-content: center; gap: 0;">
+        <div style="width: 30px; height: 30px; border-radius: 50%; background: #4CAF50; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;">✓</div>
+        <div style="height: 2px; width: 50px; background: #4CAF50; flex-shrink: 0;"></div>
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #2979FF; display: flex; align-items: center; justify-content: center; color: white; font-size: 15px; font-weight: 700; box-shadow: 0 0 0 4px rgba(41,121,255,0.25); flex-shrink: 0;">2</div>
+        <div style="height: 2px; width: 50px; background: #444; flex-shrink: 0;"></div>
+        <div style="width: 30px; height: 30px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: #777; font-size: 14px; flex-shrink: 0;">3</div>
+        <div style="height: 2px; width: 50px; background: #444; flex-shrink: 0;"></div>
+        <div style="width: 30px; height: 30px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: #777; font-size: 14px; flex-shrink: 0;">4</div>
+      </div>
+      <div style="text-align: center; margin-top: 14px; color: #bbb; font-size: 14px; font-weight: 500;">Course Selection</div>
+    </div>
+  </div>
+</div>
+
+<!-- Option B -->
+<div class="option" data-choice="b" onclick="toggleSelect(this)" style="margin-bottom: 20px;">
+  <div class="letter">B</div>
+  <div class="content" style="flex: 1;">
+    <h3>Header-Integrated Badge</h3>
+    <p style="margin-bottom: 12px;">Step count badge + title built into the nav header. Thin gradient progress bar below. Compact — no extra vertical space.</p>
+    <div style="background: #1a1a2e; border-radius: 12px; overflow: hidden; max-width: 400px;">
+      <!-- Header bar -->
+      <div style="display: flex; align-items: center; padding: 16px;">
+        <div style="color: #aaa; font-size: 22px; margin-right: 16px;">←</div>
+        <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
+          <span style="background: #2979FF; color: white; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; white-space: nowrap;">STEP 2 / 4</span>
+          <span style="color: white; font-size: 17px; font-weight: 600;">Course Selection</span>
+        </div>
+        <div style="color: #aaa; font-size: 18px;">✕</div>
+      </div>
+      <!-- Progress bar -->
+      <div style="height: 3px; background: #333;">
+        <div style="height: 3px; width: 50%; background: linear-gradient(90deg, #4CAF50, #2979FF); border-radius: 0 2px 2px 0;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Option C -->
+<div class="option" data-choice="c" onclick="toggleSelect(this)" style="margin-bottom: 20px;">
+  <div class="letter">C</div>
+  <div class="content" style="flex: 1;">
+    <h3>Segmented Bar + Labels</h3>
+    <p style="margin-bottom: 12px;">Colored segments (one per step) beneath the header. Completed = green, current = blue, upcoming = gray. Step title and count shown below the bar.</p>
+    <div style="background: #1a1a2e; border-radius: 12px; overflow: hidden; max-width: 400px;">
+      <!-- Header -->
+      <div style="display: flex; align-items: center; padding: 16px 16px 12px;">
+        <div style="color: #aaa; font-size: 22px; margin-right: 16px;">←</div>
+        <div style="flex: 1; text-align: center; color: white; font-size: 17px; font-weight: 600;">Create Round</div>
+        <div style="color: #aaa; font-size: 18px;">✕</div>
+      </div>
+      <!-- Segmented bar -->
+      <div style="display: flex; gap: 4px; padding: 0 16px;">
+        <div style="flex: 1; height: 4px; background: #4CAF50; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #2979FF; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #444; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #444; border-radius: 2px;"></div>
+      </div>
+      <!-- Labels -->
+      <div style="display: flex; justify-content: space-between; padding: 10px 16px 16px;">
+        <span style="color: #ccc; font-size: 14px; font-weight: 500;">Course Selection</span>
+        <span style="color: #777; font-size: 13px;">2 of 4</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Option D -->
+<div class="option" data-choice="d" onclick="toggleSelect(this)" style="margin-bottom: 20px;">
+  <div class="letter">D</div>
+  <div class="content" style="flex: 1;">
+    <h3>Scrollable Pill Tabs</h3>
+    <p style="margin-bottom: 12px;">Horizontal pills with step number + short label. Completed = green, active = blue, upcoming = muted. Scrollable for wizards with many steps.</p>
+    <div style="background: #1a1a2e; border-radius: 12px; overflow: hidden; max-width: 400px;">
+      <!-- Header -->
+      <div style="display: flex; align-items: center; padding: 16px 16px 12px;">
+        <div style="color: #aaa; font-size: 22px; margin-right: 16px;">←</div>
+        <div style="flex: 1; text-align: center; color: white; font-size: 17px; font-weight: 600;">Create Round</div>
+        <div style="color: #aaa; font-size: 18px;">✕</div>
+      </div>
+      <!-- Pill tabs -->
+      <div style="display: flex; gap: 8px; padding: 0 16px 16px; overflow-x: auto;">
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: rgba(76,175,80,0.15); border: 1.5px solid #4CAF50; white-space: nowrap;">
+          <span style="color: #4CAF50; font-size: 13px;">✓</span>
+          <span style="color: #4CAF50; font-size: 13px; font-weight: 500;">Club</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: rgba(41,121,255,0.15); border: 1.5px solid #2979FF; white-space: nowrap;">
+          <span style="color: #2979FF; font-size: 13px; font-weight: 700;">2</span>
+          <span style="color: #2979FF; font-size: 13px; font-weight: 600;">Course</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: #222; border: 1.5px solid #444; white-space: nowrap;">
+          <span style="color: #777; font-size: 13px;">3</span>
+          <span style="color: #777; font-size: 13px;">Format</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: #222; border: 1.5px solid #444; white-space: nowrap;">
+          <span style="color: #777; font-size: 13px;">4</span>
+          <span style="color: #777; font-size: 13px;">Partners</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

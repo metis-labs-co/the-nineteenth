@@ -44,22 +44,19 @@ export default function LoginScreen({ navigation }: Props) {
   const isDark = useIsDark();
 
   // Auth hook
-  const { login, sendOtp, verifyOtp, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleAvailable } = useAuth();
+  const { login, sendOtp, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleLoggingIn, isGoogleLoggingIn, isAppleAvailable } = useAuth();
 
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
 
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [useOtp, setUseOtp] = useState(true);
-  const [otpSent, setOtpSent] = useState(false);
 
   // Validation state
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [otpError, setOtpError] = useState<string | null>(null);
 
   /**
    * Validate email format
@@ -129,43 +126,16 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   /**
-   * Validate OTP code (Supabase uses 8-digit codes by default)
-   */
-  const validateOtpCode = (code: string): boolean => {
-    if (!code) {
-      setOtpError('Verification code is required');
-      return false;
-    }
-    if (!/^\d+$/.test(code)) {
-      setOtpError('Code must contain only numbers');
-      return false;
-    }
-    if (code.length < 6 || code.length > 8) {
-      setOtpError('Please enter a valid verification code');
-      return false;
-    }
-    setOtpError(null);
-    return true;
-  };
-
-  /**
    * Handle sending OTP code
    */
   const handleSendOtp = async () => {
-    // Clear previous errors
     setError(null);
 
-    // Validate email only
-    const isEmailValid = validateEmail(email);
-
-    if (!isEmailValid) {
-      return;
-    }
+    if (!validateEmail(email)) return;
 
     try {
       await sendOtp({ email });
-      setOtpSent(true);
-      setOtpCode('');
+      navigation.navigate('OTPVerification', { email });
     } catch (err: unknown) {
       console.error('Send OTP error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -178,54 +148,12 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   /**
-   * Handle verifying OTP code
-   */
-  const handleVerifyOtp = async () => {
-    // Clear previous errors
-    setError(null);
-
-    // Validate OTP code
-    const isOtpValid = validateOtpCode(otpCode);
-
-    if (!isOtpValid) {
-      return;
-    }
-
-    try {
-      await verifyOtp({ email, token: otpCode });
-      console.log('OTP verification successful:', email);
-      // Navigation is handled automatically by RootNavigator's conditional rendering
-    } catch (err: unknown) {
-      console.error('Verify OTP error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      if (errorMessage.includes('Invalid') || errorMessage.includes('expired')) {
-        setError('Invalid or expired code. Please try again.');
-      } else {
-        setError(errorMessage || 'Verification failed. Please try again.');
-      }
-    }
-  };
-
-  /**
    * Toggle between password and OTP login
    */
   const toggleLoginMethod = () => {
     setUseOtp(!useOtp);
     setError(null);
-    setOtpSent(false);
-    setOtpCode('');
     setPasswordError(null);
-    setOtpError(null);
-  };
-
-  /**
-   * Go back to email entry (from OTP input)
-   */
-  const handleBackToEmail = () => {
-    setOtpSent(false);
-    setOtpCode('');
-    setOtpError(null);
-    setError(null);
   };
 
   /**
@@ -285,7 +213,10 @@ export default function LoginScreen({ navigation }: Props) {
             {/* Social Login Buttons */}
             <SocialLoginButtons
               onGooglePress={handleGoogleLogin}
-              isLoading={isSocialLoggingIn}
+              onApplePress={handleAppleLogin}
+              isAppleAvailable={isAppleAvailable}
+              isAppleLoading={isAppleLoggingIn}
+              isGoogleLoading={isGoogleLoggingIn}
               disabled={allLoading}
             />
 
@@ -300,84 +231,6 @@ export default function LoginScreen({ navigation }: Props) {
 
             {/* Form Section */}
             <View style={styles.form}>
-              {/* OTP Code Entry - shown after code is sent */}
-              {useOtp && otpSent ? (
-                <>
-                  <View style={[styles.otpInfoContainer, { backgroundColor: colors.gray100 }]}>
-                    <Text style={[styles.otpInfoText, { color: colors.textSecondary }]}>
-                      We sent a verification code to
-                    </Text>
-                    <Text style={[styles.otpEmailText, { color: colors.textPrimary }]}>{email}</Text>
-                  </View>
-
-                  {/* OTP Code Input */}
-                  <FormInput
-                    label="Verification Code"
-                    floatingLabel
-                    value={otpCode}
-                    onChangeText={(text) => {
-                      // Only allow digits and max 8 characters
-                      const cleanedText = text.replace(/[^0-9]/g, '').slice(0, 8);
-                      setOtpCode(cleanedText);
-                      if (otpError) validateOtpCode(cleanedText);
-                    }}
-                    keyboardType="number"
-                    autoComplete="one-time-code"
-                    textContentType="oneTimeCode"
-                    maxLength={8}
-                    error={otpError || undefined}
-                    disabled={isAuthenticating}
-                    accessibilityHint="Enter the code sent to your email"
-                  />
-
-                  {/* Verify Button */}
-                  <TouchableOpacity
-                    onPress={handleVerifyOtp}
-                    disabled={isAuthenticating || otpCode.length < 6}
-                    style={[
-                      styles.loginButton,
-                      { backgroundColor: colors.primary },
-                      (isAuthenticating || otpCode.length < 6) && styles.buttonDisabled,
-                    ]}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Verify code button"
-                    accessibilityHint="Tap to verify the code and sign in"
-                  >
-                    {isAuthenticating && <ActivityIndicator size="small" color={colors.white} style={styles.buttonLoader} />}
-                    <Text style={[styles.loginButtonLabel, { color: colors.white }]}>
-                      {isAuthenticating ? 'Verifying...' : 'Verify Code'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Resend / Back options */}
-                  <View style={styles.otpActionsContainer}>
-                    <TouchableOpacity
-                      onPress={handleSendOtp}
-                      disabled={isAuthenticating}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel="Resend Code"
-                    >
-                      <Text style={[styles.toggleButtonLabel, { color: colors.primary }]}>
-                        Resend Code
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handleBackToEmail}
-                      disabled={isAuthenticating}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel="Change Email"
-                    >
-                      <Text style={[styles.toggleButtonLabel, { color: colors.textSecondary }]}>
-                        Change Email
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
                   {/* Email Input */}
                   <FormInput
                     label="Email"
@@ -459,8 +312,6 @@ export default function LoginScreen({ navigation }: Props) {
                       {useOtp ? 'Sign in with password' : 'Sign in with email code'}
                     </Text>
                   </TouchableOpacity>
-                </>
-              )}
             </View>
 
             {/* Signup Link */}
@@ -528,27 +379,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.small,
-  },
-  otpInfoContainer: {
-    borderRadius: borderRadius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  otpInfoText: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  otpEmailText: {
-    ...typography.body,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  otpActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
   },
   form: {
     gap: spacing.sm,

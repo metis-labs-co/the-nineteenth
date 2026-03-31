@@ -1,21 +1,19 @@
 /**
- * CreateRoundBottomSheet - Slide-up drawer for starting a new round
+ * CreateRoundBottomSheet - Full-screen wizard for starting a new round
  *
  * Features:
- * - Slides up from bottom of screen
+ * - Full-screen wizard with segmented progress bar
  * - Step 1: Search/select club and course
  * - Step 2: Select nine type (full 18, front 9, back 9)
  * - Step 3: Select match type (Stableford, Stroke, Match Play)
  * - Step 4: Select playing partners (with inline tee pickers)
  * - Step 5: Configure scoring setup (group) or Your Setup (solo)
  * - Quick-start scoring
- * - Backdrop dismissal
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconChevronLeft } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useFriends } from '@/hooks/useFriends';
@@ -35,7 +33,8 @@ import {
   sortHomeClubFirst,
 } from '@/hooks/useClubs';
 import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
-import { BottomSheet } from '@/components/common';
+import { FullScreenWizard } from '@/components/common';
+import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
 
 // Types
 import type { CreateRoundBottomSheetProps } from './types';
@@ -272,61 +271,22 @@ export default function CreateRoundBottomSheet({
     [wizard.data.selectedCourse?.tees]
   );
 
-  // Get back button handler based on current step
-  const getBackHandler = () => {
-    switch (wizard.currentStep) {
-      case 'nineType':
-        return wizard.handleBackToCourse;
-      case 'matchType':
-        return wizard.handleBackToNineType;
-      case 'partners':
-        return wizard.handleBackToMatchType;
-      case 'yourSetup':
-        return wizard.handleBackToMatchType;
-      case 'ballCount':
-        return wizard.handleBackToPartners;
-      case 'scoringSetup':
-        return wizard.handleBackToPartners;
-      default:
-        return undefined;
+  // Compute dynamic step list for progress bar
+  const dynamicStepKeys = useMemo(() => {
+    let steps: string[];
+    if (skipPartnerStep) {
+      steps = ['course', 'nineType', 'matchType'];
+    } else if (wizard.data.selectedPartners.length > 0) {
+      steps = ['course', 'nineType', 'matchType', 'partners', 'scoringSetup'];
+    } else if (wizard.currentStep === 'yourSetup') {
+      steps = ['course', 'nineType', 'matchType', 'partners', 'yourSetup'];
+    } else if (wizard.currentStep === 'ballCount') {
+      steps = ['course', 'nineType', 'matchType', 'partners', 'ballCount'];
+    } else {
+      steps = ['course', 'nineType', 'matchType', 'partners'];
     }
-  };
-
-  // Get step title
-  const getStepTitle = () => {
-    switch (wizard.currentStep) {
-      case 'course':
-        return showCreateCourseForm ? 'Add New Course' : 'Select Course';
-      case 'nineType':
-        return 'Holes';
-      case 'matchType':
-        return 'Match Type';
-      case 'partners':
-        return 'Playing Partners';
-      case 'yourSetup':
-        return 'Solo Round';
-      case 'ballCount':
-        return 'Solo Round';
-      case 'scoringSetup':
-        return 'Scoring Setup';
-    }
-  };
-
-  // Render back button for header
-  const renderBackButton = () => {
-    if (wizard.currentStep === 'course' && !showCreateCourseForm) return null;
-
-    const backHandler = showCreateCourseForm ? handleCancelCreateCourse : getBackHandler();
-    return (
-      <TouchableOpacity
-        onPress={backHandler}
-        style={styles.backButton}
-        accessibilityLabel="Go back"
-      >
-        <IconChevronLeft size={24} color={colors.textSecondary} />
-      </TouchableOpacity>
-    );
-  };
+    return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
+  }, [skipPartnerStep, wizard.data.selectedPartners.length, wizard.currentStep, initialMatchType]);
 
   // Wrap close to also reset inline form state and clean up orphan courses
   const handleClose = useCallback(() => {
@@ -357,63 +317,77 @@ export default function CreateRoundBottomSheet({
     wizard.handleClose();
   }, [wizard, inlineCreatedCourse, deleteCourseMutation]);
 
-  return (
-    <BottomSheet
-      visible={visible}
-      onClose={handleClose}
-      height={0.8}
-      title={getStepTitle()}
-      headerLeft={renderBackButton()}
-      enableSwipeToDismiss={wizard.currentStep === 'course' && !showCreateCourseForm}
-      testID="create-round-bottom-sheet"
-    >
-      {/* Step Indicator */}
-      <View style={styles.stepIndicator}>
-        {(
-          // Adjust steps based on flow:
-          // - With partners: course → nineType → matchType → partners → scoringSetup
-          // - Solo with yourSetup step: course → nineType → matchType → partners → yourSetup
-          // - Solo without yourSetup: course → nineType → matchType → partners
-          // - When initialMatchType is set: matchType step is skipped
-          // - When skipPartnerStep is set: partners/scoringSetup/yourSetup steps are skipped
-          (() => {
-            let steps: readonly string[];
-            if (skipPartnerStep) {
-              steps = ['course', 'nineType', 'matchType'];
-            } else if (wizard.data.selectedPartners.length > 0) {
-              steps = ['course', 'nineType', 'matchType', 'partners', 'scoringSetup'];
-            } else if (wizard.currentStep === 'yourSetup') {
-              steps = ['course', 'nineType', 'matchType', 'partners', 'yourSetup'];
-            } else if (wizard.currentStep === 'ballCount') {
-              steps = ['course', 'nineType', 'matchType', 'partners', 'ballCount'];
-            } else {
-              steps = ['course', 'nineType', 'matchType', 'partners'];
-            }
-            return initialMatchType ? steps.filter((s) => s !== 'matchType') : steps;
-          })()
-        ).map((step, index, arr) => (
-          <React.Fragment key={step}>
-            <View
-              style={[
-                styles.stepDot,
-                { backgroundColor: colors.gray300 },
-                wizard.currentStep === step && {
-                  backgroundColor: colors.primary,
-                  width: 10,
-                  height: 10,
-                },
-              ]}
-            />
-            {index < arr.length - 1 && (
-              <View
-                style={[styles.stepLine, { backgroundColor: colors.gray200 }]}
-              />
-            )}
-          </React.Fragment>
-        ))}
-      </View>
+  // Build wizard-compatible object for FullScreenWizard
+  const currentStepIndex = Math.max(0, dynamicStepKeys.indexOf(wizard.currentStep));
+  const isFirstStep = wizard.currentStep === 'course' && !showCreateCourseForm;
 
-      {/* Step Content */}
+  const wizardCompat = useMemo((): UseWizardReturn => {
+    const titleMap: Record<string, string> = {
+      course: showCreateCourseForm ? 'Add New Course' : 'Select Course',
+      nineType: 'Holes',
+      matchType: 'Match Type',
+      partners: 'Playing Partners',
+      yourSetup: 'Solo Round',
+      ballCount: 'Solo Round',
+      scoringSetup: 'Scoring Setup',
+    };
+
+    const steps: WizardStepConfig[] = dynamicStepKeys.map((key) => ({
+      key,
+      title: titleMap[key] || key,
+      canProceed: true,
+      render: () => null,
+    }));
+
+    const resolveBackHandler = () => {
+      switch (wizard.currentStep) {
+        case 'nineType': return wizard.handleBackToCourse;
+        case 'matchType': return wizard.handleBackToNineType;
+        case 'partners': return wizard.handleBackToMatchType;
+        case 'yourSetup': return wizard.handleBackToMatchType;
+        case 'ballCount': return wizard.handleBackToPartners;
+        case 'scoringSetup': return wizard.handleBackToPartners;
+        default: return undefined;
+      }
+    };
+
+    return {
+      currentStepIndex,
+      currentStep: steps[currentStepIndex] || steps[0],
+      steps,
+      goNext: () => {},
+      goBack: () => {
+        if (showCreateCourseForm) {
+          handleCancelCreateCourse();
+        } else if (isFirstStep) {
+          handleClose();
+        } else {
+          resolveBackHandler()?.();
+        }
+      },
+      goToStep: () => {},
+      isFirstStep,
+      isLastStep: currentStepIndex === steps.length - 1,
+      totalSteps: steps.length,
+    };
+  }, [dynamicStepKeys, currentStepIndex, isFirstStep, showCreateCourseForm, handleCancelCreateCourse, handleClose, wizard]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={handleClose}
+    >
+      <FullScreenWizard
+        title="Create Round"
+        wizard={wizardCompat}
+        showFooter={false}
+        scrollable={false}
+        onClose={handleClose}
+      >
       {wizard.currentStep === 'course' && !showCreateCourseForm && (
         <CourseSelectionStep
           searchQuery={wizard.data.searchQuery}
@@ -679,34 +653,12 @@ export default function CreateRoundBottomSheet({
             onStartScoring={wizard.handleStartScoring}
           />
         )}
-    </BottomSheet>
+      </FullScreenWizard>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-  },
-  stepIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: borderRadius.sm,
-  },
-  stepLine: {
-    width: 40,
-    height: 2,
-  },
   createCourseForm: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

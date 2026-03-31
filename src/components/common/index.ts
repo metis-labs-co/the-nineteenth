@@ -39,6 +39,8 @@ export { DatePicker } from './DatePicker';
 export type { DatePickerProps } from './DatePicker';
 export { DateTimeFieldGroup } from './DateTimeFieldGroup';
 export type { DateTimeFieldGroupProps } from './DateTimeFieldGroup';
+export { OtpInput } from './OtpInput';
+export type { OtpInputProps } from './OtpInput';
 export { SearchBar } from './SearchBar';
 export { SegmentedButton } from './SegmentedButton';
 export type { SegmentOption } from './SegmentedButton';
@@ -136,6 +138,13 @@ export { ToggleSwitch } from './ToggleSwitch';
 // Step indicators, progress navigation, and action buttons
 export { StepIndicator } from './StepIndicator';
 export type { StepIndicatorProps, Step } from './StepIndicator';
+export { FullScreenWizard, useWizard } from './FullScreenWizard';
+export type {
+  WizardStepConfig,
+  UseWizardOptions,
+  UseWizardReturn,
+  FullScreenWizardProps,
+} from './FullScreenWizard';
 // NotificationBell moved to @/screens/profile/components
 export { FeatureButton } from './FeatureButton';
 

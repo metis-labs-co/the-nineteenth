@@ -1,0 +1,90 @@
+<h2>OTP Verification Screen Layout</h2>
+<p class="subtitle">Which layout feels right for the verification screen?</p>
+
+<div class="cards" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+  <!-- Option A: Centered Minimal -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-body" style="padding: 0;">
+      <h3 style="margin-bottom: 12px;">A. Centered Minimal</h3>
+      <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Clean, focused layout with everything centered. Back arrow top-left.</p>
+      <!-- Phone mockup -->
+      <div style="width: 260px; height: 520px; margin: 0 auto; border-radius: 32px; border: 3px solid #374151; background: #f9fafb; overflow: hidden; position: relative;">
+        <!-- Status bar -->
+        <div style="height: 44px; background: #f9fafb; display: flex; align-items: center; padding: 0 20px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </div>
+        <!-- Content -->
+        <div style="padding: 24px 20px; text-align: center;">
+          <!-- Lock icon -->
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: #f3f8f0; margin: 16px auto 20px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6eac4d" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <div style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 8px;">Verify your email</div>
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">We sent a code to</div>
+          <div style="font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 28px;">sam@example.com</div>
+          <!-- 6 digit boxes -->
+          <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 28px;">
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">4</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">2</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">8</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #9ca3af;"></div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center;"></div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center;"></div>
+          </div>
+          <!-- Resend -->
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px;">Didn't receive a code?</div>
+          <div style="font-size: 13px; color: #6eac4d; font-weight: 600;">Resend Code <span style="color: #9ca3af; font-weight: 400;">(0:27)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Top-aligned with header band -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-body" style="padding: 0;">
+      <h3 style="margin-bottom: 12px;">B. Top-Aligned with Header</h3>
+      <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Info section at top with colored accent, digit boxes further down. More structured.</p>
+      <!-- Phone mockup -->
+      <div style="width: 260px; height: 520px; margin: 0 auto; border-radius: 32px; border: 3px solid #374151; background: #f9fafb; overflow: hidden; position: relative;">
+        <!-- Header with accent bg -->
+        <div style="background: linear-gradient(135deg, #6eac4d 0%, #558a3b 100%); padding: 44px 20px 24px; color: white;">
+          <div style="display: flex; align-items: center; margin-bottom: 20px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </div>
+          <div style="font-size: 20px; font-weight: 600; margin-bottom: 6px;">Check your email</div>
+          <div style="font-size: 12px; opacity: 0.85;">We sent a 6-digit code to</div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 2px;">sam@example.com</div>
+        </div>
+        <!-- Content -->
+        <div style="padding: 28px 20px; text-align: center;">
+          <div style="font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 16px; text-align: left;">Enter verification code</div>
+          <!-- 6 digit boxes -->
+          <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 32px;">
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">4</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">2</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #6eac4d; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #111827;">8</div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: #9ca3af;"></div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center;"></div>
+            <div style="width: 40px; height: 48px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center;"></div>
+          </div>
+          <!-- Resend -->
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px;">Didn't receive a code?</div>
+          <div style="font-size: 13px; color: #6eac4d; font-weight: 600;">Resend Code <span style="color: #9ca3af; font-weight: 400;">(0:27)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #1a1a2e; border-radius: 8px; border: 1px solid #2a2a4a;">
+  <h3 style="font-size: 14px; margin-bottom: 8px;">Both options include:</h3>
+  <ul style="font-size: 13px; color: #94a3b8; margin: 0; padding-left: 20px; line-height: 1.8;">
+    <li>Hidden TextInput with 6 visual digit boxes</li>
+    <li>Auto-submit when all 6 digits entered</li>
+    <li>30-second cooldown on resend with countdown timer</li>
+    <li>Back arrow to return to login screen</li>
+    <li>Native OS OTP autofill via <code>textContentType="oneTimeCode"</code></li>
+    <li>Dark mode support</li>
+  </ul>
+</div>

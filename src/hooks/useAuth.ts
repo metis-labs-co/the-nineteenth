@@ -72,6 +72,8 @@ export function useAuth(): UseAuthReturn {
     loginWithApple: socialAuth.loginWithApple,
     loginWithGoogle: socialAuth.loginWithGoogle,
     isSocialLoggingIn: socialAuth.isSocialLoggingIn,
+    isAppleLoggingIn: socialAuth.isAppleLoggingIn,
+    isGoogleLoggingIn: socialAuth.isGoogleLoggingIn,
     isAppleAvailable: socialAuth.isAppleAvailable,
 
     // Password management

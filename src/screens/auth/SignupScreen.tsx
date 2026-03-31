@@ -36,7 +36,7 @@ export default function SignupScreen({ navigation }: Props) {
   const colors = useThemeColors();
 
   // Auth hook
-  const { signup, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleAvailable } = useAuth();
+  const { signup, loginWithApple, loginWithGoogle, isAuthenticating, isSocialLoggingIn, isAppleLoggingIn, isGoogleLoggingIn, isAppleAvailable } = useAuth();
 
   // Form state
   const [email, setEmail] = useState('');
@@ -235,7 +235,10 @@ export default function SignupScreen({ navigation }: Props) {
             {/* Social Login Buttons */}
             <SocialLoginButtons
               onGooglePress={handleGoogleLogin}
-              isLoading={isSocialLoggingIn}
+              onApplePress={handleAppleLogin}
+              isAppleAvailable={isAppleAvailable}
+              isAppleLoading={isAppleLoggingIn}
+              isGoogleLoading={isGoogleLoggingIn}
               disabled={allLoading}
             />
 

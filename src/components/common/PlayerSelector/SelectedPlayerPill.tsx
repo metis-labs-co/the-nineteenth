@@ -24,7 +24,7 @@ export const SelectedPlayerPill = memo(function SelectedPlayerPill({
       style={[
         styles.pill,
         {
-          backgroundColor: isLocked ? colors.primary : colors.primaryLighter,
+          backgroundColor: isLocked ? colors.primary : colors.primary + '25',
           borderColor: colors.primary,
         },
       ]}
@@ -34,7 +34,7 @@ export const SelectedPlayerPill = memo(function SelectedPlayerPill({
       <Text
         style={[
           styles.name,
-          { color: isLocked ? colors.white : colors.primaryDark },
+          { color: isLocked ? colors.white : colors.textPrimary },
         ]}
         numberOfLines={1}
       >

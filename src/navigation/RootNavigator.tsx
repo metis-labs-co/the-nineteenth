@@ -24,6 +24,7 @@ import { supabase } from '@/services/supabase/client';
 // Auth Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
 import SignupScreen from '@/screens/auth/SignupScreen';
+import OTPVerificationScreen from '@/screens/auth/OTPVerificationScreen';
 
 // Main Tab Navigator
 import MainTabNavigator from './MainTabNavigator';
@@ -195,6 +196,14 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
                 title: 'Sign Up',
                 headerShown: false,
                 presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="OTPVerification"
+              component={OTPVerificationScreen}
+              options={{
+                title: 'Verify Code',
+                headerShown: false,
               }}
             />
           </>

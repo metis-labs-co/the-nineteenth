@@ -1,0 +1,120 @@
+<h2>Step Indicator Styles</h2>
+<p class="subtitle">Which step indicator feels right for your full-screen wizards? Imagine these at the top of a "Create Round" or "Add Course" flow.</p>
+
+<div class="cards">
+
+  <!-- Option A: Minimal Dots -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 24px 20px; background: #1a1a2e;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 0; padding: 8px 0;">
+        <!-- Step 1 - completed -->
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #4CAF50; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 600;">✓</div>
+        <div style="height: 2px; width: 40px; background: #4CAF50;"></div>
+        <!-- Step 2 - active -->
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #2979FF; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: 700; box-shadow: 0 0 0 4px rgba(41,121,255,0.2);">2</div>
+        <div style="height: 2px; width: 40px; background: #333;"></div>
+        <!-- Step 3 - upcoming -->
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">3</div>
+        <div style="height: 2px; width: 40px; background: #333;"></div>
+        <!-- Step 4 - upcoming -->
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">4</div>
+      </div>
+      <div style="text-align: center; margin-top: 12px; color: #aaa; font-size: 13px;">Course Selection</div>
+    </div>
+    <div class="card-body">
+      <h3>A — Minimal Dots + Line</h3>
+      <p>Clean numbered circles connected by lines. Completed steps show a checkmark. Current step gets a glow ring. Step title shown below.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Header-Integrated -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #1a1a2e;">
+      <!-- Header bar -->
+      <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #333;">
+        <div style="color: #aaa; font-size: 20px; margin-right: 12px;">←</div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="background: #2979FF; color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">STEP 2 OF 4</span>
+            <span style="color: white; font-size: 16px; font-weight: 600;">Course Selection</span>
+          </div>
+        </div>
+        <div style="color: #aaa; font-size: 14px;">✕</div>
+      </div>
+      <!-- Progress bar -->
+      <div style="height: 3px; background: #333;">
+        <div style="height: 3px; width: 50%; background: linear-gradient(90deg, #4CAF50, #2979FF); border-radius: 0 2px 2px 0;"></div>
+      </div>
+      <!-- Spacer to show it's just the header -->
+      <div style="padding: 20px; text-align: center; color: #555; font-size: 13px;">[ wizard content area ]</div>
+    </div>
+    <div class="card-body">
+      <h3>B — Header-Integrated Badge</h3>
+      <p>Step count badge + title built into the navigation header. Thin gradient progress bar below. Compact — no extra vertical space used.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Segmented Progress -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #1a1a2e;">
+      <!-- Header -->
+      <div style="display: flex; align-items: center; padding: 14px 16px;">
+        <div style="color: #aaa; font-size: 20px; margin-right: 12px;">←</div>
+        <div style="flex: 1; text-align: center; color: white; font-size: 16px; font-weight: 600;">Create Round</div>
+        <div style="color: #aaa; font-size: 14px;">✕</div>
+      </div>
+      <!-- Segmented bar -->
+      <div style="display: flex; gap: 4px; padding: 0 16px 4px;">
+        <div style="flex: 1; height: 4px; background: #4CAF50; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #2979FF; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #333; border-radius: 2px;"></div>
+        <div style="flex: 1; height: 4px; background: #333; border-radius: 2px;"></div>
+      </div>
+      <!-- Step label -->
+      <div style="display: flex; justify-content: space-between; padding: 10px 16px 16px;">
+        <span style="color: #ccc; font-size: 14px; font-weight: 500;">Course Selection</span>
+        <span style="color: #666; font-size: 13px;">2 of 4</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Segmented Bar + Labels</h3>
+      <p>Colored segments (one per step) beneath the header. Completed = green, current = blue, upcoming = gray. Step title and count below. Each segment is equal width.</p>
+    </div>
+  </div>
+
+  <!-- Option D: Pill Steps -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; background: #1a1a2e;">
+      <!-- Header -->
+      <div style="display: flex; align-items: center; padding: 14px 16px;">
+        <div style="color: #aaa; font-size: 20px; margin-right: 12px;">←</div>
+        <div style="flex: 1; text-align: center; color: white; font-size: 16px; font-weight: 600;">Create Round</div>
+        <div style="color: #aaa; font-size: 14px;">✕</div>
+      </div>
+      <!-- Pill steps -->
+      <div style="display: flex; gap: 6px; padding: 4px 16px 16px; overflow-x: auto;">
+        <div style="display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 16px; background: rgba(76,175,80,0.15); border: 1px solid #4CAF50; white-space: nowrap;">
+          <span style="color: #4CAF50; font-size: 12px;">✓</span>
+          <span style="color: #4CAF50; font-size: 12px; font-weight: 500;">Club</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 16px; background: rgba(41,121,255,0.15); border: 1px solid #2979FF; white-space: nowrap;">
+          <span style="color: #2979FF; font-size: 12px; font-weight: 700;">2</span>
+          <span style="color: #2979FF; font-size: 12px; font-weight: 600;">Course</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 16px; background: #222; border: 1px solid #333; white-space: nowrap;">
+          <span style="color: #666; font-size: 12px;">3</span>
+          <span style="color: #666; font-size: 12px;">Format</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 16px; background: #222; border: 1px solid #333; white-space: nowrap;">
+          <span style="color: #666; font-size: 12px;">4</span>
+          <span style="color: #666; font-size: 12px;">Partners</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D — Scrollable Pill Tabs</h3>
+      <p>Horizontal pills with step number + short label. Completed pills turn green, active is blue, upcoming is muted. Scrollable for wizards with many steps (like the 7-step Create Round).</p>
+    </div>
+  </div>
+
+</div>
