@@ -10,7 +10,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { useLeaguePlayers } from '@/hooks/useLeagues';
-import { useCourseDetails } from '@/hooks/useCourseDetails';
 import { useQuickScoreSubmit } from '@/hooks/scorecard/useQuickScoreSubmit';
 import {
   getStrokesReceived,
@@ -22,6 +21,15 @@ import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalc
 import type { Hole, TeeBox } from '@/types/database.types';
 
 export type WizardStep = 'player' | 'course' | 'tee' | 'scores' | 'review';
+
+/** Course data stored directly from the club search result (includes tees and holes) */
+interface SelectedCourseData {
+  courseId: string;
+  courseName: string;
+  clubName: string;
+  holes: Hole[];
+  tees: TeeBox[];
+}
 
 interface UseLeagueQuickAddRoundParams {
   leagueId: string;
@@ -35,7 +43,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   // Wizard state
   const [step, setStep] = useState<WizardStep>('player');
   const [selectedPlayer, setSelectedPlayer] = useState<ScorecardPlayerInfo | null>(null);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<SelectedCourseData | null>(null);
   const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [roundDate, setRoundDate] = useState(new Date().toISOString().split('T')[0]);
@@ -43,17 +51,10 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   // Data
   const { data: players } = useLeaguePlayers(leagueId);
-  const { data: courseDetails } = useCourseDetails(selectedCourseId ?? '');
 
-  const holes: Hole[] = useMemo(() => {
-    if (!courseDetails?.holes || !Array.isArray(courseDetails.holes)) return [];
-    return courseDetails.holes as Hole[];
-  }, [courseDetails?.holes]);
-
-  const tees: TeeBox[] = useMemo(() => {
-    if (!courseDetails?.tees || !Array.isArray(courseDetails.tees)) return [];
-    return courseDetails.tees as TeeBox[];
-  }, [courseDetails?.tees]);
+  // Holes and tees come from the selected course (embedded in search results)
+  const holes: Hole[] = useMemo(() => selectedCourse?.holes ?? [], [selectedCourse?.holes]);
+  const tees: TeeBox[] = useMemo(() => selectedCourse?.tees ?? [], [selectedCourse?.tees]);
 
   // Calculate daily handicap
   const dailyHandicap = useMemo(() => {
@@ -140,8 +141,9 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     setStep('course');
   }, []);
 
-  const handleSelectCourse = useCallback((courseId: string) => {
-    setSelectedCourseId(courseId);
+  /** Called from the screen when a course is selected from club search results */
+  const handleSelectCourse = useCallback((courseData: SelectedCourseData) => {
+    setSelectedCourse(courseData);
     setSelectedTee(null);
     setScores({});
     setStep('tee');
@@ -163,7 +165,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   // Save: create round + scorecard + league tag
   const handleConfirmSave = useCallback(async () => {
-    if (!selectedPlayer || !selectedCourseId || !selectedTee) return;
+    if (!selectedPlayer || !selectedCourse || !selectedTee) return;
     setIsSaving(true);
 
     try {
@@ -174,7 +176,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { data: roundData, error: roundError } = await (supabase.from('rounds') as any)
         .insert({
-          course_id: selectedCourseId,
+          course_id: selectedCourse.courseId,
           user_id: currentUser.id,
           competition_id: null,
           round_number: 1,
@@ -250,7 +252,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     } finally {
       setIsSaving(false);
     }
-  }, [selectedPlayer, selectedCourseId, selectedTee, scores, totals, roundDate, handicapDifferential, leagueId, holes, submitScorecard, queryClient, navigation]);
+  }, [selectedPlayer, selectedCourse, selectedTee, scores, totals, roundDate, handicapDifferential, leagueId, holes, submitScorecard, queryClient, navigation]);
 
   return {
     // Wizard
@@ -263,8 +265,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
     handleSelectPlayer,
 
     // Course selection
-    selectedCourseId,
-    courseDetails,
+    selectedCourse,
     handleSelectCourse,
 
     // Tee selection

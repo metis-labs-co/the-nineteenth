@@ -4,7 +4,7 @@
  * Steps: Player → Course → Tee → Scores → Review
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, Icon, TextInput } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,7 +12,16 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
-import { CourseSelectionModal } from '@/screens/admin/AddRoundScreen/components';
+import { CourseSelectionStep } from '@/screens/rounds/CreateRoundBottomSheet/steps/CourseSelectionStep';
+import {
+  useSearchClubs,
+  useClubsWithCourses,
+  useFavoriteCoursesWithClubs,
+  toClubCourseDisplayItem,
+  sortHomeClubFirst,
+} from '@/hooks/useClubs';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { Club, TeeBox, Hole } from '@/types/database.types';
 
 import { useLeagueQuickAddRound, type WizardStep } from './useLeagueQuickAddRound';
 import QuickScoreHoleRow from '@/screens/scoring/QuickScoreEntryScreen/QuickScoreHoleRow';
@@ -21,12 +30,27 @@ import QuickScoreReviewModal from '@/screens/scoring/QuickScoreEntryScreen/Quick
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueQuickAddRound'>;
 
-export default function LeagueQuickAddRoundScreen({ route }: Props) {
+export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Props) {
   const { leagueId } = route.params;
   const colors = useThemeColors();
   const vm = useLeagueQuickAddRound({ leagueId });
-  const [courseSearchQuery, setCourseSearchQuery] = useState('');
-  const [showCourseModal, setShowCourseModal] = useState(false);
+
+  // Course search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const { data: searchResults, isLoading: searchLoading } = useSearchClubs(searchQuery.trim(), undefined);
+  const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
+  const { data: favoriteCourses } = useFavoriteCoursesWithClubs();
+
+  const displayItems = useMemo(
+    () =>
+      sortHomeClubFirst(
+        searchQuery.trim().length >= 2
+          ? (searchResults ?? []).map(toClubCourseDisplayItem)
+          : (allClubs ?? []).map(toClubCourseDisplayItem)
+      ),
+    [searchQuery, searchResults, allClubs]
+  );
+  const coursesLoading = searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
 
   const stepTitles: Record<WizardStep, string> = {
     player: 'Select Player',
@@ -36,11 +60,15 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
     review: 'Review',
   };
 
-  const canGoBack = vm.step !== 'player';
   const handleBack = () => {
     const order: WizardStep[] = ['player', 'course', 'tee', 'scores', 'review'];
     const idx = order.indexOf(vm.step);
-    if (idx > 0) vm.goToStep(order[idx - 1]);
+    if (idx <= 0) {
+      // On first step, navigate back to league detail
+      nav.goBack();
+    } else {
+      vm.goToStep(order[idx - 1]);
+    }
   };
 
   return (
@@ -48,7 +76,7 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
       <PageHeader
         title={`Add Round — ${stepTitles[vm.step]}`}
         showBack
-        onBack={canGoBack ? handleBack : undefined}
+        onBack={handleBack}
       />
 
       {/* Step 1: Player Selection */}
@@ -91,11 +119,11 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
         />
       )}
 
-      {/* Step 2: Course Selection */}
+      {/* Step 2: Course Selection (uses same club search as round wizard) */}
       {vm.step === 'course' && (
-        <View style={styles.stepContent}>
+        <View style={styles.flex}>
           {/* Date picker */}
-          <View style={styles.dateRow}>
+          <View style={[styles.dateRow, { paddingHorizontal: spacing.lg }]}>
             <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Round Date</Text>
             <TextInput
               mode="outlined"
@@ -107,26 +135,32 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
             />
           </View>
 
-          <TouchableOpacity
-            style={[styles.selectButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => setShowCourseModal(true)}
-          >
-            <Icon source="golf" size={24} color={colors.primary} />
-            <Text style={[styles.selectButtonText, { color: colors.textPrimary }]}>
-              {vm.courseDetails ? vm.courseDetails.name : 'Search for a course...'}
-            </Text>
-            <Icon source="magnify" size={20} color={colors.gray400} />
-          </TouchableOpacity>
-
-          <CourseSelectionModal
-            visible={showCourseModal}
-            onClose={() => setShowCourseModal(false)}
-            onSelect={(course) => {
-              setShowCourseModal(false);
-              vm.handleSelectCourse(course.id);
+          <CourseSelectionStep
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            displayItems={displayItems}
+            isLoading={coursesLoading}
+            favoriteCourses={favoriteCourses}
+            onSelectCourse={(course: CourseWithFavoriteStatus, club: Club) => {
+              setSearchQuery('');
+              vm.handleSelectCourse({
+                courseId: course.id,
+                courseName: course.name,
+                clubName: club.name,
+                holes: (course.holes as Hole[]) ?? [],
+                tees: (course.tees as TeeBox[]) ?? [],
+              });
             }}
-            searchQuery={courseSearchQuery}
-            onSearchQueryChange={setCourseSearchQuery}
+            onSelectFavoriteCourse={(course) => {
+              setSearchQuery('');
+              vm.handleSelectCourse({
+                courseId: course.id,
+                courseName: course.name,
+                clubName: course.club?.name ?? '',
+                holes: (course.holes as Hole[]) ?? [],
+                tees: (course.tees as TeeBox[]) ?? [],
+              });
+            }}
           />
         </View>
       )}
@@ -204,7 +238,7 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
         <QuickScoreReviewModal
           visible={true}
           playerName={vm.selectedPlayer?.name ?? 'Player'}
-          courseName={vm.courseDetails?.name ?? 'Course'}
+          courseName={vm.selectedCourse?.courseName ?? 'Course'}
           totalGross={vm.totals.totalGross}
           totalNet={vm.totals.totalNet}
           totalPoints={vm.totals.totalPoints}
@@ -224,9 +258,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  stepContent: {
+  flex: {
     flex: 1,
-    padding: spacing.lg,
   },
   listContent: {
     padding: spacing.lg,
@@ -259,7 +292,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   dateLabel: {
@@ -268,18 +301,6 @@ const styles = StyleSheet.create({
   dateInput: {
     flex: 1,
     maxWidth: 160,
-  },
-  selectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  selectButtonText: {
-    ...typography.body,
-    flex: 1,
   },
   emptyText: {
     ...typography.body,
