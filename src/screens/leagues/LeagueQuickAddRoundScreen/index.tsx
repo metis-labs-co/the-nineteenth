@@ -21,6 +21,7 @@ import {
   sortHomeClubFirst,
 } from '@/hooks/useClubs';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import { TeeSelector } from '@/components/common';
 import type { Club, TeeBox, Hole } from '@/types/database.types';
 
 import { useLeagueQuickAddRound, type WizardStep } from './useLeagueQuickAddRound';
@@ -165,32 +166,18 @@ export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Pr
         </View>
       )}
 
-      {/* Step 3: Tee Selection */}
+      {/* Step 3: Tee Selection (uses same TeeSelector as round wizard) */}
       {vm.step === 'tee' && (
-        <FlatList
-          data={vm.tees}
-          keyExtractor={(item) => item.tee_id ?? item.name}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.listItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => vm.handleSelectTee(item)}
-            >
-              <View style={[styles.teeColor, { backgroundColor: item.color ?? colors.gray400 }]} />
-              <View style={styles.teeInfo}>
-                <Text style={[styles.listItemName, { color: colors.textPrimary }]}>{item.name}</Text>
-                <Text style={[styles.listItemMeta, { color: colors.textSecondary }]}>
-                  CR: {item.courseRating ?? '–'} · SR: {item.slopeRating ?? '–'}
-                </Text>
-              </View>
-              <Icon source="chevron-right" size={20} color={colors.gray400} />
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No tees available for this course
-            </Text>
-          }
+        <TeeSelector
+          tees={vm.tees}
+          selectedTee={vm.selectedTee}
+          onSelectTee={vm.handleSelectTee}
+          variant="list"
+          showBanner
+          courseInfo={{
+            courseName: vm.selectedCourse?.courseName ?? '',
+            venue: vm.selectedCourse?.clubName ? { name: vm.selectedCourse.clubName } as Club : undefined,
+          }}
         />
       )}
 
@@ -279,14 +266,6 @@ const styles = StyleSheet.create({
   },
   listItemMeta: {
     ...typography.small,
-  },
-  teeColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  teeInfo: {
-    flex: 1,
   },
   dateRow: {
     flexDirection: 'row',
