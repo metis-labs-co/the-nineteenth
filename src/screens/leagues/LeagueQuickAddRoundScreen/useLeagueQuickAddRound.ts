@@ -144,11 +144,20 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
   /** Called from the screen when a course is selected from club search results */
   const handleSelectCourse = useCallback((courseData: SelectedCourseData) => {
+    // Check if any tees have valid CR/SR (required for league differential calculation)
+    const validTees = courseData.tees.filter((t) => t.courseRating && t.slopeRating);
+    if (validTees.length === 0) {
+      showAlert(
+        'Course Not Eligible',
+        'This course has no tees with Course Rating and Slope Rating data. League rounds require these ratings to calculate handicap differentials. Please select a different course.'
+      );
+      return;
+    }
     setSelectedCourse(courseData);
     setSelectedTee(null);
     setScores({});
     setStep('tee');
-  }, []);
+  }, [showAlert]);
 
   const handleSelectTee = useCallback((tee: TeeBox) => {
     if (!tee.courseRating || !tee.slopeRating) {
