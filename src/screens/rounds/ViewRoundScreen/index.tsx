@@ -191,6 +191,34 @@ export default function ViewRoundScreen(props: Props) {
         </View>
       )}
 
+      {/* Quick Score Entry Button (superadmin / organizer) */}
+      {vm.canQuickEnterScores && (
+        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity
+            style={[styles.tagLeagueButton, { borderColor: colors.primary }]}
+            onPress={() => {
+              const playersNeedingScores = (vm.roundPlayers || []).filter((rp) => {
+                const pid = (rp as any).player_id ?? rp.id;
+                const playerScorecard = (vm.scorecards || []).find(
+                  (sc) => sc.player_id === pid
+                );
+                return !playerScorecard || playerScorecard.status === 'not-started' || playerScorecard.status === 'in-progress';
+              });
+              if (playersNeedingScores.length > 0) {
+                const pid = (playersNeedingScores[0] as any).player_id ?? playersNeedingScores[0].id;
+                vm.handleQuickScoreEntry(pid);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Icon source="pencil-plus-outline" size={20} color={colors.primary} />
+            <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
+              Enter Scores
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Competition Card - Show above tabs for competition rounds */}
       {round.competition && (
         <TouchableOpacity

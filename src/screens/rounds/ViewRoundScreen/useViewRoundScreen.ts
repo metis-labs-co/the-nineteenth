@@ -182,6 +182,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     payoutsMode,
     playerNameMap: fullPlayerNameMap,
     canTagToLeague: permissions.canTagToLeague,
+    canQuickEnterScores: permissions.canQuickEnterScores,
     userScorecardId: permissions.userScorecardId,
     tabs,
     headerTitleHasIcons: handlers.headerTitleHasIcons,
@@ -224,6 +225,9 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     handleNavigateToSubscription: handlers.handleNavigateToSubscription,
     handleTagLeagueSheetOpen: handlers.handleTagLeagueSheetOpen,
     handleTagLeagueSheetClose: handlers.handleTagLeagueSheetClose,
+    handleQuickScoreEntry: (playerId: string) => {
+      navigation.navigate('QuickScoreEntry', { roundId, playerId, competitionId });
+    },
 
     // Refetch functions
     refetchRound,
