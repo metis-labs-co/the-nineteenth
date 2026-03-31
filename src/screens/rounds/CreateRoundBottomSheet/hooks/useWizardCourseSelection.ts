@@ -78,6 +78,7 @@ export function useWizardCourseSelection({
       } else if (initialMatchType && skipPartnerStep) {
         startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
       } else {
+        setData((prev) => ({ ...prev, nineType: 'full' as import('@/types/database/enums').NineType }));
         setCurrentStep('nineType');
       }
     },
@@ -118,6 +119,7 @@ export function useWizardCourseSelection({
       } else if (initialMatchType && skipPartnerStep) {
         startRoundWithCurrentState(courseData, course.tees?.[0] ?? null, initialPartners ?? [], initialMatchType);
       } else {
+        setData((prev) => ({ ...prev, nineType: 'full' as import('@/types/database/enums').NineType }));
         setCurrentStep('nineType');
       }
     },

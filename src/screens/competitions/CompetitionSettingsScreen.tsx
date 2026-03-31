@@ -403,28 +403,24 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         )}
 
         {/* Delete Competition */}
-        {!isArchived && (
-          <>
-            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.section}>
-              <SectionHeader title="Danger Zone" />
-              <TouchableOpacity
-                onPress={() => setShowDeleteDialog(true)}
-                style={[styles.deleteButton, { borderColor: colors.error }]}
-                activeOpacity={0.7}
-                accessibilityLabel="Delete this competition"
-              >
-                <Icon source="delete-outline" size={20} color={colors.error} />
-                <Text style={[styles.deleteButtonText, { color: colors.error }]}>
-                  Delete Competition
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.deleteHint, { color: colors.textSecondary }]}>
-                All rounds, scores, and player data will be permanently removed. This action cannot be undone.
-              </Text>
-            </View>
-          </>
-        )}
+        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={styles.section}>
+          <SectionHeader title="Danger Zone" />
+          <TouchableOpacity
+            onPress={() => setShowDeleteDialog(true)}
+            style={[styles.deleteButton, { borderColor: colors.error }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Delete this competition"
+          >
+            <Icon source="delete-outline" size={20} color={colors.error} />
+            <Text style={[styles.deleteButtonText, { color: colors.error }]}>
+              Delete Competition
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.deleteHint, { color: colors.textSecondary }]}>
+            All rounds, scores, and player data will be permanently removed. This action cannot be undone.
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Delete Confirmation Dialog */}
