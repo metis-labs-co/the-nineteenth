@@ -228,14 +228,28 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
       if (!scData?.id) throw new Error('Scorecard not found after creation');
 
-      // 4. Tag to league
+      // 4. Calculate differential at save time (ensures fresh values)
+      let differential = handicapDifferential;
+      if (differential == null && selectedTee?.courseRating && selectedTee?.slopeRating && totals.totalGross > 0) {
+        differential = calculateScoreDifferential({
+          adjustedGrossScore: totals.totalGross,
+          courseRating: selectedTee.courseRating,
+          slopeRating: selectedTee.slopeRating,
+        });
+      }
+      // Fallback to 0 if still null — league_rounds requires non-null
+      if (differential == null) {
+        differential = 0;
+      }
+
+      // 5. Tag to league
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { error: tagError } = await (supabase.from('league_rounds') as any)
         .insert({
           league_id: leagueId,
           scorecard_id: scData.id,
           player_id: selectedPlayer.id,
-          handicap_differential: handicapDifferential,
+          handicap_differential: differential,
         });
 
       if (tagError) throw new Error(`Failed to tag to league: ${tagError.message}`);
