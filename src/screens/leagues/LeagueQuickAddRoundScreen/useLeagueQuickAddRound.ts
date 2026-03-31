@@ -150,6 +150,13 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   }, []);
 
   const handleSelectTee = useCallback((tee: TeeBox) => {
+    if (!tee.courseRating || !tee.slopeRating) {
+      Alert.alert(
+        'Missing Ratings',
+        'This tee does not have Course Rating or Slope Rating data. Please select a different tee with complete ratings for league rounds.'
+      );
+      return;
+    }
     setSelectedTee(tee);
     setScores({});
     setStep('scores');
@@ -237,9 +244,8 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
           slopeRating: selectedTee.slopeRating,
         });
       }
-      // Fallback to 0 if still null — league_rounds requires non-null
       if (differential == null) {
-        differential = 0;
+        throw new Error('Cannot tag to league: the selected tee is missing Course Rating or Slope Rating. Please select a tee with complete rating data.');
       }
 
       // 5. Tag to league
