@@ -76,13 +76,13 @@ export async function getLeague(id: string): Promise<League | null> {
  * Fetch league players with player details
  */
 export async function getLeaguePlayers(leagueId: string): Promise<(LeaguePlayer & {
-  player: { id: string; name: string; photo_url: string | null };
+  player: { id: string; name: string; photo_url: string | null; handicap: number | null; handicap_index: number | null; gender: string | null };
 })[]> {
   const { data, error } = await from('league_players')
     .select(`
       *,
       player:players!league_players_player_id_fkey (
-        id, name, photo_url
+        id, name, photo_url, handicap, handicap_index, gender
       )
     `)
     .eq('league_id', leagueId)
@@ -94,7 +94,7 @@ export async function getLeaguePlayers(leagueId: string): Promise<(LeaguePlayer 
   }
 
   return (data ?? []) as unknown as (LeaguePlayer & {
-    player: { id: string; name: string; photo_url: string | null };
+    player: { id: string; name: string; photo_url: string | null; handicap: number | null; handicap_index: number | null; gender: string | null };
   })[];
 }
 
