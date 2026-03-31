@@ -6,13 +6,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Text, Icon, TextInput } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
-import { ConfirmationDialog } from '@/components/common';
+import { ConfirmationDialog, DatePicker } from '@/components/common';
 import { CourseSelectionStep } from '@/screens/rounds/CreateRoundBottomSheet/steps/CourseSelectionStep';
 import {
   useSearchClubs,
@@ -125,15 +125,13 @@ export default function LeagueQuickAddRoundScreen({ route, navigation: nav }: Pr
       {vm.step === 'course' && (
         <View style={styles.flex}>
           {/* Date picker */}
-          <View style={[styles.dateRow, { paddingHorizontal: spacing.lg }]}>
-            <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Round Date</Text>
-            <TextInput
-              mode="outlined"
-              value={vm.roundDate}
-              onChangeText={vm.setRoundDate}
-              placeholder="YYYY-MM-DD"
-              style={styles.dateInput}
-              dense
+          <View style={{ paddingHorizontal: spacing.lg }}>
+            <DatePicker
+              label="Round Date"
+              value={vm.roundDateDisplay}
+              onChange={vm.setRoundDateFromDisplay}
+              mode="date"
+              maximumDate={new Date()}
             />
           </View>
 
@@ -270,20 +268,6 @@ const styles = StyleSheet.create({
   },
   listItemMeta: {
     ...typography.small,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  dateLabel: {
-    ...typography.bodyBold,
-  },
-  dateInput: {
-    flex: 1,
-    maxWidth: 160,
   },
   emptyText: {
     ...typography.body,

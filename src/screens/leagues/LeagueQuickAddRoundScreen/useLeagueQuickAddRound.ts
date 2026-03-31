@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { format, parse, isValid } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,8 +48,21 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourseData | null>(null);
   const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [roundDate, setRoundDate] = useState(new Date().toISOString().split('T')[0]);
+  const [roundDate, setRoundDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD for DB
   const [isSaving, setIsSaving] = useState(false);
+
+  // DD/MM/YYYY display format for DatePicker component
+  const roundDateDisplay = useMemo(() => {
+    const parsed = parse(roundDate, 'yyyy-MM-dd', new Date());
+    return isValid(parsed) ? format(parsed, 'dd/MM/yyyy') : '';
+  }, [roundDate]);
+
+  const setRoundDateFromDisplay = useCallback((displayDate: string) => {
+    const parsed = parse(displayDate, 'dd/MM/yyyy', new Date());
+    if (isValid(parsed)) {
+      setRoundDate(format(parsed, 'yyyy-MM-dd'));
+    }
+  }, []);
 
   // Data
   const { data: players } = useLeaguePlayers(leagueId);
@@ -316,7 +330,8 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
     // Date
     roundDate,
-    setRoundDate,
+    roundDateDisplay,
+    setRoundDateFromDisplay,
 
     // Save
     handleConfirmSave,
