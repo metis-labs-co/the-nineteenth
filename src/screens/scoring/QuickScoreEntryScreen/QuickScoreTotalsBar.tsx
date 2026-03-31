@@ -52,6 +52,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    marginTop: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     marginHorizontal: spacing.lg,
