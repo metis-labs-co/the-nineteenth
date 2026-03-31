@@ -9,7 +9,7 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { IconGolf } from '@tabler/icons-react-native';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -23,6 +23,7 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { Pill } from '@/components/common/Pill';
 import CreateRoundBottomSheet from '@/screens/rounds/CreateRoundBottomSheet';
 import { useStartNewRound } from '@/screens/rounds/RoundListScreen/hooks/useStartNewRound';
+import { useIsSuperAdmin } from '@/store/subscriptionStore';
 
 import { LeaguePlayerRoundsModal, PartnershipRoundsModal, AddLeaguePlayersBottomSheet } from '@/components/leagues';
 
@@ -42,6 +43,7 @@ import PartnershipRoundsTab from './components/PartnershipRoundsTab';
 
 export default function LeagueDetailScreen() {
   const colors = useThemeColors();
+  const isSuperAdmin = useIsSuperAdmin();
   const navigation = useNavigation();
 
   const {
@@ -262,6 +264,20 @@ export default function LeagueDetailScreen() {
           seasonInfo={seasonInfo}
           roundLimitInfo={roundLimitInfo}
         />
+
+        {/* Quick Add Round (superadmin only) */}
+        {isSuperAdmin && !isArchived && (
+          <View style={styles.quickAddContainer}>
+            <TouchableOpacity
+              style={[styles.quickAddButton, { borderColor: colors.primary }]}
+              onPress={() => navigation.navigate('LeagueQuickAddRound', { leagueId })}
+              activeOpacity={0.8}
+            >
+              <Icon source="plus-circle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.quickAddText, { color: colors.primary }]}>Add Round for Player</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Tabs
           tabs={tabs}
@@ -508,5 +524,21 @@ const styles = StyleSheet.create({
   noAccessText: {
     ...typography.body,
     textAlign: 'center',
+  },
+  quickAddContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  quickAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    gap: spacing.sm,
+  },
+  quickAddText: {
+    ...typography.bodyBold,
   },
 });
