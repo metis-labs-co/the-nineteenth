@@ -67,8 +67,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
         id: sc.player.id,
         name: sc.player.name,
         handicap: sc.player.handicap,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Player type may not include these fields
         handicap_index: (sc.player as any).handicap_index ?? null,
-        gender: (sc.player as any).gender ?? null,
+        gender: (sc.player as any).gender ?? null, // eslint-disable-line @typescript-eslint/no-explicit-any
       };
     }
     // Check round_players
@@ -78,8 +79,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
         id: rp.id,
         name: rp.name,
         handicap: rp.handicap ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RoundPlayer type may not include these fields
         handicap_index: (rp as any).handicap_index ?? null,
-        gender: (rp as any).gender ?? null,
+        gender: (rp as any).gender ?? null, // eslint-disable-line @typescript-eslint/no-explicit-any
       };
     }
     return null;
@@ -95,8 +97,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
     if (existingScorecard?.scores && !initialized) {
       const existing: Record<string, number> = {};
       for (const [holeNum, score] of Object.entries(existingScorecard.scores)) {
-        if (score && typeof score === 'object' && 'strokes' in score && (score as any).strokes > 0) {
-          existing[holeNum] = (score as any).strokes;
+        const holeScore = score as { strokes?: number } | null;
+        if (holeScore && 'strokes' in holeScore && holeScore.strokes && holeScore.strokes > 0) {
+          existing[holeNum] = holeScore.strokes;
         }
       }
       if (Object.keys(existing).length > 0) {

@@ -1,0 +1,183 @@
+<h2>Quick Score Entry - Scrollable Hole List</h2>
+<p class="subtitle">How should the per-hole entry row look? Here are two layout options for the scrollable list.</p>
+
+<div class="split">
+  <div class="mockup" data-choice="compact" onclick="toggleSelect(this)">
+    <div class="mockup-header">A: Compact Row</div>
+    <div class="mockup-body" style="background:#1a1a2e; color:#e0e0e0; font-family:system-ui; padding:16px; border-radius:8px;">
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+          <div style="font-size:18px; font-weight:600;">Quick Score Entry</div>
+          <div style="font-size:13px; color:#888;">John Smith &bull; Royal Melbourne &bull; R1</div>
+        </div>
+        <div style="background:#4CAF50; color:white; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:600;">Save</div>
+      </div>
+
+      <!-- Totals bar -->
+      <div style="display:flex; gap:12px; background:#252545; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px;">
+        <div><span style="color:#888;">Gross:</span> <span style="font-weight:600;">38</span></div>
+        <div><span style="color:#888;">Net:</span> <span style="font-weight:600;">34</span></div>
+        <div><span style="color:#888;">Pts:</span> <span style="font-weight:600;">22</span></div>
+        <div style="margin-left:auto;"><span style="color:#888;">9/18 holes</span></div>
+      </div>
+
+      <!-- Hole rows - compact -->
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <!-- Hole 1 - birdie -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:8px 12px; gap:10px;">
+          <div style="width:28px; font-size:13px; font-weight:600; color:#888;">1</div>
+          <div style="width:50px; font-size:11px; color:#666;">Par 4 &bull; SI 7</div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">-</div>
+            <div style="width:36px; height:36px; background:#2196F3; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:white;">3</div>
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">+</div>
+          </div>
+          <div style="width:40px; text-align:right; font-size:12px; color:#2196F3;">3 pts</div>
+        </div>
+
+        <!-- Hole 2 - par -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:8px 12px; gap:10px;">
+          <div style="width:28px; font-size:13px; font-weight:600; color:#888;">2</div>
+          <div style="width:50px; font-size:11px; color:#666;">Par 3 &bull; SI 15</div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">-</div>
+            <div style="width:36px; height:36px; background:#4CAF50; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:white;">3</div>
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">+</div>
+          </div>
+          <div style="width:40px; text-align:right; font-size:12px; color:#4CAF50;">2 pts</div>
+        </div>
+
+        <!-- Hole 3 - bogey -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:8px 12px; gap:10px;">
+          <div style="width:28px; font-size:13px; font-weight:600; color:#888;">3</div>
+          <div style="width:50px; font-size:11px; color:#666;">Par 5 &bull; SI 3</div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">-</div>
+            <div style="width:36px; height:36px; background:#FF9800; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:white;">6</div>
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#888;">+</div>
+          </div>
+          <div style="width:40px; text-align:right; font-size:12px; color:#FF9800;">1 pt</div>
+        </div>
+
+        <!-- Hole 4 - empty -->
+        <div style="display:flex; align-items:center; background:#1e1e38; border:1px dashed #333; border-radius:8px; padding:8px 12px; gap:10px;">
+          <div style="width:28px; font-size:13px; font-weight:600; color:#555;">4</div>
+          <div style="width:50px; font-size:11px; color:#444;">Par 4 &bull; SI 11</div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#555;">-</div>
+            <div style="width:36px; height:36px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; color:#555;">&ndash;</div>
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#555;">+</div>
+          </div>
+          <div style="width:40px; text-align:right; font-size:12px; color:#555;">&ndash;</div>
+        </div>
+
+        <!-- Hole 5 - empty -->
+        <div style="display:flex; align-items:center; background:#1e1e38; border:1px dashed #333; border-radius:8px; padding:8px 12px; gap:10px;">
+          <div style="width:28px; font-size:13px; font-weight:600; color:#555;">5</div>
+          <div style="width:50px; font-size:11px; color:#444;">Par 4 &bull; SI 1</div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#555;">-</div>
+            <div style="width:36px; height:36px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; color:#555;">&ndash;</div>
+            <div style="width:28px; height:28px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#555;">+</div>
+          </div>
+          <div style="width:40px; text-align:right; font-size:12px; color:#555;">&ndash;</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup" data-choice="input-field" onclick="toggleSelect(this)">
+    <div class="mockup-header">B: Direct Number Input</div>
+    <div class="mockup-body" style="background:#1a1a2e; color:#e0e0e0; font-family:system-ui; padding:16px; border-radius:8px;">
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+          <div style="font-size:18px; font-weight:600;">Quick Score Entry</div>
+          <div style="font-size:13px; color:#888;">John Smith &bull; Royal Melbourne &bull; R1</div>
+        </div>
+        <div style="background:#4CAF50; color:white; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:600;">Save</div>
+      </div>
+
+      <!-- Totals bar -->
+      <div style="display:flex; gap:12px; background:#252545; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px;">
+        <div><span style="color:#888;">Gross:</span> <span style="font-weight:600;">38</span></div>
+        <div><span style="color:#888;">Net:</span> <span style="font-weight:600;">34</span></div>
+        <div><span style="color:#888;">Pts:</span> <span style="font-weight:600;">22</span></div>
+        <div style="margin-left:auto;"><span style="color:#888;">9/18 holes</span></div>
+      </div>
+
+      <!-- Hole rows - with text input -->
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <!-- Hole 1 - birdie -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:10px 12px; gap:10px;">
+          <div style="min-width:32px;">
+            <div style="font-size:15px; font-weight:700;">H1</div>
+            <div style="font-size:10px; color:#666;">Par 4</div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px;">
+            <div style="width:56px; height:40px; background:#1a1a2e; border:2px solid #2196F3; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#2196F3;">3</div>
+            <div style="font-size:11px; color:#2196F3;">Birdie</div>
+          </div>
+          <div style="text-align:right; font-size:12px; color:#2196F3; font-weight:600;">3 pts</div>
+        </div>
+
+        <!-- Hole 2 - par -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:10px 12px; gap:10px;">
+          <div style="min-width:32px;">
+            <div style="font-size:15px; font-weight:700;">H2</div>
+            <div style="font-size:10px; color:#666;">Par 3</div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px;">
+            <div style="width:56px; height:40px; background:#1a1a2e; border:2px solid #4CAF50; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#4CAF50;">3</div>
+            <div style="font-size:11px; color:#4CAF50;">Par</div>
+          </div>
+          <div style="text-align:right; font-size:12px; color:#4CAF50; font-weight:600;">2 pts</div>
+        </div>
+
+        <!-- Hole 3 - bogey -->
+        <div style="display:flex; align-items:center; background:#252545; border-radius:8px; padding:10px 12px; gap:10px;">
+          <div style="min-width:32px;">
+            <div style="font-size:15px; font-weight:700;">H3</div>
+            <div style="font-size:10px; color:#666;">Par 5</div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px;">
+            <div style="width:56px; height:40px; background:#1a1a2e; border:2px solid #FF9800; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#FF9800;">6</div>
+            <div style="font-size:11px; color:#FF9800;">Bogey</div>
+          </div>
+          <div style="text-align:right; font-size:12px; color:#FF9800; font-weight:600;">1 pt</div>
+        </div>
+
+        <!-- Hole 4 - empty / focused -->
+        <div style="display:flex; align-items:center; background:#252545; border:2px solid #7C4DFF; border-radius:8px; padding:10px 12px; gap:10px;">
+          <div style="min-width:32px;">
+            <div style="font-size:15px; font-weight:700;">H4</div>
+            <div style="font-size:10px; color:#666;">Par 4</div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px;">
+            <div style="width:56px; height:40px; background:#1a1a2e; border:2px solid #7C4DFF; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#7C4DFF; position:relative;">
+              <span style="animation:blink 1s infinite;">|</span>
+            </div>
+            <div style="font-size:11px; color:#7C4DFF;">Tap to enter</div>
+          </div>
+          <div style="text-align:right; font-size:12px; color:#555;">&ndash;</div>
+        </div>
+
+        <!-- Hole 5 - empty -->
+        <div style="display:flex; align-items:center; background:#1e1e38; border:1px dashed #333; border-radius:8px; padding:10px 12px; gap:10px;">
+          <div style="min-width:32px;">
+            <div style="font-size:15px; font-weight:700; color:#555;">H5</div>
+            <div style="font-size:10px; color:#444;">Par 4</div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px;">
+            <div style="width:56px; height:40px; background:#1e1e38; border:1px dashed #444; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; color:#555;">&ndash;</div>
+            <div style="font-size:11px; color:#444;">Empty</div>
+          </div>
+          <div style="text-align:right; font-size:12px; color:#555;">&ndash;</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:16px; color:#aaa; font-size:14px;"><strong>A</strong> uses +/- steppers (familiar from existing scorecard). <strong>B</strong> uses tappable number input fields with auto-advance (faster for bulk entry). Click to select your preference.</p>

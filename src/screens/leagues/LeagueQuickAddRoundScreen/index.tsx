@@ -13,7 +13,6 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { PageHeader } from '@/components/common/PageHeader';
 import { CourseSelectionModal } from '@/screens/admin/AddRoundScreen/components';
-import type { TeeBox } from '@/types/database.types';
 
 import { useLeagueQuickAddRound, type WizardStep } from './useLeagueQuickAddRound';
 import QuickScoreHoleRow from '@/screens/scoring/QuickScoreEntryScreen/QuickScoreHoleRow';
@@ -58,28 +57,32 @@ export default function LeagueQuickAddRoundScreen({ route }: Props) {
           data={vm.players ?? []}
           keyExtractor={(item) => item.player_id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.listItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() =>
-                vm.handleSelectPlayer({
-                  id: item.player_id,
-                  name: (item as any).player?.name ?? 'Unknown',
-                  handicap: (item as any).player?.handicap ?? null,
-                  handicap_index: (item as any).player?.handicap_index ?? null,
-                  gender: (item as any).player?.gender ?? null,
-                })
-              }
-            >
-              <Text style={[styles.listItemName, { color: colors.textPrimary }]}>
-                {(item as any).player?.name ?? 'Unknown'}
-              </Text>
-              <Text style={[styles.listItemMeta, { color: colors.textSecondary }]}>
-                HC: {(item as any).player?.handicap ?? 'N/A'}
-              </Text>
-              <Icon source="chevron-right" size={20} color={colors.gray400} />
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- League player join type includes nested player
+            const p = (item as any).player;
+            return (
+              <TouchableOpacity
+                style={[styles.listItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() =>
+                  vm.handleSelectPlayer({
+                    id: item.player_id,
+                    name: p?.name ?? 'Unknown',
+                    handicap: p?.handicap ?? null,
+                    handicap_index: p?.handicap_index ?? null,
+                    gender: p?.gender ?? null,
+                  })
+                }
+              >
+                <Text style={[styles.listItemName, { color: colors.textPrimary }]}>
+                  {p?.name ?? 'Unknown'}
+                </Text>
+                <Text style={[styles.listItemMeta, { color: colors.textSecondary }]}>
+                  HC: {p?.handicap ?? 'N/A'}
+                </Text>
+                <Icon source="chevron-right" size={20} color={colors.gray400} />
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No league members found

@@ -93,6 +93,7 @@ export function useQuickScoreSubmit() {
         slope_rating_used: slopeRatingUsed,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { error, data } = await (supabase.from('scorecards') as any).upsert(
         scorecardData,
         { onConflict: 'round_id,player_id' }

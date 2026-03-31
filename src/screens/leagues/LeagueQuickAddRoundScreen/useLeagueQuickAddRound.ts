@@ -171,6 +171,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
       if (!currentUser) throw new Error('Not authenticated');
 
       // 1. Create standalone round
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { data: roundData, error: roundError } = await (supabase.from('rounds') as any)
         .insert({
           course_id: selectedCourseId,
@@ -216,6 +217,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
       });
 
       // 3. Get scorecard ID for league tag
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { data: scData } = await (supabase.from('scorecards') as any)
         .select('id')
         .eq('round_id', roundId)
@@ -225,6 +227,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
       if (!scData?.id) throw new Error('Scorecard not found after creation');
 
       // 4. Tag to league
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { error: tagError } = await (supabase.from('league_rounds') as any)
         .insert({
           league_id: leagueId,
