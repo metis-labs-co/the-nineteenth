@@ -91,7 +91,7 @@ export const StatsRow = React.memo(function StatsRow({
               styles.checkbox,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               fairwayHit === true && { backgroundColor: colors.success, borderColor: colors.success },
-              fairwayHit === false && { borderColor: colors.error },
+              fairwayHit !== true && score?.fairwayMissDirection && { borderColor: colors.error },
               disabled && styles.buttonDisabled,
             ]}
             onPress={onFairwayToggle}
@@ -101,7 +101,7 @@ export const StatsRow = React.memo(function StatsRow({
             accessibilityRole="checkbox"
             accessibilityState={{ checked: fairwayHit === true }}
           >
-            {fairwayHit === false && score?.fairwayMissDirection ? (
+            {fairwayHit !== true && score?.fairwayMissDirection ? (
               <Text style={[styles.missDirectionText, { color: colors.error }]}>
                 {score.fairwayMissDirection === 'left' ? 'L' : 'R'}
               </Text>
@@ -125,7 +125,7 @@ export const StatsRow = React.memo(function StatsRow({
               styles.checkbox,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               greenInRegulation === true && { backgroundColor: colors.success, borderColor: colors.success },
-              greenInRegulation === false && { borderColor: colors.error },
+              greenInRegulation !== true && score?.greenMissDirection && { borderColor: colors.error },
               disabled && styles.buttonDisabled,
             ]}
             onPress={onGIRToggle}
@@ -135,7 +135,7 @@ export const StatsRow = React.memo(function StatsRow({
             accessibilityRole="checkbox"
             accessibilityState={{ checked: greenInRegulation === true }}
           >
-            {greenInRegulation === false && score?.greenMissDirection ? (
+            {greenInRegulation !== true && score?.greenMissDirection ? (
               <Text style={[styles.missDirectionText, { color: colors.error }]}>
                 {{ left: 'L', right: 'R', long: 'Lo', short: 'Sh' }[score.greenMissDirection]}
               </Text>
