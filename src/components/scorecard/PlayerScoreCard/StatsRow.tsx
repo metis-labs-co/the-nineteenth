@@ -14,6 +14,7 @@ import {
   borderRadius,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { IconPlus } from '@tabler/icons-react-native';
 import { DetailedStatsBadges } from '@/components/scorecard/DetailedStatsBadges';
 import type { HoleScore } from '@/types/database/base';
 
@@ -193,7 +194,7 @@ export const StatsRow = React.memo(function StatsRow({
           accessibilityRole="button"
         >
           <View style={styles.additionalStatsContent}>
-            <Icon source="plus" size={14} color={colors.primary} />
+            <IconPlus size={14} color={colors.primary} />
             <Text style={[styles.additionalStatsText, { color: colors.primary }]}>
               Add Additional Stats
             </Text>

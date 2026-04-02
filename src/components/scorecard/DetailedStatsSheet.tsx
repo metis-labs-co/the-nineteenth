@@ -8,8 +8,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
+import { IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type {
@@ -22,11 +23,11 @@ import type {
 
 const MAX_BUNKER_SHOTS = 5;
 
-const HAZARD_OPTIONS: { type: HazardType; label: string; icon: string }[] = [
-  { type: 'water', label: 'Water', icon: '\u{1F4A7}' },
-  { type: 'ob', label: 'OB', icon: '\u{1F6AB}' },
-  { type: 'lateral', label: 'Lateral', icon: '\u{1F534}' },
-  { type: 'lost_ball', label: 'Lost Ball', icon: '\u{2753}' },
+const HAZARD_OPTIONS: { type: HazardType; label: string; IconComponent: React.ComponentType<{ size: number; color: string }> }[] = [
+  { type: 'water', label: 'Water', IconComponent: IconDroplet },
+  { type: 'ob', label: 'OB', IconComponent: IconBan },
+  { type: 'lateral', label: 'Lateral', IconComponent: IconCircleOff },
+  { type: 'lost_ball', label: 'Lost Ball', IconComponent: IconQuestionMark },
 ];
 
 interface DetailedStatsSheetProps {
@@ -262,12 +263,15 @@ export function DetailedStatsSheet({
                     onPress={() => toggleHazard(option.type)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
-                      styles.toggleText,
-                      { color: isSelected ? colors.error : colors.textSecondary },
-                    ]}>
-                      {option.icon} {option.label}
-                    </Text>
+                    <View style={styles.hazardChipContent}>
+                      <option.IconComponent size={14} color={isSelected ? colors.error : colors.textSecondary} />
+                      <Text style={[
+                        styles.toggleText,
+                        { color: isSelected ? colors.error : colors.textSecondary },
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -361,6 +365,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     borderWidth: 2,
+  },
+  hazardChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   helperText: {
     ...typography.caption,
