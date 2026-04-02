@@ -108,8 +108,8 @@ export function DetailedStatsSheet({
   }, []);
 
   // Determine which sections to show
-  const showFairwaySection = showFairwayMissDirection && score?.fairwayHit === false;
-  const showGreenSection = showGreenMissDirection && score?.greenInRegulation === false;
+  const showFairwaySection = showFairwayMissDirection && score?.fairwayHit !== true;
+  const showGreenSection = showGreenMissDirection && score?.greenInRegulation !== true;
   const hasAnySections = showFairwaySection || showGreenSection || showBunkerShots || showHazards;
 
   return (
