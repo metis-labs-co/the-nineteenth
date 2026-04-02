@@ -97,6 +97,34 @@ describe('SettingsStore', () => {
       store.setShowGreenInRegulation(true);
       expect(useSettingsStore.getState().showGreenInRegulation).toBe(true);
     });
+
+    it('should set showFairwayMissDirection', () => {
+      useSettingsStore.getState().setShowFairwayMissDirection(false);
+      expect(useSettingsStore.getState().showFairwayMissDirection).toBe(false);
+      useSettingsStore.getState().setShowFairwayMissDirection(true);
+      expect(useSettingsStore.getState().showFairwayMissDirection).toBe(true);
+    });
+
+    it('should set showGreenMissDirection', () => {
+      useSettingsStore.getState().setShowGreenMissDirection(false);
+      expect(useSettingsStore.getState().showGreenMissDirection).toBe(false);
+      useSettingsStore.getState().setShowGreenMissDirection(true);
+      expect(useSettingsStore.getState().showGreenMissDirection).toBe(true);
+    });
+
+    it('should set showBunkerShots', () => {
+      useSettingsStore.getState().setShowBunkerShots(true);
+      expect(useSettingsStore.getState().showBunkerShots).toBe(true);
+      useSettingsStore.getState().setShowBunkerShots(false);
+      expect(useSettingsStore.getState().showBunkerShots).toBe(false);
+    });
+
+    it('should set showHazards', () => {
+      useSettingsStore.getState().setShowHazards(true);
+      expect(useSettingsStore.getState().showHazards).toBe(true);
+      useSettingsStore.getState().setShowHazards(false);
+      expect(useSettingsStore.getState().showHazards).toBe(false);
+    });
   });
 
   describe('Debug Mode Settings', () => {
@@ -134,6 +162,10 @@ describe('SettingsStore', () => {
       expect(newState.showFairwayHit).toBe(true);
       expect(newState.showGreenInRegulation).toBe(true);
       expect(newState.debugModeEnabled).toBe(false);
+      expect(newState.showFairwayMissDirection).toBe(true);  // defaults to true
+      expect(newState.showGreenMissDirection).toBe(true);     // defaults to true
+      expect(newState.showBunkerShots).toBe(false);           // defaults to false
+      expect(newState.showHazards).toBe(false);               // defaults to false
     });
   });
 
@@ -267,6 +299,62 @@ describe('SettingsStore', () => {
       expect(result.current.showGreenInRegulation).toBe(false);
       // Putts should still work
       expect(result.current.showPutts).toBe(true);
+    });
+
+    it('should gate detailed stats for non-Premium users', () => {
+      mockIsPremium.mockReturnValue(false);
+      useSettingsStore.getState().setShowFairwayMissDirection(true);
+      useSettingsStore.getState().setShowGreenMissDirection(true);
+      useSettingsStore.getState().setShowBunkerShots(true);
+      useSettingsStore.getState().setShowHazards(true);
+
+      const { result } = renderHook(() => useStatsVisibilityWithTier());
+
+      expect(result.current.showFairwayMissDirection).toBe(false);
+      expect(result.current.showGreenMissDirection).toBe(false);
+      expect(result.current.showBunkerShots).toBe(false);
+      expect(result.current.showHazards).toBe(false);
+      expect(result.current.hasAnyDetailedStats).toBe(false);
+    });
+
+    it('should allow detailed stats for Premium users when settings enabled', () => {
+      mockIsPremium.mockReturnValue(true);
+      useSettingsStore.getState().setShowFairwayMissDirection(true);
+      useSettingsStore.getState().setShowGreenMissDirection(true);
+      useSettingsStore.getState().setShowBunkerShots(true);
+      useSettingsStore.getState().setShowHazards(true);
+
+      const { result } = renderHook(() => useStatsVisibilityWithTier());
+
+      expect(result.current.showFairwayMissDirection).toBe(true);
+      expect(result.current.showGreenMissDirection).toBe(true);
+      expect(result.current.showBunkerShots).toBe(true);
+      expect(result.current.showHazards).toBe(true);
+      expect(result.current.hasAnyDetailedStats).toBe(true);
+    });
+
+    it('should return hasAnyDetailedStats=true when only one detailed stat is enabled', () => {
+      mockIsPremium.mockReturnValue(true);
+      useSettingsStore.getState().setShowFairwayMissDirection(false);
+      useSettingsStore.getState().setShowGreenMissDirection(false);
+      useSettingsStore.getState().setShowBunkerShots(true);
+      useSettingsStore.getState().setShowHazards(false);
+
+      const { result } = renderHook(() => useStatsVisibilityWithTier());
+
+      expect(result.current.hasAnyDetailedStats).toBe(true);
+    });
+
+    it('should return hasAnyDetailedStats=false when all detailed stats disabled', () => {
+      mockIsPremium.mockReturnValue(true);
+      useSettingsStore.getState().setShowFairwayMissDirection(false);
+      useSettingsStore.getState().setShowGreenMissDirection(false);
+      useSettingsStore.getState().setShowBunkerShots(false);
+      useSettingsStore.getState().setShowHazards(false);
+
+      const { result } = renderHook(() => useStatsVisibilityWithTier());
+
+      expect(result.current.hasAnyDetailedStats).toBe(false);
     });
   });
 
