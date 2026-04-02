@@ -49,7 +49,8 @@ interface StrokePlayScoreCardProps {
   onStatsUpdate?: (updates: Partial<HoleScore>) => void;
   onPlayerPress?: (playerId: string) => void;
   runningGross?: number;
-  runningNet?: number;
+  /** Cumulative par for completed holes (used to calculate relative-to-par display) */
+  cumulativePar?: number;
   disabled?: boolean;
   /** Whether this is the current user's own score (for visual distinction in scoring pairs) */
   isOwnScore?: boolean;
@@ -69,7 +70,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   onStatsUpdate,
   onPlayerPress,
   runningGross = 0,
-  runningNet = 0,
+  cumulativePar = 0,
   disabled = false,
   isOwnScore,
   displayMode = 'stroke',
@@ -257,20 +258,12 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SCORE</Text>
             </View>
           ) : (
-            <>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                  {runningGross > 0 ? formatRelativeToPar(runningGross - (currentHole.number - 1) * 4) : '-'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GROSS</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                  {runningNet !== 0 ? formatRelativeToPar(runningNet) : 'E'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>NET</Text>
-              </View>
-            </>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                {runningGross > 0 ? formatRelativeToPar(runningGross - cumulativePar) : '-'}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GROSS</Text>
+            </View>
           )}
         </View>
       </View>

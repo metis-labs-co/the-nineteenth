@@ -24,9 +24,10 @@ import {
 } from '@/services/scoreMismatch';
 import { getScoringPartner } from '@/services/scoringPairs';
 import { submitLogger } from '@/utils/debugLogger';
-import { useLeagues } from '@/hooks/useLeagues';
-import { useSettingsStore } from '@/store/settingsStore';
-import { tagRoundToLeague } from '@/services/api/leagues';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
+import { useAuth } from '@/hooks/useAuth';
+import type { AchievementEventData } from '@/types/database/achievement.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
@@ -120,8 +121,11 @@ export function useScoreSubmission({
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
 
-  // Prefetch leagues data so it's available synchronously at submission time
-  const { data: leaguesData } = useLeagues();
+  // Achievement checking for competition/match play events (fired after finalization)
+  const { user } = useAuth();
+  const achievementPlayerId = currentUserId || user?.id || '';
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(achievementPlayerId);
+  const { showMultipleToasts } = useAchievementToast();
 
   // Check bypass availability on mount and periodically
   useEffect(() => {
@@ -311,6 +315,50 @@ export function useScoreSubmission({
           // Finalize round results (calculate positions and competition points)
           await finalizeRoundResults(roundId);
 
+          // Check competition achievements after finalization (non-blocking)
+          if (achievementPlayerId && isAchievementReady && competitionId && competitionId !== 'standalone') {
+            try {
+              // Query the player's position from round results
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+              const { data: playerResult } = await (supabase as any)
+                .from('round_results')
+                .select('position, raw_result_data')
+                .eq('round_id', roundId)
+                .eq('player_id', achievementPlayerId)
+                .single();
+
+              if (playerResult) {
+                const position = playerResult.position as number | null;
+                const resultData = playerResult.raw_result_data as Record<string, unknown> | null;
+
+                // Fire competition_won if player finished 1st
+                if (position === 1) {
+                  const r = await checkAndAward('competition_won', {});
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+
+                // Fire competition_podium if player finished top 3
+                if (position && position <= 3) {
+                  const r = await checkAndAward('competition_podium', { position });
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+
+                // Fire match_play_won if match play with win result
+                if (resultData?.match_result === 'win') {
+                  const eventData: AchievementEventData = {
+                    match_result: 'win',
+                    margin: (resultData.final_margin as string) || undefined,
+                  };
+                  const r = await checkAndAward('match_play_won', eventData);
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+              }
+            } catch (error) {
+              // Non-blocking — don't fail submission if achievement check fails
+              submitLogger.warn('Competition achievement check failed (non-blocking)', { error });
+            }
+          }
+
           // Finalize skins game if applicable (non-blocking)
           finalizeSkinsForRound(roundId).then((result) => {
             if (result.finalized) {
@@ -341,130 +389,17 @@ export function useScoreSubmission({
         } else {
           submitLogger.info('Online submission successful');
 
-          // Check for pending league tag (auto-tag when round started from league detail)
-          const pendingLeagueId = roundId
-            ? useSettingsStore.getState().pendingLeagueTags[roundId]
-            : undefined;
-          let leagueTagged = false;
-          let leagueTagError: string | null = null;
-
-          if (pendingLeagueId && roundId && currentUserId) {
-            try {
-              submitLogger.info('Auto-tagging round to league', { roundId: roundId.substring(0, 8) + '...', leagueId: pendingLeagueId.substring(0, 8) + '...' });
-
-              // Find the current user's scorecard for this round
-              const { data: userScorecard } = await supabase
-                .from('scorecards')
-                .select('id')
-                .eq('round_id', roundId)
-                .eq('player_id', currentUserId)
-                .single();
-
-              if (userScorecard) {
-                await tagRoundToLeague(pendingLeagueId, (userScorecard as unknown as { id: string }).id);
-                leagueTagged = true;
-                submitLogger.info('Round auto-tagged to league successfully');
-              } else {
-                submitLogger.warn('Could not find user scorecard for auto-tagging');
-                leagueTagError = 'Could not find your scorecard to tag to the league. You can tag it manually later.';
-              }
-            } catch (error) {
-              const msg = error instanceof Error ? error.message : 'Unknown error';
-              submitLogger.error('Failed to auto-tag round to league', error);
-              leagueTagError = `Auto-tag failed: ${msg}. You can tag it manually later.`;
-            } finally {
-              // Always clear the pending tag
-              useSettingsStore.getState().clearPendingLeagueTag(roundId);
-            }
-          }
-
-          // Check if user has active leagues AND the scorecard has a valid differential
-          // Tagging requires a handicap differential (needs slope + course rating from tee data)
-          const hasLeagues = (leaguesData ?? []).some((l) => l.status === 'active');
-          let canTagToLeague = hasLeagues;
-
-          if (hasLeagues && !leagueTagged && roundId && currentUserId) {
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-              const { data: diffCheck } = await (supabase
-                .from('scorecards') as any)
-                .select('handicap_differential')
-                .eq('round_id', roundId)
-                .eq('player_id', currentUserId)
-                .single();
-
-              // Allow tagging even if differential is null — tagRoundToLeague will
-              // attempt retroactive recalculation if tee data has been updated since
-              const diff = (diffCheck as { handicap_differential: number | null } | null);
-              canTagToLeague = diff != null;
-            } catch {
-              canTagToLeague = false;
-            }
-          }
-
-          if (leagueTagged) {
-            showDialog({
-              title: 'Scores Submitted!',
-              message: 'All scores have been submitted and tagged to your league.',
-              confirmLabel: 'View Round',
-              cancelLabel: '',
-              icon: 'check-circle-outline',
-              onConfirm: () => {
-                dismissDialog();
-                navigateAfterSubmit(roundId);
-              },
-            });
-          } else if (leagueTagError) {
-            showDialog({
-              title: 'Scores Submitted',
-              message: `Scores submitted successfully.\n\n${leagueTagError}`,
-              confirmLabel: 'View Round',
-              cancelLabel: '',
-              icon: 'alert-circle-outline',
-              onConfirm: () => {
-                dismissDialog();
-                navigateAfterSubmit(roundId);
-              },
-            });
-          } else if (canTagToLeague) {
-            showDialog({
-              title: 'Scores Submitted!',
-              message: 'All scores have been submitted successfully. Would you like to tag this round to a league?',
-              confirmLabel: 'View Round',
-              cancelLabel: '',
-              icon: 'check-circle-outline',
-              onConfirm: () => {
-                dismissDialog();
-                navigateAfterSubmit(roundId);
-              },
-              showSecondaryAction: true,
-              secondaryActionLabel: 'Tag to League',
-              onSecondaryAction: () => {
-                dismissDialog();
-                resetRound();
-                // Navigate to Leagues tab where user can pick a league and tag
-                navigation.reset({
-                  index: 0,
-                  routes: [{
-                    name: 'MainTabs',
-                    params: { screen: 'LeaguesTab' },
-                  }],
-                });
-              },
-            });
-          } else {
-            showDialog({
-              title: 'Success',
-              message: 'All scores have been submitted successfully!',
-              confirmLabel: 'View Round',
-              cancelLabel: '',
-              icon: 'check-circle-outline',
-              onConfirm: () => {
-                dismissDialog();
-                navigateAfterSubmit(roundId);
-              },
-            });
-          }
+          showDialog({
+            title: 'Success',
+            message: 'All scores have been submitted successfully!',
+            confirmLabel: 'View Round',
+            cancelLabel: '',
+            icon: 'check-circle-outline',
+            onConfirm: () => {
+              dismissDialog();
+              navigateAfterSubmit(roundId);
+            },
+          });
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -517,10 +452,13 @@ export function useScoreSubmission({
     bypassAvailable,
     bypassAvailableAt,
     refreshPartnerStatus,
-    leaguesData,
     showDialog,
     showAlert,
     dismissDialog,
+    achievementPlayerId,
+    isAchievementReady,
+    checkAndAward,
+    showMultipleToasts,
   ]);
 
   // Handle bypass submission (skip partner verification)
@@ -555,6 +493,42 @@ export function useScoreSubmission({
 
           // Finalize round results (calculate positions and competition points)
           await finalizeRoundResults(roundId);
+
+          // Check competition achievements after finalization (non-blocking)
+          if (achievementPlayerId && isAchievementReady && competitionId && competitionId !== 'standalone') {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
+              const { data: playerResult } = await (supabase as any)
+                .from('round_results')
+                .select('position, raw_result_data')
+                .eq('round_id', roundId)
+                .eq('player_id', achievementPlayerId)
+                .single();
+
+              if (playerResult) {
+                const position = playerResult.position as number | null;
+                const resultData = playerResult.raw_result_data as Record<string, unknown> | null;
+
+                if (position === 1) {
+                  const r = await checkAndAward('competition_won', {});
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+                if (position && position <= 3) {
+                  const r = await checkAndAward('competition_podium', { position });
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+                if (resultData?.match_result === 'win') {
+                  const r = await checkAndAward('match_play_won', {
+                    match_result: 'win',
+                    margin: (resultData.final_margin as string) || undefined,
+                  });
+                  if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+                }
+              }
+            } catch (error) {
+              submitLogger.warn('Competition achievement check failed (non-blocking)', { error });
+            }
+          }
 
           // Finalize skins (non-blocking)
           finalizeSkinsForRound(roundId).catch((error) => {
@@ -610,6 +584,11 @@ export function useScoreSubmission({
     showDialog,
     showAlert,
     dismissDialog,
+    competitionId,
+    achievementPlayerId,
+    isAchievementReady,
+    checkAndAward,
+    showMultipleToasts,
   ]);
 
   const handleSyncPress = useCallback(async () => {

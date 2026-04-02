@@ -7,6 +7,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leagueKeys } from './queryKeys';
+import { useAuth } from '@/hooks/useAuth';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import {
   getLeagues,
   getLeague,
@@ -218,11 +221,22 @@ export function useCreateLeague() {
 
 export function useJoinLeague() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: (inviteCode: string) => joinLeague(inviteCode),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.all });
+      if (user?.id && isAchievementReady) {
+        try {
+          const r = await checkAndAward('league_joined', {});
+          if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+        } catch (error) {
+          console.warn('[useJoinLeague] Achievement check failed (non-blocking):', error);
+        }
+      }
     },
     onError: (error) => {
       console.error('[useJoinLeague] Failed:', error);
@@ -232,11 +246,22 @@ export function useJoinLeague() {
 
 export function useJoinPublicLeague() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: (leagueId: string) => joinPublicLeague(leagueId),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.all });
+      if (user?.id && isAchievementReady) {
+        try {
+          const r = await checkAndAward('league_joined', {});
+          if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+        } catch (error) {
+          console.warn('[useJoinPublicLeague] Achievement check failed (non-blocking):', error);
+        }
+      }
     },
     onError: (error) => {
       console.error('[useJoinPublicLeague] Failed:', error);
@@ -246,11 +271,14 @@ export function useJoinPublicLeague() {
 
 export function useTagRoundToLeague() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: ({ leagueId, scorecardId }: { leagueId: string; scorecardId: string }) =>
       tagRoundToLeague(leagueId, scorecardId),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: leagueKeys.leaderboardBase(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.rounds(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eligibleScorecards(variables.leagueId) });
@@ -259,6 +287,17 @@ export function useTagRoundToLeague() {
       queryClient.invalidateQueries({ queryKey: leagueKeys.eclecticLeaderboard(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.eclecticBestScores(variables.leagueId) });
       queryClient.invalidateQueries({ queryKey: leagueKeys.stats(variables.leagueId) });
+
+      if (user?.id && isAchievementReady) {
+        try {
+          const r = await checkAndAward('league_round_completed', {
+            league_id: variables.leagueId,
+          });
+          if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+        } catch (error) {
+          console.warn('[useTagRoundToLeague] Achievement check failed (non-blocking):', error);
+        }
+      }
     },
     onError: (error) => {
       console.error('[useTagRoundToLeague] Failed:', error);

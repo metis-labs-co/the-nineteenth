@@ -19,7 +19,9 @@ export type AchievementCategory =
   | 'courses'
   | 'match_play'
   | 'streaks'
-  | 'milestones';
+  | 'milestones'
+  | 'side_games'
+  | 'leagues';
 
 /**
  * Achievement rarity levels
@@ -170,7 +172,14 @@ export type AchievementEventType =
   | 'par_recorded'
   | 'competition_created'
   | 'match_play_won'
-  | 'stableford_round';
+  | 'stableford_round'
+  | 'skins_game_completed'
+  | 'skins_hole_won'
+  | 'wolf_game_completed'
+  | 'wolf_decision_made'
+  | 'league_joined'
+  | 'league_round_completed'
+  | 'knockout_match_won';
 
 /**
  * Achievement event data
@@ -187,6 +196,7 @@ export interface AchievementEventData {
   // Scoring events - counts from a scorecard
   birdies?: number;
   eagles?: number;
+  albatrosses?: number;
   pars?: number;
   bogeys?: number;
   double_bogeys?: number;
@@ -210,6 +220,24 @@ export interface AchievementEventData {
   // Match play events
   match_result?: 'win' | 'loss' | 'halve';
   margin?: string; // e.g., '5&4', '2&1'
+
+  // Skins events
+  skins_holes_won?: number;
+  skins_carryover_holes_won?: number; // holes won with carryovers
+  skins_games_played?: number;
+
+  // Wolf events
+  wolf_is_lone?: boolean;
+  wolf_is_blind?: boolean;
+  wolf_points?: number;
+  wolf_games_played?: number;
+
+  // League events
+  league_id?: string;
+  league_rounds_played?: number;
+
+  // Knockout events
+  knockout_match_result?: 'win' | 'loss';
 }
 
 /**
@@ -301,6 +329,8 @@ export const CATEGORY_DISPLAY_NAMES: Record<AchievementCategory, string> = {
   match_play: 'Match Play',
   streaks: 'Streaks',
   milestones: 'Milestones',
+  side_games: 'Side Games',
+  leagues: 'Leagues',
 };
 
 /**
@@ -316,4 +346,6 @@ export const CATEGORY_ICONS: Record<AchievementCategory, string> = {
   match_play: 'sword-cross',
   streaks: 'fire',
   milestones: 'star',
+  side_games: 'cards-playing-outline',
+  leagues: 'shield-star-outline',
 };

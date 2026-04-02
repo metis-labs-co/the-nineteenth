@@ -14,6 +14,9 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { wolfKeys, roundKeys } from '@/hooks/queryKeys';
+import { useAuth } from '@/hooks/useAuth';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import {
   determineWolfHoleResult,
   calculateWolfPoints,
@@ -278,6 +281,9 @@ export function useRecordWolfHoleResult() {
 
 export function useFinalizeWolfGame() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: async ({ gameId }: { gameId: string }): Promise<WolfGame> => {
@@ -347,7 +353,7 @@ export function useFinalizeWolfGame() {
       return updatedGame as WolfGame;
     },
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: wolfKeys.game(data.id) });
       queryClient.invalidateQueries({ queryKey: wolfKeys.decisions(data.id) });
       queryClient.invalidateQueries({ queryKey: wolfKeys.payouts(data.id) });
@@ -355,6 +361,45 @@ export function useFinalizeWolfGame() {
       queryClient.invalidateQueries({ queryKey: wolfKeys.standings(data.id) });
       queryClient.invalidateQueries({ queryKey: wolfKeys.gameByRound(data.round_id) });
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(data.round_id) });
+
+      // Fire wolf achievement events
+      if (!user?.id || !isAchievementReady) return;
+      try {
+        // wolf_game_completed
+        const r1 = await checkAndAward('wolf_game_completed', {});
+        if (r1.hasNewRewards) showMultipleToasts(r1.newAchievements, r1.newCosmetics);
+
+        // Check for lone wolf and blind wolf wins in this game's decisions
+        const { data: decisions } = castArrayResult<RawWolfHoleDecision>(
+          await wolfDecisionsTable()
+            .select('*')
+            .eq('wolf_game_id', data.id)
+            .eq('wolf_id', user.id)
+        );
+
+        if (decisions && decisions.length > 0) {
+          // Count wins by type to batch achievement checks
+          let loneWolfWins = 0;
+          let blindWolfWins = 0;
+          for (const decision of decisions) {
+            if (decision.wolf_team_won) {
+              if (!decision.partner_id) loneWolfWins++;
+              if (decision.is_blind_wolf) blindWolfWins++;
+            }
+          }
+
+          if (loneWolfWins > 0) {
+            const r = await checkAndAward('wolf_decision_made', { wolf_is_lone: true });
+            if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+          }
+          if (blindWolfWins > 0) {
+            const r = await checkAndAward('wolf_decision_made', { wolf_is_blind: true });
+            if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+          }
+        }
+      } catch (error) {
+        console.warn('[useFinalizeWolfGame] Achievement check failed (non-blocking):', error);
+      }
     },
 
     onError: (error) => {

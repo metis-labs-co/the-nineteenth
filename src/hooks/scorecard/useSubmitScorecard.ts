@@ -19,7 +19,8 @@ import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements'
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { isSingleBallScore } from '@/types/database/base';
 import type { Scorecard, Hole, GameType } from '@/types';
-import type { AchievementEventData } from '@/types/database/achievement.types';
+import type { AchievementEventData, AchievementDefinition } from '@/types/database/achievement.types';
+import type { CosmeticDefinition } from '@/types/database/cosmetic.types';
 
 interface SubmitScorecardInput {
   scorecards: Scorecard[];
@@ -231,9 +232,11 @@ export function useSubmitScorecards() {
           is_competition: isCompetition ?? false,
           hole_count: scoreStats.holesPlayed,
           gross_score: scoreStats.totalGross,
+          net_score: userScorecard.totalNet || undefined,
           // Score type counts
           birdies: scoreStats.birdies,
           eagles: scoreStats.eagles,
+          albatrosses: scoreStats.albatross,
           pars: scoreStats.pars,
           bogeys: scoreStats.bogeys,
           double_bogeys: scoreStats.doubleBogeys,
@@ -242,15 +245,59 @@ export function useSubmitScorecards() {
 
         console.log('[useSubmitScorecards] Checking achievements with data:', eventData);
 
-        // Check and award achievements
+        // Collect all new rewards across multiple event checks
+        const allNewAchievements: AchievementDefinition[] = [];
+        const allNewCosmetics: CosmeticDefinition[] = [];
+
+        // 1. scorecard_submitted — game type counts, score thresholds
         const result = await checkAndAward('scorecard_submitted', eventData);
+        allNewAchievements.push(...result.newAchievements);
+        allNewCosmetics.push(...result.newCosmetics);
 
-        if (result.hasNewRewards) {
-          console.log('[useSubmitScorecards] New achievements:', result.newAchievements.length);
-          console.log('[useSubmitScorecards] New cosmetics:', result.newCosmetics.length);
+        // 2. round_completed — round counting, practice/competition, course tracking
+        const roundResult = await checkAndAward('round_completed', eventData);
+        allNewAchievements.push(...roundResult.newAchievements);
+        allNewCosmetics.push(...roundResult.newCosmetics);
 
-          // Show achievement toasts
-          showMultipleToasts(result.newAchievements, result.newCosmetics);
+        // 3. Score-specific achievements (with counts for efficient batch tracking)
+        if (scoreStats.birdies > 0) {
+          const r = await checkAndAward('birdie_recorded', { birdies: scoreStats.birdies });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.eagles > 0) {
+          const r = await checkAndAward('eagle_recorded', { eagles: scoreStats.eagles });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.albatross > 0) {
+          const r = await checkAndAward('albatross_recorded', { albatrosses: scoreStats.albatross });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.holeInOne) {
+          const r = await checkAndAward('ace_recorded', { hole_in_one: true });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+        if (scoreStats.pars > 0) {
+          const r = await checkAndAward('par_recorded', { pars: scoreStats.pars });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+
+        // 4. course_played — unique course tracking
+        if (courseId) {
+          const r = await checkAndAward('course_played', { course_id: courseId });
+          allNewAchievements.push(...r.newAchievements);
+          allNewCosmetics.push(...r.newCosmetics);
+        }
+
+        // 5. Show all achievement toasts
+        if (allNewAchievements.length > 0 || allNewCosmetics.length > 0) {
+          console.log('[useSubmitScorecards] New achievements:', allNewAchievements.length);
+          console.log('[useSubmitScorecards] New cosmetics:', allNewCosmetics.length);
+          showMultipleToasts(allNewAchievements, allNewCosmetics);
         }
       } catch (error) {
         // Don't fail the submission if achievement check fails

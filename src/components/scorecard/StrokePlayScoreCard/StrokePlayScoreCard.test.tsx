@@ -276,7 +276,7 @@ describe('StrokePlayScoreCard', () => {
       expect(screen.getByText('GROSS')).toBeTruthy();
     });
 
-    it('renders NET label', () => {
+    it('does not render NET label (only GROSS shown)', () => {
       const player = createMockPlayer();
       const hole = createMockHole();
 
@@ -286,31 +286,13 @@ describe('StrokePlayScoreCard', () => {
           currentHole={hole}
           currentScore={undefined}
           onScoreSelect={defaultOnScoreSelect}
-          runningNet={2}
+          runningGross={36}
+          cumulativePar={36}
         />
       );
 
-      expect(screen.getByText('NET')).toBeTruthy();
-    });
-
-    it('displays E for even net score', () => {
-      const player = createMockPlayer();
-      const hole = createMockHole();
-
-      render(
-        <StrokePlayScoreCard
-          player={player}
-          currentHole={hole}
-          currentScore={undefined}
-          onScoreSelect={defaultOnScoreSelect}
-          runningNet={0}
-        />
-      );
-
-      // There are multiple 'E' elements (PAR button and NET display)
-      // Just verify the component renders without error
-      const eElements = screen.getAllByText('E');
-      expect(eElements.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('GROSS')).toBeTruthy();
+      expect(screen.queryByText('NET')).toBeNull();
     });
   });
 
@@ -995,7 +977,7 @@ describe('StrokePlayScoreCard', () => {
       expect(screen.getByText('GROSS')).toBeTruthy();
     });
 
-    it('handles undefined runningNet', () => {
+    it('handles undefined cumulativePar', () => {
       const player = createMockPlayer();
       const hole = createMockHole();
 
@@ -1005,12 +987,12 @@ describe('StrokePlayScoreCard', () => {
           currentHole={hole}
           currentScore={undefined}
           onScoreSelect={defaultOnScoreSelect}
-          runningNet={undefined}
+          cumulativePar={undefined}
         />
       );
 
       // Should render without crashing
-      expect(screen.getByText('NET')).toBeTruthy();
+      expect(screen.getByText('GROSS')).toBeTruthy();
     });
   });
 
@@ -1085,7 +1067,7 @@ describe('StrokePlayScoreCard', () => {
         expect(screen.queryByText('NET')).toBeNull();
       });
 
-      it('renders "GROSS" and "NET" headers when displayMode="stroke" (default)', () => {
+      it('renders "GROSS" header when displayMode="stroke" (default)', () => {
         const player = createMockPlayer();
         const hole = createMockHole();
 
@@ -1097,12 +1079,12 @@ describe('StrokePlayScoreCard', () => {
             onScoreSelect={defaultOnScoreSelect}
             displayMode="stroke"
             runningGross={36}
-            runningNet={2}
+            cumulativePar={36}
           />
         );
 
         expect(screen.getByText('GROSS')).toBeTruthy();
-        expect(screen.getByText('NET')).toBeTruthy();
+        expect(screen.queryByText('NET')).toBeNull();
         // Should NOT show SCORE in stroke mode
         expect(screen.queryByText('SCORE')).toBeNull();
       });
@@ -1118,12 +1100,12 @@ describe('StrokePlayScoreCard', () => {
             currentScore={undefined}
             onScoreSelect={defaultOnScoreSelect}
             runningGross={36}
-            runningNet={2}
+            cumulativePar={36}
           />
         );
 
         expect(screen.getByText('GROSS')).toBeTruthy();
-        expect(screen.getByText('NET')).toBeTruthy();
+        expect(screen.queryByText('NET')).toBeNull();
       });
 
       it('displays running par score with correct format', () => {

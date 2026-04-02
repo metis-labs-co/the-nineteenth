@@ -3,7 +3,6 @@ import type { User } from '@supabase/supabase-js';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 import type { CompetitionInfo } from '@/hooks/useCompetitionInfo';
 import { getHoleCount } from '@/constants/scoring';
-import { useIsSuperAdmin } from '@/store/subscriptionStore';
 
 interface UseViewRoundPermissionsParams {
   user: User | null;
@@ -43,18 +42,16 @@ export function useViewRoundPermissions({
     return false;
   }, [user?.id, round, isStandalone, competitionInfo?.organizer_id]);
 
-  const isSuperAdmin = useIsSuperAdmin();
-
-  const canQuickEnterScores = useMemo(() => {
-    if (!user?.id) return false;
-    if (isSuperAdmin) return true;
-    if (isOrganizer) return true;
-    return false;
-  }, [user?.id, isSuperAdmin, isOrganizer]);
-
   const userScorecardId = useMemo(() => {
     if (!user?.id || !scorecards) return undefined;
     return scorecards.find((sc) => sc.player_id === user.id)?.id;
+  }, [user?.id, scorecards]);
+
+  const userScorecardSubmitted = useMemo(() => {
+    if (!user?.id || !scorecards) return false;
+    const userScorecard = scorecards.find((sc) => sc.player_id === user.id);
+    if (!userScorecard) return false;
+    return userScorecard.status === 'completed' || userScorecard.status === 'confirmed';
   }, [user?.id, scorecards]);
 
   const canTagToLeague = useMemo(() => {
@@ -78,6 +75,6 @@ export function useViewRoundPermissions({
     canDelete,
     canTagToLeague,
     userScorecardId,
-    canQuickEnterScores,
+    userScorecardSubmitted,
   };
 }

@@ -12,6 +12,8 @@ import { useState } from 'react';
 import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import { useCreatePrizePool } from '@/hooks/usePrizePool';
 import { useAuth } from '@/hooks/useAuth';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import { DEFAULT_POINT_SYSTEM } from '@/schemas/competition';
 import { clearWizardDraft } from '@/store/competitionWizardStore';
 import { parseAustralianDate } from '../types';
@@ -42,6 +44,8 @@ export function useCompetitionFormSubmit({
   const createCompetition = useCreateCompetition();
   const createPrizePool = useCreatePrizePool();
   const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -139,6 +143,18 @@ export function useCompetitionFormSubmit({
             'Warning',
             'Competition created, but prize pool setup failed. You can configure it later from competition settings.'
           );
+        }
+      }
+
+      // Check for competition_created achievement
+      if (user?.id && isAchievementReady) {
+        try {
+          const achievementResult = await checkAndAward('competition_created', {});
+          if (achievementResult.hasNewRewards) {
+            showMultipleToasts(achievementResult.newAchievements, achievementResult.newCosmetics);
+          }
+        } catch (error) {
+          console.warn('[CreateCompetition] Achievement check failed (non-blocking):', error);
         }
       }
 

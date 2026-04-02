@@ -214,9 +214,10 @@ export function ScorecardScoreContent({
    * Used for Stroke Play and Par game types.
    */
   const getRunningGrossNet = useCallback(
-    (playerId: string, playerHandicap: number): { gross: number; net: number } => {
+    (playerId: string, playerHandicap: number): { gross: number; net: number; par: number } => {
       let totalGross = 0;
       let totalNet = 0;
+      let totalPar = 0;
 
       for (let holeNum = 1; holeNum < currentHole; holeNum++) {
         const holeData = holes.find((h) => h.number === holeNum);
@@ -230,9 +231,10 @@ export function ScorecardScoreContent({
 
         totalGross += strokes;
         totalNet += calculateNetScore(strokes, playerHandicap, holeData);
+        totalPar += holeData.par;
       }
 
-      return { gross: totalGross, net: totalNet };
+      return { gross: totalGross, net: totalNet, par: totalPar };
     },
     [currentHole, holes, getPlayerScore]
   );
@@ -425,7 +427,7 @@ export function ScorecardScoreContent({
         )}
         {playersToRender.map((player) => {
           const handicap = getHandicap(player);
-          const { gross, net } = getRunningGrossNet(player.id, handicap);
+          const { gross, par } = getRunningGrossNet(player.id, handicap);
           const teeDotColor = showTeeDots && playerTeeMap
             ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.color ?? '')
             : undefined;
@@ -439,7 +441,7 @@ export function ScorecardScoreContent({
               onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
               onPlayerPress={() => onPlayerPress(player.id)}
               runningGross={gross}
-              runningNet={net}
+              cumulativePar={par}
               displayMode={isPar ? 'par' : 'stroke'}
               runningParScore={isPar ? getRunningParScore(player.id, handicap) : undefined}
               isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}

@@ -6,6 +6,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { knockoutKeys, competitionKeys } from './queryKeys';
+import { useAuth } from '@/hooks/useAuth';
+import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
+import { useAchievementToast } from '@/context/AchievementToastContext';
 import {
   getKnockoutBracket,
   getKnockoutMatch,
@@ -83,12 +86,27 @@ export function useGenerateBracket() {
  */
 export function useCompleteKnockoutMatch(competitionId: string) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(user?.id ?? '');
+  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: (input: CompleteMatchInput) => completeMatch(input),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: knockoutKeys.bracket(competitionId) });
       queryClient.invalidateQueries({ queryKey: knockoutKeys.match(variables.matchId) });
+
+      // Fire knockout_match_won achievement if current player won
+      if (user?.id && isAchievementReady && variables.winnerId === user.id) {
+        try {
+          const r = await checkAndAward('knockout_match_won', {
+            knockout_match_result: 'win',
+          });
+          if (r.hasNewRewards) showMultipleToasts(r.newAchievements, r.newCosmetics);
+        } catch (error) {
+          console.warn('[useCompleteKnockoutMatch] Achievement check failed (non-blocking):', error);
+        }
+      }
     },
     onError: (error) => {
       console.error('[useCompleteKnockoutMatch] Failed:', error);

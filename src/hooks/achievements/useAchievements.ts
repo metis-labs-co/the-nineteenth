@@ -248,6 +248,8 @@ export function useAchievementSummary(playerId: string) {
       match_play: { earned: 0, total: 0 },
       streaks: { earned: 0, total: 0 },
       milestones: { earned: 0, total: 0 },
+      side_games: { earned: 0, total: 0 },
+      leagues: { earned: 0, total: 0 },
     };
 
     // Count totals per category (non-hidden only)

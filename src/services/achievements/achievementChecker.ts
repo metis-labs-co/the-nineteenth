@@ -76,6 +76,13 @@ const EVENT_CATEGORY_MAP: Record<AchievementEventType, AchievementCategory[]> = 
   competition_created: ['competitions'],
   match_play_won: ['match_play', 'competitions'],
   stableford_round: ['game_types', 'scoring'],
+  skins_game_completed: ['side_games'],
+  skins_hole_won: ['side_games'],
+  wolf_game_completed: ['side_games'],
+  wolf_decision_made: ['side_games'],
+  league_joined: ['leagues'],
+  league_round_completed: ['leagues'],
+  knockout_match_won: ['competitions'],
 };
 
 /**
@@ -91,6 +98,7 @@ const EVENT_ACHIEVEMENT_MAP: Record<AchievementEventType, string[]> = {
     'COURSE_EXPLORER',
     'HOME_ADVANTAGE',
     'COURSE_CONQUEROR',
+    'NINE_HOLE_SPECIALIST',
   ],
   scorecard_submitted: [
     'ROUND_VETERAN',
@@ -98,9 +106,12 @@ const EVENT_ACHIEVEMENT_MAP: Record<AchievementEventType, string[]> = {
     'STROKE_PLAYER',
     'MATCH_PLAY_MASTER',
     'TEAM_PLAYER',
+    'PAR_SPECIALIST',
     'LOW_SCORER',
     'NET_MASTER',
     'STABLEFORD_STAR',
+    'FORMAT_EXPLORER',
+    'SCORING_MACHINE',
   ],
   competition_joined: ['COMPETITION_JUNKIE', 'FIRST_TIMER', 'SOCIAL_BUTTERFLY'],
   competition_won: ['CHAMPION', 'HOT_STREAK'],
@@ -108,14 +119,24 @@ const EVENT_ACHIEVEMENT_MAP: Record<AchievementEventType, string[]> = {
   friend_added: ['FIRST_FRIEND', 'SOCIAL_CIRCLE'],
   course_played: ['COURSE_EXPLORER', 'STATE_TRAVELER'],
   home_venue_played: ['HOME_ADVANTAGE'],
-  birdie_recorded: ['BIRDIE_HUNTER', 'BIRDIE_STREAK'],
+  birdie_recorded: ['BIRDIE_HUNTER'],
   eagle_recorded: ['EAGLE_EYE'],
   albatross_recorded: ['ALBATROSS_RARE'],
   ace_recorded: ['ACE'],
-  par_recorded: ['PAR_MACHINE', 'PAR_STREAK'],
+  par_recorded: ['PAR_MACHINE'],
   competition_created: ['ORGANIZER'],
   match_play_won: ['MATCH_WINNER', 'DOMINANT_VICTORY', 'COMEBACK_KING', 'HOLES_WON'],
   stableford_round: ['STABLEFORD_SPECIALIST', 'STABLEFORD_STAR'],
+  // Side games
+  skins_game_completed: ['SKINS_SHARK', 'FIRST_SKIN', 'CLEAN_SWEEP'],
+  skins_hole_won: ['SKIN_COLLECTOR', 'CARRY_KING'],
+  wolf_game_completed: ['WOLF_PACK', 'FIRST_HUNT'],
+  wolf_decision_made: ['LONE_WOLF', 'BLIND_WOLF'],
+  // Leagues
+  league_joined: ['LEAGUE_MEMBER'],
+  league_round_completed: ['LEAGUE_REGULAR'],
+  // Knockout
+  knockout_match_won: ['KNOCKOUT_KING'],
 };
 
 // =====================================================
@@ -302,19 +323,31 @@ export function getProgressIncrement(
       return baseCode.startsWith('HOME_ADVANTAGE') ? 1 : 0;
 
     case 'birdie_recorded':
-      return baseCode.startsWith('BIRDIE_HUNTER') || baseCode.startsWith('BIRDIE_STREAK') ? 1 : 0;
+      if (baseCode.startsWith('BIRDIE_HUNTER')) {
+        return eventData.birdies ?? 1;
+      }
+      return 0;
 
     case 'eagle_recorded':
-      return baseCode.startsWith('EAGLE_EYE') ? 1 : 0;
+      if (baseCode.startsWith('EAGLE_EYE')) {
+        return eventData.eagles ?? 1;
+      }
+      return 0;
 
     case 'albatross_recorded':
-      return baseCode.startsWith('ALBATROSS_RARE') ? 1 : 0;
+      if (baseCode.startsWith('ALBATROSS_RARE')) {
+        return eventData.albatrosses ?? 1;
+      }
+      return 0;
 
     case 'ace_recorded':
       return baseCode.startsWith('ACE') ? 1 : 0;
 
     case 'par_recorded':
-      return baseCode.startsWith('PAR_MACHINE') || baseCode.startsWith('PAR_STREAK') ? 1 : 0;
+      if (baseCode.startsWith('PAR_MACHINE')) {
+        return eventData.pars ?? 1;
+      }
+      return 0;
 
     case 'competition_created':
       return baseCode.startsWith('ORGANIZER') ? 1 : 0;
@@ -324,6 +357,30 @@ export function getProgressIncrement(
 
     case 'stableford_round':
       return getProgressIncrementForStableford(eventData, baseCode);
+
+    // Side games
+    case 'skins_game_completed':
+      return getProgressIncrementForSkinsGame(eventData, baseCode);
+
+    case 'skins_hole_won':
+      return getProgressIncrementForSkinsHole(eventData, baseCode);
+
+    case 'wolf_game_completed':
+      return getProgressIncrementForWolfGame(eventData, baseCode);
+
+    case 'wolf_decision_made':
+      return getProgressIncrementForWolfDecision(eventData, baseCode);
+
+    // Leagues
+    case 'league_joined':
+      return baseCode.startsWith('LEAGUE_MEMBER') ? 1 : 0;
+
+    case 'league_round_completed':
+      return baseCode.startsWith('LEAGUE_REGULAR') ? 1 : 0;
+
+    // Knockout
+    case 'knockout_match_won':
+      return baseCode.startsWith('KNOCKOUT_KING') ? 1 : 0;
 
     default:
       return 0;
@@ -368,6 +425,11 @@ function getProgressIncrementForRound(eventData: AchievementEventData, baseCode:
     return eventData.hole_count === 18 ? 1 : 0;
   }
 
+  // 9 hole rounds
+  if (baseCode.startsWith('NINE_HOLE_SPECIALIST')) {
+    return eventData.hole_count === 9 ? 1 : 0;
+  }
+
   // Course-related achievements
   if (baseCode.startsWith('COURSE_EXPLORER')) {
     return 1; // Assuming each call is a unique course played
@@ -408,6 +470,19 @@ function getProgressIncrementForScorecard(
 
   if (baseCode.startsWith('TEAM_PLAYER')) {
     return ['best_ball', 'scramble', 'shamble', 'fourball'].includes(gameType ?? '') ? 1 : 0;
+  }
+
+  if (baseCode.startsWith('PAR_SPECIALIST')) {
+    return gameType === 'par' ? 1 : 0;
+  }
+
+  if (baseCode.startsWith('FORMAT_EXPLORER')) {
+    // Increment by 1 for any round — uniqueness tracking handled by progress value
+    return 1;
+  }
+
+  if (baseCode.startsWith('SCORING_MACHINE')) {
+    return 1; // Any scorecard submission counts
   }
 
   // Score thresholds
@@ -531,6 +606,90 @@ function getProgressIncrementForStableford(
   if (baseCode.startsWith('STABLEFORD_STAR') && eventData.stableford_points !== undefined) {
     // Return the points scored for threshold checking
     return eventData.stableford_points;
+  }
+
+  return 0;
+}
+
+// =====================================================
+// SIDE GAME INCREMENT HELPERS
+// =====================================================
+
+/**
+ * Gets progress increment for skins game completion events.
+ */
+function getProgressIncrementForSkinsGame(
+  eventData: AchievementEventData,
+  baseCode: string
+): number {
+  if (baseCode.startsWith('SKINS_SHARK')) {
+    return 1; // Games played
+  }
+
+  if (baseCode.startsWith('FIRST_SKIN')) {
+    return 1; // First game completed
+  }
+
+  if (baseCode.startsWith('CLEAN_SWEEP')) {
+    // Won 5+ skins in a single game
+    return (eventData.skins_holes_won ?? 0) >= 5 ? 1 : 0;
+  }
+
+  return 0;
+}
+
+/**
+ * Gets progress increment for skins hole won events.
+ */
+function getProgressIncrementForSkinsHole(
+  eventData: AchievementEventData,
+  baseCode: string
+): number {
+  if (baseCode.startsWith('SKIN_COLLECTOR')) {
+    return eventData.skins_holes_won ?? 1;
+  }
+
+  if (baseCode.startsWith('CARRY_KING')) {
+    // Won a hole with carryovers
+    return (eventData.skins_carryover_holes_won ?? 0) > 0 ? 1 : 0;
+  }
+
+  return 0;
+}
+
+/**
+ * Gets progress increment for wolf game completion events.
+ */
+function getProgressIncrementForWolfGame(
+  eventData: AchievementEventData,
+  baseCode: string
+): number {
+  if (baseCode.startsWith('WOLF_PACK')) {
+    return 1; // Games played
+  }
+
+  if (baseCode.startsWith('FIRST_HUNT')) {
+    return 1; // First game completed
+  }
+
+  return 0;
+}
+
+/**
+ * Gets progress increment for wolf decision events.
+ */
+function getProgressIncrementForWolfDecision(
+  eventData: AchievementEventData,
+  baseCode: string
+): number {
+  if (baseCode.startsWith('LONE_WOLF')) {
+    // Lone wolf wins (no partner chosen, wolf team won)
+    return eventData.wolf_is_lone === true ? 1 : 0;
+  }
+
+  if (baseCode.startsWith('BLIND_WOLF')) {
+    // Blind wolf wins
+    return eventData.wolf_is_blind === true ? 1 : 0;
   }
 
   return 0;
