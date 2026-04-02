@@ -90,6 +90,8 @@ export interface ScorecardScoreContentProps {
   wolfDecision?: WolfHoleDecision | null;
   onWolfChoosePartner?: () => void;
   isWolfProcessing?: boolean;
+  // Detailed stats sheet callback (hoisted to screen level)
+  onDetailedStatsPress?: (playerId: string) => void;
 }
 
 export function ScorecardScoreContent({
@@ -137,6 +139,7 @@ export function ScorecardScoreContent({
   wolfDecision,
   onWolfChoosePartner,
   isWolfProcessing = false,
+  onDetailedStatsPress,
 }: ScorecardScoreContentProps) {
   // Get shot contributions for a specific team (persisted in scorecard)
   // Each team stores its own contributions in its members' scorecards
@@ -496,6 +499,7 @@ export function ScorecardScoreContent({
             showPointsPreview={isStableford}
             isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
             teeDotColor={teeDotColor}
+            onDetailedStatsPress={onDetailedStatsPress ? () => onDetailedStatsPress(player.id) : undefined}
           />
         );
       })}

@@ -80,6 +80,7 @@ export const StatsRow = React.memo(function StatsRow({
   const centerPutts = showPutts && !showFIR && !showGIR;
 
   return (
+    <View>
     <View style={[styles.container, centerPutts && styles.containerCentered]}>
       {/* FIR Toggle */}
       {showFIR && (
@@ -179,9 +180,24 @@ export const StatsRow = React.memo(function StatsRow({
         </View>
       )}
 
-      {/* Detailed Stats Badges + "+" Button */}
+    </View>
+
+      {/* Additional Stats Button — full width below the stats row */}
       {hasAnyDetailedStats && (
-        <View style={styles.detailedStatsContainer}>
+        <TouchableOpacity
+          style={[styles.additionalStatsButton, { borderColor: colors.border }]}
+          onPress={onDetailedStatsPress}
+          disabled={disabled}
+          activeOpacity={0.7}
+          accessibilityLabel="Add additional stats"
+          accessibilityRole="button"
+        >
+          <View style={styles.additionalStatsContent}>
+            <Icon source="plus" size={14} color={colors.primary} />
+            <Text style={[styles.additionalStatsText, { color: colors.primary }]}>
+              Add Additional Stats
+            </Text>
+          </View>
           <DetailedStatsBadges
             score={score}
             showFairwayMissDirection={showFairwayMissDirection ?? false}
@@ -189,17 +205,7 @@ export const StatsRow = React.memo(function StatsRow({
             showBunkerShots={showBunkerShots ?? false}
             showHazards={showHazards ?? false}
           />
-          <TouchableOpacity
-            style={[styles.detailedStatsButton, { backgroundColor: colors.primary + '15' }]}
-            onPress={onDetailedStatsPress}
-            disabled={disabled}
-            activeOpacity={0.7}
-            accessibilityLabel="Open advanced stats"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.detailedStatsButtonText, { color: colors.primary }]}>+</Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -264,22 +270,25 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.4,
   },
-  detailedStatsContainer: {
+  additionalStatsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderStyle: 'dashed' as const,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  additionalStatsContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginLeft: 'auto' as const,
   },
-  detailedStatsButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailedStatsButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
+  additionalStatsText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });
 

@@ -31,6 +31,7 @@ import {
   SwipeableHoleNavigator,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
+import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
 import { WolfDecisionModal } from '@/components/wolf';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -65,6 +66,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const isStandaloneRound = competitionId === 'standalone';
   const isSuperAdmin = useIsSuperAdmin();
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
+  const [detailedStatsPlayerId, setDetailedStatsPlayerId] = useState<string | null>(null);
   const [isQuickViewScrolling, setIsQuickViewScrolling] = useState(false);
 
   // Dialog state management
@@ -100,7 +102,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   } = useScorecardStore();
 
   // Stats visibility (respects Premium tier)
-  const { showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
+  const statsVisibility = useStatsVisibilityWithTier();
+  const { showFairwayHit, showGreenInRegulation } = statsVisibility;
   const isPremium = useIsPremium();
 
   // Pre-compute daily handicap for each player (Premium-gated), using per-player tees
@@ -348,6 +351,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               wolfDecision={wolf.wolfDecision}
               onWolfChoosePartner={() => wolf.setShowWolfDecisionModal(true)}
               isWolfProcessing={wolf.isWolfProcessing}
+              onDetailedStatsPress={(playerId) => setDetailedStatsPlayerId(playerId)}
             />
 
             {!isTeamRound && (
@@ -541,6 +545,29 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
           onSelectPartner={wolf.handleWolfSelectPartner}
         />
       )}
+
+      {/* Detailed Stats Sheet — hoisted to screen level for proper layering */}
+      {detailedStatsPlayerId && (() => {
+        const activePlayer = currentPlayers.find((p) => p.id === detailedStatsPlayerId);
+        const activeScore = getPlayerScore(detailedStatsPlayerId, currentHole);
+        const singleScore = activeScore && 'strokes' in activeScore && !('balls' in activeScore) ? activeScore : undefined;
+        return (
+          <DetailedStatsSheet
+            visible={!!detailedStatsPlayerId}
+            onClose={() => setDetailedStatsPlayerId(null)}
+            holeNumber={currentHole}
+            playerName={activePlayer?.name || 'Player'}
+            score={singleScore}
+            onStatsUpdate={(updates) => {
+              scoreHandlers.handleStatsUpdate(detailedStatsPlayerId, updates);
+            }}
+            showFairwayMissDirection={statsVisibility.showFairwayMissDirection}
+            showGreenMissDirection={statsVisibility.showGreenMissDirection}
+            showBunkerShots={statsVisibility.showBunkerShots}
+            showHazards={statsVisibility.showHazards}
+          />
+        );
+      })()}
 
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </SafeAreaView>
