@@ -118,7 +118,7 @@ export function DetailedStatsSheet({
       visible={visible}
       onClose={onClose}
       title={`Hole ${holeNumber} \u2014 Advanced Stats`}
-      height={0.65}
+      height={0.7}
       showHandle
       showCloseButton
     >
