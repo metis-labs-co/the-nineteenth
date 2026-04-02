@@ -25,12 +25,20 @@ export default function GameSettingsScreen() {
   const showPutts = useSettingsStore((state) => state.showPutts);
   const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
   const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
+  const showFairwayMissDirection = useSettingsStore((state) => state.showFairwayMissDirection);
+  const showGreenMissDirection = useSettingsStore((state) => state.showGreenMissDirection);
+  const showBunkerShots = useSettingsStore((state) => state.showBunkerShots);
+  const showHazards = useSettingsStore((state) => state.showHazards);
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
   const setShowPutts = useSettingsStore((state) => state.setShowPutts);
   const setShowFairwayHit = useSettingsStore((state) => state.setShowFairwayHit);
   const setShowGreenInRegulation = useSettingsStore((state) => state.setShowGreenInRegulation);
+  const setShowFairwayMissDirection = useSettingsStore((state) => state.setShowFairwayMissDirection);
+  const setShowGreenMissDirection = useSettingsStore((state) => state.setShowGreenMissDirection);
+  const setShowBunkerShots = useSettingsStore((state) => state.setShowBunkerShots);
+  const setShowHazards = useSettingsStore((state) => state.setShowHazards);
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -115,6 +123,58 @@ export default function GameSettingsScreen() {
                 description="Track greens hit in regulation"
                 value={showGreenInRegulation}
                 onValueChange={setShowGreenInRegulation}
+                colors={colors}
+              />
+            </FeatureLockToggle>
+            <FeatureLockToggle
+              feature="detailed_stats"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
+              <SettingRow
+                icon="arrow-left-right"
+                label="Fairway Miss Direction"
+                description="Track left/right when you miss the fairway"
+                value={showFairwayMissDirection}
+                onValueChange={setShowFairwayMissDirection}
+                colors={colors}
+              />
+            </FeatureLockToggle>
+            <FeatureLockToggle
+              feature="detailed_stats"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
+              <SettingRow
+                icon="target"
+                label="Green Miss Direction"
+                description="Track left/right/long/short when you miss the green"
+                value={showGreenMissDirection}
+                onValueChange={setShowGreenMissDirection}
+                colors={colors}
+              />
+            </FeatureLockToggle>
+            <FeatureLockToggle
+              feature="detailed_stats"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
+              <SettingRow
+                icon="waves"
+                label="Bunker Shots"
+                description="Track number of bunker shots per hole"
+                value={showBunkerShots}
+                onValueChange={setShowBunkerShots}
+                colors={colors}
+              />
+            </FeatureLockToggle>
+            <FeatureLockToggle
+              feature="detailed_stats"
+              onUpgradePress={() => navigation.navigate('Subscription')}
+            >
+              <SettingRow
+                icon="alert-triangle"
+                label="Hazards"
+                description="Track hazard types (water, OB, lateral, lost ball)"
+                value={showHazards}
+                onValueChange={setShowHazards}
                 colors={colors}
               />
             </FeatureLockToggle>
