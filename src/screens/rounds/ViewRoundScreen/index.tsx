@@ -38,6 +38,8 @@ import type { Hole } from '@/types';
 import type { SkinsResultWithWinner } from '@/types/database/skins.types';
 
 import { useViewRoundScreen, type TabKey } from './useViewRoundScreen';
+import { EditStatsModal } from './EditStatsModal';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { SkinsTab } from './tabs/SkinsTab';
 import { WolfTab } from './tabs/WolfTab';
 import { PayoutsTab } from './tabs/PayoutsTab';
@@ -53,6 +55,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
   const colors = useThemeColors();
+  const statsVisibility = useStatsVisibilityWithTier();
+  const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
   // Get header title with icons for skins/wolf standalone rounds
   const getHeaderTitleNode = (): string | React.ReactNode => {
@@ -186,6 +190,27 @@ export default function ViewRoundScreen(props: Props) {
               <Text style={[styles.scoreButtonText, { color: colors.primary }]}>
                 Tag to League
               </Text>
+            </TouchableOpacity>
+          </FeatureLockCompact>
+        </View>
+      )}
+
+      {/* Edit Stats Button */}
+      {vm.userScorecardSubmitted && statsVisibility.hasAnyDetailedStats && (
+        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
+          <FeatureLockCompact
+            feature="detailed_stats"
+            onUpgradePress={vm.handleNavigateToSubscription}
+          >
+            <TouchableOpacity
+              style={[styles.tagLeagueButton, { borderColor: colors.primary }]}
+              onPress={vm.handleEditStatsOpen}
+              activeOpacity={0.8}
+              accessibilityLabel="Edit detailed stats"
+              accessibilityRole="button"
+            >
+              <Icon source="chart-bar" size={20} color={colors.primary} />
+              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>Edit Stats</Text>
             </TouchableOpacity>
           </FeatureLockCompact>
         </View>
@@ -372,6 +397,17 @@ export default function ViewRoundScreen(props: Props) {
           visible={vm.showTagLeagueSheet}
           onClose={vm.handleTagLeagueSheetClose}
           scorecardId={vm.userScorecardId}
+        />
+      )}
+
+      {/* Edit Stats Modal */}
+      {userScorecard && (
+        <EditStatsModal
+          visible={vm.showEditStatsModal}
+          onClose={vm.handleEditStatsClose}
+          scorecard={userScorecard}
+          holes={round.course?.holes || []}
+          courseName={round.course?.name || 'Course'}
         />
       )}
 

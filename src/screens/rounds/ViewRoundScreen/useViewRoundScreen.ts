@@ -36,6 +36,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showTagLeagueSheet, setShowTagLeagueSheet] = useState(false);
+  const [showEditStatsModal, setShowEditStatsModal] = useState(false);
 
   // Data fetching
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
@@ -225,6 +226,10 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     handleNavigateToSubscription: handlers.handleNavigateToSubscription,
     handleTagLeagueSheetOpen: handlers.handleTagLeagueSheetOpen,
     handleTagLeagueSheetClose: handlers.handleTagLeagueSheetClose,
+    // Edit Stats Modal
+    showEditStatsModal,
+    handleEditStatsOpen: () => setShowEditStatsModal(true),
+    handleEditStatsClose: () => setShowEditStatsModal(false),
     // Refetch functions
     refetchRound,
   };
