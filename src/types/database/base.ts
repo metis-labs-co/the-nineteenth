@@ -48,6 +48,28 @@ export interface HoleShotContributions {
 }
 
 /**
+ * Direction the tee shot missed the fairway
+ */
+export type FairwayMissDirection = 'left' | 'right';
+
+/**
+ * Direction/distance the approach missed the green
+ */
+export type GreenMissDirection = 'left' | 'right' | 'long' | 'short';
+
+/**
+ * Type of hazard encountered on a hole
+ */
+export type HazardType = 'water' | 'ob' | 'lateral' | 'lost_ball';
+
+/**
+ * A single hazard incident on a hole
+ */
+export interface HazardEntry {
+  type: HazardType;
+}
+
+/**
  * Hole score (stored in Scorecard.scores JSONB object)
  * MVP: Strokes only
  * Phase 2: Putts, fairways, GIR, penalties
@@ -61,6 +83,14 @@ export interface HoleScore {
   scoredBy?: string; // UUID of the player who entered this score (for mismatch detection)
   /** Shot contributions for scramble format (who contributed each shot type) */
   shotContributions?: HoleShotContributions;
+  /** Direction fairway was missed — only set when fairwayHit is false (par 4+ holes) */
+  fairwayMissDirection?: FairwayMissDirection;
+  /** Direction green was missed — only set when greenInRegulation is false */
+  greenMissDirection?: GreenMissDirection;
+  /** Number of bunker shots on this hole (0–5) */
+  bunkerShots?: number;
+  /** Hazard incidents on this hole (multi-select, one entry per type) */
+  hazards?: HazardEntry[];
 }
 
 /**
