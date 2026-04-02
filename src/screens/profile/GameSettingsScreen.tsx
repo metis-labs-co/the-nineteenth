@@ -11,6 +11,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/common';
 import { FeatureLockToggle } from '@/components/subscription/FeatureLockToggle';
+import { IconArrowsLeftRight, IconTarget, IconShovel, IconAlertTriangle } from '@tabler/icons-react-native';
 import { RadioButtonOption, SettingRow } from './components';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -131,7 +132,7 @@ export default function GameSettingsScreen() {
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
-                icon="arrow-left-right"
+                icon={<IconArrowsLeftRight size={20} color={colors.gray600} />}
                 label="Fairway Miss Direction"
                 description="Track left/right when you miss the fairway"
                 value={showFairwayMissDirection}
@@ -144,7 +145,7 @@ export default function GameSettingsScreen() {
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
-                icon="target"
+                icon={<IconTarget size={20} color={colors.gray600} />}
                 label="Green Miss Direction"
                 description="Track left/right/long/short when you miss the green"
                 value={showGreenMissDirection}
@@ -157,7 +158,7 @@ export default function GameSettingsScreen() {
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
-                icon="waves"
+                icon={<IconShovel size={20} color={colors.gray600} />}
                 label="Bunker Shots"
                 description="Track number of bunker shots per hole"
                 value={showBunkerShots}
@@ -170,7 +171,7 @@ export default function GameSettingsScreen() {
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
-                icon="alert-triangle"
+                icon={<IconAlertTriangle size={20} color={colors.gray600} />}
                 label="Hazards"
                 description="Track hazard types (water, OB, lateral, lost ball)"
                 value={showHazards}

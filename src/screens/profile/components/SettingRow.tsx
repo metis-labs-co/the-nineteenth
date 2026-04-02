@@ -6,7 +6,7 @@ import { spacing, typography } from '@/constants/theme';
 import type { ColorPalette } from '@/constants/theme';
 
 interface SettingRowProps {
-  icon: string;
+  icon: string | React.ReactNode;
   label: string;
   description?: string;
   value: boolean;
@@ -25,7 +25,11 @@ export const SettingRow = React.memo(function SettingRow({
   return (
     <View style={[styles.settingRow, { borderBottomColor: colors.gray100 }]}>
       <View style={styles.settingRowLeft}>
-        <Icon source={icon} size={20} color={colors.gray600} />
+        {typeof icon === 'string' ? (
+          <Icon source={icon} size={20} color={colors.gray600} />
+        ) : (
+          icon
+        )}
         <View style={styles.settingTextContainer}>
           <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>{label}</Text>
           {description && (
