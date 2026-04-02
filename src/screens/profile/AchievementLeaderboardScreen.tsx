@@ -25,6 +25,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAchievementLeaderboard } from '@/hooks/achievements';
+import { useFriends } from '@/hooks/friends';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState, ErrorState, LoadingSpinner } from '@/components/common';
 import { FeatureLock } from '@/components/subscription';
@@ -257,14 +258,18 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
 
   // State
   const [selectedScope, setSelectedScope] = useState<AchievementLeaderboardScope>(
-    hasCompetitionContext ? 'competition' : 'global'
+    hasCompetitionContext ? 'competition' : 'friends'
   );
+
+  // Friends for press-gating
+  const { data: friends = [] } = useFriends();
+  const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
 
   // Build scope tabs based on context
   const scopeTabs = useMemo((): ScopeTab[] => {
     const tabs: ScopeTab[] = [
-      { key: 'global', label: 'Global', icon: 'earth' },
       { key: 'friends', label: 'Friends', icon: 'account-group' },
+      { key: 'global', label: 'Global', icon: 'earth' },
     ];
 
     if (hasCompetitionContext) {
@@ -310,11 +315,11 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
 
   const handlePlayerPress = useCallback(
     (playerId: string) => {
-      if (playerId !== user?.id) {
+      if (playerId !== user?.id && friendIds.has(playerId)) {
         navigation.navigate('PlayerDetail', { id: playerId });
       }
     },
-    [navigation, user?.id]
+    [navigation, user?.id, friendIds]
   );
 
   // Render functions
@@ -323,10 +328,14 @@ export default function AchievementLeaderboardScreen({ navigation, route }: Prop
       <LeaderboardRow
         entry={item}
         isCurrentUser={item.player_id === user?.id}
-        onPress={item.player_id !== user?.id ? () => handlePlayerPress(item.player_id) : undefined}
+        onPress={
+          item.player_id !== user?.id && friendIds.has(item.player_id)
+            ? () => handlePlayerPress(item.player_id)
+            : undefined
+        }
       />
     ),
-    [user?.id, handlePlayerPress]
+    [user?.id, handlePlayerPress, friendIds]
   );
 
   const keyExtractor = useCallback(

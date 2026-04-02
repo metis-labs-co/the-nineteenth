@@ -1,0 +1,222 @@
+<h2>Score Entry: Detailed Stats UI Approaches</h2>
+<p class="subtitle">How should the new stats (miss directions, bunkers, hazards) integrate with the existing score entry per player?</p>
+
+<p style="margin-bottom: 8px; color: #888; font-size: 13px;">Current layout per player: Score controls → Stats Row (FIR, GIR, Putts)</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Contextual Expand (Recommended)</h3>
+      <p>Keep existing stats row. Miss directions appear <em>inline</em> when FIR/GIR toggled off. Bunkers &amp; Hazards in a collapsible "More Stats" row below. Minimal UI until needed.</p>
+
+      <div style="background: #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 12px; font-family: -apple-system, sans-serif; color: #e0e0e0; font-size: 13px;">
+        <div style="color: #aaa; font-size: 11px; margin-bottom: 8px;">PLAYER CARD — Fairway missed, GIR missed</div>
+
+        <!-- Existing Stats Row -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">FIR</span>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #3a1a1a; border: 2px solid #ff6b6b; display: flex; align-items: center; justify-content: center;">✗</div>
+          </div>
+          <!-- Miss direction pills appear when FIR is off -->
+          <div style="display: flex; gap: 4px;">
+            <div style="padding: 6px 14px; border-radius: 16px; background: #2a4a2a; border: 1px solid #4CAF50; font-size: 12px; color: #4CAF50; font-weight: 600;">L</div>
+            <div style="padding: 6px 14px; border-radius: 16px; background: #1e1e3a; border: 1px solid #444; font-size: 12px; color: #888;">R</div>
+          </div>
+
+          <div style="width: 1px; height: 30px; background: #333;"></div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">GIR</span>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #3a1a1a; border: 2px solid #ff6b6b; display: flex; align-items: center; justify-content: center;">✗</div>
+          </div>
+          <!-- Miss direction pills appear when GIR is off -->
+          <div style="display: flex; gap: 4px;">
+            <div style="padding: 6px 10px; border-radius: 16px; background: #1e1e3a; border: 1px solid #444; font-size: 11px; color: #888;">L</div>
+            <div style="padding: 6px 10px; border-radius: 16px; background: #1e1e3a; border: 1px solid #444; font-size: 11px; color: #888;">R</div>
+            <div style="padding: 6px 10px; border-radius: 16px; background: #2a4a2a; border: 1px solid #4CAF50; font-size: 11px; color: #4CAF50; font-weight: 600;">Lo</div>
+            <div style="padding: 6px 10px; border-radius: 16px; background: #1e1e3a; border: 1px solid #444; font-size: 11px; color: #888;">Sh</div>
+          </div>
+
+          <div style="width: 1px; height: 30px; background: #333;"></div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">PUTTS</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">−</div>
+              <div style="width: 28px; text-align: center; font-weight: bold;">2</div>
+              <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">+</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsible More Stats Row -->
+        <div style="border-top: 1px solid #333; padding-top: 8px; margin-top: 8px;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <span style="font-size: 10px; color: #888;">BUNKERS</span>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">−</div>
+                <div style="width: 28px; text-align: center; font-weight: bold;">1</div>
+                <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">+</div>
+              </div>
+            </div>
+
+            <div style="width: 1px; height: 30px; background: #333;"></div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <span style="font-size: 10px; color: #888;">HAZARDS</span>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">−</div>
+                <div style="width: 28px; text-align: center; font-weight: bold; color: #ff6b6b;">1</div>
+                <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">+</div>
+              </div>
+            </div>
+
+            <!-- Hazard type chips -->
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <div style="padding: 4px 10px; border-radius: 12px; background: #1a3a5a; border: 1px solid #4a9eff; font-size: 11px; color: #4a9eff;">💧 Water</div>
+            </div>
+
+            <div style="margin-left: auto; color: #666; font-size: 18px; cursor: pointer;">▲</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero extra taps for basic scoring</li><li>Miss directions only appear when relevant</li><li>Bunkers/hazards hidden until expanded</li><li>Familiar pattern — extends existing row</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Row can get wide on smaller screens when FIR/GIR both missed</li><li>Two levels of disclosure (miss pills + more stats)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Stats Bottom Sheet</h3>
+      <p>Replace the inline stats row with a compact "📊 Stats" button. Tapping opens a bottom sheet with ALL stat categories in a clean form layout. Main score entry stays ultra-clean.</p>
+
+      <div style="background: #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 12px; font-family: -apple-system, sans-serif; color: #e0e0e0; font-size: 13px;">
+        <div style="color: #aaa; font-size: 11px; margin-bottom: 8px;">PLAYER CARD — Score entered</div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 12px; color: #888;">Stats:</span>
+            <span style="padding: 3px 8px; border-radius: 10px; background: #2a2a4a; font-size: 11px; color: #aaa;">FIR ✗ L</span>
+            <span style="padding: 3px 8px; border-radius: 10px; background: #2a2a4a; font-size: 11px; color: #aaa;">GIR ✗ Long</span>
+            <span style="padding: 3px 8px; border-radius: 10px; background: #2a2a4a; font-size: 11px; color: #aaa;">2 putts</span>
+            <span style="padding: 3px 8px; border-radius: 10px; background: #3a2a1a; font-size: 11px; color: #f0a050;">1 bunker</span>
+          </div>
+          <div style="padding: 8px 16px; border-radius: 8px; background: #2a2a5a; color: #7a8aff; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap;">📊 Edit</div>
+        </div>
+
+        <div style="margin-top: 20px; color: #aaa; font-size: 11px; border-top: 1px dashed #444; padding-top: 12px;">⬇ BOTTOM SHEET (opens when Edit tapped)</div>
+        <div style="background: #2a2a3e; border-radius: 12px; padding: 16px; margin-top: 8px;">
+          <div style="text-align: center; margin-bottom: 16px; font-weight: 600; font-size: 15px;">Hole 7 Stats — Player Name</div>
+
+          <div style="display: flex; flex-direction: column; gap: 18px;">
+            <div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px;">FAIRWAY</div>
+              <div style="display: flex; gap: 6px;">
+                <div style="padding: 8px 16px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Hit ✓</div>
+                <div style="padding: 8px 16px; border-radius: 8px; background: #4a2a2a; border: 1px solid #ff6b6b; color: #ff6b6b; font-size: 13px; font-weight: 600;">Miss Left</div>
+                <div style="padding: 8px 16px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Miss Right</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px;">GREEN</div>
+              <div style="display: flex; gap: 6px;">
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Hit ✓</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Left</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Right</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #4a2a2a; border: 1px solid #ff6b6b; color: #ff6b6b; font-size: 13px; font-weight: 600;">Long</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; color: #888; font-size: 13px;">Short</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px;">PUTTS</div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888; font-size: 18px;">−</div>
+                <span style="font-weight: bold; font-size: 20px; width: 30px; text-align: center;">2</span>
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888; font-size: 18px;">+</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px;">BUNKERS</div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888; font-size: 18px;">−</div>
+                <span style="font-weight: bold; font-size: 20px; width: 30px; text-align: center;">1</span>
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888; font-size: 18px;">+</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px;">HAZARDS</div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1a3a5a; border: 1px solid #4a9eff; font-size: 13px; color: #4a9eff; font-weight: 600;">💧 Water</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; font-size: 13px; color: #888;">⛳ OB</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; font-size: 13px; color: #888;">🔴 Lateral</div>
+                <div style="padding: 8px 14px; border-radius: 8px; background: #1e1e3a; font-size: 13px; color: #888;">❓ Lost</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Main score entry stays completely clean</li><li>All stats in one organized place with room to breathe</li><li>Summary badges show at-a-glance what was tracked</li><li>Scales to any number of stat categories</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Extra tap required for every stat entry</li><li>Slower for quick FIR/GIR/putts (common stats)</li><li>Context switch between score and stats</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid: Inline Basics + Sheet for Detail</h3>
+      <p>Keep FIR/GIR/Putts inline (no extra taps for common stats). Add a small "+" button that opens a bottom sheet for bunkers, hazards, and miss directions. Best of both worlds.</p>
+
+      <div style="background: #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 12px; font-family: -apple-system, sans-serif; color: #e0e0e0; font-size: 13px;">
+        <div style="color: #aaa; font-size: 11px; margin-bottom: 8px;">PLAYER CARD — FIR missed, GIR hit, some detail entered</div>
+
+        <!-- Existing Stats Row stays -->
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">FIR</span>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #3a1a1a; border: 2px solid #ff6b6b; display: flex; align-items: center; justify-content: center;">✗</div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">GIR</span>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #1a3a1a; border: 2px solid #4CAF50; display: flex; align-items: center; justify-content: center;">✓</div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="font-size: 10px; color: #888;">PUTTS</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">−</div>
+              <div style="width: 28px; text-align: center; font-weight: bold;">2</div>
+              <div style="width: 32px; height: 32px; border-radius: 6px; background: #1e1e3a; display: flex; align-items: center; justify-content: center; color: #888;">+</div>
+            </div>
+          </div>
+
+          <!-- Summary badges + detail button -->
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+            <span style="padding: 3px 8px; border-radius: 10px; background: #3a2a1a; font-size: 10px; color: #f0a050;">Miss L</span>
+            <span style="padding: 3px 8px; border-radius: 10px; background: #3a1a1a; font-size: 10px; color: #ff6b6b;">1 bunker</span>
+            <div style="width: 36px; height: 36px; border-radius: 18px; background: #2a2a5a; display: flex; align-items: center; justify-content: center; color: #7a8aff; font-weight: bold; font-size: 16px; cursor: pointer;">+</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px; color: #aaa; font-size: 11px; border-top: 1px dashed #444; padding-top: 12px;">⬇ SHEET (opens when + tapped) — Same form as Approach B</div>
+        <div style="background: #2a2a3e; border-radius: 12px; padding: 12px; margin-top: 8px; font-size: 12px; color: #888; text-align: center;">
+          Miss direction, bunkers, hazards form<br>
+          (identical to Approach B's bottom sheet)
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Quick FIR/GIR/Putts stay one-tap</li><li>Advanced stats accessible but not cluttering</li><li>Summary badges show entered detail at a glance</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Miss direction entry separated from FIR/GIR toggle</li><li>Two different interaction patterns (inline vs sheet)</li><li>Summary badges can be small/hard to read</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

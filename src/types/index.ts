@@ -385,6 +385,10 @@ export interface Scorecard {
   playerHandicap?: number | null;
   /** Course par (sum of hole pars) */
   coursePar?: number;
+  /** Hole data for Stableford points calculation during sync */
+  syncHoles?: Hole[];
+  /** Game type for correct points calculation during sync */
+  syncGameType?: GameType;
 }
 
 // HoleScore is re-exported from database.types.ts above

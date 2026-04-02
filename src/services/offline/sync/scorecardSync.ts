@@ -13,6 +13,8 @@ import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
+import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 
 /**
@@ -126,6 +128,16 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
   // Calculate handicap data
   const handicapData = calculateHandicapData(scorecard);
 
+  // Calculate correct Stableford points using daily handicap and hole data
+  const totalPoints = calculateTotalPoints(scorecard, handicapData.dailyHandicapUsed);
+
+  // For Stableford, the store sets totalNet = totalPoints (incorrect for DB storage).
+  // Correct total_net should be gross - daily handicap.
+  const isStableford = scorecard.syncGameType === 'stableford';
+  const totalNet = isStableford && handicapData.dailyHandicapUsed != null
+    ? (scorecard.totalGross || 0) - handicapData.dailyHandicapUsed
+    : scorecard.totalNet || 0;
+
   // Prepare data for Supabase upsert
   // Don't send 'id' - let Supabase generate it or use the unique constraint (round_id, player_id)
   const scorecardData = {
@@ -133,8 +145,8 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
     player_id: scorecard.playerId,
     scores: scoresForDb,
     total_gross: scorecard.totalGross || 0,
-    total_net: scorecard.totalNet || 0,
-    total_points: scorecard.totalNet || 0, // For Stableford, use totalNet as points
+    total_net: totalNet,
+    total_points: totalPoints,
     status: scorecard.status === 'in-progress' ? 'in-progress' : scorecard.status,
     submitted_at: toISOString(scorecard.submittedAt),
     submitted_by: scorecard.submittedBy || null,
@@ -218,16 +230,15 @@ function calculateHandicapData(scorecard: Scorecard): {
   let slopeRatingUsed: number | null = null;
 
   // Check if we have the metadata needed for handicap calculation
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scorecardWithMeta = scorecard as any;
-  const teeData = scorecardWithMeta.teeData;
-  const playerGender = scorecardWithMeta.playerGender;
-  const playerHandicap = scorecardWithMeta.playerHandicap;
-  const coursePar = scorecardWithMeta.coursePar;
+  const teeData = scorecard.teeData;
+  const playerGender = scorecard.playerGender;
+  const playerHandicap = scorecard.playerHandicap;
+  const coursePar = scorecard.coursePar;
 
   if (teeData && coursePar) {
     // Get ratings based on player gender
-    const ratings = getRatingsForGender(teeData, playerGender);
+    // Convert TeeBox (camelCase) to TeeWithRatings (snake_case) for getRatingsForGender
+    const ratings = getRatingsForGender(teeBoxToRatings(teeData), playerGender);
 
     if (ratings) {
       courseRatingUsed = ratings.courseRating;
@@ -284,6 +295,42 @@ function calculateHandicapData(scorecard: Scorecard): {
     courseRatingUsed,
     slopeRatingUsed,
   };
+}
+
+/**
+ * Calculate total Stableford points using daily handicap and hole data.
+ * Falls back to scorecard.totalNet if hole data is not available.
+ */
+function calculateTotalPoints(
+  scorecard: Scorecard,
+  dailyHandicap: number | null
+): number {
+  const holes = scorecard.syncHoles;
+  const gameType = scorecard.syncGameType;
+
+  // Only recalculate for Stableford when we have hole data and daily handicap
+  if (gameType === 'stableford' && Array.isArray(holes) && holes.length > 0 && dailyHandicap != null) {
+    let totalPoints = 0;
+
+    for (const hole of holes) {
+      const score = scorecard.scores[hole.number];
+      if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
+
+      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+      totalPoints += calculateStablefordPointsNet(score.strokes, hole.par, strokesReceived);
+    }
+
+    syncLogger.debug('Calculated Stableford points with daily handicap', {
+      totalPoints,
+      dailyHandicap,
+      fallbackValue: scorecard.totalNet || 0,
+    });
+
+    return totalPoints;
+  }
+
+  // Fallback: use totalNet (which for non-stableford games is the net score)
+  return scorecard.totalNet || 0;
 }
 
 /**

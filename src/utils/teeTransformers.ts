@@ -42,3 +42,24 @@ export function teeToTeeBox(tee: Tee): TeeBox {
 export function teesToTeeBoxes(tees: Tee[]): TeeBox[] {
   return tees.map(teeToTeeBox);
 }
+
+/**
+ * Convert a TeeBox (camelCase) to the TeeWithRatings shape (snake_case)
+ * expected by getRatingsForGender().
+ *
+ * Note: TeeBox does not carry women's ratings. If you need gender-specific
+ * ratings, use the canonical Tee record from the tees table instead.
+ */
+export function teeBoxToRatings(teeBox: TeeBox): {
+  course_rating: number | undefined;
+  slope_rating: number | undefined;
+  womens_course_rating: null;
+  womens_slope_rating: null;
+} {
+  return {
+    course_rating: teeBox.courseRating,
+    slope_rating: teeBox.slopeRating,
+    womens_course_rating: null,
+    womens_slope_rating: null,
+  };
+}

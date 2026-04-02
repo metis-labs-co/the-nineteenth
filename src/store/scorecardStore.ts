@@ -227,7 +227,7 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     submitScorecards: async () => {
-      const { groupScorecards, currentRoundId, selectedTeeData, holes } = get();
+      const { groupScorecards, currentRoundId, selectedTeeData, holes, gameType } = get();
 
       storeLogger.info('Submitting scorecards', {
         roundId: currentRoundId?.substring(0, 8) + '...',
@@ -255,10 +255,13 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
             status: 'completed',
             submittedAt: now,
             updatedAt: now,
-            teeData: selectedTeeData,
+            teeData: get().getPlayerTee(playerId),
             playerGender: scorecard.player?.gender || null,
             playerHandicap: scorecard.player?.handicap || null,
             coursePar,
+            // Attach hole data and game type for correct Stableford points calculation during sync
+            syncHoles: safeHoles,
+            syncGameType: gameType,
           };
 
           storeLogger.debug('Submitting scorecard', logScorecardSummary(updatedScorecard));
