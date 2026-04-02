@@ -1,22 +1,24 @@
 /**
  * DetailedStatsBadges - Summary pills showing entered detailed stats inline on StatsRow
  *
- * Displays compact badges for: fairway miss direction, green miss direction,
- * bunker count, and hazard types. Only shows badges for stats that have data.
+ * Displays compact badges for bunker count and hazard types.
+ * Fairway/green miss directions are shown inside the FIR/GIR buttons instead.
+ * Only shows badges for stats that have data.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { IconShovel, IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { HoleScore } from '@/types/database/base';
 
-const HAZARD_LABELS: Record<string, string> = {
-  water: '\u{1F4A7}',
-  ob: 'OB',
-  lateral: '\u{1F534}',
-  lost_ball: '?',
+const HAZARD_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
+  water: IconDroplet,
+  ob: IconBan,
+  lateral: IconCircleOff,
+  lost_ball: IconQuestionMark,
 };
 
 interface DetailedStatsBadgesProps {
@@ -33,8 +35,6 @@ interface DetailedStatsBadgesProps {
 
 export const DetailedStatsBadges = React.memo(function DetailedStatsBadges({
   score,
-  showFairwayMissDirection,
-  showGreenMissDirection,
   showBunkerShots,
   showHazards,
 }: DetailedStatsBadgesProps) {
@@ -42,58 +42,35 @@ export const DetailedStatsBadges = React.memo(function DetailedStatsBadges({
 
   if (!score) return null;
 
-  const badges: { label: string; color: string; bgColor: string }[] = [];
+  const hasBunkers = showBunkerShots && score.bunkerShots && score.bunkerShots > 0;
+  const hasHazards = showHazards && score.hazards && score.hazards.length > 0;
 
-  // Fairway miss direction
-  if (showFairwayMissDirection && score.fairwayHit === false && score.fairwayMissDirection) {
-    const dir = score.fairwayMissDirection === 'left' ? '\u2B05 L' : 'R \u27A1';
-    badges.push({ label: dir, color: colors.warning, bgColor: colors.warning + '20' });
-  }
-
-  // Green miss direction
-  if (showGreenMissDirection && score.greenInRegulation === false && score.greenMissDirection) {
-    const dirMap = { left: 'L', right: 'R', long: 'Lo', short: 'Sh' };
-    badges.push({
-      label: dirMap[score.greenMissDirection],
-      color: colors.warning,
-      bgColor: colors.warning + '20',
-    });
-  }
-
-  // Bunker shots
-  if (showBunkerShots && score.bunkerShots && score.bunkerShots > 0) {
-    badges.push({
-      label: `${score.bunkerShots}\u{1F3D6}`,
-      color: colors.warning,
-      bgColor: colors.warning + '20',
-    });
-  }
-
-  // Hazards
-  if (showHazards && score.hazards && score.hazards.length > 0) {
-    for (const hazard of score.hazards) {
-      badges.push({
-        label: HAZARD_LABELS[hazard.type] || hazard.type,
-        color: colors.error,
-        bgColor: colors.error + '20',
-      });
-    }
-  }
-
-  if (badges.length === 0) return null;
+  if (!hasBunkers && !hasHazards) return null;
 
   return (
     <View style={styles.container}>
-      {badges.map((badge, index) => (
-        <View
-          key={index}
-          style={[styles.badge, { backgroundColor: badge.bgColor }]}
-        >
-          <Text style={[styles.badgeText, { color: badge.color }]}>
-            {badge.label}
+      {/* Bunker shots */}
+      {hasBunkers && (
+        <View style={[styles.badge, { backgroundColor: colors.warning + '20' }]}>
+          <IconShovel size={10} color={colors.warning} />
+          <Text style={[styles.badgeText, { color: colors.warning }]}>
+            {score.bunkerShots}
           </Text>
         </View>
-      ))}
+      )}
+
+      {/* Hazards */}
+      {hasHazards && score.hazards!.map((hazard, index) => {
+        const HazardIcon = HAZARD_ICONS[hazard.type];
+        return (
+          <View
+            key={index}
+            style={[styles.badge, { backgroundColor: colors.error + '20' }]}
+          >
+            {HazardIcon && <HazardIcon size={10} color={colors.error} />}
+          </View>
+        );
+      })}
     </View>
   );
 });
@@ -106,6 +83,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,

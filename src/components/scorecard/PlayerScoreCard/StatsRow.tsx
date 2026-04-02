@@ -83,7 +83,7 @@ export const StatsRow = React.memo(function StatsRow({
   return (
     <View>
     <View style={[styles.container, centerPutts && styles.containerCentered]}>
-      {/* FIR Toggle */}
+      {/* FIR Toggle — shows check when hit, miss direction when missed */}
       {showFIR && (
         <View style={styles.checkboxContainer}>
           <TouchableOpacity
@@ -91,6 +91,7 @@ export const StatsRow = React.memo(function StatsRow({
               styles.checkbox,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               fairwayHit === true && { backgroundColor: colors.success, borderColor: colors.success },
+              fairwayHit === false && { borderColor: colors.error },
               disabled && styles.buttonDisabled,
             ]}
             onPress={onFairwayToggle}
@@ -100,17 +101,23 @@ export const StatsRow = React.memo(function StatsRow({
             accessibilityRole="checkbox"
             accessibilityState={{ checked: fairwayHit === true }}
           >
-            <Icon
-              source="check"
-              size={24}
-              color={fairwayHit === true ? colors.white : colors.gray300}
-            />
+            {fairwayHit === false && score?.fairwayMissDirection ? (
+              <Text style={[styles.missDirectionText, { color: colors.error }]}>
+                {score.fairwayMissDirection === 'left' ? 'L' : 'R'}
+              </Text>
+            ) : (
+              <Icon
+                source="check"
+                size={24}
+                color={fairwayHit === true ? colors.white : colors.gray300}
+              />
+            )}
           </TouchableOpacity>
           <Text style={[styles.label, { color: colors.textSecondary }]}>FIR</Text>
         </View>
       )}
 
-      {/* GIR Toggle */}
+      {/* GIR Toggle — shows check when hit, miss direction when missed */}
       {showGIR && (
         <View style={styles.checkboxContainer}>
           <TouchableOpacity
@@ -118,6 +125,7 @@ export const StatsRow = React.memo(function StatsRow({
               styles.checkbox,
               { borderColor: colors.gray300, backgroundColor: colors.white },
               greenInRegulation === true && { backgroundColor: colors.success, borderColor: colors.success },
+              greenInRegulation === false && { borderColor: colors.error },
               disabled && styles.buttonDisabled,
             ]}
             onPress={onGIRToggle}
@@ -127,11 +135,17 @@ export const StatsRow = React.memo(function StatsRow({
             accessibilityRole="checkbox"
             accessibilityState={{ checked: greenInRegulation === true }}
           >
-            <Icon
-              source="check"
-              size={24}
-              color={greenInRegulation === true ? colors.white : colors.gray300}
-            />
+            {greenInRegulation === false && score?.greenMissDirection ? (
+              <Text style={[styles.missDirectionText, { color: colors.error }]}>
+                {{ left: 'L', right: 'R', long: 'Lo', short: 'Sh' }[score.greenMissDirection]}
+              </Text>
+            ) : (
+              <Icon
+                source="check"
+                size={24}
+                color={greenInRegulation === true ? colors.white : colors.gray300}
+              />
+            )}
           </TouchableOpacity>
           <Text style={[styles.label, { color: colors.textSecondary }]}>GIR</Text>
         </View>
@@ -266,6 +280,10 @@ const styles = StyleSheet.create({
   },
   puttsDisplayText: {
     fontSize: 32,
+    fontWeight: '700',
+  },
+  missDirectionText: {
+    fontSize: 18,
     fontWeight: '700',
   },
   buttonDisabled: {
