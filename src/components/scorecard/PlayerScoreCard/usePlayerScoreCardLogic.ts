@@ -89,14 +89,24 @@ export function usePlayerScoreCardLogic({
   const handleFairwayToggle = useCallback(() => {
     if (!disabled && onStatsUpdate) {
       const newValue = singleBallScore?.fairwayHit === true ? false : true;
-      onStatsUpdate({ fairwayHit: newValue });
+      // Auto-clear miss direction when toggling to "hit"
+      if (newValue === true) {
+        onStatsUpdate({ fairwayHit: true, fairwayMissDirection: undefined });
+      } else {
+        onStatsUpdate({ fairwayHit: false });
+      }
     }
   }, [disabled, onStatsUpdate, singleBallScore?.fairwayHit]);
 
   const handleGIRToggle = useCallback(() => {
     if (!disabled && onStatsUpdate) {
       const newValue = singleBallScore?.greenInRegulation === true ? false : true;
-      onStatsUpdate({ greenInRegulation: newValue });
+      // Auto-clear miss direction when toggling to "hit"
+      if (newValue === true) {
+        onStatsUpdate({ greenInRegulation: true, greenMissDirection: undefined });
+      } else {
+        onStatsUpdate({ greenInRegulation: false });
+      }
     }
   }, [disabled, onStatsUpdate, singleBallScore?.greenInRegulation]);
 
@@ -118,6 +128,12 @@ export function usePlayerScoreCardLogic({
     }
   }, [disabled, onStatsUpdate, singleBallScore?.putts]);
 
+  const handleDetailedStatsUpdate = useCallback((updates: Partial<HoleScore>) => {
+    if (!disabled && onStatsUpdate) {
+      onStatsUpdate(updates);
+    }
+  }, [disabled, onStatsUpdate]);
+
   return {
     // Computed values
     selectedScore,
@@ -134,6 +150,7 @@ export function usePlayerScoreCardLogic({
     handleGIRToggle,
     handlePuttsDecrement,
     handlePuttsIncrement,
+    handleDetailedStatsUpdate,
   };
 }
 

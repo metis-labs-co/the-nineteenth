@@ -13,7 +13,7 @@
  * - Large touch targets for on-course use
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   spacing,
@@ -27,6 +27,8 @@ import { useStatsVisibility } from '@/store/settingsStore';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { STABLEFORD_POINTS } from '@/constants/scoring';
+import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 
 import { QuickActionButton } from './QuickActionButton';
 import { ScoreInputStepper } from './ScoreInputStepper';
@@ -106,6 +108,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
   const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
+  const statsVisibility = useStatsVisibilityWithTier();
+  const [showDetailedSheet, setShowDetailedSheet] = useState(false);
 
   // FIR only applies to par 4s and 5s
   const showFIR = showFairwayHit && currentHole.par >= 4;
@@ -130,6 +134,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
     handleGIRToggle,
     handlePuttsDecrement,
     handlePuttsIncrement,
+    handleDetailedStatsUpdate,
   } = usePlayerScoreCardLogic({
     handicap,
     currentHole,
@@ -275,7 +280,28 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             onPuttsDecrement={handlePuttsDecrement}
             onPuttsIncrement={handlePuttsIncrement}
             disabled={disabled}
+            score={singleBallScore}
+            hasAnyDetailedStats={statsVisibility.hasAnyDetailedStats}
+            onDetailedStatsPress={() => setShowDetailedSheet(true)}
+            showFairwayMissDirection={statsVisibility.showFairwayMissDirection}
+            showGreenMissDirection={statsVisibility.showGreenMissDirection}
+            showBunkerShots={statsVisibility.showBunkerShots}
+            showHazards={statsVisibility.showHazards}
           />
+          {statsVisibility.hasAnyDetailedStats && (
+            <DetailedStatsSheet
+              visible={showDetailedSheet}
+              onClose={() => setShowDetailedSheet(false)}
+              holeNumber={currentHole.number}
+              playerName={player?.name || 'Player'}
+              score={singleBallScore}
+              onStatsUpdate={handleDetailedStatsUpdate}
+              showFairwayMissDirection={statsVisibility.showFairwayMissDirection}
+              showGreenMissDirection={statsVisibility.showGreenMissDirection}
+              showBunkerShots={statsVisibility.showBunkerShots}
+              showHazards={statsVisibility.showHazards}
+            />
+          )}
         </>
       )}
     </View>

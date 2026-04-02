@@ -14,6 +14,8 @@ import {
   borderRadius,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { DetailedStatsBadges } from '@/components/scorecard/DetailedStatsBadges';
+import type { HoleScore } from '@/types/database/base';
 
 const MAX_PUTTS = 6;
 
@@ -33,6 +35,17 @@ interface StatsRowProps {
   onPuttsIncrement: () => void;
   // State
   disabled?: boolean;
+  /** Full hole score for badges display */
+  score?: HoleScore;
+  /** Whether to show the "+" button for detailed stats */
+  hasAnyDetailedStats?: boolean;
+  /** Handler for opening the detailed stats sheet */
+  onDetailedStatsPress?: () => void;
+  /** Visibility flags for badge display */
+  showFairwayMissDirection?: boolean;
+  showGreenMissDirection?: boolean;
+  showBunkerShots?: boolean;
+  showHazards?: boolean;
 }
 
 export const StatsRow = React.memo(function StatsRow({
@@ -47,6 +60,13 @@ export const StatsRow = React.memo(function StatsRow({
   onPuttsDecrement,
   onPuttsIncrement,
   disabled = false,
+  score,
+  hasAnyDetailedStats,
+  onDetailedStatsPress,
+  showFairwayMissDirection,
+  showGreenMissDirection,
+  showBunkerShots,
+  showHazards,
 }: StatsRowProps) {
   const colors = useThemeColors();
 
@@ -158,6 +178,29 @@ export const StatsRow = React.memo(function StatsRow({
           <Text style={[styles.label, { color: colors.textSecondary }]}>PUTTS</Text>
         </View>
       )}
+
+      {/* Detailed Stats Badges + "+" Button */}
+      {hasAnyDetailedStats && (
+        <View style={styles.detailedStatsContainer}>
+          <DetailedStatsBadges
+            score={score}
+            showFairwayMissDirection={showFairwayMissDirection ?? false}
+            showGreenMissDirection={showGreenMissDirection ?? false}
+            showBunkerShots={showBunkerShots ?? false}
+            showHazards={showHazards ?? false}
+          />
+          <TouchableOpacity
+            style={[styles.detailedStatsButton, { backgroundColor: colors.primary + '15' }]}
+            onPress={onDetailedStatsPress}
+            disabled={disabled}
+            activeOpacity={0.7}
+            accessibilityLabel="Open advanced stats"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.detailedStatsButtonText, { color: colors.primary }]}>+</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 });
@@ -220,6 +263,23 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.4,
+  },
+  detailedStatsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginLeft: 'auto' as const,
+  },
+  detailedStatsButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailedStatsButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
 
