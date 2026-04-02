@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
 import { IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
@@ -118,11 +118,11 @@ export function DetailedStatsSheet({
       visible={visible}
       onClose={onClose}
       title={`Hole ${holeNumber} \u2014 Advanced Stats`}
-      height={0.6}
+      height={0.75}
       showHandle
       showCloseButton
     >
-      <View style={styles.content}>
+      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {!hasAnySections && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -290,14 +290,18 @@ export function DetailedStatsSheet({
         >
           <Text style={[styles.doneButtonText, { color: colors.textInverse }]}>Done</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flex: 1,
+  },
   content: {
     padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
     gap: spacing.xl,
   },
   emptyState: {
