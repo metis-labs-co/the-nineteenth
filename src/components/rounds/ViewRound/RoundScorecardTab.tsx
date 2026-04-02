@@ -69,6 +69,10 @@ interface IndividualScorecardViewProps {
   showFIR?: boolean;
   /** Whether to show GIR row */
   showGIR?: boolean;
+  /** Whether to show bunker shots row */
+  showBunkerShots?: boolean;
+  /** Whether to show hazards row */
+  showHazards?: boolean;
   /** Selected tee data for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
 }
@@ -79,6 +83,8 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
   showPutts = false,
   showFIR = false,
   showGIR = false,
+  showBunkerShots = false,
+  showHazards = false,
   selectedTeeData,
 }: IndividualScorecardViewProps) {
   const colors = useThemeColors();
@@ -127,6 +133,20 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
         return sum + (greenInRegulation === true ? 1 : 0);
       }, 0);
       const nineGIR = `${girHit}/${holeList.length}`;
+
+      // Calculate bunkers total for this nine
+      const nineBunkers = holeList.reduce((sum, hole) => {
+        const score = scores?.[String(hole.number)];
+        const bunkers = score && isSingleBallScore(score) ? score.bunkerShots : undefined;
+        return sum + (bunkers ?? 0);
+      }, 0);
+
+      // Calculate hazards total for this nine
+      const nineHazards = holeList.reduce((sum, hole) => {
+        const score = scores?.[String(hole.number)];
+        const hazards = score && isSingleBallScore(score) ? score.hazards : undefined;
+        return sum + (hazards ? hazards.length : 0);
+      }, 0);
 
       return (
         <View style={individualStyles.nineSection}>
@@ -273,7 +293,14 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                     ) : fairwayHit === true ? (
                       <Icon source="check" size={14} color={colors.success} />
                     ) : fairwayHit === false ? (
-                      <Icon source="close" size={14} color={colors.error} />
+                      <View style={individualStyles.cellWithDir}>
+                        <Icon source="close" size={14} color={colors.error} />
+                        {score && isSingleBallScore(score) && score.fairwayMissDirection && (
+                          <Text style={[individualStyles.dirText, { color: colors.textDisabled }]}>
+                            {score.fairwayMissDirection === 'left' ? 'L' : 'R'}
+                          </Text>
+                        )}
+                      </View>
                     ) : (
                       <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
                     )}
@@ -302,7 +329,14 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                     {greenInRegulation === true ? (
                       <Icon source="check" size={14} color={colors.success} />
                     ) : greenInRegulation === false ? (
-                      <Icon source="close" size={14} color={colors.error} />
+                      <View style={individualStyles.cellWithDir}>
+                        <Icon source="close" size={14} color={colors.error} />
+                        {score && isSingleBallScore(score) && score.greenMissDirection && (
+                          <Text style={[individualStyles.dirText, { color: colors.textDisabled }]}>
+                            {{ left: 'L', right: 'R', long: 'Lo', short: 'Sh' }[score.greenMissDirection]}
+                          </Text>
+                        )}
+                      </View>
                     ) : (
                       <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
                     )}
@@ -312,6 +346,56 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
               <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
                   {nineGIR}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Bunkers Row */}
+          {showBunkerShots && (
+            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Bnk</Text>
+              </View>
+              {holeList.map((hole) => {
+                const score = scores?.[String(hole.number)];
+                const bunkers = score && isSingleBallScore(score) ? score.bunkerShots : undefined;
+                return (
+                  <View key={hole.number} style={individualStyles.cell}>
+                    <Text style={[individualStyles.cellText, { color: bunkers && bunkers > 0 ? colors.warning : colors.textDisabled }]}>
+                      {bunkers && bunkers > 0 ? bunkers : '-'}
+                    </Text>
+                  </View>
+                );
+              })}
+              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
+                  {nineBunkers || '-'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Hazards Row */}
+          {showHazards && (
+            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
+              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Hzd</Text>
+              </View>
+              {holeList.map((hole) => {
+                const score = scores?.[String(hole.number)];
+                const hazards = score && isSingleBallScore(score) ? score.hazards : undefined;
+                return (
+                  <View key={hole.number} style={individualStyles.cell}>
+                    <Text style={[individualStyles.cellText, { color: hazards && hazards.length > 0 ? colors.error : colors.textDisabled }]}>
+                      {hazards && hazards.length > 0 ? hazards.length : '-'}
+                    </Text>
+                  </View>
+                );
+              })}
+              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
+                  {nineHazards || '-'}
                 </Text>
               </View>
             </View>
@@ -387,8 +471,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   const { width: screenWidth } = useWindowDimensions();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-  // Get stats visibility settings (Premium-gated for FIR/GIR)
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
+  // Get stats visibility settings (Premium-gated for FIR/GIR and detailed stats)
+  const { showPutts, showFairwayHit, showGreenInRegulation, showBunkerShots, showHazards } = useStatsVisibilityWithTier();
 
   // Default to standard 18 holes if no course data
   const courseHoles = useMemo(() => {
@@ -498,6 +582,8 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           showPutts={showPutts}
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
+          showBunkerShots={showBunkerShots}
+          showHazards={showHazards}
           selectedTeeData={selectedTeeData}
         />
       )}
@@ -684,6 +770,15 @@ const individualStyles = StyleSheet.create({
   },
   totalText: {
     ...typography.smallBold,
+  },
+  cellWithDir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
+  dirText: {
+    fontSize: 8,
+    fontWeight: '600',
   },
 });
 
