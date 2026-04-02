@@ -22,6 +22,31 @@ import type { Player, Hole, HoleScore } from '@/types';
 const mockUseStatsVisibility = jest.fn();
 jest.mock('@/store/settingsStore', () => ({
   useStatsVisibility: () => mockUseStatsVisibility(),
+  useSettingsStore: jest.fn((selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      showPutts: true,
+      showFairwayHit: true,
+      showGreenInRegulation: true,
+      showFairwayMissDirection: false,
+      showGreenMissDirection: false,
+      showBunkerShots: false,
+      showHazards: false,
+    })
+  ),
+}));
+
+// Mock the stats visibility with tier hook (used directly by PlayerScoreCard)
+jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({
+  useStatsVisibilityWithTier: () => ({
+    showPutts: true,
+    showFairwayHit: true,
+    showGreenInRegulation: true,
+    showFairwayMissDirection: false,
+    showGreenMissDirection: false,
+    showBunkerShots: false,
+    showHazards: false,
+    hasAnyDetailedStats: false,
+  }),
 }));
 
 // Mock the scoring utilities
