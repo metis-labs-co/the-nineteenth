@@ -92,6 +92,10 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
       greenInRegulation?: boolean;
       penalties?: number;
       shotContributions?: { drive?: string; approach?: string; putt?: string };
+      fairwayMissDirection?: string;
+      greenMissDirection?: string;
+      bunkerShots?: number;
+      hazards?: { type: string }[];
     }
   > = {};
   let holesWithScores = 0;
@@ -105,6 +109,11 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
         penalties: score.penalties || 0,
         // Include shot contributions if present (scramble/shamble formats)
         ...(score.shotContributions && { shotContributions: score.shotContributions }),
+        // Include detailed stats if present
+        ...(score.fairwayMissDirection && { fairwayMissDirection: score.fairwayMissDirection }),
+        ...(score.greenMissDirection && { greenMissDirection: score.greenMissDirection }),
+        ...(score.bunkerShots !== undefined && score.bunkerShots > 0 && { bunkerShots: score.bunkerShots }),
+        ...(score.hazards && score.hazards.length > 0 && { hazards: score.hazards }),
       };
       holesWithScores++;
     }
