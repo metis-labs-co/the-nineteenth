@@ -10,7 +10,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsPremium } from '@/context/SubscriptionContext';
 export type DistanceUnit = 'yards' | 'metres';
 
 interface SettingsState {
@@ -21,6 +20,12 @@ interface SettingsState {
   showPutts: boolean;
   showFairwayHit: boolean;
   showGreenInRegulation: boolean;
+
+  // Detailed shot stats toggles (Premium — detailed_stats)
+  showFairwayMissDirection: boolean;
+  showGreenMissDirection: boolean;
+  showBunkerShots: boolean;
+  showHazards: boolean;
 
   // GPS distance-to-pin feature
   showGpsDistance: boolean;
@@ -42,6 +47,10 @@ interface SettingsState {
   setShowPutts: (show: boolean) => void;
   setShowFairwayHit: (show: boolean) => void;
   setShowGreenInRegulation: (show: boolean) => void;
+  setShowFairwayMissDirection: (show: boolean) => void;
+  setShowGreenMissDirection: (show: boolean) => void;
+  setShowBunkerShots: (show: boolean) => void;
+  setShowHazards: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
@@ -56,6 +65,10 @@ const DEFAULT_SETTINGS = {
   showPutts: true,
   showFairwayHit: true,
   showGreenInRegulation: true,
+  showFairwayMissDirection: true,
+  showGreenMissDirection: true,
+  showBunkerShots: false,
+  showHazards: false,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
   countryOverride: null as string | null,
   biometricEnabled: false,
@@ -77,6 +90,11 @@ export const useSettingsStore = create<SettingsState>()(
       setShowFairwayHit: (show) => set({ showFairwayHit: show }),
 
       setShowGreenInRegulation: (show) => set({ showGreenInRegulation: show }),
+
+      setShowFairwayMissDirection: (show) => set({ showFairwayMissDirection: show }),
+      setShowGreenMissDirection: (show) => set({ showGreenMissDirection: show }),
+      setShowBunkerShots: (show) => set({ showBunkerShots: show }),
+      setShowHazards: (show) => set({ showHazards: show }),
 
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
 
@@ -133,26 +151,19 @@ export function useStatsVisibility() {
   const showPutts = useSettingsStore((state) => state.showPutts);
   const showFairwayHit = useSettingsStore((state) => state.showFairwayHit);
   const showGreenInRegulation = useSettingsStore((state) => state.showGreenInRegulation);
+  const showFairwayMissDirection = useSettingsStore((state) => state.showFairwayMissDirection);
+  const showGreenMissDirection = useSettingsStore((state) => state.showGreenMissDirection);
+  const showBunkerShots = useSettingsStore((state) => state.showBunkerShots);
+  const showHazards = useSettingsStore((state) => state.showHazards);
 
   return {
     showPutts,
     showFairwayHit,
     showGreenInRegulation,
-  };
-}
-
-/**
- * Hook to get visibility settings gated by subscription tier.
- * FIR and GIR require Premium; putts are always available.
- */
-export function useStatsVisibilityWithTier() {
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
-  const isPremium = useIsPremium();
-
-  return {
-    showPutts,
-    showFairwayHit: isPremium ? showFairwayHit : false,
-    showGreenInRegulation: isPremium ? showGreenInRegulation : false,
+    showFairwayMissDirection,
+    showGreenMissDirection,
+    showBunkerShots,
+    showHazards,
   };
 }
 

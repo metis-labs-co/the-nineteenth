@@ -11,10 +11,10 @@ import { renderHook, act } from '@testing-library/react-native';
 import {
   useSettingsStore,
   useStatsVisibility,
-  useStatsVisibilityWithTier,
   useFormattedDistance,
   useDebugMode,
 } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 
 // Mock SubscriptionContext's useIsPremium
 const mockIsPremium = jest.fn();
