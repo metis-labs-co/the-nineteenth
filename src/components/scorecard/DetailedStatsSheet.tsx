@@ -10,7 +10,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
-import { IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
+import { IconArrowLeft, IconArrowRight, IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type {
@@ -118,7 +118,7 @@ export function DetailedStatsSheet({
       visible={visible}
       onClose={onClose}
       title={`Hole ${holeNumber} \u2014 Advanced Stats`}
-      height={0.75}
+      height={0.65}
       showHandle
       showCloseButton
     >
@@ -147,12 +147,15 @@ export function DetailedStatsSheet({
                 onPress={() => toggleFairwayDir('left')}
                 activeOpacity={0.7}
               >
-                <Text style={[
-                  styles.toggleText,
-                  { color: fairwayDir === 'left' ? colors.primary : colors.textSecondary },
-                ]}>
-                  {'\u2B05'} Left
-                </Text>
+                <View style={styles.directionButtonContent}>
+                  <IconArrowLeft size={16} color={fairwayDir === 'left' ? colors.primary : colors.textSecondary} />
+                  <Text style={[
+                    styles.toggleText,
+                    { color: fairwayDir === 'left' ? colors.primary : colors.textSecondary },
+                  ]}>
+                    Left
+                  </Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -163,12 +166,15 @@ export function DetailedStatsSheet({
                 onPress={() => toggleFairwayDir('right')}
                 activeOpacity={0.7}
               >
-                <Text style={[
-                  styles.toggleText,
-                  { color: fairwayDir === 'right' ? colors.primary : colors.textSecondary },
-                ]}>
-                  Right {'\u27A1'}
-                </Text>
+                <View style={styles.directionButtonContent}>
+                  <Text style={[
+                    styles.toggleText,
+                    { color: fairwayDir === 'right' ? colors.primary : colors.textSecondary },
+                  ]}>
+                    Right
+                  </Text>
+                  <IconArrowRight size={16} color={fairwayDir === 'right' ? colors.primary : colors.textSecondary} />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -249,7 +255,7 @@ export function DetailedStatsSheet({
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
               HAZARDS
             </Text>
-            <View style={styles.toggleRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hazardScrollContent}>
               {HAZARD_OPTIONS.map((option) => {
                 const isSelected = hazards.some((h) => h.type === option.type);
                 return (
@@ -275,7 +281,7 @@ export function DetailedStatsSheet({
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
             <Text style={[styles.helperText, { color: colors.textDisabled }]}>
               Tap multiple if more than one hazard on this hole
             </Text>
@@ -370,9 +376,18 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 2,
   },
+  hazardScrollContent: {
+    gap: spacing.sm,
+  },
   hazardChipContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
+  },
+  directionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
   },
   helperText: {
