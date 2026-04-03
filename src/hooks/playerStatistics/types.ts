@@ -10,6 +10,11 @@
  * - ParTypeStats: Statistics broken down by hole par type
  * - ShortGameStats: Scrambling and short game statistics
  * - PuttingDepthStats: Extended putting statistics
+ * - FairwayMissDirectionStats: Fairway miss direction aggregates
+ * - GreenMissDirectionStats: Green miss direction aggregates
+ * - BunkerStats: Bunker aggregate statistics
+ * - HazardStats: Hazard aggregate statistics
+ * - RoundStatPoint: Per-round data point for sparkline trends
  * - PlayerStatistics: Complete player statistics object
  */
 
@@ -86,6 +91,71 @@ export interface PuttingDepthStats {
 }
 
 /**
+ * Fairway miss direction aggregates
+ */
+export interface FairwayMissDirectionStats {
+  leftCount: number;
+  rightCount: number;
+  totalMisses: number;
+  leftPercentage: number | null;
+  rightPercentage: number | null;
+}
+
+/**
+ * Green miss direction aggregates
+ */
+export interface GreenMissDirectionStats {
+  leftCount: number;
+  rightCount: number;
+  longCount: number;
+  shortCount: number;
+  totalMisses: number;
+  leftPercentage: number | null;
+  rightPercentage: number | null;
+  longPercentage: number | null;
+  shortPercentage: number | null;
+}
+
+/**
+ * Bunker aggregate statistics
+ */
+export interface BunkerStats {
+  totalBunkerShots: number;
+  holesWithBunkers: number;
+  totalHolesTracked: number;
+  averageBunkerShotsPerRound: number | null;
+  holesWithBunkersPercentage: number | null;
+}
+
+/**
+ * Hazard aggregate statistics
+ */
+export interface HazardStats {
+  waterCount: number;
+  obCount: number;
+  lateralCount: number;
+  lostBallCount: number;
+  totalHazards: number;
+  averageHazardsPerRound: number | null;
+  holesWithHazards: number;
+  totalHolesTracked: number;
+}
+
+/**
+ * Per-round data point for sparkline trends
+ */
+export interface RoundStatPoint {
+  roundId: string;
+  date: string;
+  grossScore: number;
+  points: number;
+  fairwayPercentage: number | null;
+  girPercentage: number | null;
+  averagePutts: number | null;
+  scramblingPercentage: number | null;
+}
+
+/**
  * Complete player statistics
  */
 export interface PlayerStatistics {
@@ -152,6 +222,21 @@ export interface PlayerStatistics {
 
   // Putting Depth Stats
   puttingDepth: PuttingDepthStats;
+
+  // Fairway Miss Direction Stats (Premium)
+  fairwayMissDirection: FairwayMissDirectionStats;
+
+  // Green Miss Direction Stats (Premium)
+  greenMissDirection: GreenMissDirectionStats;
+
+  // Bunker Stats (Premium)
+  bunkerStats: BunkerStats;
+
+  // Hazard Stats (Premium)
+  hazardStats: HazardStats;
+
+  // Per-round sparkline data (last 10 rounds, ordered oldest-to-newest)
+  roundTrends: RoundStatPoint[];
 }
 
 /**
