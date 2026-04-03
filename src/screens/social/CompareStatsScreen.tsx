@@ -12,7 +12,7 @@
  * Free tier users see an UpgradePrompt instead of the comparison.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
@@ -22,7 +22,7 @@ import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useStatsVisibility } from '@/store/settingsStore';
-import { spacing, borderRadius, shadows, typography } from '@/constants/theme';
+import { spacing, borderRadius, typography } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 
@@ -37,35 +37,20 @@ import type { UpgradePromptConfig } from '@/components/subscription';
 
 // Comparison components
 import {
-  ComparisonRow,
-  DistributionComparison,
   PlayerCompareHeader,
-  SectionHeader,
   ComparisonLegend,
-  ParTypeComparison,
 } from '@/components/social/comparison';
 
+// Compare tab components
+import {
+  CompareTabBar,
+  CompareOverviewTab,
+  CompareScoringTab,
+  CompareGameStatsTab,
+} from './compare';
+import type { CompareTab } from './compare';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'CompareStats'>;
-
-// =====================================================
-// TYPES
-// =====================================================
-
-interface StatsDiff {
-  rounds: number;
-  competitions: number;
-  wins: number;
-  holes: number;
-  avgScore: number;
-  avgPoints: number;
-  avgPerHole: number;
-  parOrBetter: number;
-  birdieRate: number;
-  // Putting, FIR, GIR diffs (nullable since stats may not be available)
-  avgPuttsPerHole: number | null;
-  fairwayPercentage: number | null;
-  girPercentage: number | null;
-}
 
 // =====================================================
 // MAIN COMPONENT
@@ -120,6 +105,9 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
     setShowUpgradePrompt(true);
   }, []);
 
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<CompareTab>('overview');
+
   // Upgrade prompt configuration
   const upgradePromptConfig: UpgradePromptConfig = hasFilters
     ? {
@@ -146,44 +134,6 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
           'Detailed score breakdowns',
         ],
       };
-
-  // Calculate differences
-  const diffs = useMemo((): StatsDiff | null => {
-    if (!stats1 || !stats2) return null;
-
-    // Calculate putting diff only if both players have data
-    const avgPuttsPerHoleDiff =
-      stats1.averagePuttsPerHole !== null && stats2.averagePuttsPerHole !== null
-        ? stats1.averagePuttsPerHole - stats2.averagePuttsPerHole
-        : null;
-
-    // Calculate FIR diff only if both players have data
-    const fairwayPercentageDiff =
-      stats1.fairwayPercentage !== null && stats2.fairwayPercentage !== null
-        ? stats1.fairwayPercentage - stats2.fairwayPercentage
-        : null;
-
-    // Calculate GIR diff only if both players have data
-    const girPercentageDiff =
-      stats1.girPercentage !== null && stats2.girPercentage !== null
-        ? stats1.girPercentage - stats2.girPercentage
-        : null;
-
-    return {
-      rounds: stats1.roundsPlayed - stats2.roundsPlayed,
-      competitions: stats1.competitionsEntered - stats2.competitionsEntered,
-      wins: stats1.competitionsWon - stats2.competitionsWon,
-      holes: stats1.holesPlayed - stats2.holesPlayed,
-      avgScore: stats1.averageGrossScore - stats2.averageGrossScore,
-      avgPoints: stats1.averageStablefordPoints - stats2.averageStablefordPoints,
-      avgPerHole: stats1.averageScorePerHole - stats2.averageScorePerHole,
-      parOrBetter: stats1.parOrBetterPercentage - stats2.parOrBetterPercentage,
-      birdieRate: stats1.birdieOrBetterPercentage - stats2.birdieOrBetterPercentage,
-      avgPuttsPerHole: avgPuttsPerHoleDiff,
-      fairwayPercentage: fairwayPercentageDiff,
-      girPercentage: girPercentageDiff,
-    };
-  }, [stats1, stats2]);
 
   // Loading state
   if (isLoading) {
@@ -277,305 +227,39 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
             </View>
           )}
 
-          {/* Stats comparison sections */}
-          {hasStats1 && hasStats2 && stats1 && stats2 && diffs && (
+          {/* Tab Bar */}
+          {hasStats1 && hasStats2 && stats1 && stats2 && (
+            <CompareTabBar selectedTab={activeTab} onTabChange={setActiveTab} />
+          )}
+
+          {/* Tab Content */}
+          {hasStats1 && hasStats2 && stats1 && stats2 && (
             <>
-              {/* Overview Comparison */}
-              <SectionHeader title="Overview" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <ComparisonRow
-                  label="Rounds"
-                  value1={stats1.roundsPlayed}
-                  value2={stats2.roundsPlayed}
-                  diff={diffs.rounds}
-                  higherIsBetter
+              {activeTab === 'overview' && (
+                <CompareOverviewTab
+                  stats1={stats1}
+                  stats2={stats2}
+                  isLeagueContext={!!leagueId}
                 />
-                {!leagueId && (
-                  <ComparisonRow
-                    label="Competitions"
-                    value1={stats1.competitionsEntered}
-                    value2={stats2.competitionsEntered}
-                    diff={diffs.competitions}
-                    higherIsBetter
-                  />
-                )}
-                {!leagueId && (
-                  <ComparisonRow
-                    label="Wins"
-                    value1={stats1.competitionsWon}
-                    value2={stats2.competitionsWon}
-                    diff={diffs.wins}
-                    higherIsBetter
-                  />
-                )}
-                <ComparisonRow
-                  label="Holes"
-                  value1={stats1.holesPlayed}
-                  value2={stats2.holesPlayed}
-                  diff={diffs.holes}
-                  higherIsBetter
-                />
-              </View>
-
-              {/* Averages Comparison */}
-              <SectionHeader title="Averages" icon="chart-line" primaryIcon={false} style={styles.sectionHeader} />
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <ComparisonRow
-                  label="Avg Score"
-                  value1={stats1.averageGrossScore || '-'}
-                  value2={stats2.averageGrossScore || '-'}
-                  diff={stats1.averageGrossScore && stats2.averageGrossScore ? diffs.avgScore : undefined}
-                  higherIsBetter={false}
-                  decimals={1}
-                />
-                <ComparisonRow
-                  label="Avg Points"
-                  value1={stats1.averageStablefordPoints || '-'}
-                  value2={stats2.averageStablefordPoints || '-'}
-                  diff={stats1.averageStablefordPoints && stats2.averageStablefordPoints ? diffs.avgPoints : undefined}
-                  higherIsBetter
-                  decimals={1}
-                />
-                <ComparisonRow
-                  label="Per Hole"
-                  value1={stats1.averageScorePerHole?.toFixed(2) || '-'}
-                  value2={stats2.averageScorePerHole?.toFixed(2) || '-'}
-                  diff={stats1.averageScorePerHole && stats2.averageScorePerHole ? diffs.avgPerHole : undefined}
-                  higherIsBetter={false}
-                  decimals={2}
-                />
-                <ComparisonRow
-                  label="Par or Better"
-                  value1={`${stats1.parOrBetterPercentage}`}
-                  value2={`${stats2.parOrBetterPercentage}`}
-                  diff={diffs.parOrBetter}
-                  higherIsBetter
-                  suffix="%"
-                  decimals={1}
-                />
-              </View>
-
-              {/* Score Distribution Comparison */}
-              <SectionHeader title="Score Distribution" icon="chart-bar" primaryIcon={false} style={styles.sectionHeader} />
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <DistributionComparison
-                  label="Eagles"
-                  count1={stats1.scoreDistribution.eagles}
-                  count2={stats2.scoreDistribution.eagles}
-                  total1={stats1.totalScoreDistribution}
-                  total2={stats2.totalScoreDistribution}
-                  color={colors.eagle}
-                />
-                <DistributionComparison
-                  label="Birdies"
-                  count1={stats1.scoreDistribution.birdies}
-                  count2={stats2.scoreDistribution.birdies}
-                  total1={stats1.totalScoreDistribution}
-                  total2={stats2.totalScoreDistribution}
-                  color={colors.birdie}
-                />
-                <DistributionComparison
-                  label="Pars"
-                  count1={stats1.scoreDistribution.pars}
-                  count2={stats2.scoreDistribution.pars}
-                  total1={stats1.totalScoreDistribution}
-                  total2={stats2.totalScoreDistribution}
-                  color={colors.par}
-                />
-                <DistributionComparison
-                  label="Bogeys"
-                  count1={stats1.scoreDistribution.bogeys}
-                  count2={stats2.scoreDistribution.bogeys}
-                  total1={stats1.totalScoreDistribution}
-                  total2={stats2.totalScoreDistribution}
-                  color={colors.bogey}
-                />
-                <DistributionComparison
-                  label="Double+"
-                  count1={stats1.scoreDistribution.doubleBogeys + stats1.scoreDistribution.triplePlus}
-                  count2={stats2.scoreDistribution.doubleBogeys + stats2.scoreDistribution.triplePlus}
-                  total1={stats1.totalScoreDistribution}
-                  total2={stats2.totalScoreDistribution}
-                  color={colors.doubleBogey}
-                />
-              </View>
-
-              {/* Performance Records */}
-              <SectionHeader title="Best Performances" icon="medal" primaryIcon={false} style={styles.sectionHeader} />
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <ComparisonRow
-                  label="Best Score"
-                  value1={stats1.lowestGrossScore ?? '-'}
-                  value2={stats2.lowestGrossScore ?? '-'}
-                  diff={
-                    stats1.lowestGrossScore && stats2.lowestGrossScore
-                      ? stats1.lowestGrossScore - stats2.lowestGrossScore
-                      : undefined
-                  }
-                  higherIsBetter={false}
-                />
-                <ComparisonRow
-                  label="Best Stableford"
-                  value1={stats1.highestStablefordPoints ?? '-'}
-                  value2={stats2.highestStablefordPoints ?? '-'}
-                  diff={
-                    stats1.highestStablefordPoints && stats2.highestStablefordPoints
-                      ? stats1.highestStablefordPoints - stats2.highestStablefordPoints
-                      : undefined
-                  }
-                  higherIsBetter
-                  suffix=" pts"
-                />
-                <ComparisonRow
-                  label="Birdie Rate"
-                  value1={`${stats1.birdieOrBetterPercentage}`}
-                  value2={`${stats2.birdieOrBetterPercentage}`}
-                  diff={diffs.birdieRate}
-                  higherIsBetter
-                  suffix="%"
-                  decimals={1}
-                />
-              </View>
-
-              {/* Game Stats (Putting, FIR, GIR) - Shown based on settings */}
-              {(showPutts || showFairwayHit || showGreenInRegulation) && (
-                <>
-                  <SectionHeader title="Game Stats" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
-                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                    {/* Putting Comparison */}
-                    {showPutts && (
-                      <ComparisonRow
-                        label="Avg Putts/Hole"
-                        value1={stats1.averagePuttsPerHole?.toFixed(2) ?? '-'}
-                        value2={stats2.averagePuttsPerHole?.toFixed(2) ?? '-'}
-                        diff={diffs.avgPuttsPerHole ?? undefined}
-                        higherIsBetter={false}
-                        decimals={2}
-                      />
-                    )}
-
-                    {/* FIR Comparison */}
-                    {showFairwayHit && (
-                      <ComparisonRow
-                        label="Fairways Hit"
-                        value1={stats1.fairwayPercentage !== null ? `${stats1.fairwayPercentage}` : '-'}
-                        value2={stats2.fairwayPercentage !== null ? `${stats2.fairwayPercentage}` : '-'}
-                        diff={diffs.fairwayPercentage ?? undefined}
-                        higherIsBetter
-                        suffix="%"
-                        decimals={1}
-                      />
-                    )}
-
-                    {/* GIR Comparison */}
-                    {showGreenInRegulation && (
-                      <ComparisonRow
-                        label="Greens in Reg"
-                        value1={stats1.girPercentage !== null ? `${stats1.girPercentage}` : '-'}
-                        value2={stats2.girPercentage !== null ? `${stats2.girPercentage}` : '-'}
-                        diff={diffs.girPercentage ?? undefined}
-                        higherIsBetter
-                        suffix="%"
-                        decimals={1}
-                      />
-                    )}
-                  </View>
-                </>
               )}
-
-              {/* Par Type Comparison */}
-              <ParTypeComparison
-                player1Par3={stats1.par3Stats}
-                player2Par3={stats2.par3Stats}
-                player1Par4={stats1.par4Stats}
-                player2Par4={stats2.par4Stats}
-                player1Par5={stats1.par5Stats}
-                player2Par5={stats2.par5Stats}
-                player1Name={player1.name}
-                player2Name={player2.name}
-              />
-
-              {/* Short Game Comparison */}
-              <SectionHeader title="Short Game" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <ComparisonRow
-                  label="Scrambling"
-                  value1={stats1.shortGame.scramblingPercentage !== null ? `${stats1.shortGame.scramblingPercentage}` : '-'}
-                  value2={stats2.shortGame.scramblingPercentage !== null ? `${stats2.shortGame.scramblingPercentage}` : '-'}
-                  diff={
-                    stats1.shortGame.scramblingPercentage !== null && stats2.shortGame.scramblingPercentage !== null
-                      ? stats1.shortGame.scramblingPercentage - stats2.shortGame.scramblingPercentage
-                      : undefined
-                  }
-                  higherIsBetter
-                  suffix="%"
-                  decimals={1}
+              {activeTab === 'scoring' && (
+                <CompareScoringTab
+                  stats1={stats1}
+                  stats2={stats2}
+                  player1Name={player1.name}
+                  player2Name={player2.name}
                 />
-                <ComparisonRow
-                  label="Bogey Avoidance"
-                  value1={`${stats1.shortGame.bogeyAvoidanceRate}`}
-                  value2={`${stats2.shortGame.bogeyAvoidanceRate}`}
-                  diff={stats1.shortGame.bogeyAvoidanceRate - stats2.shortGame.bogeyAvoidanceRate}
-                  higherIsBetter
-                  suffix="%"
-                  decimals={1}
+              )}
+              {activeTab === 'gameStats' && (
+                <CompareGameStatsTab
+                  stats1={stats1}
+                  stats2={stats2}
+                  player1Name={player1.name}
+                  player2Name={player2.name}
+                  showPutts={showPutts}
+                  showFairwayHit={showFairwayHit}
+                  showGreenInRegulation={showGreenInRegulation}
                 />
-                <ComparisonRow
-                  label="Double+ Rate"
-                  value1={`${stats1.shortGame.doubleBogeyOrWorseRate}`}
-                  value2={`${stats2.shortGame.doubleBogeyOrWorseRate}`}
-                  diff={stats1.shortGame.doubleBogeyOrWorseRate - stats2.shortGame.doubleBogeyOrWorseRate}
-                  higherIsBetter={false}
-                  suffix="%"
-                  decimals={1}
-                />
-              </View>
-
-              {/* Putting Depth Comparison */}
-              {showPutts && (
-                <>
-                  <SectionHeader title="Putting Analysis" icon="golf" primaryIcon={false} style={styles.sectionHeader} />
-                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                    <ComparisonRow
-                      label="One-Putt %"
-                      value1={stats1.puttingDepth.onePuttPercentage !== null ? `${stats1.puttingDepth.onePuttPercentage}` : '-'}
-                      value2={stats2.puttingDepth.onePuttPercentage !== null ? `${stats2.puttingDepth.onePuttPercentage}` : '-'}
-                      diff={
-                        stats1.puttingDepth.onePuttPercentage !== null && stats2.puttingDepth.onePuttPercentage !== null
-                          ? stats1.puttingDepth.onePuttPercentage - stats2.puttingDepth.onePuttPercentage
-                          : undefined
-                      }
-                      higherIsBetter
-                      suffix="%"
-                      decimals={1}
-                    />
-                    <ComparisonRow
-                      label="Three-Putt %"
-                      value1={stats1.puttingDepth.threePuttPercentage !== null ? `${stats1.puttingDepth.threePuttPercentage}` : '-'}
-                      value2={stats2.puttingDepth.threePuttPercentage !== null ? `${stats2.puttingDepth.threePuttPercentage}` : '-'}
-                      diff={
-                        stats1.puttingDepth.threePuttPercentage !== null && stats2.puttingDepth.threePuttPercentage !== null
-                          ? stats1.puttingDepth.threePuttPercentage - stats2.puttingDepth.threePuttPercentage
-                          : undefined
-                      }
-                      higherIsBetter={false}
-                      suffix="%"
-                      decimals={1}
-                    />
-                    <ComparisonRow
-                      label="Putts per GIR"
-                      value1={stats1.puttingDepth.puttsPerGIR !== null ? stats1.puttingDepth.puttsPerGIR.toFixed(2) : '-'}
-                      value2={stats2.puttingDepth.puttsPerGIR !== null ? stats2.puttingDepth.puttsPerGIR.toFixed(2) : '-'}
-                      diff={
-                        stats1.puttingDepth.puttsPerGIR !== null && stats2.puttingDepth.puttsPerGIR !== null
-                          ? stats1.puttingDepth.puttsPerGIR - stats2.puttingDepth.puttsPerGIR
-                          : undefined
-                      }
-                      higherIsBetter={false}
-                      decimals={2}
-                    />
-                  </View>
-                </>
               )}
             </>
           )}
@@ -615,14 +299,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.massive,
-  },
-  sectionHeader: {
-    marginTop: spacing.xl,
-  },
-  card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.sm,
   },
   noStatsCard: {
     borderRadius: borderRadius.lg,
