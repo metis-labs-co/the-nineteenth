@@ -24,6 +24,8 @@ export interface UseStatsUpgradePromptReturn {
   handleScoreDistributionUpgrade: () => void;
   /** Show upgrade prompt for advanced stats feature */
   handleAdvancedStatsUpgrade: () => void;
+  /** Show upgrade prompt for game stats feature */
+  handleGameStatsUpgrade: () => void;
   /** Navigate to subscription screen and close prompt */
   handleNavigateToSubscription: () => void;
   /** Dismiss the upgrade prompt */
@@ -80,10 +82,27 @@ export function useStatsUpgradePrompt(): UseStatsUpgradePromptReturn {
     });
   }, []);
 
+  // Show upgrade prompt for game stats feature
+  const handleGameStatsUpgrade = useCallback(() => {
+    setUpgradePromptConfig({
+      feature: 'advanced_stats',
+      title: 'Unlock Game Stats',
+      message: 'Get detailed insights into every part of your game.',
+      targetTier: 'premium',
+      benefits: [
+        'Driving accuracy & miss tendencies',
+        'Approach shot analysis',
+        'Bunker shot tracking',
+        'Hazard frequency breakdown',
+      ],
+    });
+  }, []);
+
   return {
     upgradePromptConfig,
     handleScoreDistributionUpgrade,
     handleAdvancedStatsUpgrade,
+    handleGameStatsUpgrade,
     handleNavigateToSubscription,
     handleDismissPrompt,
   };

@@ -1,31 +1,24 @@
 /**
  * MyStatisticsScreen - Display comprehensive player statistics
  *
- * Shows tier-appropriate stats:
- * - BasicStats: Always visible (rounds played, total points, competitions)
- * - ScoreDistribution: Locked for Free tier (Social+ required)
- * - AdvancedAnalytics: Locked for Free/Social (Premium required)
+ * Shows tier-appropriate stats in a 3-tab layout:
+ * - Overview: Basic stats, round breakdown, averages, recent rounds
+ * - Scoring: Score distribution, par type stats, performance trend, best performances, courses
+ * - Game Stats: Driving, approach, short game, putting, bunkers, hazards
  *
  * Each locked section shows a FeatureLock overlay with upgrade prompt.
  */
 
-import React, { useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
-import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { useStatsVisibility } from '@/store/settingsStore';
 import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
-import { UpgradePrompt, FeatureLock } from '@/components/subscription';
-import {
-  ParTypeStatsSection,
-  ShortGameSection,
-  PuttingAnalysisSection,
-} from '@/components/statistics';
+import { UpgradePrompt } from '@/components/subscription';
 
 // Local components and hooks
 import { useStatsUpgradePrompt } from './hooks';
@@ -33,10 +26,11 @@ import {
   StatisticsLoadingState,
   StatisticsErrorState,
   StatisticsEmptyState,
-  OverviewStats,
-  GameStats,
-  ScoreDistributionSection,
-  AdvancedAnalytics,
+  StatisticsTabBar,
+  type StatisticsTab,
+  OverviewTab,
+  ScoringTab,
+  GameStatsTab,
 } from './components';
 
 // =====================================================
@@ -52,7 +46,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MyStatistics'>;
 export default function MyStatisticsScreen({ navigation }: Props) {
   const { user } = useAuth();
   const colors = useThemeColors();
-  const { checkFeature } = useSubscriptionContext();
+  const [activeTab, setActiveTab] = useState<StatisticsTab>('overview');
   const {
     data: stats,
     isLoading,
@@ -61,21 +55,21 @@ export default function MyStatisticsScreen({ navigation }: Props) {
     isRefetching,
   } = usePlayerStatistics(user?.id);
 
-  // Get stats visibility settings
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
-
   // Upgrade prompt handling
   const {
     upgradePromptConfig,
     handleScoreDistributionUpgrade,
     handleAdvancedStatsUpgrade,
+    handleGameStatsUpgrade,
     handleNavigateToSubscription,
     handleDismissPrompt,
   } = useStatsUpgradePrompt();
 
-  // Check feature access (used to determine which sections to lock)
-  checkFeature('score_distribution');
-  checkFeature('advanced_stats');
+  // Determine which upgrade handler to use based on active tab
+  const onUpgradePress =
+    activeTab === 'gameStats' ? handleGameStatsUpgrade
+    : activeTab === 'scoring' ? handleScoreDistributionUpgrade
+    : handleAdvancedStatsUpgrade;
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -130,6 +124,8 @@ export default function MyStatisticsScreen({ navigation }: Props) {
         ]}
       />
 
+      <StatisticsTabBar selectedTab={activeTab} onTabChange={setActiveTab} />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -142,51 +138,13 @@ export default function MyStatisticsScreen({ navigation }: Props) {
           />
         }
       >
-        {/* Section 1: Basic Stats - Always visible */}
-        <OverviewStats stats={stats} />
-
-        {/* Section 1b: Game Stats (Putting, FIR, GIR) - Based on settings */}
-        <GameStats
-          stats={stats}
-          showPutts={showPutts}
-          showFairwayHit={showFairwayHit}
-          showGreenInRegulation={showGreenInRegulation}
-        />
-
-        {/* Section 2: Par Type Stats - Social+ tier */}
-        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
-          <ParTypeStatsSection
-            par3Stats={stats.par3Stats}
-            par4Stats={stats.par4Stats}
-            par5Stats={stats.par5Stats}
-          />
-        </FeatureLock>
-
-        {/* Section 3: Short Game - Social+ tier */}
-        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
-          <ShortGameSection shortGame={stats.shortGame} />
-        </FeatureLock>
-
-        {/* Section 4: Putting Analysis - Social+ tier */}
-        <FeatureLock feature="detailed_stats" onUpgradePress={handleNavigateToSubscription}>
-          <PuttingAnalysisSection
-            puttingDepth={stats.puttingDepth}
-            averagePuttsPerHole={stats.averagePuttsPerHole}
-            totalPuttsPerRound={stats.averagePuttsPerRound}
-          />
-        </FeatureLock>
-
-        {/* Section 5: Score Distribution - Social+ tier */}
-        <ScoreDistributionSection
-          stats={stats}
-          onUpgradePress={handleScoreDistributionUpgrade}
-        />
-
-        {/* Section 6: Advanced Analytics - Premium tier */}
-        <AdvancedAnalytics
-          stats={stats}
-          onUpgradePress={handleAdvancedStatsUpgrade}
-        />
+        {activeTab === 'overview' && <OverviewTab stats={stats} />}
+        {activeTab === 'scoring' && (
+          <ScoringTab stats={stats} onUpgradePress={onUpgradePress} />
+        )}
+        {activeTab === 'gameStats' && (
+          <GameStatsTab stats={stats} onUpgradePress={onUpgradePress} />
+        )}
 
         <View style={styles.footer} />
       </ScrollView>
