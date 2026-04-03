@@ -41,6 +41,26 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_shot_contributions_column',
     up: `ALTER TABLE hole_scores ADD COLUMN shot_contributions TEXT`,
   },
+  {
+    version: 5,
+    name: 'add_tee_data_column',
+    up: `ALTER TABLE scorecards ADD COLUMN tee_data TEXT`,
+  },
+  {
+    version: 6,
+    name: 'add_course_par_column',
+    up: `ALTER TABLE scorecards ADD COLUMN course_par INTEGER`,
+  },
+  {
+    version: 7,
+    name: 'add_player_gender_column',
+    up: `ALTER TABLE scorecards ADD COLUMN player_gender TEXT`,
+  },
+  {
+    version: 8,
+    name: 'add_player_handicap_used_column',
+    up: `ALTER TABLE scorecards ADD COLUMN player_handicap_used REAL`,
+  },
 ];
 
 /**

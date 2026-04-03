@@ -31,7 +31,7 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 |---------|------|--------|---------|-------------|
 | **Competition Management** | | | | |
 | Join competitions | Unlimited | Unlimited | Unlimited | Unlimited |
-| Create competitions | 3 | 8 | Unlimited | No limit |
+| Create competitions | 3 | 8 | 50 | No limit |
 | Rounds per competition | 2 | 5 | 10 | No limit |
 | Players per competition | 8 | 16 | 40 | No limit |
 | **Game Types** | | | | |
@@ -48,10 +48,10 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
 | GPS distance to pin | ❌ | ✅ | ✅ | ✅ |
 | **Leagues** | | | | |
-| Create leagues | 1 | 3 | Unlimited | No limit |
+| Create leagues | 1 | 3 | 50 | No limit |
 | Join leagues | ✅ | ✅ | ✅ | ✅ |
 | **Social Features** | | | | |
-| Friends limit | 10 | 25 | Unlimited | Unlimited |
+| Friends limit | 5 | 15 | Unlimited | Unlimited |
 | View player profiles | ✅ | ✅ | ✅ | ✅ |
 | Compare stats with friends | ❌ | ✅ | ✅ | ✅ |
 | Guest player management | ❌ | ✅ | ✅ | ✅ |

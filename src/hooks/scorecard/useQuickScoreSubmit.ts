@@ -87,7 +87,7 @@ export function useQuickScoreSubmit() {
         submitted_by: currentUser.id,
         synced_at: new Date().toISOString(),
         ga_handicap_used: baseHandicap || null,
-        daily_handicap_used: dailyHandicap || null,
+        daily_handicap_used: dailyHandicap != null ? Math.round(dailyHandicap) : null,
         handicap_differential: handicapDifferential,
         course_rating_used: courseRatingUsed,
         slope_rating_used: slopeRatingUsed,
@@ -101,6 +101,45 @@ export function useQuickScoreSubmit() {
 
       if (error) {
         throw new Error(`Failed to save scorecard: ${error.message}`);
+      }
+
+      // Update round status based on scorecard completion
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+      const { data: roundRow } = await (supabase.from('rounds') as any)
+        .select('status, competition_id')
+        .eq('id', roundId)
+        .single();
+
+      if (roundRow) {
+        // If round is still upcoming, move to in-progress
+        if (roundRow.status === 'upcoming') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from('rounds') as any)
+            .update({ status: 'in-progress' })
+            .eq('id', roundId);
+        }
+
+        // Check if all players now have completed scorecards
+        if (roundRow.competition_id) {
+          const { count: playerCount } = await supabase
+            .from('competition_players')
+            .select('*', { count: 'exact', head: true })
+            .eq('competition_id', roundRow.competition_id)
+            .eq('status', 'accepted');
+
+          const { count: completedCount } = await supabase
+            .from('scorecards')
+            .select('*', { count: 'exact', head: true })
+            .eq('round_id', roundId)
+            .eq('status', 'completed');
+
+          if (playerCount && completedCount && completedCount >= playerCount) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase.from('rounds') as any)
+              .update({ status: 'completed' })
+              .eq('id', roundId);
+          }
+        }
       }
 
       return { success: true, scorecardId: data?.id };

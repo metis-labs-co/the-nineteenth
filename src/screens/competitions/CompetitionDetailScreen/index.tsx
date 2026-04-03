@@ -9,7 +9,7 @@
  * - Leaderboard: Competition standings
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
@@ -20,9 +20,11 @@ import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBott
 import { EditPrizePoolBottomSheet } from '@/components/prizePool';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useTierLimits } from '@/context/SubscriptionContext';
+import { useTierLimits, useIsPremium } from '@/context/SubscriptionContext';
 import { UpgradePrompt } from '@/components/subscription';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
+import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
+import { useRoundScorecards } from '@/hooks/useRoundDetails';
 import {
   DetailsTab,
   RoundsTab,
@@ -48,6 +50,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const { id } = route.params;
   const insets = useSafeAreaInsets();
   const tierLimits = useTierLimits();
+  const isPremium = useIsPremium();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabValue>('details');
@@ -66,6 +69,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     refetchPrizePool,
     prizePoolPlacements,
     scoringPairsStatus,
+    allScoredStatus,
     isOrganizer,
     hasStartedRound,
     isPrizePoolLocked,
@@ -91,6 +95,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     removePlayerState,
     removePlayerDialogConfig,
     dismissRemovePlayerDialog,
+    quickScoreRoundId,
+    handleQuickScore,
+    handleQuickScorePlayerSelect,
+    handleQuickScoreClose,
     handleBack,
     handleAddRound,
     handleAddPlayers,
@@ -110,6 +118,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     refetchTeams,
     refetchPrizePool,
   });
+
+  // Quick Score: fetch scorecards for selected round to identify completed players
+  const { data: quickScoreScorecards } = useRoundScorecards(quickScoreRoundId ?? '');
+  const completedPlayerIds = useMemo(() => {
+    if (!quickScoreScorecards) return new Set<string>();
+    return new Set(
+      quickScoreScorecards
+        .filter((sc) => sc.status === 'completed')
+        .map((sc) => sc.player_id)
+    );
+  }, [quickScoreScorecards]);
 
   // Prize pool management
   const {
@@ -186,7 +205,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
-        scrollable
         style={styles.tabContainer}
       />
 
@@ -231,8 +249,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onAddRound={handleAddRound}
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
+            onQuickScore={isOrganizer && isPremium ? handleQuickScore : undefined}
             onManageScoringPairs={handleManageScoringPairs}
             scoringPairsStatus={scoringPairsStatus}
+            allScoredStatus={allScoredStatus}
             colors={colors}
           />
         )}
@@ -373,6 +393,40 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           testID="points-breakdown-modal"
         />
       )}
+
+      {/* Quick Score Player Picker */}
+      <SelectionModal
+        visible={quickScoreRoundId !== null}
+        onClose={handleQuickScoreClose}
+        onSelect={(player) => {
+          if (completedPlayerIds.has(player.player_id)) return;
+          handleQuickScorePlayerSelect(player.player_id);
+        }}
+        items={players}
+        keyExtractor={(p) => p.player_id}
+        renderItem={(player, selected) => {
+          const isCompleted = completedPlayerIds.has(player.player_id);
+          return (
+            <SelectionItemRow
+              label={player.player?.name ?? 'Unknown Player'}
+              description={isCompleted ? 'Scorecard completed' : player.player?.handicap != null ? `Handicap: ${player.player.handicap}` : undefined}
+              selected={selected}
+              disabled={isCompleted}
+              icon={isCompleted ? 'check-circle' : 'account'}
+              iconColor={isCompleted ? colors.success : undefined}
+            />
+          );
+        }}
+        searchable
+        searchPlaceholder="Search players..."
+        filterFn={(player, query) => {
+          const q = query.toLowerCase();
+          return (player.player?.name ?? '').toLowerCase().includes(q);
+        }}
+        title="Select Player"
+        emptyMessage="No players found"
+        testID="quick-score-player-picker"
+      />
     </View>
   );
 }

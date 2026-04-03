@@ -8,7 +8,7 @@
  * - Pull-to-refresh for updating rounds
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,8 +17,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useSubscriptionContext } from '@/context/SubscriptionContext';
+import { useSubscriptionContext, useIsPremium } from '@/context/SubscriptionContext';
 import { ConfirmationDialog, LoadingSpinner } from '@/components/common';
+import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { RoundListCard } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,14 +28,15 @@ import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 
-import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound } from './hooks';
+import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
 import { RoundListEmpty, RoundListHeader } from './components';
-import type { RoundItem } from './types';
+import type { RoundItem, RoundPlayerInfo } from './types';
 
 export default function RoundsScreen() {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
+  const isPremium = useIsPremium();
 
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
 
@@ -67,6 +69,16 @@ export default function RoundsScreen() {
   } = useStartNewRound(() => {
     setIsBottomSheetVisible(false);
   });
+
+  // Quick Score flow (premium only)
+  const quickScore = useQuickScoreFlow();
+
+  // Players for the selected quick score round
+  const selectedRoundPlayers = useMemo(() => {
+    if (!quickScore.quickScoreRoundId) return [];
+    const round = activeRounds.find((r) => r.id === quickScore.quickScoreRoundId);
+    return round?.players ?? [];
+  }, [quickScore.quickScoreRoundId, activeRounds]);
 
   // Refetch rounds when screen is focused (e.g., navigating back from scoring)
   useFocusEffect(
@@ -109,6 +121,7 @@ export default function RoundsScreen() {
         maxRoundsPlayed={maxRoundsPlayed}
         showInfoIcon={!isFirstVisit}
         onInfoPress={showModal}
+        onQuickScore={isPremium ? quickScore.openRoundPicker : undefined}
       />
 
       {/* Scrollable Rounds List */}
@@ -162,6 +175,56 @@ export default function RoundsScreen() {
         content={welcomeContent}
         onDismiss={dismissModal}
         testID="rounds-welcome-modal"
+      />
+
+      {/* Quick Score: Round Picker */}
+      <SelectionModal
+        visible={quickScore.showRoundPicker}
+        onClose={quickScore.closeRoundPicker}
+        onSelect={(round: RoundItem) => quickScore.handleRoundSelect(round.id)}
+        items={activeRounds}
+        keyExtractor={(r) => r.id}
+        renderItem={(round) => (
+          <SelectionItemRow
+            label={round.course.name}
+            description={`${round.gameType.replace(/_/g, ' ')}${round.date ? ` · ${new Date(round.date).toLocaleDateString('en-AU')}` : ''}`}
+            selected={false}
+            icon="golf"
+          />
+        )}
+        title="Select Round"
+        emptyMessage="No active rounds"
+        testID="quick-score-round-picker"
+      />
+
+      {/* Quick Score: Player Picker */}
+      <SelectionModal
+        visible={quickScore.quickScoreRoundId !== null}
+        onClose={quickScore.handlePlayerPickerClose}
+        onSelect={(player: RoundPlayerInfo) => {
+          if (quickScore.completedPlayerIds.has(player.id)) return;
+          quickScore.handlePlayerSelect(player.id);
+        }}
+        items={selectedRoundPlayers}
+        keyExtractor={(p) => p.id}
+        renderItem={(player) => {
+          const isCompleted = quickScore.completedPlayerIds.has(player.id);
+          return (
+            <SelectionItemRow
+              label={player.name}
+              description={isCompleted ? 'Scorecard completed' : undefined}
+              selected={false}
+              disabled={isCompleted}
+              icon={isCompleted ? 'check-circle' : 'account'}
+            />
+          );
+        }}
+        searchable
+        searchPlaceholder="Search players..."
+        filterFn={(player, query) => player.name.toLowerCase().includes(query.toLowerCase())}
+        title="Select Player"
+        emptyMessage="No players found"
+        testID="quick-score-player-picker"
       />
     </View>
   );

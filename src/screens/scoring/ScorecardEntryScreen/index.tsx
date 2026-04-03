@@ -352,6 +352,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               onWolfChoosePartner={() => wolf.setShowWolfDecisionModal(true)}
               isWolfProcessing={wolf.isWolfProcessing}
               onDetailedStatsPress={(playerId) => setDetailedStatsPlayerId(playerId)}
+              isSoloRound={isSoloRound}
             />
 
             {!isTeamRound && (

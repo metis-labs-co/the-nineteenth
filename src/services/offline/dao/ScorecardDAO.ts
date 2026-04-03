@@ -5,6 +5,7 @@
  */
 
 import type { Scorecard } from '@/types';
+import type { TeeBox } from '@/types/database/base';
 import type { ScorecardRow } from '../types';
 import { getDb, isValidUUID } from '../DatabaseManager';
 import { nowSQLite, fromSQLiteDate, fromSQLiteDateOptional } from '../utils/dateUtils';
@@ -17,6 +18,17 @@ import { dbLogger } from '@/utils/debugLogger';
  */
 async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
   const scores = await getHoleScores(row.id);
+
+  // Parse tee data JSON if present (stored for handicap calculation in fallback sync path)
+  let teeData: TeeBox | null = null;
+  if (row.tee_data) {
+    try {
+      teeData = JSON.parse(row.tee_data) as TeeBox;
+    } catch {
+      // Ignore parse errors — teeData stays null
+    }
+  }
+
   return {
     id: row.id,
     roundId: row.round_id,
@@ -38,6 +50,11 @@ async function rowToScorecard(row: ScorecardRow): Promise<Scorecard> {
     createdAt: fromSQLiteDate(row.created_at),
     updatedAt: fromSQLiteDate(row.updated_at),
     isStandalone: row.is_standalone === 1,
+    // Handicap calculation metadata (for fallback sync path)
+    teeData,
+    coursePar: row.course_par ?? undefined,
+    playerGender: (row.player_gender as 'male' | 'female' | null) ?? null,
+    playerHandicap: row.player_handicap_used ?? null,
   };
 }
 
@@ -55,35 +72,45 @@ export async function saveScorecard(scorecard: Scorecard): Promise<void> {
 
   const database = await getDb();
   const now = nowSQLite();
+  const holeCount = Object.keys(scorecard.scores).length;
 
   try {
-    await database.runAsync(
-      `INSERT OR REPLACE INTO ${TABLE_NAMES.SCORECARDS}
-       (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
-        status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        scorecard.id,
-        scorecard.roundId,
-        scorecard.playerId,
-        scorecard.player?.name || '',
-        scorecard.player?.handicap || 0,
-        scorecard.totalGross,
-        scorecard.totalNet,
-        0,
-        scorecard.status,
-        scorecard.submittedAt?.toISOString() || null,
-        scorecard.submittedBy || null,
-        scorecard.createdAt.toISOString(),
-        now,
-        0,
-        scorecard.isStandalone ? 1 : 0,
-      ]
-    );
+    // Use a transaction to atomically save the scorecard row and all hole scores
+    // together. Without this, a failure mid-way through hole saves would leave
+    // a scorecard with incomplete hole data in SQLite.
+    await database.withTransactionAsync(async () => {
+      await database.runAsync(
+        `INSERT OR REPLACE INTO ${TABLE_NAMES.SCORECARDS}
+         (id, round_id, player_id, player_name, player_handicap, total_gross, total_net, total_points,
+          status, submitted_at, submitted_by, created_at, updated_at, is_synced, is_standalone,
+          tee_data, course_par, player_gender, player_handicap_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          scorecard.id,
+          scorecard.roundId,
+          scorecard.playerId,
+          scorecard.player?.name || '',
+          scorecard.player?.handicap || 0,
+          scorecard.totalGross,
+          scorecard.totalNet,
+          0,
+          scorecard.status,
+          scorecard.submittedAt?.toISOString() || null,
+          scorecard.submittedBy || null,
+          scorecard.createdAt.toISOString(),
+          now,
+          0,
+          scorecard.isStandalone ? 1 : 0,
+          scorecard.teeData ? JSON.stringify(scorecard.teeData) : null,
+          scorecard.coursePar ?? null,
+          scorecard.playerGender ?? null,
+          scorecard.playerHandicap ?? null,
+        ]
+      );
 
-    // Save individual hole scores
-    const holeCount = Object.keys(scorecard.scores).length;
-    await bulkSaveHoleScores(scorecard.id, scorecard.scores);
+      // Save individual hole scores within the same transaction
+      await bulkSaveHoleScores(scorecard.id, scorecard.scores);
+    });
 
     dbLogger.debug('Scorecard saved successfully', {
       id: scorecard.id.substring(0, 20) + '...',

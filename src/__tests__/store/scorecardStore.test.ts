@@ -414,7 +414,7 @@ describe('ScorecardStore', () => {
       expect(saveScorecard).toHaveBeenCalled();
     });
 
-    it('queues for sync', async () => {
+    it('does not queue sync during scoring (deferred to submission)', async () => {
       const store = getStore();
       const playerId = testPlayers[0].id;
 
@@ -422,13 +422,9 @@ describe('ScorecardStore', () => {
 
       await store.setPlayerScore(playerId, 1, 4);
 
-      expect(queueScorecardSync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          playerId,
-          roundId: testRoundId,
-        }),
-        'update'
-      );
+      // Sync is deferred to submitScorecards to avoid excessive intermediate
+      // syncs that can cause race conditions with the double-sync overwrite bug
+      expect(queueScorecardSync).not.toHaveBeenCalled();
     });
 
     it('handles missing player gracefully', async () => {
@@ -1178,7 +1174,7 @@ describe('ScorecardStore', () => {
       expect(scores[1].greenInRegulation).toBe(true);
     });
 
-    it('should queue sync after updating stats', async () => {
+    it('should not queue sync during stat updates (deferred to submission)', async () => {
       const store = getStore();
       const playerId = testPlayers[0].id;
 
@@ -1186,7 +1182,8 @@ describe('ScorecardStore', () => {
 
       await store.updateMultiBallStats(playerId, 1, 0, { fairwayHit: true });
 
-      expect(queueScorecardSync).toHaveBeenCalled();
+      // Sync is deferred to submitScorecards to avoid excessive intermediate syncs
+      expect(queueScorecardSync).not.toHaveBeenCalled();
     });
 
     it('should handle both fairwayHit and greenInRegulation in single update', async () => {

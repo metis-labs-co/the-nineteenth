@@ -92,6 +92,20 @@ export default function NotificationSettingsScreen() {
     [updatePreferences]
   );
 
+  const handleLeagueUpdatesChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushLeagueUpdates: enabled });
+    },
+    [updatePreferences]
+  );
+
+  const handleSideGameUpdatesChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushSideGameUpdates: enabled });
+    },
+    [updatePreferences]
+  );
+
   // Get permission status text and icon
   const getPermissionStatusInfo = () => {
     if (!isPhysicalDevice) {
@@ -251,6 +265,38 @@ export default function NotificationSettingsScreen() {
                   onPress={() => !isUpdatingPreferences && handleScorecardUpdatesChange(!(preferences?.pushScorecardUpdates ?? true))}
                   testID="setting-scorecard-updates"
                 />
+                <MenuItemRow
+                  icon="shield-crown-outline"
+                  title="League Updates"
+                  subtitle="When players join, tag rounds, or rankings change"
+                  showChevron={false}
+                  disabled={isUpdatingPreferences}
+                  rightContent={
+                    <ToggleSwitch
+                      value={preferences?.pushLeagueUpdates ?? true}
+                      onValueChange={handleLeagueUpdatesChange}
+                      disabled={isUpdatingPreferences}
+                    />
+                  }
+                  onPress={() => !isUpdatingPreferences && handleLeagueUpdatesChange(!(preferences?.pushLeagueUpdates ?? true))}
+                  testID="setting-league-updates"
+                />
+                <MenuItemRow
+                  icon="cards-playing-outline"
+                  title="Side Games & Payouts"
+                  subtitle="Skins, Wolf, and prize pool results"
+                  showChevron={false}
+                  disabled={isUpdatingPreferences}
+                  rightContent={
+                    <ToggleSwitch
+                      value={preferences?.pushSideGameUpdates ?? true}
+                      onValueChange={handleSideGameUpdatesChange}
+                      disabled={isUpdatingPreferences}
+                    />
+                  }
+                  onPress={() => !isUpdatingPreferences && handleSideGameUpdatesChange(!(preferences?.pushSideGameUpdates ?? true))}
+                  testID="setting-side-game-updates"
+                />
               </View>
             </View>
           </>
@@ -260,7 +306,7 @@ export default function NotificationSettingsScreen() {
         <View style={[styles.infoFooter, { backgroundColor: colors.gray100 }]}>
           <Icon source="information-outline" size={16} color={colors.textSecondary} />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            Push notifications keep you informed about competition activity, friend requests, and scorecard submissions even when the app is closed.
+            Push notifications keep you informed about competition activity, friend requests, scorecard submissions, league updates, and side game results even when the app is closed.
           </Text>
         </View>
       </ScrollView>

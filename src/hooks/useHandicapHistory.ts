@@ -9,7 +9,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDifferential';
+import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { syncLogger } from '@/utils/debugLogger';
 import type { HandicapSummary, HandicapRound } from '@/types';
+
+// Track scorecards we've already attempted to recalculate this session
+// to avoid redundant recalculation on every screen visit
+const attemptedRecalculations = new Set<string>();
 
 // Query key factory for handicap-related queries
 export const handicapKeys = {
@@ -42,6 +48,33 @@ interface ScorecardWithRound {
 }
 
 /**
+ * Find completed scorecards that have null differentials and haven't been
+ * attempted for recalculation yet this session.
+ */
+async function findScorecardsNeedingRecalculation(playerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('scorecards')
+    .select('id')
+    .eq('player_id', playerId)
+    .in('status', ['completed', 'confirmed'])
+    .is('handicap_differential', null)
+    .limit(20);
+
+  if (error || !data) return [];
+
+  const ids = data
+    .map((sc: { id: string }) => sc.id)
+    .filter((id: string) => !attemptedRecalculations.has(id));
+
+  // Mark all as attempted regardless of outcome
+  for (const id of ids) {
+    attemptedRecalculations.add(id);
+  }
+
+  return ids;
+}
+
+/**
  * Fetch and calculate handicap history for a player
  *
  * @param playerId - UUID of the player
@@ -49,7 +82,7 @@ interface ScorecardWithRound {
  */
 async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> {
   // Fetch last 20 completed scorecards with differentials
-  const { data: scorecards, error } = await supabase
+  let { data: scorecards, error } = await supabase
     .from('scorecards')
     .select(`
       id,
@@ -83,6 +116,60 @@ async function fetchHandicapHistory(playerId: string): Promise<HandicapSummary> 
   if (error) {
     console.error('[useHandicapHistory] Failed to fetch handicap history:', error);
     throw new Error(`Failed to fetch handicap history: ${error.message}`);
+  }
+
+  // Check for completed scorecards with missing differentials and attempt retroactive recalculation.
+  // This handles cases where the differential wasn't calculated at sync time (e.g., missing tee
+  // ratings, or the fallback sync path loaded the scorecard from SQLite without tee metadata).
+  const unattemptedIds = await findScorecardsNeedingRecalculation(playerId);
+  if (unattemptedIds.length > 0) {
+    const results = await Promise.allSettled(
+      unattemptedIds.map((id) => recalculateScorecardDifferential(id))
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    if (succeeded > 0) {
+      syncLogger.info('[useHandicapHistory] Retroactively recalculated differentials', {
+        attempted: unattemptedIds.length,
+        succeeded,
+      });
+
+      // Re-fetch with newly-calculated differentials
+      const { data: refreshed, error: refreshError } = await supabase
+        .from('scorecards')
+        .select(`
+          id,
+          player_id,
+          round_id,
+          total_gross,
+          daily_handicap_used,
+          handicap_differential,
+          course_rating_used,
+          slope_rating_used,
+          submitted_at,
+          rounds (
+            id,
+            date,
+            courses (
+              id,
+              name,
+              clubs (
+                id,
+                name
+              )
+            )
+          )
+        `)
+        .eq('player_id', playerId)
+        .in('status', ['completed', 'confirmed'])
+        .not('handicap_differential', 'is', null)
+        .order('submitted_at', { ascending: false })
+        .limit(20);
+
+      if (!refreshError && refreshed) {
+        scorecards = refreshed;
+      }
+    }
   }
 
   // Filter out any rows with missing required data

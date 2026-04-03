@@ -112,10 +112,12 @@ export async function setPlayerScore(
 
   const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set);
 
+  // Persist to SQLite only — sync is deferred to submission time to avoid
+  // excessive intermediate syncs (up to 72 for a 4-player round) that can
+  // cause race conditions where incomplete SQLite data overwrites complete data.
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
-    sync: { scorecard: updatedScorecard },
     context: 'setPlayerScore',
   });
 
@@ -171,7 +173,6 @@ export async function updatePlayerHoleScore(
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
-    sync: { scorecard: updatedScorecard },
     context: 'updatePlayerHoleScore',
   });
 }
@@ -212,7 +213,6 @@ export async function updateShotContributions(
   const saved = await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
-    sync: { scorecard: updatedScorecard },
     context: 'updateShotContributions',
   });
 

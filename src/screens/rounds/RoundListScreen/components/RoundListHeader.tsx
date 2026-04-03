@@ -32,6 +32,7 @@ interface RoundListHeaderProps {
   maxRoundsPlayed: number;
   showInfoIcon?: boolean;
   onInfoPress?: () => void;
+  onQuickScore?: () => void;
 }
 
 export function RoundListHeader({
@@ -47,14 +48,23 @@ export function RoundListHeader({
   maxRoundsPlayed,
   showInfoIcon,
   onInfoPress,
+  onQuickScore,
 }: RoundListHeaderProps) {
   const colors = useThemeColors();
+
+  const rightActions = [];
+  if (onQuickScore) {
+    rightActions.push({ icon: 'flash', onPress: onQuickScore, accessibilityLabel: 'Quick score entry' });
+  }
+  if (showInfoIcon && onInfoPress) {
+    rightActions.push({ icon: 'information-outline', onPress: onInfoPress, accessibilityLabel: 'Rounds info' });
+  }
 
   return (
     <>
       <PageHeader
         title="Rounds"
-        rightActions={showInfoIcon && onInfoPress ? [{ icon: 'information-outline', onPress: onInfoPress, accessibilityLabel: 'Rounds info' }] : []}
+        rightActions={rightActions}
       />
 
       <View style={styles.stickyHeader}>

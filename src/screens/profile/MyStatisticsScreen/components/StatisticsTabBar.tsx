@@ -37,6 +37,7 @@ export const StatisticsTabBar = React.memo(function StatisticsTabBar({
 
 const styles = StyleSheet.create({
   tabs: {
+    marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },

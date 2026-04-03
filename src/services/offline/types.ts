@@ -25,6 +25,11 @@ export interface ScorecardRow {
   updated_at: string;
   is_synced: number;
   is_standalone: number;
+  // Handicap calculation metadata (added in migrations 5-8)
+  tee_data: string | null;
+  course_par: number | null;
+  player_gender: string | null;
+  player_handicap_used: number | null;
 }
 
 /**

@@ -143,6 +143,12 @@ export async function syncAll(): Promise<boolean> {
         // Track if any scorecard syncs succeeded
         if (sync.type === 'scorecard') {
           scorecardsWereSynced = true;
+          // Mark the scorecard as synced in SQLite to prevent the unsynced-scorecards
+          // path (below) from re-syncing potentially incomplete SQLite data and
+          // overwriting the complete data we just synced from the queue.
+          if (sync.data?.id) {
+            await markScorecardsAsSynced([sync.data.id]);
+          }
         }
       } catch (error) {
         syncLogger.error('Failed to process sync', error, {

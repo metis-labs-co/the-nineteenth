@@ -30,6 +30,8 @@ import type { PlayerStatistics } from '@/hooks/playerStatistics';
 export interface DrivingSectionProps {
   /** Complete player statistics */
   stats: PlayerStatistics;
+  /** Callback when upgrade is pressed on premium-locked content */
+  onUpgradePress?: () => void;
 }
 
 // =====================================================
@@ -38,6 +40,7 @@ export interface DrivingSectionProps {
 
 export const DrivingSection = React.memo(function DrivingSection({
   stats,
+  onUpgradePress,
 }: DrivingSectionProps) {
   const colors = useThemeColors();
 
@@ -47,7 +50,7 @@ export const DrivingSection = React.memo(function DrivingSection({
   const trendData = stats.roundTrends.map((r) => r.fairwayPercentage);
 
   return (
-    <FeatureLock feature="score_distribution">
+    <FeatureLock feature="detailed_stats" onUpgradePress={onUpgradePress}>
       <View style={styles.container}>
         <SectionHeader title="Driving" icon="golf-tee" />
 
@@ -83,9 +86,9 @@ export const DrivingSection = React.memo(function DrivingSection({
                 </View>
               </View>
 
-              {/* Miss direction diagram */}
+              {/* Miss direction diagram - Premium tier */}
               {hasMissData && (
-                <>
+                <FeatureLock feature="advanced_stats" onUpgradePress={onUpgradePress} lockedMessage="Unlock miss tendencies">
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <View style={styles.diagramSection}>
                     <Text style={[styles.diagramTitle, { color: colors.textSecondary }]}>
@@ -96,7 +99,7 @@ export const DrivingSection = React.memo(function DrivingSection({
                       compact={false}
                     />
                   </View>
-                </>
+                </FeatureLock>
               )}
             </>
           ) : (

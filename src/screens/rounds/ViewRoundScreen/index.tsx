@@ -39,7 +39,6 @@ import type { SkinsResultWithWinner } from '@/types/database/skins.types';
 
 import { useViewRoundScreen, type TabKey } from './useViewRoundScreen';
 import { EditStatsModal } from './EditStatsModal';
-import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { SkinsTab } from './tabs/SkinsTab';
 import { WolfTab } from './tabs/WolfTab';
 import { PayoutsTab } from './tabs/PayoutsTab';
@@ -48,6 +47,7 @@ import { ScrambleTeamScoreTab } from './tabs/ScrambleTeamScoreTab';
 import { ScrambleLeaderboardTab } from './tabs/ScrambleLeaderboardTab';
 import { ScrambleContributionsTab } from './tabs/ScrambleContributionsTab';
 import { ShambleTeamScoresTab } from './tabs/ShambleTeamScoresTab';
+import { StatsTab } from './tabs/StatsTab';
 import { StrokePlayLeaderboardTab } from './tabs/StrokePlayLeaderboardTab';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
@@ -55,7 +55,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
   const colors = useThemeColors();
-  const statsVisibility = useStatsVisibilityWithTier();
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
   // Get header title with icons for skins/wolf standalone rounds
@@ -195,27 +194,6 @@ export default function ViewRoundScreen(props: Props) {
         </View>
       )}
 
-      {/* Edit Stats Button */}
-      {vm.userScorecardSubmitted && statsVisibility.hasAnyDetailedStats && (
-        <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
-          <FeatureLockCompact
-            feature="detailed_stats"
-            onUpgradePress={vm.handleNavigateToSubscription}
-          >
-            <TouchableOpacity
-              style={[styles.tagLeagueButton, { borderColor: colors.primary }]}
-              onPress={vm.handleEditStatsOpen}
-              activeOpacity={0.8}
-              accessibilityLabel="Edit detailed stats"
-              accessibilityRole="button"
-            >
-              <Icon source="chart-bar" size={20} color={colors.primary} />
-              <Text style={[styles.scoreButtonText, { color: colors.primary }]}>Edit Stats</Text>
-            </TouchableOpacity>
-          </FeatureLockCompact>
-        </View>
-      )}
-
       {/* Competition Card - Show above tabs for competition rounds */}
       {round.competition && (
         <TouchableOpacity
@@ -284,6 +262,17 @@ export default function ViewRoundScreen(props: Props) {
             selectedTeeData={round.selected_tee}
             gameType={round.game_type}
             handicapSource={round.handicap_source ?? undefined}
+          />
+        )}
+        {vm.activeTab === 'stats' && (
+          <StatsTab
+            scorecards={vm.scorecards || []}
+            roundPlayers={vm.roundPlayers || []}
+            holes={round.course?.holes || null}
+            statsVisibility={vm.statsVisibility}
+            canEditStats={vm.userScorecardSubmitted}
+            onEditStats={vm.handleEditStatsOpen}
+            onUpgradePress={vm.handleNavigateToSubscription}
           />
         )}
         {vm.activeTab === 'match' && (vm.isMatchPlayRound || vm.isTeamMatchPlayRound) && (
@@ -408,6 +397,7 @@ export default function ViewRoundScreen(props: Props) {
           scorecard={userScorecard}
           holes={round.course?.holes || []}
           courseName={round.course?.name || 'Course'}
+          initialHole={vm.editStatsInitialHole}
         />
       )}
 

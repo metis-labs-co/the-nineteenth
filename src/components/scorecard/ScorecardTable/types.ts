@@ -51,12 +51,6 @@ export interface ScorecardTableProps {
   onPlayerPress?: (playerId: string) => void;
   /** Callback when a hole number is pressed to navigate to that hole */
   onHolePress?: (holeNumber: number) => void;
-  /** Whether to show putts column (only shown for solo rounds) */
-  showPutts?: boolean;
-  /** Whether to show FIR column (only shown for solo rounds) */
-  showFIR?: boolean;
-  /** Whether to show GIR column (only shown for solo rounds) */
-  showGIR?: boolean;
   /** Selected tee data with slope/course ratings for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
   /** Game type - affects score display (par shows +1/0/-1 instead of strokes) */

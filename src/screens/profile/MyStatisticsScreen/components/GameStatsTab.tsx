@@ -2,8 +2,8 @@
  * GameStatsTab - Game Stats tab content for My Statistics
  *
  * Displays:
- * - Driving (FIR tracking, Social+ tier)
- * - Approach (GIR tracking, Social+ tier)
+ * - Driving: FIR% (Social+ tier), miss direction diagram (Premium tier)
+ * - Approach: GIR% (Social+ tier), miss direction diagram (Premium tier)
  * - Short Game (Social+ tier)
  * - Putting Analysis (Social+ tier)
  * - Bunker Stats (Premium tier)
@@ -43,16 +43,11 @@ export const GameStatsTab = React.memo(function GameStatsTab({
 }: GameStatsTabProps) {
   return (
     <>
-      {/* Driving - Social+ tier */}
-      <FeatureLock feature="fir_gir_tracking" onUpgradePress={onUpgradePress}>
-        <DrivingSection stats={stats} />
-      </FeatureLock>
+      {/* Driving - FIR% is Social+, miss direction diagram is Premium */}
+      <DrivingSection stats={stats} onUpgradePress={onUpgradePress} />
 
-      {/* Approach - Social+ tier */}
-      <View style={styles.sectionGap} />
-      <FeatureLock feature="fir_gir_tracking" onUpgradePress={onUpgradePress}>
-        <ApproachSection stats={stats} />
-      </FeatureLock>
+      {/* Approach - GIR% is Social+, miss direction diagram is Premium */}
+      <ApproachSection stats={stats} onUpgradePress={onUpgradePress} />
 
       {/* Short Game - Social+ tier */}
       <View style={styles.sectionGap} />

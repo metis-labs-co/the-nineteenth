@@ -10,7 +10,7 @@ import { Scorecard, HoleScore, Hole } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
 import { isMultiBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import { saveScorecard } from '@/services/offline/database';
-import { queueScorecardSync } from '@/services/offline/sync';
+
 import { calculateStablefordPoints, calculateNetScore } from '@/utils/scoring';
 import { storeLogger } from '@/utils/debugLogger';
 
@@ -181,11 +181,10 @@ export async function updateMultiBallStats(
   newMap.set(playerId, updatedScorecard);
   set({ groupScorecards: newMap });
 
-  // Save to offline storage
+  // Save to offline storage — sync is deferred to submission time
   if (currentRoundId) {
     try {
       await saveScorecard(updatedScorecard);
-      await queueScorecardSync(updatedScorecard, 'update');
     } catch (error) {
       storeLogger.error('Failed to save multi-ball stats', error, {
         playerId: playerId.substring(0, 8) + '...',

@@ -33,6 +33,7 @@ import { Text } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
 import { useAuth } from '@/hooks';
@@ -44,6 +45,7 @@ import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
 import type { Player, HoleScore, MultiBallHoleScore } from '@/types';
 
 import { useScoreReview, useScoreSubmission } from './hooks';
+import { StatsTab } from '@/screens/rounds/ViewRoundScreen/tabs/StatsTab';
 import {
   IncompleteScoresModal,
   ReviewActions,
@@ -61,7 +63,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
 // TAB TYPES
 // =====================================================
 
-type TabKey = 'scorecard' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts';
+type TabKey = 'scorecard' | 'stats' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts';
 
 const BASE_TABS: TabItem<TabKey>[] = [
   { key: 'scorecard', label: 'Scorecard' },
@@ -169,6 +171,15 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Check if this is a shamble round
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
 
+  // Stats visibility (for Stats tab)
+  const statsVisibility = useStatsVisibilityWithTier();
+  const hasStats =
+    statsVisibility.showPutts ||
+    statsVisibility.showFairwayHit ||
+    statsVisibility.showGreenInRegulation ||
+    statsVisibility.showBunkerShots ||
+    statsVisibility.showHazards;
+
   // Calculate team handicap for scramble rounds
   const _teamHandicap = useMemo(() => {
     if (!isScramble || currentPlayers.length === 0) return 0;
@@ -255,6 +266,11 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   const tabs = useMemo<TabItem<TabKey>[]>(() => {
     const tabList: TabItem<TabKey>[] = [...BASE_TABS];
 
+    // Add stats tab if any stats are enabled
+    if (hasStats) {
+      tabList.push({ key: 'stats' as const, label: 'Stats' });
+    }
+
     // For scramble, keep scorecard tab as "Scorecard", add leaderboard and contributions
     if (isScramble) {
       tabList[0] = { key: 'scorecard' as const, label: 'Scorecard' };
@@ -289,10 +305,10 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     }
 
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, hasStats]);
 
   // Determine if we need to show tabs (more than just scorecard)
-  const showTabs = isStrokePlay || hasSkinsGame || hasWolfGame || isScramble || isShamble;
+  const showTabs = isStrokePlay || hasSkinsGame || hasWolfGame || isScramble || isShamble || hasStats;
 
   // Submission and sync logic
   const {
@@ -514,6 +530,32 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
             )}
           </ScrollView>
         </>
+      )}
+
+      {activeTab === 'stats' && hasStats && (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.textPrimary]}
+              tintColor={colors.textPrimary}
+            />
+          }
+          showsVerticalScrollIndicator={true}
+        >
+          <StatsTab
+            displayPlayers={tablePlayerData}
+            holes={holes}
+            statsVisibility={statsVisibility}
+            canEditStats={false}
+          />
+        </ScrollView>
       )}
 
       {activeTab === 'contributions' && (isScramble || isShamble) && (

@@ -22,9 +22,12 @@ export interface RoundsTabProps {
   onAddRound: () => void;
   onScoreRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   onViewRound: (roundId: string) => void;
+  onQuickScore?: (roundId: string) => void;
   onManageScoringPairs?: (roundId: string) => void;
   /** Map of roundId to whether scoring pairs exist */
   scoringPairsStatus?: Record<string, boolean>;
+  /** Map of roundId to whether all players have completed scorecards */
+  allScoredStatus?: Record<string, boolean>;
   colors: ColorPalette;
 }
 
@@ -35,8 +38,10 @@ export const RoundsTab = React.memo(function RoundsTab({
   onAddRound,
   onScoreRound,
   onViewRound,
+  onQuickScore,
   onManageScoringPairs,
   scoringPairsStatus,
+  allScoredStatus,
   colors,
 }: RoundsTabProps) {
   return (
@@ -59,8 +64,10 @@ export const RoundsTab = React.memo(function RoundsTab({
               playerCount={playerCount}
               onScoreRound={onScoreRound}
               onViewRound={onViewRound}
+              onQuickScore={onQuickScore}
               onManageScoringPairs={onManageScoringPairs}
               hasScoringPairs={scoringPairsStatus?.[round.id]}
+              allPlayersScored={allScoredStatus?.[round.id]}
               colors={colors}
             />
           ))}

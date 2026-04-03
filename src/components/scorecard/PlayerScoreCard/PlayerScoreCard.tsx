@@ -23,7 +23,6 @@ import {
 } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { ScaledText } from '@/components/common/ScaledText';
-import { useStatsVisibility } from '@/store/settingsStore';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { STABLEFORD_POINTS } from '@/constants/scoring';
@@ -109,8 +108,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
   const statsVisibility = useStatsVisibilityWithTier();
+  const { showPutts, showFairwayHit, showGreenInRegulation } = statsVisibility;
 
   // FIR only applies to par 4s and 5s
   const showFIR = showFairwayHit && currentHole.par >= 4;

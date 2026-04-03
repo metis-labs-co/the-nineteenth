@@ -24,14 +24,8 @@ export {
   ScrollableStablefordCells,
 } from './ScrollableCells';
 
-// Solo stats cells (Putts, FIR, GIR)
+// Solo Stableford cells
 export {
-  SoloStatsHeaderCells,
-  SoloStatsHoleCells,
-  SoloStatsSubtotalCells,
-  SoloStatsTotalCells,
-  SoloStatsNetEmptyCells,
-  SoloStatsStablefordEmptyCells,
   SoloStablefordHeaderCell,
   SoloStablefordHoleCell,
   SoloStablefordSubtotalCell,

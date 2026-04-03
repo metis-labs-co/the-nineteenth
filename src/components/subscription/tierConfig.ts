@@ -57,7 +57,7 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
       'Up to 8 competitions',
       'Up to 5 rounds per competition',
       'Up to 16 players per competition',
-      '25 friends',
+      '15 friends',
       'Unlimited social rounds',
       'Stroke Play & Match Play',
       'Compare stats with friends',
@@ -76,7 +76,8 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
     icon: 'crown-outline',
     color: TIER_COLORS.premium,
     features: [
-      'Unlimited competitions',
+      'Up to 50 competitions',
+      'Up to 50 leagues',
       'Up to 10 rounds per competition',
       'Up to 40 players per competition',
       'Unlimited friends',

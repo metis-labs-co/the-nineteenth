@@ -48,7 +48,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
 
   const selectedTee: TeeBox | null = round?.selected_tee ?? null;
   const nineType = round?.nine_type ?? 'full';
-  const handicapSource: HandicapSource = round?.handicap_source ?? 'profile';
+  const handicapSource: HandicapSource = round?.handicap_source ?? round?.competition?.handicap_source ?? 'profile';
 
   // Filter holes based on nine_type
   const holes: Hole[] = useMemo(() => {
@@ -114,9 +114,9 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
   const dailyHandicap = useMemo(() => {
     if (!player || handicapSource === 'none') return 0;
     const baseHandicap = getBaseHandicap(player, handicapSource);
-    if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return baseHandicap;
+    if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return Math.round(baseHandicap);
     const coursePar = allHoles.reduce((sum, h) => sum + h.par, 0);
-    if (coursePar <= 0) return baseHandicap;
+    if (coursePar <= 0) return Math.round(baseHandicap);
     const result = calculateGADailyHandicap({
       gaHandicap: baseHandicap,
       slopeRating: selectedTee.slopeRating,
@@ -227,6 +227,7 @@ export function useQuickScoreEntry({ roundId, playerId }: UseQuickScoreEntryPara
       setShowReview(false);
       navigation.goBack();
     } catch (error) {
+      setShowReview(false);
       showAlert('Error', error instanceof Error ? error.message : 'Failed to save scores');
     }
   }, [player, scores, roundId, playerId, totals, selectedTee, allHoles, handicapSource, submitMutation, navigation]);

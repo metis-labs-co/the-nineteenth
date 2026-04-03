@@ -92,6 +92,8 @@ export interface ScorecardScoreContentProps {
   isWolfProcessing?: boolean;
   // Detailed stats sheet callback (hoisted to screen level)
   onDetailedStatsPress?: (playerId: string) => void;
+  // Solo round (hide leaderboard)
+  isSoloRound?: boolean;
 }
 
 export function ScorecardScoreContent({
@@ -140,6 +142,7 @@ export function ScorecardScoreContent({
   onWolfChoosePartner,
   isWolfProcessing = false,
   onDetailedStatsPress,
+  isSoloRound = false,
 }: ScorecardScoreContentProps) {
   // Get shot contributions for a specific team (persisted in scorecard)
   // Each team stores its own contributions in its members' scorecards
@@ -449,10 +452,11 @@ export function ScorecardScoreContent({
               runningParScore={isPar ? getRunningParScore(player.id, handicap) : undefined}
               isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
               teeDotColor={teeDotColor}
+              onDetailedStatsPress={onDetailedStatsPress ? () => onDetailedStatsPress(player.id) : undefined}
             />
           );
         })}
-        {!isPar && (
+        {!isPar && !isSoloRound && (
           <StrokePlayLeaderboard
             players={playersToRender}
             getPlayerScore={getPlayerScore}

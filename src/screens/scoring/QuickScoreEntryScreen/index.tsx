@@ -23,7 +23,7 @@ import QuickScoreReviewModal from './QuickScoreReviewModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuickScoreEntry'>;
 
-export default function QuickScoreEntryScreen({ route }: Props) {
+export default function QuickScoreEntryScreen({ route, navigation }: Props) {
   const { roundId, playerId } = route.params;
   const colors = useThemeColors();
   const vm = useQuickScoreEntry({ roundId, playerId });
@@ -31,7 +31,7 @@ export default function QuickScoreEntryScreen({ route }: Props) {
   if (vm.isLoading || !vm.round) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <PageHeader title="Quick Score Entry" showBack />
+        <PageHeader title="Quick Score Entry" showBack onBack={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="lg" />
         </View>
@@ -45,6 +45,7 @@ export default function QuickScoreEntryScreen({ route }: Props) {
         title="Quick Score Entry"
         subtitle={`${vm.player?.name ?? 'Player'} · ${vm.course?.name ?? 'Course'}`}
         showBack
+        onBack={() => navigation.goBack()}
       />
 
       {/* Running totals */}

@@ -50,6 +50,9 @@ export function useCompetitionDetailHandlers({
   // Add players bottom sheet state
   const [showAddPlayersSheet, setShowAddPlayersSheet] = useState(false);
 
+  // Quick score state
+  const [quickScoreRoundId, setQuickScoreRoundId] = useState<string | null>(null);
+
   // Points breakdown modal state
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [selectedLeaderboardEntry, setSelectedLeaderboardEntry] = useState<CompetitionLeaderboardEntry | null>(null);
@@ -191,6 +194,28 @@ export function useCompetitionDetailHandlers({
     setSelectedLeaderboardEntry(null);
   }, []);
 
+  // Quick score handlers
+  const handleQuickScore = useCallback((roundId: string) => {
+    setQuickScoreRoundId(roundId);
+  }, []);
+
+  const handleQuickScorePlayerSelect = useCallback(
+    (playerId: string) => {
+      if (!quickScoreRoundId) return;
+      navigation.navigate('QuickScoreEntry', {
+        roundId: quickScoreRoundId,
+        playerId,
+        competitionId: id,
+      });
+      setQuickScoreRoundId(null);
+    },
+    [navigation, id, quickScoreRoundId]
+  );
+
+  const handleQuickScoreClose = useCallback(() => {
+    setQuickScoreRoundId(null);
+  }, []);
+
   return {
     // Dialog
     dialogConfig,
@@ -213,6 +238,11 @@ export function useCompetitionDetailHandlers({
     removePlayerState,
     removePlayerDialogConfig,
     dismissRemovePlayerDialog,
+    // Quick score
+    quickScoreRoundId,
+    handleQuickScore,
+    handleQuickScorePlayerSelect,
+    handleQuickScoreClose,
     // Navigation handlers
     handleBack,
     handleAddRound,

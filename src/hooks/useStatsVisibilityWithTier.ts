@@ -1,8 +1,8 @@
 /**
  * Hook to get visibility settings for stats - respects subscription tier
  *
- * FIR/GIR tracking requires Premium tier (fir_gir_tracking).
- * Detailed stats (miss directions, bunkers, hazards) require Premium tier (detailed_stats).
+ * FIR/GIR tracking requires Social+ tier (detailed_stats).
+ * Advanced stats (miss directions, bunkers, hazards) require Premium tier (advanced_stats).
  * Putts are always available.
  *
  * Use this hook in scorecard entry and display components.
@@ -13,7 +13,7 @@
  */
 
 import { useSettingsStore } from '@/store/settingsStore';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsPremium, useTier } from '@/context/SubscriptionContext';
 
 export function useStatsVisibilityWithTier() {
   const showPutts = useSettingsStore((state) => state.showPutts);
@@ -23,7 +23,9 @@ export function useStatsVisibilityWithTier() {
   const showGreenMissDirection = useSettingsStore((state) => state.showGreenMissDirection);
   const showBunkerShots = useSettingsStore((state) => state.showBunkerShots);
   const showHazards = useSettingsStore((state) => state.showHazards);
+  const tier = useTier();
   const isPremium = useIsPremium();
+  const isSocialOrAbove = tier !== 'free';
 
   const effectiveFairwayMissDirection = isPremium && showFairwayMissDirection;
   const effectiveGreenMissDirection = isPremium && showGreenMissDirection;
@@ -32,10 +34,10 @@ export function useStatsVisibilityWithTier() {
 
   return {
     showPutts,
-    // FIR/GIR requires Premium - gracefully degrade for lower tiers
-    showFairwayHit: isPremium && showFairwayHit,
-    showGreenInRegulation: isPremium && showGreenInRegulation,
-    // Detailed stats require Premium
+    // FIR/GIR requires Social+ tier
+    showFairwayHit: isSocialOrAbove && showFairwayHit,
+    showGreenInRegulation: isSocialOrAbove && showGreenInRegulation,
+    // Advanced stats require Premium
     showFairwayMissDirection: effectiveFairwayMissDirection,
     showGreenMissDirection: effectiveGreenMissDirection,
     showBunkerShots: effectiveBunkerShots,

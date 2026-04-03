@@ -283,6 +283,20 @@ describe('Sync Operations', () => {
       expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id);
     });
 
+    it('should mark scorecard as synced after pending queue processing to prevent double-sync overwrite', async () => {
+      const scorecard = createTestScorecard();
+      const pendingSync = createPendingSync({ data: scorecard });
+      (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+      // No unsynced scorecards — the point is that the pending queue path marks it synced
+      (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([]);
+
+      await syncAll();
+
+      // After processing the pending sync, the scorecard should be marked as synced
+      // so the unsynced-scorecards path doesn't re-sync with potentially incomplete SQLite data
+      expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+    });
+
     it('should sync unsynced scorecards and mark as synced', async () => {
       const unsyncedScorecard = createTestScorecard();
       (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([unsyncedScorecard]);

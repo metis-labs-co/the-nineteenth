@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TabKey } from './types';
@@ -37,6 +38,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showTagLeagueSheet, setShowTagLeagueSheet] = useState(false);
   const [showEditStatsModal, setShowEditStatsModal] = useState(false);
+  const [editStatsInitialHole, setEditStatsInitialHole] = useState<number | undefined>(undefined);
 
   // Data fetching
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
@@ -73,6 +75,15 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isStandalone,
   });
 
+  // Stats visibility (for Stats tab)
+  const statsVisibility = useStatsVisibilityWithTier();
+  const hasStats =
+    statsVisibility.showPutts ||
+    statsVisibility.showFairwayHit ||
+    statsVisibility.showGreenInRegulation ||
+    statsVisibility.showBunkerShots ||
+    statsVisibility.showHazards;
+
   // Tabs
   const tabs = useViewRoundTabs({
     isMatchPlayRound,
@@ -83,6 +94,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     hasSkinsGame,
     hasWolfGame,
     hasPayoutsTab,
+    hasStats,
+    playerCount: scorecards?.length ?? 0,
   });
 
   // Player data transformations
@@ -186,6 +199,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     userScorecardId: permissions.userScorecardId,
     userScorecardSubmitted: permissions.userScorecardSubmitted,
     tabs,
+    statsVisibility,
     headerTitleHasIcons: handlers.headerTitleHasIcons,
 
     // Match play data
@@ -228,8 +242,15 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     handleTagLeagueSheetClose: handlers.handleTagLeagueSheetClose,
     // Edit Stats Modal
     showEditStatsModal,
-    handleEditStatsOpen: () => setShowEditStatsModal(true),
-    handleEditStatsClose: () => setShowEditStatsModal(false),
+    editStatsInitialHole,
+    handleEditStatsOpen: (holeNumber?: number) => {
+      setEditStatsInitialHole(holeNumber);
+      setShowEditStatsModal(true);
+    },
+    handleEditStatsClose: () => {
+      setShowEditStatsModal(false);
+      setEditStatsInitialHole(undefined);
+    },
     // Refetch functions
     refetchRound,
   };

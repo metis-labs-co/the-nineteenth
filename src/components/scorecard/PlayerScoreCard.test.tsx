@@ -18,35 +18,10 @@ import { PlayerScoreCard } from './PlayerScoreCard';
 import { createTestPlayer, create18Holes } from '@/__tests__/utils/testFixtures';
 import type { Player, Hole, HoleScore } from '@/types';
 
-// Mock the settingsStore hook
+// Mock the tier-aware stats visibility hook (used by PlayerScoreCard)
 const mockUseStatsVisibility = jest.fn();
-jest.mock('@/store/settingsStore', () => ({
-  useStatsVisibility: () => mockUseStatsVisibility(),
-  useSettingsStore: jest.fn((selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      showPutts: true,
-      showFairwayHit: true,
-      showGreenInRegulation: true,
-      showFairwayMissDirection: false,
-      showGreenMissDirection: false,
-      showBunkerShots: false,
-      showHazards: false,
-    })
-  ),
-}));
-
-// Mock the stats visibility with tier hook (used directly by PlayerScoreCard)
 jest.mock('@/hooks/useStatsVisibilityWithTier', () => ({
-  useStatsVisibilityWithTier: () => ({
-    showPutts: true,
-    showFairwayHit: true,
-    showGreenInRegulation: true,
-    showFairwayMissDirection: false,
-    showGreenMissDirection: false,
-    showBunkerShots: false,
-    showHazards: false,
-    hasAnyDetailedStats: false,
-  }),
+  useStatsVisibilityWithTier: () => mockUseStatsVisibility(),
 }));
 
 // Mock the scoring utilities
@@ -122,6 +97,11 @@ describe('PlayerScoreCard', () => {
       showPutts: true,
       showFairwayHit: true,
       showGreenInRegulation: true,
+      showFairwayMissDirection: false,
+      showGreenMissDirection: false,
+      showBunkerShots: false,
+      showHazards: false,
+      hasAnyDetailedStats: false,
     });
   });
 
@@ -703,6 +683,11 @@ describe('PlayerScoreCard', () => {
         showPutts: true,
         showFairwayHit: false,
         showGreenInRegulation: true,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps({
         currentHole: getTestHole(1), // Par 4
@@ -763,6 +748,11 @@ describe('PlayerScoreCard', () => {
         showPutts: true,
         showFairwayHit: true,
         showGreenInRegulation: false,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps();
       render(<PlayerScoreCard {...props} />);
@@ -881,6 +871,11 @@ describe('PlayerScoreCard', () => {
         showPutts: false,
         showFairwayHit: true,
         showGreenInRegulation: true,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps();
       render(<PlayerScoreCard {...props} />);
@@ -895,6 +890,11 @@ describe('PlayerScoreCard', () => {
         showPutts: false,
         showFairwayHit: false,
         showGreenInRegulation: false,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps();
       render(<PlayerScoreCard {...props} />);
@@ -909,6 +909,11 @@ describe('PlayerScoreCard', () => {
         showPutts: true,
         showFairwayHit: false,
         showGreenInRegulation: false,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps({
         currentHole: getTestHole(1), // Par 4
@@ -925,6 +930,11 @@ describe('PlayerScoreCard', () => {
         showPutts: false,
         showFairwayHit: true,
         showGreenInRegulation: true,
+        showFairwayMissDirection: false,
+        showGreenMissDirection: false,
+        showBunkerShots: false,
+        showHazards: false,
+        hasAnyDetailedStats: false,
       });
       const props = createDefaultProps({
         currentHole: getTestHole(1), // Par 4

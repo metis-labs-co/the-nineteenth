@@ -10,7 +10,6 @@ import {
   HOLE_CELL_WIDTH,
   INDEX_CELL_WIDTH,
   PAR_CELL_WIDTH,
-  STAT_CELL_WIDTH,
   CELL_HEIGHTS,
 } from '@/utils/scorecardLayout';
 

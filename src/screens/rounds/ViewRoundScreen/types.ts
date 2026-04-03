@@ -3,6 +3,7 @@ import type { TabItem } from '@/components/common/Tabs';
 export type TabKey =
   | 'details'
   | 'scorecard'
+  | 'stats'
   | 'match'
   | 'skins'
   | 'wolf'

@@ -30,6 +30,8 @@ import type { PlayerStatistics } from '@/hooks/playerStatistics';
 export interface ApproachSectionProps {
   /** Complete player statistics */
   stats: PlayerStatistics;
+  /** Callback when upgrade is pressed on premium-locked content */
+  onUpgradePress?: () => void;
 }
 
 // =====================================================
@@ -38,6 +40,7 @@ export interface ApproachSectionProps {
 
 export const ApproachSection = React.memo(function ApproachSection({
   stats,
+  onUpgradePress,
 }: ApproachSectionProps) {
   const colors = useThemeColors();
 
@@ -47,7 +50,7 @@ export const ApproachSection = React.memo(function ApproachSection({
   const trendData = stats.roundTrends.map((r) => r.girPercentage);
 
   return (
-    <FeatureLock feature="score_distribution">
+    <FeatureLock feature="detailed_stats" onUpgradePress={onUpgradePress}>
       <View style={styles.container}>
         <SectionHeader title="Approach" icon="golf" />
 
@@ -83,9 +86,9 @@ export const ApproachSection = React.memo(function ApproachSection({
                 </View>
               </View>
 
-              {/* Miss direction diagram */}
+              {/* Miss direction diagram - Premium tier */}
               {hasMissData && (
-                <>
+                <FeatureLock feature="advanced_stats" onUpgradePress={onUpgradePress} lockedMessage="Unlock miss tendencies">
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <View style={styles.diagramSection}>
                     <Text style={[styles.diagramTitle, { color: colors.textSecondary }]}>
@@ -96,7 +99,7 @@ export const ApproachSection = React.memo(function ApproachSection({
                       compact={false}
                     />
                   </View>
-                </>
+                </FeatureLock>
               )}
             </>
           ) : (

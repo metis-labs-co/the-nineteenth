@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
-import { IconMapPin, IconCheck, IconAlertTriangle, IconDice } from '@tabler/icons-react-native';
+import { IconMapPin, IconCheck, IconAlertTriangle, IconDice, IconBolt } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { StatusBadge, Pill, DateTimeDisplay } from '@/components/common';
@@ -27,9 +27,12 @@ export interface CompetitionRoundCardProps {
   playerCount: number;
   onScoreRound: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
   onViewRound: (roundId: string) => void;
+  onQuickScore?: (roundId: string) => void;
   onManageScoringPairs?: (roundId: string) => void;
   /** Whether scoring pairs are configured for this round */
   hasScoringPairs?: boolean;
+  /** Whether all players have completed scorecards for this round */
+  allPlayersScored?: boolean;
   /** Whether this round has skins enabled (overrides round.has_skins) */
   hasSkins?: boolean;
   /** Skins configuration (overrides round.skins_config) */
@@ -69,8 +72,10 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   playerCount,
   onScoreRound,
   onViewRound,
+  onQuickScore,
   onManageScoringPairs,
   hasScoringPairs,
+  allPlayersScored,
   hasSkins: hasSkinsOverride,
   skinsConfig: skinsConfigOverride,
   colors,
@@ -83,11 +88,12 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   const hasCourse = !!round.course;
   const hasEnoughPlayers = playerCount >= 2;
   const isCompleted = round.status === 'completed';
-  const isScoringDisabled = isCompleted || !hasCourse || !hasEnoughPlayers;
+  const isScoringDisabled = isCompleted || !hasCourse || !hasEnoughPlayers || !!allPlayersScored;
 
   // Build disabled reason for accessibility
   const getDisabledReason = (): string | undefined => {
     if (isCompleted) return 'Round is completed';
+    if (allPlayersScored) return 'All players scored';
     if (!hasCourse) return 'Course not assigned';
     if (!hasEnoughPlayers) return 'Need at least 2 players';
     return undefined;
@@ -201,6 +207,34 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
         >
           <Text style={[styles.actionButtonLabel, { color: colors.primary }]}>View</Text>
         </TouchableOpacity>
+        {onQuickScore && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.quickScoreButton,
+              {
+                borderColor: isScoringDisabled ? colors.gray300 : colors.primary,
+              },
+            ]}
+            onPress={() => onQuickScore(round.id)}
+            accessibilityLabel={`Quick score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isScoringDisabled }}
+            activeOpacity={0.7}
+            disabled={isScoringDisabled}
+          >
+            <IconBolt size={16} color={isScoringDisabled ? colors.gray400 : colors.primary} />
+            <Text
+              style={[
+                styles.actionButtonLabel,
+                { color: isScoringDisabled ? colors.gray400 : colors.primary },
+              ]}
+              numberOfLines={1}
+            >
+              Quick Score
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[
             styles.actionButton,
@@ -322,6 +356,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  quickScoreButton: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
   actionButtonLabel: {
     ...typography.smallBold,

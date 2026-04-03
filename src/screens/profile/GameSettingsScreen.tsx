@@ -102,7 +102,7 @@ export default function GameSettingsScreen() {
               colors={colors}
             />
             <FeatureLockToggle
-              feature="fir_gir_tracking"
+              feature="detailed_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
@@ -115,7 +115,7 @@ export default function GameSettingsScreen() {
               />
             </FeatureLockToggle>
             <FeatureLockToggle
-              feature="fir_gir_tracking"
+              feature="detailed_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
@@ -128,7 +128,7 @@ export default function GameSettingsScreen() {
               />
             </FeatureLockToggle>
             <FeatureLockToggle
-              feature="detailed_stats"
+              feature="advanced_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
@@ -141,7 +141,7 @@ export default function GameSettingsScreen() {
               />
             </FeatureLockToggle>
             <FeatureLockToggle
-              feature="detailed_stats"
+              feature="advanced_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
@@ -154,7 +154,7 @@ export default function GameSettingsScreen() {
               />
             </FeatureLockToggle>
             <FeatureLockToggle
-              feature="detailed_stats"
+              feature="advanced_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow
@@ -167,7 +167,7 @@ export default function GameSettingsScreen() {
               />
             </FeatureLockToggle>
             <FeatureLockToggle
-              feature="detailed_stats"
+              feature="advanced_stats"
               onUpgradePress={() => navigation.navigate('Subscription')}
             >
               <SettingRow

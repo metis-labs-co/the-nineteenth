@@ -186,9 +186,9 @@ The app uses a **tiered subscription model** to control feature access:
 
 | Tier | Description | Key Limits |
 |------|-------------|------------|
-| **Free** | Default for all users | 3 competitions, 1 league, 2 rounds, 10 friends, Stableford only |
-| **Social** | Casual golfers | 8 competitions, 3 leagues, 5 rounds, 16 players, 25 friends, +Stroke Play, Match Play, team formats enabled, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
-| **Premium** | Serious organizers | Unlimited competitions/leagues/friends, 10 rounds, 40 players, all game types (incl. Best Ball, Scramble, Shamble, Par), skins, wolf, prize pools |
+| **Free** | Default for all users | 3 competitions, 1 league, 2 rounds, 5 social rounds, 5 friends, Stableford only |
+| **Social** | Casual golfers | 8 competitions, 3 leagues, 5 rounds, 16 players, 15 friends, +Stroke Play, Match Play, team formats enabled, detailed stats, handicap history, achievement leaderboard, AI competition, guest management, GPS distance |
+| **Premium** | Serious organizers | 50 competitions, 50 leagues, unlimited friends, 10 rounds, 40 players, all game types (incl. Best Ball, Scramble, Shamble, Par), skins, wolf, prize pools |
 | **Super Admin** | Internal team only | No limits, admin tools, never expires |
 
 **Key Behaviors:**

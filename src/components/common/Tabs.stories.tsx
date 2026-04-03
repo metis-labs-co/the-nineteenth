@@ -2,7 +2,7 @@
  * Tabs Storybook Stories
  *
  * Stories demonstrating the various configurations of the Tabs component.
- * Shows size variants, selection states, counts, disabled tabs, scrollable mode,
+ * Shows size variants, selection states, counts, disabled tabs,
  * and real-world use cases.
  */
 
@@ -29,8 +29,6 @@ const meta: Meta<typeof Tabs> = {
       options: ['small', 'medium', 'large'],
     },
     animated: { control: 'boolean' },
-    equalWidth: { control: 'boolean' },
-    scrollable: { control: 'boolean' },
   },
 };
 
@@ -264,49 +262,10 @@ export const DisabledWithCounts: Story = {
 };
 
 // ===========================================================================
-// EQUAL WIDTH STORIES
+// MANY TABS (SCROLLABLE) STORIES
 // ===========================================================================
 
-export const EqualWidth: Story = {
-  render: () => <InteractiveTabs tabs={defaultTabs} equalWidth />,
-};
-
-export const AutoWidth: Story = {
-  render: () => <InteractiveTabs tabs={defaultTabs} equalWidth={false} />,
-};
-
-export const EqualWidthComparison: Story = {
-  render: () => (
-    <StoryWrapper>
-      <Section title="Equal Width (Default)">
-        <InteractiveTabs
-          tabs={[
-            { key: 'tab1', label: 'Short' },
-            { key: 'tab2', label: 'Medium Label' },
-            { key: 'tab3', label: 'Very Long Label Here' },
-          ]}
-          equalWidth
-        />
-      </Section>
-      <Section title="Auto Width">
-        <InteractiveTabs
-          tabs={[
-            { key: 'tab1', label: 'Short' },
-            { key: 'tab2', label: 'Medium Label' },
-            { key: 'tab3', label: 'Very Long Label Here' },
-          ]}
-          equalWidth={false}
-        />
-      </Section>
-    </StoryWrapper>
-  ),
-};
-
-// ===========================================================================
-// SCROLLABLE STORIES
-// ===========================================================================
-
-export const Scrollable: Story = {
+export const ManyTabs: Story = {
   render: () => (
     <InteractiveTabs
       tabs={[
@@ -317,12 +276,11 @@ export const Scrollable: Story = {
         { key: 'tab5', label: 'Friends' },
         { key: 'tab6', label: 'Settings' },
       ]}
-      scrollable
     />
   ),
 };
 
-export const ScrollableWithCounts: Story = {
+export const ManyTabsWithCounts: Story = {
   render: () => (
     <InteractiveTabs
       tabs={[
@@ -332,19 +290,17 @@ export const ScrollableWithCounts: Story = {
         { key: 'completed', label: 'Completed', count: 20 },
         { key: 'cancelled', label: 'Cancelled', count: 5 },
       ]}
-      scrollable
     />
   ),
 };
 
-export const ManyScrollableTabs: Story = {
+export const TenTabs: Story = {
   render: () => (
     <InteractiveTabs
       tabs={Array.from({ length: 10 }, (_, i) => ({
         key: `tab${i}`,
         label: `Tab ${i + 1}`,
       }))}
-      scrollable
     />
   ),
 };
@@ -387,7 +343,6 @@ export const RoundView: Story = {
         { key: 'players', label: 'Players' },
         { key: 'leaderboard', label: 'Leaderboard' },
       ]}
-      equalWidth
     />
   ),
 };
@@ -414,7 +369,6 @@ export const ProfileView: Story = {
         { key: 'achievements', label: 'Achievements' },
         { key: 'friends', label: 'Friends', count: 8 },
       ]}
-      scrollable
     />
   ),
 };
@@ -440,7 +394,6 @@ export const SettingsCategories: Story = {
         { key: 'privacy', label: 'Privacy' },
         { key: 'subscription', label: 'Subscription' },
       ]}
-      scrollable
       size="small"
     />
   ),
@@ -456,7 +409,6 @@ export const ScoreboardFilter: Story = {
         { key: 'back9', label: 'Back 9' },
       ]}
       size="small"
-      equalWidth={false}
     />
   ),
 };
@@ -491,7 +443,6 @@ export const ShortLabels: Story = {
         { key: 'b', label: 'B' },
         { key: 'c', label: 'C' },
       ]}
-      equalWidth={false}
     />
   ),
 };
@@ -535,7 +486,6 @@ export const SmallScrollableWithCounts: Story = {
         { key: 'cancelled', label: 'Cancelled', count: 2 },
       ]}
       size="small"
-      scrollable
     />
   ),
 };
@@ -568,7 +518,7 @@ export const AllFeatures: Story = {
           animated
         />
       </Section>
-      <Section title="Scrollable with All Features">
+      <Section title="Many Tabs with All Features">
         <InteractiveTabs
           tabs={[
             { key: 'all', label: 'All' },
@@ -577,7 +527,6 @@ export const AllFeatures: Story = {
             { key: 'archived', label: 'Archived', count: 15 },
             { key: 'deleted', label: 'Deleted', disabled: true },
           ]}
-          scrollable
           size="small"
         />
       </Section>
@@ -676,7 +625,5 @@ export const Playground: Story = {
   args: {
     size: 'medium',
     animated: true,
-    equalWidth: true,
-    scrollable: false,
   },
 };

@@ -18,8 +18,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/useTeams';
 import { useCompetitionPrizePool, usePrizePoolPlacements } from '@/hooks/prizePool';
-import { scoringPairsKeys } from '@/hooks/queryKeys';
+import { scoringPairsKeys, scorecardKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
+import { supabase } from '@/services/supabase/client';
 
 export function useCompetitionDetailData(id: string) {
   const { user } = useAuth();
@@ -82,6 +83,38 @@ export function useCompetitionDetailData(id: string) {
     return status;
   }, [roundsRequiringScoringPairs, scoringPairsQueries]);
 
+  // Fetch completed scorecard counts per round
+  const allRounds = competitionData?.rounds ?? [];
+  const playerCount = competitionData?.players?.length ?? 0;
+
+  const scorecardCountQueries = useQueries({
+    queries: allRounds.map((round) => ({
+      queryKey: [...scorecardKeys.list({ roundId: round.id }), 'completedCount'],
+      queryFn: async () => {
+        const { count, error } = await supabase
+          .from('scorecards')
+          .select('*', { count: 'exact', head: true })
+          .eq('round_id', round.id)
+          .eq('status', 'completed');
+        if (error) throw error;
+        return count ?? 0;
+      },
+      enabled: !!round.id && playerCount > 0,
+      staleTime: 30 * 1000,
+      gcTime: 5 * 60 * 1000,
+    })),
+  });
+
+  // Build map of roundId -> allPlayersScored
+  const allScoredStatus = useMemo(() => {
+    const status: Record<string, boolean> = {};
+    allRounds.forEach((round, index) => {
+      const query = scorecardCountQueries[index];
+      status[round.id] = playerCount > 0 && (query?.data ?? 0) >= playerCount;
+    });
+    return status;
+  }, [allRounds, scorecardCountQueries, playerCount]);
+
   // Check if current user is the organizer
   const isOrganizer = useMemo(() => {
     if (!competitionData?.competition || !user) return false;
@@ -123,6 +156,7 @@ export function useCompetitionDetailData(id: string) {
     refetchPrizePool,
     prizePoolPlacements,
     scoringPairsStatus,
+    allScoredStatus,
     isOrganizer,
     hasStartedRound,
     isPrizePoolLocked,

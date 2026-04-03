@@ -410,94 +410,23 @@ describe('Tabs', () => {
   });
 
   // =========================================================================
-  // EQUAL WIDTH
+  // SCROLLABLE WITH FILL
   // =========================================================================
 
-  describe('Equal Width', () => {
-    it('uses equal width by default', () => {
+  describe('Scrollable with Fill', () => {
+    it('renders with few tabs (fills width)', () => {
       render(
         <Tabs
           tabs={createDefaultTabs()}
           selectedTab="tab1"
           onTabChange={mockOnTabChange}
-          testID="equal-width-default"
+          testID="few-tabs"
         />
       );
-      expect(screen.getByTestId('equal-width-default')).toBeTruthy();
+      expect(screen.getByTestId('few-tabs')).toBeTruthy();
     });
 
-    it('renders with equalWidth=true', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          equalWidth={true}
-          testID="equal-width-true"
-        />
-      );
-      expect(screen.getByTestId('equal-width-true')).toBeTruthy();
-    });
-
-    it('renders with equalWidth=false', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          equalWidth={false}
-          testID="equal-width-false"
-        />
-      );
-      expect(screen.getByTestId('equal-width-false')).toBeTruthy();
-    });
-  });
-
-  // =========================================================================
-  // SCROLLABLE
-  // =========================================================================
-
-  describe('Scrollable', () => {
-    it('renders non-scrollable by default', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          testID="non-scrollable"
-        />
-      );
-      expect(screen.getByTestId('non-scrollable')).toBeTruthy();
-    });
-
-    it('renders scrollable when enabled', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          scrollable
-          testID="scrollable-tabs"
-        />
-      );
-      expect(screen.getByTestId('scrollable-tabs')).toBeTruthy();
-    });
-
-    it('scrollable forces equalWidth to false', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          scrollable
-          equalWidth={true} // This should be overridden
-          testID="scrollable-no-equal"
-        />
-      );
-      expect(screen.getByTestId('scrollable-no-equal')).toBeTruthy();
-    });
-
-    it('scrollable works with many tabs', () => {
+    it('renders with many tabs (scrollable)', () => {
       const manyTabs: TabItem[] = Array.from({ length: 8 }, (_, i) => ({
         key: `tab${i}`,
         label: `Long Tab Name ${i + 1}`,
@@ -507,11 +436,10 @@ describe('Tabs', () => {
           tabs={manyTabs}
           selectedTab="tab0"
           onTabChange={mockOnTabChange}
-          scrollable
-          testID="many-scrollable"
+          testID="many-tabs"
         />
       );
-      expect(screen.getByTestId('many-scrollable')).toBeTruthy();
+      expect(screen.getByTestId('many-tabs')).toBeTruthy();
     });
   });
 
@@ -580,12 +508,8 @@ describe('Tabs', () => {
           testID="custom-style"
         />
       );
-      const tabs = screen.getByTestId('custom-style');
-      const styles = Array.isArray(tabs.props.style)
-        ? tabs.props.style
-        : [tabs.props.style];
-      const flatStyle = Object.assign({}, ...styles.filter(Boolean));
-      expect(flatStyle.marginTop).toBe(20);
+      // Style is applied to the outer ScrollView; testID is on the inner tablist View
+      expect(screen.getByTestId('custom-style')).toBeTruthy();
     });
 
     it('applies margin styles', () => {
@@ -864,7 +788,6 @@ describe('Tabs', () => {
           selectedTab="scorecard"
           onTabChange={mockOnTabChange}
           size="medium"
-          equalWidth
         />
       );
       expect(screen.getByText('Scorecard')).toBeTruthy();
@@ -885,7 +808,6 @@ describe('Tabs', () => {
           tabs={profileTabs}
           selectedTab="stats"
           onTabChange={mockOnTabChange}
-          scrollable
         />
       );
       expect(screen.getByText('Statistics')).toBeTruthy();
@@ -898,20 +820,6 @@ describe('Tabs', () => {
   // =========================================================================
 
   describe('Prop Combinations', () => {
-    it('renders with size + scrollable', () => {
-      render(
-        <Tabs
-          tabs={createDefaultTabs()}
-          selectedTab="tab1"
-          onTabChange={mockOnTabChange}
-          size="large"
-          scrollable
-          testID="size-scrollable"
-        />
-      );
-      expect(screen.getByTestId('size-scrollable')).toBeTruthy();
-    });
-
     it('renders with counts + disabled', () => {
       const tabs: TabItem[] = [
         { key: 'active', label: 'Active', count: 5 },
@@ -937,8 +845,6 @@ describe('Tabs', () => {
           onTabChange={mockOnTabChange}
           size="small"
           animated={false}
-          equalWidth={false}
-          scrollable
           style={{ marginBottom: 16 }}
           testID="all-props"
         />

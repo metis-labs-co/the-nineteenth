@@ -21,7 +21,7 @@ import {
   shadows,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibility } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import {
@@ -60,6 +60,8 @@ interface StrokePlayScoreCardProps {
   runningParScore?: number;
   /** Tee color dot to show before the player name when players have different tees */
   teeDotColor?: string;
+  /** Callback when "Add Additional Stats" button is pressed (handled at screen level) */
+  onDetailedStatsPress?: () => void;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -76,10 +78,12 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   displayMode = 'stroke',
   runningParScore = 0,
   teeDotColor,
+  onDetailedStatsPress,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
   const handicap = player.handicap ?? 0;
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
+  const statsVisibility = useStatsVisibilityWithTier();
+  const { showPutts, showFairwayHit, showGreenInRegulation } = statsVisibility;
   const [showExtendedPicker, setShowExtendedPicker] = useState(false);
 
   // FIR only applies to par 4s and 5s
@@ -421,6 +425,13 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
             onPuttsDecrement={handlePuttsDecrement}
             onPuttsIncrement={handlePuttsIncrement}
             disabled={disabled}
+            score={singleBallScore}
+            hasAnyDetailedStats={statsVisibility.hasAnyDetailedStats}
+            onDetailedStatsPress={onDetailedStatsPress}
+            showFairwayMissDirection={statsVisibility.showFairwayMissDirection}
+            showGreenMissDirection={statsVisibility.showGreenMissDirection}
+            showBunkerShots={statsVisibility.showBunkerShots}
+            showHazards={statsVisibility.showHazards}
           />
         </>
       )}

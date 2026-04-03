@@ -21,7 +21,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAchievementLeaderboard } from '@/hooks/achievements';
@@ -126,6 +126,7 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
   onPress?: () => void;
 }) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
   const isTopThree = entry.rank <= 3;
   const medalColor = MEDAL_COLORS[entry.rank as 1 | 2 | 3];
 
@@ -134,7 +135,9 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
       style={[
         styles.leaderboardRow,
         {
-          backgroundColor: isCurrentUser ? colors.primaryLight : colors.surface,
+          backgroundColor: isCurrentUser
+            ? (isDark ? `${colors.primary}25` : colors.primaryLight)
+            : colors.surface,
           borderColor: isCurrentUser ? colors.primary : colors.border,
         },
       ]}

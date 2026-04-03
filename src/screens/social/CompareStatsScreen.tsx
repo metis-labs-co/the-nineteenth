@@ -21,7 +21,7 @@ import type { RootStackParamList } from '@/navigation/types';
 import { usePlayerStatistics } from '@/hooks/usePlayerStatistics';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { useStatsVisibility } from '@/store/settingsStore';
+import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -62,7 +62,7 @@ export default function CompareStatsScreen({ navigation, route }: Props) {
   const { checkFeature } = useSubscriptionContext();
 
   // Get stats visibility settings
-  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibility();
+  const { showPutts, showFairwayHit, showGreenInRegulation } = useStatsVisibilityWithTier();
 
   // Check feature access - use filtered gate when filters are present
   const hasFilters = !!leagueId || !!competitionId;

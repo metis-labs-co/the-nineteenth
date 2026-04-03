@@ -4,14 +4,35 @@
  * Uses hole navigation (prev/next) to step through each hole.
  * Pre-populates with existing stats from the scorecard.
  * Saves all changes in a single batch via Supabase mutation.
+ *
+ * Sections (visibility controlled by user settings + tier):
+ * - FIR toggle (par 4+ only)
+ * - Fairway miss direction (when FIR is missed)
+ * - GIR toggle
+ * - Green miss direction (when GIR is missed)
+ * - Putts stepper
+ * - Bunker shots stepper
+ * - Hazard chips
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { BottomSheet } from '@/components/common';
-import { IconChevronLeft, IconChevronRight, IconDroplet, IconBan, IconCircleOff, IconQuestionMark } from '@tabler/icons-react-native';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconArrowLeft,
+  IconArrowRight,
+  IconArrowUp,
+  IconArrowDown,
+  IconCheck,
+  IconDroplet,
+  IconBan,
+  IconCircleOff,
+  IconQuestionMark,
+} from '@tabler/icons-react-native';
+import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useUpdateScorecardStats } from '@/hooks/scorecard/useUpdateScorecardStats';
@@ -26,6 +47,8 @@ import type {
 } from '@/types/database/base';
 import type { ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 
+const MAX_PUTTS = 6;
+
 const HAZARD_OPTIONS: { type: HazardType; label: string; IconComponent: React.ComponentType<{ size: number; color: string }> }[] = [
   { type: 'water', label: 'Water', IconComponent: IconDroplet },
   { type: 'ob', label: 'OB', IconComponent: IconBan },
@@ -39,6 +62,7 @@ interface EditStatsModalProps {
   scorecard: ScorecardWithPlayer;
   holes: Hole[];
   courseName: string;
+  initialHole?: number;
 }
 
 export function EditStatsModal({
@@ -47,13 +71,21 @@ export function EditStatsModal({
   scorecard,
   holes,
   courseName,
+  initialHole,
 }: EditStatsModalProps) {
   const colors = useThemeColors();
   const statsVisibility = useStatsVisibilityWithTier();
   const mutation = useUpdateScorecardStats();
 
-  const [currentHole, setCurrentHole] = useState(1);
+  const [currentHole, setCurrentHole] = useState(initialHole ?? 1);
   const totalHoles = holes.length || 18;
+
+  // Reset to initialHole when modal opens with a new hole
+  useEffect(() => {
+    if (visible && initialHole) {
+      setCurrentHole(initialHole);
+    }
+  }, [visible, initialHole]);
 
   // Deep clone scores into local state for editing
   const [editedScores, setEditedScores] = useState<Record<string, HoleScore>>(() => {
@@ -110,21 +142,67 @@ export function EditStatsModal({
     }
   }, [onClose]);
 
-  const toggleFairwayDir = useCallback(
-    (dir: FairwayMissDirection) => {
-      const current = currentScore?.fairwayMissDirection;
-      updateCurrentHoleStats({ fairwayMissDirection: current === dir ? undefined : dir });
+  // --- FIR inline toggle (hit / left / right) ---
+
+  const handleFairwaySelect = useCallback(
+    (option: 'hit' | FairwayMissDirection) => {
+      if (option === 'hit') {
+        // Toggle: if already hit, deselect all
+        const isAlreadyHit = currentScore?.fairwayHit === true;
+        updateCurrentHoleStats({
+          fairwayHit: isAlreadyHit ? undefined : true,
+          fairwayMissDirection: undefined,
+        });
+      } else {
+        // Toggle miss direction: if same direction, deselect
+        const isSameDir = currentScore?.fairwayHit === false && currentScore?.fairwayMissDirection === option;
+        updateCurrentHoleStats({
+          fairwayHit: isSameDir ? undefined : false,
+          fairwayMissDirection: isSameDir ? undefined : option,
+        });
+      }
     },
     [currentScore, updateCurrentHoleStats]
   );
 
-  const toggleGreenDir = useCallback(
-    (dir: GreenMissDirection) => {
-      const current = currentScore?.greenMissDirection;
-      updateCurrentHoleStats({ greenMissDirection: current === dir ? undefined : dir });
+  // --- GIR inline toggle (hit / left / right / long / short) ---
+
+  const handleGreenSelect = useCallback(
+    (option: 'hit' | GreenMissDirection) => {
+      if (option === 'hit') {
+        const isAlreadyHit = currentScore?.greenInRegulation === true;
+        updateCurrentHoleStats({
+          greenInRegulation: isAlreadyHit ? undefined : true,
+          greenMissDirection: undefined,
+        });
+      } else {
+        const isSameDir = currentScore?.greenInRegulation === false && currentScore?.greenMissDirection === option;
+        updateCurrentHoleStats({
+          greenInRegulation: isSameDir ? undefined : false,
+          greenMissDirection: isSameDir ? undefined : option,
+        });
+      }
     },
     [currentScore, updateCurrentHoleStats]
   );
+
+  // --- Putts ---
+
+  const handlePuttsDecrement = useCallback(() => {
+    const current = currentScore?.putts ?? 0;
+    if (current > 0) {
+      updateCurrentHoleStats({ putts: current - 1 });
+    }
+  }, [currentScore, updateCurrentHoleStats]);
+
+  const handlePuttsIncrement = useCallback(() => {
+    const current = currentScore?.putts ?? 0;
+    if (current < MAX_PUTTS) {
+      updateCurrentHoleStats({ putts: current + 1 });
+    }
+  }, [currentScore, updateCurrentHoleStats]);
+
+  // --- Hazards ---
 
   const toggleHazard = useCallback(
     (type: HazardType) => {
@@ -136,10 +214,24 @@ export function EditStatsModal({
     [currentScore, updateCurrentHoleStats]
   );
 
-  const showFairwaySection =
-    statsVisibility.showFairwayMissDirection && currentScore?.fairwayHit === false && par >= 4;
-  const showGreenSection =
-    statsVisibility.showGreenMissDirection && currentScore?.greenInRegulation === false;
+  // --- Section visibility ---
+
+  const showFIRSection = (statsVisibility.showFairwayHit || statsVisibility.showFairwayMissDirection) && par >= 4;
+  const showGIRSection = statsVisibility.showGreenInRegulation || statsVisibility.showGreenMissDirection;
+  const showPuttsSection = statsVisibility.showPutts;
+
+  // Active states for inline toggles
+  const firActive = currentScore?.fairwayHit === true
+    ? 'hit'
+    : currentScore?.fairwayHit === false && currentScore?.fairwayMissDirection
+      ? currentScore.fairwayMissDirection
+      : null;
+
+  const girActive = currentScore?.greenInRegulation === true
+    ? 'hit'
+    : currentScore?.greenInRegulation === false && currentScore?.greenMissDirection
+      ? currentScore.greenMissDirection
+      : null;
 
   return (
     <BottomSheet
@@ -148,13 +240,6 @@ export function EditStatsModal({
       title={`Edit Stats \u2014 ${courseName}`}
       height="full"
       showCloseButton
-      headerRight={
-        <TouchableOpacity onPress={handleSaveAll} disabled={mutation.isPending}>
-          <Text style={[styles.saveText, { color: colors.primary }]}>
-            {mutation.isPending ? 'Saving...' : 'Save All'}
-          </Text>
-        </TouchableOpacity>
-      }
     >
       <View style={styles.container}>
         {/* Hole Navigator */}
@@ -197,84 +282,169 @@ export function EditStatsModal({
           ))}
         </View>
 
-        {/* Stats Form */}
-        <View style={styles.form}>
-          {/* Fairway Miss Direction */}
-          {showFairwaySection && (
+        {/* Scrollable Stats Form */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* FIR — inline: Left / Right / Hit */}
+          {showFIRSection && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-                FAIRWAY MISS DIRECTION
+                FAIRWAY IN REGULATION
               </Text>
-              <View style={styles.toggleRow}>
-                {(['left', 'right'] as FairwayMissDirection[]).map((dir) => (
-                  <TouchableOpacity
-                    key={dir}
-                    style={[
-                      styles.toggleButton,
-                      { borderColor: colors.border },
-                      currentScore?.fairwayMissDirection === dir && {
-                        backgroundColor: colors.primary + '20',
-                        borderColor: colors.primary,
-                      },
-                    ]}
-                    onPress={() => toggleFairwayDir(dir)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.toggleText,
-                        {
-                          color:
-                            currentScore?.fairwayMissDirection === dir
-                              ? colors.primary
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {dir === 'left' ? '\u2B05 Left' : 'Right \u27A1'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.inlineRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'left' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('left')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowLeft size={18} color={firActive === 'left' ? colors.error : colors.textSecondary} />
+                  <Text style={[styles.inlineButtonText, { color: firActive === 'left' ? colors.error : colors.textSecondary }]}>
+                    Left
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'right' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleFairwaySelect('right')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.inlineButtonText, { color: firActive === 'right' ? colors.error : colors.textSecondary }]}>
+                    Right
+                  </Text>
+                  <IconArrowRight size={18} color={firActive === 'right' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    firActive === 'hit' && { backgroundColor: colors.success + '15', borderColor: colors.success },
+                  ]}
+                  onPress={() => handleFairwaySelect('hit')}
+                  activeOpacity={0.7}
+                >
+                  <IconCheck size={18} color={firActive === 'hit' ? colors.success : colors.textSecondary} />
+                  <Text style={[styles.inlineButtonText, { color: firActive === 'hit' ? colors.success : colors.textSecondary }]}>
+                    Hit
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
 
-          {/* Green Miss Direction */}
-          {showGreenSection && (
+          {/* GIR — inline: Hit / Left / Right / Long / Short */}
+          {showGIRSection && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-                GREEN MISS DIRECTION
+                GREEN IN REGULATION
               </Text>
-              <View style={styles.toggleRow}>
-                {(['left', 'right', 'long', 'short'] as GreenMissDirection[]).map((dir) => (
-                  <TouchableOpacity
-                    key={dir}
-                    style={[
-                      styles.toggleButtonSmall,
-                      { borderColor: colors.border },
-                      currentScore?.greenMissDirection === dir && {
-                        backgroundColor: colors.primary + '20',
-                        borderColor: colors.primary,
-                      },
-                    ]}
-                    onPress={() => toggleGreenDir(dir)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.toggleText,
-                        {
-                          color:
-                            currentScore?.greenMissDirection === dir
-                              ? colors.primary
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {dir.charAt(0).toUpperCase() + dir.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.inlineRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    girActive === 'hit' && { backgroundColor: colors.success + '15', borderColor: colors.success },
+                  ]}
+                  onPress={() => handleGreenSelect('hit')}
+                  activeOpacity={0.7}
+                >
+                  <IconCheck size={18} color={girActive === 'hit' ? colors.success : colors.textSecondary} />
+                  <Text style={[styles.inlineButtonText, { color: girActive === 'hit' ? colors.success : colors.textSecondary }]}>
+                    Hit
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    girActive === 'left' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleGreenSelect('left')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowLeft size={16} color={girActive === 'left' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    girActive === 'right' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleGreenSelect('right')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowRight size={16} color={girActive === 'right' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    girActive === 'long' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleGreenSelect('long')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowUp size={16} color={girActive === 'long' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    { borderColor: colors.border },
+                    girActive === 'short' && { backgroundColor: colors.error + '15', borderColor: colors.error },
+                  ]}
+                  onPress={() => handleGreenSelect('short')}
+                  activeOpacity={0.7}
+                >
+                  <IconArrowDown size={16} color={girActive === 'short' ? colors.error : colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Putts Stepper */}
+          {showPuttsSection && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PUTTS</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.stepperButton,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    (currentScore?.putts ?? 0) <= 0 && styles.disabled,
+                  ]}
+                  onPress={handlePuttsDecrement}
+                  disabled={(currentScore?.putts ?? 0) <= 0}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>{'\u2212'}</Text>
+                </TouchableOpacity>
+                <View style={styles.stepperDisplay}>
+                  <Text style={[styles.stepperValue, { color: colors.textPrimary }]}>
+                    {currentScore?.putts !== undefined ? currentScore.putts : '-'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.stepperButton,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    (currentScore?.putts ?? 0) >= MAX_PUTTS && styles.disabled,
+                  ]}
+                  onPress={handlePuttsIncrement}
+                  disabled={(currentScore?.putts ?? 0) >= MAX_PUTTS}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.stepperButtonText, { color: colors.textPrimary }]}>+</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -354,7 +524,7 @@ export function EditStatsModal({
                         <option.IconComponent size={14} color={isSelected ? colors.error : colors.textSecondary} />
                         <Text
                           style={[
-                            styles.toggleText,
+                            styles.hazardChipText,
                             { color: isSelected ? colors.error : colors.textSecondary },
                           ]}
                         >
@@ -370,6 +540,24 @@ export function EditStatsModal({
               </Text>
             </View>
           )}
+        </ScrollView>
+
+        {/* Sticky Save Button */}
+        <View style={[styles.saveFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              { backgroundColor: colors.primary },
+              mutation.isPending && styles.disabled,
+            ]}
+            onPress={handleSaveAll}
+            disabled={mutation.isPending}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.saveButtonText, { color: colors.white }]}>
+              {mutation.isPending ? 'Saving...' : 'Save All'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </BottomSheet>
@@ -379,9 +567,6 @@ export function EditStatsModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  saveText: {
-    ...typography.bodyBold,
   },
   holeNav: {
     flexDirection: 'row',
@@ -414,10 +599,36 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  form: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: spacing.lg,
     gap: spacing.xl,
+    paddingBottom: spacing.xl,
   },
+
+  // Inline toggle row (FIR / GIR)
+  inlineRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  inlineButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+  },
+  inlineButtonText: {
+    ...typography.small,
+    fontWeight: '600',
+  },
+
+  // Sections
   section: {
     gap: spacing.sm,
   },
@@ -426,28 +637,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    alignItems: 'center',
-  },
-  toggleButtonSmall: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    alignItems: 'center',
-  },
-  toggleText: {
-    ...typography.body,
-    fontWeight: '600',
   },
   stepperRow: {
     flexDirection: 'row',
@@ -490,10 +679,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  hazardChipText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
   helperText: {
     ...typography.caption,
     marginTop: spacing.xs,
   },
+
+  // Sticky footer
+  saveFooter: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  saveButton: {
+    height: 48,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  saveButtonText: {
+    ...typography.bodyBold,
+  },
+
   disabled: {
     opacity: 0.4,
   },

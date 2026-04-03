@@ -11,6 +11,8 @@ interface UseViewRoundTabsParams {
   hasSkinsGame: boolean;
   hasWolfGame: boolean;
   hasPayoutsTab: boolean;
+  hasStats: boolean;
+  playerCount: number;
 }
 
 export function useViewRoundTabs({
@@ -22,6 +24,8 @@ export function useViewRoundTabs({
   hasSkinsGame,
   hasWolfGame,
   hasPayoutsTab,
+  hasStats,
+  playerCount,
 }: UseViewRoundTabsParams) {
   return useMemo<TabItem<TabKey>[]>(() => {
     const baseTabs = isScrambleRound
@@ -29,6 +33,10 @@ export function useViewRoundTabs({
       : [...BASE_TABS];
 
     const result: TabItem<TabKey>[] = baseTabs;
+
+    if (hasStats) {
+      result.push({ key: 'stats' as const, label: 'Stats' });
+    }
 
     if (isMatchPlayRound || isTeamMatchPlayRound) {
       result.push({ key: 'match' as const, label: 'Match' });
@@ -44,7 +52,7 @@ export function useViewRoundTabs({
       result.push({ key: 'scrambleContributions' as const, label: 'Contributions' });
     }
 
-    if (isStrokePlayRound) {
+    if (isStrokePlayRound && playerCount > 1) {
       result.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
     }
 
@@ -61,5 +69,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, hasPayoutsTab]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount]);
 }

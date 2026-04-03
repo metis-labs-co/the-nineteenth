@@ -59,17 +59,6 @@ export interface TabsProps<T extends string = string> {
    */
   animated?: boolean;
   /**
-   * Whether tabs should have equal width (flex: 1) or auto-size to content
-   * @default true
-   */
-  equalWidth?: boolean;
-  /**
-   * Whether tabs should be horizontally scrollable (useful for many tabs)
-   * When true, equalWidth is automatically set to false
-   * @default false
-   */
-  scrollable?: boolean;
-  /**
    * Custom container style (e.g., for margins)
    */
   style?: StyleProp<ViewStyle>;
@@ -81,7 +70,8 @@ export interface TabsProps<T extends string = string> {
 
 /**
  * A flexible, theme-aware tabs component for navigation between views.
- * Supports any number of tabs with automatic sizing.
+ * Always horizontally scrollable. Tabs fill the screen width when there are
+ * few tabs, and scroll when they overflow.
  *
  * @example
  * ```tsx
@@ -103,8 +93,6 @@ export const Tabs = React.memo(function Tabs<T extends string = string>({
   onTabChange,
   size = 'medium',
   animated = true,
-  equalWidth = true,
-  scrollable = false,
   style,
   testID,
 }: TabsProps<T>) {
@@ -147,101 +135,88 @@ export const Tabs = React.memo(function Tabs<T extends string = string>({
     }
   }, [size]);
 
-  // When scrollable, force equalWidth to false
-  const useEqualWidth = scrollable ? false : equalWidth;
-
-  const tabsContent = (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: colors.surfaceVariant, padding: sizeStyles.containerPadding },
-        !scrollable && style,
-      ]}
-      testID={testID}
-      accessibilityRole="tablist"
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+      style={[styles.scrollContainer, style]}
     >
-      {tabs.map((tab) => {
-        const isSelected = tab.key === selectedTab;
-        const isDisabled = tab.disabled === true;
-
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tab,
-              useEqualWidth && styles.tabEqualWidth,
-              {
-                paddingVertical: sizeStyles.tabPaddingVertical,
-                paddingHorizontal: sizeStyles.tabPaddingHorizontal,
-              },
-              isSelected && { backgroundColor: colors.surfaceSelected },
-              isDisabled && styles.tabDisabled,
-            ]}
-            onPress={() => handleTabPress(tab.key)}
-            activeOpacity={0.7}
-            disabled={isDisabled}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isSelected, disabled: isDisabled }}
-            accessibilityLabel={
-              tab.count !== undefined
-                ? `${tab.label}, ${tab.count} items`
-                : tab.label
-            }
-            accessibilityHint={`Switch to ${tab.label} tab`}
-          >
-            <Text
-              style={[
-                sizeStyles.typography,
-                { color: colors.textSecondary },
-                isSelected && { color: colors.primary },
-                isDisabled && { color: colors.textDisabled },
-              ]}
-              numberOfLines={1}
-            >
-              {tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
-  if (scrollable) {
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        style={[styles.scrollContainer, style]}
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: colors.surfaceVariant, padding: sizeStyles.containerPadding },
+        ]}
+        testID={testID}
+        accessibilityRole="tablist"
       >
-        {tabsContent}
-      </ScrollView>
-    );
-  }
+        {tabs.map((tab) => {
+          const isSelected = tab.key === selectedTab;
+          const isDisabled = tab.disabled === true;
 
-  return tabsContent;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[
+                styles.tab,
+                {
+                  paddingVertical: sizeStyles.tabPaddingVertical,
+                  paddingHorizontal: sizeStyles.tabPaddingHorizontal,
+                },
+                isSelected && { backgroundColor: colors.surfaceSelected },
+                isDisabled && styles.tabDisabled,
+              ]}
+              onPress={() => handleTabPress(tab.key)}
+              activeOpacity={0.7}
+              disabled={isDisabled}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isSelected, disabled: isDisabled }}
+              accessibilityLabel={
+                tab.count !== undefined
+                  ? `${tab.label}, ${tab.count} items`
+                  : tab.label
+              }
+              accessibilityHint={`Switch to ${tab.label} tab`}
+            >
+              <Text
+                style={[
+                  sizeStyles.typography,
+                  { color: colors.textSecondary },
+                  isSelected && { color: colors.primary },
+                  isDisabled && { color: colors.textDisabled },
+                ]}
+                numberOfLines={1}
+              >
+                {tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
 }) as <T extends string = string>(props: TabsProps<T>) => React.ReactElement;
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    borderRadius: borderRadius.md,
-  },
   scrollContainer: {
     flexGrow: 0,
     flexShrink: 0,
   },
   scrollContent: {
-    alignItems: 'center',
+    flexGrow: 1,
+  },
+  container: {
+    flexDirection: 'row',
+    borderRadius: borderRadius.md,
+    flex: 1,
   },
   tab: {
     borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44, // iOS HIG minimum touch target
-  },
-  tabEqualWidth: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
   },
   tabDisabled: {
     opacity: 0.5,

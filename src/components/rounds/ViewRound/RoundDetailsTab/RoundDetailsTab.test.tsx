@@ -156,6 +156,7 @@ function createCompetitionSummary(overrides: Partial<CompetitionSummary> = {}): 
     status: 'in-progress' as CompetitionStatus,
     start_date: '2025-01-15',
     end_date: '2025-01-17',
+    handicap_source: 'profile',
     ...overrides,
   };
 }
