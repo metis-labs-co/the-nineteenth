@@ -28,6 +28,11 @@ export type {
   ParTypeStats,
   ShortGameStats,
   PuttingDepthStats,
+  FairwayMissDirectionStats,
+  GreenMissDirectionStats,
+  BunkerStats,
+  HazardStats,
+  RoundStatPoint,
   PlayerStatistics,
   UsePlayerStatisticsOptions,
 } from './types';
@@ -40,6 +45,16 @@ export {
   calculateShortGameStats,
   calculatePuttingDepthStats,
 } from './helpers';
+
+// Re-export advanced helpers
+export {
+  calculateFairwayMissDirectionStats,
+  calculateGreenMissDirectionStats,
+  calculateBunkerStats,
+  calculateHazardStats,
+} from './advancedHelpers';
+
+export type { EnrichedHoleScore } from './advancedHelpers';
 
 // Re-export query hooks
 export { usePlayerStatistics } from './queries';
