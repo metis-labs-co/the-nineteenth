@@ -17,11 +17,19 @@ import {
   calculateShortGameStats,
   calculatePuttingDepthStats,
 } from './helpers';
+import {
+  calculateFairwayMissDirectionStats,
+  calculateGreenMissDirectionStats,
+  calculateBunkerStats,
+  calculateHazardStats,
+} from './advancedHelpers';
+import type { EnrichedHoleScore } from './advancedHelpers';
 import type { HoleScore } from '@/types/database.types';
 import type {
   ScoreDistribution,
   CourseStats,
   RoundSummary,
+  RoundStatPoint,
   PlayerStatistics,
   UsePlayerStatisticsOptions,
 } from './types';
@@ -213,12 +221,7 @@ export function usePlayerStatistics(
       let girOpportunities = 0; // Holes where GIR was recorded
 
       // Collect all hole scores for par type and short game calculations
-      const allHoleScores: {
-        strokes: number;
-        par: number;
-        gir: boolean | null;
-        putts: number | null;
-      }[] = [];
+      const allHoleScores: EnrichedHoleScore[] = [];
 
       // Track course stats
       const courseStatsMap = new Map<
@@ -237,6 +240,22 @@ export function usePlayerStatistics(
 
       // Track practice vs competition rounds
       let practiceRoundsCount = 0;
+
+      // Per-round stat tracking for sparklines
+      const perRoundStats: {
+        roundId: string;
+        date: string;
+        grossScore: number;
+        points: number;
+        firHit: number;
+        firOpps: number;
+        girHit: number;
+        girOpps: number;
+        totalPutts: number;
+        puttsHoles: number;
+        missedGirs: number;
+        scrambles: number;
+      }[] = [];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex Supabase join response type
       scorecards.forEach((scorecard: any) => {
@@ -307,6 +326,11 @@ export function usePlayerStatistics(
               par,
               gir: typeof holeScore.greenInRegulation === 'boolean' ? holeScore.greenInRegulation : null,
               putts: typeof holeScore.putts === 'number' ? holeScore.putts : null,
+              fairwayHit: typeof holeScore.fairwayHit === 'boolean' ? holeScore.fairwayHit : null,
+              fairwayMissDirection: holeScore.fairwayMissDirection,
+              greenMissDirection: holeScore.greenMissDirection,
+              bunkerShots: holeScore.bunkerShots,
+              hazards: holeScore.hazards,
             });
           }
         });
@@ -349,6 +373,42 @@ export function usePlayerStatistics(
           totalPoints: scorecard.total_points || 0,
           holesPlayed: holesInScorecard,
           isPracticeRound,
+        });
+
+        // Collect per-round stats for sparklines
+        let roundFirHit = 0, roundFirOpps = 0;
+        let roundGirHit = 0, roundGirOpps = 0;
+        let roundPutts = 0, roundPuttsHoles = 0;
+        let roundMissedGirs = 0, roundScrambles = 0;
+
+        Object.entries(scores).forEach(([hn, hs]) => {
+          if (!hs?.strokes) return;
+          const p = parMap.get(parseInt(hn, 10)) || 4;
+          if (typeof hs.putts === 'number') { roundPutts += hs.putts; roundPuttsHoles++; }
+          if (p >= 4 && typeof hs.fairwayHit === 'boolean') { roundFirOpps++; if (hs.fairwayHit) roundFirHit++; }
+          if (typeof hs.greenInRegulation === 'boolean') {
+            roundGirOpps++;
+            if (hs.greenInRegulation) roundGirHit++;
+            else {
+              roundMissedGirs++;
+              if (hs.strokes <= p) roundScrambles++;
+            }
+          }
+        });
+
+        perRoundStats.push({
+          roundId: round.id,
+          date: round.date || scorecard.submitted_at || '',
+          grossScore: scorecard.total_gross || 0,
+          points: scorecard.total_points || 0,
+          firHit: roundFirHit,
+          firOpps: roundFirOpps,
+          girHit: roundGirHit,
+          girOpps: roundGirOpps,
+          totalPutts: roundPutts,
+          puttsHoles: roundPuttsHoles,
+          missedGirs: roundMissedGirs,
+          scrambles: roundScrambles,
         });
       });
 
@@ -502,6 +562,27 @@ export function usePlayerStatistics(
       // Calculate putting depth stats
       const puttingDepth = calculatePuttingDepthStats(allHoleScores);
 
+      // Calculate advanced stats
+      const fairwayMissDirection = calculateFairwayMissDirectionStats(allHoleScores);
+      const greenMissDirection = calculateGreenMissDirectionStats(allHoleScores);
+      const bunkerStats = calculateBunkerStats(allHoleScores, roundsPlayed);
+      const hazardStats = calculateHazardStats(allHoleScores, roundsPlayed);
+
+      // Build sparkline trend data (last 10 rounds)
+      const roundTrends: RoundStatPoint[] = perRoundStats
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-10)
+        .map((r) => ({
+          roundId: r.roundId,
+          date: r.date,
+          grossScore: r.grossScore,
+          points: r.points,
+          fairwayPercentage: r.firOpps > 0 ? Math.round((r.firHit / r.firOpps) * 1000) / 10 : null,
+          girPercentage: r.girOpps > 0 ? Math.round((r.girHit / r.girOpps) * 1000) / 10 : null,
+          averagePutts: r.puttsHoles > 0 ? Math.round((r.totalPutts / r.puttsHoles) * 100) / 100 : null,
+          scramblingPercentage: r.missedGirs > 0 ? Math.round((r.scrambles / r.missedGirs) * 1000) / 10 : null,
+        }));
+
       return {
         roundsPlayed,
         practiceRoundsPlayed: practiceRoundsCount,
@@ -545,6 +626,12 @@ export function usePlayerStatistics(
         shortGame,
         // Putting Depth Stats
         puttingDepth,
+        // Advanced Stats
+        fairwayMissDirection,
+        greenMissDirection,
+        bunkerStats,
+        hazardStats,
+        roundTrends,
       };
     },
     enabled: enabled && !!playerId,
@@ -615,5 +702,22 @@ function createEmptyStatistics(): PlayerStatistics {
       threePuttPercentage: null,
       puttsPerGIR: null,
     },
+    fairwayMissDirection: {
+      leftCount: 0, rightCount: 0, totalMisses: 0,
+      leftPercentage: null, rightPercentage: null,
+    },
+    greenMissDirection: {
+      leftCount: 0, rightCount: 0, longCount: 0, shortCount: 0, totalMisses: 0,
+      leftPercentage: null, rightPercentage: null, longPercentage: null, shortPercentage: null,
+    },
+    bunkerStats: {
+      totalBunkerShots: 0, holesWithBunkers: 0, totalHolesTracked: 0,
+      averageBunkerShotsPerRound: null, holesWithBunkersPercentage: null,
+    },
+    hazardStats: {
+      waterCount: 0, obCount: 0, lateralCount: 0, lostBallCount: 0,
+      totalHazards: 0, averageHazardsPerRound: null, holesWithHazards: 0, totalHolesTracked: 0,
+    },
+    roundTrends: [],
   };
 }
