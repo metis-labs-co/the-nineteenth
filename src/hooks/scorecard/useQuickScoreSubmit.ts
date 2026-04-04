@@ -9,7 +9,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
-import type { TeeBox, Hole } from '@/types/database.types';
+import { finalizeRound } from '@/services/rounds/roundResultsService';
+import type { TeeBox, Hole, Scorecard, PointSystemConfig, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 
@@ -140,6 +141,39 @@ export function useQuickScoreSubmit() {
               .eq('id', roundId);
           }
         }
+      }
+
+      // Finalize round results so the leaderboard picks up the scores
+      try {
+        if (roundRow?.competition_id) {
+          const { data: roundData } = await supabase
+            .from('rounds')
+            .select('game_type')
+            .eq('id', roundId)
+            .single() as unknown as { data: { game_type: string } | null };
+
+          const { data: competition } = await supabase
+            .from('competitions')
+            .select('point_system')
+            .eq('id', roundRow.competition_id)
+            .single() as unknown as { data: { point_system: PointSystemConfig | null } | null };
+
+          const { data: completedScorecards } = await supabase
+            .from('scorecards')
+            .select('*')
+            .eq('round_id', roundId)
+            .eq('status', 'completed') as unknown as { data: Scorecard[] | null };
+
+          if (roundData && completedScorecards?.length) {
+            const pointSystem: PointSystemConfig = competition?.point_system || {
+              type: 'position',
+              rules: { '1': 10, '2': 8, '3': 6, '4': 5, '5': 4, '6': 3, '7': 2, '8': 1, 'default': 1 },
+            };
+            await finalizeRound(roundId, completedScorecards, roundData.game_type as GameType, pointSystem);
+          }
+        }
+      } catch {
+        // Non-critical: scorecard is already saved, finalization can be retried
       }
 
       return { success: true, scorecardId: data?.id };
