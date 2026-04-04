@@ -1,51 +1,9 @@
 /**
- * Data fetching hooks for EditRoundScreen
+ * Data mutation functions for EditRoundScreen
  */
 
 import { supabase } from '@/services/supabase/client';
-import { teeToTeeBox } from '@/utils/teeTransformers';
-import type { GameType, TeeBox, Tee } from '@/types/database.types';
-import type { RoundWithCourse } from '../types';
-
-/**
- * Fetch round with course data including tees from normalized table
- */
-export async function fetchRoundWithCourse(roundId: string): Promise<RoundWithCourse> {
-  const { data, error } = await supabase
-    .from('rounds')
-    .select(`
-      *,
-      courses (
-        *,
-        tees_from_table:tees (*)
-      )
-    `)
-    .eq('id', roundId)
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to fetch round: ${error.message}`);
-  }
-
-  // Merge tees from table into course.tees for backward compatibility
-  const round = data as RoundWithCourse & {
-    courses: { tees_from_table?: Tee[] | null } | null;
-  };
-
-  if (round.courses) {
-    const teesFromTable = round.courses.tees_from_table ?? [];
-    const legacyTees = round.courses.tees ?? [];
-
-    // Prefer tees from table, fallback to legacy JSONB
-    round.courses.tees =
-      teesFromTable.length > 0 ? teesFromTable.map(teeToTeeBox) : legacyTees;
-
-    // Clean up the temporary field
-    delete (round.courses as { tees_from_table?: unknown }).tees_from_table;
-  }
-
-  return round as RoundWithCourse;
-}
+import type { GameType, TeeBox } from '@/types/database.types';
 
 /**
  * Update round data

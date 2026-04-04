@@ -196,7 +196,7 @@ export function ScorecardHeader({
 
       {/* Scoring Pairs Info Header */}
       {scoringPairsEnabled && playersToScore.length > 0 && (
-        <View style={[styles.scoringPairsHeader, { backgroundColor: colors.primaryLight }]}>
+        <View style={[styles.scoringPairsHeader, { backgroundColor: colors.surfaceVariant }]}>
           <Text style={[styles.scoringPairsLabel, { color: colors.primary }]}>
             Scoring for:{' '}
             <Text style={styles.scoringPairsNames}>

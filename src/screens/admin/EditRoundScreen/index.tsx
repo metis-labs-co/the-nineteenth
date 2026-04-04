@@ -34,15 +34,15 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { useAuth } from '@/hooks/useAuth';
-import { roundKeys } from '@/hooks/queryKeys';
+import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
-import type { CourseWithFavorite } from '@/hooks/useCourses';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { Club } from '@/types/database.types';
 import { supabase } from '@/services/supabase/client';
 
 // Local imports
 import {
-  fetchRoundWithCourse,
   useEditRoundForm,
   useRoundSubmission,
 } from './hooks';
@@ -73,16 +73,12 @@ export default function EditRoundScreen({ navigation, route }: Props) {
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
 
-  // Fetch round data
+  // Fetch round data (shared hook ensures consistent cache shape with ViewRoundScreen)
   const {
     data: round,
     isLoading,
     error: fetchError,
-  } = useQuery({
-    queryKey: roundKeys.detail(roundId),
-    queryFn: () => fetchRoundWithCourse(roundId),
-    enabled: !!roundId,
-  });
+  } = useRoundDetails(roundId);
 
   // Fetch existing skins game for this round
   const { data: activeSkinsGame, isLoading: isLoadingSkins } = useActiveSkinsGameForRound(roundId);
@@ -201,7 +197,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
 
   // Course selection handler
   const handleCourseSelect = useCallback(
-    (course: CourseWithFavorite) => {
+    (course: CourseWithFavoriteStatus, _club: Club) => {
       setCourse(course);
       setShowCourseModal(false);
       setCourseSearchQuery('');
@@ -244,6 +240,7 @@ export default function EditRoundScreen({ navigation, route }: Props) {
         showBack
         onBack={handleBack}
         backIcon="close"
+        skipTopInset
       />
 
       <ScrollView

@@ -2,7 +2,8 @@ import React, { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { roundKeys } from '@/hooks/queryKeys';
 import { supabase } from '@/services/supabase/client';
-import type { CourseWithFavorite } from '@/hooks/useCourses';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { Club } from '@/types/database.types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
@@ -121,7 +122,7 @@ export function useViewRoundHandlers({
   }, [setShowCourseModal]);
 
   const handleCourseSelect = useCallback(
-    (course: CourseWithFavorite) => {
+    (course: CourseWithFavoriteStatus, _club: Club) => {
       updateCourse(course.id);
       setShowCourseModal(false);
       setCourseSearchQuery('');

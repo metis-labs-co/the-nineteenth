@@ -128,7 +128,7 @@ export function useEditRoundForm({
         selectedTee: round.selected_tee,
         scoringPairsRequired: round.scoring_pairs_required,
         courseId: round.course_id,
-        courseName: round.courses?.name || '',
+        courseName: round.course?.name || '',
         skinsEnabled: !!existingSkinsGame,
         skinsConfig,
         wolfEnabled: !!existingWolfGame,
@@ -206,8 +206,8 @@ export function useEditRoundForm({
 
   // Get available tees from course
   const availableTees = useMemo(() => {
-    return round?.courses?.tees || [];
-  }, [round?.courses?.tees]);
+    return round?.course?.tees || [];
+  }, [round?.course?.tees]);
 
   // Form field handlers
   const setDate = useCallback((date: string) => {

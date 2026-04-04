@@ -1,27 +1,28 @@
 /**
- * CourseSelectionModal - Modal for selecting a course
+ * CourseSelectionModal - Modal for selecting a course (grouped by club)
  */
 
 import React, { memo, useCallback, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, SearchBar, EmptyState } from '@/components/common';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { ClubCard } from '@/components/courses/ClubCard';
+import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useCourses, useSearchCourses, type CourseWithFavorite } from '@/hooks/useCourses';
-import { useAuth } from '@/hooks/useAuth';
+import {
+  useClubsWithCourses,
+  useSearchClubs,
+  toClubCourseDisplayItem,
+  sortHomeClubFirst,
+} from '@/hooks/useClubs';
+import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
+import type { Club } from '@/types/database.types';
 
 interface CourseSelectionModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelect: (course: CourseWithFavorite) => void;
+  onSelect: (course: CourseWithFavoriteStatus, club: Club) => void;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
 }
@@ -35,82 +36,40 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
 }: CourseSelectionModalProps) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const { player } = useAuth();
-  const homeClubId = player?.home_club_id ?? null;
 
-  // Course data hooks
-  const { data: allCourses = [], isLoading: isLoadingCourses } = useCourses();
-  const { data: searchResults = [], isLoading: isSearching } = useSearchCourses(
-    searchQuery,
-    undefined
-  );
+  // Club data hooks
+  const { data: allClubs, isLoading: isLoadingClubs } = useClubsWithCourses();
+  const { data: searchResults, isLoading: isSearching } = useSearchClubs(searchQuery);
 
-  // Get courses to display, home club courses first
-  const displayCourses = useMemo(() => {
-    const courses = searchQuery.length >= 2 ? searchResults : allCourses;
-    if (!homeClubId) return courses;
-    return [...courses].sort((a, b) => {
-      const aIsHome = a.club_id === homeClubId;
-      const bIsHome = b.club_id === homeClubId;
-      if (aIsHome && !bIsHome) return -1;
-      if (!aIsHome && bIsHome) return 1;
-      return 0;
-    });
-  }, [searchQuery, searchResults, allCourses, homeClubId]);
+  // Transform to display items, home club first
+  const displayItems: ClubCourseDisplayItem[] = useMemo(() => {
+    const clubs = searchQuery.length >= 2 ? searchResults : allClubs;
+    return sortHomeClubFirst((clubs ?? []).map(toClubCourseDisplayItem));
+  }, [searchQuery, searchResults, allClubs]);
 
   const handleClose = useCallback(() => {
     onSearchQueryChange('');
     onClose();
   }, [onClose, onSearchQueryChange]);
 
-  const handleSelect = useCallback(
-    (course: CourseWithFavorite) => {
-      onSelect(course);
+  const handleCourseSelect = useCallback(
+    (course: CourseWithFavoriteStatus, club: Club) => {
+      onSelect(course, club);
       handleClose();
     },
     [onSelect, handleClose]
   );
 
-  // Render course item
-  const renderCourseItem = useCallback(
-    ({ item }: { item: CourseWithFavorite }) => {
-      return (
-        <TouchableOpacity
-          onPress={() => handleSelect(item)}
-          activeOpacity={0.7}
-          accessibilityLabel={`Select ${item.name}`}
-          accessibilityRole="button"
-        >
-          <View style={[styles.courseCard, { backgroundColor: colors.white }]}>
-            <View style={styles.courseCardContent}>
-              <View style={[styles.courseIconContainer, { backgroundColor: colors.primaryLighter }]}>
-                <Icon source="golf" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.courseInfo}>
-                <Text style={[styles.courseName, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.description && (
-                  <Text style={[styles.courseLocation, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {item.description}
-                  </Text>
-                )}
-                {item.holes && item.holes.length > 0 && (
-                  <Text style={[styles.courseHoles, { color: colors.textSecondary }]}>
-                    {item.holes.length} holes
-                  </Text>
-                )}
-              </View>
-              <View style={styles.courseActions}>
-                {item.is_favorite && <Icon source="star" size={20} color={colors.warning} />}
-                <Icon source="chevron-right" size={24} color={colors.gray400} />
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    },
-    [handleSelect, colors]
+  const renderClubItem = useCallback(
+    ({ item }: { item: ClubCourseDisplayItem }) => (
+      <ClubCard
+        item={item}
+        onCourseSelect={handleCourseSelect}
+        showFavoriteButton={false}
+        selectionMode
+      />
+    ),
+    [handleCourseSelect]
   );
 
   return (
@@ -122,7 +81,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
     >
       <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         {/* Modal Header */}
-        <View style={[styles.modalHeader, { backgroundColor: colors.white, borderBottomColor: colors.gray200 }]}>
+        <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
           <TouchableOpacity
             onPress={handleClose}
@@ -139,34 +98,37 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
         <SearchBar
           value={searchQuery}
           onChangeText={onSearchQueryChange}
-          placeholder="Search courses..."
+          placeholder="Search clubs or courses..."
         />
 
         {/* Course List */}
-        {isLoadingCourses || isSearching ? (
+        {isLoadingClubs || isSearching ? (
           <View style={styles.loadingContainer}>
             <LoadingSpinner size="lg" message="Loading courses..." />
           </View>
-        ) : displayCourses.length === 0 ? (
+        ) : displayItems.length === 0 ? (
           <EmptyState
-            title="No courses found"
+            title="No clubs found"
             message={searchQuery ? 'Try a different search term' : 'Add courses from the Courses tab'}
             icon="golf"
             compact
           />
         ) : (
           <FlatList
-            data={displayCourses}
-            renderItem={renderCourseItem}
-            keyExtractor={(item) => item.id}
+            data={displayItems}
+            renderItem={renderClubItem}
+            keyExtractor={(item) => item.club.id}
             contentContainerStyle={styles.courseList}
             showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={ListSeparator}
           />
         )}
       </View>
     </Modal>
   );
 });
+
+const ListSeparator = () => <View style={styles.listSeparator} />;
 
 const styles = StyleSheet.create({
   modalContainer: {
@@ -195,48 +157,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
-  },
   courseList: {
-    padding: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
   },
-  courseCard: {
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
-  },
-  courseCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  courseIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  courseInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  courseName: {
-    ...typography.bodyBold,
-  },
-  courseLocation: {
-    ...typography.small,
-    marginTop: 2,
-  },
-  courseHoles: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  courseActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  listSeparator: {
+    height: spacing.sm,
   },
 });

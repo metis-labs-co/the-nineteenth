@@ -271,7 +271,7 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
                   onChange={handleDateChange}
                   minimumDate={minimumDate ? startOfDay(minimumDate) : undefined}
                   maximumDate={maximumDate}
-                  textColor={isDark ? colors.white : colors.textPrimary}
+                  textColor={isDark ? '#ffffff' : colors.textPrimary}
                   themeVariant={isDark ? 'dark' : 'light'}
                 />
               </View>
@@ -374,7 +374,7 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
                     onChange={handleTimeChange}
                     minuteInterval={minuteInterval}
                     is24Hour
-                    textColor={isDark ? colors.white : colors.textPrimary}
+                    textColor={isDark ? '#ffffff' : colors.textPrimary}
                     themeVariant={isDark ? 'dark' : 'light'}
                   />
                 </View>

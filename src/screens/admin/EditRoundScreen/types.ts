@@ -2,12 +2,15 @@
  * Type definitions for EditRoundScreen
  */
 
-import type { GameType, Round, TeeBox, Course, SkinsConfig } from '@/types/database.types';
+import type { GameType, TeeBox, SkinsConfig } from '@/types/database.types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 
 // Re-export SkinsEditState from shared component for backwards compatibility
 export type { SkinsEditState } from '@/components/skins';
 export type { WolfEditState } from '@/components/wolf';
+
+// Re-export the shared RoundWithCourse type so existing imports keep working
+export type { RoundWithCourse } from '@/hooks/useRoundDetails';
 
 export interface RoundFormData {
   date: string;
@@ -23,8 +26,4 @@ export interface RoundFormData {
   // Wolf configuration
   wolfEnabled: boolean;
   wolfConfig: WolfConfig | null;
-}
-
-export interface RoundWithCourse extends Round {
-  courses: Course | null;
 }
