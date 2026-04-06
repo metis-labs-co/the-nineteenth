@@ -78,6 +78,20 @@ export function useViewRoundHandlers({
 
   // Navigation handlers
   const handleBack = useCallback(() => {
+    // If the previous screen in the stack is a scoring screen, go to round list instead
+    const state = navigation.getState();
+    const currentIndex = state.index;
+    if (currentIndex > 0) {
+      const previousRoute = state.routes[currentIndex - 1];
+      const scoringScreens = ['Scorecard', 'ReviewScorecard', 'MatchPlayScoring', 'TeamMatchPlayScoring'];
+      if (scoringScreens.includes(previousRoute.name)) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
+        return;
+      }
+    }
     navigation.goBack();
   }, [navigation]);
 

@@ -165,8 +165,8 @@ export const OfflineIndicator = React.memo(function OfflineIndicator({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     zIndex: zIndex.sticky,
   },
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 44, // Ensure minimum touch target height
+    minHeight: 28,
   },
   messageContainer: {
     flexDirection: 'row',

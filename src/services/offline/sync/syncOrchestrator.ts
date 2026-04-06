@@ -167,9 +167,13 @@ export async function syncAll(): Promise<boolean> {
           });
         } else {
           // Max retries reached, remove from queue
-          syncLogger.warn('Max retries reached, removing sync', {
+          syncLogger.error('PERMANENT SYNC FAILURE: Removing sync after max retries - scorecard data may be lost', undefined, {
             id: sync.id,
+            type: sync.type,
+            roundId: sync.data?.roundId?.substring(0, 8) + '...',
+            playerId: sync.data?.playerId?.substring(0, 8) + '...',
             maxRetries: MAX_RETRY_COUNT,
+            lastError: error instanceof Error ? error.message : String(error),
           });
           await removePendingSync(sync.id!);
         }
@@ -203,9 +207,10 @@ export async function syncAll(): Promise<boolean> {
             errorMessage.includes('row-level security policy') || errorMessage.includes('42501');
 
           if (isRlsError) {
-            syncLogger.warn('RLS error - marking scorecard as synced to prevent retry', {
+            syncLogger.error('RLS POLICY ERROR: Scorecard cannot be synced - round may have been deleted', undefined, {
               id: scorecard.id.substring(0, 20) + '...',
               roundId: scorecard.roundId.substring(0, 8) + '...',
+              playerId: scorecard.playerId.substring(0, 8) + '...',
             });
             // Mark as synced to stop retry attempts - the round likely doesn't exist or user has no access
             await markScorecardsAsSynced([scorecard.id]);

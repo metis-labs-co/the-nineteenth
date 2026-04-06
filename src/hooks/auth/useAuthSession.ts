@@ -39,7 +39,15 @@ export function useAuthSession() {
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('[useAuthSession] Error fetching session:', error);
+        // When offline, getSession() fails. Return the last cached session
+        // instead of throwing — the onAuthStateChange listener handles real
+        // auth state changes, so we don't need the query to be the source of truth.
+        const cachedSession = queryClient.getQueryData<Session | null>(authKeys.session());
+        if (cachedSession) {
+          console.warn('[useAuthSession] getSession failed, using cached session:', error.message);
+          return cachedSession;
+        }
+        console.error('[useAuthSession] Error fetching session (no cache available):', error);
         throw error;
       }
 
@@ -55,7 +63,7 @@ export function useAuthSession() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    refetchOnReconnect: false, // Don't refetch on reconnect — onAuthStateChange handles session updates
     refetchOnMount: 'always',
   });
 

@@ -593,7 +593,10 @@ describe('Scorecard Operations', () => {
 
       expect(result).toHaveLength(1);
       expect(mockGetAllAsync).toHaveBeenCalledWith(
-        expect.stringContaining('is_synced = 0 AND (is_standalone = 0 OR is_standalone IS NULL)')
+        expect.stringContaining('is_synced = 0')
+      );
+      expect(mockGetAllAsync).toHaveBeenCalledWith(
+        expect.stringContaining("status = 'completed'")
       );
     });
 
@@ -604,6 +607,15 @@ describe('Scorecard Operations', () => {
 
       const query = mockGetAllAsync.mock.calls[0][0];
       expect(query).toContain('is_standalone = 0 OR is_standalone IS NULL');
+    });
+
+    it('should only return completed scorecards, not in-progress ones', async () => {
+      mockGetAllAsync.mockResolvedValueOnce([]);
+
+      await getUnsyncedScorecards();
+
+      const query = mockGetAllAsync.mock.calls[0][0];
+      expect(query).toContain("status = 'completed'");
     });
   });
 });

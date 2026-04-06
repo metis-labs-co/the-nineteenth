@@ -28,6 +28,7 @@ import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements'
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { useAuth } from '@/hooks/useAuth';
 import type { AchievementEventData } from '@/types/database/achievement.types';
+import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
@@ -117,6 +118,7 @@ export function useScoreSubmission({
 
   // Round finalization (extracted hook)
   const { updateRoundStatus, finalizeRoundResults } = useRoundFinalization();
+  const queryClient = useQueryClient();
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
@@ -305,12 +307,23 @@ export function useScoreSubmission({
       setSyncError(null);
 
       try {
-        submitLogger.info('Calling submitScorecards');
+        submitLogger.info('Calling submitScorecards', {
+          roundId: roundId?.substring(0, 8) + '...',
+          isStandalone: !competitionId || competitionId === 'standalone',
+          isOnline,
+        });
         await submitScorecards();
         submitLogger.info('submitScorecards completed successfully');
 
         if (roundId && isOnline) {
-          await updateRoundStatus(roundId);
+          try {
+            await updateRoundStatus(roundId);
+            submitLogger.info('Round status update succeeded', { roundId: roundId.substring(0, 8) + '...' });
+          } catch (statusError) {
+            submitLogger.error('Round status update failed - round may not appear in correct tab', statusError, {
+              roundId: roundId.substring(0, 8) + '...',
+            });
+          }
 
           // Finalize round results (calculate positions and competition points)
           await finalizeRoundResults(roundId);
@@ -370,6 +383,13 @@ export function useScoreSubmission({
             // Non-blocking - log error but don't fail submission
             submitLogger.warn('Skins finalization failed (non-blocking)', { error });
           });
+        }
+
+        // Invalidate round list query so the round appears in the correct tab
+        const userId = currentUserId || user?.id;
+        if (userId) {
+          submitLogger.info('Invalidating round list query', { userId: userId.substring(0, 8) + '...' });
+          queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
 
         if (!isOnline) {
@@ -459,6 +479,8 @@ export function useScoreSubmission({
     isAchievementReady,
     checkAndAward,
     showMultipleToasts,
+    queryClient,
+    user?.id,
   ]);
 
   // Handle bypass submission (skip partner verification)
@@ -536,6 +558,13 @@ export function useScoreSubmission({
           });
         }
 
+        // Invalidate round list query so the round appears in the correct tab
+        const userId = currentUserId || user?.id;
+        if (userId) {
+          submitLogger.info('Invalidating round list query (bypass)', { userId: userId.substring(0, 8) + '...' });
+          queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
+        }
+
         showDialog({
           title: 'Submitted (Unverified)',
           message: 'Your scores have been submitted. They will be flagged as unverified since partner verification was bypassed.',
@@ -589,6 +618,8 @@ export function useScoreSubmission({
     isAchievementReady,
     checkAndAward,
     showMultipleToasts,
+    queryClient,
+    user?.id,
   ]);
 
   const handleSyncPress = useCallback(async () => {

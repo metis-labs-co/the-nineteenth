@@ -36,7 +36,8 @@ export async function processScorecardSync(sync: PendingSync): Promise<void> {
   switch (action) {
     case 'create':
     case 'update':
-      await syncScorecard(data as Scorecard);
+      // Pending queue has authoritative submission data — skip server comparison
+      await syncScorecard(data as Scorecard, { skipServerCheck: true });
       break;
     case 'delete':
       syncLogger.info('Delete scorecard (not implemented)', { dataId: data.id });
@@ -49,7 +50,10 @@ export async function processScorecardSync(sync: PendingSync): Promise<void> {
 /**
  * Sync a scorecard to Supabase
  */
-export async function syncScorecard(scorecard: Scorecard): Promise<void> {
+export async function syncScorecard(
+  scorecard: Scorecard,
+  options?: { skipServerCheck?: boolean }
+): Promise<void> {
   syncLogger.info('Syncing scorecard to Supabase', logScorecardSummary(scorecard));
 
   // Skip standalone rounds - they are local-only and don't sync to server
@@ -119,6 +123,15 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
     }
   }
 
+  // Warn if a completed scorecard has suspiciously few holes
+  if (scorecard.status === 'completed' && holesWithScores < 9) {
+    syncLogger.warn('Syncing completed scorecard with very few holes - possible data integrity issue', {
+      holesWithScores,
+      roundId: scorecard.roundId.substring(0, 8) + '...',
+      playerId: scorecard.playerId.substring(0, 8) + '...',
+    });
+  }
+
   syncLogger.debug('Prepared scores for Supabase', {
     holesWithScores,
     totalGross: scorecard.totalGross,
@@ -133,6 +146,16 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
     // Already a string (from JSON.parse of stored data)
     return typeof date === 'string' ? date : null;
   };
+
+  // Log if syncHoles count doesn't match scored holes
+  const syncHolesCount = scorecard.syncHoles?.length ?? 0;
+  if (syncHolesCount > 0 && syncHolesCount !== holesWithScores) {
+    syncLogger.warn('Hole count mismatch between syncHoles and scored holes', {
+      syncHolesCount,
+      holesWithScores,
+      roundId: scorecard.roundId.substring(0, 8) + '...',
+    });
+  }
 
   // Calculate handicap data
   const handicapData = calculateHandicapData(scorecard);
@@ -167,6 +190,36 @@ export async function syncScorecard(scorecard: Scorecard): Promise<void> {
     course_rating_used: handicapData.courseRatingUsed,
     slope_rating_used: handicapData.slopeRatingUsed,
   };
+
+  // Check if server has more complete data before overwriting (unless skipServerCheck is set)
+  if (!options?.skipServerCheck) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+      const { data: existingScorecard } = await (supabase.from('scorecards') as any)
+        .select('scores')
+        .eq('round_id', scorecard.roundId)
+        .eq('player_id', scorecard.playerId)
+        .maybeSingle();
+
+      if (existingScorecard?.scores) {
+        const serverHoleCount = Object.keys(existingScorecard.scores).length;
+        if (serverHoleCount > holesWithScores) {
+          syncLogger.warn('Skipping sync - server has more complete data', {
+            serverHoles: serverHoleCount,
+            localHoles: holesWithScores,
+            roundId: scorecard.roundId.substring(0, 8) + '...',
+            playerId: scorecard.playerId.substring(0, 8) + '...',
+          });
+          return;
+        }
+      }
+    } catch (checkError) {
+      // Non-blocking — if the check fails, proceed with sync
+      syncLogger.warn('Server check failed, proceeding with sync', {
+        error: checkError instanceof Error ? checkError.message : String(checkError),
+      });
+    }
+  }
 
   syncLogger.debug('Upserting to Supabase', {
     roundId: scorecard.roundId.substring(0, 8) + '...',

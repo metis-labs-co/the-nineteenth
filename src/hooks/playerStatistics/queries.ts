@@ -373,6 +373,7 @@ export function usePlayerStatistics(
           totalPoints: scorecard.total_points || 0,
           holesPlayed: holesInScorecard,
           isPracticeRound,
+          gameType: round.game_type,
         });
 
         // Collect per-round stats for sparklines

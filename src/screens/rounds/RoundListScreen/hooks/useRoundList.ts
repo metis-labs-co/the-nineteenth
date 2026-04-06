@@ -7,6 +7,7 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
+import { roundListLogger } from '@/utils/debugLogger';
 import type { RoundItem, RoundListData, RoundPlayerInfo, UseRoundListReturn } from '../types';
 import type { UserScoreData } from '@/components/rounds/RoundListCard/types';
 import type { WinnerInfo } from '@/components/common';
@@ -119,8 +120,14 @@ export function useRoundList(): UseRoundListReturn {
       const standaloneRoundIds: string[] = [];
 
       if (standaloneError) {
-        console.error('Error fetching standalone rounds:', standaloneError);
+        roundListLogger.error('Error fetching standalone rounds', standaloneError, {
+          userId: user.id.substring(0, 8) + '...',
+        });
       } else {
+        roundListLogger.info('Standalone rounds fetched', {
+          count: standaloneRounds?.length ?? 0,
+          statuses: (standaloneRounds || []).map((r: StandaloneRoundRow) => r.status),
+        });
         for (const round of (standaloneRounds || []) as StandaloneRoundRow[]) {
           standaloneRoundIds.push(round.id);
           allRounds.push({
@@ -562,6 +569,27 @@ export function useRoundList(): UseRoundListReturn {
           }
           return 0;
         });
+
+      // Log unexpected statuses that would cause rounds to not appear in either tab
+      const unexpectedRounds = allRounds.filter(
+        r => r.status !== 'upcoming' && r.status !== 'in-progress' && r.status !== 'completed'
+      );
+      if (unexpectedRounds.length > 0) {
+        roundListLogger.warn('Rounds with unexpected status values', {
+          rounds: unexpectedRounds.map(r => ({
+            id: r.id.substring(0, 8) + '...',
+            status: r.status,
+          })),
+        });
+      }
+
+      roundListLogger.info('Round list split complete', {
+        totalRounds: allRounds.length,
+        activeCount: active.length,
+        historyCount: history.length,
+        activeStatuses: active.map(r => r.status),
+        historyStatuses: history.map(r => r.status),
+      });
 
       return { active, history };
     },

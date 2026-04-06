@@ -84,7 +84,7 @@ export default function DeveloperScreen() {
   const handleResyncScores = useCallback(() => {
     showDialog({
       title: 'Re-sync All Scores',
-      message: 'This will re-upload all scorecards from your device to restore any missing FIR/GIR data. This is safe and will not delete any scores.',
+      message: 'This will re-upload all completed scorecards from your device. Scorecards with fewer holes than the server version will be skipped to prevent data loss.',
       confirmLabel: 'Re-sync',
       icon: 'sync',
       onConfirm: performResyncScores,

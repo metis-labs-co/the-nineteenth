@@ -136,6 +136,7 @@ export const roundDataLogger = createModuleLogger('RoundData');
 export const teamScoringLogger = createModuleLogger('TeamScoring');
 export const matchPlayLogger = createModuleLogger('MatchPlay');
 export const teamMatchPlayLogger = createModuleLogger('TeamMatchPlay');
+export const roundListLogger = createModuleLogger('RoundList');
 
 /**
  * Get recent log entries (for debugging UI or export)

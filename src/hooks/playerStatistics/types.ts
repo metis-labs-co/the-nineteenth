@@ -18,6 +18,8 @@
  * - PlayerStatistics: Complete player statistics object
  */
 
+import type { GameType } from '@/types/database/enums';
+
 /**
  * Score distribution breakdown
  */
@@ -54,6 +56,7 @@ export interface RoundSummary {
   totalPoints: number;
   holesPlayed: number;
   isPracticeRound: boolean;
+  gameType: GameType;
 }
 
 /**

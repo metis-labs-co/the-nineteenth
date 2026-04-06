@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -37,6 +37,8 @@ interface ScorecardTableProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
+  // Hole press handler - navigates back to score entry for that hole
+  onHolePress?: (holeNumber: number) => void;
 }
 
 export function ScorecardTable({
@@ -52,6 +54,7 @@ export function ScorecardTable({
   viewMode = 'standard',
   showFIR = false,
   showGIR = false,
+  onHolePress,
 }: ScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -132,11 +135,16 @@ export function ScorecardTable({
         key={hole.number}
         style={[styles.tableRow, { borderBottomColor: colors.border }]}
       >
-        <View style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.holeCellText, { color: colors.textPrimary }]}>
+        <TouchableOpacity
+          style={[styles.tableCell, styles.holeCell, { backgroundColor: colors.surface }]}
+          onPress={() => onHolePress?.(hole.number)}
+          disabled={!onHolePress}
+          activeOpacity={onHolePress ? 0.6 : 1}
+        >
+          <Text style={[styles.holeCellText, { color: onHolePress ? colors.primary : colors.textPrimary }]}>
             {hole.number}
           </Text>
-        </View>
+        </TouchableOpacity>
         <View style={[styles.tableCell, styles.narrowCell, { backgroundColor: colors.surface }]}>
           <Text style={[styles.smallText, { color: colors.textSecondary }]}>
             {hole.strokeIndex}

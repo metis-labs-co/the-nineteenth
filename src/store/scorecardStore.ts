@@ -241,6 +241,27 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
       }
 
       const safeHoles = Array.isArray(holes) ? holes : [];
+
+      if (safeHoles.length === 0) {
+        storeLogger.error('Cannot submit - no holes data available');
+        throw new Error('No holes data available for submission');
+      }
+
+      // Log hole count for each player's scorecard for diagnostics
+      for (const [playerId, scorecard] of groupScorecards) {
+        const scoredHoles = Object.values(scorecard.scores).filter(s => {
+          if (!s) return false;
+          if (isSingleBallScore(s)) return s.strokes != null && s.strokes > 0;
+          return (s as { balls?: { strokes?: number }[] }).balls?.some(b => b.strokes != null && b.strokes > 0);
+        }).length;
+
+        storeLogger.info('Submission hole count check', {
+          playerId: playerId.substring(0, 8) + '...',
+          scoredHoles,
+          expectedHoles: safeHoles.length,
+        });
+      }
+
       const coursePar = safeHoles.reduce((sum, h) => sum + (h.par || 0), 0);
 
       const now = new Date();

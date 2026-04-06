@@ -154,7 +154,7 @@ export default function ViewRoundScreen(props: Props) {
       />
 
       {/* Score Round Button */}
-      {vm.isUserPlaying && (round.status !== 'completed' || !vm.userScorecardSubmitted) && (
+      {vm.isUserPlaying && !vm.userScorecardSubmitted && round.status !== 'completed' && (
         <View style={[styles.scoreButtonContainer, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
             style={[styles.scoreButton, { backgroundColor: colors.primary }]}

@@ -10,6 +10,7 @@ import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { finalizeRound } from '@/services/rounds/roundResultsService';
+import { scorecardKeys } from '@/hooks/queryKeys';
 import type { TeeBox, Hole, Scorecard, PointSystemConfig, GameType } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
@@ -121,20 +122,32 @@ export function useQuickScoreSubmit() {
         }
 
         // Check if all players now have completed scorecards
+        let playerCount: number | null = null;
+
         if (roundRow.competition_id) {
-          const { count: playerCount } = await supabase
+          const { count } = await supabase
             .from('competition_players')
             .select('*', { count: 'exact', head: true })
             .eq('competition_id', roundRow.competition_id)
             .eq('status', 'accepted');
+          playerCount = count;
+        } else {
+          // Standalone round: count players from round_players
+          const { count } = await supabase
+            .from('round_players')
+            .select('*', { count: 'exact', head: true })
+            .eq('round_id', roundId);
+          playerCount = count;
+        }
 
+        if (playerCount) {
           const { count: completedCount } = await supabase
             .from('scorecards')
             .select('*', { count: 'exact', head: true })
             .eq('round_id', roundId)
             .eq('status', 'completed');
 
-          if (playerCount && completedCount && completedCount >= playerCount) {
+          if (completedCount && completedCount >= playerCount) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase.from('rounds') as any)
               .update({ status: 'completed' })
@@ -179,11 +192,12 @@ export function useQuickScoreSubmit() {
       return { success: true, scorecardId: data?.id };
     },
     onSuccess: (_result, input) => {
-      // Invalidate relevant caches
+      // Invalidate relevant caches using correct query key formats
       queryClient.invalidateQueries({ queryKey: ['round', input.roundId] });
-      queryClient.invalidateQueries({ queryKey: ['scorecards', input.roundId] });
+      queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId: input.roundId }) });
       queryClient.invalidateQueries({ queryKey: ['roundDetails'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['rounds'] });
     },
   });
 }

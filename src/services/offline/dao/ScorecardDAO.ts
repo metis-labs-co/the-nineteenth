@@ -220,7 +220,9 @@ export async function getUnsyncedScorecards(): Promise<Scorecard[]> {
   const database = await getDb();
   const rows = await database.getAllAsync<ScorecardRow>(
     `SELECT * FROM ${TABLE_NAMES.SCORECARDS}
-     WHERE is_synced = 0 AND (is_standalone = 0 OR is_standalone IS NULL)`
+     WHERE is_synced = 0
+       AND (is_standalone = 0 OR is_standalone IS NULL)
+       AND status = 'completed'`
   );
 
   const scorecards: Scorecard[] = [];

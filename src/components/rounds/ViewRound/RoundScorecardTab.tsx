@@ -13,7 +13,6 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useWindowDimensions } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { EmptyState } from '@/components/common/EmptyState';
 import { getScoreColor, getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
@@ -63,16 +62,6 @@ interface RoundScorecardTabProps {
 interface IndividualScorecardViewProps {
   displayPlayers: ScorecardTablePlayer[];
   holes: Hole[];
-  /** Whether to show putts row */
-  showPutts?: boolean;
-  /** Whether to show FIR row */
-  showFIR?: boolean;
-  /** Whether to show GIR row */
-  showGIR?: boolean;
-  /** Whether to show bunker shots row */
-  showBunkerShots?: boolean;
-  /** Whether to show hazards row */
-  showHazards?: boolean;
   /** Selected tee data for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
 }
@@ -80,11 +69,6 @@ interface IndividualScorecardViewProps {
 const IndividualScorecardView = React.memo(function IndividualScorecardView({
   displayPlayers,
   holes,
-  showPutts = false,
-  showFIR = false,
-  showGIR = false,
-  showBunkerShots = false,
-  showHazards = false,
   selectedTeeData,
 }: IndividualScorecardViewProps) {
   const colors = useThemeColors();
@@ -109,44 +93,6 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
       const ninePar = isBack9Section ? back9Par : front9Par;
       const nineGross = isBack9Section ? stats.back9Gross : stats.front9Gross;
       const nineStableford = isBack9Section ? stats.back9Stableford : stats.front9Stableford;
-
-      // Calculate putts total for this nine
-      const ninePutts = holeList.reduce((sum, hole) => {
-        const score = scores?.[String(hole.number)];
-        const putts = score && isSingleBallScore(score) ? score.putts : undefined;
-        return sum + (putts ?? 0);
-      }, 0);
-
-      // Calculate FIR for this nine (par 4+ holes only)
-      const firHoles = holeList.filter((h) => h.par >= 4);
-      const firHit = firHoles.reduce((sum, hole) => {
-        const score = scores?.[String(hole.number)];
-        const fairwayHit = score && isSingleBallScore(score) ? score.fairwayHit : undefined;
-        return sum + (fairwayHit === true ? 1 : 0);
-      }, 0);
-      const nineFIR = firHoles.length > 0 ? `${firHit}/${firHoles.length}` : '-';
-
-      // Calculate GIR for this nine
-      const girHit = holeList.reduce((sum, hole) => {
-        const score = scores?.[String(hole.number)];
-        const greenInRegulation = score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
-        return sum + (greenInRegulation === true ? 1 : 0);
-      }, 0);
-      const nineGIR = `${girHit}/${holeList.length}`;
-
-      // Calculate bunkers total for this nine
-      const nineBunkers = holeList.reduce((sum, hole) => {
-        const score = scores?.[String(hole.number)];
-        const bunkers = score && isSingleBallScore(score) ? score.bunkerShots : undefined;
-        return sum + (bunkers ?? 0);
-      }, 0);
-
-      // Calculate hazards total for this nine
-      const nineHazards = holeList.reduce((sum, hole) => {
-        const score = scores?.[String(hole.number)];
-        const hazards = score && isSingleBallScore(score) ? score.hazards : undefined;
-        return sum + (hazards ? hazards.length : 0);
-      }, 0);
 
       return (
         <View style={individualStyles.nineSection}>
@@ -251,155 +197,6 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
             </View>
           </View>
 
-          {/* Putts Row */}
-          {showPutts && (
-            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Putts</Text>
-              </View>
-              {holeList.map((hole) => {
-                const score = scores?.[String(hole.number)];
-                const putts = score && isSingleBallScore(score) ? score.putts : undefined;
-                return (
-                  <View key={hole.number} style={individualStyles.cell}>
-                    <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>
-                      {putts ?? '-'}
-                    </Text>
-                  </View>
-                );
-              })}
-              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
-                  {ninePutts || '-'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* FIR Row - only show for par 4+ holes */}
-          {showFIR && (
-            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>FIR</Text>
-              </View>
-              {holeList.map((hole) => {
-                const score = scores?.[String(hole.number)];
-                const fairwayHit = score && isSingleBallScore(score) ? score.fairwayHit : undefined;
-                const isFIRApplicable = hole.par >= 4;
-                return (
-                  <View key={hole.number} style={individualStyles.cell}>
-                    {!isFIRApplicable ? (
-                      <Text style={[individualStyles.cellText, { color: colors.textDisabled }]}>-</Text>
-                    ) : fairwayHit === true ? (
-                      <Icon source="check" size={14} color={colors.success} />
-                    ) : fairwayHit === false ? (
-                      <View style={individualStyles.cellWithDir}>
-                        <Icon source="close" size={14} color={colors.error} />
-                        {score && isSingleBallScore(score) && score.fairwayMissDirection && (
-                          <Text style={[individualStyles.dirText, { color: colors.textDisabled }]}>
-                            {score.fairwayMissDirection === 'left' ? 'L' : 'R'}
-                          </Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
-                    )}
-                  </View>
-                );
-              })}
-              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
-                  {nineFIR}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* GIR Row */}
-          {showGIR && (
-            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>GIR</Text>
-              </View>
-              {holeList.map((hole) => {
-                const score = scores?.[String(hole.number)];
-                const greenInRegulation = score && isSingleBallScore(score) ? score.greenInRegulation : undefined;
-                return (
-                  <View key={hole.number} style={individualStyles.cell}>
-                    {greenInRegulation === true ? (
-                      <Icon source="check" size={14} color={colors.success} />
-                    ) : greenInRegulation === false ? (
-                      <View style={individualStyles.cellWithDir}>
-                        <Icon source="close" size={14} color={colors.error} />
-                        {score && isSingleBallScore(score) && score.greenMissDirection && (
-                          <Text style={[individualStyles.dirText, { color: colors.textDisabled }]}>
-                            {{ left: 'L', right: 'R', long: 'Lo', short: 'Sh' }[score.greenMissDirection]}
-                          </Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={[individualStyles.cellText, { color: colors.textSecondary }]}>-</Text>
-                    )}
-                  </View>
-                );
-              })}
-              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
-                  {nineGIR}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Bunkers Row */}
-          {showBunkerShots && (
-            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Bnk</Text>
-              </View>
-              {holeList.map((hole) => {
-                const score = scores?.[String(hole.number)];
-                const bunkers = score && isSingleBallScore(score) ? score.bunkerShots : undefined;
-                return (
-                  <View key={hole.number} style={individualStyles.cell}>
-                    <Text style={[individualStyles.cellText, { color: bunkers && bunkers > 0 ? colors.warning : colors.textDisabled }]}>
-                      {bunkers && bunkers > 0 ? bunkers : '-'}
-                    </Text>
-                  </View>
-                );
-              })}
-              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
-                  {nineBunkers || '-'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Hazards Row */}
-          {showHazards && (
-            <View style={[individualStyles.row, { backgroundColor: colors.surface }]}>
-              <View style={[individualStyles.labelCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.labelText, { color: colors.textSecondary }]}>Hzd</Text>
-              </View>
-              {holeList.map((hole) => {
-                const score = scores?.[String(hole.number)];
-                const hazards = score && isSingleBallScore(score) ? score.hazards : undefined;
-                return (
-                  <View key={hole.number} style={individualStyles.cell}>
-                    <Text style={[individualStyles.cellText, { color: hazards && hazards.length > 0 ? colors.error : colors.textDisabled }]}>
-                      {hazards && hazards.length > 0 ? hazards.length : '-'}
-                    </Text>
-                  </View>
-                );
-              })}
-              <View style={[individualStyles.totalCell, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[individualStyles.totalText, { color: colors.textSecondary }]}>
-                  {nineHazards || '-'}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
       );
     };
@@ -470,9 +267,6 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-
-  // Get stats visibility settings (Premium-gated for FIR/GIR and detailed stats)
-  const { showPutts, showFairwayHit, showGreenInRegulation, showBunkerShots, showHazards } = useStatsVisibilityWithTier();
 
   // Default to standard 18 holes if no course data
   const courseHoles = useMemo(() => {
@@ -576,11 +370,6 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
         <IndividualScorecardView
           displayPlayers={displayPlayers}
           holes={courseHoles}
-          showPutts={showPutts}
-          showFIR={showFairwayHit}
-          showGIR={showGreenInRegulation}
-          showBunkerShots={showBunkerShots}
-          showHazards={showHazards}
           selectedTeeData={selectedTeeData}
         />
       )}
@@ -767,15 +556,6 @@ const individualStyles = StyleSheet.create({
   },
   totalText: {
     ...typography.smallBold,
-  },
-  cellWithDir: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 1,
-  },
-  dirText: {
-    fontSize: 8,
-    fontWeight: '600',
   },
 });
 

@@ -68,7 +68,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
   } = usePlayerScorecard(playerId);
 
   // Get submission methods from store
-  const { holes, getCompletedHolesCount, submitScorecards } = useScorecardStore();
+  const { holes, getCompletedHolesCount, submitScorecards, setCurrentHole, groupScorecards } = useScorecardStore();
 
   // Skins finalization hook
   const { finalizeSkinsForRound } = useFinalizeSkinsForRound();
@@ -83,6 +83,15 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     navigation.goBack();
   }, [navigation]);
 
+  // Navigate back to score entry at a specific hole
+  const handleHolePress = useCallback(
+    (holeNumber: number) => {
+      setCurrentHole(holeNumber);
+      navigation.goBack();
+    },
+    [navigation, setCurrentHole]
+  );
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     // Simulate refresh - in real app would re-fetch data
@@ -90,12 +99,12 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
     setIsRefreshing(false);
   }, []);
 
-  // Calculate if all holes are complete
+  // Calculate if all holes are complete (groupScorecards in deps ensures re-evaluation on score changes)
   const isAllComplete = useMemo(() => {
     if (holes.length === 0) return false;
     const completedCount = getCompletedHolesCount();
     return completedCount === holes.length;
-  }, [holes.length, getCompletedHolesCount]);
+  }, [holes.length, getCompletedHolesCount, groupScorecards]);
 
   // Update round status to completed in database
   const updateRoundStatus = useCallback(async (rId: string): Promise<void> => {
@@ -229,7 +238,7 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: isAllComplete ? insets.bottom + 120 : insets.bottom + spacing.xl },
+          { paddingBottom: insets.bottom + 120 },
         ]}
         refreshControl={
           <RefreshControl
@@ -257,32 +266,39 @@ export default function PlayerScorecardScreen({ navigation, route }: Props) {
           // Stats visibility (Premium-only)
           showFIR={showFairwayHit}
           showGIR={showGreenInRegulation}
+          onHolePress={handleHolePress}
         />
       </ScrollView>
 
-      {/* Submit Footer - Show when all holes are complete */}
-      {isAllComplete && (
-        <View
+      {/* Submit Footer - Always visible, disabled when incomplete */}
+      <View
+        style={[
+          styles.footerContainer,
+          {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            paddingBottom: insets.bottom + spacing.md,
+          },
+        ]}
+      >
+        {!isAllComplete && (
+          <Text style={[styles.incompleteHint, { color: colors.textSecondary }]}>
+            Complete all holes to submit
+          </Text>
+        )}
+        <TouchableOpacity
           style={[
-            styles.footerContainer,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-              paddingBottom: insets.bottom + spacing.md,
-            },
+            styles.submitButton,
+            { backgroundColor: isAllComplete ? colors.success : colors.gray400 },
           ]}
+          onPress={handleSubmit}
+          disabled={isSubmitting || !isAllComplete}
         >
-          <TouchableOpacity
-            style={[styles.submitButton, { backgroundColor: colors.success }]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            <Text style={[styles.submitButtonText, { color: colors.white }]}>
-              {isSubmitting ? 'Submitting...' : 'Submit Scorecard'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          <Text style={[styles.submitButtonText, { color: colors.white }]}>
+            {isSubmitting ? 'Submitting...' : 'Submit Scorecard'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Incomplete Round Dialog */}
       <Portal>
@@ -369,6 +385,11 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     ...typography.bodyBold,
+  },
+  incompleteHint: {
+    ...typography.small,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   dialogButton: {
     paddingVertical: spacing.sm,

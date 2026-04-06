@@ -132,6 +132,7 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
                 competitionName={round.competitionName}
                 totalGross={round.totalGross}
                 totalPoints={round.totalPoints}
+                gameType={round.gameType}
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
               />

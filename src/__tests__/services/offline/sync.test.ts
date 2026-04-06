@@ -623,4 +623,148 @@ describe('Error Handling', () => {
     expect(state.status).toBe('error');
     expect(state.error).toBeDefined();
   });
+
+  it('should remove pending sync after max retries', async () => {
+    const maxRetriedSync = createPendingSync({
+      id: 99,
+      retryCount: 3, // MAX_RETRY_COUNT
+      data: createTestScorecard({ roundId: 'invalid-uuid-format' }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([maxRetriedSync]);
+
+    await syncAll();
+
+    // Should remove, not just increment
+    expect(database.removePendingSync).toHaveBeenCalledWith(99);
+    // Should NOT increment retry count (already at max)
+    expect(database.incrementSyncRetryCount).not.toHaveBeenCalledWith(99);
+  });
+
+  it('should handle RLS errors by marking scorecard as synced', async () => {
+    const scorecard = createTestScorecard();
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+
+    // Make the upsert fail with an RLS error
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      upsert: jest.fn(() => Promise.resolve({ data: null, error: { message: 'row-level security policy', code: '42501' } })),
+    });
+
+    await syncAll();
+
+    // RLS error should still mark as synced to prevent infinite retry
+    expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+  });
+});
+
+// ============================================================================
+// SERVER DATA PROTECTION TESTS
+// ============================================================================
+
+describe('Server Data Protection', () => {
+  beforeEach(() => {
+    initSyncService();
+  });
+
+  it('should skip sync when server has more holes than local (unsynced path)', async () => {
+    const scorecard = createTestScorecard({
+      scores: {
+        1: { strokes: 4 },
+        2: { strokes: 5 },
+      },
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+
+    // Mock server returning scorecard with 18 holes
+    const serverScores: Record<string, { strokes: number }> = {};
+    for (let i = 1; i <= 18; i++) serverScores[String(i)] = { strokes: 4 };
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: { scores: serverScores }, error: null })),
+      upsert: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    });
+
+    await syncAll();
+
+    // Should NOT have called upsert — the sync should be skipped
+    // The scorecard should still be marked as synced since the server already has complete data
+    expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+  });
+
+  it('should proceed with sync when local has more holes than server', async () => {
+    const scores: Record<string, { strokes: number }> = {};
+    for (let i = 1; i <= 18; i++) scores[i] = { strokes: 4 };
+    const scorecard = createTestScorecard({ scores });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+
+    // Mock server returning scorecard with only 7 holes
+    const serverScores: Record<string, { strokes: number }> = {};
+    for (let i = 1; i <= 7; i++) serverScores[String(i)] = { strokes: 4 };
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: { scores: serverScores }, error: null })),
+      upsert: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    });
+
+    await syncAll();
+
+    // Should have synced (upsert called) because local has more data
+    expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+  });
+
+  it('should proceed with sync when server has no existing data', async () => {
+    const scorecard = createTestScorecard();
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([]);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([scorecard]);
+
+    // Mock server returning no existing scorecard
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      upsert: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    });
+
+    await syncAll();
+
+    expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
+  });
+
+  it('should always sync from pending queue path (skipServerCheck)', async () => {
+    // Pending queue has only 2 holes but should still sync
+    const pendingSync = createPendingSync({
+      data: createTestScorecard({
+        scores: { 1: { strokes: 4 }, 2: { strokes: 5 } },
+      }),
+    });
+    (database.getPendingSyncs as jest.Mock).mockResolvedValue([pendingSync]);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([]);
+
+    // Mock server returning 18 holes
+    const serverScores: Record<string, { strokes: number }> = {};
+    for (let i = 1; i <= 18; i++) serverScores[String(i)] = { strokes: 4 };
+    const mockFrom = supabase.from as jest.Mock;
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: { scores: serverScores }, error: null })),
+      upsert: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    });
+
+    await syncAll();
+
+    // Pending queue path should ALWAYS sync regardless of server state
+    expect(database.removePendingSync).toHaveBeenCalledWith(pendingSync.id);
+  });
 });

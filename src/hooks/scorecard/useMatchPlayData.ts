@@ -11,13 +11,16 @@
  * - Returns match-specific data (player1, player2, holes, course info)
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { supabase } from '@/services/supabase/client';
+import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { getDisplayName } from '@/utils/displayHelpers';
 import { useRoundDetails, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundCourse } from './useRoundCourse';
-import type { Player, Hole, TeeBox } from '@/types';
+import type { Player, Scorecard, Hole, TeeBox } from '@/types';
+import type { HoleScore } from '@/types/database/base';
 import type { MatchPlayer } from '@/screens/scoring/MatchPlayScoringScreen/types';
 
 interface UseMatchPlayDataParams {
@@ -253,6 +256,98 @@ export function useMatchPlayData({
   useEffect(() => {
     initializeMatchData();
   }, [initializeMatchData]);
+
+  // Hydrate store from Supabase: merge any completed scorecards (e.g. from QuickScore)
+  // that exist in Supabase but not in the local SQLite store
+  const hydratedRoundRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const hydrateFromSupabase = async () => {
+      if (!isInitialized || !roundId || hydratedRoundRef.current === roundId) {
+        return;
+      }
+
+      hydratedRoundRef.current = roundId;
+
+      try {
+        interface RemoteScorecard {
+          player_id: string;
+          scores: Record<string, { strokes?: number }> | null;
+          total_gross: number | null;
+          total_net: number | null;
+          status: string;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+        const { data: remoteScorecards, error: fetchError } = await (supabase.from('scorecards') as any)
+          .select('player_id, scores, total_gross, total_net, status')
+          .eq('round_id', roundId)
+          .eq('status', 'completed') as { data: RemoteScorecard[] | null; error: { message: string } | null };
+
+        if (fetchError || !remoteScorecards?.length) return;
+
+        const { groupScorecards } = useScorecardStore.getState();
+        let merged = false;
+
+        for (const remote of remoteScorecards) {
+          const localScorecard = groupScorecards.get(remote.player_id);
+          if (!localScorecard) continue;
+
+          // Only merge if the local scorecard has no scores entered
+          const localHasScores = Object.keys(localScorecard.scores).length > 0 &&
+            Object.values(localScorecard.scores).some(
+              (s) => s && ('strokes' in s ? s.strokes !== undefined : true)
+            );
+          if (localHasScores) continue;
+
+          const remoteScores = remote.scores;
+          if (!remoteScores || Object.keys(remoteScores).length === 0) continue;
+
+          // Convert string-keyed Supabase scores to number-keyed store format
+          const convertedScores: { [holeNumber: number]: HoleScore } = {};
+          for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
+            const holeNum = parseInt(holeStr, 10);
+            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+              convertedScores[holeNum] = { ...scoreData, strokes: scoreData.strokes! } as HoleScore;
+            }
+          }
+
+          if (Object.keys(convertedScores).length === 0) continue;
+
+          const updatedScorecard: Scorecard = {
+            ...localScorecard,
+            scores: convertedScores,
+            totalGross: remote.total_gross ?? 0,
+            totalNet: remote.total_net ?? 0,
+            status: 'completed',
+            updatedAt: new Date(),
+          };
+
+          groupScorecards.set(remote.player_id, updatedScorecard);
+          merged = true;
+
+          try {
+            await saveScorecard(updatedScorecard);
+          } catch {
+            // Non-critical: store is already updated
+          }
+
+          roundDataLogger.info('Hydrated match play scorecard from Supabase', {
+            playerId: remote.player_id.substring(0, 8),
+            holesHydrated: Object.keys(convertedScores).length,
+          });
+        }
+
+        if (merged) {
+          useScorecardStore.setState({ groupScorecards: new Map(groupScorecards) });
+        }
+      } catch (err) {
+        roundDataLogger.warn('Failed to hydrate from Supabase', { error: err });
+      }
+    };
+
+    hydrateFromSupabase();
+  }, [isInitialized, roundId]);
 
   // Retry function
   const refetch = useCallback(() => {

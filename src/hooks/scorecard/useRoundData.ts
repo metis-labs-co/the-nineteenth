@@ -12,9 +12,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
+import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
 import { getDisplayName } from '@/utils/displayHelpers';
-import type { Player, TeamWithMembers } from '@/types';
+import type { Player, Scorecard, TeamWithMembers } from '@/types';
+import type { HoleScore } from '@/types/database/base';
 import type { TeamFormat, GameType } from '@/types/database.types';
 import type { BallCount } from '@/types/multiball.types';
 import { useRoundMetadata } from './useRoundMetadata';
@@ -90,6 +92,9 @@ export function useRoundData({
 
   // Track if we've already updated the round status to avoid duplicate calls
   const statusUpdatedRef = useRef<string | null>(null);
+
+  // Track if we've already hydrated from Supabase for this round
+  const hydratedRoundRef = useRef<string | null>(null);
 
   // Use focused hooks
   const metadata = useRoundMetadata(roundId);
@@ -283,6 +288,101 @@ export function useRoundData({
     }
   }, [isInitialized, courseHook.isLoading, courseHook.holes, storeHoles, updateHoles]);
 
+  // Hydrate store from Supabase: merge any completed scorecards (e.g. from QuickScore)
+  // that exist in Supabase but not in the local SQLite store
+  useEffect(() => {
+    const hydrateFromSupabase = async () => {
+      if (!isInitialized || !roundId || hydratedRoundRef.current === roundId) {
+        return;
+      }
+
+      hydratedRoundRef.current = roundId;
+
+      try {
+        // Fetch scorecards from Supabase for this round
+        interface RemoteScorecard {
+          player_id: string;
+          scores: Record<string, { strokes?: number }> | null;
+          total_gross: number | null;
+          total_net: number | null;
+          total_points: number | null;
+          status: string;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+        const { data: remoteScorecards, error } = await (supabase.from('scorecards') as any)
+          .select('player_id, scores, total_gross, total_net, total_points, status')
+          .eq('round_id', roundId)
+          .eq('status', 'completed') as { data: RemoteScorecard[] | null; error: { message: string } | null };
+
+        if (error || !remoteScorecards?.length) return;
+
+        const { groupScorecards } = useScorecardStore.getState();
+        let merged = false;
+
+        for (const remote of remoteScorecards) {
+          const localScorecard = groupScorecards.get(remote.player_id);
+          if (!localScorecard) continue;
+
+          // Only merge if the local scorecard has no scores entered
+          const localHasScores = Object.keys(localScorecard.scores).length > 0 &&
+            Object.values(localScorecard.scores).some(
+              (s) => s && ('strokes' in s ? s.strokes !== undefined : true)
+            );
+          if (localHasScores) continue;
+
+          const remoteScores = remote.scores;
+          if (!remoteScores || Object.keys(remoteScores).length === 0) continue;
+
+          // Convert string-keyed Supabase scores to number-keyed store format
+          const convertedScores: { [holeNumber: number]: HoleScore } = {};
+          for (const [holeStr, scoreData] of Object.entries(remoteScores)) {
+            const holeNum = parseInt(holeStr, 10);
+            if (!isNaN(holeNum) && scoreData?.strokes != null) {
+              convertedScores[holeNum] = { ...scoreData, strokes: scoreData.strokes! } as HoleScore;
+            }
+          }
+
+          if (Object.keys(convertedScores).length === 0) continue;
+
+          // Update the local scorecard with remote data
+          const updatedScorecard: Scorecard = {
+            ...localScorecard,
+            scores: convertedScores,
+            totalGross: remote.total_gross ?? 0,
+            totalNet: remote.total_net ?? 0,
+            status: 'completed',
+            updatedAt: new Date(),
+          };
+
+          groupScorecards.set(remote.player_id, updatedScorecard);
+          merged = true;
+
+          // Persist to SQLite so future offline loads pick it up
+          try {
+            await saveScorecard(updatedScorecard);
+          } catch {
+            // Non-critical: store is already updated
+          }
+
+          roundDataLogger.info('Hydrated scorecard from Supabase', {
+            playerId: remote.player_id.substring(0, 8),
+            holesHydrated: Object.keys(convertedScores).length,
+          });
+        }
+
+        if (merged) {
+          // Trigger store update so UI re-renders with hydrated data
+          useScorecardStore.setState({ groupScorecards: new Map(groupScorecards) });
+        }
+      } catch (err) {
+        roundDataLogger.warn('Failed to hydrate from Supabase', { error: err });
+      }
+    };
+
+    hydrateFromSupabase();
+  }, [isInitialized, roundId]);
+
   // Update round status to 'in-progress' when scoring begins
   // This runs separately from initialization to ensure it happens even if
   // the round was already initialized or loaded from offline
@@ -338,12 +438,15 @@ export function useRoundData({
       teamsHook.isLoading ||
       scoringPairsHook.isLoading;
 
-    const fetchError =
-      metadata.error ||
-      playersHook.error ||
-      courseHook.error ||
-      teamsHook.error ||
-      scoringPairsHook.error;
+    // Don't surface hook errors as fetchError if the store is already initialized
+    // from offline data — the hooks fail when offline but the round is still usable
+    const fetchError = (isInitialized && currentRoundId === roundId)
+      ? null
+      : (metadata.error ||
+         playersHook.error ||
+         courseHook.error ||
+         teamsHook.error ||
+         scoringPairsHook.error);
 
     // Determine if this is a solo round
     const playerCount = currentPlayers.length || playersHook.players.length;
@@ -472,6 +575,9 @@ export function useRoundData({
     currentPlayers.length,
     currentPlayers,
     competitionId,
+    isInitialized,
+    currentRoundId,
+    roundId,
   ]);
 
   const retryFetch = useCallback(() => {
