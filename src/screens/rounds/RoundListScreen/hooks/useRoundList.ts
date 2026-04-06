@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { roundListLogger } from '@/utils/debugLogger';
+import { getHolesCompletedByRounds } from '@/services/offline/dao/ScorecardDAO';
 import type { RoundItem, RoundListData, RoundPlayerInfo, UseRoundListReturn } from '../types';
 import type { UserScoreData } from '@/components/rounds/RoundListCard/types';
 import type { WinnerInfo } from '@/components/common';
@@ -352,6 +353,25 @@ export function useRoundList(): UseRoundListReturn {
           }
         } catch (err) {
           console.log('in-progress scorecard progress fetch skipped');
+        }
+      }
+
+      // 4b. Merge offline progress data (SQLite may have scores not yet synced to Supabase)
+      if (inProgressRoundIds.length > 0) {
+        try {
+          const offlineProgress = await getHolesCompletedByRounds(inProgressRoundIds, user.id);
+          if (offlineProgress.size > 0) {
+            for (const round of allRounds) {
+              if (round.status === 'in-progress' && offlineProgress.has(round.id)) {
+                const offlineCount = offlineProgress.get(round.id)!;
+                // Use the max of remote and offline counts
+                round.holesCompleted = Math.max(round.holesCompleted, offlineCount);
+              }
+            }
+          }
+        } catch (err) {
+          // Non-critical: offline DB may not have data for these rounds
+          roundListLogger.debug('Offline progress merge skipped', { error: err });
         }
       }
 

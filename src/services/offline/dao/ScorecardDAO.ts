@@ -201,6 +201,39 @@ export async function deleteScorecardsByRound(roundId: string): Promise<void> {
 }
 
 /**
+ * Get the number of scored holes per round from offline storage.
+ * Efficiently counts holes with valid scores (strokes > 0 or multi-ball data)
+ * for a specific player across multiple rounds in a single query.
+ */
+export async function getHolesCompletedByRounds(
+  roundIds: string[],
+  playerId: string
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (roundIds.length === 0) return result;
+
+  const database = await getDb();
+  const placeholders = roundIds.map(() => '?').join(',');
+
+  const rows = await database.getAllAsync<{ round_id: string; holes_scored: number }>(
+    `SELECT sc.round_id, COUNT(DISTINCT hs.hole_number) as holes_scored
+     FROM ${TABLE_NAMES.SCORECARDS} sc
+     JOIN ${TABLE_NAMES.HOLE_SCORES} hs ON hs.scorecard_id = sc.id
+     WHERE sc.round_id IN (${placeholders})
+       AND sc.player_id = ?
+       AND (hs.strokes > 0 OR hs.ball_scores IS NOT NULL)
+     GROUP BY sc.round_id`,
+    [...roundIds, playerId]
+  );
+
+  for (const row of rows) {
+    result.set(row.round_id, row.holes_scored);
+  }
+
+  return result;
+}
+
+/**
  * Mark scorecards as synced
  */
 export async function markScorecardsAsSynced(scorecardIds: string[]): Promise<void> {

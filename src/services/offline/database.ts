@@ -27,6 +27,7 @@ export {
   markAllForResync,
   deleteOrphanedScorecards,
   clearInvalidMockData,
+  getHolesCompletedByRounds,
 } from './dao/ScorecardDAO';
 
 // Hole score operations
