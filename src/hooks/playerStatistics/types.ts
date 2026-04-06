@@ -48,6 +48,7 @@ export interface CourseStats {
  */
 export interface RoundSummary {
   roundId: string;
+  courseId: string;
   competitionId: string | null;
   competitionName: string;
   courseName: string;
@@ -166,6 +167,8 @@ export interface PlayerStatistics {
   roundsPlayed: number;
   practiceRoundsPlayed: number;
   competitionRoundsPlayed: number;
+  matchPlayRoundsPlayed: number;
+  handicapRoundsPlayed: number;
   competitionsEntered: number;
   competitionsWon: number;
   holesPlayed: number;
@@ -194,6 +197,9 @@ export interface PlayerStatistics {
 
   // Recent Activity
   recentRounds: RoundSummary[];
+
+  // Game Type Breakdown
+  gameTypeBreakdown: Record<string, number>;
 
   // Scoring Percentages
   parOrBetterPercentage: number;
@@ -249,4 +255,78 @@ export interface UsePlayerStatisticsOptions {
   enabled?: boolean;
   leagueId?: string;
   competitionId?: string;
+}
+
+// =====================================================
+// COURSE STATISTICS TYPES
+// =====================================================
+
+/**
+ * Per-hole aggregated statistics for a specific course
+ */
+export interface HoleStatistics {
+  holeNumber: number;
+  par: number;
+  averageScore: number;
+  scoreToPar: number;
+  bestScore: number;
+  worstScore: number;
+  averagePutts: number | null;
+  girPercentage: number | null;
+  fairwayPercentage: number | null;
+  timesPlayed: number;
+
+  // Score distribution percentages
+  birdieOrBetterPercentage: number;
+  parPercentage: number;
+  bogeyPercentage: number;
+  doublePlusPercentage: number;
+
+  // Per-round scores at this hole (for sparkline, ordered by date)
+  scoreTrend: { date: string; score: number }[];
+}
+
+/**
+ * Complete statistics for a player at a specific course
+ */
+export interface CourseStatisticsData {
+  courseId: string;
+  courseName: string;
+  timesPlayed: number;
+  averageGrossScore: number;
+  bestGrossScore: number;
+  worstGrossScore: number;
+  averageStablefordPoints: number;
+  averageScorePerHole: number;
+  parOrBetterPercentage: number;
+  scoreDistribution: ScoreDistribution;
+  totalScoreDistribution: number;
+  holeStats: HoleStatistics[];
+  par3Stats: ParTypeStats;
+  par4Stats: ParTypeStats;
+  par5Stats: ParTypeStats;
+  recentRounds: RoundSummary[];
+
+  // Advanced stats (course-level)
+  shortGame: ShortGameStats;
+  puttingDepth: PuttingDepthStats;
+  fairwayMissDirection: FairwayMissDirectionStats;
+  greenMissDirection: GreenMissDirectionStats;
+  bunkerStats: BunkerStats;
+  hazardStats: HazardStats;
+
+  // Driving / Approach / Putting aggregates
+  totalPutts: number | null;
+  averagePuttsPerRound: number | null;
+  averagePuttsPerHole: number | null;
+  holesWithPuttsRecorded: number;
+  fairwaysHit: number | null;
+  fairwayOpportunities: number;
+  fairwayPercentage: number | null;
+  greensInRegulation: number | null;
+  girOpportunities: number;
+  girPercentage: number | null;
+
+  // Per-round trend data (for PerformanceChart + sparklines)
+  roundTrends: RoundStatPoint[];
 }
