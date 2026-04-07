@@ -26,7 +26,7 @@ import {
   IconEdit,
   IconCheck,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 
@@ -51,8 +51,8 @@ export interface PrizePoolSummaryCardProps {
 // CONSTANTS
 // ============================================================================
 
-const PRIZE_POOL_COLOR = '#059669'; // Emerald/success color for prize money
-const GOLD_COLOR = '#F59E0B'; // 1st place
+const PRIZE_POOL_COLOR = featureColors.prizePool;
+const GOLD_COLOR = '#F59E0B'; // 1st place (amber, distinct from standard medal gold)
 const SILVER_COLOR = '#9CA3AF'; // 2nd place
 const BRONZE_COLOR = '#CD7F32'; // 3rd place
 const DEFAULT_COLOR = '#6B7280'; // 4th+ place

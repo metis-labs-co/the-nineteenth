@@ -16,7 +16,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { IconTrophy, IconPlus } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 import { PrizePoolSummaryCard } from '@/components/prizePool';
 import type { PrizePoolSectionProps } from './types';
 
@@ -24,7 +24,7 @@ import type { PrizePoolSectionProps } from './types';
 // CONSTANTS
 // =====================================================
 
-const PRIZE_POOL_COLOR = '#059669'; // Emerald/success color for prize money
+const PRIZE_POOL_COLOR = featureColors.prizePool;
 
 // =====================================================
 // COMPONENT

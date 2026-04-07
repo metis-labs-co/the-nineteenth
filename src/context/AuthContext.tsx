@@ -20,7 +20,7 @@ import {
   loginToRevenueCat,
   logoutFromRevenueCat,
 } from '@/services/subscription';
-import { pushService } from '@/services/notifications/pushService';
+import { pushService } from '@/services/notifications';
 import { biometricService } from '@/services/biometric';
 import { useSettingsStore } from '@/store/settingsStore';
 import * as Linking from 'expo-linking';

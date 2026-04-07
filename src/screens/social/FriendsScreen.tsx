@@ -14,6 +14,7 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, ScrollView, RefreshControl } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { Text, Badge } from 'react-native-paper';
+import { createModuleLogger } from '@/utils/debugLogger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -43,6 +44,8 @@ import {
   useFriendsCount,
   useCheckCanAddFriend,
 } from '@/hooks/useFriends';
+
+const logger = createModuleLogger('FriendsScreen');
 
 type FriendsScreenRouteProp = RouteProp<RootStackParamList, 'Friends'>;
 
@@ -177,7 +180,7 @@ export default function FriendsScreen() {
       try {
         await acceptRequest.mutateAsync(requestId);
       } catch (error) {
-        console.error('Failed to accept request:', error);
+        logger.error('Failed to accept request', error);
       } finally {
         setAcceptingRequestId(null);
       }
@@ -191,7 +194,7 @@ export default function FriendsScreen() {
       try {
         await declineRequest.mutateAsync(requestId);
       } catch (error) {
-        console.error('Failed to decline request:', error);
+        logger.error('Failed to decline request', error);
       } finally {
         setDecliningRequestId(null);
       }
@@ -205,7 +208,7 @@ export default function FriendsScreen() {
       try {
         await cancelRequest.mutateAsync(requestId);
       } catch (error) {
-        console.error('Failed to cancel request:', error);
+        logger.error('Failed to cancel request', error);
       } finally {
         setCancellingRequestId(null);
       }
@@ -218,7 +221,7 @@ export default function FriendsScreen() {
       try {
         await removeFriend.mutateAsync(friendshipId);
       } catch (error) {
-        console.error('Failed to remove friend:', error);
+        logger.error('Failed to remove friend', error);
       }
     },
     [removeFriend]

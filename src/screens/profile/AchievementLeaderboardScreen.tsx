@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, medalColors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAchievementLeaderboard } from '@/hooks/achievements';
 import { useFriends } from '@/hooks/friends';
@@ -53,9 +53,9 @@ interface ScopeTab {
 // ============================================================================
 
 const MEDAL_COLORS = {
-  1: '#FFD700', // Gold
-  2: '#C0C0C0', // Silver
-  3: '#CD7F32', // Bronze
+  1: medalColors.gold,
+  2: medalColors.silver,
+  3: medalColors.bronze,
 } as const;
 
 const MEDAL_ICONS = {

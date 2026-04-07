@@ -11,7 +11,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { pushService } from '@/services/notifications/pushService';
+import { pushService } from '@/services/notifications';
 import { authKeys } from '../queryKeys';
 import { ensurePlayerProfile } from './utils';
 import type { AuthError } from '@supabase/supabase-js';

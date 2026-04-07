@@ -3,12 +3,12 @@ import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { SkinsResultsCard, SkinsSettlementCard } from '@/components/skins';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { spacing, borderRadius, typography, skinsColor } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSkinsSummary } from '@/hooks/useSkins';
 
 // Amber/gold color for skins
-const SKINS_COLOR = '#f59e0b';
+const SKINS_COLOR = skinsColor;
 
 interface SkinsTabContentProps {
   skinsGameId: string;

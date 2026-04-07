@@ -42,7 +42,7 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 
 // ============================================================================
 // CONSTANTS
@@ -52,7 +52,7 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 const SKINS_DISCLAIMER_STORAGE_KEY = '@skins_disclaimer_accepted';
 
 /** Warning/amber color for the icon */
-const WARNING_COLOR = '#f59e0b';
+const WARNING_COLOR = featureColors.warning;
 
 /** Disclaimer bullet points */
 const DISCLAIMER_POINTS = [

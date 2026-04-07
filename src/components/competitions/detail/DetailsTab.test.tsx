@@ -28,13 +28,20 @@ jest.mock('expo-clipboard', () => ({
   setStringAsync: (...args: unknown[]) => mockSetStringAsync(...args),
 }));
 
-// Mock react-native-toast-message
-const mockToastShow = jest.fn();
-jest.mock('react-native-toast-message', () => ({
-  __esModule: true,
-  default: {
-    show: (...args: unknown[]) => mockToastShow(...args),
-  },
+// Mock unified toast system
+const mockShowSuccessToast = jest.fn();
+jest.mock('@/context/ToastContext', () => ({
+  useToast: () => ({
+    showSuccessToast: mockShowSuccessToast,
+    showErrorToast: jest.fn(),
+    showNotificationToast: jest.fn(),
+    showAchievementToast: jest.fn(),
+    showMultipleToasts: jest.fn(),
+    showToast: jest.fn(),
+    currentToast: null,
+    isVisible: false,
+    dismissToast: jest.fn(),
+  }),
 }));
 
 // Mock icons
@@ -331,11 +338,9 @@ describe('DetailsTab', () => {
       fireEvent.press(inviteCodeButton);
 
       await waitFor(() => {
-        expect(mockToastShow).toHaveBeenCalledWith(
-          expect.objectContaining({
-            type: 'success',
-            text1: 'Copied!',
-          })
+        expect(mockShowSuccessToast).toHaveBeenCalledWith(
+          'Copied!',
+          'Invite code copied to clipboard',
         );
       });
     });

@@ -42,7 +42,7 @@ import {
 import { Text, Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows, wolfColor } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, wolfColor, featureColors } from '@/constants/theme';
 
 // ============================================================================
 // CONSTANTS
@@ -53,7 +53,7 @@ const WOLF_DISCLAIMER_STORAGE_KEY = '@wolf_disclaimer_accepted';
 
 
 /** Warning/amber color for the icon */
-const WARNING_COLOR = '#f59e0b';
+const WARNING_COLOR = featureColors.warning;
 
 /** Disclaimer bullet points */
 const DISCLAIMER_POINTS = [

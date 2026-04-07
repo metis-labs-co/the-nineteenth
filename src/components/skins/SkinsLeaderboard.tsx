@@ -28,7 +28,7 @@ import {
 import { Text, Icon, Avatar, ActivityIndicator } from 'react-native-paper';
 import { EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, skinsColor, medalColors } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skins';
 import type { SkinsLeaderboardEntry } from '@/hooks/useSkins';
 
@@ -64,9 +64,9 @@ export interface SkinsLeaderboardProps {
 // ============================================================================
 
 const MEDAL_COLORS = {
-  1: '#FFD700', // Gold
-  2: '#C0C0C0', // Silver
-  3: '#CD7F32', // Bronze
+  1: medalColors.gold,
+  2: medalColors.silver,
+  3: medalColors.bronze,
 };
 
 const MEDAL_ICONS = {

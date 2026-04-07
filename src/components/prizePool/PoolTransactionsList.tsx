@@ -32,7 +32,7 @@ import {
   IconAdjustmentsAlt,
   IconReceipt,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { PoolTransaction, PoolTransactionType } from '@/types';
 
@@ -63,9 +63,9 @@ export interface PoolTransactionsListProps {
 // CONSTANTS
 // ============================================================================
 
-const PRIZE_POOL_COLOR = '#059669'; // Emerald/success
-const ERROR_COLOR = '#DC2626'; // Red for debits
-const ADJUSTMENT_COLOR = '#6B7280'; // Gray for adjustments
+const PRIZE_POOL_COLOR = featureColors.prizePool;
+const ERROR_COLOR = featureColors.error;
+const ADJUSTMENT_COLOR = featureColors.adjustment;
 
 const FILTER_TABS: { key: TransactionFilter; label: string }[] = [
   { key: 'all', label: 'All' },

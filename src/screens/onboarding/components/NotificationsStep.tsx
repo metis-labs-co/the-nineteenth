@@ -11,7 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { OnboardingCard } from './OnboardingCard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { pushService } from '@/services/notifications/pushService';
+import { pushService } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
 import type { StepProps } from '../OnboardingScreen';
 

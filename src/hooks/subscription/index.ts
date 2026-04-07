@@ -42,3 +42,9 @@ export type {
   UseFeatureGateReturn,
   UseSubscriptionReturn,
 } from './types';
+
+// Subscription helper hooks
+export { useCompetitionCount } from './helpers';
+
+// Stats visibility with tier
+export { useStatsVisibilityWithTier } from './statsVisibility';

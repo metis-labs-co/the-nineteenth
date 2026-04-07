@@ -12,8 +12,8 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import {
   spacing,
   typography,
@@ -34,12 +34,9 @@ import { PICKUP_SCORE } from '@/constants/scoring';
 
 import { StatsRow } from '../PlayerScoreCard/StatsRow';
 import { ExtendedScorePickerModal } from './ExtendedScorePickerModal';
-import {
-  SCORE_BUTTONS,
-  formatRelativeToPar,
-  formatParScoreDisplay,
-  getParScoreLabel,
-} from './scoreCardHelpers';
+import { PlayerHeader } from './PlayerHeader';
+import { ScoreButtons } from './ScoreButtons';
+import { CurrentScoreDisplay } from './CurrentScoreDisplay';
 
 interface StrokePlayScoreCardProps {
   player: Player;
@@ -157,12 +154,6 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
     [disabled, currentHole.par, onScoreSelect]
   );
 
-  const handlePlayerPress = useCallback(() => {
-    if (onPlayerPress) {
-      onPlayerPress(player.id);
-    }
-  }, [onPlayerPress, player.id]);
-
   // Handle pick up
   const handlePickUp = useCallback(() => {
     if (!disabled) {
@@ -218,196 +209,47 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
       )}
 
       {/* Player Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[
-            styles.playerInfo,
-            onPlayerPress && styles.playerInfoTappable,
-          ]}
-          onPress={handlePlayerPress}
-          disabled={!onPlayerPress}
-          activeOpacity={0.7}
-          accessibilityLabel={`View ${player.name}'s scorecard`}
-          accessibilityRole="button"
-        >
-          <View style={styles.playerNameRow}>
-            {teeDotColor && (
-              <View style={[styles.teeDot, { backgroundColor: teeDotColor }]} />
-            )}
-            <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {player.name}
-            </Text>
-          </View>
-          <View style={styles.handicapRow}>
-            <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
-              HC: {handicap}
-            </Text>
-            {strokesReceived > 0 && (
-              <View style={[styles.shotsReceivedBadge, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.shotsReceivedText, { color: colors.textOnColored }]}>
-                  +{strokesReceived} shot{strokesReceived > 1 ? 's' : ''}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Running Totals */}
-        <View style={styles.statsContainer}>
-          {displayMode === 'par' ? (
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                {formatParScoreDisplay(runningParScore)}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>SCORE</Text>
-            </View>
-          ) : (
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                {runningGross > 0 ? formatRelativeToPar(runningGross - cumulativePar) : '-'}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GROSS</Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <PlayerHeader
+        playerName={player.name}
+        playerId={player.id}
+        handicap={handicap}
+        strokesReceived={strokesReceived}
+        runningGross={runningGross}
+        cumulativePar={cumulativePar}
+        displayMode={displayMode}
+        runningParScore={runningParScore}
+        teeDotColor={teeDotColor}
+        onPlayerPress={onPlayerPress}
+      />
 
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {/* Score relative to par label */}
-      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-        Score Relative to Par (Par {currentHole.par})
-      </Text>
-
-      {/* Relative-to-Par Buttons */}
-      <View style={styles.scoreButtonsContainer}>
-        {SCORE_BUTTONS.map((button) => {
-          const strokes = currentHole.par + button.relativeToPar;
-          const isSelected = selectedScore === strokes && !isPickedUp;
-          const buttonColor = colors[button.colorKey];
-
-          return (
-            <TouchableOpacity
-              key={button.label}
-              style={[
-                styles.scoreButton,
-                { borderColor: buttonColor },
-                isSelected && { backgroundColor: buttonColor },
-              ]}
-              onPress={() => handleScoreButtonPress(button.relativeToPar)}
-              disabled={disabled || strokes < 1}
-              accessibilityLabel={`Score ${button.label}`}
-              accessibilityState={{ selected: isSelected }}
-            >
-              <Text
-                style={[
-                  styles.scoreButtonNumber,
-                  { color: isSelected ? colors.textOnColored : buttonColor },
-                ]}
-              >
-                {button.relativeToPar > 0 ? `+${button.relativeToPar}` : button.relativeToPar === 0 ? 'E' : button.relativeToPar}
-              </Text>
-              <Text
-                style={[
-                  styles.scoreButtonLabel,
-                  { color: isSelected ? colors.textOnColored : buttonColor },
-                ]}
-              >
-                {button.shortLabel}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* MORE button for extended scores */}
-        <TouchableOpacity
-          style={[
-            styles.scoreButton,
-            styles.moreButton,
-            { borderColor: colors.textSecondary },
-          ]}
-          onPress={() => setShowExtendedPicker(true)}
-          disabled={disabled}
-          accessibilityLabel="More score options"
-        >
-          <Icon source="dots-horizontal" size={20} color={colors.textSecondary} />
-          <Text style={[styles.scoreButtonLabel, { color: colors.textSecondary }]}>
-            MORE
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Score Buttons */}
+      <ScoreButtons
+        currentHolePar={currentHole.par}
+        selectedScore={selectedScore}
+        isPickedUp={isPickedUp}
+        disabled={disabled}
+        onScoreButtonPress={handleScoreButtonPress}
+        onMorePress={() => setShowExtendedPicker(true)}
+      />
 
       {/* Current Score Display */}
-      <View style={[styles.currentScoreContainer, { backgroundColor: colors.surface }]}>
-        {isPickedUp ? (
-          <View style={styles.currentScoreRow}>
-            <Text style={[styles.currentScoreLabel, { color: colors.textSecondary }]}>
-              Picked Up
-            </Text>
-            <TouchableOpacity
-              style={[styles.undoButton, { borderColor: colors.border }]}
-              onPress={() => onScoreSelect(currentHole.par)}
-              disabled={disabled}
-            >
-              <Text style={[styles.undoButtonText, { color: colors.textSecondary }]}>
-                Undo
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : selectedScore ? (
-          <View style={styles.currentScoreRow}>
-            <Text style={[styles.currentScoreLabel, { color: colors.textSecondary }]}>
-              Current:
-            </Text>
-            <View style={styles.currentScoreValue}>
-              <Text
-                style={[
-                  styles.currentScoreNumber,
-                  { color: displayMode === 'par' ? getParScoreColor(currentParScore) : getScoreColor(currentRelativeToPar) },
-                ]}
-              >
-                {selectedScore}
-              </Text>
-              <Text style={[styles.currentScoreEquals, { color: colors.textSecondary }]}>
-                =
-              </Text>
-              {displayMode === 'par' ? (
-                <Text
-                  style={[
-                    styles.currentScoreRelative,
-                    { color: getParScoreColor(currentParScore) },
-                  ]}
-                >
-                  {formatParScoreDisplay(currentParScore ?? 0)} ({getParScoreLabel(currentParScore)})
-                </Text>
-              ) : (
-                <Text
-                  style={[
-                    styles.currentScoreRelative,
-                    { color: getScoreColor(currentRelativeToPar) },
-                  ]}
-                >
-                  {formatRelativeToPar(currentRelativeToPar)} ({scoreDescription})
-                </Text>
-              )}
-            </View>
-            <TouchableOpacity
-              style={[styles.pickUpButton, { backgroundColor: colors.error + '20' }]}
-              onPress={handlePickUp}
-              disabled={disabled}
-            >
-              <Text style={[styles.pickUpButtonText, { color: colors.error }]}>
-                Pick Up
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Text style={[styles.noScoreText, { color: colors.textSecondary }]}>
-            Tap a score above
-          </Text>
-        )}
-      </View>
+      <CurrentScoreDisplay
+        selectedScore={selectedScore}
+        isPickedUp={isPickedUp}
+        currentRelativeToPar={currentRelativeToPar}
+        scoreDescription={scoreDescription}
+        displayMode={displayMode}
+        currentParScore={currentParScore}
+        currentHolePar={currentHole.par}
+        disabled={disabled}
+        onScoreSelect={onScoreSelect}
+        onPickUp={handlePickUp}
+        getScoreColor={getScoreColor}
+        getParScoreColor={getParScoreColor}
+      />
 
       {/* Stats Row */}
       {showStatsRow && (
@@ -466,159 +308,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  playerInfo: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  playerInfoTappable: {
-    borderRadius: borderRadius.md,
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-    marginTop: -spacing.xs,
-  },
-  playerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  teeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  playerName: {
-    ...typography.h3,
-    flexShrink: 1,
-  },
-  handicapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  handicapLabel: {
-    ...typography.body,
-  },
-  shotsReceivedBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: borderRadius.sm,
-  },
-  shotsReceivedText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    lineHeight: 34,
-  },
-  statLabel: {
-    ...typography.small,
-    fontWeight: '600',
-    marginTop: spacing.xs,
-  },
   divider: {
     height: 1,
     marginVertical: spacing.lg,
-  },
-  sectionLabel: {
-    ...typography.small,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  scoreButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  scoreButton: {
-    width: 52,
-    height: 52,
-    borderRadius: borderRadius.md,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreButton: {
-    borderStyle: 'dashed',
-  },
-  scoreButtonNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  scoreButtonLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  currentScoreContainer: {
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  currentScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  currentScoreLabel: {
-    ...typography.body,
-  },
-  currentScoreValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  currentScoreNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  currentScoreEquals: {
-    ...typography.body,
-  },
-  currentScoreRelative: {
-    ...typography.bodyBold,
-  },
-  pickUpButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  pickUpButtonText: {
-    ...typography.smallBold,
-  },
-  undoButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  undoButtonText: {
-    ...typography.smallBold,
-  },
-  noScoreText: {
-    ...typography.body,
-    textAlign: 'center',
   },
 });
 

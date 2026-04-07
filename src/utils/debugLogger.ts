@@ -71,8 +71,16 @@ function addToBuffer(entry: LogEntry): void {
 
 /**
  * Create a logger for a specific module
+ *
+ * @example
+ * ```ts
+ * import { createModuleLogger } from '@/utils/debugLogger';
+ * const logger = createModuleLogger('TeesService');
+ * logger.info('Fetching tees', { courseId });
+ * logger.error('Fetch failed', error);
+ * ```
  */
-function createModuleLogger(module: string) {
+export function createModuleLogger(module: string) {
   const log = (
     level: LogLevel,
     message: string,

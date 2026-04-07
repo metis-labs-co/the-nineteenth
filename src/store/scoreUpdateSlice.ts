@@ -148,13 +148,13 @@ export async function updatePlayerHoleScore(
   const { groupScorecards, holes, gameType, allowedPlayerIds } = get();
 
   if (allowedPlayerIds.length > 0 && !allowedPlayerIds.includes(playerId)) {
-    console.warn('[ScorecardStore] Player not in allowed list, rejecting hole score update:', playerId);
+    storeLogger.warn('Player not in allowed list, rejecting hole score update', { playerId });
     return;
   }
 
   const scorecard = groupScorecards.get(playerId);
   if (!scorecard) {
-    console.warn('[ScorecardStore] Scorecard not found for player:', playerId);
+    storeLogger.warn('Scorecard not found for player', { playerId });
     return;
   }
 

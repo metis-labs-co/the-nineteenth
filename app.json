@@ -54,7 +54,7 @@
         "backgroundColor": "#1f2937"
       },
       "package": "com.the.nineteenth.golf",
-      "versionCode": 17,
+      "versionCode": 18,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

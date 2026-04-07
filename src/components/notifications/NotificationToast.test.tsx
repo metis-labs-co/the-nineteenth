@@ -12,14 +12,8 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import NotificationToastComponent, {
-  toastConfig,
-  showNotificationToast,
-} from './NotificationToast';
+import { NotificationToastCard } from '@/components/common/Toast/variants/NotificationToastCard';
 import type { Notification, NotificationType } from '@/types/database.types';
-
-// Import the mocked module to access mock functions
-import Toast from 'react-native-toast-message';
 
 // Mock ThemeContext
 const mockColors = {
@@ -58,15 +52,6 @@ jest.mock('react-native-paper', () => {
   };
 });
 
-// Mock react-native-toast-message
-jest.mock('react-native-toast-message', () => ({
-  __esModule: true,
-  default: {
-    show: jest.fn(),
-    hide: jest.fn(),
-  },
-}));
-const mockToast = Toast as unknown as { show: jest.Mock; hide: jest.Mock };
 
 // ===========================================================================
 // TEST FIXTURES
@@ -94,7 +79,7 @@ function createMockNotification(
   };
 }
 
-describe('NotificationToastComponent', () => {
+describe('NotificationToastCard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -108,7 +93,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('competition_player_added', {
         competition_name: 'Test Competition',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Added to Competition')).toBeTruthy();
     });
 
@@ -116,7 +101,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('competition_player_added', {
         competition_name: 'Test',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByTestId('icon-trophy-outline')).toBeTruthy();
     });
 
@@ -124,7 +109,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('new_round_created', {
         course_name: 'Royal Melbourne',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('New Round Created')).toBeTruthy();
     });
 
@@ -132,13 +117,13 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('friend_request_received', {
         requester_name: 'John Smith',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('John Smith sent you a friend request')).toBeTruthy();
     });
 
     it('renders chevron icon', () => {
       const notification = createMockNotification('competition_player_added');
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByTestId('icon-chevron-right')).toBeTruthy();
     });
 
@@ -147,7 +132,7 @@ describe('NotificationToastComponent', () => {
         player_name: 'Jane Doe',
         date: '25/12/2024',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
 
       // Icon
       expect(screen.getByTestId('icon-clipboard-check-outline')).toBeTruthy();
@@ -168,13 +153,13 @@ describe('NotificationToastComponent', () => {
     describe('competition_player_added', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('competition_player_added');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-trophy-outline')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('competition_player_added');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Added to Competition')).toBeTruthy();
       });
 
@@ -183,7 +168,7 @@ describe('NotificationToastComponent', () => {
           added_by_name: 'John Smith',
           competition_name: 'Summer League',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('John Smith added you to Summer League')).toBeTruthy();
       });
 
@@ -191,7 +176,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_player_added', {
           competition_name: 'Winter Cup',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('You were added to Winter Cup')).toBeTruthy();
       });
 
@@ -199,13 +184,13 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_player_added', {
           added_by_name: 'Admin',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Admin added you to a competition')).toBeTruthy();
       });
 
       it('renders minimal fallback message', () => {
         const notification = createMockNotification('competition_player_added', {});
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('You were added to a competition')).toBeTruthy();
       });
     });
@@ -213,13 +198,13 @@ describe('NotificationToastComponent', () => {
     describe('competition_player_joined', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('competition_player_joined');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-account-plus')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('competition_player_joined');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('New Player Joined')).toBeTruthy();
       });
 
@@ -228,7 +213,7 @@ describe('NotificationToastComponent', () => {
           player_name: 'Sarah Connor',
           competition_name: 'Club Championship',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Sarah Connor joined Club Championship')).toBeTruthy();
       });
 
@@ -236,7 +221,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_player_joined', {
           competition_name: 'Monthly Medal',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Someone joined Monthly Medal')).toBeTruthy();
       });
 
@@ -244,7 +229,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_player_joined', {
           player_name: 'Mike Johnson',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Mike Johnson joined your competition')).toBeTruthy();
       });
     });
@@ -252,13 +237,13 @@ describe('NotificationToastComponent', () => {
     describe('new_round_created', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('new_round_created');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-golf')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('new_round_created');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('New Round Created')).toBeTruthy();
       });
 
@@ -268,7 +253,7 @@ describe('NotificationToastComponent', () => {
           date: '01/01/2025',
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Round 3 at Kingston Heath on 01/01/2025')).toBeTruthy();
       });
 
@@ -276,7 +261,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('new_round_created', {
           course_name: 'Victoria Golf Club',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Round  at Victoria Golf Club')).toBeTruthy();
       });
 
@@ -284,13 +269,13 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('new_round_created', {
           date: '15/03/2025',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Round  at 15/03/2025')).toBeTruthy();
       });
 
       it('renders fallback message without course or date', () => {
         const notification = createMockNotification('new_round_created', {});
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('A new round has been created')).toBeTruthy();
       });
     });
@@ -298,13 +283,13 @@ describe('NotificationToastComponent', () => {
     describe('competition_status_changed', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('competition_status_changed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-flag-checkered')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('competition_status_changed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Competition Updated')).toBeTruthy();
       });
 
@@ -313,7 +298,7 @@ describe('NotificationToastComponent', () => {
           competition_name: 'Spring Open',
           new_status: 'in-progress',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Spring Open is now in progress')).toBeTruthy();
       });
 
@@ -321,7 +306,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_status_changed', {
           competition_name: 'Autumn Cup',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Autumn Cup status changed')).toBeTruthy();
       });
 
@@ -329,7 +314,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('competition_status_changed', {
           new_status: 'completed',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Competition is now completed')).toBeTruthy();
       });
     });
@@ -337,13 +322,13 @@ describe('NotificationToastComponent', () => {
     describe('scorecard_submitted', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('scorecard_submitted');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-clipboard-check-outline')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('scorecard_submitted');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Scorecard Submitted')).toBeTruthy();
       });
 
@@ -352,7 +337,7 @@ describe('NotificationToastComponent', () => {
           player_name: 'Tom Watson',
           date: '25/12/2024',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Tom Watson submitted their scorecard for 25/12/2024')).toBeTruthy();
       });
 
@@ -360,7 +345,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('scorecard_submitted', {
           player_name: 'Tiger Woods',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Tiger Woods submitted their scorecard')).toBeTruthy();
       });
 
@@ -368,7 +353,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('scorecard_submitted', {
           date: '01/01/2025',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('A player submitted their scorecard for 01/01/2025')).toBeTruthy();
       });
     });
@@ -376,13 +361,13 @@ describe('NotificationToastComponent', () => {
     describe('friend_request_received', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('friend_request_received');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-account-plus-outline')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('friend_request_received');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Friend Request')).toBeTruthy();
       });
 
@@ -390,13 +375,13 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('friend_request_received', {
           requester_name: 'Rory McIlroy',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Rory McIlroy sent you a friend request')).toBeTruthy();
       });
 
       it('renders fallback message without requester_name', () => {
         const notification = createMockNotification('friend_request_received', {});
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Someone sent you a friend request')).toBeTruthy();
       });
     });
@@ -404,13 +389,13 @@ describe('NotificationToastComponent', () => {
     describe('friend_request_accepted', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('friend_request_accepted');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-account-check')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('friend_request_accepted');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Friend Request Accepted')).toBeTruthy();
       });
 
@@ -418,13 +403,13 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('friend_request_accepted', {
           accepter_name: 'Phil Mickelson',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Phil Mickelson accepted your friend request')).toBeTruthy();
       });
 
       it('renders fallback message without accepter_name', () => {
         const notification = createMockNotification('friend_request_accepted', {});
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Your friend request was accepted your friend request')).toBeTruthy();
       });
     });
@@ -432,13 +417,13 @@ describe('NotificationToastComponent', () => {
     describe('social_round_invitation', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('social_round_invitation');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-golf-tee')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('social_round_invitation');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Round Invitation')).toBeTruthy();
       });
 
@@ -447,7 +432,7 @@ describe('NotificationToastComponent', () => {
           inviter_name: 'Jordan Spieth',
           venue_name: 'Augusta National',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Jordan Spieth invited you to play at Augusta National')).toBeTruthy();
       });
 
@@ -455,7 +440,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('social_round_invitation', {
           inviter_name: 'Dustin Johnson',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Dustin Johnson invited you to play')).toBeTruthy();
       });
 
@@ -463,7 +448,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('social_round_invitation', {
           venue_name: 'Pebble Beach',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Someone invited you to play at Pebble Beach')).toBeTruthy();
       });
     });
@@ -471,13 +456,13 @@ describe('NotificationToastComponent', () => {
     describe('skins_game_completed', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('skins_game_completed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-cards-playing-outline')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('skins_game_completed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins Game Complete')).toBeTruthy();
       });
 
@@ -489,7 +474,7 @@ describe('NotificationToastComponent', () => {
           net_result: 45.00,
           currency: 'AUD',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins game completed for Round 3 of Summer Cup. You won 2 holes (+$45.00)')).toBeTruthy();
       });
 
@@ -498,7 +483,7 @@ describe('NotificationToastComponent', () => {
           competition_name: 'Summer Cup',
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins game completed for Round 3 of Summer Cup')).toBeTruthy();
       });
     });
@@ -506,13 +491,13 @@ describe('NotificationToastComponent', () => {
     describe('skins_game_cancelled', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('skins_game_cancelled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-cards-playing-outline')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('skins_game_cancelled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins Game Cancelled')).toBeTruthy();
       });
 
@@ -521,7 +506,7 @@ describe('NotificationToastComponent', () => {
           competition_name: 'Summer Cup',
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins game for Round 3 of Summer Cup has been cancelled')).toBeTruthy();
       });
 
@@ -529,7 +514,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('skins_game_cancelled', {
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Skins game at the course has been cancelled')).toBeTruthy();
       });
     });
@@ -537,13 +522,13 @@ describe('NotificationToastComponent', () => {
     describe('wolf_game_completed', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('wolf_game_completed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-paw')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('wolf_game_completed');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf Game Complete')).toBeTruthy();
       });
 
@@ -556,7 +541,7 @@ describe('NotificationToastComponent', () => {
           pot_enabled: true,
           currency: 'AUD',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf game completed for Round 3 of Summer Cup. You finished with 8 pts (+$32.00)')).toBeTruthy();
       });
 
@@ -565,7 +550,7 @@ describe('NotificationToastComponent', () => {
           competition_name: 'Summer Cup',
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf game completed for Round 3 of Summer Cup')).toBeTruthy();
       });
     });
@@ -573,13 +558,13 @@ describe('NotificationToastComponent', () => {
     describe('wolf_game_cancelled', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('wolf_game_cancelled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-paw')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('wolf_game_cancelled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf Game Cancelled')).toBeTruthy();
       });
 
@@ -588,7 +573,7 @@ describe('NotificationToastComponent', () => {
           competition_name: 'Summer Cup',
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf game for Round 3 of Summer Cup has been cancelled')).toBeTruthy();
       });
 
@@ -596,7 +581,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('wolf_game_cancelled', {
           round_number: 3,
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Wolf game at the course has been cancelled')).toBeTruthy();
       });
     });
@@ -604,13 +589,13 @@ describe('NotificationToastComponent', () => {
     describe('prize_pool_settled', () => {
       it('renders correct icon', () => {
         const notification = createMockNotification('prize_pool_settled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByTestId('icon-trophy')).toBeTruthy();
       });
 
       it('renders correct title', () => {
         const notification = createMockNotification('prize_pool_settled');
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Prize Pool Settled')).toBeTruthy();
       });
 
@@ -622,7 +607,7 @@ describe('NotificationToastComponent', () => {
           payout_amount: 150.00,
           currency: 'AUD',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Prize pool settled for Summer Cup. You placed 2nd and won $150.00')).toBeTruthy();
       });
 
@@ -630,7 +615,7 @@ describe('NotificationToastComponent', () => {
         const notification = createMockNotification('prize_pool_settled', {
           competition_name: 'Summer Cup',
         });
-        render(<NotificationToastComponent notification={notification} />);
+        render(<NotificationToastCard notification={notification} />);
         expect(screen.getByText('Prize pool for Summer Cup has been settled. Check the results!')).toBeTruthy();
       });
     });
@@ -646,7 +631,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('competition_player_added', {
         competition_name: 'Test',
       });
-      render(<NotificationToastComponent notification={notification} onPress={onPress} />);
+      render(<NotificationToastCard notification={notification} onPress={onPress} />);
 
       const toast = screen.getByRole('button');
       fireEvent.press(toast);
@@ -656,7 +641,7 @@ describe('NotificationToastComponent', () => {
 
     it('works without onPress prop', () => {
       const notification = createMockNotification('new_round_created');
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
 
       const toast = screen.getByRole('button');
       // Should not throw
@@ -666,7 +651,7 @@ describe('NotificationToastComponent', () => {
     it('calls onPress multiple times on multiple taps', () => {
       const onPress = jest.fn();
       const notification = createMockNotification('friend_request_received');
-      render(<NotificationToastComponent notification={notification} onPress={onPress} />);
+      render(<NotificationToastCard notification={notification} onPress={onPress} />);
 
       const toast = screen.getByRole('button');
       fireEvent.press(toast);
@@ -686,7 +671,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('competition_player_added', {
         competition_name: 'Test',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByRole('button')).toBeTruthy();
     });
 
@@ -694,7 +679,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('friend_request_received', {
         requester_name: 'John Doe',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(
         screen.getByLabelText('Friend Request. John Doe sent you a friend request. Tap to view.')
       ).toBeTruthy();
@@ -719,129 +704,11 @@ describe('NotificationToastComponent', () => {
 
       types.forEach((type) => {
         const notification = createMockNotification(type, {});
-        const { unmount } = render(<NotificationToastComponent notification={notification} />);
+        const { unmount } = render(<NotificationToastCard notification={notification} />);
         const toast = screen.getByRole('button');
         expect(toast.props.accessibilityLabel).toContain('. Tap to view.');
         unmount();
       });
-    });
-  });
-
-  // ===========================================================================
-  // TOAST CONFIG
-  // ===========================================================================
-
-  describe('toastConfig', () => {
-    it('has notification type configured', () => {
-      expect(toastConfig).toHaveProperty('notification');
-      expect(typeof toastConfig.notification).toBe('function');
-    });
-
-    it('renders NotificationToastComponent via config', () => {
-      const notification = createMockNotification('competition_player_added', {
-        competition_name: 'Config Test',
-      });
-      const onPress = jest.fn();
-
-      const ToastComponent = toastConfig.notification as (params: any) => React.ReactElement;
-      const element = ToastComponent({
-        props: { notification, onPress },
-      });
-
-      render(element);
-      expect(screen.getByText('Added to Competition')).toBeTruthy();
-      expect(screen.getByText('You were added to Config Test')).toBeTruthy();
-    });
-
-    it('handles missing props gracefully', () => {
-      const ToastComponent = toastConfig.notification as (params: any) => React.ReactElement;
-
-      // This would cause an error in the actual component but tests the config
-      expect(() => {
-        ToastComponent({ props: {} });
-      }).not.toThrow();
-    });
-  });
-
-  // ===========================================================================
-  // SHOW NOTIFICATION TOAST
-  // ===========================================================================
-
-  describe('showNotificationToast', () => {
-    beforeEach(() => {
-      mockToast.show.mockClear();
-      mockToast.hide.mockClear();
-    });
-
-    it('calls Toast.show with correct parameters', () => {
-      const notification = createMockNotification('competition_player_added', {
-        competition_name: 'Test',
-      });
-      const onPress = jest.fn();
-
-      showNotificationToast(notification, onPress);
-
-      expect(mockToast.show).toHaveBeenCalledTimes(1);
-      expect(mockToast.show).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'notification',
-          visibilityTime: 4000,
-          topOffset: 0,
-        })
-      );
-    });
-
-    it('includes notification in props', () => {
-      const notification = createMockNotification('new_round_created');
-
-      showNotificationToast(notification);
-
-      const callArgs = mockToast.show.mock.calls[0][0];
-      expect(callArgs.props.notification).toBe(notification);
-    });
-
-    it('wraps onPress to hide toast first', () => {
-      const notification = createMockNotification('friend_request_received');
-      const onPress = jest.fn();
-
-      showNotificationToast(notification, onPress);
-
-      const callArgs = mockToast.show.mock.calls[0][0];
-      const wrappedOnPress = callArgs.props.onPress;
-
-      // Call the wrapped function
-      wrappedOnPress();
-
-      expect(mockToast.hide).toHaveBeenCalledTimes(1);
-      expect(onPress).toHaveBeenCalledTimes(1);
-    });
-
-    it('handles no onPress callback', () => {
-      const notification = createMockNotification('scorecard_submitted');
-
-      showNotificationToast(notification);
-
-      const callArgs = mockToast.show.mock.calls[0][0];
-      const wrappedOnPress = callArgs.props.onPress;
-
-      // Should not throw
-      wrappedOnPress();
-      expect(mockToast.hide).toHaveBeenCalledTimes(1);
-    });
-
-    it('sets up onPress handler on Toast.show', () => {
-      const notification = createMockNotification('competition_status_changed');
-      const onPress = jest.fn();
-
-      showNotificationToast(notification, onPress);
-
-      const callArgs = mockToast.show.mock.calls[0][0];
-      expect(callArgs.onPress).toBeDefined();
-
-      // Test the outer onPress
-      callArgs.onPress();
-      expect(mockToast.hide).toHaveBeenCalled();
-      expect(onPress).toHaveBeenCalled();
     });
   });
 
@@ -852,7 +719,7 @@ describe('NotificationToastComponent', () => {
   describe('Edge Cases', () => {
     it('handles empty data object', () => {
       const notification = createMockNotification('competition_player_added', {});
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Added to Competition')).toBeTruthy();
       expect(screen.getByText('You were added to a competition')).toBeTruthy();
     });
@@ -861,7 +728,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('friend_request_received', {
         requester_name: "O'Brien & Smith",
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText("O'Brien & Smith sent you a friend request")).toBeTruthy();
     });
 
@@ -870,7 +737,7 @@ describe('NotificationToastComponent', () => {
         competition_name: 'The Very Long Named Golf Competition Championship 2024-2025 Season',
         added_by_name: 'Admin',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(
         screen.getByText(
           'Admin added you to The Very Long Named Golf Competition Championship 2024-2025 Season'
@@ -883,7 +750,7 @@ describe('NotificationToastComponent', () => {
         player_name: '田中太郎',
         competition_name: 'ゴルフ大会',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('田中太郎 joined ゴルフ大会')).toBeTruthy();
     });
 
@@ -892,7 +759,7 @@ describe('NotificationToastComponent', () => {
         inviter_name: 'John 🏌️',
         venue_name: 'Golf Club ⛳',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('John 🏌️ invited you to play at Golf Club ⛳')).toBeTruthy();
     });
 
@@ -901,7 +768,7 @@ describe('NotificationToastComponent', () => {
         round_number: 10,
         course_name: 'Test Course',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Round 10 at Test Course')).toBeTruthy();
     });
 
@@ -910,7 +777,7 @@ describe('NotificationToastComponent', () => {
         round_number: 0,
         course_name: 'Practice Round',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       // round_number 0 is falsy so it shows empty string
       expect(screen.getByText('Round  at Practice Round')).toBeTruthy();
     });
@@ -919,7 +786,7 @@ describe('NotificationToastComponent', () => {
       const notification = createMockNotification('friend_request_received', {
         requester_name: '   ',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('    sent you a friend request')).toBeTruthy();
     });
   });
@@ -931,14 +798,14 @@ describe('NotificationToastComponent', () => {
   describe('Styling', () => {
     it('applies theme colors', () => {
       const notification = createMockNotification('competition_player_added');
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       // Component renders - styling is applied internally
       expect(screen.getByRole('button')).toBeTruthy();
     });
 
     it('uses safe area insets for top margin', () => {
       const notification = createMockNotification('new_round_created');
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       // The component uses useSafeAreaInsets() - we mock it returning top: 44
       expect(screen.getByRole('button')).toBeTruthy();
     });
@@ -964,7 +831,7 @@ describe('NotificationToastComponent', () => {
           read_at: '2024-12-25T11:00:00Z',
         }
       );
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Scorecard Submitted')).toBeTruthy();
     });
 
@@ -974,7 +841,7 @@ describe('NotificationToastComponent', () => {
         { accepter_name: 'Friend' },
         { is_read: true, read_at: '2024-12-25T12:00:00Z' }
       );
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       // Component should still render the same way
       expect(screen.getByText('Friend Request Accepted')).toBeTruthy();
     });
@@ -985,7 +852,7 @@ describe('NotificationToastComponent', () => {
         { requester_name: 'New Friend' },
         { friendship_id: 'friendship-123' }
       );
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Friend Request')).toBeTruthy();
     });
   });
@@ -997,14 +864,14 @@ describe('NotificationToastComponent', () => {
   describe('Component Props', () => {
     it('renders with only required notification prop', () => {
       const notification = createMockNotification('competition_player_added');
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Added to Competition')).toBeTruthy();
     });
 
     it('renders with notification and onPress props', () => {
       const notification = createMockNotification('new_round_created');
       const onPress = jest.fn();
-      render(<NotificationToastComponent notification={notification} onPress={onPress} />);
+      render(<NotificationToastCard notification={notification} onPress={onPress} />);
       expect(screen.getByText('New Round Created')).toBeTruthy();
     });
 
@@ -1016,10 +883,10 @@ describe('NotificationToastComponent', () => {
         accepter_name: 'Jane',
       });
 
-      const { rerender } = render(<NotificationToastComponent notification={notification1} />);
+      const { rerender } = render(<NotificationToastCard notification={notification1} />);
       expect(screen.getByText('John sent you a friend request')).toBeTruthy();
 
-      rerender(<NotificationToastComponent notification={notification2} />);
+      rerender(<NotificationToastCard notification={notification2} />);
       expect(screen.getByText('Jane accepted your friend request')).toBeTruthy();
     });
 
@@ -1029,13 +896,13 @@ describe('NotificationToastComponent', () => {
       const onPress2 = jest.fn();
 
       const { rerender } = render(
-        <NotificationToastComponent notification={notification} onPress={onPress1} />
+        <NotificationToastCard notification={notification} onPress={onPress1} />
       );
       fireEvent.press(screen.getByRole('button'));
       expect(onPress1).toHaveBeenCalledTimes(1);
       expect(onPress2).not.toHaveBeenCalled();
 
-      rerender(<NotificationToastComponent notification={notification} onPress={onPress2} />);
+      rerender(<NotificationToastCard notification={notification} onPress={onPress2} />);
       fireEvent.press(screen.getByRole('button'));
       expect(onPress1).toHaveBeenCalledTimes(1);
       expect(onPress2).toHaveBeenCalledTimes(1);
@@ -1052,7 +919,7 @@ describe('NotificationToastComponent', () => {
         competition_name: 'Test',
         new_status: 'in-progress',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Test is now in progress')).toBeTruthy();
     });
 
@@ -1062,7 +929,7 @@ describe('NotificationToastComponent', () => {
         date: '15/01/2025',
         round_number: 5,
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Round 5 at Metropolitan on 15/01/2025')).toBeTruthy();
     });
 
@@ -1071,7 +938,7 @@ describe('NotificationToastComponent', () => {
         player_name: 'Test',
         date: '2025-01-15',
       });
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
       expect(screen.getByText('Test submitted their scorecard for 2025-01-15')).toBeTruthy();
     });
   });
@@ -1087,7 +954,7 @@ describe('NotificationToastComponent', () => {
         ...createMockNotification('competition_player_added'),
         type: 'unknown_type' as NotificationType,
       };
-      render(<NotificationToastComponent notification={notification} />);
+      render(<NotificationToastCard notification={notification} />);
 
       // Should show fallback values
       expect(screen.getByText('Notification')).toBeTruthy();

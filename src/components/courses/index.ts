@@ -1,5 +1,6 @@
 export { AddCourseModal } from './AddCourseModal';
 export { ClubCard, VenueCard } from './ClubCard';
+export type { ClubCardItem, ClubCardProps, VenueCardProps } from './ClubCard';
 export { CourseCard } from './CourseCard';
 export { StateFilterList } from './StateFilterList';
 export { CourseListContent } from './CourseListContent';

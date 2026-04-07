@@ -14,7 +14,7 @@ import {
   IconCurrencyDollar,
   IconInfoCircle,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, featureColors } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SegmentedButton } from '@/components/common/SegmentedButton';
 import type { PoolFundingType } from '@/types';
@@ -24,7 +24,7 @@ import { formatCurrency, type PrizePoolCalculations } from './usePrizePoolConfig
 // CONSTANTS
 // ============================================================================
 
-const PRIZE_POOL_COLOR = '#059669';
+const PRIZE_POOL_COLOR = featureColors.prizePool;
 
 const FUNDING_TYPE_OPTIONS = [
   { value: 'per_player' as PoolFundingType, label: 'Per Player', icon: 'account-group' },

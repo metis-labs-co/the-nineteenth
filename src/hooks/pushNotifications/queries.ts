@@ -11,7 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
+import { pushService, type PermissionStatus } from '@/services/notifications';
 import { pushKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import { CACHE_TIMES } from '@/constants/cacheConfig';

@@ -13,6 +13,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { createModuleLogger } from '@/utils/debugLogger';
 import { placeholderPlayersKeys, playerKeys, scorecardKeys, competitionKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import type {
@@ -20,6 +21,8 @@ import type {
   PlaceholderPlayerInput,
   LinkPlaceholderResult,
 } from '@/types/database.types';
+
+const logger = createModuleLogger('PlaceholderPlayers');
 
 // =====================================================
 // MUTATION HOOKS
@@ -86,7 +89,7 @@ export function useCreatePlaceholderPlayer() {
       );
 
       if (error) {
-        console.error('Error creating placeholder player:', error);
+        logger.error('Error creating placeholder player', error);
         throw error;
       }
 
@@ -102,7 +105,7 @@ export function useCreatePlaceholderPlayer() {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching created placeholder:', fetchError);
+        logger.error('Error fetching created placeholder', fetchError);
         throw fetchError;
       }
 
@@ -185,7 +188,7 @@ export function useLinkPlaceholderPlayer() {
       );
 
       if (error) {
-        console.error('Error linking placeholder player:', error);
+        logger.error('Error linking placeholder player', error);
         throw error;
       }
 
@@ -286,7 +289,7 @@ export function useDeletePlaceholderPlayer() {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching placeholder for deletion:', fetchError);
+        logger.error('Error fetching placeholder for deletion', fetchError);
         throw new Error('Placeholder player not found');
       }
 
@@ -324,7 +327,7 @@ export function useDeletePlaceholderPlayer() {
         .is('linked_player_id', null);
 
       if (deleteError) {
-        console.error('Error deleting placeholder player:', deleteError);
+        logger.error('Error deleting placeholder player', deleteError);
         throw deleteError;
       }
     },
@@ -423,7 +426,7 @@ export function useUpdatePlaceholderPlayer() {
         .single();
 
       if (error) {
-        console.error('Error updating placeholder player:', error);
+        logger.error('Error updating placeholder player', error);
         throw error;
       }
 

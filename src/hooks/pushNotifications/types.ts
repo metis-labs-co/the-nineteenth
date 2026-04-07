@@ -4,7 +4,7 @@
  * Types for push notification management.
  */
 
-import type { PermissionStatus } from '@/services/notifications/pushService';
+import type { PermissionStatus } from '@/services/notifications';
 import type { PushToken, PushPreferences } from '@/types/push.types';
 import { CACHE_TIMES } from '@/constants/cacheConfig';
 

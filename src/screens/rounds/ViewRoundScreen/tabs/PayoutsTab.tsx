@@ -11,7 +11,7 @@ import { Text, Icon, Divider } from 'react-native-paper';
 import { useConfirmationDialog } from '@/hooks';
 import { ConfirmationDialog } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, medalColors } from '@/constants/theme';
 import { formatCurrency, formatNetResult } from '@/utils/currency';
 import { calculateFinalPayouts } from '@/utils/skins/payouts';
 import { calculateWolfPayouts } from '@/utils/wolf/payouts';
@@ -40,9 +40,9 @@ export interface PayoutsTabProps {
 // ============================================================================
 
 const MEDAL_COLORS = {
-  1: '#FFD700',
-  2: '#C0C0C0',
-  3: '#CD7F32',
+  1: medalColors.gold,
+  2: medalColors.silver,
+  3: medalColors.bronze,
 } as const;
 
 const RankBadge = React.memo(function RankBadge({ rank }: { rank: number }) {

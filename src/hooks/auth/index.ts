@@ -41,3 +41,10 @@ export type {
   UserQueryResult,
   PlayerQueryResult,
 } from './types';
+
+// Account management
+export { useAccountDeletion } from './accountDeletion';
+
+// Biometric lock
+export { useBiometricLock } from './biometricLock';
+export type { UseBiometricLockReturn } from './biometricLock';

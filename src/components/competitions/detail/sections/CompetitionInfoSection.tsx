@@ -19,7 +19,7 @@ import { IconCalendar } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatDateAustralian } from '@/utils/formatting';
-import Toast from 'react-native-toast-message';
+import { useToast } from '@/context/ToastContext';
 import { Pill } from '@/components/common/Pill';
 import { competitionTypeLabels, type CompetitionInfoSectionProps } from './types';
 
@@ -29,16 +29,11 @@ export function CompetitionInfoSection({
   playerCount,
 }: CompetitionInfoSectionProps) {
   const colors = useThemeColors();
+  const { showSuccessToast } = useToast();
 
   const handleCopyInviteCode = async () => {
     await Clipboard.setStringAsync(competition.invite_code);
-    Toast.show({
-      type: 'success',
-      text1: 'Copied!',
-      text2: 'Invite code copied to clipboard',
-      visibilityTime: 2000,
-      position: 'bottom',
-    });
+    showSuccessToast('Copied!', 'Invite code copied to clipboard');
   };
 
   return (

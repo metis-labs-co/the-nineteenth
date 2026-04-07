@@ -10,6 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { createModuleLogger } from '@/utils/debugLogger';
 import { placeholderPlayersKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
@@ -17,6 +18,8 @@ import type {
   Player,
   PlaceholderPlayerWithStats,
 } from '@/types/database.types';
+
+const logger = createModuleLogger('PlaceholderPlayers');
 
 // =====================================================
 // QUERY HOOKS
@@ -63,7 +66,7 @@ export function usePlaceholderPlayers() {
       const { data, error } = await supabase.rpc('get_my_placeholder_players');
 
       if (error) {
-        console.error('Error fetching placeholder players:', error);
+        logger.error('Error fetching placeholder players', error);
         throw error;
       }
 
@@ -107,7 +110,7 @@ export function usePlaceholderPlayer(id: string) {
           // No rows returned
           return null;
         }
-        console.error('Error fetching placeholder player:', error);
+        logger.error('Error fetching placeholder player', error);
         throw error;
       }
 

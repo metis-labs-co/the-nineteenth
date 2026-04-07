@@ -9,7 +9,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { IconMapPin, IconCheck, IconAlertTriangle, IconDice, IconBolt } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { StatusBadge, Pill, DateTimeDisplay } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
@@ -17,7 +17,7 @@ import { type RoundWithCourse, GAME_TYPE_LABELS } from './types';
 import type { SkinsConfig, GameType } from '@/types';
 
 /** Amber/gold color for skins indicator */
-const SKINS_COLOR = '#f59e0b';
+const SKINS_COLOR = skinsColor;
 
 export interface CompetitionRoundCardProps {
   round: RoundWithCourse;

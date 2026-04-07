@@ -9,7 +9,7 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useConfirmationDialog } from '@/hooks';
-import Toast from 'react-native-toast-message';
+import { useToast } from '@/context/ToastContext';
 import { LoadingSpinner, SearchBar, BottomSheet, ConfirmationDialog } from '@/components/common';
 import { SearchResultCard } from './SearchResultCard';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -63,6 +63,7 @@ export function AddFriendModal({
   testID,
 }: AddFriendModalProps) {
   const colors = useThemeColors();
+  const { showSuccessToast } = useToast();
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [addingPlayerId, setAddingPlayerId] = useState<string | null>(null);
@@ -84,15 +85,12 @@ export function AddFriendModal({
         await addFriend.mutateAsync(playerId);
         // Clear search and show success toast
         setSearchQuery('');
-        Toast.show({
-          type: 'success',
-          text1: 'Friend Request Sent',
-          text2: playerName
+        showSuccessToast(
+          'Friend Request Sent',
+          playerName
             ? `Request sent to ${playerName}`
             : 'Your friend request has been sent',
-          visibilityTime: 3000,
-          position: 'bottom',
-        });
+        );
       } catch (error) {
         console.error('Failed to add friend:', error);
         // Show error alert

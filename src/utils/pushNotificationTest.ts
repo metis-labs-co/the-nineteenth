@@ -14,7 +14,7 @@
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase/client';
-import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
+import { pushService, type PermissionStatus } from '@/services/notifications';
 import type { NotificationType } from '@/types/database/enums';
 import type { NotificationData } from '@/services/notifications/notificationHandler';
 

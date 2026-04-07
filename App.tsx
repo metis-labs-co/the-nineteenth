@@ -29,16 +29,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import RootNavigator from '@/navigation/RootNavigator';
 import { queryClient } from '@/services/queryClient';
-import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { AuthProvider } from '@/context/AuthContext';
-import {
-  AchievementToastProvider,
-  useAchievementToast,
-} from '@/context/AchievementToastContext';
-import { toastConfig } from '@/components/notifications/NotificationToast';
-import { AchievementToast } from '@/components/achievements';
+import { ToastProvider } from '@/context/ToastContext';
+import { AchievementToastProvider } from '@/context/AchievementToastContext';
+import { UnifiedToastDisplay } from '@/components/common/Toast';
 import { lightColors, darkColors } from '@/constants/theme';
 
 // ============================================================================
@@ -161,34 +157,6 @@ const CombinedDarkTheme = {
 };
 
 // ============================================================================
-// ACHIEVEMENT TOAST DISPLAY
-// ============================================================================
-
-/**
- * Component that renders the achievement toast from context
- * Must be inside AchievementToastProvider
- */
-function AchievementToastDisplay() {
-  const { currentToast, isVisible, dismissToast, navigateToAchievements } =
-    useAchievementToast();
-
-  if (!currentToast) {
-    return null;
-  }
-
-  return (
-    <AchievementToast
-      achievement={currentToast.achievement}
-      cosmetic={currentToast.cosmetic}
-      visible={isVisible}
-      onDismiss={dismissToast}
-      onViewAll={navigateToAchievements}
-      testID="achievement-toast"
-    />
-  );
-}
-
-// ============================================================================
 // INNER APP (uses theme context)
 // ============================================================================
 
@@ -200,14 +168,13 @@ function AppContent() {
 
   return (
     <PaperProvider theme={paperTheme}>
-      <AchievementToastProvider>
-        <RootNavigator theme={navigationTheme} />
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        {/* Toast for real-time notification alerts - must be inside ThemeProvider */}
-        <Toast config={toastConfig} />
-        {/* Achievement unlock toasts - rendered above everything else */}
-        <AchievementToastDisplay />
-      </AchievementToastProvider>
+      <ToastProvider>
+        <AchievementToastProvider>
+          <RootNavigator theme={navigationTheme} />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <UnifiedToastDisplay />
+        </AchievementToastProvider>
+      </ToastProvider>
     </PaperProvider>
   );
 }

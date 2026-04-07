@@ -11,8 +11,11 @@
 
 import { supabase } from '@/services/supabase/client';
 import { getCurrentTier, hasPremiumAccess } from '@/store/subscriptionStore';
+import { createModuleLogger } from '@/utils/debugLogger';
 import type { FeatureAccess } from '@/types/subscription.types';
 import type { TeeBox } from '@/types/database/base';
+
+const cpsLogger = createModuleLogger('CompetitionPlayersService');
 
 // =====================================================
 // TYPES
@@ -126,7 +129,7 @@ export async function checkPlayerScoringPairs(
     .eq('competition_id', competitionId);
 
   if (roundsError) {
-    console.error('[CompetitionPlayersService] Failed to fetch rounds:', roundsError);
+    cpsLogger.error('Failed to fetch rounds', roundsError);
     throw createError(`Failed to fetch rounds: ${roundsError.message}`, 'DATABASE');
   }
 
@@ -151,7 +154,7 @@ export async function checkPlayerScoringPairs(
     .or(`scorer_id.eq.${playerId},player_id.eq.${playerId}`);
 
   if (pairsError) {
-    console.error('[CompetitionPlayersService] Failed to fetch scoring pairs:', pairsError);
+    cpsLogger.error('Failed to fetch scoring pairs', pairsError);
     throw createError(`Failed to fetch scoring pairs: ${pairsError.message}`, 'DATABASE');
   }
 
@@ -266,7 +269,7 @@ export async function removePlayerFromCompetition(
     .single();
 
   if (compError) {
-    console.error('[CompetitionPlayersService] Failed to fetch competition:', compError);
+    cpsLogger.error('Failed to fetch competition', compError);
     throw createError(`Failed to fetch competition: ${compError.message}`, 'DATABASE');
   }
 
@@ -288,7 +291,7 @@ export async function removePlayerFromCompetition(
     .eq('competition_id', competitionId);
 
   if (roundsError) {
-    console.error('[CompetitionPlayersService] Failed to fetch rounds:', roundsError);
+    cpsLogger.error('Failed to fetch rounds', roundsError);
     throw createError(`Failed to fetch rounds: ${roundsError.message}`, 'DATABASE');
   }
 
@@ -307,7 +310,7 @@ export async function removePlayerFromCompetition(
       .eq('scorer_id', playerId);
 
     if (deleteScorerError) {
-      console.error('[CompetitionPlayersService] Failed to delete scorer pairs:', deleteScorerError);
+      cpsLogger.error('Failed to delete scorer pairs', deleteScorerError);
       throw createError(`Failed to delete scoring pairs: ${deleteScorerError.message}`, 'DATABASE');
     }
 
@@ -318,7 +321,7 @@ export async function removePlayerFromCompetition(
       .eq('player_id', playerId);
 
     if (deletePlayerError) {
-      console.error('[CompetitionPlayersService] Failed to delete player pairs:', deletePlayerError);
+      cpsLogger.error('Failed to delete player pairs', deletePlayerError);
       throw createError(`Failed to delete scoring pairs: ${deletePlayerError.message}`, 'DATABASE');
     }
   }
@@ -331,7 +334,7 @@ export async function removePlayerFromCompetition(
     .eq('player_id', playerId);
 
   if (deleteError) {
-    console.error('[CompetitionPlayersService] Failed to remove player:', deleteError);
+    cpsLogger.error('Failed to remove player', deleteError);
     throw createError(`Failed to remove player: ${deleteError.message}`, 'DATABASE');
   }
 }

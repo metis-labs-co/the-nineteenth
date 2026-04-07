@@ -30,8 +30,8 @@ import {
   getSubmissionStatus,
   markSubmissionBypassed,
   applyBypassScores,
-} from '@/services/scoreMismatch/scoreMismatchService';
-import type { ScoreEntry, ScoreMismatch } from '@/services/scoreMismatch/scoreMismatchService';
+} from '@/services/scoreMismatch';
+import type { ScoreEntry, ScoreMismatch } from '@/services/scoreMismatch';
 import type { HoleScore } from '@/types';
 
 // ============================================================================

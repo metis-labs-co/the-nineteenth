@@ -34,8 +34,8 @@ import {
 } from '@/hooks/useNotifications';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNotificationStore } from '@/store/notificationStore';
-import { showNotificationToast } from '@/components/notifications/NotificationToast';
-import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
+import { useToast } from '@/context/ToastContext';
+import { pushService, type PermissionStatus } from '@/services/notifications';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Notification } from '@/types/database.types';
 import type { PushNotificationData } from '@/types/push.types';
@@ -125,6 +125,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     isRegistered: isPushRegistered,
     requestPermission,
   } = usePushNotifications();
+
+  // Unified toast system
+  const { showNotificationToast } = useToast();
 
   // Store actions - get stable reference
   const setOnNewNotification = useNotificationStore(
@@ -321,7 +324,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         }
       });
     },
-    [] // No dependencies - uses ref for navigation
+    [showNotificationToast] // showNotificationToast is stable from context
   );
 
   // Register the callback on mount only

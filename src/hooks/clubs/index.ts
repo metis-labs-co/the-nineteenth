@@ -73,14 +73,32 @@ export {
 } from './queries';
 
 // Re-export mutation hooks
-export { useCreateClub, useCreateCourse, useCreateClubWithCourse, useDeleteClubIfEmpty } from './mutations';
+// Note: useCreateCourse from clubs/mutations.ts (club-specific) is NOT re-exported here
+// to avoid naming conflict with courses/useCreateCourse (manual entry).
+// Import directly from '@/hooks/clubs/mutations' if you need the club-specific version.
+export { useCreateClub, useCreateClubWithCourse, useDeleteClubIfEmpty } from './mutations';
 
-// Re-export from useGolfApiSearch for convenience
-export { isGolfApiResult } from '@/hooks/useGolfApiSearch';
-export type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
+// Re-export club details hook and types
+export { useClubDetails } from './clubDetails';
+export type { ClubWithCoursesDetail } from './clubDetails';
+
+// Note: isGolfApiResult and GolfApiSearchResultItem are now in '@/hooks/courses'
+// They were previously re-exported here for convenience but that caused duplicate export errors.
 
 // Re-export favorite mutations from useFavoriteCourses with club-specific names
 export {
   useAddFavorite as useAddCourseFavorite,
   useRemoveFavorite as useRemoveCourseFavorite,
 } from '@/hooks/useFavoriteCourses';
+
+// Re-export home club hooks
+export { useHomeClub, useSetHomeClub, useClearHomeClub } from './homeClub';
+export type { HomeClubWithCourses } from './homeClub';
+
+// Re-export import club hooks
+export { useImportClub } from './importClub';
+export type { ImportClubResult } from './importClub';
+
+// Re-export club sync hooks
+export { useClubSync } from './clubSync';
+export type { UseClubSyncResult } from './clubSync';

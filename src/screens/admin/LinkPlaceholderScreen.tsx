@@ -19,7 +19,7 @@ import { ConfirmationDialog } from '@/components/common';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconUserQuestion, IconLink, IconTrash } from '@tabler/icons-react-native';
-import Toast from 'react-native-toast-message';
+import { useToast } from '@/context/ToastContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -149,6 +149,7 @@ function PlaceholderCard({
 
 export default function LinkPlaceholderScreen({ navigation }: Props) {
   const colors = useThemeColors();
+  const { showSuccessToast } = useToast();
   const insets = useSafeAreaInsets();
 
   // Confirmation dialog state
@@ -202,13 +203,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
         realPlayerId: player.id,
       });
 
-      Toast.show({
-        type: 'success',
-        text1: 'Guest Player Linked',
-        text2: `${placeholder.name}'s history has been transferred to ${player.name}`,
-        visibilityTime: 4000,
-        position: 'bottom',
-      });
+      showSuccessToast('Guest Player Linked', `${placeholder.name}'s history has been transferred to ${player.name}`);
     } catch (err) {
       showAlert(
         'Link Failed',
@@ -248,13 +243,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
     try {
       await deletePlaceholder.mutateAsync(placeholder.id);
 
-      Toast.show({
-        type: 'success',
-        text1: 'Guest Player Deleted',
-        text2: `${placeholder.name} has been removed`,
-        visibilityTime: 3000,
-        position: 'bottom',
-      });
+      showSuccessToast('Guest Player Deleted', `${placeholder.name} has been removed`);
     } catch (err) {
       showAlert(
         'Delete Failed',

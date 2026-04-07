@@ -250,6 +250,22 @@ export const skinsColor = '#f59e0b';
 // Wolf feature color (blue-purple)
 export const wolfColor = '#7C5CFC';
 
+// Feature-specific colors (used across multiple components)
+export const featureColors = {
+  prizePool: '#059669',
+  skins: '#f59e0b',
+  warning: '#f59e0b',
+  error: '#DC2626',
+  adjustment: '#6B7280',
+} as const;
+
+// Medal colors for podium/ranking displays
+export const medalColors = {
+  gold: '#FFD700',
+  silver: '#C0C0C0',
+  bronze: '#CD7F32',
+} as const;
+
 // Export a theme object with everything
 export const theme = {
   colors,
@@ -267,6 +283,8 @@ export const theme = {
   zIndex,
   skinsColor,
   wolfColor,
+  featureColors,
+  medalColors,
 } as const;
 
 // Type for the theme

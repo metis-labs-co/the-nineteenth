@@ -14,12 +14,15 @@ import * as Notifications from 'expo-notifications';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { NotificationType } from '@/types/database/enums';
+import { createModuleLogger } from '@/utils/debugLogger';
 import {
   NotificationCategories,
   NotificationActions,
   type NotificationCategory,
   type NotificationAction,
-} from './pushService';
+} from './types';
+
+const logger = createModuleLogger('NotificationHandler');
 
 // =====================================================
 // TYPES
@@ -260,7 +263,7 @@ export function handleNotificationResponse(
       if (competitionId) {
         navigation.navigate('CompetitionDetail', { id: competitionId });
       } else {
-        console.warn('[NotificationHandler] Competition notification without competitionId');
+        logger.warn('Competition notification without competitionId');
         navigation.navigate('Notifications');
       }
       break;
@@ -275,7 +278,7 @@ export function handleNotificationResponse(
         // Fallback to competition detail if no roundId
         navigation.navigate('CompetitionDetail', { id: competitionId });
       } else {
-        console.warn('[NotificationHandler] Round notification without roundId');
+        logger.warn('Round notification without roundId');
         navigation.navigate('Notifications');
       }
       break;
@@ -284,7 +287,7 @@ export function handleNotificationResponse(
       if (leagueId) {
         navigation.navigate('LeagueDetail', { id: leagueId });
       } else {
-        console.warn('[NotificationHandler] League notification without leagueId');
+        logger.warn('League notification without leagueId');
         navigation.navigate('Notifications');
       }
       break;
@@ -462,7 +465,7 @@ export function handleNotificationActionResponse(
         const friendshipId = data.friendshipId;
 
         if (!friendshipId) {
-          console.warn('[NotificationHandler] ACCEPT action without friendshipId');
+          logger.warn('ACCEPT action without friendshipId');
           return {
             action,
             handled: false,
@@ -473,7 +476,7 @@ export function handleNotificationActionResponse(
         }
 
         if (!onAcceptFriendRequest) {
-          console.warn('[NotificationHandler] ACCEPT action without callback');
+          logger.warn('ACCEPT action without callback');
           return {
             action,
             handled: false,
@@ -493,7 +496,7 @@ export function handleNotificationActionResponse(
       }
 
       // ACCEPT on wrong category
-      console.warn('[NotificationHandler] ACCEPT action on non-friend-request category');
+      logger.warn('ACCEPT action on non-friend-request category');
       return {
         action,
         handled: false,

@@ -16,7 +16,7 @@ import {
   IconPlus,
   IconTrash,
 } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius } from '@/constants/theme';
+import { spacing, typography, borderRadius, featureColors } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import {
   getOrdinal,
@@ -28,7 +28,7 @@ import {
 // CONSTANTS
 // ============================================================================
 
-const PRIZE_POOL_COLOR = '#059669';
+const PRIZE_POOL_COLOR = featureColors.prizePool;
 
 // ============================================================================
 // TYPES

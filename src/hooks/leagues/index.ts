@@ -56,3 +56,21 @@ export {
   useSubmitChallengeRound,
   useCancelChallenge,
 } from './mutations';
+
+// Re-export league stats hooks
+export { useLeagueStats } from './stats';
+export type { LeagueStats } from './stats';
+
+// Re-export partnership league hooks
+export {
+  usePartnerships,
+  useMyPartnership,
+  usePartnershipLeaderboard,
+  usePartnershipCourseBests,
+  usePartnershipRounds,
+  useCreatePartnership,
+  useDissolvePartnership,
+  useUpdatePartnershipName,
+  useTagPartnershipRound,
+  useUntagPartnershipRound,
+} from './partnerships';

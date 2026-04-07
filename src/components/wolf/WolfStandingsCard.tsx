@@ -18,7 +18,7 @@ import React from 'react';
 import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
+import { spacing, borderRadius, typography, shadows, wolfColor, medalColors } from '@/constants/theme';
 import { formatWolfNetResult } from '@/utils/wolf';
 import type { WolfStandingEntry } from '@/types/database/wolf.types';
 
@@ -40,9 +40,9 @@ export interface WolfStandingsCardProps {
 // ============================================================================
 
 const MEDAL_COLORS = {
-  1: '#FFD700', // Gold
-  2: '#C0C0C0', // Silver
-  3: '#CD7F32', // Bronze
+  1: medalColors.gold,
+  2: medalColors.silver,
+  3: medalColors.bronze,
 };
 
 const MEDAL_ICONS = {

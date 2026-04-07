@@ -5,6 +5,6 @@
 export { NotificationItem, type NotificationItemProps } from './NotificationItem';
 export {
   default as NotificationToast,
-  toastConfig,
-  showNotificationToast,
+  notificationConfig,
+  getNotificationConfig,
 } from './NotificationToast';
