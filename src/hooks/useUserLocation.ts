@@ -169,9 +169,6 @@ export function useUserLocation(): UseUserLocationReturn {
         const { status } = await Location.getForegroundPermissionsAsync();
         setPermissionStatus(mapPermissionStatus(status));
 
-        if (__DEV__) {
-          console.log('[useUserLocation] Initial permission status:', status, 'hasBeenAsked:', asked);
-        }
       } catch (err) {
         console.error('[useUserLocation] Error checking permission:', err);
         setError('Failed to check location permission');
@@ -203,10 +200,6 @@ export function useUserLocation(): UseUserLocationReturn {
       const mappedStatus = mapPermissionStatus(status);
       setPermissionStatus(mappedStatus);
 
-      if (__DEV__) {
-        console.log('[useUserLocation] Permission request result:', status);
-      }
-
       return mappedStatus === 'granted';
     } catch (err) {
       console.error('[useUserLocation] Error requesting permission:', err);
@@ -225,9 +218,6 @@ export function useUserLocation(): UseUserLocationReturn {
   const startLocationSubscription = useCallback(async () => {
     // Don't start if permission isn't granted
     if (permissionStatus !== 'granted') {
-      if (__DEV__) {
-        console.log('[useUserLocation] Cannot start watching - permission not granted');
-      }
       return;
     }
 
@@ -239,10 +229,6 @@ export function useUserLocation(): UseUserLocationReturn {
     try {
       setError(null);
 
-      if (__DEV__) {
-        console.log('[useUserLocation] Starting location subscription...');
-      }
-
       const subscription = await Location.watchPositionAsync(
         WATCH_CONFIG,
         (newLocation) => {
@@ -251,26 +237,11 @@ export function useUserLocation(): UseUserLocationReturn {
             longitude: newLocation.coords.longitude,
           });
           setAccuracy(newLocation.coords.accuracy);
-
-          if (__DEV__) {
-            console.log(
-              '[useUserLocation] Location update:',
-              newLocation.coords.latitude.toFixed(6),
-              newLocation.coords.longitude.toFixed(6),
-              'accuracy:',
-              newLocation.coords.accuracy?.toFixed(0),
-              'm'
-            );
-          }
         }
       );
 
       watchSubscriptionRef.current = subscription;
       setIsWatching(true);
-
-      if (__DEV__) {
-        console.log('[useUserLocation] Location subscription started');
-      }
     } catch (err) {
       console.error('[useUserLocation] Error starting location subscription:', err);
       setError('Failed to start location tracking');
@@ -283,10 +254,6 @@ export function useUserLocation(): UseUserLocationReturn {
    */
   const stopLocationSubscription = useCallback(() => {
     if (watchSubscriptionRef.current) {
-      if (__DEV__) {
-        console.log('[useUserLocation] Stopping location subscription');
-      }
-
       watchSubscriptionRef.current.remove();
       watchSubscriptionRef.current = null;
       setIsWatching(false);
@@ -303,8 +270,6 @@ export function useUserLocation(): UseUserLocationReturn {
     // Only start if permission is granted
     if (permissionStatus === 'granted') {
       startLocationSubscription();
-    } else if (__DEV__) {
-      console.log('[useUserLocation] startWatching called but permission not granted, will start when granted');
     }
   }, [permissionStatus, startLocationSubscription]);
 
@@ -331,15 +296,9 @@ export function useUserLocation(): UseUserLocationReturn {
 
       if (wasBackground && isNowActive && shouldWatchRef.current) {
         // App came to foreground - resume watching
-        if (__DEV__) {
-          console.log('[useUserLocation] App foregrounded - resuming location watching');
-        }
         startLocationSubscription();
       } else if (!isNowActive && watchSubscriptionRef.current) {
         // App going to background - pause watching
-        if (__DEV__) {
-          console.log('[useUserLocation] App backgrounded - pausing location watching');
-        }
         stopLocationSubscription();
       }
 
@@ -363,9 +322,6 @@ export function useUserLocation(): UseUserLocationReturn {
   useEffect(() => {
     return () => {
       if (watchSubscriptionRef.current) {
-        if (__DEV__) {
-          console.log('[useUserLocation] Cleaning up location subscription on unmount');
-        }
         watchSubscriptionRef.current.remove();
         watchSubscriptionRef.current = null;
       }

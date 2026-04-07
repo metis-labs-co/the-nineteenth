@@ -1,45 +1,23 @@
 /**
- * useAchievements - Achievement System Hooks
+ * Achievement Query Hooks
  *
- * TanStack Query hooks for the gamification/achievements feature:
- *
- * Queries:
+ * TanStack Query hooks for fetching achievement data:
  * - useAchievementDefinitions() - All achievement definitions
  * - usePlayerAchievements(playerId) - Player's earned achievements
  * - useAchievementProgress(playerId) - Player's progress toward achievements
  * - useAchievementSummary(playerId) - Combined summary with stats
  * - useAchievementLeaderboard(scope, competitionId?) - Achievement leaderboard
- *
- * Mutations:
- * - useAwardAchievement() - Award an achievement to a player
- * - useUpdateProgress() - Update progress toward an achievement
- *
- * @example
- * ```tsx
- * function AchievementsScreen() {
- *   const { user } = useAuth();
- *   const { data: summary, isLoading } = useAchievementSummary(user?.id ?? '');
- *
- *   if (isLoading) return <Spinner />;
- *
- *   return (
- *     <View>
- *       <Text>Total Earned: {summary?.total_earned}</Text>
- *       <Text>Total Points: {summary?.total_points}</Text>
- *     </View>
- *   );
- * }
- * ```
+ * - useAchievementsByCategory(playerId, category) - Achievements by category
  */
 
 import { useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { achievementKeys } from '../queryKeys';
 import { useAuth } from '../useAuth';
 import type {
   AchievementDefinition,
-  PlayerAchievement,
   PlayerAchievementWithDefinition,
   AchievementProgress,
   AchievementSummary,
@@ -48,8 +26,6 @@ import type {
   AchievementCategory,
   CategoryProgress,
   RecentAchievement,
-  AwardAchievementInput,
-  UpdateProgressInput,
 } from '@/types/database/achievement.types';
 
 // =====================================================
@@ -140,8 +116,8 @@ export function usePlayerAchievements(playerId: string) {
       return data as PlayerAchievementWithDefinition[];
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     refetchOnWindowFocus: true,
   });
 }
@@ -183,8 +159,8 @@ export function useAchievementProgress(playerId: string) {
       return data as AchievementProgress[];
     },
     enabled: !!playerId,
-    staleTime: 30 * 1000, // 30 seconds - progress changes frequently
-    gcTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: CACHE_TIMES.SHORT, // 30 seconds - progress changes frequently
+    gcTime: GC_TIMES.SHORT, // 5 minutes
     refetchOnWindowFocus: true,
   });
 }
@@ -354,221 +330,15 @@ export function useAchievementLeaderboard(
       }));
     },
     enabled: !!user?.id && (scope !== 'competition' || !!competitionId),
-    staleTime: 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     refetchOnWindowFocus: true,
   });
 }
 
 // =====================================================
-// MUTATION: AWARD ACHIEVEMENT
+// QUERY: ACHIEVEMENTS BY CATEGORY
 // =====================================================
-
-/**
- * Mutation: Award an achievement to a player
- * Inserts a new player_achievement record
- *
- * @returns Mutation object for awarding achievements
- *
- * @example
- * ```tsx
- * const awardMutation = useAwardAchievement();
- *
- * const handleAward = () => {
- *   awardMutation.mutate({
- *     player_id: user.id,
- *     achievement_id: 'ach_first_round',
- *   });
- * };
- * ```
- */
-export function useAwardAchievement() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: AwardAchievementInput): Promise<PlayerAchievement> => {
-      // Note: Table may not exist in Supabase types yet - using type assertion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('player_achievements')
-        .insert({
-          player_id: input.player_id,
-          achievement_id: input.achievement_id,
-          progress: input.progress ?? 0,
-          earned_at: new Date().toISOString(),
-          notified: false,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // Handle unique constraint violation (already earned)
-        if (error.code === '23505') {
-          console.log('Achievement already earned by player');
-          throw new Error('Achievement already earned');
-        }
-        console.error('Error awarding achievement:', error);
-        throw new Error(error.message);
-      }
-
-      return data as PlayerAchievement;
-    },
-    onSuccess: (data) => {
-      // Invalidate player achievements and summary
-      queryClient.invalidateQueries({
-        queryKey: achievementKeys.playerAchievements(data.player_id),
-      });
-      queryClient.invalidateQueries({
-        queryKey: achievementKeys.summary(data.player_id),
-      });
-      // Also invalidate leaderboards as points have changed
-      queryClient.invalidateQueries({
-        queryKey: achievementKeys.all,
-        predicate: (query) => query.queryKey.includes('leaderboard'),
-      });
-    },
-  });
-}
-
-// =====================================================
-// MUTATION: UPDATE PROGRESS
-// =====================================================
-
-/**
- * Mutation: Update achievement progress
- * Upserts an achievement_progress record
- *
- * @returns Mutation object for updating progress
- *
- * @example
- * ```tsx
- * const updateProgress = useUpdateProgress();
- *
- * // Set absolute value
- * updateProgress.mutate({
- *   player_id: user.id,
- *   achievement_code: 'rounds_played',
- *   value: 10,
- * });
- *
- * // Increment value
- * updateProgress.mutate({
- *   player_id: user.id,
- *   achievement_code: 'rounds_played',
- *   value: 1,
- *   increment: true,
- * });
- * ```
- */
-export function useUpdateProgress() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: UpdateProgressInput): Promise<AchievementProgress> => {
-      if (input.increment) {
-        // Note: RPC function may not exist in Supabase types yet - using type assertion
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any).rpc('increment_achievement_progress', {
-          p_player_id: input.player_id,
-          p_achievement_code: input.achievement_code,
-          p_increment: input.value,
-        });
-
-        if (error) {
-          console.error('Error incrementing progress:', error);
-          throw new Error(error.message);
-        }
-
-        return data as AchievementProgress;
-      } else {
-        // Note: Table may not exist in Supabase types yet - using type assertion
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
-          .from('achievement_progress')
-          .upsert(
-            {
-              player_id: input.player_id,
-              achievement_code: input.achievement_code,
-              current_value: input.value,
-              last_updated: new Date().toISOString(),
-            },
-            {
-              onConflict: 'player_id,achievement_code',
-            }
-          )
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Error updating progress:', error);
-          throw new Error(error.message);
-        }
-
-        return data as AchievementProgress;
-      }
-    },
-    onSuccess: (data) => {
-      // Invalidate progress cache
-      queryClient.invalidateQueries({
-        queryKey: achievementKeys.progress(data.player_id),
-      });
-    },
-  });
-}
-
-// =====================================================
-// CONVENIENCE HOOKS
-// =====================================================
-
-/**
- * Hook: Check if player has earned a specific achievement
- *
- * @param playerId - The player's ID
- * @param achievementCode - The achievement code to check
- * @returns Boolean indicating if earned, plus loading state
- *
- * @example
- * ```tsx
- * const { hasEarned, isLoading } = useHasAchievement(user.id, 'first_round');
- * ```
- */
-export function useHasAchievement(playerId: string, achievementCode: string) {
-  const { data: definitions } = useAchievementDefinitions();
-  const { data: earned, isLoading } = usePlayerAchievements(playerId);
-
-  const hasEarned = useMemo(() => {
-    if (!definitions || !earned) return false;
-
-    // Find the definition with this code
-    const definition = definitions.find((d) => d.code === achievementCode);
-    if (!definition) return false;
-
-    // Check if earned
-    return earned.some((e) => e.achievement_id === definition.id);
-  }, [definitions, earned, achievementCode]);
-
-  return { hasEarned, isLoading };
-}
-
-/**
- * Hook: Get player's achievement points
- *
- * @param playerId - The player's ID
- * @returns Total points earned
- *
- * @example
- * ```tsx
- * const { points, isLoading } = useAchievementPoints(user.id);
- * ```
- */
-export function useAchievementPoints(playerId: string) {
-  const { data: summary, isLoading } = useAchievementSummary(playerId);
-
-  return {
-    points: summary?.total_points ?? 0,
-    isLoading,
-  };
-}
 
 /**
  * Hook: Get achievements by category for a player

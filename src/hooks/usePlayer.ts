@@ -10,6 +10,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { playerKeys } from './queryKeys';
 import type { Player } from '@/types/database.types';
 
@@ -45,8 +46,8 @@ export function usePlayer(playerId: string | undefined, options: UsePlayerOption
       return data;
     },
     enabled: enabled && !!playerId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
+    gcTime: GC_TIMES.STANDARD, // 10 minutes
   });
 }
 

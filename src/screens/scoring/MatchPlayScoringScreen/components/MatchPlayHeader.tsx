@@ -11,9 +11,10 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Icon } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { PageHeader } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
+import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
 import type { TeeBox } from '@/types';
@@ -37,15 +38,25 @@ export function MatchPlayHeader({
 }: MatchPlayHeaderProps) {
   const colors = useThemeColors();
 
-  // Build subtitle with course name and tee info
-  const getSubtitle = (): string | undefined => {
+  // Build subtitle with course name, color circle, and tee name
+  const renderSubtitle = (): React.ReactNode | undefined => {
     if (!courseName) return undefined;
 
     if (selectedTee?.name) {
-      const teeInfo = selectedTee.color
-        ? `${selectedTee.name} (${selectedTee.color})`
-        : selectedTee.name;
-      return `${courseName} - ${teeInfo}`;
+      const teeColorHex = getTeeColor(selectedTee.color, colors.textDisabled);
+      return (
+        <View style={styles.subtitleContainer}>
+          <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
+            {courseName} -{' '}
+          </Text>
+          <View
+            style={[styles.teeColorCircle, { backgroundColor: teeColorHex }]}
+          />
+          <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
+            {' '}{selectedTee.name}
+          </Text>
+        </View>
+      );
     }
 
     return courseName;
@@ -75,7 +86,7 @@ export function MatchPlayHeader({
   return (
     <PageHeader
       title="Match Play"
-      subtitle={getSubtitle()}
+      subtitle={renderSubtitle()}
       showBack
       onBack={onBack}
       rightContent={renderRightContent()}
@@ -95,6 +106,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subtitleText: {
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  teeColorCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
 

@@ -8,6 +8,7 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { subscriptionKeys } from '../queryKeys';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { mapDBTierLimits } from '@/types/subscription.types';
@@ -61,8 +62,8 @@ export function useSubscriptionLimits(tier: SubscriptionTier = 'free'): UseSubsc
 
       return limitsMap;
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: CACHE_TIMES.STATIC, // 30 minutes
+    gcTime: GC_TIMES.LONG, // 30 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });

@@ -26,9 +26,6 @@ export type {
   PoolTransactionsOptions,
 } from './types';
 
-// Re-export helpers
-export { createError } from './helpers';
-
 // Re-export query hooks
 export {
   useCompetitionPrizePool,

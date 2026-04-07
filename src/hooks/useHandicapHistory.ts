@@ -7,6 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { calculateHandicapIndex, getQualifyingCount } from '@/utils/handicapDifferential';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
@@ -278,7 +279,7 @@ export function useHandicapHistory(playerId: string | undefined) {
     queryKey: handicapKeys.history(playerId ?? ''),
     queryFn: () => fetchHandicapHistory(playerId!),
     enabled: !!playerId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
     retry: 2,
   });
 }

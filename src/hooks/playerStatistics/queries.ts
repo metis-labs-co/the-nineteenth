@@ -8,6 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from '@/hooks/queryKeys';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
@@ -108,6 +109,7 @@ export function usePlayerStatistics(
             course_id,
             date,
             game_type,
+            handicap_source,
             status,
             courses!inner (
               id,
@@ -117,7 +119,8 @@ export function usePlayerStatistics(
             competitions (
               id,
               name,
-              status
+              status,
+              handicap_source
             )
           )
         `
@@ -238,8 +241,11 @@ export function usePlayerStatistics(
       // Round summaries for best/worst calculations
       const roundSummaries: RoundSummary[] = [];
 
-      // Track practice vs competition rounds
+      // Track practice vs competition rounds and game type breakdown
       let practiceRoundsCount = 0;
+      let matchPlayRoundsCount = 0;
+      let handicapRoundsCount = 0;
+      const gameTypeCounts = new Map<string, number>();
 
       // Per-round stat tracking for sparklines
       const perRoundStats: {
@@ -267,6 +273,20 @@ export function usePlayerStatistics(
         if (!round || !course) return;
 
         const isPracticeRound = !competition;
+
+        // Count match play rounds
+        if (round.game_type === 'match-play') {
+          matchPlayRoundsCount++;
+        }
+
+        // Resolve effective handicap source: round > competition > default 'profile'
+        const effectiveHandicapSource = round.handicap_source ?? competition?.handicap_source ?? 'profile';
+        if (effectiveHandicapSource !== 'none') {
+          handicapRoundsCount++;
+        }
+
+        // Count game types
+        gameTypeCounts.set(round.game_type, (gameTypeCounts.get(round.game_type) || 0) + 1);
 
         const holes = parseAndTransformHoles(course.holes);
         const scores = scorecard.scores as Record<string, HoleScore>;
@@ -365,6 +385,7 @@ export function usePlayerStatistics(
         // Create round summary
         roundSummaries.push({
           roundId: round.id,
+          courseId: course.id,
           competitionId: competition?.id ?? null,
           competitionName: competition?.name ?? 'Practice Round',
           courseName: course.name,
@@ -569,6 +590,12 @@ export function usePlayerStatistics(
       const bunkerStats = calculateBunkerStats(allHoleScores, roundsPlayed);
       const hazardStats = calculateHazardStats(allHoleScores, roundsPlayed);
 
+      // Convert game type counts map to plain object
+      const gameTypeBreakdown: Record<string, number> = {};
+      gameTypeCounts.forEach((count, gameType) => {
+        gameTypeBreakdown[gameType] = count;
+      });
+
       // Build sparkline trend data (last 10 rounds)
       const roundTrends: RoundStatPoint[] = perRoundStats
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -588,6 +615,8 @@ export function usePlayerStatistics(
         roundsPlayed,
         practiceRoundsPlayed: practiceRoundsCount,
         competitionRoundsPlayed: roundsPlayed - practiceRoundsCount,
+        matchPlayRoundsPlayed: matchPlayRoundsCount,
+        handicapRoundsPlayed: handicapRoundsCount,
         competitionsEntered,
         competitionsWon,
         holesPlayed: totalHolesPlayed,
@@ -604,6 +633,7 @@ export function usePlayerStatistics(
         lowestGrossScore: bestRound?.totalGross ?? null,
         highestStablefordPoints: bestStablefordRound?.totalPoints ?? null,
         recentRounds,
+        gameTypeBreakdown,
         parOrBetterPercentage,
         birdieOrBetterPercentage,
         // Putting stats
@@ -636,8 +666,8 @@ export function usePlayerStatistics(
       };
     },
     enabled: enabled && !!playerId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
+    gcTime: GC_TIMES.STANDARD, // 10 minutes (formerly cacheTime)
   });
 }
 
@@ -660,6 +690,8 @@ function createEmptyStatistics(): PlayerStatistics {
     roundsPlayed: 0,
     practiceRoundsPlayed: 0,
     competitionRoundsPlayed: 0,
+    matchPlayRoundsPlayed: 0,
+    handicapRoundsPlayed: 0,
     competitionsEntered: 0,
     competitionsWon: 0,
     holesPlayed: 0,
@@ -676,6 +708,7 @@ function createEmptyStatistics(): PlayerStatistics {
     lowestGrossScore: null,
     highestStablefordPoints: null,
     recentRounds: [],
+    gameTypeBreakdown: {},
     parOrBetterPercentage: 0,
     birdieOrBetterPercentage: 0,
     totalPutts: null,

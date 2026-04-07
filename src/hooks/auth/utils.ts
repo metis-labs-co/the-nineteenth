@@ -48,10 +48,6 @@ export async function ensurePlayerProfile(
   }
 
   // Profile doesn't exist - create it
-  if (__DEV__) {
-    console.log('[ensurePlayerProfile] Player profile not found, creating fallback profile for:', userId);
-  }
-
   const email = userEmail || '';
   const defaultName = userMetadata?.name || email.split('@')[0] || 'Player';
 
@@ -90,10 +86,6 @@ export async function ensurePlayerProfile(
   if (insertError) {
     console.error('[ensurePlayerProfile] Failed to create fallback player profile:', insertError);
     return null;
-  }
-
-  if (__DEV__) {
-    console.log('[ensurePlayerProfile] Created fallback player profile:', newProfile?.id);
   }
 
   return newProfile as Player;

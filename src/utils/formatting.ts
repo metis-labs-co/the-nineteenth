@@ -8,25 +8,71 @@
 import { format, parse, isValid } from 'date-fns';
 
 // ============================================================================
+// TIMEZONE-SAFE DATE HELPERS
+// ============================================================================
+
+/**
+ * Get a YYYY-MM-DD string in the device's local timezone.
+ *
+ * Unlike `new Date().toISOString().split('T')[0]`, this does NOT convert
+ * to UTC first, so it returns the correct calendar date for the user.
+ *
+ * @param date - Date object (defaults to now)
+ * @returns Date string in YYYY-MM-DD format (local timezone)
+ *
+ * @example
+ * // At 8am AEST on April 5 (which is April 4 in UTC):
+ * getLocalDateString() // '2025-04-05' (correct!)
+ * new Date().toISOString().split('T')[0] // '2025-04-04' (wrong!)
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+/**
+ * Parse a YYYY-MM-DD date string as a local date (not UTC).
+ *
+ * `new Date('2025-04-05')` interprets the string as UTC midnight, which
+ * can shift the displayed date in non-UTC timezones. This function creates
+ * a Date at local midnight instead.
+ *
+ * @param dateString - Date string in YYYY-MM-DD format
+ * @returns Date object at local midnight
+ *
+ * @example
+ * parseLocalDateString('2025-04-05') // April 5, 00:00 local time
+ * new Date('2025-04-05')            // April 5, 00:00 UTC (April 4 in UTC- zones)
+ */
+export function parseLocalDateString(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// ============================================================================
 // PARSING FUNCTIONS
 // ============================================================================
 
 /**
- * Parse DD/MM/YYYY string to Date object
+ * Parse DD/MM/YYYY string to Date object.
+ *
+ * This is the internal date format used by the DatePicker component and forms.
+ * Users never type this format directly — they use native date pickers.
  *
  * @param dateString - Date string in DD/MM/YYYY format
  * @returns Date object or null if invalid/empty
  *
  * @example
- * parseAustralianDate('15/01/2025') // Date object for Jan 15, 2025
- * parseAustralianDate('') // null
- * parseAustralianDate('invalid') // null
+ * parseDateInput('15/01/2025') // Date object for Jan 15, 2025
+ * parseDateInput('') // null
  */
-export function parseAustralianDate(dateString: string): Date | null {
+export function parseDateInput(dateString: string): Date | null {
   if (!dateString) return null;
   const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
   return isValid(parsed) ? parsed : null;
 }
+
+/** @deprecated Use `parseDateInput` instead */
+export const parseAustralianDate = parseDateInput;
 
 /**
  * Parse ISO date string to Date object
@@ -41,7 +87,11 @@ export function parseAustralianDate(dateString: string): Date | null {
  */
 export function parseISODate(dateString: string | null): Date | null {
   if (!dateString) return null;
-  const date = new Date(dateString);
+  // Date-only strings (YYYY-MM-DD) are interpreted as UTC by new Date(),
+  // which shifts the date in non-UTC timezones. Parse them as local instead.
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateString)
+    ? parseLocalDateString(dateString)
+    : new Date(dateString);
   return isValid(date) ? date : null;
 }
 
@@ -70,24 +120,34 @@ export function parseTime(timeString: string): Date | null {
 // ============================================================================
 
 /**
- * Format date to Australian format (DD/MM/YYYY)
+ * Format date for user-visible display using the device's locale.
  *
  * Accepts either a Date object or ISO date string.
  *
  * @param date - Date object, ISO date string (YYYY-MM-DD), or null
- * @returns Formatted date string or 'Date TBD' if null/invalid
+ * @param options - Intl.DateTimeFormatOptions (defaults to short numeric date)
+ * @returns Locale-formatted date string or 'Date TBD' if null/invalid
  *
  * @example
- * formatDateAustralian(new Date(2025, 0, 15)) // '15/01/2025'
- * formatDateAustralian('2025-01-15') // '15/01/2025'
- * formatDateAustralian(null) // 'Date TBD'
+ * // On an Australian device:
+ * formatDateDisplay(new Date(2025, 0, 15)) // '15/01/2025'
+ * // On a US device:
+ * formatDateDisplay(new Date(2025, 0, 15)) // '1/15/2025'
  */
-export function formatDateAustralian(date: Date | string | null): string {
+export function formatDateDisplay(
+  date: Date | string | null,
+  options: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' },
+): string {
   if (!date) return 'Date TBD';
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = typeof date === 'string'
+    ? (/^\d{4}-\d{2}-\d{2}$/.test(date) ? parseLocalDateString(date) : new Date(date))
+    : date;
   if (!isValid(dateObj)) return 'Date TBD';
-  return format(dateObj, 'dd/MM/yyyy');
+  return dateObj.toLocaleDateString(undefined, options);
 }
+
+/** @deprecated Use `formatDateDisplay` instead */
+export const formatDateAustralian = formatDateDisplay;
 
 // ============================================================================
 // TIME FORMATTING FUNCTIONS
@@ -141,11 +201,11 @@ export function formatTimeHHMM(date: Date): string {
  * formatDateRange('2025-01-15', '2025-01-15') // '15/01/2025'
  */
 export function formatDateRange(startDate: string, endDate?: string | null): string {
-  const formattedStart = formatDateAustralian(startDate);
+  const formattedStart = formatDateDisplay(startDate);
   if (!endDate || startDate === endDate) {
     return formattedStart;
   }
-  const formattedEnd = formatDateAustralian(endDate);
+  const formattedEnd = formatDateDisplay(endDate);
   return `${formattedStart} - ${formattedEnd}`;
 }
 
@@ -243,8 +303,10 @@ export function maskEmail(email: string): string {
  */
 export function formatDateWithWeekday(dateString: string | null): string {
   if (!dateString) return 'TBD';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-AU', {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateString)
+    ? parseLocalDateString(dateString)
+    : new Date(dateString);
+  return date.toLocaleDateString(undefined, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

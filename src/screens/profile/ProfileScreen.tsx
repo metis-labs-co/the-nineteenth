@@ -48,9 +48,9 @@ export default function ProfileScreen() {
   const {
     isLoading,
     profile,
-    homeVenue: homeClub,
-    setHomeVenue: setHomeClub,
-    clearHomeVenue: clearHomeClub,
+    homeClub,
+    setHomeClub,
+    clearHomeClub,
     placeholderPlayers,
     achievementPoints,
     equipped,

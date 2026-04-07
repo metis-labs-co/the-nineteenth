@@ -45,10 +45,8 @@ export function LocationStep({ onNext }: StepProps) {
 
       if (status === 'granted') {
         setPermissionStatus('granted');
-        console.log('[LocationStep] GPS permission granted');
       } else {
         setPermissionStatus('denied');
-        console.log('[LocationStep] GPS permission denied');
       }
 
       // Proceed to next step regardless of result

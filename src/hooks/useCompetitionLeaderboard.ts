@@ -12,6 +12,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { leaderboardKeys } from './queryKeys';
 import { getCompetitionResults } from '@/services/rounds/roundResultsService';
 import {
@@ -328,8 +329,8 @@ export function useCompetitionLeaderboard(
     queryKey: [...leaderboardKeys.competition(competitionId), filter],
     queryFn: () => fetchCompetitionLeaderboard(competitionId, filter),
     enabled: !!competitionId,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: CACHE_TIMES.SHORT, // Consider data stale after 30 seconds
+    gcTime: GC_TIMES.SHORT, // Keep in cache for 5 minutes
     refetchInterval: autoRefresh ? refetchInterval : false,
     refetchOnWindowFocus: true,
     retry: 2,

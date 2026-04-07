@@ -10,9 +10,12 @@
  * - Courses Played (Premium tier)
  */
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
@@ -46,6 +49,14 @@ export const ScoringTab = React.memo(function ScoringTab({
 }: ScoringTabProps) {
   const colors = useThemeColors();
   const cardBg = colors.surface;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handleCoursePress = useCallback(
+    (courseId: string, courseName: string) => {
+      navigation.navigate('CourseStatistics', { courseId, courseName });
+    },
+    [navigation]
+  );
 
   return (
     <>
@@ -194,13 +205,15 @@ export const ScoringTab = React.memo(function ScoringTab({
           >
             <View style={[styles.listCard, { backgroundColor: cardBg }, shadows.sm]}>
               {stats.courseStats.slice(0, 5).map((course, index) => (
-                <View
+                <TouchableOpacity
                   key={course.courseId}
                   style={[
                     styles.coursesListRow,
                     { borderBottomColor: colors.borderLight },
                     index === Math.min(stats.courseStats.length, 5) - 1 && styles.coursesListRowLast,
                   ]}
+                  onPress={() => handleCoursePress(course.courseId, course.courseName)}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[styles.coursesListName, { color: colors.textPrimary }]}
@@ -215,8 +228,9 @@ export const ScoringTab = React.memo(function ScoringTab({
                     <Text style={[styles.coursesListAvg, { color: colors.textSecondary }]}>
                       Avg: {course.averageScore}
                     </Text>
+                    <Icon source="chevron-right" size={16} color={colors.textTertiary} />
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </FeatureLock>

@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
+import { formatDateWithWeekday } from '@/utils/formatting';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 
 import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
@@ -187,7 +188,7 @@ export default function RoundsScreen() {
         renderItem={(round) => (
           <SelectionItemRow
             label={round.course.name}
-            description={`${round.gameType.replace(/_/g, ' ')}${round.date ? ` · ${new Date(round.date).toLocaleDateString('en-AU')}` : ''}`}
+            description={`${round.gameType.replace(/_/g, ' ')}${round.date ? ` · ${formatDateWithWeekday(typeof round.date === 'string' ? round.date : round.date.toISOString())}` : ''}`}
             selected={false}
             icon="golf"
           />

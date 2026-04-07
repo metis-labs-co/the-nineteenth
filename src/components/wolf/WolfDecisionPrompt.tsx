@@ -26,7 +26,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, wolfColor } from '@/constants/theme';
-import { determineWolfForHole } from '@/utils/wolfCalculations';
+import { determineWolfForHole } from '@/utils/wolf';
 import type { WolfGameWithParticipants, WolfHoleDecision } from '@/types/database/wolf.types';
 
 // ============================================================================

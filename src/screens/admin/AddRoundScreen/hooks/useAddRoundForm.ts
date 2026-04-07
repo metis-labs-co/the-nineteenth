@@ -299,24 +299,12 @@ export function useAddRoundForm({
       // Note: Skins config is stored on the round itself (skins_enabled, skins_config).
       // The actual skins_games record will be created when pairings are assigned,
       // because we need to know the participants (players/teams) for the skins game.
-      if (formData.skinsEnabled) {
-        console.log('[AddRound] Skins config saved to round (skins_games created when pairings assigned):', {
-          isTeamSkins: formData.isTeamRound && formData.teamFormat && TEAM_GAME_TYPES.includes(formData.teamFormat),
-        });
-      }
-
       // Create Wolf game if enabled
       if (formData.wolfEnabled && formData.wolfConfig && user?.id) {
         try {
-          const wolfGameId = await createWolfGame(
-            roundId,
-            formData.wolfConfig,
-            user.id
-          );
-          console.log('[AddRound] Wolf game created:', wolfGameId);
-        } catch (wolfError) {
-          // Log error but don't fail the round creation
-          console.error('[AddRound] Failed to create Wolf game:', wolfError);
+          await createWolfGame(roundId, formData.wolfConfig, user.id);
+        } catch {
+          // Wolf creation is non-blocking
         }
       }
 

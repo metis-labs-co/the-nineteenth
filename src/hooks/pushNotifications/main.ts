@@ -35,6 +35,7 @@ import { supabase } from '@/services/supabase/client';
 import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
 import { pushKeys, authKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { STALE_TIME } from './types';
 import { mapTokenFromDB, hasRegisteredOnDevice, markRegisteredOnDevice } from './helpers';
 import type { UpdatePushPreferencesInput, UsePushNotificationsReturn } from './types';
@@ -162,7 +163,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     queryFn: async (): Promise<PermissionStatus> => {
       return pushService.getPermissionStatus();
     },
-    staleTime: 60 * 1000, // 1 minute - permissions don't change often
+    staleTime: CACHE_TIMES.FREQUENT,
   });
 
   // =====================================================
@@ -187,9 +188,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       // Mark as registered on this device
       await markRegisteredOnDevice(true);
 
-      if (__DEV__) {
-        console.log('[usePushNotifications] Token registered:', result.data?.expoToken);
-      }
     },
     onSuccess: () => {
       // Invalidate tokens query to refresh the list
@@ -225,9 +223,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       // Mark as not registered on this device
       await markRegisteredOnDevice(false);
 
-      if (__DEV__) {
-        console.log('[usePushNotifications] Token unregistered');
-      }
     },
     onSuccess: () => {
       // Invalidate tokens query to refresh the list
@@ -347,30 +342,19 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   useEffect(() => {
     // Set up notification listeners
-    const receivedSubscription = pushService.addNotificationReceivedListener((notification) => {
-      if (__DEV__) {
-        console.log('[usePushNotifications] Notification received in foreground:', notification);
-      }
+    const receivedSubscription = pushService.addNotificationReceivedListener((_notification) => {
       // Foreground notifications are handled by the notification handler
       // configured in pushService.configureNotificationHandler()
     });
 
-    const responseSubscription = pushService.addNotificationResponseListener((response) => {
-      if (__DEV__) {
-        console.log('[usePushNotifications] Notification tapped:', response);
-      }
+    const responseSubscription = pushService.addNotificationResponseListener((_response) => {
       // Navigation handling should be done in NotificationContext
       // This hook just provides the listener setup
     });
 
-    // Check for notification that opened the app
-    pushService.getLastNotificationResponse().then((response) => {
-      if (response) {
-        if (__DEV__) {
-          console.log('[usePushNotifications] App opened from notification:', response);
-        }
-        // Handle cold start notification
-      }
+    // Check for notification that opened the app (cold start)
+    pushService.getLastNotificationResponse().then((_response) => {
+      // Handle cold start notification if needed
     });
 
     // Cleanup
@@ -405,26 +389,13 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       // Check if already registered on this device
       const alreadyRegistered = await hasRegisteredOnDevice();
       if (alreadyRegistered) {
-        if (__DEV__) {
-          console.log(
-            '[usePushNotifications] Already registered on this device, skipping auto-registration'
-          );
-        }
         return;
       }
 
       // Check current permission status
       const currentPermission = await pushService.getPermissionStatus();
       if (currentPermission === 'denied') {
-        if (__DEV__) {
-          console.log('[usePushNotifications] Permission denied, skipping auto-registration');
-        }
         return;
-      }
-
-      // Attempt registration (will request permission if undetermined)
-      if (__DEV__) {
-        console.log('[usePushNotifications] Attempting auto-registration...');
       }
 
       try {

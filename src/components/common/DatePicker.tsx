@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,16 +13,17 @@ import DateTimePicker, {
 import { format, parse, isValid, startOfDay } from 'date-fns';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { formatDisplayDate } from '@/utils/locale';
 
-// Parse DD/MM/YYYY string to Date object
-const parseAustralianDate = (dateString: string): Date | null => {
+// Parse DD/MM/YYYY string to Date object (internal format)
+const parseDateInput = (dateString: string): Date | null => {
   if (!dateString) return null;
   const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
   return isValid(parsed) ? parsed : null;
 };
 
-// Format Date to DD/MM/YYYY string
-const formatAustralianDate = (date: Date): string => {
+// Format Date to DD/MM/YYYY string (internal format for form state)
+const formatDateInput = (date: Date): string => {
   return format(date, 'dd/MM/yyyy');
 };
 
@@ -89,12 +90,22 @@ export function DatePicker({
   // Get the current Date value for the picker
   const getPickerValue = useCallback((): Date => {
     if (mode === 'date') {
-      const parsed = parseAustralianDate(value);
+      const parsed = parseDateInput(value);
       return parsed || new Date();
     } else {
       const parsed = parseTime(value);
       return parsed || new Date();
     }
+  }, [value, mode]);
+
+  // Locale-formatted display value (e.g., "5 Apr 2025" or "Apr 5, 2025")
+  const displayValue = useMemo(() => {
+    if (!value) return '';
+    if (mode === 'date') {
+      const parsed = parseDateInput(value);
+      return parsed ? formatDisplayDate(parsed) : value;
+    }
+    return value;
   }, [value, mode]);
 
   // Handle picker value change
@@ -106,7 +117,7 @@ export function DatePicker({
 
       if (event.type === 'set' && selectedDate) {
         if (mode === 'date') {
-          onChange(formatAustralianDate(selectedDate));
+          onChange(formatDateInput(selectedDate));
         } else {
           onChange(formatTime(selectedDate));
         }
@@ -119,7 +130,7 @@ export function DatePicker({
   const handleDismiss = useCallback(() => {
     const currentValue = getPickerValue();
     if (mode === 'date') {
-      onChange(formatAustralianDate(currentValue));
+      onChange(formatDateInput(currentValue));
     } else {
       onChange(formatTime(currentValue));
     }
@@ -158,7 +169,7 @@ export function DatePicker({
       <TouchableOpacity onPress={openPicker} disabled={disabled} activeOpacity={0.7}>
         <TextInput
           placeholder={displayPlaceholder}
-          value={value}
+          value={displayValue}
           mode="outlined"
           error={!!error}
           editable={false}

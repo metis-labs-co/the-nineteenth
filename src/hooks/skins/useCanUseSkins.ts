@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 
 /**
  * Utility hook to check if user can use skins feature
@@ -31,8 +32,8 @@ export function useCanUseSkins(userId: string | undefined) {
       return data === true;
     },
     enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
     retry: 1,
   });
 }

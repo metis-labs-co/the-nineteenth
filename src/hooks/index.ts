@@ -2,15 +2,21 @@
  * Hooks Module
  *
  * Re-exports all TanStack Query hooks and query keys.
+ *
+ * Domain hooks that have been split into subdirectories use `export *`.
+ * Root-level hooks that haven't been split keep individual named exports.
  */
 
-// Query keys
+// ============================================================================
+// QUERY KEYS
+// ============================================================================
+
 export {
   authKeys,
   competitionKeys,
+  competitionDetailsKeys,
   roundKeys,
   clubKeys,
-  venueKeys, // @deprecated - use clubKeys
   coordinateKeys,
   teeKeys,
   courseKeys,
@@ -35,7 +41,57 @@ export {
 } from './queryKeys';
 export type { QueryKey } from './queryKeys';
 
-// Auth hooks
+// ============================================================================
+// DOMAIN HOOKS (subdirectory modules)
+// ============================================================================
+
+// Achievements hooks
+export * from './achievements';
+
+// Club hooks (includes deprecated venue aliases)
+export * from './clubs';
+
+// Coordinates / GPS hooks
+export * from './coordinates';
+
+// Cosmetics hooks
+export * from './cosmetics';
+
+// Friends hooks
+export * from './friends';
+
+// Leagues hooks
+export * from './leagues';
+
+// Placeholder players hooks
+export * from './placeholderPlayers';
+
+// Player statistics hooks
+export * from './playerStatistics';
+
+// Prize pool hooks
+export * from './prizePool';
+
+// Push notification hooks
+export * from './pushNotifications';
+
+// Score mismatch hooks
+export * from './scoreMismatch';
+
+// Scoring pairs hooks
+export * from './scoringPairs';
+
+// Skins game hooks
+export * from './skins';
+
+// Wolf game hooks
+export * from './wolf';
+
+// ============================================================================
+// ROOT-LEVEL HOOKS (not yet split into subdirectories)
+// ============================================================================
+
+// Auth hooks (composed hook with actual logic)
 export { useAuth, useSession, useUser } from './useAuth';
 
 // Competition hooks
@@ -56,12 +112,11 @@ export {
 export type { CourseWithFavorite, CreateCourseInput } from './useCourses';
 
 // Course details hooks
-export { useCourseDetails, useCoursesByClub, useCoursesByVenue } from './useCourseDetails';
+export { useCourseDetails, useCoursesByClub } from './useCourseDetails';
 export type {
   UseCourseDetailsOptions,
   CourseWithDetails,
   CourseWithClubDetail,
-  CourseWithVenueDetail, // @deprecated
 } from './useCourseDetails';
 
 // Tee hooks
@@ -82,48 +137,6 @@ export type {
   UpdateTeeInput,
 } from './useTees';
 
-// Club hooks (renamed from Venue hooks)
-export {
-  // New names
-  useClubsWithCourses,
-  useSearchClubs,
-  useClubCourseDisplayItems,
-  useFavoriteCoursesWithClubs,
-  useCreateClub,
-  useCreateClubWithCourse,
-  useCreateCourse as useCreateClubCourse,
-  // Search result helpers
-  isLocalClub,
-  isGolfApiResult, // Re-exported from useGolfApiSearch for convenience
-  // Deprecated aliases
-  useVenuesWithCourses, // @deprecated - use useClubsWithCourses
-  useSearchVenues, // @deprecated - use useSearchClubs
-  useVenueCourseDisplayItems, // @deprecated - use useClubCourseDisplayItems
-  useFavoriteCoursesWithVenues, // @deprecated - use useFavoriteCoursesWithClubs
-  useCreateVenue, // @deprecated - use useCreateClub
-  useCreateVenueWithCourse, // @deprecated - use useCreateClubWithCourse
-  // Favorites
-  useAddCourseFavorite,
-  useRemoveCourseFavorite,
-} from './useClubs';
-export type {
-  CourseWithFavoriteStatus,
-  // New types
-  ClubWithCourses,
-  ClubCourseDisplayItem,
-  CreateClubInput,
-  CreateClubCourseInput,
-  FavoriteCourseWithClub,
-  SearchResultItem, // Union of local and API results
-  GolfApiSearchResultItem, // Re-exported from useGolfApiSearch for convenience
-  // Deprecated type aliases
-  VenueWithCourses, // @deprecated - use ClubWithCourses
-  VenueCourseDisplayItem, // @deprecated - use ClubCourseDisplayItem
-  CreateVenueInput, // @deprecated - use CreateClubInput
-  FavoriteCourseWithVenue, // @deprecated - use FavoriteCourseWithClub
-} from './useClubs';
-export { useCreateCourse as useCreateVenueCourse } from './useClubs'; // @deprecated
-
 // API Course hooks (GolfAPI.io)
 export {
   useApiCourseSearch,
@@ -143,7 +156,6 @@ export type {
 
 // GolfAPI.io Club Search hooks (on-demand search fallback)
 export { useGolfApiSearch } from './useGolfApiSearch';
-// Note: isGolfApiResult and GolfApiSearchResultItem are re-exported from useClubs above
 
 // Club Import hooks
 export { useImportClub } from './useImportClub';
@@ -190,29 +202,6 @@ export type {
 // Player hooks
 export { usePlayer } from './usePlayer';
 
-// Player statistics hooks
-export { usePlayerStatistics } from './usePlayerStatistics';
-export type {
-  ScoreDistribution,
-  CourseStats,
-  RoundSummary,
-  PlayerStatistics,
-} from './usePlayerStatistics';
-
-// Friends hooks
-export {
-  useFriends,
-  useFriendsCount,
-  useCheckCanAddFriend,
-  useFriendRequests,
-  useSearchPlayers,
-  useAddFriend,
-  useAcceptFriendRequest,
-  useDeclineFriendRequest,
-  useRemoveFriend,
-  useFriendStats,
-} from './useFriends';
-
 // Team hooks
 export {
   useTeams,
@@ -239,7 +228,7 @@ export {
 export { useRoundDetails, useRoundScorecards, useRoundPlayers } from './useRoundDetails';
 export type {
   RoundWithCourse,
-  CourseWithVenue,
+  CourseWithClub,
   ScorecardWithPlayer,
   RoundPlayer,
 } from './useRoundDetails';
@@ -251,16 +240,6 @@ export type { DeleteRoundInput, DeleteRoundResult } from './useDeleteRound';
 // Course delete hook
 export { useDeleteCourse } from './useDeleteCourse';
 export type { DeleteCourseInput, DeleteCourseResult } from './useDeleteCourse';
-
-// Scoring pairs hooks
-export {
-  useScoringPairs,
-  usePlayersToScore,
-  useCreateScoringPairs,
-  useAutoGenerateScoringPairs,
-  useGenerateTeamMatchPlayPairs,
-  useDeleteScoringPairs,
-} from './useScoringPairs';
 
 // Competition player management hooks
 export { useRemoveCompetitionPlayer } from './useRemoveCompetitionPlayer';
@@ -280,39 +259,21 @@ export {
   useNotificationSubscription,
 } from './useNotifications';
 
-// Subscription hooks
+// Subscription hooks (composed hook with actual logic)
 export { useSubscription, useCompetitionCount } from './useSubscription';
 export type {
   FeatureCheckContext,
   UseSubscriptionReturn,
 } from './useSubscription';
 
-// Push notification hooks
+// Home club hooks
 export {
-  usePushNotifications,
-  usePushPermissionStatus,
-  usePushPreferences,
-  useIsPushRegistered,
-} from './usePushNotifications';
-export type {
-  UpdatePushPreferencesInput,
-  UsePushNotificationsReturn,
-} from './usePushNotifications';
-
-// Home club hooks (renamed from Home venue hooks)
-export {
-  // New names
   useHomeClub,
   useSetHomeClub,
   useClearHomeClub,
-  // Deprecated aliases
-  useHomeVenue, // @deprecated - use useHomeClub
-  useSetHomeVenue, // @deprecated - use useSetHomeClub
-  useClearHomeVenue, // @deprecated - use useClearHomeClub
 } from './useHomeClub';
 export type {
   HomeClubWithCourses,
-  HomeVenueWithCourses, // @deprecated - use HomeClubWithCourses
 } from './useHomeClub';
 
 // Course update hooks
@@ -320,45 +281,6 @@ export { useUpdateCourseHoles } from './useUpdateCourseHoles';
 export type { UpdateCourseHolesInput } from './useUpdateCourseHoles';
 export { useUpdateCourse } from './useUpdateCourse';
 export type { UpdateCourseInput } from './useUpdateCourse';
-
-// Placeholder players hooks
-export {
-  usePlaceholderPlayers,
-  usePlaceholderPlayer,
-  useCreatePlaceholderPlayer,
-  useLinkPlaceholderPlayer,
-  useDeletePlaceholderPlayer,
-  useUpdatePlaceholderPlayer,
-} from './usePlaceholderPlayers';
-
-// Achievement hooks
-export {
-  useAchievementDefinitions,
-  usePlayerAchievements,
-  useAchievementProgress,
-  useAchievementSummary,
-  useAchievementLeaderboard,
-  useAwardAchievement,
-  useUpdateProgress,
-  useHasAchievement,
-  useAchievementPoints,
-  useAchievementsByCategory,
-} from './achievements';
-
-// Cosmetics hooks
-export {
-  useCosmeticDefinitions,
-  usePlayerCosmetics,
-  useEquippedCosmetics,
-  useUnlockableCosmetics,
-  useCosmeticsWithStatus,
-  useUnlockCosmetic,
-  useEquipCosmetic,
-  useUnequipCosmetic,
-  useHasCosmetic,
-  useNextUnlockableCosmetic,
-  useCosmeticCounts,
-} from './cosmetics';
 
 // Online status hooks
 export {
@@ -368,27 +290,6 @@ export {
   getIsOnlineCached,
   initOnlineStatus,
 } from './useOnlineStatus';
-
-// Hole Coordinates hooks (GPS features)
-export {
-  useHoleCoordinates,
-  useHoleCoordinatesByHole,
-  useGreenCoordinate,
-  useTeeCoordinate,
-  useCoordinateSummary,
-  useDistanceToGreen,
-  useHoleDistance,
-  useHasCoordinates,
-  useHasCompleteCoordinates,
-  useAllHoleDistances,
-} from './useHoleCoordinates';
-export type {
-  HoleCoordinateSet,
-  CoordinatesByHole,
-  UserLocation,
-  DistanceResult,
-  HoleCoordinateSummary,
-} from './useHoleCoordinates';
 
 // Coordinate backfill (auto-fetch missing GPS data from GolfAPI.io)
 export { useCoordinateBackfill } from './useCoordinateBackfill';
@@ -401,91 +302,6 @@ export type {
   LocationPermissionStatus,
   UserLocation as DeviceUserLocation,
 } from './useUserLocation';
-
-// Skins game hooks
-export {
-  useSkinsGame,
-  useSkinsGamesByRound,
-  useSkinsResults,
-  useSkinsPayouts,
-  useSkinsSummary,
-  useCreateSkinsGame,
-  useProcessSkinsHole,
-  useFinalizeSkinsGame,
-  useCancelSkinsGame,
-  useCanUseSkins,
-  useActiveSkinsGameForRound,
-  useProcessSkinsIfNeeded,
-  useFinalizeSkinsForRound,
-  // Statistics & Leaderboard
-  useSkinsStatistics,
-  useMySkinsStatistics,
-  useSkinsLeaderboard,
-  useSkinsGameHistory,
-  useSkinsRank,
-} from './useSkins';
-export type {
-  SkinsServiceError,
-  ProcessSkinsHoleInput,
-  ProcessSkinsInput,
-  ProcessSkinsResult,
-  CreateSkinsGameWithDisclaimerInput,
-  // Statistics types
-  SkinsPlayerStatistics,
-  SkinsLeaderboardEntry,
-  SkinsGameHistoryEntry,
-  SkinsLeaderboardOptions,
-  SkinsGameHistoryOptions,
-} from './useSkins';
-
-// Wolf game hooks (strategic partner selection side-game)
-export {
-  // Query hooks
-  useWolfGame,
-  useWolfGameByRound,
-  useWolfHoleDecisions,
-  useWolfCurrentHoleDecision,
-  useWolfStandings,
-  useWolfPayouts,
-  useCanUseWolf,
-  useWolfSummary,
-  // Mutation hooks
-  useCreateWolfGame,
-  useSubmitWolfDecision,
-  useRecordWolfHoleResult,
-  useFinalizeWolfGame,
-  useCancelWolfGame,
-  useDeleteWolfGame,
-  // Helpers
-  isWolfServiceError,
-  getWolfErrorMessage,
-} from './wolf';
-export type {
-  WolfServiceError,
-  ProcessWolfDecisionResult,
-  ProcessWolfHoleResultResponse,
-  WolfStandingsDisplayEntry,
-  WolfHoleSummary,
-  WolfGameCreateOptions,
-  WolfSettlementEntry,
-  WolfSettlementTransaction,
-  CreateWolfGameWithDisclaimerInput,
-} from './wolf';
-
-// Prize pool hooks
-export {
-  useCompetitionPrizePool,
-  usePrizePoolPlacements,
-  usePoolTransactions,
-  useCreatePrizePool,
-  useUpdatePrizePool,
-  useDeletePrizePool,
-  useSettlePrizePool,
-} from './usePrizePool';
-export type {
-  PrizePoolServiceError,
-  PoolTransactionsOptions,
-} from './usePrizePool';
 
 // UI hooks
 export { useConfirmationDialog } from './useConfirmationDialog';
@@ -511,7 +327,6 @@ export {
   useCompetitionDetailsData,
   fetchCompetitionDetails,
   getCurrentPlayerStanding,
-  competitionDetailsKeys,
 } from './useCompetitionDetailsData';
 export type { UseCompetitionDetailsDataOptions } from './useCompetitionDetailsData';
 

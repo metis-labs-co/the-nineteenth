@@ -9,8 +9,8 @@
  */
 
 import { authKeys } from './auth';
-import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys } from './competition';
-import { clubKeys, venueKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
+import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys, competitionDetailsKeys } from './competition';
+import { clubKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
 import { roundKeys } from './round';
 import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys } from './scoring';
 import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
@@ -21,6 +21,7 @@ export { authKeys };
 
 export {
   competitionKeys,
+  competitionDetailsKeys,
   playerKeys,
   teamKeys,
   pairingKeys,
@@ -29,7 +30,6 @@ export {
 
 export {
   clubKeys,
-  venueKeys,
   courseKeys,
   teeKeys,
   coordinateKeys,

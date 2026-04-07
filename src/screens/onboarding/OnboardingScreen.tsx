@@ -115,10 +115,8 @@ export default function OnboardingScreen() {
   const handleComplete = useCallback(
     async (skipHandicap = false, explicitHomeClubId?: string) => {
       const resolvedHomeClubId = explicitHomeClubId ?? homeClubId;
-      console.log('[OnboardingScreen] handleComplete called, skipHandicap:', skipHandicap, 'handicap:', handicap, 'homeClubId:', resolvedHomeClubId);
 
       if (isSubmitting) {
-        console.log('[OnboardingScreen] Already submitting, ignoring');
         return;
       }
 
@@ -129,8 +127,6 @@ export default function OnboardingScreen() {
 
         // Reset screen welcome modals so they show for first-time users
         resetAllScreensSeen();
-
-        console.log('[OnboardingScreen] Updating profile with handicap:', handicapValue);
 
         // Save handicap, name, and home club in a single update to avoid race conditions
         const profileUpdate: { handicap: number; name?: string; home_club_id?: string } = {
@@ -145,10 +141,8 @@ export default function OnboardingScreen() {
 
         await updateProfile(profileUpdate);
 
-        console.log('[OnboardingScreen] Profile updated successfully');
         // Navigation handled automatically by RootNavigator
-      } catch (error) {
-        console.error('[OnboardingScreen] Failed to complete onboarding:', error);
+      } catch {
         // Could show error toast here
         setIsSubmitting(false);
       }
@@ -159,7 +153,6 @@ export default function OnboardingScreen() {
 
   // Skip entire onboarding
   const handleSkip = useCallback(async () => {
-    console.log('[OnboardingScreen] Skip pressed');
     await handleComplete(true);
   }, [handleComplete]);
 

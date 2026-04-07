@@ -41,7 +41,7 @@ export type {
 } from './types';
 
 // Re-export helpers
-export { createError, isWolfServiceError, getWolfErrorMessage } from './helpers';
+export { isWolfServiceError, getWolfErrorMessage } from './helpers';
 
 // Re-export query hooks
 export {

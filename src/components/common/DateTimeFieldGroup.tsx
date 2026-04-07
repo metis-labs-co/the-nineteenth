@@ -85,7 +85,8 @@ export interface DateTimeFieldGroupProps {
 // Helpers
 // ============================================================================
 
-const formatAustralianDate = (date: Date): string => {
+// Internal format for form state (DD/MM/YYYY) — displayed via locale-aware DatePicker
+const formatDateInput = (date: Date): string => {
   return format(date, 'dd/MM/yyyy');
 };
 
@@ -122,7 +123,7 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Format displayed values
-  const displayDate = formatAustralianDate(date);
+  const displayDate = formatDateInput(date);
   const displayTime = time ? formatTime(time) : '';
 
   // ============================================================================

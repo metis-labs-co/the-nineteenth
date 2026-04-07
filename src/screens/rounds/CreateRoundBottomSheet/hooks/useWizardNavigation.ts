@@ -184,24 +184,6 @@ export function useWizardNavigation({
             }
           : undefined;
 
-      // DEBUG: Log skins configuration being passed to round creation
-      console.log('[CreateRoundWizard] handleStartScoring - Skins config:', {
-        skinsEnabled: data.skinsEnabled,
-        hasSkinsConfig: !!data.skinsConfig,
-        skinsConfig: data.skinsConfig,
-        standaloneSkinsConfig,
-        partnersCount: data.selectedPartners.length,
-      });
-
-      // DEBUG: Log Wolf configuration being passed to round creation
-      console.log('[CreateRoundWizard] handleStartScoring - Wolf config:', {
-        wolfEnabled: data.wolfEnabled,
-        hasWolfConfig: !!data.wolfConfig,
-        wolfConfig: data.wolfConfig,
-        standaloneWolfConfig,
-        partnersCount: data.selectedPartners.length,
-      });
-
       onStartRound(
         data.selectedCourse.courseId,
         data.selectedCourse.courseName,

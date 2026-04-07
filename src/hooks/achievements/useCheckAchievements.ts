@@ -44,15 +44,14 @@ import {
   useAchievementDefinitions,
   usePlayerAchievements,
   useAchievementProgress,
-  useAwardAchievement,
-  useUpdateProgress,
-} from './useAchievements';
+} from './queries';
+import { useAwardAchievement, useUpdateProgress } from './mutations';
+import { useAchievementPoints } from './utilities';
 import {
   useCosmeticDefinitions,
   usePlayerCosmetics,
-  useUnlockCosmetic,
-} from '../cosmetics/useCosmetics';
-import { useAchievementPoints } from './useAchievements';
+} from '../cosmetics/queries';
+import { useUnlockCosmetic } from '../cosmetics/mutations';
 import { achievementKeys } from '../queryKeys';
 import { cosmeticKeys } from '../queryKeys';
 import type {
@@ -272,8 +271,7 @@ export function useCheckAchievements(playerId: string): UseCheckAchievementsRetu
           achievement_code: update.achievement_code,
           value: update.new_value,
           increment: false, // Use absolute value since we calculated it
-        }).catch((error) => {
-          console.error(`Failed to update progress for ${update.achievement_code}:`, error);
+        }).catch(() => {
           // Don't throw - continue with other updates
           return null;
         })
@@ -294,13 +292,10 @@ export function useCheckAchievements(playerId: string): UseCheckAchievementsRetu
             (u) => u.achievement_code === (achievement.base_achievement ?? achievement.code)
           )?.new_value,
         }).catch((error) => {
-          // Ignore "already earned" errors
+          // Ignore "already earned" errors - continue with other awards
           if (error.message === 'Achievement already earned') {
-            console.log(`Achievement ${achievement.code} already earned, skipping`);
             return null;
           }
-          console.error(`Failed to award achievement ${achievement.code}:`, error);
-          // Don't throw - continue with other awards
           return null;
         })
       );
@@ -317,13 +312,10 @@ export function useCheckAchievements(playerId: string): UseCheckAchievementsRetu
           player_id: playerId,
           cosmetic_id: cosmetic.id,
         }).catch((error) => {
-          // Ignore "already unlocked" errors
+          // Ignore "already unlocked" errors - continue with other unlocks
           if (error.message === 'Cosmetic already unlocked') {
-            console.log(`Cosmetic ${cosmetic.code} already unlocked, skipping`);
             return null;
           }
-          console.error(`Failed to unlock cosmetic ${cosmetic.code}:`, error);
-          // Don't throw - continue with other unlocks
           return null;
         })
       );
@@ -371,7 +363,6 @@ export function useCheckAchievements(playerId: string): UseCheckAchievementsRetu
     ): Promise<CheckAndAwardResult> => {
       // Wait for data to be ready before checking
       if (!isReady) {
-        console.warn('Achievement data not ready, returning empty result');
         return {
           newAchievements: [],
           newCosmetics: [],

@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useScorecardStore } from '@/store/scorecardStore';
+import { getLocalDateString } from '@/utils/formatting';
 import { DEFAULT_HOLES } from '../utils';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -71,7 +72,7 @@ export function useStartSocialRound({
             user_id: user?.id,
             competition_id: null,
             round_number: 1,
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDateString(),
             game_type: gameType,
             status: 'in-progress',
             selected_tee: roundSelectedTee ?? null,

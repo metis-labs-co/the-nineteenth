@@ -7,6 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { statisticsKeys } from '@/hooks/queryKeys';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
@@ -15,7 +16,6 @@ import {
   calculateParTypeStats,
   calculateShortGameStats,
   calculatePuttingDepthStats,
-  getScoreCategory,
 } from './helpers';
 import {
   calculateFairwayMissDirectionStats,
@@ -450,8 +450,8 @@ export function useCourseStatistics(
       };
     },
     enabled: enabled && !!playerId && !!courseId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
   });
 }
 

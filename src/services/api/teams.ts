@@ -58,7 +58,6 @@ interface TeamQueryRow {
  * Create a new team in a competition
  */
 export async function createTeam(input: TeamCreateInput): Promise<Team> {
-  console.log('[API] Creating team:', input);
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -112,7 +111,6 @@ export async function createTeam(input: TeamCreateInput): Promise<Team> {
  * Get all teams for a competition
  */
 export async function getTeams(competitionId: string): Promise<Team[]> {
-  console.log('[API] Fetching teams for competition:', competitionId);
 
   const { data: teams, error } = await supabase
     .from('teams')
@@ -167,7 +165,6 @@ export async function getTeams(competitionId: string): Promise<Team[]> {
  * Get a single team by ID
  */
 export async function getTeam(teamId: string): Promise<Team | null> {
-  console.log('[API] Fetching team:', teamId);
 
   const { data: team, error } = await supabase
     .from('teams')
@@ -225,7 +222,6 @@ export async function getTeam(teamId: string): Promise<Team | null> {
  * Update a team's name
  */
 export async function updateTeam(teamId: string, updates: { name?: string }): Promise<Team> {
-  console.log('[API] Updating team:', teamId, updates);
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -260,7 +256,6 @@ export async function updateTeam(teamId: string, updates: { name?: string }): Pr
  * Delete a team
  */
 export async function deleteTeam(teamId: string): Promise<void> {
-  console.log('[API] Deleting team:', teamId);
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -283,7 +278,6 @@ export async function deleteTeam(teamId: string): Promise<void> {
  * Add a member to a team
  */
 export async function addTeamMember(teamId: string, playerId: string): Promise<void> {
-  console.log('[API] Adding member to team:', teamId, playerId);
 
   const { error } = await supabase
     .from('team_members')
@@ -302,7 +296,6 @@ export async function addTeamMember(teamId: string, playerId: string): Promise<v
  * Remove a member from a team
  */
 export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
-  console.log('[API] Removing member from team:', teamId, playerId);
 
   const { error } = await supabase
     .from('team_members')

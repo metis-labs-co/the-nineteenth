@@ -35,38 +35,17 @@ export async function createCompetition(
     players: PlayerCreateInput[];
   }
 ): Promise<{ competition: Competition; rounds: Round[]; inviteCode: string }> {
-  console.log('[API] Creating competition:', JSON.stringify({
-    name: input.name,
-    competitionType: input.competitionType,
-    handicapSystem: input.handicapSystem,
-    startDate: input.startDate,
-    endDate: input.endDate,
-    teamMode: input.teamMode,
-    teamSize: input.teamSize,
-    visibility: input.visibility,
-    inviteCode: input.inviteCode,
-    roundsCount: input.rounds?.length ?? 0,
-    playersCount: input.players?.length ?? 0,
-  }));
-
   // Check tier-based permission before creating
-  console.log('[API] Step 1/5: Checking tier-based permission...');
   const permissionCheck = await checkCompetitionCreationPermission();
-  console.log('[API] Permission check result:', JSON.stringify(permissionCheck));
   if (!permissionCheck.allowed) {
     throw new Error(permissionCheck.error || 'You cannot create more competitions with your current plan');
   }
 
   // Get current user
-  console.log('[API] Step 2/5: Getting current user...');
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    console.error('[API] Auth error:', JSON.stringify(authError));
-  }
   if (authError || !user) {
     throw new Error('You must be logged in to create a competition');
   }
-  console.log('[API] Authenticated user:', user.id);
 
   // Use custom invite code or generate one
   const inviteCode = input.inviteCode || generateInviteCode();
@@ -83,7 +62,6 @@ export async function createCompetition(
   const teamSize = dbTeamMode === 'none' ? null : (input.teamSize || null);
 
   // Create competition in Supabase
-  console.log('[API] Step 3/5: Inserting competition into database...');
   const insertPayload = {
     name: input.name,
     description: input.description || null,
@@ -99,7 +77,6 @@ export async function createCompetition(
     team_size: teamSize,
     point_system: pointSystemConfig,
   };
-  console.log('[API] Competition insert payload:', JSON.stringify(insertPayload, null, 2));
   const { data: competition, error: compError } = await supabase
     .from('competitions')
     .insert({
@@ -122,29 +99,21 @@ export async function createCompetition(
     .single();
 
   if (compError) {
-    console.error('[API] Error creating competition:', JSON.stringify(compError));
-    console.error('[API] Error code:', compError.code);
-    console.error('[API] Error hint:', compError.hint);
-    console.error('[API] Error details:', compError.details);
     throw new Error(`Failed to create competition: ${compError.message}`);
   }
 
   const comp = competition as DBCompetition;
-  console.log('[API] Competition created successfully, id:', comp.id);
 
   // Normalize rounds input
   const roundsInput = input.rounds || (input.round ? [input.round] : []);
   const createdRounds: Round[] = [];
-  console.log('[API] Step 4/5: Creating', roundsInput.length, 'round(s)...');
 
   // Create rounds
   for (let i = 0; i < roundsInput.length; i++) {
     const roundInput = roundsInput[i];
-    console.log(`[API] Creating round ${i + 1}/${roundsInput.length}:`, JSON.stringify(roundInput));
 
     // Handle course_id - can now be null for "blank" placeholder rounds
     let courseId: string | null = (roundInput as { courseId?: string }).courseId || null;
-    console.log(`[API] Round ${i + 1} - courseId:`, courseId, 'courseName:', roundInput.courseName);
 
     // Only create/lookup course if we have a courseName but no valid courseId
     if (roundInput.courseName && (!courseId || !isValidUUID(courseId))) {
@@ -159,11 +128,9 @@ export async function createCompetition(
         .single();
 
       if (courseError) {
-        console.error('[API] Error creating course:', JSON.stringify(courseError));
         throw new Error(`Failed to create course: ${courseError.message}`);
       }
       courseId = (course as DBCourse).id;
-      console.log(`[API] Round ${i + 1} - created course with id:`, courseId);
     }
     // If no courseName and no courseId, courseId stays null (blank round)
 
@@ -190,8 +157,6 @@ export async function createCompetition(
       selected_tee: (roundInput as RoundCreateInput).selectedTee || null,
       status: 'upcoming' as RoundStatus,
     };
-    console.log(`[API] Round ${i + 1} insert payload:`, JSON.stringify(roundInsertPayload, null, 2));
-
     const { data: round, error: roundError } = await supabase
       .from('rounds')
       .insert(roundInsertPayload as unknown as never)
@@ -199,13 +164,8 @@ export async function createCompetition(
       .single();
 
     if (roundError) {
-      console.error('[API] Error creating round:', JSON.stringify(roundError));
-      console.error('[API] Round error code:', roundError.code);
-      console.error('[API] Round error hint:', roundError.hint);
-      console.error('[API] Round error details:', roundError.details);
       throw new Error(`Failed to create round: ${roundError.message}`);
     }
-    console.log(`[API] Round ${i + 1} created successfully, id:`, (round as DBRound).id);
 
     const dbRound = round as DBRound;
     createdRounds.push({
@@ -223,8 +183,6 @@ export async function createCompetition(
   }
 
   // Add the organizer as a player in the competition
-  console.log('[API] Step 5/5: Adding players to competition...');
-  console.log('[API] Adding organizer as player:', user.id);
   const { error: orgPlayerError } = await supabase
     .from('competition_players')
     .insert({
@@ -259,19 +217,8 @@ export async function createCompetition(
         .from('competition_players')
         .insert(competitionPlayersData as unknown as never);
 
-      if (playersError) {
-        console.warn('[API] Could not add some players:', playersError.message);
-        // Don't fail the whole operation - players can still join via invite code
-      } else {
-        console.log('[API] Added', competitionPlayersData.length, 'players to competition');
-      }
+      // playersError is non-fatal - players can still join via invite code
     }
-  }
-
-  // Log any players without IDs (for future invite system - they'll join via invite code)
-  const newPlayers = input.players.filter((p) => !p.id);
-  if (newPlayers.length > 0) {
-    console.log('[API] Players without accounts (will need to join via invite code):', newPlayers);
   }
 
   const result = {
@@ -298,7 +245,6 @@ export async function createCompetition(
     inviteCode: comp.invite_code,
   };
 
-  console.log('[API] Competition created successfully:', result);
   return result;
 }
 
@@ -306,8 +252,6 @@ export async function createCompetition(
  * Get all competitions for the current user
  */
 export async function getCompetitions(): Promise<Competition[]> {
-  console.log('[API] Fetching competitions');
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return [];
@@ -351,7 +295,6 @@ export async function getCompetitions(): Promise<Competition[]> {
  * Get a single competition by ID
  */
 export async function getCompetition(id: string): Promise<Competition | null> {
-  console.log('[API] Fetching competition:', id);
 
   // Filter out soft-deleted competitions
   const { data: competition, error } = await supabase

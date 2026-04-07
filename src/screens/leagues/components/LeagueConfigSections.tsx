@@ -35,20 +35,20 @@ export function SeasonConfig({ startDate, endDate, onStartDateChange, onEndDateC
       <FormInput
         label="Start Date"
         floatingLabel
-        placeholder="DD/MM/YYYY"
+        placeholder="Select a date"
         value={startDate}
         onChangeText={onStartDateChange}
         keyboardType="default"
-        accessibilityHint="Enter start date in DD/MM/YYYY format"
+        accessibilityHint="Enter the season start date"
       />
       <FormInput
         label="End Date"
         floatingLabel
-        placeholder="DD/MM/YYYY"
+        placeholder="Select a date"
         value={endDate}
         onChangeText={onEndDateChange}
         keyboardType="default"
-        accessibilityHint="Enter end date in DD/MM/YYYY format"
+        accessibilityHint="Enter the season end date"
       />
     </FormSection>
   );

@@ -20,7 +20,7 @@ function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-AU', {
+    return date.toLocaleDateString(undefined, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

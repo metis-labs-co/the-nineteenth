@@ -34,7 +34,6 @@ export function invalidateLeaderboardCache(competitionId?: string): void {
       queryKey: leaderboardKeys.all,
     });
   }
-  console.log('[QueryClient] Leaderboard cache invalidated');
 }
 
 /**
@@ -50,7 +49,6 @@ export function invalidateScorecardCache(roundId?: string): void {
       queryKey: scorecardKeys.all,
     });
   }
-  console.log('[QueryClient] Scorecard cache invalidated');
 }
 
 /**
@@ -61,5 +59,4 @@ export function invalidateHandicapCache(playerId: string): void {
   queryClient.invalidateQueries({
     queryKey: ['handicap', 'history', playerId],
   });
-  console.log('[QueryClient] Handicap cache invalidated for player:', playerId);
 }

@@ -108,11 +108,9 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       await login({ email, password });
-      console.log('Login successful:', email);
       // Navigation is handled automatically by RootNavigator's conditional rendering
       // when isAuthenticated becomes true
     } catch (err: unknown) {
-      console.error('Login error:', err);
       // Handle specific Supabase auth errors
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       if (errorMessage.includes('Invalid login credentials')) {
@@ -137,7 +135,6 @@ export default function LoginScreen({ navigation }: Props) {
       await sendOtp({ email });
       navigation.navigate('OTPVerification', { email });
     } catch (err: unknown) {
-      console.error('Send OTP error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       if (errorMessage.includes('rate limit')) {
         setError('Too many requests. Please wait a moment and try again.');

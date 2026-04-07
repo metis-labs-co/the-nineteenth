@@ -268,7 +268,6 @@ class CourseService {
       try {
         coordinatesImported = await this.importCoordinates(golfapiCourseId, course.id);
         if (coordinatesImported > 0) {
-          console.log(`[CourseService] Imported ${coordinatesImported} GPS coordinates for ${course.name}`);
         }
       } catch (coordError) {
         console.warn('[CourseService] Failed to import coordinates (non-blocking):', coordError);
@@ -383,9 +382,7 @@ class CourseService {
             // Import GPS coordinates (non-blocking)
             try {
               const coordCount = await this.importCoordinates(courseSummary.courseID, course.id);
-              if (coordCount > 0) {
-                console.log(`[CourseService] Imported ${coordCount} GPS coordinates for ${course.name}`);
-              }
+              // coordCount used for debugging only
             } catch (coordError) {
               console.warn('[CourseService] Failed to import coordinates for', course.name, coordError);
             }
@@ -546,7 +543,6 @@ class CourseService {
       return -1;
     }
 
-    console.log(`[CourseService] Importing coordinates for existing course: ${course.name}`);
     return this.importCoordinates(course.golfapi_course_id, courseId);
   }
 

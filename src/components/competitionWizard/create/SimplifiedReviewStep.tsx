@@ -10,40 +10,22 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text, Divider, Chip, Icon } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconTrophy } from '@tabler/icons-react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text } from 'react-native-paper';
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
-  GameType,
-  CompetitionType,
   PrizePoolConfigFormData,
 } from '@/schemas/competition';
 import type { WizardPlayerData } from '@/store/competitionWizardStore';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
-
-// Prize pool color for styling
-const PRIZE_POOL_COLOR = '#059669';
-
-// Game type labels for display
-const gameTypeLabels: Record<GameType, string> = {
-  stableford: 'Stableford',
-  stroke: 'Stroke Play',
-  par: 'Par',
-  'match-play': 'Match Play',
-  'best-ball': 'Best Ball',
-  scramble: 'Scramble',
-  shamble: 'Shamble',
-};
-
-// Competition type labels for display
-const competitionTypeLabels: Record<CompetitionType, string> = {
-  event: 'Event',
-  knockout: 'Knockout',
-};
+import { spacing, typography } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
+import { CompetitionDetailsSection } from './CompetitionDetailsSection';
+import { RoundsSection } from './RoundsSection';
+import { ReviewPlayersSection } from './ReviewPlayersSection';
+import { PrizePoolSection } from './PrizePoolSection';
+import { ReviewInfoBox } from './ReviewInfoBox';
+import { ReviewFooter } from './ReviewFooter';
 
 export interface SimplifiedReviewStepProps {
   competitionData: CompetitionDetailsFormData;
@@ -64,19 +46,10 @@ export default function SimplifiedReviewStep({
   onBack,
   isSubmitting,
 }: SimplifiedReviewStepProps) {
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
-  // Calculate prize pool values for display
-  const hasPrizePool = !!prizePoolData;
   const hasPlayers = playersData && playersData.length > 0;
-  const fundingLabel =
-    prizePoolData?.fundingType === 'per_player' ? 'Per Player' : 'Fixed Total';
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
+  const hasPrizePool = !!prizePoolData;
 
   // Format date for display (DD/MM/YYYY - Australian)
   const formatDate = (dateString?: string) => {
@@ -102,9 +75,6 @@ export default function SimplifiedReviewStep({
     return mapping[system] || system;
   };
 
-  // Count configured rounds
-  const configuredRounds = roundsData.filter((r) => r.isConfigured || !!r.courseId).length;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -116,368 +86,32 @@ export default function SimplifiedReviewStep({
             : ' You can add players and configure rounds after creation.'}
         </Text>
 
-        {/* Competition Details */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Competition Details
-          </Text>
-          <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+        <CompetitionDetailsSection
+          competitionData={competitionData}
+          formatDate={formatDate}
+          formatHandicapSystem={formatHandicapSystem}
+        />
 
-          <View style={styles.itemsContainer}>
-            <ReviewItem label="Name" value={competitionData.name} colors={colors} />
-            {competitionData.description && (
-              <ReviewItem
-                label="Description"
-                value={competitionData.description}
-                colors={colors}
-              />
-            )}
-            <ReviewItemWithBadge
-              label="Type"
-              value={competitionTypeLabels[competitionData.competitionType]}
-              colors={colors}
-            />
-            <ReviewItem
-              label="Start Date"
-              value={formatDate(competitionData.startDate)}
-              colors={colors}
-            />
-            {competitionData.competitionType === 'event' && competitionData.endDate && (
-              <ReviewItem
-                label="End Date"
-                value={formatDate(competitionData.endDate)}
-                colors={colors}
-              />
-            )}
-            <ReviewItem
-              label="Handicap System"
-              value={formatHandicapSystem(competitionData.handicapSystem)}
-              colors={colors}
-            />
-            {competitionData.inviteCode && (
-              <ReviewItem
-                label="Invite Code"
-                value={competitionData.inviteCode}
-                colors={colors}
-              />
-            )}
-            <ReviewItemWithBadge
-              label="Teams"
-              value={competitionData.enableTeams ? 'Team Competition' : 'Individual'}
-              colors={colors}
-            />
-          </View>
-        </View>
+        <RoundsSection roundsData={roundsData} formatDate={formatDate} />
 
-        {/* Rounds Details */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Rounds ({roundsData.length})
-            </Text>
-            {configuredRounds < roundsData.length && (
-              <View style={[styles.warningBadge, { backgroundColor: colors.warningLight }]}>
-                <Icon source="alert-circle-outline" size={14} color={colors.warning} />
-                <Text style={[styles.warningBadgeText, { color: colors.warning }]}>
-                  {roundsData.length - configuredRounds} not configured
-                </Text>
-              </View>
-            )}
-          </View>
-          <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+        <ReviewPlayersSection playersData={playersData} />
 
-          <View style={styles.itemsContainer}>
-            {roundsData.map((round, index) => {
-              const isConfigured = round.isConfigured || !!round.courseId;
-
-              return (
-                <View key={index} style={styles.roundContainer}>
-                  <View style={styles.roundHeader}>
-                    <Text style={[styles.roundNumber, { color: colors.primary }]}>
-                      Round {index + 1}
-                    </Text>
-                    {isConfigured ? (
-                      <View
-                        style={[styles.statusBadge, { backgroundColor: colors.successLight }]}
-                      >
-                        <Icon source="check-circle" size={12} color={colors.success} />
-                        <Text style={[styles.statusText, { color: colors.success }]}>
-                          Configured
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.statusBadge, { backgroundColor: colors.gray100 }]}>
-                        <Icon source="clock-outline" size={12} color={colors.gray500} />
-                        <Text style={[styles.statusText, { color: colors.gray500 }]}>
-                          Not configured
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {isConfigured ? (
-                    <>
-                      {round.courseName && (
-                        <ReviewItem label="Course" value={round.courseName} colors={colors} />
-                      )}
-                      <ReviewItem
-                        label="Date"
-                        value={formatDate(round.date)}
-                        colors={colors}
-                      />
-                      {round.teeTime && (
-                        <ReviewItem label="Tee Time" value={round.teeTime} colors={colors} />
-                      )}
-                      <ReviewItemWithBadge
-                        label="Match Type"
-                        value={gameTypeLabels[(round.matchType as GameType) || 'stableford']}
-                        colors={colors}
-                      />
-                    </>
-                  ) : (
-                    <View
-                      style={[styles.notConfiguredBox, { backgroundColor: colors.gray50 }]}
-                    >
-                      <Icon source="information-outline" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.notConfiguredText, { color: colors.textSecondary }]}>
-                        Configure this round in competition settings after creation
-                      </Text>
-                    </View>
-                  )}
-
-                  {index < roundsData.length - 1 && (
-                    <Divider
-                      style={[styles.roundDivider, { backgroundColor: colors.gray200 }]}
-                    />
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Players Details */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Players ({hasPlayers ? playersData.length : 0})
-            </Text>
-            {!hasPlayers && (
-              <View style={[styles.statusBadge, { backgroundColor: colors.gray100 }]}>
-                <Icon source="clock-outline" size={12} color={colors.gray500} />
-                <Text style={[styles.statusText, { color: colors.gray500 }]}>
-                  Add later
-                </Text>
-              </View>
-            )}
-          </View>
-          <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
-
-          <View style={styles.itemsContainer}>
-            {hasPlayers ? (
-              <View style={styles.playersContainer}>
-                {playersData.map((player, index) => (
-                  <View key={player.id} style={styles.playerRow}>
-                    <View style={styles.playerInfo}>
-                      <Text style={[styles.playerName, { color: colors.textPrimary }]}>
-                        {player.name}
-                      </Text>
-                      {player.handicap !== null && player.handicap !== undefined && (
-                        <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
-                          HC {player.handicap}
-                        </Text>
-                      )}
-                    </View>
-                    {player.is_placeholder && (
-                      <Chip
-                        mode="flat"
-                        style={[styles.guestBadge, { backgroundColor: colors.gray100 }]}
-                        textStyle={[styles.guestBadgeText, { color: colors.gray600 }]}
-                      >
-                        Guest
-                      </Chip>
-                    )}
-                    {index < playersData.length - 1 && (
-                      <Divider
-                        style={[styles.playerDivider, { backgroundColor: colors.gray100 }]}
-                      />
-                    )}
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={[styles.notConfiguredBox, { backgroundColor: colors.gray50 }]}>
-                <Icon source="account-plus-outline" size={16} color={colors.textSecondary} />
-                <Text style={[styles.notConfiguredText, { color: colors.textSecondary }]}>
-                  Players will be added from the competition details screen after creation
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Prize Pool Details (if configured) */}
         {hasPrizePool && prizePoolData && (
-          <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={[styles.prizePoolIcon, { backgroundColor: `${PRIZE_POOL_COLOR}20` }]}>
-                  <IconTrophy size={18} color={PRIZE_POOL_COLOR} />
-                </View>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Prize Pool</Text>
-              </View>
-              <Chip
-                mode="flat"
-                style={[styles.badge, { backgroundColor: PRIZE_POOL_COLOR }]}
-                textStyle={[styles.badgeText, { color: colors.white }]}
-              >
-                {fundingLabel}
-              </Chip>
-            </View>
-            <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
-
-            <View style={styles.itemsContainer}>
-              <ReviewItem
-                label="Amount"
-                value={formatCurrency(prizePoolData.fundingAmount)}
-                colors={colors}
-              />
-              {prizePoolData.fundingType === 'per_player' && (
-                <View style={[styles.perPlayerNote, { backgroundColor: colors.gray50 }]}>
-                  <Text style={[styles.perPlayerNoteText, { color: colors.textSecondary }]}>
-                    Total calculated when players are added
-                  </Text>
-                </View>
-              )}
-
-              {/* Placement breakdown */}
-              <View style={styles.allocationContainer}>
-                {prizePoolData.placements.map((placement) => (
-                  <View key={placement.position} style={styles.allocationRow}>
-                    <View style={styles.allocationLabel}>
-                      <View style={[styles.colorDot, { backgroundColor: PRIZE_POOL_COLOR }]} />
-                      <Text style={[styles.allocationText, { color: colors.textPrimary }]}>
-                        {placement.position === 1
-                          ? '1st Place'
-                          : placement.position === 2
-                            ? '2nd Place'
-                            : placement.position === 3
-                              ? '3rd Place'
-                              : `${placement.position}th Place`}
-                      </Text>
-                    </View>
-                    <Text style={[styles.allocationValue, { color: colors.textSecondary }]}>
-                      {placement.percent}%
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
+          <PrizePoolSection prizePoolData={prizePoolData} />
         )}
 
-        {/* Important Notes */}
-        <View style={[styles.infoBox, { backgroundColor: colors.infoLight }]}>
-          <Icon source="information" size={20} color={colors.info} />
-          <View style={styles.infoContent}>
-            <Text style={[styles.infoTitle, { color: colors.info }]}>After creation:</Text>
-            <View style={styles.infoList}>
-              {!hasPlayers && (
-                <Text style={[styles.infoText, { color: colors.info }]}>
-                  • Add players from the competition details screen
-                </Text>
-              )}
-              {hasPlayers && (
-                <Text style={[styles.infoText, { color: colors.info }]}>
-                  • Add more players from the competition details screen
-                </Text>
-              )}
-              <Text style={[styles.infoText, { color: colors.info }]}>
-                • Configure any unconfigured rounds
-              </Text>
-              <Text style={[styles.infoText, { color: colors.info }]}>
-                • Share the invite code with players to join
-              </Text>
-              {competitionData.enableTeams && (
-                <Text style={[styles.infoText, { color: colors.info }]}>
-                  • Set up team assignments and format
-                </Text>
-              )}
-              {hasPrizePool && (
-                <Text style={[styles.infoText, { color: colors.info }]}>
-                  • Prize pool will be locked once first round starts
-                </Text>
-              )}
-            </View>
-          </View>
-        </View>
+        <ReviewInfoBox
+          hasPlayers={!!hasPlayers}
+          enableTeams={competitionData.enableTeams}
+          hasPrizePool={hasPrizePool}
+        />
       </ScrollView>
 
-      {/* Action Buttons - Sticky Footer */}
-      <View
-        style={[
-          styles.footer,
-          {
-            paddingBottom: Math.max(insets.bottom, spacing.lg),
-            backgroundColor: colors.surface,
-            borderTopColor: colors.gray200,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={onBack}
-          style={[styles.backButton, { borderColor: colors.gray300, borderWidth: 1 }, isSubmitting && { opacity: 0.5 }]}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          disabled={isSubmitting}
-        >
-          <Text style={[styles.buttonLabel, { color: colors.textSecondary }]}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onSubmit}
-          style={[styles.createButton, { backgroundColor: colors.primary }, isSubmitting && { opacity: 0.5 }]}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          disabled={isSubmitting}
-        >
-          {isSubmitting && <ActivityIndicator size="small" color={colors.white} />}
-          <Text style={[styles.buttonLabel, { color: colors.white }]}>
-            {isSubmitting ? 'Creating...' : 'Create Competition'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// Helper component for review items
-interface ReviewItemProps {
-  label: string;
-  value: string;
-  colors: ColorPalette;
-}
-
-function ReviewItem({ label, value, colors }: ReviewItemProps) {
-  return (
-    <View style={styles.item}>
-      <Text style={[styles.itemLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.itemValue, { color: colors.textPrimary }]}>{value}</Text>
-    </View>
-  );
-}
-
-// Helper component for review item with badge
-function ReviewItemWithBadge({ label, value, colors }: ReviewItemProps) {
-  return (
-    <View style={styles.item}>
-      <Text style={[styles.itemLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Chip
-        mode="flat"
-        style={[styles.badge, { backgroundColor: colors.primary }]}
-        textStyle={[styles.badgeText, { color: colors.white }]}
-      >
-        {value}
-      </Chip>
+      <ReviewFooter
+        onSubmit={onSubmit}
+        onBack={onBack}
+        isSubmitting={isSubmitting}
+      />
     </View>
   );
 }
@@ -493,233 +127,6 @@ const styles = StyleSheet.create({
   description: {
     ...typography.body,
     marginBottom: spacing.lg,
-  },
-  section: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    ...typography.bodyBold,
-  },
-  warningBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  warningBadgeText: {
-    ...typography.caption,
-    fontWeight: '500',
-  },
-  divider: {
-    marginVertical: spacing.md,
-  },
-  itemsContainer: {
-    gap: spacing.md,
-  },
-  roundContainer: {
-    gap: spacing.sm,
-  },
-  roundHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  roundNumber: {
-    ...typography.smallBold,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  statusText: {
-    ...typography.caption,
-    fontWeight: '500',
-  },
-  notConfiguredBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  notConfiguredText: {
-    ...typography.small,
-    flex: 1,
-  },
-  roundDivider: {
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  item: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  itemLabel: {
-    ...typography.body,
-    flex: 1,
-  },
-  itemValue: {
-    ...typography.body,
-    flex: 2,
-    textAlign: 'right',
-  },
-  badge: {
-    height: 28,
-  },
-  badgeText: {
-    ...typography.captionBold,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    ...typography.smallBold,
-    marginBottom: spacing.sm,
-  },
-  infoList: {
-    gap: spacing.xs,
-  },
-  infoText: {
-    ...typography.small,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    gap: spacing.md,
-    borderTopWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  backButton: {
-    flex: 1,
-    borderRadius: borderRadius.md,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createButton: {
-    flex: 2,
-    borderRadius: borderRadius.md,
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  buttonLabel: {
-    ...typography.bodyBold,
-  },
-  // Prize pool styles
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  prizePoolIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  perPlayerNote: {
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  perPlayerNoteText: {
-    ...typography.caption,
-    textAlign: 'center',
-  },
-  allocationContainer: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  allocationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  allocationLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  colorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  allocationText: {
-    ...typography.small,
-  },
-  allocationValue: {
-    ...typography.small,
-  },
-  // Players styles
-  playersContainer: {
-    gap: spacing.xs,
-  },
-  playerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  playerInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  playerName: {
-    ...typography.body,
-  },
-  playerHandicap: {
-    ...typography.caption,
-  },
-  playerDivider: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  guestBadge: {
-    height: 24,
-  },
-  guestBadgeText: {
-    ...typography.caption,
   },
 });
 

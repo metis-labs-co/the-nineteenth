@@ -107,7 +107,7 @@ function InteractiveDateOnly({
       />
       <View style={{ marginTop: spacing.md }}>
         <Text style={{ color: '#666', fontSize: 12 }}>
-          Selected date: {date.toLocaleDateString('en-AU')}
+          Selected date: {date.toLocaleDateString()}
         </Text>
       </View>
     </PickerWrapper>
@@ -177,8 +177,8 @@ function InteractiveDateTime({
       />
       <View style={{ marginTop: spacing.md }}>
         <Text style={{ color: '#666', fontSize: 12 }}>
-          Selected: {date.toLocaleDateString('en-AU')}
-          {time ? ` at ${time.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ' (no time)'}
+          Selected: {date.toLocaleDateString()}
+          {time ? ` at ${time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ' (no time)'}
         </Text>
       </View>
     </PickerWrapper>

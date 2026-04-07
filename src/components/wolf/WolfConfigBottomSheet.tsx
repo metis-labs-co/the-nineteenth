@@ -19,7 +19,7 @@
  * ```
  */
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon, Switch } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
@@ -27,16 +27,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
-import { FormInput } from '@/components/common/FormInput';
 import { RadioButtonOption } from '@/screens/profile/components/RadioButtonOption';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
+import { useWolfOrderManagement } from './useWolfOrderManagement';
+import { WolfOrderList } from './WolfOrderList';
+import { WolfPotSettings } from './WolfPotSettings';
 import type { WolfConfig, WolfScoringType } from '@/types/database/wolf.types';
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
 
 // ============================================================================
 // TYPES
@@ -61,7 +58,6 @@ const wolfConfigSchema = z.object({
   pot_value: z.string().optional(),
 }).refine(
   (data) => {
-    // If pot is enabled, pot_value must be valid
     if (data.pot_enabled) {
       const value = parseFloat(data.pot_value ?? '');
       return !isNaN(value) && value > 0;
@@ -109,12 +105,17 @@ export function WolfConfigBottomSheet({
 }: WolfConfigBottomSheetProps) {
   const colors = useThemeColors();
 
-  // Wolf order state (managed separately from form for reordering)
-  const [wolfOrder, setWolfOrder] = useState<string[]>(() => {
-    if (initialConfig?.wolf_order?.length) {
-      return initialConfig.wolf_order;
-    }
-    return participants.map((p) => p.id);
+  // Wolf order management (extracted hook)
+  const {
+    wolfOrder,
+    getParticipantName,
+    moveUp,
+    moveDown,
+    shuffleOrder,
+  } = useWolfOrderManagement({
+    visible,
+    initialWolfOrder: initialConfig?.wolf_order,
+    participants,
   });
 
   // Form setup with React Hook Form + Zod
@@ -135,11 +136,10 @@ export function WolfConfigBottomSheet({
     },
   });
 
-  // Watch pot_enabled to show/hide pot value input
   const potEnabled = watch('pot_enabled');
   const potValue = watch('pot_value');
 
-  // Reset form and wolf order when sheet opens with new initial values
+  // Reset form when sheet opens with new initial values
   useEffect(() => {
     if (visible) {
       reset({
@@ -148,67 +148,8 @@ export function WolfConfigBottomSheet({
         pot_enabled: initialConfig?.pot_enabled ?? false,
         pot_value: initialConfig?.pot_value_per_point?.toString() ?? '',
       });
-      setWolfOrder(
-        initialConfig?.wolf_order?.length
-          ? initialConfig.wolf_order
-          : participants.map((p) => p.id)
-      );
     }
-  }, [visible, initialConfig, participants, reset]);
-
-  // Get participant name by ID
-  const getParticipantName = useCallback(
-    (id: string): string => {
-      const participant = participants.find((p) => p.id === id);
-      return participant?.name ?? 'Unknown';
-    },
-    [participants]
-  );
-
-  // Move participant up in wolf order
-  const moveUp = useCallback((index: number) => {
-    if (index <= 0) return;
-    setWolfOrder((prev) => {
-      const newOrder = [...prev];
-      [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-      return newOrder;
-    });
-  }, []);
-
-  // Move participant down in wolf order
-  const moveDown = useCallback((index: number) => {
-    setWolfOrder((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const newOrder = [...prev];
-      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-      return newOrder;
-    });
-  }, []);
-
-  // Shuffle wolf order randomly
-  const shuffleOrder = useCallback(() => {
-    setWolfOrder((prev) => {
-      const newOrder = [...prev];
-      // Fisher-Yates shuffle
-      for (let i = newOrder.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
-      }
-      return newOrder;
-    });
-  }, []);
-
-  // Calculate example winnings for display
-  const potExample = useMemo(() => {
-    if (!potEnabled) return null;
-    const value = parseFloat(potValue ?? '') || 0;
-    if (value <= 0) return null;
-    // Lone Wolf win = 4 points
-    return {
-      loneWolfWin: (4 * value).toFixed(2),
-      blindWolfWin: (6 * value).toFixed(2),
-    };
-  }, [potEnabled, potValue]);
+  }, [visible, initialConfig, reset]);
 
   // Handle form submission
   const onSubmit = (data: WolfConfigFormData) => {
@@ -222,7 +163,6 @@ export function WolfConfigBottomSheet({
     onSave(config);
   };
 
-  // Check if form is ready to save
   const canSave = isValid && wolfOrder.length >= 3;
 
   return (
@@ -248,7 +188,6 @@ export function WolfConfigBottomSheet({
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             SCORING TYPE
           </Text>
-
           <Controller
             control={control}
             name="scoring_type"
@@ -280,7 +219,6 @@ export function WolfConfigBottomSheet({
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             BLIND WOLF
           </Text>
-
           <Controller
             control={control}
             name="blind_wolf_enabled"
@@ -323,208 +261,21 @@ export function WolfConfigBottomSheet({
         </View>
 
         {/* POT SETTINGS SECTION */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            POT SETTINGS
-          </Text>
-
-          {/* Enable Pot Toggle */}
-          <Controller
-            control={control}
-            name="pot_enabled"
-            render={({ field: { onChange, value } }) => (
-              <TouchableOpacity
-                style={[
-                  styles.toggleRow,
-                  {
-                    backgroundColor: value ? `${colors.warning}15` : colors.surface,
-                    borderColor: value ? colors.warning : colors.border,
-                  },
-                ]}
-                onPress={() => onChange(!value)}
-                activeOpacity={0.7}
-                testID="wolf-pot-toggle"
-              >
-                <View style={styles.toggleContent}>
-                  <Icon
-                    source="cash"
-                    size={24}
-                    color={value ? colors.warning : colors.textSecondary}
-                  />
-                  <View style={styles.toggleTextContainer}>
-                    <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
-                      Enable Pot
-                    </Text>
-                    <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
-                      Play for money with per-point betting
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={value}
-                  onValueChange={onChange}
-                  color={colors.warning}
-                />
-              </TouchableOpacity>
-            )}
-          />
-
-          {/* Per-Point Value Input (shown when pot enabled) */}
-          {potEnabled && (
-            <View style={styles.potValueContainer}>
-              <Controller
-                control={control}
-                name="pot_value"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <FormInput
-                    label="Per-Point Value"
-                    value={value ?? ''}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    keyboardType="decimal"
-                    leftAffix="$"
-                    placeholder="1.00"
-                    error={errors.pot_value?.message}
-                    required
-                    testID="wolf-pot-value-input"
-                  />
-                )}
-              />
-
-              {/* Example Calculation */}
-              {potExample && (
-                <View
-                  style={[
-                    styles.exampleCard,
-                    { backgroundColor: `${colors.warning}10`, borderColor: colors.border },
-                  ]}
-                >
-                  <Text style={[styles.exampleTitle, { color: colors.textSecondary }]}>
-                    Example Winnings
-                  </Text>
-                  <View style={styles.exampleRow}>
-                    <Text style={[styles.exampleLabel, { color: colors.textSecondary }]}>
-                      Lone Wolf Win (4 pts)
-                    </Text>
-                    <Text style={[styles.exampleValue, { color: colors.success }]}>
-                      +${potExample.loneWolfWin}
-                    </Text>
-                  </View>
-                  <View style={styles.exampleRow}>
-                    <Text style={[styles.exampleLabel, { color: colors.textSecondary }]}>
-                      Blind Wolf Win (6 pts)
-                    </Text>
-                    <Text style={[styles.exampleValue, { color: colors.success }]}>
-                      +${potExample.blindWolfWin}
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
+        <WolfPotSettings
+          control={control}
+          errors={errors}
+          potEnabled={potEnabled}
+          potValue={potValue}
+        />
 
         {/* WOLF ORDER SECTION */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-              WOLF ROTATION ORDER
-            </Text>
-            <TouchableOpacity
-              onPress={shuffleOrder}
-              style={[styles.shuffleButton, { backgroundColor: `${wolfColor}15` }]}
-              activeOpacity={0.7}
-              testID="wolf-shuffle-button"
-            >
-              <Icon source="shuffle-variant" size={16} color={wolfColor} />
-              <Text style={[styles.shuffleText, { color: wolfColor }]}>Shuffle</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.orderDescription, { color: colors.textSecondary }]}>
-            The Wolf rotates each hole. Hole 1 Wolf is shown first.
-          </Text>
-
-          {/* Wolf Order List */}
-          <View style={[styles.orderList, { borderColor: colors.border }]}>
-            {wolfOrder.map((playerId, index) => (
-              <View
-                key={playerId}
-                style={[
-                  styles.orderItem,
-                  index < wolfOrder.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
-                ]}
-              >
-                {/* Hole indicator */}
-                <View
-                  style={[
-                    styles.holeIndicator,
-                    { backgroundColor: index === 0 ? wolfColor : colors.surfaceVariant },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.holeNumber,
-                      { color: index === 0 ? colors.white : colors.textSecondary },
-                    ]}
-                  >
-                    {index + 1}
-                  </Text>
-                </View>
-
-                {/* Player name */}
-                <View style={styles.playerInfo}>
-                  <Text style={[styles.playerName, { color: colors.textPrimary }]}>
-                    {getParticipantName(playerId)}
-                  </Text>
-                  {index === 0 && (
-                    <Text style={[styles.firstWolfBadge, { color: wolfColor }]}>
-                      First Wolf
-                    </Text>
-                  )}
-                </View>
-
-                {/* Up/Down buttons */}
-                <View style={styles.orderButtons}>
-                  <TouchableOpacity
-                    onPress={() => moveUp(index)}
-                    disabled={index === 0}
-                    style={[
-                      styles.orderButton,
-                      { backgroundColor: colors.surfaceVariant },
-                      index === 0 && styles.orderButtonDisabled,
-                    ]}
-                    activeOpacity={0.7}
-                    testID={`wolf-order-up-${index}`}
-                  >
-                    <Icon
-                      source="chevron-up"
-                      size={20}
-                      color={index === 0 ? colors.textDisabled : colors.textPrimary}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => moveDown(index)}
-                    disabled={index === wolfOrder.length - 1}
-                    style={[
-                      styles.orderButton,
-                      { backgroundColor: colors.surfaceVariant },
-                      index === wolfOrder.length - 1 && styles.orderButtonDisabled,
-                    ]}
-                    activeOpacity={0.7}
-                    testID={`wolf-order-down-${index}`}
-                  >
-                    <Icon
-                      source="chevron-down"
-                      size={20}
-                      color={index === wolfOrder.length - 1 ? colors.textDisabled : colors.textPrimary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        <WolfOrderList
+          wolfOrder={wolfOrder}
+          getParticipantName={getParticipantName}
+          onMoveUp={moveUp}
+          onMoveDown={moveDown}
+          onShuffle={shuffleOrder}
+        />
 
         {/* INFO CARD */}
         <View
@@ -591,12 +342,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.xl,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   sectionTitle: {
     ...typography.captionBold,
     textTransform: 'uppercase',
@@ -629,91 +374,6 @@ const styles = StyleSheet.create({
   toggleDescription: {
     ...typography.caption,
     marginTop: spacing.xs,
-  },
-  potValueContainer: {
-    marginTop: spacing.md,
-  },
-  exampleCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-  },
-  exampleTitle: {
-    ...typography.captionBold,
-    marginBottom: spacing.sm,
-  },
-  exampleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  exampleLabel: {
-    ...typography.small,
-  },
-  exampleValue: {
-    ...typography.bodyBold,
-  },
-  shuffleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  shuffleText: {
-    ...typography.caption,
-  },
-  orderDescription: {
-    ...typography.caption,
-    marginBottom: spacing.md,
-  },
-  orderList: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  orderItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  holeIndicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  holeNumber: {
-    ...typography.smallBold,
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerName: {
-    ...typography.body,
-  },
-  firstWolfBadge: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  orderButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  orderButton: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderButtonDisabled: {
-    opacity: 0.4,
   },
   infoCard: {
     flexDirection: 'row',

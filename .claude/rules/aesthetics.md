@@ -1,0 +1,1 @@
+/Users/samkay/claude-config/profiles/react-native/rules/aesthetics.md

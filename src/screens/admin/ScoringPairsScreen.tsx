@@ -308,7 +308,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
   const getRoundName = (): string => {
     if (!data?.round) return 'Round';
     const roundDate = data.round.date
-      ? new Date(data.round.date).toLocaleDateString('en-AU', {
+      ? new Date(data.round.date).toLocaleDateString(undefined, {
           day: 'numeric',
           month: 'short',
         })

@@ -37,6 +37,7 @@ import {
   useUpdatePartnershipName,
 } from '@/hooks/usePartnershipLeague';
 import { useCourseDetails } from '@/hooks/useCourseDetails';
+import { getLocalDateString } from '@/utils/formatting';
 import type { LeagueLeaderboardEntry, LeagueSortMode, PartnershipLeaderboardEntry } from '@/types/database';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -158,7 +159,7 @@ export function useLeagueDetail() {
   // Season status info
   const seasonInfo = useMemo(() => {
     if (leagueType !== 'season' || !league?.start_date || !league?.end_date) return null;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const started = today >= league.start_date;
     const ended = today > league.end_date;
 

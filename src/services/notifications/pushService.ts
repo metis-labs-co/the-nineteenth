@@ -162,7 +162,6 @@ async function getExpoPushToken(): Promise<PushServiceResult<string>> {
       projectId,
     });
 
-    console.log('[PushService] Got Expo push token:', tokenData.data);
 
     return {
       success: true,
@@ -202,7 +201,6 @@ async function registerPushToken(userId: string): Promise<PushServiceResult<Regi
   const permissionStatus = await requestPermissions();
 
   if (permissionStatus !== 'granted') {
-    console.log('[PushService] Permission not granted:', permissionStatus);
     return {
       success: false,
       error: permissionStatus === 'denied'
@@ -250,7 +248,6 @@ async function registerPushToken(userId: string): Promise<PushServiceResult<Regi
       };
     }
 
-    console.log('[PushService] Push token registered successfully:', data);
 
     return {
       success: true,
@@ -303,7 +300,6 @@ async function unregisterPushToken(token: string): Promise<PushServiceResult> {
       };
     }
 
-    console.log('[PushService] Push token disabled:', data);
 
     return {
       success: true,
@@ -349,7 +345,6 @@ async function removePushToken(token: string): Promise<PushServiceResult> {
       };
     }
 
-    console.log('[PushService] Push token removed');
 
     return {
       success: true,
@@ -469,7 +464,6 @@ async function configureNotificationCategories(): Promise<void> {
     },
   ]);
 
-  console.log('[PushService] iOS notification categories configured');
 }
 
 // =====================================================
@@ -497,7 +491,6 @@ function configureNotificationHandler(): void {
     }),
   });
 
-  console.log('[PushService] Notification handler configured');
 }
 
 /**
@@ -550,7 +543,6 @@ async function setupAndroidNotificationChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.DEFAULT,
   });
 
-  console.log('[PushService] Android notification channels configured');
 }
 
 // =====================================================

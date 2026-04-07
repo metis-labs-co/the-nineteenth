@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { knockoutKeys, competitionKeys } from './queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
@@ -33,7 +34,7 @@ export function useKnockoutBracket(competitionId: string, playerCount = 0, enabl
     queryKey: knockoutKeys.bracket(competitionId),
     queryFn: () => getKnockoutBracket(competitionId),
     enabled: !!competitionId && enabled,
-    staleTime: 2 * 60 * 1000,
+    staleTime: CACHE_TIMES.MODERATE,
   });
 
   const bracketData: BracketData | null = useMemo(() => {
@@ -55,7 +56,7 @@ export function useKnockoutMatch(matchId: string, enabled = true) {
     queryKey: knockoutKeys.match(matchId),
     queryFn: () => getKnockoutMatch(matchId),
     enabled: !!matchId && enabled,
-    staleTime: 2 * 60 * 1000,
+    staleTime: CACHE_TIMES.MODERATE,
   });
 }
 

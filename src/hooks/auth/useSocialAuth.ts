@@ -137,7 +137,6 @@ export function useSocialAuth() {
     mutationFn: async (): Promise<SocialLoginResponse> => {
       // The deep link URL that Supabase will redirect to after OAuth completes
       const redirectTo = makeRedirectUri({ scheme: 'thenineteenth', path: 'google-auth' });
-      console.log('[Google Auth] redirectTo:', redirectTo);
 
       // Start Supabase OAuth flow - this gives us a URL to open
       const { data: oauthData, error: oauthError } = await supabase.auth.signInWithOAuth({

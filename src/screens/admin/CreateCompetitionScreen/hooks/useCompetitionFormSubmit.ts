@@ -58,21 +58,13 @@ export function useCompetitionFormSubmit({
     players: WizardPlayerData[] | undefined,
     prizePoolConfig: PrizePoolConfigFormData | undefined
   ) => {
-    console.log('[CreateCompetition] handleSubmit called');
-    console.log('[CreateCompetition] wizardData.step1:', JSON.stringify(step1, null, 2));
-    console.log('[CreateCompetition] wizardData.step2:', JSON.stringify(step2, null, 2));
-    console.log('[CreateCompetition] wizardData.players:', JSON.stringify(players, null, 2));
-    console.log('[CreateCompetition] wizardData.prizePoolConfig:', JSON.stringify(prizePoolConfig, null, 2));
-
     if (!step1 || !step2) {
-      console.warn('[CreateCompetition] Missing step data - step1:', !!step1, 'step2:', !!step2);
       showAlert('Error', 'Please complete all steps');
       return;
     }
 
     // If prize pool enabled but not configured, show error
     if (step1.enablePrizePool && !prizePoolConfig) {
-      console.warn('[CreateCompetition] Prize pool enabled but not configured');
       showAlert('Error', 'Please configure the prize pool');
       return;
     }
@@ -116,15 +108,7 @@ export function useCompetitionFormSubmit({
         })),
       };
 
-      console.log('[CreateCompetition] Parsed dates - start:', parsedStartDate, 'end:', parsedEndDate);
-      console.log('[CreateCompetition] Rounds input:', JSON.stringify(mutationInput.rounds, null, 2));
-      console.log('[CreateCompetition] Players input:', JSON.stringify(mutationInput.players, null, 2));
-      console.log('[CreateCompetition] Calling createCompetition.mutateAsync...');
-
       const result = await createCompetition.mutateAsync(mutationInput);
-      console.log('[CreateCompetition] Competition created successfully:', result.competition.id);
-      console.log('[CreateCompetition] Invite code:', result.inviteCode);
-      console.log('[CreateCompetition] Rounds created:', result.rounds.length);
 
       // If prize pool is enabled, create it after competition creation
       if (step1.enablePrizePool && prizePoolConfig && user) {
@@ -137,8 +121,7 @@ export function useCompetitionFormSubmit({
             created_by: user.id,
             player_count: 0,
           });
-        } catch (poolError) {
-          console.warn('Failed to create prize pool:', poolError);
+        } catch {
           showAlert(
             'Warning',
             'Competition created, but prize pool setup failed. You can configure it later from competition settings.'
@@ -153,8 +136,8 @@ export function useCompetitionFormSubmit({
           if (achievementResult.hasNewRewards) {
             showMultipleToasts(achievementResult.newAchievements, achievementResult.newCosmetics);
           }
-        } catch (error) {
-          console.warn('[CreateCompetition] Achievement check failed (non-blocking):', error);
+        } catch {
+          // Achievement check is non-blocking
         }
       }
 
@@ -171,18 +154,6 @@ export function useCompetitionFormSubmit({
         onSuccess(result.competition.id, result.inviteCode);
       }, 2000);
     } catch (error) {
-      console.error('[CreateCompetition] Failed to create competition:', error);
-      console.error('[CreateCompetition] Error type:', typeof error);
-      console.error('[CreateCompetition] Error name:', error instanceof Error ? error.name : 'N/A');
-      console.error('[CreateCompetition] Error message:', error instanceof Error ? error.message : String(error));
-      console.error('[CreateCompetition] Error stack:', error instanceof Error ? error.stack : 'N/A');
-      if (error && typeof error === 'object' && 'code' in error) {
-        console.error('[CreateCompetition] Error code:', (error as { code: unknown }).code);
-      }
-      if (error && typeof error === 'object' && 'details' in error) {
-        console.error('[CreateCompetition] Error details:', (error as { details: unknown }).details);
-      }
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('competition limit') || errorMessage.includes('cannot create more competitions')) {
         const targetTier = tier === 'free' ? 'social' : 'premium';

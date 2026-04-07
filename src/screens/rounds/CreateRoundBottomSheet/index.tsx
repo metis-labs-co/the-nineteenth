@@ -31,8 +31,10 @@ import {
   useFavoriteCoursesWithClubs,
   toClubCourseDisplayItem,
   sortHomeClubFirst,
+  sortByDistance,
 } from '@/hooks/useClubs';
 import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
+import { useOneShotLocation } from '@/hooks/useOneShotLocation';
 import { FullScreenWizard } from '@/components/common';
 import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
 
@@ -73,6 +75,7 @@ export default function CreateRoundBottomSheet({
   const colors = useThemeColors();
   const isSuperAdmin = useIsSuperAdmin();
   const isSocialOrHigher = useIsSocial();
+  const { location: userLocation } = useOneShotLocation(visible);
 
   // Inline course creation state
   const [showCreateCourseForm, setShowCreateCourseForm] = useState(false);
@@ -255,12 +258,21 @@ export default function CreateRoundBottomSheet({
   );
   const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Transform clubs to display items (for both search and full list), home club first
-  const displayItems: ClubCourseDisplayItem[] = sortHomeClubFirst(
-    wizard.data.searchQuery.trim().length >= 2
-      ? (searchResults ?? []).map(toClubCourseDisplayItem)
-      : (allClubs ?? []).map(toClubCourseDisplayItem)
+  // Transform clubs to display items, sorted by distance (or home-first + alphabetical fallback)
+  const rawDisplayItems = useMemo(
+    () =>
+      wizard.data.searchQuery.trim().length >= 2
+        ? (searchResults ?? []).map(toClubCourseDisplayItem)
+        : (allClubs ?? []).map(toClubCourseDisplayItem),
+    [wizard.data.searchQuery, searchResults, allClubs]
   );
+
+  const { items: displayItems, distances: clubDistances } = useMemo(() => {
+    if (userLocation) {
+      return sortByDistance(rawDisplayItems, userLocation.latitude, userLocation.longitude);
+    }
+    return { items: sortHomeClubFirst(rawDisplayItems), distances: new Map<string, number>() };
+  }, [rawDisplayItems, userLocation]);
 
   const coursesLoading =
     wizard.data.searchQuery.trim().length >= 2 ? searchLoading : clubsLoading;
@@ -399,6 +411,7 @@ export default function CreateRoundBottomSheet({
           onSelectFavoriteCourse={wizard.handleSelectFavoriteCourse}
           isSuperAdmin={isSuperAdmin}
           onAddNewCourse={handleAddNewCourse}
+          clubDistances={clubDistances}
         />
       )}
 

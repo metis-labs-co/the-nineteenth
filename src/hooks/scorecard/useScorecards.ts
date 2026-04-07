@@ -45,14 +45,12 @@ export function useScorecardsByRound(
           // For now, try to get from SQLite
           const scorecards = await getScorecardsByRound(roundId!);
           return scorecards;
-        } catch (error) {
-          console.error('[useScorecardsByRound] API error, falling back to offline:', error);
+        } catch {
           // Fall back to offline data
           return getScorecardsByRound(roundId!);
         }
       } else {
         // Offline - get from SQLite
-        console.log('[useScorecardsByRound] Offline, fetching from SQLite');
         return getScorecardsByRound(roundId!);
       }
     },
@@ -73,7 +71,7 @@ export function useScorecard(scorecardId: string | undefined) {
       // const response = await apiClient.get<Scorecard>(`/scorecards/${scorecardId}`);
       // return response.data;
 
-      console.log('[useScorecard] Fetching scorecard:', scorecardId);
+      // TODO: Replace with actual API call when backend is ready
       return null;
     },
     enabled: !!scorecardId,

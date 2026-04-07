@@ -61,3 +61,12 @@ export const knockoutKeys = {
   bracket: (competitionId: string) => [...knockoutKeys.all, 'bracket', competitionId] as const,
   match: (matchId: string) => [...knockoutKeys.all, 'match', matchId] as const,
 } as const;
+
+// =====================================================
+// COMPETITION DETAILS
+// =====================================================
+
+export const competitionDetailsKeys = {
+  all: ['competition'] as const,
+  detail: (id: string) => ['competition', id, 'details'] as const,
+} as const;

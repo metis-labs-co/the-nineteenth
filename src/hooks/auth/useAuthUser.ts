@@ -10,6 +10,7 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { authKeys } from '../queryKeys';
 import type { Session } from '@supabase/supabase-js';
 import type { Player } from '@/types/database.types';
@@ -33,26 +34,16 @@ export function useAuthUser(session: Session | null) {
   } = useQuery({
     queryKey: authKeys.user(),
     queryFn: async () => {
-      if (__DEV__) {
-        console.log('[useAuthUser] User query executing...');
-      }
       const { data, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.error('[useAuthUser] Error fetching user:', error);
         throw error;
       }
 
-      if (__DEV__) {
-        console.log('[useAuthUser] User query result:', {
-          hasUser: !!data.user,
-          userId: data.user?.id,
-        });
-      }
       return data.user;
     },
     enabled: !!session,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
     refetchOnMount: 'always',
   });
 
@@ -67,9 +58,6 @@ export function useAuthUser(session: Session | null) {
   } = useQuery({
     queryKey: authKeys.player(user?.id ?? ''),
     queryFn: async () => {
-      if (__DEV__) {
-        console.log('[useAuthUser] Player query executing for userId:', user?.id);
-      }
       if (!user?.id) return null;
 
       const { data, error } = await supabase
@@ -79,23 +67,13 @@ export function useAuthUser(session: Session | null) {
         .single();
 
       if (error || !data) {
-        if (error) {
-          console.error('[useAuthUser] Error fetching player profile:', error);
-        }
         return null;
       }
 
-      const playerData = data as Player;
-      if (__DEV__) {
-        console.log('[useAuthUser] Player query result:', {
-          playerId: playerData.id,
-          handicap: playerData.handicap,
-        });
-      }
-      return playerData;
+      return data as Player;
     },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 
   /**

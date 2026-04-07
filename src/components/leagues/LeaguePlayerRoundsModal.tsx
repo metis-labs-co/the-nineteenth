@@ -47,7 +47,7 @@ function getOrdinalSuffix(n: number): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'No date';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function LeaguePlayerRoundsModal({

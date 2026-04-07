@@ -127,6 +127,26 @@ export function calculateDistanceToCoordinate(
 }
 
 // =====================================================
+// FORMATTING
+// =====================================================
+
+/**
+ * Format a distance in meters to a human-readable km/m string
+ *
+ * @param meters - Distance in meters
+ * @returns Formatted string (e.g. "850m", "4.2km", "142km")
+ */
+export function formatDistanceKm(meters: number): string {
+  if (meters < 1000) {
+    return `${Math.round(meters)}m`;
+  }
+  if (meters < 100000) {
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+  return `${Math.round(meters / 1000)}km`;
+}
+
+// =====================================================
 // COORDINATE GROUPING
 // =====================================================
 

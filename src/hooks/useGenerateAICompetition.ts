@@ -210,16 +210,6 @@ export function useGenerateAICompetition() {
         handicap: player.handicap ?? null,
       };
 
-      // Debug logging
-      if (__DEV__) {
-        console.log('[useGenerateAICompetition] raw limits:', { rawMaxRounds, rawMaxPlayers });
-        console.log('[useGenerateAICompetition] tierLimitsPayload:', tierLimitsPayload);
-        console.log('[useGenerateAICompetition] friends count:', friendsPayload.length);
-        console.log('[useGenerateAICompetition] placeholder players count:', placeholderPlayersPayload.length);
-        console.log('[useGenerateAICompetition] favorite courses count:', favoriteCoursesPayload.length);
-        console.log('[useGenerateAICompetition] organizer:', organizerPayload);
-      }
-
       // Call Edge Function
       const { data, error } = await supabase.functions.invoke<AICompetitionResponse>(
         'generate-competition',
@@ -237,8 +227,6 @@ export function useGenerateAICompetition() {
 
       // Handle Supabase function error
       if (error) {
-        console.error('[useGenerateAICompetition] Edge function error:', error);
-
         // Try to extract more details from the error
         let errorDetails = error.message;
         let errorCode: 'INTERNAL_ERROR' | 'AUTH_ERROR' | 'INVALID_REQUEST' = 'INTERNAL_ERROR';
@@ -248,7 +236,6 @@ export function useGenerateAICompetition() {
           try {
             // The response body may contain our structured error
             const responseText = await error.context.text?.() || '';
-            console.error('[useGenerateAICompetition] Error response body:', responseText);
             if (responseText) {
               const parsed = JSON.parse(responseText);
               if (parsed.error) {
@@ -256,8 +243,8 @@ export function useGenerateAICompetition() {
                 errorCode = parsed.code || 'INTERNAL_ERROR';
               }
             }
-          } catch (parseErr) {
-            console.error('[useGenerateAICompetition] Could not parse error response:', parseErr);
+          } catch {
+            // Could not parse error response - use default errorDetails
           }
         }
 
@@ -279,9 +266,6 @@ export function useGenerateAICompetition() {
       }
 
       return data;
-    },
-    onError: (error) => {
-      console.error('[useGenerateAICompetition] Mutation error:', error);
     },
   });
 }

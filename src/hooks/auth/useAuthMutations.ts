@@ -82,9 +82,6 @@ export function useAuthMutations() {
         queryClient.setQueryData(authKeys.player(data.user.id), data.player);
       }
     },
-    onError: (err: AuthError) => {
-      console.error('Login error:', err);
-    },
   });
 
   /**
@@ -122,9 +119,7 @@ export function useAuthMutations() {
         .eq('id', data.user.id)
         .single();
 
-      if (playerError) {
-        console.warn('Could not fetch player profile:', playerError.message);
-      }
+      // playerError is expected during signup race condition - trigger may not have fired yet
 
       return {
         user: data.user,
@@ -137,9 +132,6 @@ export function useAuthMutations() {
       queryClient.setQueryData(authKeys.session(), data.session);
       queryClient.setQueryData(authKeys.user(), data.user);
       queryClient.setQueryData(authKeys.player(data.user.id), data.player);
-    },
-    onError: (err: AuthError) => {
-      console.error('Signup error:', err);
     },
   });
 
@@ -166,9 +158,6 @@ export function useAuthMutations() {
         message: `Magic link sent to ${email}. Please check your inbox.`,
       };
     },
-    onError: (err: AuthError) => {
-      console.error('Magic link error:', err);
-    },
   });
 
   /**
@@ -191,9 +180,6 @@ export function useAuthMutations() {
         success: true,
         message: `Verification code sent to ${email}. Please check your inbox.`,
       };
-    },
-    onError: (err: AuthError) => {
-      console.error('Send OTP error:', err);
     },
   });
 
@@ -242,9 +228,6 @@ export function useAuthMutations() {
         queryClient.setQueryData(authKeys.player(data.user.id), data.player);
       }
     },
-    onError: (err: AuthError) => {
-      console.error('Verify OTP error:', err);
-    },
   });
 
   /**
@@ -260,8 +243,6 @@ export function useAuthMutations() {
           const unregisterResult = await pushService.unregisterPushToken(tokenResult.data);
           if (!unregisterResult.success) {
             console.warn('[useAuthMutations] Failed to unregister push token:', unregisterResult.error);
-          } else {
-            console.log('[useAuthMutations] Push token unregistered successfully');
           }
         }
       } catch (pushError) {
@@ -278,9 +259,6 @@ export function useAuthMutations() {
       queryClient.setQueryData(authKeys.session(), null);
       queryClient.setQueryData(authKeys.user(), null);
       queryClient.removeQueries({ queryKey: authKeys.player('') });
-    },
-    onError: (err: AuthError) => {
-      console.error('Logout error:', err);
     },
   });
 

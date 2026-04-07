@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { subscriptionKeys } from './queryKeys';
 import { useAuth } from './useAuth';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 
 /**
  * Hook: useCompetitionCount
@@ -55,7 +56,7 @@ export function useCompetitionCount() {
       return count ?? 0;
     },
     enabled: isAuthenticated && !!user?.id,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: CACHE_TIMES.FREQUENT,
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -5,6 +5,7 @@
  */
 
 import { teeToTeeBox } from '@/utils/teeTransformers';
+import { calculateDistance } from '@/utils/gpsCalculations';
 import type { Club, Course, CourseSource } from '@/types/database.types';
 import type { SupabaseCourseWithTees, ClubWithCourses, ClubCourseDisplayItem, SearchResultItem } from './types';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
@@ -116,4 +117,74 @@ export function sortHomeClubFirst<T extends ClubCourseDisplayItem | GolfApiSearc
     const bName = 'club' in b && b.club ? b.club.name : (b as GolfApiSearchResultItem).name;
     return aName.localeCompare(bName);
   });
+}
+
+/**
+ * Get latitude/longitude from either a ClubCourseDisplayItem or GolfApiSearchResultItem
+ */
+function getItemCoords(item: ClubCourseDisplayItem | GolfApiSearchResultItem): { lat: number; lng: number } | null {
+  if ('club' in item && item.club) {
+    const { latitude, longitude } = item.club;
+    if (latitude != null && longitude != null) return { lat: latitude, lng: longitude };
+  } else {
+    const api = item as GolfApiSearchResultItem;
+    if (api.latitude != null && api.longitude != null) return { lat: api.latitude, lng: api.longitude };
+  }
+  return null;
+}
+
+/**
+ * Get the club ID from either item type
+ */
+function getItemClubId(item: ClubCourseDisplayItem | GolfApiSearchResultItem): string {
+  if ('club' in item && item.club) return item.club.id;
+  return (item as GolfApiSearchResultItem).id;
+}
+
+/**
+ * Sort display items by distance from user's location.
+ *
+ * Priority: home club first → clubs with coords sorted by distance → clubs without coords alphabetically.
+ * Returns sorted items and a Map of clubId → distance in meters for UI display.
+ */
+export function sortByDistance<T extends ClubCourseDisplayItem | GolfApiSearchResultItem>(
+  items: T[],
+  userLat: number,
+  userLng: number
+): { items: T[]; distances: Map<string, number> } {
+  const distances = new Map<string, number>();
+
+  // Pre-compute distances
+  for (const item of items) {
+    const coords = getItemCoords(item);
+    if (coords) {
+      distances.set(getItemClubId(item), calculateDistance(userLat, userLng, coords.lat, coords.lng));
+    }
+  }
+
+  const sorted = [...items].sort((a, b) => {
+    // Home club always first
+    const aIsHome = 'is_home' in a ? a.is_home : false;
+    const bIsHome = 'is_home' in b ? b.is_home : false;
+    if (aIsHome && !bIsHome) return -1;
+    if (!aIsHome && bIsHome) return 1;
+
+    const aId = getItemClubId(a);
+    const bId = getItemClubId(b);
+    const aDist = distances.get(aId);
+    const bDist = distances.get(bId);
+
+    // Both have distance → sort by distance
+    if (aDist != null && bDist != null) return aDist - bDist;
+    // Only one has distance → it comes first
+    if (aDist != null) return -1;
+    if (bDist != null) return 1;
+
+    // Neither has distance → alphabetical
+    const aName = 'club' in a && a.club ? a.club.name : (a as GolfApiSearchResultItem).name;
+    const bName = 'club' in b && b.club ? b.club.name : (b as GolfApiSearchResultItem).name;
+    return aName.localeCompare(bName);
+  });
+
+  return { items: sorted, distances };
 }

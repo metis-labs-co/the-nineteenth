@@ -18,6 +18,16 @@ import { Platform } from 'react-native';
 import { render, screen, fireEvent } from '@/__tests__/utils/renderHelpers';
 import { DatePicker } from './DatePicker';
 
+// Mock locale utility to return predictable format in tests
+jest.mock('@/utils/locale', () => ({
+  formatDisplayDate: (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  },
+}));
+
 // Mock the DateTimePicker component
 jest.mock('@react-native-community/datetimepicker', () => {
   const { View, Text, TouchableOpacity } = require('react-native');
@@ -151,7 +161,7 @@ describe('DatePicker', () => {
         expect(toJSON()).toBeTruthy();
       });
 
-      it('displays date in Australian format (DD/MM/YYYY)', () => {
+      it('displays date in locale-formatted format', () => {
         render(<DatePicker {...defaultProps} value="25/12/2025" mode="date" />);
         expect(screen.getByText('25/12/2025')).toBeTruthy();
       });

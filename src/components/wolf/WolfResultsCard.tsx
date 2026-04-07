@@ -20,7 +20,7 @@ import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
-import { determineWolfForHole, formatWolfCurrency } from '@/utils/wolfCalculations';
+import { determineWolfForHole, formatWolfCurrency } from '@/utils/wolf';
 import type {
   WolfGameWithParticipants,
   WolfDecisionWithDetails,

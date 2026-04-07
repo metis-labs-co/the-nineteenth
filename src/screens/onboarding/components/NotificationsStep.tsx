@@ -35,12 +35,10 @@ export function NotificationsStep({ onNext }: StepProps) {
 
         if (result.success) {
           setPermissionStatus('granted');
-          console.log('[NotificationsStep] Push token registered successfully');
         } else {
           // Check if it was a permission denial
           const status = await pushService.getPermissionStatus();
           setPermissionStatus(status);
-          console.log('[NotificationsStep] Registration result:', result.error);
         }
       } else {
         // Just request permission on simulator (won't get token)

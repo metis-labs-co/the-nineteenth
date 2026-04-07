@@ -11,18 +11,25 @@ export {
   useEquippedCosmetics,
   useUnlockableCosmetics,
   useCosmeticsWithStatus,
-} from './useCosmetics';
+} from './queries';
 
 // Mutation hooks
 export {
   useUnlockCosmetic,
   useEquipCosmetic,
   useUnequipCosmetic,
-} from './useCosmetics';
+} from './mutations';
+
+// Mutation input types
+export type {
+  UnlockCosmeticInput,
+  EquipCosmeticInput,
+  UnequipCosmeticInput,
+} from './mutations';
 
 // Convenience hooks
 export {
   useHasCosmetic,
   useNextUnlockableCosmetic,
   useCosmeticCounts,
-} from './useCosmetics';
+} from './utilities';

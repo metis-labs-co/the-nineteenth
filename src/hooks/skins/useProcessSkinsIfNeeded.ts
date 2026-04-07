@@ -11,7 +11,7 @@ import { supabase } from '@/services/supabase/client';
 import {
   prepareHoleScores,
   validateHoleScores,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import { useProcessSkinsHole, useProcessTeamSkinsHole } from './mutations';
 import { processTeamSkins } from './teamSkinsProcessor';
 import type { ProcessSkinsResult } from './types';

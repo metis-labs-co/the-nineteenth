@@ -20,7 +20,7 @@ import {
   calculateFinalPayoutsWithCarryover,
   processHoleResult,
   processTeamHoleResult,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';

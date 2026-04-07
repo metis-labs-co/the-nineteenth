@@ -7,6 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
 import { teeToTeeBox } from '@/utils/teeTransformers';
@@ -19,11 +20,6 @@ import type { Round, Course, Scorecard, Player, Club, Pairing, Competition, Tee,
 export interface CourseWithClub extends Course {
   club: Pick<Club, 'id' | 'name' | 'city' | 'state' | 'address'> | null;
 }
-
-/**
- * @deprecated Use CourseWithClub instead - Venue was renamed to Club
- */
-export type CourseWithVenue = CourseWithClub;
 
 export type CompetitionSummary = Pick<Competition, 'id' | 'name' | 'competition_type' | 'status' | 'start_date' | 'end_date' | 'handicap_source'>;
 
@@ -119,8 +115,8 @@ export function useRoundDetails(roundId: string) {
     queryKey: roundKeys.detail(roundId),
     queryFn: () => fetchRoundDetails(roundId),
     enabled: !!roundId,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.MODERATE,
+    gcTime: GC_TIMES.STANDARD,
   });
 }
 
@@ -129,8 +125,8 @@ export function useRoundScorecards(roundId: string) {
     queryKey: scorecardKeys.list({ roundId }),
     queryFn: () => fetchRoundScorecards(roundId),
     enabled: !!roundId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     refetchInterval: 30 * 1000,
   });
 }
@@ -206,9 +202,8 @@ async function fetchRoundPlayers(roundId: string): Promise<RoundPlayer[]> {
         playerIds.add(rp.player_id);
       });
     }
-  } catch (err) {
+  } catch {
     // Silently ignore if round_players table doesn't exist
-    console.log('round_players fetch skipped');
   }
 
   if (playerIds.size === 0) {
@@ -252,7 +247,7 @@ export function useRoundPlayers(roundId: string) {
     queryKey: [...roundKeys.detail(roundId), 'players'],
     queryFn: () => fetchRoundPlayers(roundId),
     enabled: !!roundId,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.MODERATE,
+    gcTime: GC_TIMES.STANDARD,
   });
 }

@@ -21,6 +21,7 @@ import { GolfBallLoader } from '@/components/common';
 import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { formatDistanceKm } from '@/utils/gpsCalculations';
 import type { ClubCourseDisplayItem, CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { GolfApiSearchResultItem } from '@/hooks/useGolfApiSearch';
 import type { Club } from '@/types/database.types';
@@ -51,6 +52,7 @@ interface ClubCardProps {
   selectionMode?: boolean; // When true, shows selection UI instead of favorite toggle
   showSource?: boolean; // Show API/Manual/Legacy source badge
   isImporting?: boolean; // Show loading indicator during API import
+  distanceMeters?: number; // Distance from user to this club in meters
 }
 
 /** @deprecated Use ClubCardProps instead */
@@ -74,6 +76,7 @@ interface CourseRowProps {
   selectionMode?: boolean;
   isHomeClub?: boolean; // true if this club is the user's home club
   showSource?: boolean; // Show API/Manual/Legacy source badge
+  distanceMeters?: number; // Distance from user to this club in meters
 }
 
 // =====================================================
@@ -91,6 +94,7 @@ const CourseRow = React.memo(function CourseRow({
   selectionMode = false,
   isHomeClub = false,
   showSource = false,
+  distanceMeters,
 }: CourseRowProps) {
   const colors = useThemeColors();
   const handlePress = useCallback(() => {
@@ -101,7 +105,8 @@ const CourseRow = React.memo(function CourseRow({
     onToggleFavorite?.(course);
   }, [course, onToggleFavorite]);
 
-  const locationText = [club.city, club.state].filter(Boolean).join(', ');
+  const distanceLabel = distanceMeters != null ? formatDistanceKm(distanceMeters) : null;
+  const locationText = [club.city, club.state, distanceLabel].filter(Boolean).join(' · ');
 
   // Get source badge config for single-course display
   const getSourceBadge = () => {
@@ -230,6 +235,7 @@ export const ClubCard = React.memo(function ClubCard({
   selectionMode = false,
   showSource = false,
   isImporting = false,
+  distanceMeters,
 }: ClubCardProps) {
   const colors = useThemeColors();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -259,7 +265,8 @@ export const ClubCard = React.memo(function ClubCard({
   // These have empty courses array, so we render a simplified card
   if (isApiItem) {
     const apiItem = item as GolfApiSearchResultItem;
-    const locationText = [apiItem.city, apiItem.state].filter(Boolean).join(', ');
+    const apiDistanceLabel = distanceMeters != null ? formatDistanceKm(distanceMeters) : null;
+    const locationText = [apiItem.city, apiItem.state, apiDistanceLabel].filter(Boolean).join(' · ');
     const isSingleCourse = !apiItem.is_multi_course;
 
     return (
@@ -346,13 +353,15 @@ export const ClubCard = React.memo(function ClubCard({
           selectionMode={selectionMode}
           isHomeClub={displayItem.is_home}
           showSource={showSource}
+          distanceMeters={distanceMeters}
         />
       </View>
     );
   }
 
   // Multi-course club: render expandable card
-  const locationText = [displayItem.club.city, displayItem.club.state].filter(Boolean).join(', ');
+  const multiDistanceLabel = distanceMeters != null ? formatDistanceKm(distanceMeters) : null;
+  const locationText = [displayItem.club.city, displayItem.club.state, multiDistanceLabel].filter(Boolean).join(' · ');
 
   return (
     <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>

@@ -34,23 +34,14 @@ export function isRevenueCatAvailable(): boolean {
 export async function loginToRevenueCat(userId: string): Promise<void> {
   // Skip if RevenueCat is not available (no API key or unsupported platform)
   if (!isRevenueCatAvailable()) {
-    if (__DEV__) {
-      console.log('[RevenueCat] Skipping login - RevenueCat not configured');
-    }
     return;
   }
 
   try {
     await Purchases.logIn(userId);
-    console.log(`[RevenueCat] Logged in user: ${userId}`);
   } catch (err) {
-    // Don't log as error if it's just not configured yet
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('no singleton instance') || message.includes('configure')) {
-      if (__DEV__) {
-        console.log('[RevenueCat] SDK not configured yet, skipping login');
-      }
-    } else {
+    if (!message.includes('no singleton instance') && !message.includes('configure')) {
       console.error('[RevenueCat] Login error:', err);
     }
   }
@@ -65,23 +56,14 @@ export async function loginToRevenueCat(userId: string): Promise<void> {
 export async function logoutFromRevenueCat(): Promise<void> {
   // Skip if RevenueCat is not available (no API key or unsupported platform)
   if (!isRevenueCatAvailable()) {
-    if (__DEV__) {
-      console.log('[RevenueCat] Skipping logout - RevenueCat not configured');
-    }
     return;
   }
 
   try {
     await Purchases.logOut();
-    console.log('[RevenueCat] Logged out');
   } catch (err) {
-    // Don't log as error if it's just not configured yet
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('no singleton instance') || message.includes('configure')) {
-      if (__DEV__) {
-        console.log('[RevenueCat] SDK not configured yet, skipping logout');
-      }
-    } else {
+    if (!message.includes('no singleton instance') && !message.includes('configure')) {
       console.error('[RevenueCat] Logout error:', err);
     }
   }

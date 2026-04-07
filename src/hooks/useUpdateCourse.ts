@@ -7,7 +7,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { courseKeys, venueKeys } from '@/hooks/queryKeys';
+import { courseKeys, clubKeys } from '@/hooks/queryKeys';
 import type { Course } from '@/types/database.types';
 
 export interface UpdateCourseInput {
@@ -41,7 +41,7 @@ export function useUpdateCourse() {
     onSuccess: (_, { courseId }) => {
       queryClient.invalidateQueries({ queryKey: courseKeys.detail(courseId) });
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
+      queryClient.invalidateQueries({ queryKey: clubKeys.all });
     },
   });
 }

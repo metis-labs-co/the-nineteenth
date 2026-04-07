@@ -84,6 +84,7 @@ export type RootStackParamList = {
   // Profile
   EditProfile: undefined;
   MyStatistics: undefined;
+  CourseStatistics: { courseId: string; courseName: string };
   HandicapHistory: undefined;
   Appearance: undefined;
   GameSettings: undefined;

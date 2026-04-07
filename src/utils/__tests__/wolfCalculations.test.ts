@@ -28,7 +28,7 @@ import {
   getWolfDecisionDescription,
   getWolfResultDescription,
   DEFAULT_WOLF_POINT_VALUES,
-} from '../wolfCalculations';
+} from '../wolf';
 
 // =====================================================
 // WOLF ROTATION TESTS

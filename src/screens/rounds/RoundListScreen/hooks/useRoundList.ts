@@ -239,9 +239,8 @@ export function useRoundList(): UseRoundListReturn {
             });
           }
         }
-      } catch (err) {
+      } catch {
         // Silently ignore if round_players table doesn't exist yet
-        console.log('round_players query skipped (table may not exist yet)');
       }
 
       // 3. Fetch players for all standalone rounds
@@ -295,8 +294,8 @@ export function useRoundList(): UseRoundListReturn {
               }
             }
           }
-        } catch (err) {
-          console.log('round_players fetch for player info skipped');
+        } catch {
+          // round_players table may not exist yet
         }
       }
 
@@ -351,8 +350,8 @@ export function useRoundList(): UseRoundListReturn {
               }
             }
           }
-        } catch (err) {
-          console.log('in-progress scorecard progress fetch skipped');
+        } catch {
+          // Scorecard progress fetch may not be available
         }
       }
 
@@ -432,8 +431,8 @@ export function useRoundList(): UseRoundListReturn {
               }
             }
           }
-        } catch (err) {
-          console.log('scorecards fetch for completed rounds skipped');
+        } catch {
+          // Scorecards fetch may not be available
         }
       }
 
@@ -467,8 +466,8 @@ export function useRoundList(): UseRoundListReturn {
               round.hasSkins = roundsWithSkins.has(round.id);
             }
           }
-        } catch (err) {
-          console.log('skins_games fetch skipped (table may not exist yet)');
+        } catch {
+          // skins_games table may not exist yet
         }
       }
 
@@ -501,8 +500,8 @@ export function useRoundList(): UseRoundListReturn {
               round.hasWolf = roundsWithWolf.has(round.id);
             }
           }
-        } catch (err) {
-          console.log('wolf_games fetch skipped (table may not exist yet)');
+        } catch {
+          // wolf_games table may not exist yet
         }
       }
 
@@ -561,8 +560,8 @@ export function useRoundList(): UseRoundListReturn {
               }
             }
           }
-        } catch (err) {
-          console.log('winner calculation for completed rounds skipped');
+        } catch {
+          // Winner calculation may fail if data is incomplete
         }
       }
 

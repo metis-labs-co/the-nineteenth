@@ -59,7 +59,7 @@ function PlaceholderCard({
 }: PlaceholderCardProps) {
   const colors = useThemeColors();
 
-  const createdDate = new Date(placeholder.created_at).toLocaleDateString('en-AU', {
+  const createdDate = new Date(placeholder.created_at).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

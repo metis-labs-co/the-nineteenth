@@ -10,6 +10,7 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { authKeys } from '../queryKeys';
 import type { Session } from '@supabase/supabase-js';
 
@@ -33,9 +34,6 @@ export function useAuthSession() {
   } = useQuery({
     queryKey: authKeys.session(),
     queryFn: async () => {
-      if (__DEV__) {
-        console.log('[useAuthSession] Session query executing...');
-      }
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
@@ -44,24 +42,16 @@ export function useAuthSession() {
         // auth state changes, so we don't need the query to be the source of truth.
         const cachedSession = queryClient.getQueryData<Session | null>(authKeys.session());
         if (cachedSession) {
-          console.warn('[useAuthSession] getSession failed, using cached session:', error.message);
           return cachedSession;
         }
-        console.error('[useAuthSession] Error fetching session (no cache available):', error);
         throw error;
       }
 
-      if (__DEV__) {
-        console.log('[useAuthSession] Session query result:', {
-          hasSession: !!data.session,
-          userId: data.session?.user?.id,
-        });
-      }
       return data.session;
     },
     initialData: undefined,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
+    gcTime: GC_TIMES.STANDARD, // 10 minutes
     refetchOnWindowFocus: true,
     refetchOnReconnect: false, // Don't refetch on reconnect — onAuthStateChange handles session updates
     refetchOnMount: 'always',

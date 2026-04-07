@@ -9,6 +9,7 @@ import type { League, LeagueRound } from '@/types/database';
 import type { CreateLeagueInput } from './types';
 import { getPlayerTagCount } from './queries';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { getLocalDateString } from '@/utils/formatting';
 
 // Helper to bypass Supabase generated types for new tables.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -283,7 +284,7 @@ async function validateTagForLeagueType(
       }
 
       if (league.end_date) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         if (today > league.end_date) {
           throw new Error('This season has ended. No more rounds can be tagged.');
         }

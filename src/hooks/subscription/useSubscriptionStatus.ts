@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { subscriptionKeys } from '../queryKeys';
 import { useAuth } from '../useAuth';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
@@ -59,8 +60,8 @@ export function useSubscriptionStatus(): UseSubscriptionStatusReturn {
       return mapDBUserSubscription(data as DBUserSubscription);
     },
     enabled: isAuthenticated && !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
+    gcTime: GC_TIMES.STANDARD, // 10 minutes
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

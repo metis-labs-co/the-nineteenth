@@ -14,6 +14,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from './helpers';
 import type {
   SkinsPlayerStatistics,
@@ -101,8 +102,8 @@ export function useSkinsStatistics(playerId: string | undefined) {
       return data as unknown as SkinsPlayerStatistics;
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -120,8 +121,8 @@ export function useMySkinsStatistics() {
       const { data: { session } } = await supabase.auth.getSession();
       return session;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
   });
 
   const userId = session?.user?.id;
@@ -143,8 +144,8 @@ export function useMySkinsStatistics() {
       return data as unknown as SkinsPlayerStatistics;
     },
     enabled: !!userId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -165,8 +166,8 @@ export function useSkinsLeaderboard(options: SkinsLeaderboardOptions = {}) {
       const { data: { session } } = await supabase.auth.getSession();
       return session;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
   });
 
   const userId = session?.user?.id;
@@ -206,8 +207,8 @@ export function useSkinsLeaderboard(options: SkinsLeaderboardOptions = {}) {
       }));
     },
     enabled: !friendsOnly || !!userId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -338,8 +339,8 @@ export function useSkinsGameHistory(
       });
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -371,8 +372,8 @@ export function useSkinsRank(playerId: string | undefined, minGames: number = 1)
       return data as unknown as number | null;
     },
     enabled: !!playerId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
     retry: 1,
     refetchOnWindowFocus: false,
   });

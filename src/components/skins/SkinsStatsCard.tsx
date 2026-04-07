@@ -17,7 +17,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
-import { formatCurrency } from '@/utils/skinsCalculations';
+import { formatCurrency } from '@/utils/skins';
 import type { SkinsPlayerStatistics } from '@/hooks/useSkins';
 
 // ============================================================================

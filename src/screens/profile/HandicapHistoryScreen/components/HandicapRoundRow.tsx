@@ -17,13 +17,13 @@ interface HandicapRoundRowProps {
 }
 
 /**
- * Format a date string for display (DD/MM/YYYY Australian format)
+ * Format a date string for display using device locale
  */
 function formatDate(dateString: string): string {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-AU', {
+    return date.toLocaleDateString(undefined, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

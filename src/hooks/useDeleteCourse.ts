@@ -119,7 +119,6 @@ async function deleteCourse(
         console.warn('[deleteCourse] Failed to delete orphan club:', clubError);
       } else {
         clubDeleted = true;
-        console.log('[deleteCourse] Orphan club deleted:', clubId);
       }
     }
   }

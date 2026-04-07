@@ -254,13 +254,6 @@ export interface CourseWithClub extends Course {
 }
 
 /**
- * @deprecated Use CourseWithClub instead
- */
-export interface CourseWithVenue extends Course {
-  venue: Club;
-}
-
-/**
  * Course with its tees from the normalized tees table
  */
 export interface CourseWithTees extends Course {
@@ -287,12 +280,6 @@ export interface CourseWithFullData extends Course {
 // =====================================================
 // DEPRECATED TYPES (for backwards compatibility)
 // =====================================================
-
-/**
- * @deprecated Use Club instead - Venue was renamed to Club
- * Keeping for backwards compatibility during migration
- */
-export type VenueWithCourses = ClubWithCourses;
 
 /**
  * @deprecated Use Club instead - Course no longer has location fields

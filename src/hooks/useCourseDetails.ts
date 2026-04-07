@@ -15,6 +15,7 @@ import { supabase } from '@/services/supabase/client';
 import { courseKeys } from '@/hooks/queryKeys';
 import { useFavoriteEnrichment, useIsFavorite } from '@/hooks/useFavoriteCourses';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Course, Club, Tee } from '@/types/database.types';
 
 // =====================================================
@@ -37,7 +38,6 @@ export interface UseCourseDetailsOptions {
  */
 export interface CourseWithDetails extends Course {
   club: Club;
-  venue: Club; // @deprecated - use club
   is_favorite: boolean;
   /** Tees from the tees table (only populated if includeTees: true) */
   teesFromTable?: Tee[];
@@ -48,14 +48,8 @@ export interface CourseWithDetails extends Course {
  */
 export interface CourseWithClubDetail extends Course {
   club: Club;
-  venue: Club; // @deprecated - use club
   is_favorite: boolean;
 }
-
-/**
- * @deprecated Use CourseWithDetails instead
- */
-export type CourseWithVenueDetail = CourseWithClubDetail;
 
 // =====================================================
 // HOOKS
@@ -130,17 +124,7 @@ export function useCourseDetails(courseId: string, options?: UseCourseDetailsOpt
       const courseData = course as Record<string, unknown>;
       const clubData = courseData.club as Club;
 
-      // Debug: log raw holes data type from Supabase
-      console.log('[useCourseDetails] Raw holes data:', {
-        type: typeof courseData.holes,
-        isArray: Array.isArray(courseData.holes),
-        isNull: courseData.holes === null,
-        isUndefined: courseData.holes === undefined,
-        sample: typeof courseData.holes === 'string' ? courseData.holes.slice(0, 100) : Array.isArray(courseData.holes) ? `array[${courseData.holes.length}]` : String(courseData.holes),
-      });
-
       const parsedHoles = parseAndTransformHoles(courseData.holes as unknown[] | string | null);
-      console.log('[useCourseDetails] Parsed holes:', { length: parsedHoles.length, isArray: Array.isArray(parsedHoles) });
 
       return {
         id: courseData.id as string,
@@ -162,12 +146,11 @@ export function useCourseDetails(courseId: string, options?: UseCourseDetailsOpt
         created_at: courseData.created_at as string,
         updated_at: courseData.updated_at as string,
         club: clubData,
-        venue: clubData, // @deprecated - use club
         teesFromTable,
       };
     },
     enabled: enabled && !!courseId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 
   // Add favorite status from centralized hook
@@ -230,7 +213,7 @@ export function useCoursesByClub(clubId: string) {
       });
     },
     enabled: !!clubId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 
   // Add favorite status from centralized hook
@@ -245,10 +228,5 @@ export function useCoursesByClub(clubId: string) {
     isLoading: query.isLoading || favoritesLoading,
   };
 }
-
-/**
- * @deprecated Use useCoursesByClub instead
- */
-export const useCoursesByVenue = useCoursesByClub;
 
 export default useCourseDetails;

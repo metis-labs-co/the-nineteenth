@@ -12,6 +12,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { courseKeys } from './queryKeys';
 import { courseService, type CourseSearchResult, type CourseWithDetails } from '@/services/courses/courseService';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Course, Club, RegionFilter } from '@/types/database.types';
 
 // =====================================================
@@ -50,7 +51,7 @@ export function useApiCourseSearch(
   state?: RegionFilter,
   options: UseApiCourseSearchOptions = {}
 ) {
-  const { enabled = true, staleTime = 2 * 60 * 1000, searchApi = false } = options;
+  const { enabled = true, staleTime = CACHE_TIMES.SHORT, searchApi = false } = options;
 
   return useQuery({
     queryKey: courseKeys.apiSearch(query, state),
@@ -139,7 +140,7 @@ export function useCourseWithDetails(
       return courseService.getCourseWithDetails(courseId);
     },
     enabled: !!courseId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.LONG,
     ...options,
   });
 }
@@ -175,7 +176,7 @@ export function useCacheStats() {
   return useQuery({
     queryKey: courseKeys.cacheStats(),
     queryFn: () => courseService.getCacheStats(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 

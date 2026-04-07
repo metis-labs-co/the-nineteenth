@@ -15,7 +15,7 @@ import { isSingleBallScore } from '@/types/database/base';
 import { splitHolesByNine, generateDefaultHoles } from '@/utils/scorecardCalculations';
 import type { Hole, Player } from '@/types';
 import type { ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
-import type { CourseWithVenue } from '@/hooks/useRoundDetails';
+import type { CourseWithClub } from '@/hooks/useRoundDetails';
 import type { ScorecardTablePlayer } from '@/components/scorecard/ScorecardTable/types';
 
 interface StatsVisibility {
@@ -32,7 +32,7 @@ interface StatsTabProps {
   /** Raw scorecards to merge with roundPlayers. Used by ViewRoundScreen. */
   scorecards?: ScorecardWithPlayer[];
   roundPlayers?: RoundPlayer[];
-  holes: CourseWithVenue['holes'] | null;
+  holes: CourseWithClub['holes'] | null;
   statsVisibility: StatsVisibility;
   canEditStats?: boolean;
   onEditStats?: (holeNumber?: number) => void;

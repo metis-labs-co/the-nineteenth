@@ -1,13 +1,13 @@
 /**
  * useProfileData - Aggregates profile-related data fetching
  *
- * Combines authentication, home venue, achievements, and cosmetics data
+ * Combines authentication, home club, achievements, and cosmetics data
  * into a single hook for the ProfileScreen.
  */
 
 import { useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useHomeVenue, useSetHomeVenue, useClearHomeVenue } from '@/hooks/useHomeClub';
+import { useHomeClub, useSetHomeClub, useClearHomeClub } from '@/hooks/useHomeClub';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAchievementPoints, useAchievementSummary } from '@/hooks/achievements';
 import {
@@ -42,10 +42,10 @@ interface UseProfileDataReturn {
   // Profile display
   profile: ProfileDisplayData;
 
-  // Home venue
-  homeVenue: ReturnType<typeof useHomeVenue>['data'];
-  setHomeVenue: ReturnType<typeof useSetHomeVenue>;
-  clearHomeVenue: ReturnType<typeof useClearHomeVenue>;
+  // Home club
+  homeClub: ReturnType<typeof useHomeClub>['data'];
+  setHomeClub: ReturnType<typeof useSetHomeClub>;
+  clearHomeClub: ReturnType<typeof useClearHomeClub>;
 
   // Placeholder players
   placeholderPlayers: ReturnType<typeof usePlaceholderPlayers>['data'];
@@ -66,10 +66,10 @@ interface UseProfileDataReturn {
 export function useProfileData(): UseProfileDataReturn {
   const { player, user, logout, isLoading } = useAuth();
 
-  // Home venue
-  const { data: homeVenue } = useHomeVenue();
-  const setHomeVenue = useSetHomeVenue();
-  const clearHomeVenue = useClearHomeVenue();
+  // Home club
+  const { data: homeClub } = useHomeClub();
+  const setHomeClub = useSetHomeClub();
+  const clearHomeClub = useClearHomeClub();
 
   // Placeholder players
   const { data: placeholderPlayers } = usePlaceholderPlayers();
@@ -127,10 +127,10 @@ export function useProfileData(): UseProfileDataReturn {
     // Profile display
     profile,
 
-    // Home venue
-    homeVenue,
-    setHomeVenue,
-    clearHomeVenue,
+    // Home club
+    homeClub,
+    setHomeClub,
+    clearHomeClub,
 
     // Placeholder players
     placeholderPlayers,

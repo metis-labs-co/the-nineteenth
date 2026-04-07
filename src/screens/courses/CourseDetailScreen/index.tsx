@@ -256,6 +256,14 @@ export default function CourseScreen({ route, navigation }: Props) {
   // Build header right actions
   const headerRightActions = (() => {
     const actions = [
+      {
+        icon: 'chart-box-outline',
+        onPress: () => navigation.navigate('CourseStatistics', {
+          courseId,
+          courseName: course.name,
+        }),
+        accessibilityLabel: 'View my statistics at this course',
+      },
       ...(isSocialOrHigher && course.golfapi_course_id
         ? [{
             icon: isRefreshingFromApi ? 'loading' : 'refresh',

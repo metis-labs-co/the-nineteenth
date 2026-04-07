@@ -35,6 +35,8 @@ export type {
   RoundStatPoint,
   PlayerStatistics,
   UsePlayerStatisticsOptions,
+  HoleStatistics,
+  CourseStatisticsData,
 } from './types';
 
 // Re-export helpers (for testing or custom calculations)
@@ -58,3 +60,4 @@ export type { EnrichedHoleScore } from './advancedHelpers';
 
 // Re-export query hooks
 export { usePlayerStatistics } from './queries';
+export { useCourseStatistics } from './courseQueries';

@@ -69,7 +69,6 @@ export function useRoundSubmission({
       if (skinsEnabled && skinsConfig) {
         if (existingGameId) {
           // Update existing skins game
-          console.log('[useRoundSubmission] Updating existing skins game:', existingGameId);
           const { error } = await (supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
             .from('skins_games') as any)
@@ -83,12 +82,10 @@ export function useRoundSubmission({
             .eq('id', existingGameId);
 
           if (error) {
-            console.error('[useRoundSubmission] Failed to update skins game:', error);
             throw new Error('Failed to update skins game');
           }
         } else if (userId && participantIds.length >= 2) {
           // Create new skins game
-          console.log('[useRoundSubmission] Creating new skins game for round:', roundId);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
           const { error } = await (supabase.from('skins_games') as any).insert({
             round_id: roundId,
@@ -105,13 +102,11 @@ export function useRoundSubmission({
           });
 
           if (error) {
-            console.error('[useRoundSubmission] Failed to create skins game:', error);
             throw new Error('Failed to create skins game');
           }
         }
       } else if (!skinsEnabled && existingGameId) {
         // Delete existing skins game (user disabled skins)
-        console.log('[useRoundSubmission] Deleting skins game:', existingGameId);
         const { error } = await (supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- skins_games table types not regenerated yet
           .from('skins_games') as any)
@@ -119,14 +114,11 @@ export function useRoundSubmission({
           .eq('id', existingGameId);
 
         if (error) {
-          console.error('[useRoundSubmission] Failed to delete skins game:', error);
           throw new Error('Failed to delete skins game');
         }
       }
     } catch (error) {
       // Log but don't fail the entire submission
-      console.error('[useRoundSubmission] Skins operation failed:', error);
-      // Re-throw to let caller know skins failed
       throw error;
     }
   };
@@ -145,7 +137,6 @@ export function useRoundSubmission({
       if (wolfEnabled && wolfConfig) {
         if (existingGameId) {
           // Update existing Wolf game
-          console.log('[useRoundSubmission] Updating existing Wolf game:', existingGameId);
           const { error } = await (supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
             .from('wolf_games') as any)
@@ -161,12 +152,10 @@ export function useRoundSubmission({
             .eq('id', existingGameId);
 
           if (error) {
-            console.error('[useRoundSubmission] Failed to update Wolf game:', error);
             throw new Error('Failed to update Wolf game');
           }
         } else if (userId) {
           // Create new Wolf game
-          console.log('[useRoundSubmission] Creating new Wolf game for round:', roundId);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
           const { error } = await (supabase.from('wolf_games') as any).insert({
             round_id: roundId,
@@ -184,13 +173,11 @@ export function useRoundSubmission({
           });
 
           if (error) {
-            console.error('[useRoundSubmission] Failed to create Wolf game:', error);
             throw new Error('Failed to create Wolf game');
           }
         }
       } else if (!wolfEnabled && existingGameId) {
         // Delete existing Wolf game (user disabled Wolf)
-        console.log('[useRoundSubmission] Deleting Wolf game:', existingGameId);
         const { error } = await (supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wolf types not regenerated yet
           .from('wolf_games') as any)
@@ -198,14 +185,11 @@ export function useRoundSubmission({
           .eq('id', existingGameId);
 
         if (error) {
-          console.error('[useRoundSubmission] Failed to delete Wolf game:', error);
           throw new Error('Failed to delete Wolf game');
         }
       }
     } catch (error) {
       // Log but don't fail the entire submission
-      console.error('[useRoundSubmission] Wolf operation failed:', error);
-      // Re-throw to let caller know Wolf failed
       throw error;
     }
   };
@@ -232,16 +216,14 @@ export function useRoundSubmission({
       try {
         await handleSkinsChanges();
       } catch (skinsError) {
-        console.error('[useRoundSubmission] Skins changes failed but round updated:', skinsError);
-        // Could show a warning to user here if needed
+        console.warn('[useRoundSubmission] Skins changes failed but round updated:', skinsError);
       }
 
-      // Handle Wolf changes (non-blocking - log errors but don't fail submission)
+      // Handle Wolf changes (non-blocking)
       try {
         await handleWolfChanges();
       } catch (wolfError) {
-        console.error('[useRoundSubmission] Wolf changes failed but round updated:', wolfError);
-        // Could show a warning to user here if needed
+        console.warn('[useRoundSubmission] Wolf changes failed but round updated:', wolfError);
       }
     },
     onSuccess: () => {

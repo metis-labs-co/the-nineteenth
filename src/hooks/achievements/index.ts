@@ -11,17 +11,17 @@ export {
   useAchievementProgress,
   useAchievementSummary,
   useAchievementLeaderboard,
-} from './useAchievements';
+  useAchievementsByCategory,
+} from './queries';
 
 // Mutation hooks
-export { useAwardAchievement, useUpdateProgress } from './useAchievements';
+export { useAwardAchievement, useUpdateProgress } from './mutations';
 
 // Convenience hooks
 export {
   useHasAchievement,
   useAchievementPoints,
-  useAchievementsByCategory,
-} from './useAchievements';
+} from './utilities';
 
 // Achievement checking hooks
 export {

@@ -90,9 +90,6 @@ export function useCoordinateBackfill(
         queryClient.invalidateQueries({
           queryKey: coordinateKeys.byCourse(id),
         });
-        console.log(
-          `[useCoordinateBackfill] Imported ${count} coordinates for course ${id}`
-        );
       }
     },
     onSettled: (_data, _error, id) => {

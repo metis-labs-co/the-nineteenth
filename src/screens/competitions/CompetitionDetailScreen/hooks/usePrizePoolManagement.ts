@@ -27,7 +27,6 @@ export function usePrizePoolManagement({ refetchPrizePool }: UsePrizePoolManagem
 
   const handleViewPrizePoolTransactions = useCallback(() => {
     // TODO: Navigate to prize pool transactions screen
-    console.log('View prize pool transactions - not implemented');
   }, []);
 
   return {

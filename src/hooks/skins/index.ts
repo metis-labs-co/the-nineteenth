@@ -40,9 +40,6 @@ export type {
   SkinsGameHistoryOptions,
 } from './types';
 
-// Re-export helpers
-export { createError } from './helpers';
-
 // Re-export query hooks
 export {
   useSkinsGame,

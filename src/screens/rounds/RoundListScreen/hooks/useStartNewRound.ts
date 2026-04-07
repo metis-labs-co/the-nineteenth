@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
 import { parseAndTransformHoles } from '@/utils/holeTransformers';
 import { getDisplayName } from '@/utils/displayHelpers';
+import { getLocalDateString } from '@/utils/formatting';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Player, Hole, TeeBox, GameType } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -146,7 +147,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             user_id: user?.id,
             competition_id: null,
             round_number: 1,
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDateString(),
             game_type: gameType,
             status: 'in-progress',
             selected_tee: selectedTee ?? null,
@@ -224,11 +225,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             .from('round_players') as any)
             .insert(roundPlayersToInsert);
 
-          if (roundPlayersError) {
-            console.error('[RoundsScreen] Error creating round_players:', roundPlayersError);
-          } else {
-            console.log('[RoundsScreen] Created round_players records for', roundPlayersToInsert.length, 'players');
-          }
+          // round_players error is non-fatal
         }
 
         // Create scoring pairs if enabled
@@ -240,24 +237,12 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             }));
 
             await createScoringPairs(roundId, pairsWithRealIds);
-            console.log('[RoundsScreen] Created scoring pairs for round:', pairsWithRealIds.length, 'pairs');
-          } catch (scoringPairsError) {
-            console.error('[RoundsScreen] Error creating scoring pairs:', scoringPairsError);
+          } catch {
+            // Scoring pairs creation is non-blocking
           }
         }
 
         // Create skins game if enabled (non-blocking - don't fail round creation)
-        // DEBUG: Log skins creation conditions
-        console.log('[useStartNewRound] Skins creation check:', {
-          skinsConfigReceived: !!skinsConfig,
-          skinsEnabled: skinsConfig?.enabled,
-          hasConfig: !!skinsConfig?.config,
-          partnersCount: partners.length,
-          hasUserId: !!user?.id,
-          willCreateSkins: !!(skinsConfig?.enabled && skinsConfig.config && partners.length >= 1 && user?.id),
-          skinsConfig: skinsConfig,
-        });
-
         if (skinsConfig?.enabled && skinsConfig.config && partners.length >= 1 && user?.id) {
           try {
             // Build participant IDs array (current user + partners)
@@ -280,36 +265,14 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
                 created_by: user.id,
               });
 
-            if (skinsError) {
-              console.error('[RoundsScreen] Error creating skins game:', skinsError);
-            } else {
-              console.log('[RoundsScreen] Created skins game for round:', {
-                roundId,
-                participantCount: participantIds.length,
-                potType: skinsConfig.config.pot_type,
-                potValue: skinsConfig.config.pot_value,
-                scoringType: skinsConfig.config.scoring_type,
-              });
-            }
-          } catch (skinsGameError) {
-            // Log but don't fail - skins is a side feature
-            console.error('[RoundsScreen] Error creating skins game:', skinsGameError);
+            // Skins error is non-fatal
+          } catch {
+            // Skins is a side feature - don't fail round creation
           }
         }
 
         // Create Wolf game if enabled (non-blocking - don't fail round creation)
         // Wolf requires 3-4 players
-        console.log('[useStartNewRound] Wolf creation check:', {
-          wolfConfigReceived: !!wolfConfig,
-          wolfEnabled: wolfConfig?.enabled,
-          hasConfig: !!wolfConfig?.config,
-          partnersCount: partners.length,
-          totalPlayers: partners.length + 1,
-          hasUserId: !!user?.id,
-          willCreateWolf: !!(wolfConfig?.enabled && wolfConfig.config && partners.length >= 2 && partners.length <= 3 && user?.id),
-          wolfConfig: wolfConfig,
-        });
-
         if (wolfConfig?.enabled && wolfConfig.config && partners.length >= 2 && partners.length <= 3 && user?.id) {
           try {
             // Build participant IDs array (current user + partners)
@@ -339,39 +302,15 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
                 created_by: user.id,
               });
 
-            if (wolfError) {
-              console.error('[RoundsScreen] Error creating wolf game:', wolfError);
-            } else {
-              console.log('[RoundsScreen] Created wolf game for round:', {
-                roundId,
-                participantCount: participantIds.length,
-                wolfOrder,
-                scoringType: wolfConfig.config.scoring_type,
-                blindWolfEnabled: wolfConfig.config.blind_wolf_enabled,
-                potEnabled: wolfConfig.config.pot_enabled,
-                potValuePerPoint: wolfConfig.config.pot_value_per_point,
-              });
-            }
-          } catch (wolfGameError) {
-            // Log but don't fail - wolf is a side feature
-            console.error('[RoundsScreen] Error creating wolf game:', wolfGameError);
+            // Wolf error is non-fatal
+          } catch {
+            // Wolf is a side feature - don't fail round creation
           }
         }
-
-        console.log('[RoundsScreen] Starting round:', {
-          roundId,
-          course: courseName,
-          selectedTee: selectedTee?.name ?? 'None',
-          gameType,
-          ballCount,
-          players: players.map(p => p.name),
-          holes: holes.length,
-        });
 
         // Store pending league tag if starting from a league
         if (pendingLeagueId) {
           setPendingLeagueTag(roundId, pendingLeagueId);
-          console.log('[useStartNewRound] Stored pending league tag:', { roundId, leagueId: pendingLeagueId });
         }
 
         // Build per-player tee map

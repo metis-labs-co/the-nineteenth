@@ -116,7 +116,7 @@ export default function ChallengeDetailScreen() {
           <Text style={[styles.statusValue, { color: colors.textPrimary }]}>{statusLabel}</Text>
           {challenge.deadline && challenge.status === 'accepted' && (
             <Text style={[styles.deadline, { color: colors.textSecondary }]}>
-              Deadline: {new Date(challenge.deadline).toLocaleDateString('en-AU')}
+              Deadline: {new Date(challenge.deadline).toLocaleDateString(undefined)}
             </Text>
           )}
         </View>

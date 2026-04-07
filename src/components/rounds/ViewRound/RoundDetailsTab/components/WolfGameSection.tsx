@@ -33,7 +33,7 @@ import {
   useWolfPayouts,
   useFinalizeWolfGame,
 } from '@/hooks/wolf';
-import { formatWolfCurrency } from '@/utils/wolfCalculations';
+import { formatWolfCurrency } from '@/utils/wolf';
 import type { RoundStatus } from '@/types/database/enums';
 
 // ============================================================================

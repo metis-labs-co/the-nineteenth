@@ -1,0 +1,189 @@
+{
+  "profile": "react-native",
+  "applied_at": "2026-04-07T00:17:21Z",
+  "resolved_chain": [
+    "base",
+    "react",
+    "react-native"
+  ],
+  "plugins": [
+    "superpowers"
+  ],
+  "symlinks": [
+    {
+      "target": ".claude/rules/aesthetics.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/aesthetics.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/common-components-catalog.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/common-components-catalog.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/components.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/components.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/data-fetching.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/data-fetching.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/forms.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/forms.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/screens.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/screens.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/styling.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/styling.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/rules/workflow.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/rules/workflow.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/agents/codebase-explorer.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/agents/codebase-explorer.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/agents/rn-code-reviewer.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/agents/rn-code-reviewer.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/agents/test-analyst.md",
+      "source": "/Users/samkay/claude-config/profiles/react-native/agents/test-analyst.md",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/component",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/component",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/consolidate",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/consolidate",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/db",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/db",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/docs",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/docs",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/execute-plan-step",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/execute-plan-step",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/feature",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/feature",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/fix",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/fix",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/form",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/form",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/hook",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/hook",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/layout",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/layout",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/list",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/list",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/plan",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/plan",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/refactor",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/refactor",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/screen",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/screen",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/split-hook",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/split-hook",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/split-service",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/split-service",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/test-component",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/test-component",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/test-step",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/test-step",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/skills/test",
+      "source": "/Users/samkay/claude-config/profiles/react-native/skills/test",
+      "from_profile": "react-native"
+    },
+    {
+      "target": ".claude/agents/dependency-auditor.md",
+      "source": "/Users/samkay/claude-config/profiles/react/agents/dependency-auditor.md",
+      "from_profile": "react"
+    },
+    {
+      "target": ".claude/rules/code-quality.md",
+      "source": "/Users/samkay/claude-config/profiles/base/rules/code-quality.md",
+      "from_profile": "base"
+    },
+    {
+      "target": ".claude/agents/code-reviewer.md",
+      "source": "/Users/samkay/claude-config/profiles/base/agents/code-reviewer.md",
+      "from_profile": "base"
+    },
+    {
+      "target": ".claude/agents/test-runner.md",
+      "source": "/Users/samkay/claude-config/profiles/base/agents/test-runner.md",
+      "from_profile": "base"
+    },
+    {
+      "target": ".claude/skills/review-plan",
+      "source": "/Users/samkay/claude-config/profiles/base/skills/review-plan",
+      "from_profile": "base"
+    }
+  ]
+}

@@ -62,7 +62,7 @@ export type {
 } from './types';
 
 // Re-export helpers
-export { mergeTees, isLocalClub, toClubCourseDisplayItem, sortHomeClubFirst } from './helpers';
+export { mergeTees, isLocalClub, toClubCourseDisplayItem, sortHomeClubFirst, sortByDistance } from './helpers';
 
 // Re-export query hooks
 export {
@@ -74,22 +74,6 @@ export {
 
 // Re-export mutation hooks
 export { useCreateClub, useCreateCourse, useCreateClubWithCourse, useDeleteClubIfEmpty } from './mutations';
-
-// Re-export deprecated aliases for backward compatibility
-export {
-  // Deprecated type aliases
-  type VenueWithCourses,
-  type VenueCourseDisplayItem,
-  type CreateVenueInput,
-  type FavoriteCourseWithVenue,
-  // Deprecated hook aliases
-  useVenuesWithCourses,
-  useSearchVenues,
-  useVenueCourseDisplayItems,
-  useFavoriteCoursesWithVenues,
-  useCreateVenue,
-  useCreateVenueWithCourse,
-} from './deprecated';
 
 // Re-export from useGolfApiSearch for convenience
 export { isGolfApiResult } from '@/hooks/useGolfApiSearch';

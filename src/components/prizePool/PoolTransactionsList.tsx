@@ -153,7 +153,7 @@ function formatTimestamp(timestamp: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   // Format as date for older transactions
-  return date.toLocaleDateString('en-AU', {
+  return date.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,

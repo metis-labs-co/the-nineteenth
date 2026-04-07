@@ -193,7 +193,6 @@ export function useSubmitScorecards() {
 
       // Check for achievements if we have the required data
       if (!playerId || !isAchievementReady) {
-        console.log('[useSubmitScorecards] Skipping achievement check - not ready');
         return;
       }
 
@@ -202,7 +201,6 @@ export function useSubmitScorecards() {
       // Find the current user's scorecard
       const userScorecard = scorecards.find((sc) => sc.playerId === playerId);
       if (!userScorecard) {
-        console.log('[useSubmitScorecards] No scorecard for current user');
         return;
       }
 
@@ -242,8 +240,6 @@ export function useSubmitScorecards() {
           double_bogeys: scoreStats.doubleBogeys,
           hole_in_one: scoreStats.holeInOne,
         };
-
-        console.log('[useSubmitScorecards] Checking achievements with data:', eventData);
 
         // Collect all new rewards across multiple event checks
         const allNewAchievements: AchievementDefinition[] = [];
@@ -295,18 +291,11 @@ export function useSubmitScorecards() {
 
         // 5. Show all achievement toasts
         if (allNewAchievements.length > 0 || allNewCosmetics.length > 0) {
-          console.log('[useSubmitScorecards] New achievements:', allNewAchievements.length);
-          console.log('[useSubmitScorecards] New cosmetics:', allNewCosmetics.length);
           showMultipleToasts(allNewAchievements, allNewCosmetics);
         }
-      } catch (error) {
+      } catch {
         // Don't fail the submission if achievement check fails
-        console.error('[useSubmitScorecards] Achievement check failed:', error);
       }
-    },
-
-    onError: (error) => {
-      console.error('[useSubmitScorecards] Error:', error);
     },
   });
 }
@@ -326,10 +315,9 @@ export function useUpdateScore() {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, UpdateScoreInput>({
-    mutationFn: async ({ scorecardId, roundId: _roundId, holeNumber, strokes }) => {
+    mutationFn: async ({ scorecardId: _scorecardId, roundId: _roundId, holeNumber: _holeNumber, strokes: _strokes }) => {
       // TODO: Implement when we need direct mutation
       // For now, score updates go through the Zustand store
-      console.log('[useUpdateScore] Update:', { scorecardId, holeNumber, strokes });
     },
 
     onMutate: async ({ scorecardId, roundId, holeNumber, strokes }): Promise<{ previousScorecards: Scorecard[] | undefined }> => {

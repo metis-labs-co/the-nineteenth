@@ -175,8 +175,6 @@ export type {
   CourseWithFullData,
   // Deprecated aliases (for backwards compatibility)
   Venue,
-  CourseWithVenue,
-  VenueWithCourses,
   LegacyCourse,
 } from './course.types';
 export { getTeeHoleLength, getTeeHoleLengths } from './course.types';

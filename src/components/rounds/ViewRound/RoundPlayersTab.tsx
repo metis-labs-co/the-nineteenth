@@ -15,7 +15,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import { EmptyState } from '@/components/common/EmptyState';
-import type { ScorecardWithPlayer, CourseWithVenue } from '@/hooks/useRoundDetails';
+import type { ScorecardWithPlayer, CourseWithClub } from '@/hooks/useRoundDetails';
 import type { HoleScore, MultiBallHoleScore } from '@/types/database/base';
 import { isSingleBallScore } from '@/types/database/base';
 
@@ -25,7 +25,7 @@ import { isSingleBallScore } from '@/types/database/base';
 
 interface RoundPlayersTabProps {
   scorecards: ScorecardWithPlayer[];
-  holes: CourseWithVenue['holes'] | null;
+  holes: CourseWithClub['holes'] | null;
 }
 
 interface PlayerScoreStats {
@@ -44,7 +44,7 @@ interface PlayerScoreStats {
 
 function calculatePlayerStats(
   scores: Record<string, HoleScore | MultiBallHoleScore> | null,
-  holes: CourseWithVenue['holes'] | null
+  holes: CourseWithClub['holes'] | null
 ): PlayerScoreStats {
   const totalHoles = holes?.length || 18;
   const stats: PlayerScoreStats = {
@@ -111,7 +111,7 @@ const ScoreBadge = React.memo(function ScoreBadge({
 
 interface PlayerCardProps {
   scorecard: ScorecardWithPlayer;
-  holes: CourseWithVenue['holes'] | null;
+  holes: CourseWithClub['holes'] | null;
   totalHoles: number;
   isLast: boolean;
   colors: ReturnType<typeof useThemeColors>;

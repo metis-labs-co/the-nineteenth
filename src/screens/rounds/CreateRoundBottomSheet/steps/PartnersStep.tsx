@@ -192,6 +192,10 @@ export const PartnersStep = memo(function PartnersStep({
 
   const hasTees = availableTees.length > 0;
 
+  // Match play requires at least one opponent
+  const isMatchPlay = selectedMatchType === 'match-play';
+  const canContinue = !isMatchPlay || selectedPartners.length >= 1;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -340,10 +344,19 @@ export const PartnersStep = memo(function PartnersStep({
       <View
         style={[styles.buttonContainer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}
       >
+        {isMatchPlay && selectedPartners.length === 0 && (
+          <Text style={[styles.matchPlayHint, { color: colors.warning }]}>
+            Select at least one opponent for Match Play
+          </Text>
+        )}
         <TouchableOpacity
-          style={[styles.continueButton, { backgroundColor: colors.primary }]}
-          onPress={onContinue}
-          activeOpacity={0.8}
+          style={[
+            styles.continueButton,
+            { backgroundColor: canContinue ? colors.primary : colors.gray400 },
+          ]}
+          onPress={canContinue ? onContinue : undefined}
+          activeOpacity={canContinue ? 0.8 : 1}
+          disabled={!canContinue}
         >
           <Text style={[styles.continueButtonText, { color: colors.white }]}>
             Continue
@@ -430,6 +443,11 @@ const styles = StyleSheet.create({
   },
   teePillText: {
     ...typography.caption,
+  },
+  matchPlayHint: {
+    ...typography.small,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   buttonContainer: {
     padding: spacing.lg,

@@ -62,6 +62,7 @@ import LeagueQuickAddRoundScreen from '@/screens/leagues/LeagueQuickAddRoundScre
 // Profile Screens
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
 import MyStatisticsScreen from '@/screens/profile/MyStatisticsScreen';
+import CourseStatisticsScreen from '@/screens/profile/CourseStatisticsScreen';
 import HandicapHistoryScreen from '@/screens/profile/HandicapHistoryScreen';
 import AppearanceScreen from '@/screens/profile/AppearanceScreen';
 import GameSettingsScreen from '@/screens/profile/GameSettingsScreen';
@@ -448,6 +449,15 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={MyStatisticsScreen}
               options={{
                 title: 'My Statistics',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="CourseStatistics"
+              component={CourseStatisticsScreen}
+              options={{
+                title: 'Course Statistics',
                 headerShown: false,
               }}
             />

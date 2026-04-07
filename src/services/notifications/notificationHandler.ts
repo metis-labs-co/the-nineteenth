@@ -248,21 +248,11 @@ export function handleNotificationResponse(
   response: Notifications.NotificationResponse,
   navigation: NotificationNavigation
 ): void {
-  console.log('[NotificationHandler] Handling notification response');
-
   const data = extractNotificationData(response);
   const { type, competitionId, roundId, leagueId } = data;
 
-  console.log('[NotificationHandler] Extracted data:', {
-    type,
-    competitionId,
-    roundId,
-  });
-
   // Determine target screen
   const targetScreen = getTargetScreen(type, data);
-
-  console.log('[NotificationHandler] Navigating to:', targetScreen);
 
   // Navigate based on target screen
   switch (targetScreen) {
@@ -343,19 +333,14 @@ export function handleForegroundNotification(
   targetScreen: keyof RootStackParamList;
   suppressReason?: string;
 } {
-  console.log('[NotificationHandler] Handling foreground notification');
-
   const data = extractForegroundNotificationData(notification);
   const { type } = data;
-
-  console.log('[NotificationHandler] Notification type:', type);
 
   // Determine target screen
   const targetScreen = getTargetScreen(type, data);
 
   // Check if user is already on the relevant screen
   if (currentScreen && isOnRelevantScreen(currentScreen, targetScreen, data)) {
-    console.log('[NotificationHandler] User is on relevant screen, suppressing toast');
     return {
       shouldShowToast: false,
       data,
@@ -364,7 +349,6 @@ export function handleForegroundNotification(
     };
   }
 
-  console.log('[NotificationHandler] Showing toast for notification');
   return {
     shouldShowToast: true,
     data,
@@ -469,12 +453,6 @@ export function handleNotificationActionResponse(
   const action = getActionIdentifier(response);
   const category = getCategoryIdentifier(response);
   const data = extractNotificationData(response);
-
-  console.log('[NotificationHandler] Action response:', {
-    action,
-    category,
-    data,
-  });
 
   // Handle based on action type
   switch (action) {

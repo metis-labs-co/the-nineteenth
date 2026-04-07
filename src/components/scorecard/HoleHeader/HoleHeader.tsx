@@ -63,18 +63,6 @@ export const HoleHeader = React.memo(function HoleHeader({
   const formattedDistance = yardage ? formatDistance(yardage) : undefined;
   const canEditHole = isSuperAdmin && !!onEditHole;
 
-  // Debug logging in development
-  if (__DEV__ && hole.number === 1) {
-    console.log('[HoleHeader] Yardage lookup:', {
-      holeNumber: hole.number,
-      selectedTee,
-      resolvedTeeKey,
-      availableYardageKeys: hole.yardages ? Object.keys(hole.yardages) : [],
-      yardage,
-      formattedDistance,
-    });
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <HoleNavigationButton

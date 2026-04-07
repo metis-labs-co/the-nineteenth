@@ -296,21 +296,17 @@ export default function JoinCompetitionScreen({ navigation }: Props) {
             .eq('status', 'accepted');
 
           const competitionCount = count ?? 0;
-          console.log('[JoinCompetitionScreen] Checking achievements with competition count:', competitionCount);
 
-          // Check and award achievements
           const result = await checkAndAward('competition_joined', {
             competition_count: competitionCount,
             competition_id: competition.id,
           });
 
           if (result.hasNewRewards) {
-            console.log('[JoinCompetitionScreen] New achievements:', result.newAchievements.length);
             showMultipleToasts(result.newAchievements, result.newCosmetics);
           }
-        } catch (achievementError) {
+        } catch {
           // Don't fail the join if achievement check fails
-          console.error('[JoinCompetitionScreen] Achievement check failed:', achievementError);
         }
       }
 

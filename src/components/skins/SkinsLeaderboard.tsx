@@ -29,7 +29,7 @@ import { Text, Icon, Avatar, ActivityIndicator } from 'react-native-paper';
 import { EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
-import { formatCurrency } from '@/utils/skinsCalculations';
+import { formatCurrency } from '@/utils/skins';
 import type { SkinsLeaderboardEntry } from '@/hooks/useSkins';
 
 // ============================================================================

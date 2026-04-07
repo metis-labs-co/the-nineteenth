@@ -139,11 +139,6 @@ export const SkinsSection = memo(function SkinsSection({
    */
   const handleSkinsConfigSave = useCallback(
     (config: SkinsConfig) => {
-      // DEBUG: Log skins config being saved
-      console.log('[ScoringSetupStep] handleSkinsConfigSave:', {
-        config,
-        partnersCount: selectedPartners.length,
-      });
       onSkinsConfigChange(config);
       onSkinsEnabledChange(true);
       updateConfigSheetVisible(false);

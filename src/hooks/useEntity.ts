@@ -21,6 +21,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Database } from '@/types/supabase';
 
 /**
@@ -78,7 +79,7 @@ export interface UseEntityOptions<_T> {
 /**
  * Default stale time for entity queries (5 minutes)
  */
-const DEFAULT_STALE_TIME = 5 * 60 * 1000;
+const DEFAULT_STALE_TIME = CACHE_TIMES.STANDARD;
 
 /**
  * Generic hook for fetching a single entity by ID

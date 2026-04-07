@@ -73,7 +73,7 @@ export function PointsBreakdownModal({
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   };
 
   const getPositionSuffix = (pos: number): string => {

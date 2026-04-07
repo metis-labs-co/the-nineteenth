@@ -19,11 +19,6 @@ export const clubKeys = {
   homeClub: (playerId: string) => [...clubKeys.all, 'home', playerId] as const,
 } as const;
 
-/**
- * @deprecated Use clubKeys instead
- */
-export const venueKeys = clubKeys;
-
 // =====================================================
 // COURSES
 // =====================================================

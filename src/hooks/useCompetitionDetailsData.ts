@@ -19,7 +19,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { supabase } from '@/services/supabase/client';
+import { competitionDetailsKeys } from '@/hooks/queryKeys';
 import type { Competition } from '@/types/database.types';
 import type {
   RoundWithCourse,
@@ -27,14 +29,6 @@ import type {
   CompetitionData,
 } from '@/components/competitions/detail';
 import type { CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
-
-/**
- * Query key factory for competition details
- */
-export const competitionDetailsKeys = {
-  all: ['competition'] as const,
-  detail: (id: string) => ['competition', id, 'details'] as const,
-};
 
 /**
  * Options for useCompetitionDetailsData hook
@@ -59,12 +53,12 @@ export interface UseCompetitionDetailsDataOptions {
 /**
  * Default stale time for competition details (2 minutes)
  */
-const DEFAULT_STALE_TIME = 2 * 60 * 1000;
+const DEFAULT_STALE_TIME = CACHE_TIMES.MODERATE;
 
 /**
  * Default garbage collection time (10 minutes)
  */
-const DEFAULT_GC_TIME = 10 * 60 * 1000;
+const DEFAULT_GC_TIME = GC_TIMES.STANDARD;
 
 /**
  * Fetch competition details including rounds and players from Supabase

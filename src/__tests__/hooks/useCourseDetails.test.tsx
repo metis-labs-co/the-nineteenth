@@ -16,7 +16,7 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useCourseDetails, useCoursesByVenue } from '@/hooks/useCourseDetails';
+import { useCourseDetails, useCoursesByClub } from '@/hooks/useCourseDetails';
 
 // ============================================================================
 // MOCK DATA
@@ -322,10 +322,10 @@ describe('useCourseDetails', () => {
 });
 
 // ============================================================================
-// TEST SUITE: useCoursesByVenue
+// TEST SUITE: useCoursesByClub
 // ============================================================================
 
-describe('useCoursesByVenue', () => {
+describe('useCoursesByClub', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCoursesData = mockCourses;
@@ -334,7 +334,7 @@ describe('useCoursesByVenue', () => {
 
   it('fetches courses by venue ID', async () => {
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCoursesByVenue('venue-123'), {
+    const { result } = renderHook(() => useCoursesByClub('venue-123'), {
       wrapper,
     });
 
@@ -348,7 +348,7 @@ describe('useCoursesByVenue', () => {
 
   it('includes favorite status for each course', async () => {
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCoursesByVenue('venue-123'), {
+    const { result } = renderHook(() => useCoursesByClub('venue-123'), {
       wrapper,
     });
 
@@ -371,7 +371,7 @@ describe('useCoursesByVenue', () => {
     mockCoursesData = [];
 
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCoursesByVenue('venue-123'), {
+    const { result } = renderHook(() => useCoursesByClub('venue-123'), {
       wrapper,
     });
 
@@ -384,7 +384,7 @@ describe('useCoursesByVenue', () => {
 
   it('does not fetch when venueId is empty', async () => {
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCoursesByVenue(''), {
+    const { result } = renderHook(() => useCoursesByClub(''), {
       wrapper,
     });
 

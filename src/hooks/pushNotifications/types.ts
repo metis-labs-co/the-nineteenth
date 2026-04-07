@@ -6,13 +6,14 @@
 
 import type { PermissionStatus } from '@/services/notifications/pushService';
 import type { PushToken, PushPreferences } from '@/types/push.types';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 
 // =====================================================
 // CONSTANTS
 // =====================================================
 
 export const PUSH_TOKEN_REGISTERED_KEY = '@push_token_registered';
-export const STALE_TIME = 5 * 60 * 1000; // 5 minutes
+export const STALE_TIME = CACHE_TIMES.STANDARD; // 5 minutes
 
 // =====================================================
 // TYPES

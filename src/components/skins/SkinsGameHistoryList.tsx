@@ -28,7 +28,7 @@ import { Text, Icon, ActivityIndicator } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor } from '@/constants/theme';
-import { formatCurrency } from '@/utils/skinsCalculations';
+import { formatCurrency } from '@/utils/skins';
 import type { SkinsGameHistoryEntry } from '@/hooks/useSkins';
 
 // ============================================================================
@@ -74,7 +74,7 @@ function formatDate(dateString: string | null): string {
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
 
-  return date.toLocaleDateString('en-AU', {
+  return date.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,

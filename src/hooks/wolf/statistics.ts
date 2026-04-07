@@ -11,6 +11,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { wolfKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from './helpers';
 import type {
   WolfPlayerStatistics,
@@ -80,8 +81,8 @@ export function useWolfStatistics(playerId: string | undefined) {
       return data as unknown as WolfPlayerStatistics;
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -209,8 +210,8 @@ export function useWolfGameHistory(
       });
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });

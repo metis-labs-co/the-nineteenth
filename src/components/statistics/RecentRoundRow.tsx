@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Pill } from '@/components/common';
 import { spacing, typography } from '@/constants/theme';
@@ -35,6 +35,8 @@ export interface RecentRoundRowProps {
   isLast?: boolean;
   /** Whether this is a practice round (shows badge) */
   isPracticeRound?: boolean;
+  /** Optional press handler */
+  onPress?: () => void;
 }
 
 // =====================================================
@@ -72,14 +74,13 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
   gameType,
   isLast = false,
   isPracticeRound = false,
+  onPress,
 }: RecentRoundRowProps) {
   const colors = useThemeColors();
   const secondaryScore = formatSecondaryScore(gameType, totalPoints);
 
-  return (
-    <View
-      style={[styles.row, { borderBottomColor: colors.borderLight }, isLast && styles.rowLast]}
-    >
+  const content = (
+    <>
       <View style={styles.date}>
         <Text style={[styles.dateText, { color: colors.textSecondary }]}>{date}</Text>
       </View>
@@ -105,6 +106,26 @@ export const RecentRoundRow = React.memo(function RecentRoundRow({
           <Text style={[styles.points, { color: colors.primary }]}>{secondaryScore}</Text>
         )}
       </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.row, { borderBottomColor: colors.borderLight }, isLast && styles.rowLast]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View
+      style={[styles.row, { borderBottomColor: colors.borderLight }, isLast && styles.rowLast]}
+    >
+      {content}
     </View>
   );
 });

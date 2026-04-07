@@ -19,7 +19,7 @@ import { View, StyleSheet, FlatList, ListRenderItem } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
-import { formatWolfNetResult } from '@/utils/wolfCalculations';
+import { formatWolfNetResult } from '@/utils/wolf';
 import type { WolfStandingEntry } from '@/types/database/wolf.types';
 
 // ============================================================================

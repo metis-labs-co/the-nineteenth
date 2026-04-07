@@ -31,7 +31,7 @@ import { Text, Icon, ActivityIndicator, Divider } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, wolfColor } from '@/constants/theme';
 import { useWolfGameByRound, useWolfStandings, useWolfHoleDecisions } from '@/hooks/wolf';
-import { determineWolfForHole } from '@/utils/wolfCalculations';
+import { determineWolfForHole } from '@/utils/wolf';
 import type { WolfHoleDecision } from '@/types/database/wolf.types';
 
 // ============================================================================

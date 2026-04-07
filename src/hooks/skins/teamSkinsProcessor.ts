@@ -6,8 +6,8 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import { prepareTeamHoleScores } from '@/utils/skinsCalculations';
-import type { SkinsTeamInfo } from '@/utils/skinsCalculations';
+import { prepareTeamHoleScores } from '@/utils/skins';
+import type { SkinsTeamInfo } from '@/utils/skins';
 import { useProcessTeamSkinsHole } from './mutations';
 import type { ProcessSkinsResult } from './types';
 import type { SkinsGame } from '@/types/database/skins.types';

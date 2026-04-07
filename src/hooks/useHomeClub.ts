@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { clubKeys, authKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Club, Course } from '@/types/database.types';
 
 // =====================================================
@@ -23,11 +24,6 @@ import type { Club, Course } from '@/types/database.types';
 export interface HomeClubWithCourses extends Club {
   courses: Course[];
 }
-
-/**
- * @deprecated Use HomeClubWithCourses instead
- */
-export type HomeVenueWithCourses = HomeClubWithCourses;
 
 // =====================================================
 // QUERY HOOK
@@ -65,7 +61,7 @@ export function useHomeClub() {
       return data as HomeClubWithCourses;
     },
     enabled: !!user?.id && !!homeClubId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 
@@ -136,21 +132,3 @@ export function useClearHomeClub() {
   });
 }
 
-// =====================================================
-// DEPRECATED HOOKS (for backward compatibility)
-// =====================================================
-
-/**
- * @deprecated Use useHomeClub instead
- */
-export const useHomeVenue = useHomeClub;
-
-/**
- * @deprecated Use useSetHomeClub instead
- */
-export const useSetHomeVenue = useSetHomeClub;
-
-/**
- * @deprecated Use useClearHomeClub instead
- */
-export const useClearHomeVenue = useClearHomeClub;

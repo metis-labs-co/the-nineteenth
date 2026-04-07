@@ -13,7 +13,6 @@ import type { PermissionCheckResult } from './types';
  * Calls the database function to verify against tier limits
  */
 export async function checkCompetitionCreationPermission(): Promise<PermissionCheckResult> {
-  console.log('[API] Checking competition creation permission');
 
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -26,11 +25,9 @@ export async function checkCompetitionCreationPermission(): Promise<PermissionCh
 
   // Call database function to check permission
   // Note: Using type assertion because the database function types may not be perfectly aligned
-  console.log('[API] Calling RPC user_can_create_competition for user:', user.id);
   const { data: canCreate, error: rpcError } = await supabase
     .rpc('user_can_create_competition' as unknown as never, { p_user_id: user.id } as never);
 
-  console.log('[API] RPC result - canCreate:', canCreate, 'error:', rpcError ? JSON.stringify(rpcError) : 'none');
 
   if (rpcError) {
     console.error('[API] Error checking competition creation permission:', JSON.stringify(rpcError));
@@ -40,11 +37,9 @@ export async function checkCompetitionCreationPermission(): Promise<PermissionCh
   }
 
   if (canCreate) {
-    console.log('[API] Permission granted - user can create competition');
     return { allowed: true };
   }
 
-  console.log('[API] Permission denied - checking limits...');
 
   // Get current count and limit for better error message
   const limits = useSubscriptionStore.getState().limits;
@@ -70,13 +65,11 @@ export async function checkCompetitionCreationPermission(): Promise<PermissionCh
  * Uses cached tier limits from the subscription store
  */
 export function checkCanAddRound(competitionId: string, currentCount: number): PermissionCheckResult {
-  console.log('[API] Checking can add round:', { competitionId, currentCount });
 
   const limits = useSubscriptionStore.getState().limits;
 
   // If limits aren't loaded yet, allow (fail open)
   if (!limits) {
-    console.log('[API] Limits not loaded, allowing round addition');
     return { allowed: true };
   }
 
@@ -108,13 +101,11 @@ export function checkCanAddRound(competitionId: string, currentCount: number): P
  * Uses cached tier limits from the subscription store
  */
 export function checkCanAddPlayer(competitionId: string, currentCount: number): PermissionCheckResult {
-  console.log('[API] Checking can add player:', { competitionId, currentCount });
 
   const limits = useSubscriptionStore.getState().limits;
 
   // If limits aren't loaded yet, allow (fail open)
   if (!limits) {
-    console.log('[API] Limits not loaded, allowing player addition');
     return { allowed: true };
   }
 

@@ -185,8 +185,6 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
       const idMapping: Record<string, string> = {};
 
       if (newPlaceholders.length > 0) {
-        console.log(`Creating ${newPlaceholders.length} placeholder players...`);
-
         for (const placeholder of newPlaceholders) {
           try {
             const created = await createPlaceholder.mutateAsync({
@@ -195,9 +193,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
             });
             // Map the temporary AI-generated UUID to the real database UUID
             idMapping[placeholder.id] = created.id;
-            console.log(`Created placeholder: ${placeholder.name} -> ${created.id}`);
-          } catch (error) {
-            console.error(`Failed to create placeholder ${placeholder.name}:`, error);
+          } catch {
             throw new Error(`Failed to create guest player "${placeholder.name}". Please try again.`);
           }
         }
@@ -259,7 +255,6 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
       // Navigate to competition detail
       navigation.replace('CompetitionDetail', { id: result.competition.id });
     } catch (error) {
-      console.error('Failed to create competition:', error);
       showDialog({
         type: 'creation_failed',
         title: 'Creation Failed',

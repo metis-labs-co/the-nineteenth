@@ -19,6 +19,7 @@ import {
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
+import { getLocalDateString } from '@/utils/formatting';
 import type { Hole, TeeBox } from '@/types/database.types';
 
 export type WizardStep = 'player' | 'course' | 'tee' | 'scores' | 'review';
@@ -48,7 +49,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourseData | null>(null);
   const [selectedTee, setSelectedTee] = useState<TeeBox | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [roundDate, setRoundDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD for DB
+  const [roundDate, setRoundDate] = useState(getLocalDateString()); // YYYY-MM-DD for DB
   const [isSaving, setIsSaving] = useState(false);
 
   // DD/MM/YYYY display format for DatePicker component

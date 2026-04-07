@@ -15,11 +15,12 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import {
   calculateTotalPot,
   calculateHoleValue,
   calculateCurrentCarryover,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import { createError } from './helpers';
 import type {
   SkinsGame,
@@ -234,8 +235,8 @@ export function useSkinsGame(gameId: string | undefined) {
       } as SkinsGameWithParticipants;
     },
     enabled: !!gameId,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -293,8 +294,8 @@ export function useSkinsGamesByRound(roundId: string | undefined) {
       })) as SkinsGameWithParticipants[];
     },
     enabled: !!roundId,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -413,7 +414,7 @@ export function useSkinsResults(gameId: string | undefined) {
     },
     enabled: !!gameId,
     staleTime: 0, // Always refetch to ensure fresh data during play
-    gcTime: 5 * 60 * 1000,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnMount: 'always', // Always refetch when component mounts
     refetchOnWindowFocus: false,
@@ -468,8 +469,8 @@ export function useSkinsPayouts(gameId: string | undefined) {
       })) as SkinsPayoutWithPlayer[];
     },
     enabled: !!gameId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });

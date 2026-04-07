@@ -20,11 +20,12 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { wolfKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import {
   calculateWolfStandings,
   getSortedStandings,
   calculateWolfPayouts,
-} from '@/utils/wolfCalculations';
+} from '@/utils/wolf';
 import { createError } from './helpers';
 import type {
   WolfGame,
@@ -185,8 +186,8 @@ export function useWolfGame(gameId: string | undefined) {
       } as WolfGameWithParticipants;
     },
     enabled: !!gameId,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -243,8 +244,8 @@ export function useWolfGameByRound(roundId: string | undefined) {
       } as WolfGameWithParticipants;
     },
     enabled: !!roundId,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -317,7 +318,7 @@ export function useWolfHoleDecisions(gameId: string | undefined) {
     },
     enabled: !!gameId,
     staleTime: 0, // Always refetch to ensure fresh data during play
-    gcTime: 5 * 60 * 1000,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnMount: 'always', // Always refetch when component mounts
     refetchOnWindowFocus: false,
@@ -391,7 +392,7 @@ export function useWolfCurrentHoleDecision(
     },
     enabled: !!gameId && !!holeNumber && holeNumber >= 1 && holeNumber <= 18,
     staleTime: 0, // Always refetch during play
-    gcTime: 5 * 60 * 1000,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
@@ -495,8 +496,8 @@ export function useWolfPayouts(gameId: string | undefined) {
       })) as WolfPayoutWithPlayer[];
     },
     enabled: !!gameId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -539,8 +540,8 @@ export function useCanUseWolf(userId?: string) {
 
       return data === true;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - tier doesn't change often
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD, // tier doesn't change often
+    gcTime: GC_TIMES.STANDARD,
     retry: 1,
     refetchOnWindowFocus: false,
   });

@@ -38,7 +38,7 @@ import {
   type PlayerNameMap,
   type TeamNameMap,
   type TeamPayoutParticipant,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import type { SkinsPayoutWithPlayer, SkinsPayoutWithTeam, SkinsGame } from '@/types';
 
 // ============================================================================

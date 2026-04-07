@@ -31,7 +31,7 @@ import {
   INDIVIDUAL_LABEL_WIDTH,
   INDIVIDUAL_TOTAL_WIDTH,
 } from '@/utils/scorecardLayout';
-import type { ScorecardWithPlayer, CourseWithVenue, RoundPlayer } from '@/hooks/useRoundDetails';
+import type { ScorecardWithPlayer, CourseWithClub, RoundPlayer } from '@/hooks/useRoundDetails';
 import { isSingleBallScore, type Hole, type Player, type TeeBox } from '@/types/database.types';
 import type { GameType, HandicapSource } from '@/types/database';
 
@@ -44,7 +44,7 @@ type ViewMode = 'table' | 'individual';
 interface RoundScorecardTabProps {
   scorecards: ScorecardWithPlayer[];
   roundPlayers: RoundPlayer[];
-  holes: CourseWithVenue['holes'] | null;
+  holes: CourseWithClub['holes'] | null;
   /** Callback when a player name is pressed in the table view */
   onPlayerPress?: (playerId: string) => void;
   /** Selected tee data with slope/course ratings for daily handicap calculation */

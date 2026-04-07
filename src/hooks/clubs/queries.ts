@@ -19,6 +19,7 @@ import { useFavoriteEnrichment } from '@/hooks/useFavoriteCourses';
 import { useGolfApiSearch } from '@/hooks/useGolfApiSearch';
 import { isClubStale, hasApiQuota } from '@/services/sync';
 import { courseService } from '@/services/courses';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Club } from '@/types/database.types';
 import { mergeTees } from './helpers';
 import type {
@@ -86,7 +87,7 @@ export function useClubsWithCourses(options?: {
       return (clubs as SupabaseClubWithCourses[] | null) ?? [];
     },
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 
   // Transform to ClubWithCourses with favorite status
@@ -161,7 +162,7 @@ export function useSearchClubs(searchQuery: string, state?: string) {
       return (clubs as SupabaseClubWithCourses[] | null) ?? [];
     },
     enabled: searchQuery.length >= 2 || !!state,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: CACHE_TIMES.MODERATE,
   });
 
   // Transform local results to ClubWithCourses with favorite status
@@ -186,11 +187,6 @@ export function useSearchClubs(searchQuery: string, state?: string) {
   // Only when local search finished AND local results < 3 AND debounced query is 3+ chars
   const shouldSearchApi =
     !localQuery.isLoading && (localResults?.length ?? 0) < 3 && debouncedQuery.length >= 3;
-
-  // Log search decision for debugging
-  if (debouncedQuery.length >= 3 && !localQuery.isLoading) {
-    console.log(`[useSearchClubs] query="${debouncedQuery}", localResults=${localResults?.length ?? 0}, shouldSearchApi=${shouldSearchApi}`);
-  }
 
   // GolfAPI.io search (using debounced query)
   const apiQuery = useGolfApiSearch(debouncedQuery, state, shouldSearchApi);
@@ -370,6 +366,6 @@ export function useFavoriteCoursesWithClubs() {
         .filter((course) => course.id);
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }

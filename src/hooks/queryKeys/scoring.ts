@@ -54,6 +54,8 @@ export const statisticsKeys = {
     [...statisticsKeys.all, 'player', playerId, 'filtered', filters] as const,
   competition: (competitionId: string) =>
     [...statisticsKeys.all, 'competition', competitionId] as const,
+  course: (playerId: string, courseId: string) =>
+    [...statisticsKeys.all, 'course', playerId, courseId] as const,
 } as const;
 
 // =====================================================

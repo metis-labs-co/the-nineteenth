@@ -32,7 +32,7 @@ const DIFFICULTY_COLORS: Record<DifficultyLevel, string> = {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 }
 
 function getOrdinalSuffix(n: number): string {

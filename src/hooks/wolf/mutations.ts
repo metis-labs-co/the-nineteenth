@@ -24,7 +24,7 @@ import {
   validateWolfParticipants,
   validateWolfDecision,
   determineWolfForHole,
-} from '@/utils/wolfCalculations';
+} from '@/utils/wolf';
 import {
   createError,
   wolfGamesTable,

@@ -5,3 +5,6 @@ export { SkinsTabContent } from './SkinsTabContent';
 export { WolfTabContent } from './WolfTabContent';
 export { LeaderboardTabContent } from './LeaderboardTabContent';
 export { PayoutsTabContent } from './PayoutsTabContent';
+export { ScorecardTabContent } from './ScorecardTabContent';
+export { ContributionsTabContent } from './ContributionsTabContent';
+export { ScrambleLeaderboardTab } from './ScrambleLeaderboardTab';

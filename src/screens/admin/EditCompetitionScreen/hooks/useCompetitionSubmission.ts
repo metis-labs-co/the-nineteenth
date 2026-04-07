@@ -16,7 +16,7 @@ import { supabase } from '@/services/supabase/client';
 import type { Competition } from '@/types/database.types';
 import type { CompetitionUpdateInput } from '../types';
 import type { EditCompetitionFormData } from './useCompetitionValidation';
-import { parseAustralianDate } from '@/utils/formatting';
+import { parseDateInput, getLocalDateString } from '@/utils/formatting';
 
 interface UseCompetitionSubmissionOptions {
   competitionId: string;
@@ -69,16 +69,16 @@ export function useCompetitionSubmission({
   const updateMutation = useMutation({
     mutationFn: async (formData: EditCompetitionFormData) => {
       // Update competition details
-      const startDateParsed = parseAustralianDate(formData.startDate);
-      const endDateParsed = formData.endDate ? parseAustralianDate(formData.endDate) : null;
+      const startDateParsed = parseDateInput(formData.startDate);
+      const endDateParsed = formData.endDate ? parseDateInput(formData.endDate) : null;
 
       const competition = await updateCompetition(competitionId, {
         name: formData.name,
         description: formData.description || null,
         competition_type: formData.competitionType,
         team_mode: formData.teamMode,
-        start_date: startDateParsed ? startDateParsed.toISOString().split('T')[0] : undefined,
-        end_date: endDateParsed ? endDateParsed.toISOString().split('T')[0] : null,
+        start_date: startDateParsed ? getLocalDateString(startDateParsed) : undefined,
+        end_date: endDateParsed ? getLocalDateString(endDateParsed) : null,
       });
 
       return competition;

@@ -9,9 +9,6 @@ import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/us
 // Type for favorite courses which include their club
 export type FavoriteCourseWithClub = CourseWithFavoriteStatus & { club: Club };
 
-/** @deprecated Use FavoriteCourseWithClub instead */
-export type FavoriteCourseWithVenue = FavoriteCourseWithClub;
-
 // =====================================================
 // CONSTANTS
 // =====================================================

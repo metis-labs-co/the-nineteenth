@@ -16,6 +16,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { leaderboardKeys } from './queryKeys';
 import { supabase } from '@/services/supabase/client';
 import {
@@ -267,8 +268,8 @@ export function useRoundLeaderboard(roundId: string, options?: UseRoundLeaderboa
     queryKey: leaderboardKeys.round(roundId),
     queryFn: () => fetchRoundLeaderboard(roundId),
     enabled,
-    staleTime: 10000, // Consider data stale after 10 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: CACHE_TIMES.REALTIME, // Consider data stale after 10 seconds
+    gcTime: GC_TIMES.SHORT, // Keep in cache for 5 minutes
     refetchInterval: autoRefresh ? refetchInterval : false,
     refetchOnWindowFocus: true,
     retry: 2,

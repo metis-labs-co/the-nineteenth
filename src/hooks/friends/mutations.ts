@@ -109,7 +109,6 @@ export function useAcceptFriendRequest() {
       queryClient.invalidateQueries({ queryKey: friendsKeys.all });
 
       if (!playerId || !isAchievementReady) {
-        console.log('[useAcceptFriendRequest] Skipping achievement check - not ready');
         return;
       }
 
@@ -121,18 +120,16 @@ export function useAcceptFriendRequest() {
           .eq('status', 'accepted');
 
         const friendCount = count ?? 0;
-        console.log('[useAcceptFriendRequest] Checking achievements with friend count:', friendCount);
 
         const result = await checkAndAward('friend_added', {
           friend_count: friendCount,
         });
 
         if (result.hasNewRewards) {
-          console.log('[useAcceptFriendRequest] New achievements:', result.newAchievements.length);
           showMultipleToasts(result.newAchievements, result.newCosmetics);
         }
-      } catch (error) {
-        console.error('[useAcceptFriendRequest] Achievement check failed:', error);
+      } catch {
+        // Achievement check is non-blocking
       }
     },
   });

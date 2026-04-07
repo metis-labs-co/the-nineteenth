@@ -22,6 +22,18 @@ export const CACHE_TIMES = {
   SHORT: 30 * 1000, // 30 seconds
 
   /**
+   * Frequent cache - for actively viewed data
+   * Use for: Active challenges, live game state, prize pool status
+   */
+  FREQUENT: 60 * 1000, // 1 minute
+
+  /**
+   * Moderate cache - for semi-frequent updates
+   * Use for: Search results, round details, knockout brackets
+   */
+  MODERATE: 2 * 60 * 1000, // 2 minutes
+
+  /**
    * Standard cache - for moderately changing data
    * Use for: Competition lists, player profiles, course data
    */

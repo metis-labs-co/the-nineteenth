@@ -1,0 +1,87 @@
+<h2>Course Statistics Screen — Tab Structure</h2>
+<p class="subtitle">How should we organize the course stats into tabs?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Two Tabs: Overview | Holes</h3>
+      <p><strong>Overview tab:</strong> Score trend chart, overview stats (times played, avg, best, worst), score distribution, averages, par type stats, advanced stats (driving, approach, short game, putting, bunkers, hazards), recent rounds.</p>
+      <p><strong>Holes tab:</strong> Horizontal scrollable hole selector (1-18 pill/card strip at top), tapping a hole shows its breakdown below — score trend sparkline, score distribution bars, avg putts, GIR%, fairway%, best/worst.</p>
+      <p style="margin-top: 8px; color: #888; font-size: 13px;">Simple split. Overview is the "course summary", Holes is the "drill into each hole" view. Fewer tabs = less navigation overhead.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Three Tabs: Overview | Holes | Game Stats</h3>
+      <p><strong>Overview tab:</strong> Score trend chart, overview stats, score distribution, averages, recent rounds.</p>
+      <p><strong>Holes tab:</strong> Horizontal hole selector strip, per-hole breakdown below.</p>
+      <p><strong>Game Stats tab:</strong> Advanced stats only — driving (FIR% + miss diagram), approach (GIR% + miss diagram), short game (scrambling), putting (depth stats), bunkers, hazards. All scoped to this course.</p>
+      <p style="margin-top: 8px; color: #888; font-size: 13px;">Mirrors the 3-tab pattern from My Statistics screen (Overview / Scoring / Game Stats). Keeps advanced stats separate so Overview stays clean.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Two Tabs: Overview | Holes (with per-hole advanced stats)</h3>
+      <p><strong>Overview tab:</strong> Score trend chart, overview stats, score distribution, averages, par type stats, course-level advanced stats (driving, approach, putting, bunkers, hazards), recent rounds.</p>
+      <p><strong>Holes tab:</strong> Horizontal hole selector strip, per-hole breakdown below — includes not just basics (score distribution, avg putts) but also per-hole fairway miss direction and GIR% where data exists.</p>
+      <p style="margin-top: 8px; color: #888; font-size: 13px;">Everything accessible in just two tabs, but the Holes tab is richer with advanced per-hole data. The Overview becomes the "course-wide" view, Holes becomes "hole-specific" with all relevant detail inline.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Hole Selector Concept (shared across all options)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Hole Selector — Horizontal Scroll Strip</div>
+    <div class="mockup-body" style="padding: 16px; background: #1a1a2e;">
+      <div style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0;">
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #4f46e5; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px; border: 2px solid #818cf8;">
+          <span style="font-size: 11px; opacity: 0.7; font-weight: 400;">Hole</span>
+          1
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          2
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          3
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          4
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          5
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          6
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          7
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          8
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          9
+        </div>
+        <div style="min-width: 52px; height: 64px; border-radius: 12px; background: #2a2a4a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; font-weight: 600; font-size: 18px;">
+          <span style="font-size: 11px; opacity: 0.5; font-weight: 400;">Hole</span>
+          ···
+        </div>
+      </div>
+      <p style="color: #666; font-size: 12px; margin-top: 8px; text-align: center;">← Swipe to scroll through all 18 holes →</p>
+    </div>
+  </div>
+</div>

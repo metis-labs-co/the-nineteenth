@@ -14,6 +14,7 @@ import { supabase } from '@/services/supabase/client';
 import { pushService, type PermissionStatus } from '@/services/notifications/pushService';
 import { pushKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import { STALE_TIME } from './types';
 import type { PushPreferences } from '@/types/push.types';
 
@@ -44,7 +45,7 @@ export function usePushPermissionStatus() {
     queryFn: async (): Promise<PermissionStatus> => {
       return pushService.getPermissionStatus();
     },
-    staleTime: 60 * 1000, // 1 minute - permissions don't change often
+    staleTime: CACHE_TIMES.FREQUENT,
   });
 
   return { permissionStatus, isLoading };

@@ -1,49 +1,24 @@
 /**
- * useCosmetics - Cosmetic System Hooks
+ * Cosmetic Query Hooks
  *
- * TanStack Query hooks for the profile customization cosmetics feature:
- *
- * Queries:
+ * TanStack Query hooks for fetching cosmetic data:
  * - useCosmeticDefinitions() - All cosmetic definitions
  * - usePlayerCosmetics(playerId) - Player's unlocked cosmetics
  * - useEquippedCosmetics(playerId) - Player's equipped cosmetics
  * - useUnlockableCosmetics(playerId) - Cosmetics player can unlock
- *
- * Mutations:
- * - useUnlockCosmetic() - Unlock a cosmetic for a player
- * - useEquipCosmetic() - Equip a cosmetic
- * - useUnequipCosmetic() - Unequip a cosmetic
- *
- * @example
- * ```tsx
- * function ProfileCustomization() {
- *   const { user } = useAuth();
- *   const { data: equipped } = useEquippedCosmetics(user?.id ?? '');
- *   const { data: unlockable } = useUnlockableCosmetics(user?.id ?? '');
- *   const equipMutation = useEquipCosmetic();
- *
- *   return (
- *     <View>
- *       <ProfileFrame frame={equipped?.frame} />
- *       {unlockable?.map(c => (
- *         <CosmeticItem key={c.id} cosmetic={c} />
- *       ))}
- *     </View>
- *   );
- * }
- * ```
+ * - useCosmeticsWithStatus(playerId) - All cosmetics with unlock/equipped status
  */
 
 import { useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { cosmeticKeys } from '../queryKeys';
-import { useAchievementPoints } from '../achievements/useAchievements';
+import { useAchievementPoints } from '../achievements/utilities';
 import type {
   CosmeticDefinition,
   PlayerCosmeticWithDefinition,
   EquippedCosmetics,
-  CosmeticType,
   CosmeticWithStatus,
 } from '@/types/database/cosmetic.types';
 
@@ -134,8 +109,8 @@ export function usePlayerCosmetics(playerId: string) {
       return data as PlayerCosmeticWithDefinition[];
     },
     enabled: !!playerId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.STANDARD, // 5 minutes
+    gcTime: GC_TIMES.STANDARD, // 10 minutes
     refetchOnWindowFocus: true,
   });
 }
@@ -199,8 +174,8 @@ export function useEquippedCosmetics(playerId: string) {
       };
     },
     enabled: !!playerId,
-    staleTime: 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     refetchOnWindowFocus: true,
   });
 }
@@ -330,302 +305,4 @@ export function useCosmeticsWithStatus(playerId: string) {
     unlocked,
     equipped,
   };
-}
-
-// =====================================================
-// MUTATION: UNLOCK COSMETIC
-// =====================================================
-
-interface UnlockCosmeticInput {
-  player_id: string;
-  cosmetic_id: string;
-}
-
-/**
- * Mutation: Unlock a cosmetic for a player
- * Inserts a new player_cosmetic record
- *
- * @returns Mutation object for unlocking cosmetics
- *
- * @example
- * ```tsx
- * const unlockMutation = useUnlockCosmetic();
- *
- * const handleUnlock = (cosmeticId: string) => {
- *   unlockMutation.mutate({
- *     player_id: user.id,
- *     cosmetic_id: cosmeticId,
- *   });
- * };
- * ```
- */
-export function useUnlockCosmetic() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (
-      input: UnlockCosmeticInput
-    ): Promise<PlayerCosmeticWithDefinition> => {
-      // Note: Table may not exist in Supabase types yet - using type assertion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('player_cosmetics')
-        .insert({
-          player_id: input.player_id,
-          cosmetic_id: input.cosmetic_id,
-          unlocked_at: new Date().toISOString(),
-        })
-        .select(
-          `
-          *,
-          cosmetic:cosmetic_definitions(*)
-        `
-        )
-        .single();
-
-      if (error) {
-        // Handle unique constraint violation (already unlocked)
-        if (error.code === '23505') {
-          console.log('Cosmetic already unlocked by player');
-          throw new Error('Cosmetic already unlocked');
-        }
-        console.error('Error unlocking cosmetic:', error);
-        throw new Error(error.message);
-      }
-
-      return data as PlayerCosmeticWithDefinition;
-    },
-    onSuccess: (data) => {
-      // Invalidate player cosmetics
-      queryClient.invalidateQueries({
-        queryKey: cosmeticKeys.playerCosmetics(data.player_id),
-      });
-    },
-  });
-}
-
-// =====================================================
-// MUTATION: EQUIP COSMETIC
-// =====================================================
-
-interface EquipCosmeticInput {
-  player_id: string;
-  cosmetic_id: string;
-  cosmetic_type: CosmeticType;
-}
-
-/**
- * Mutation: Equip a cosmetic
- * Updates the player's equipped cosmetic column for the cosmetic type
- *
- * @returns Mutation object for equipping cosmetics
- *
- * @example
- * ```tsx
- * const equipMutation = useEquipCosmetic();
- *
- * const handleEquip = (cosmetic: CosmeticDefinition) => {
- *   equipMutation.mutate({
- *     player_id: user.id,
- *     cosmetic_id: cosmetic.id,
- *     cosmetic_type: cosmetic.type,
- *   });
- * };
- * ```
- */
-export function useEquipCosmetic() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: EquipCosmeticInput): Promise<void> => {
-      // Determine which column to update based on cosmetic type
-      const columnMap: Record<CosmeticType, string> = {
-        badge: 'equipped_badge_id',
-        frame: 'equipped_frame_id',
-        title: 'equipped_title_id',
-      };
-
-      const column = columnMap[input.cosmetic_type];
-
-      // Note: Table may not exist in Supabase types yet - using type assertion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from('players')
-        .update({ [column]: input.cosmetic_id })
-        .eq('id', input.player_id);
-
-      if (error) {
-        console.error('Error equipping cosmetic:', error);
-        throw new Error(error.message);
-      }
-    },
-    onSuccess: (_, input) => {
-      // Invalidate equipped cosmetics
-      queryClient.invalidateQueries({
-        queryKey: cosmeticKeys.equipped(input.player_id),
-      });
-    },
-  });
-}
-
-// =====================================================
-// MUTATION: UNEQUIP COSMETIC
-// =====================================================
-
-interface UnequipCosmeticInput {
-  player_id: string;
-  cosmetic_type: CosmeticType;
-}
-
-/**
- * Mutation: Unequip a cosmetic
- * Sets the player's equipped cosmetic column to null for the cosmetic type
- *
- * @returns Mutation object for unequipping cosmetics
- *
- * @example
- * ```tsx
- * const unequipMutation = useUnequipCosmetic();
- *
- * const handleUnequip = (type: CosmeticType) => {
- *   unequipMutation.mutate({
- *     player_id: user.id,
- *     cosmetic_type: type,
- *   });
- * };
- * ```
- */
-export function useUnequipCosmetic() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: UnequipCosmeticInput): Promise<void> => {
-      // Determine which column to update based on cosmetic type
-      const columnMap: Record<CosmeticType, string> = {
-        badge: 'equipped_badge_id',
-        frame: 'equipped_frame_id',
-        title: 'equipped_title_id',
-      };
-
-      const column = columnMap[input.cosmetic_type];
-
-      // Note: Table may not exist in Supabase types yet - using type assertion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from('players')
-        .update({ [column]: null })
-        .eq('id', input.player_id);
-
-      if (error) {
-        console.error('Error unequipping cosmetic:', error);
-        throw new Error(error.message);
-      }
-    },
-    onSuccess: (_, input) => {
-      // Invalidate equipped cosmetics
-      queryClient.invalidateQueries({
-        queryKey: cosmeticKeys.equipped(input.player_id),
-      });
-    },
-  });
-}
-
-// =====================================================
-// CONVENIENCE HOOKS
-// =====================================================
-
-/**
- * Hook: Check if player has unlocked a specific cosmetic
- *
- * @param playerId - The player's ID
- * @param cosmeticId - The cosmetic ID to check
- * @returns Boolean indicating if unlocked, plus loading state
- *
- * @example
- * ```tsx
- * const { isUnlocked, isLoading } = useHasCosmetic(user.id, 'cosmetic-123');
- * ```
- */
-export function useHasCosmetic(playerId: string, cosmeticId: string) {
-  const { data: unlocked, isLoading } = usePlayerCosmetics(playerId);
-
-  const isUnlocked = useMemo(() => {
-    if (!unlocked) return false;
-    return unlocked.some((u) => u.cosmetic_id === cosmeticId);
-  }, [unlocked, cosmeticId]);
-
-  return { isUnlocked, isLoading };
-}
-
-/**
- * Hook: Get the next cosmetic the player can unlock
- * Returns the cheapest unlockable cosmetic based on current points
- *
- * @param playerId - The player's ID
- * @returns Next unlockable cosmetic and points needed
- *
- * @example
- * ```tsx
- * const { nextCosmetic, pointsNeeded } = useNextUnlockableCosmetic(user.id);
- *
- * if (nextCosmetic) {
- *   return <Text>{pointsNeeded} points to unlock {nextCosmetic.name}</Text>;
- * }
- * ```
- */
-export function useNextUnlockableCosmetic(playerId: string) {
-  const { data: cosmetics, totalPoints, isLoading } = useUnlockableCosmetics(playerId);
-
-  const result = useMemo(() => {
-    if (!cosmetics) return { nextCosmetic: null, pointsNeeded: 0 };
-
-    // Find the first locked cosmetic (sorted by points_required)
-    const nextCosmetic = cosmetics.find((c) => !c.is_unlocked);
-
-    if (!nextCosmetic) {
-      return { nextCosmetic: null, pointsNeeded: 0 };
-    }
-
-    return {
-      nextCosmetic,
-      pointsNeeded: Math.max(0, nextCosmetic.points_required - totalPoints),
-    };
-  }, [cosmetics, totalPoints]);
-
-  return { ...result, isLoading };
-}
-
-/**
- * Hook: Get count of unlocked cosmetics by type
- *
- * @param playerId - The player's ID
- * @returns Counts of unlocked cosmetics by type
- *
- * @example
- * ```tsx
- * const { counts } = useCosmeticCounts(user.id);
- * // { badges: 3, frames: 2, titles: 1 }
- * ```
- */
-export function useCosmeticCounts(playerId: string) {
-  const { data: unlocked, isLoading } = usePlayerCosmetics(playerId);
-
-  const counts = useMemo(() => {
-    if (!unlocked) {
-      return { badges: 0, frames: 0, titles: 0 };
-    }
-
-    return unlocked.reduce(
-      (acc, item) => {
-        const type = item.cosmetic?.type;
-        if (type === 'badge') acc.badges++;
-        else if (type === 'frame') acc.frames++;
-        else if (type === 'title') acc.titles++;
-        return acc;
-      },
-      { badges: 0, frames: 0, titles: 0 }
-    );
-  }, [unlocked]);
-
-  return { counts, isLoading };
 }

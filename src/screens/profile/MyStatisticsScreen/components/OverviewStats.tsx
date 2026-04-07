@@ -8,13 +8,19 @@
  * - Recent rounds activity list
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows, borderRadius } from '@/constants/theme';
 import { SectionHeader } from '@/components/social';
 import { StatCard, RecentRoundRow } from '@/components/statistics';
 import { formatDateAustralian } from '@/utils/formatting';
+import { GAME_TYPE_LABELS } from '@/constants/statusConfig';
+import { GAME_TYPE_DESCRIPTIONS } from '@/constants/gameTypeDescriptions';
+import type { GameType } from '@/types/database/enums';
 import type { PlayerStatistics } from '@/hooks/usePlayerStatistics';
 
 // =====================================================
@@ -32,6 +38,14 @@ interface OverviewStatsProps {
 export const OverviewStats = React.memo(function OverviewStats({ stats }: OverviewStatsProps) {
   const colors = useThemeColors();
   const cardBg = colors.surface;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handleCoursePress = useCallback(
+    (courseId: string, courseName: string) => {
+      navigation.navigate('CourseStatistics', { courseId, courseName });
+    },
+    [navigation]
+  );
 
   return (
     <>
@@ -82,7 +96,43 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
           icon="golf"
           iconColor={colors.info}
         />
+        <StatCard
+          title="Match Play"
+          value={stats.matchPlayRoundsPlayed}
+          subtitle="rounds"
+          icon="sword-cross"
+          iconColor={colors.error}
+        />
+        <StatCard
+          title="Handicap"
+          value={stats.handicapRoundsPlayed}
+          subtitle="rounds"
+          icon="scale-balance"
+          iconColor={colors.success}
+        />
       </View>
+
+      {/* Game Type Breakdown */}
+      {Object.keys(stats.gameTypeBreakdown).length > 0 && (
+        <>
+          <View style={styles.sectionGap} />
+          <SectionHeader title="Game Type Breakdown" icon="format-list-bulleted" />
+          <View style={styles.statsGrid}>
+            {Object.entries(stats.gameTypeBreakdown)
+              .sort(([, a], [, b]) => b - a)
+              .map(([gameType, count]) => (
+                <StatCard
+                  key={gameType}
+                  title={GAME_TYPE_LABELS[gameType as GameType] ?? gameType}
+                  value={count}
+                  subtitle="rounds"
+                  icon={GAME_TYPE_DESCRIPTIONS[gameType as GameType]?.icon ?? 'golf'}
+                  iconColor={colors.primary}
+                />
+              ))}
+          </View>
+        </>
+      )}
 
       {/* Averages */}
       <View style={styles.sectionGap} />
@@ -135,6 +185,7 @@ export const OverviewStats = React.memo(function OverviewStats({ stats }: Overvi
                 gameType={round.gameType}
                 isLast={index === stats.recentRounds.length - 1}
                 isPracticeRound={round.isPracticeRound}
+                onPress={() => handleCoursePress(round.courseId, round.courseName)}
               />
             ))}
           </View>

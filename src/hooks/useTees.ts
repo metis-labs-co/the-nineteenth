@@ -22,6 +22,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { teeKeys, courseKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import type { Tee, Course } from '@/types/database.types';
 
 // =====================================================
@@ -109,7 +110,7 @@ export function useTeesByCourse(
       return (data as Tee[]) ?? [];
     },
     enabled: options?.enabled ?? !!courseId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 
@@ -140,7 +141,7 @@ export function useTeeById(teeId: string, options?: { enabled?: boolean }) {
       return data as Tee;
     },
     enabled: options?.enabled ?? !!teeId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 
@@ -179,7 +180,7 @@ export function useTeesWithCourse(
       }));
     },
     enabled: options?.enabled ?? !!courseId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 

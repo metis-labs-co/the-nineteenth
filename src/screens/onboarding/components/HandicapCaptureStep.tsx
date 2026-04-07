@@ -64,7 +64,6 @@ export function HandicapCaptureStep({
       return;
     }
 
-    console.log('[HandicapCaptureStep] Continue pressed, handicap:', localHandicap);
     onNext();
   };
 

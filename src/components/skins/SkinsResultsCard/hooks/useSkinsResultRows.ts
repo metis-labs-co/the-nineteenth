@@ -14,7 +14,7 @@ import { useMemo } from 'react';
 import {
   calculateHoleValue,
   calculateTotalPot,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import type {
   SkinsResultWithWinner,
   SkinsResult,

@@ -24,11 +24,6 @@ export interface ClubWithCoursesDetail extends Club {
   courses: CourseWithFavoriteStatus[];
 }
 
-/**
- * @deprecated Use ClubWithCoursesDetail instead
- */
-export type VenueWithCoursesDetail = ClubWithCoursesDetail;
-
 // =====================================================
 // HOOKS
 // =====================================================
@@ -113,10 +108,5 @@ export function useClubDetails(clubId: string) {
     isLoading: query.isLoading || favoritesLoading,
   };
 }
-
-/**
- * @deprecated Use useClubDetails instead
- */
-export const useVenueDetails = useClubDetails;
 
 export default useClubDetails;

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { apiClient } from '@/services/api/client';
 import { competitionKeys } from '@/hooks/queryKeys';
 import type { Competition } from '@/types';
@@ -56,8 +57,8 @@ export function useCompetitions() {
     },
 
     // Cache configuration
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (formerly cacheTime)
+    staleTime: CACHE_TIMES.STANDARD, // Consider data fresh for 5 minutes
+    gcTime: GC_TIMES.STANDARD, // Keep in cache for 10 minutes (formerly cacheTime)
 
     // Retry configuration
     retry: 2,
@@ -134,8 +135,8 @@ export function useFilteredCompetitions(filters?: CompetitionsFilter) {
     },
 
     // Same cache configuration as base hook
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
+    gcTime: GC_TIMES.STANDARD,
     retry: 2,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,

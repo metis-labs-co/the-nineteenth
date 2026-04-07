@@ -30,6 +30,8 @@ interface CourseSelectionStepProps {
   isSuperAdmin?: boolean;
   /** Callback when "Add New Course" is pressed */
   onAddNewCourse?: () => void;
+  /** Distance from user to each club in meters (keyed by club ID) */
+  clubDistances?: Map<string, number>;
 }
 
 export const CourseSelectionStep = memo(function CourseSelectionStep({
@@ -42,6 +44,7 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
   onSelectFavoriteCourse,
   isSuperAdmin,
   onAddNewCourse,
+  clubDistances,
 }: CourseSelectionStepProps) {
   const colors = useThemeColors();
 
@@ -139,6 +142,7 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
                   onCourseSelect={onSelectCourse}
                   showFavoriteButton={false}
                   selectionMode
+                  distanceMeters={clubDistances?.get(item.club.id)}
                 />
               </View>
             )}

@@ -138,37 +138,18 @@ export const DistanceToPin = React.memo(function DistanceToPin({
   // RENDER LOGIC
   // =====================================================
 
-  // Debug logging in development
-  if (__DEV__) {
-    console.log('[DistanceToPin] State:', {
-      courseId,
-      holeNumber,
-      showGpsDistance,
-      isLoadingCoords,
-      isLoadingPermission,
-      hasCoordinates,
-      permissionStatus,
-      hasBeenAsked,
-      isWatching,
-      hasLocation: !!location,
-    });
-  }
-
   // Feature disabled in settings - hide completely
   if (!showGpsDistance) {
-    if (__DEV__) console.log('[DistanceToPin] Hidden: showGpsDistance is false');
     return null;
   }
 
   // Still loading initial data
   if (isLoadingCoords || isLoadingPermission) {
-    if (__DEV__) console.log('[DistanceToPin] Hidden: still loading');
     return null;
   }
 
   // State 1: No coordinates for course - show disabled GPS icon (tappable for info)
   if (!hasCoordinates) {
-    if (__DEV__) console.log('[DistanceToPin] No GPS: course has no GPS coordinates');
     return (
       <>
         <TouchableOpacity
@@ -197,13 +178,11 @@ export const DistanceToPin = React.memo(function DistanceToPin({
 
   // State 4: Permission denied - hide completely
   if (permissionStatus === 'denied') {
-    if (__DEV__) console.log('[DistanceToPin] Hidden: permission denied');
     return null;
   }
 
   // State 3: Permission undetermined + already asked - hide (don't nag)
   if (permissionStatus === 'undetermined' && hasBeenAsked) {
-    if (__DEV__) console.log('[DistanceToPin] Hidden: permission undetermined but already asked (user skipped)');
     return null;
   }
 

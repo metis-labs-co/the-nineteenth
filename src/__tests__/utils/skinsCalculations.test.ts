@@ -32,7 +32,7 @@ import {
   getNextHoleNumber,
   type SkinsParticipantInfo,
   type SkinsScorecardData,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import type {
   SkinsHoleScores,
   SkinsResult,

@@ -121,7 +121,7 @@ export const AchievementCard = React.memo(function AchievementCard({
 
   // Format earned date if available
   const earnedDateFormatted = earned_at
-    ? format(new Date(earned_at), 'dd/MM/yyyy')
+    ? new Date(earned_at).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null;
 
   // Build accessibility label

@@ -30,7 +30,7 @@ import {
   formatWolfCurrency,
   formatWolfNetResult,
   simplifyWolfDebts,
-} from '@/utils/wolfCalculations';
+} from '@/utils/wolf';
 import type { WolfPayoutWithPlayer } from '@/types/database/wolf.types';
 
 // ============================================================================

@@ -22,8 +22,6 @@ export async function createRound(
   input: RoundCreateInput,
   roundNumber?: number
 ): Promise<Round> {
-  console.log('[API] Creating round:', input);
-
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     throw new Error('You must be logged in to create a round');
@@ -108,7 +106,6 @@ export async function createRound(
  * Save round results (individual or team)
  */
 export async function saveRoundResults(results: RoundResultInput[]): Promise<RoundResult[]> {
-  console.log('[API] Saving round results:', results.length);
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -212,7 +209,6 @@ export async function saveRoundResults(results: RoundResultInput[]): Promise<Rou
  * Get round results for a round
  */
 export async function getRoundResults(roundId: string): Promise<RoundResult[]> {
-  console.log('[API] Fetching round results:', roundId);
 
   const { data: results, error } = await supabase
     .from('round_results')
@@ -244,7 +240,6 @@ export async function getRoundResults(roundId: string): Promise<RoundResult[]> {
  * Get all round results for a competition
  */
 export async function getCompetitionResults(competitionId: string): Promise<RoundResult[]> {
-  console.log('[API] Fetching competition results:', competitionId);
 
   // First get all round IDs for the competition
   const { data: rounds, error: roundsError } = await supabase

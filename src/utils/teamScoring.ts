@@ -1,3 +1,12 @@
+/**
+ * Team Scoring Utilities
+ *
+ * Contains best ball, scramble, team handicap, and match play scoring.
+ * These remain in a single file because they share types (Hole, TeamMember)
+ * and the calculateNetScore dependency, and individual sections are small
+ * enough that splitting would create files under 100 lines.
+ */
+
 import type { Hole } from '@/types';
 import { calculateNetScore } from './scoring';
 

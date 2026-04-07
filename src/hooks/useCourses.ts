@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { courseKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES } from '@/constants/cacheConfig';
 import {
   useFavoriteEnrichment,
   useAddFavorite,
@@ -54,7 +55,7 @@ export function useCourses() {
 
       return (courses as Course[] | null) ?? [];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STANDARD,
   });
 
   // Enrich courses with favorite status
@@ -98,7 +99,7 @@ export function useSearchCourses(searchQuery: string, state?: RegionFilter) {
       return (courses as Course[] | null) ?? [];
     },
     enabled: searchQuery.length >= 2 || !!state,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: CACHE_TIMES.MODERATE,
   });
 
   // Enrich courses with favorite status
@@ -142,7 +143,7 @@ export function useFavoriteCourses() {
         .filter((course) => course.id);
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STANDARD,
   });
 }
 
@@ -199,6 +200,6 @@ export function useCourse(id: string | undefined) {
       return data as Course;
     },
     enabled: !!id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: CACHE_TIMES.LONG,
   });
 }

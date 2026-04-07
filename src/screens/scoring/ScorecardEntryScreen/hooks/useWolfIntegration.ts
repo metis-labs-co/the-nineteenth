@@ -9,7 +9,7 @@ import {
   useSubmitWolfDecision,
   useRecordWolfHoleResult,
 } from '@/hooks/wolf';
-import { determineWolfForHole } from '@/utils/wolfCalculations';
+import { determineWolfForHole } from '@/utils/wolf';
 import { scoringLogger } from '@/utils/debugLogger';
 
 interface UseWolfIntegrationParams {

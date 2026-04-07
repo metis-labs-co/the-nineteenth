@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { skinsKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from './helpers';
 import type {
   SkinsGame,
@@ -131,8 +132,8 @@ export function useActiveSkinsGameForRound(roundId: string | undefined) {
       } as SkinsGameWithParticipants;
     },
     enabled: !!roundId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });

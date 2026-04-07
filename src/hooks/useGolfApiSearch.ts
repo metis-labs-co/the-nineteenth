@@ -101,35 +101,27 @@ export function useGolfApiSearch(
   return useQuery({
     queryKey: ['golfapi', 'search', searchQuery, state, country],
     queryFn: async (): Promise<GolfApiSearchResultItem[]> => {
-      console.log(`[useGolfApiSearch] Searching: query="${searchQuery}", country="${country}", state="${state}"`);
-
       // Check if API is available
       if (!golfApiClient.isAvailable()) {
-        console.error('[useGolfApiSearch] SKIPPED: GolfAPI.io not configured/available. Check EXPO_PUBLIC_GOLFAPI_IO_KEY is set.');
+        console.warn('[useGolfApiSearch] GolfAPI.io not configured/available');
         return [];
       }
 
       // Check quota before making request
       if (!golfApiClient.hasQuota(1)) {
-        console.error(`[useGolfApiSearch] SKIPPED: API quota exhausted. Remaining: ${golfApiClient.apiRequestsLeft}`);
+        console.warn('[useGolfApiSearch] API quota exhausted');
         return [];
       }
 
       try {
-        console.log(`[useGolfApiSearch] Making API request... (quota: ${golfApiClient.apiRequestsLeft ?? 'unknown'})`);
         const results = await golfApiClient.searchClubs({
           query: searchQuery,
           country: country ?? undefined,
           state: state,
         });
 
-        console.log(`[useGolfApiSearch] Got ${results.length} results (quota remaining: ${golfApiClient.apiRequestsLeft})`);
         return results.map(transformApiResult);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
-        console.error(`[useGolfApiSearch] FAILED: ${errorName}: ${errorMsg}`);
-        console.error('[useGolfApiSearch] Full error:', error);
+      } catch {
         return [];
       }
     },

@@ -24,7 +24,7 @@ import { spacing, borderRadius, typography, shadows, skinsColor } from '@/consta
 import {
   calculateHoleValue,
   formatCurrency,
-} from '@/utils/skinsCalculations';
+} from '@/utils/skins';
 import type { SkinsResult } from '@/types/database';
 
 import { SkinsHoleRow } from './SkinsHoleRow';

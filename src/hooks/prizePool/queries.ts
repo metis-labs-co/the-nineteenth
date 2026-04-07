@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { prizePoolKeys } from '@/hooks/queryKeys';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { createError } from './helpers';
 import type { PoolTransactionsOptions } from './types';
 import type {
@@ -33,8 +34,8 @@ export function useCompetitionPrizePool(competitionId: string | undefined) {
       return pool as unknown as CompetitionPrizePool;
     },
     enabled: !!competitionId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -59,8 +60,8 @@ export function usePrizePoolPlacements(poolId: string | undefined) {
       return (data ?? []) as unknown as PrizePoolPlacement[];
     },
     enabled: !!poolId,
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });
@@ -98,8 +99,8 @@ export function usePoolTransactions(
       return (transactions ?? []) as unknown as PoolTransaction[];
     },
     enabled: !!poolId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT,
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: false,
   });

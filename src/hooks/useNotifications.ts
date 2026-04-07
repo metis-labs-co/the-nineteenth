@@ -32,6 +32,7 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
+import { CACHE_TIMES, GC_TIMES } from '@/constants/cacheConfig';
 import { notificationKeys } from './queryKeys';
 import { useAuth } from './useAuth';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -64,8 +65,8 @@ export function useNotifications() {
       return (data || []) as Notification[];
     },
     enabled: !!user?.id,
-    staleTime: 30 * 1000, // 30 seconds - check fairly frequently
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.SHORT, // 30 seconds - check fairly frequently
+    gcTime: GC_TIMES.SHORT, // 5 minutes
     retry: 2,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -83,9 +84,6 @@ export function useUnreadNotificationCount() {
   const query = useQuery({
     queryKey: notificationKeys.unreadCount(),
     queryFn: async (): Promise<number> => {
-      if (__DEV__) {
-        console.log('[useUnreadNotificationCount] Query executing for userId:', user?.id);
-      }
       if (!user?.id) return 0;
 
       const { count, error } = await supabase
@@ -95,20 +93,14 @@ export function useUnreadNotificationCount() {
         .eq('is_read', false);
 
       if (error) {
-        console.error('[useUnreadNotificationCount] Error fetching:', error);
         throw error;
       }
 
-      const unreadCount = count ?? 0;
-      if (__DEV__) {
-        console.log('[useUnreadNotificationCount] Query result:', unreadCount);
-      }
-
-      return unreadCount;
+      return count ?? 0;
     },
     enabled: !!user?.id,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.SHORT, // 30 seconds
+    gcTime: GC_TIMES.SHORT,
     retry: 2,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -117,9 +109,6 @@ export function useUnreadNotificationCount() {
   // Sync to store via useEffect instead of inside queryFn to avoid render loop
   useEffect(() => {
     if (query.data !== undefined) {
-      if (__DEV__) {
-        console.log('[useUnreadNotificationCount] Syncing to store:', query.data);
-      }
       setUnreadCount(query.data);
     }
   }, [query.data, setUnreadCount]);
@@ -281,21 +270,12 @@ export function useNotificationSubscription() {
   const userId = user?.id;
 
   useEffect(() => {
-    if (__DEV__) {
-      console.log('[useNotificationSubscription] Effect running, userId:', userId);
-    }
     if (!userId) {
-      if (__DEV__) {
-        console.log('[useNotificationSubscription] No userId, setting isSubscribed=false');
-      }
       setIsSubscribed(false);
       return;
     }
 
     const channelName = `notifications:${userId}`;
-    if (__DEV__) {
-      console.log('[useNotificationSubscription] Setting up channel:', channelName);
-    }
 
     const channel = supabase
       .channel(channelName)
@@ -308,10 +288,6 @@ export function useNotificationSubscription() {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          if (__DEV__) {
-            console.log('[useNotificationSubscription] New notification received:', payload.new);
-          }
-          // Handle new notification
           const newNotification = payload.new as Notification;
 
           // Increment unread count in store
@@ -328,9 +304,6 @@ export function useNotificationSubscription() {
         }
       )
       .subscribe((status) => {
-        if (__DEV__) {
-          console.log('[useNotificationSubscription] Subscription status:', status);
-        }
         if (status === 'SUBSCRIBED') {
           setIsSubscribed(true);
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
@@ -340,9 +313,6 @@ export function useNotificationSubscription() {
 
     // Cleanup function
     return () => {
-      if (__DEV__) {
-        console.log('[useNotificationSubscription] Cleaning up channel:', channelName);
-      }
       setIsSubscribed(false);
       supabase.removeChannel(channel);
     };

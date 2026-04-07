@@ -122,7 +122,7 @@ export {
   // Utility functions
   isSkinsGameComplete,
   getNextHoleNumber,
-} from './skinsCalculations';
+} from './skins';
 export type {
   SkinsParticipantInfo,
   SkinsScorecardData,
@@ -134,7 +134,7 @@ export type {
   ValidationResult,
   HoleScoresValidationResult,
   PlayerNameMap,
-} from './skinsCalculations';
+} from './skins';
 
 // GPS calculation utilities
 export {

@@ -67,7 +67,7 @@ export const ShortGameSection = React.memo(function ShortGameSection({
                   accessibilityValue={{
                     min: 0,
                     max: 100,
-                    now: shortGame.scramblingPercentage ?? 0,
+                    now: Math.round(shortGame.scramblingPercentage ?? 0),
                   }}
                 >
                   <View style={[styles.progressBarBackground, { backgroundColor: colors.surfaceVariant }]}>

@@ -7,7 +7,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
-import { courseKeys, venueKeys } from '@/hooks/queryKeys';
+import { courseKeys, clubKeys } from '@/hooks/queryKeys';
 import type { Hole } from '@/types/database/base';
 import type { Course } from '@/types/database.types';
 
@@ -65,7 +65,7 @@ export function useUpdateCourseHoles() {
       // Invalidate course-related queries to refresh UI
       queryClient.invalidateQueries({ queryKey: courseKeys.detail(courseId) });
       queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      queryClient.invalidateQueries({ queryKey: venueKeys.all });
+      queryClient.invalidateQueries({ queryKey: clubKeys.all });
     },
   });
 }
