@@ -1,1 +1,0 @@
-/Users/samkay/claude-config/profiles/react/agents/dependency-auditor.md

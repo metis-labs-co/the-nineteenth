@@ -1,1 +1,0 @@
-/Users/samkay/claude-config/profiles/base/rules/code-quality.md

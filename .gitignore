@@ -96,6 +96,10 @@ supabase/.temp/
 !.yarn/sdks
 !.yarn/versions
 
+# Claude / AI
+.claude/
+.superpowers/
+
 # Misc
 *.tgz
 .node_repl_history
