@@ -24,6 +24,8 @@ import type {
   MultiBallHoleScore,
 } from './database.types';
 
+import type { NineType, HandicapSource } from './database/enums';
+
 // Re-export enums from database.types.ts (single source of truth for enum values)
 // Note: SubscriptionTier, SubscriptionStatus, SubscriptionSource are exported from subscription.types.ts
 export type {
@@ -235,6 +237,7 @@ export interface CompetitionCreateInput {
   startDate: Date;
   endDate?: Date; // Required if competitionType is 'event'
   handicapSystem: HandicapSystem;
+  handicapSource?: HandicapSource; // 'profile' | 'calculated' | 'none'
   visibility?: CompetitionVisibility;
   inviteCode?: string; // Optional - auto-generated if not provided
   // Team settings
@@ -389,6 +392,8 @@ export interface Scorecard {
   syncHoles?: Hole[];
   /** Game type for correct points calculation during sync */
   syncGameType?: GameType;
+  /** Nine type for correct 9-hole rating selection during sync */
+  syncNineType?: NineType;
 }
 
 // HoleScore is re-exported from database.types.ts above

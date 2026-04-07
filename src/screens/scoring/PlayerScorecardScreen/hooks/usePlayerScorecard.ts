@@ -14,6 +14,7 @@ import {
   calculateStablefordPointsNet,
 } from '@/utils/scoring';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { isMultiBallScore, isSingleBallScore } from '@/types/database/base';
 import type { Hole, Player, Scorecard, HoleScore } from '@/types';
 import type { BallCount } from '@/types/multiball.types';
@@ -114,6 +115,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     isMultiBall,
     ballCount,
     selectedTeeData,
+    handicapSource,
   } = useScorecardStore();
 
   // Find the player
@@ -153,9 +155,19 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     return Array.isArray(holes) ? holes.reduce((sum, hole) => sum + hole.par, 0) : 0;
   }, [holes]);
 
-  // Calculate daily handicap using WHS formula
+  // Calculate daily handicap using WHS formula, respecting handicap source
   const { handicap, dailyHandicap } = useMemo(() => {
-    const rawHandicap = player?.handicap || 0;
+    // Use getBaseHandicap to select correct value based on handicap source (profile vs social index)
+    const rawHandicap = getBaseHandicap(
+      player ? {
+        id: player.id,
+        name: player.name,
+        handicap: player.handicap ?? null,
+        handicap_index: player.handicapIndex ?? null,
+        gender: player.gender ?? null,
+      } : null,
+      handicapSource
+    );
 
     // Calculate daily handicap if tee data is available
     let daily = rawHandicap;
@@ -171,7 +183,7 @@ export function usePlayerScorecard(playerId: string): UsePlayerScorecardResult {
     }
 
     return { handicap: rawHandicap, dailyHandicap: daily };
-  }, [player?.handicap, player?.gender, selectedTeeData, coursePar]);
+  }, [player?.handicap, player?.handicapIndex, player?.gender, selectedTeeData, coursePar, handicapSource]);
 
   // Calculate hole row data
   const holeRowData: HoleRowData[] = useMemo(() => {

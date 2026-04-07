@@ -117,6 +117,7 @@ export const BallCountStep = memo(function BallCountStep({
   ];
 
   const handleSelectMode = (source: HandicapSource) => {
+    if (source === 'calculated' && !isPremium) return; // Premium-only
     onHandicapSourceChange(source);
     if (source !== 'none') {
       onBallCountChange(1 as BallCount);
@@ -169,12 +170,14 @@ export const BallCountStep = memo(function BallCountStep({
               return (
                 <TouchableOpacity
                   key={option.value}
+                  disabled={option.premium}
                   style={[
                     styles.optionItem,
                     {
                       backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
                       borderColor: isSelected ? colors.primary : colors.border,
                     },
+                    option.premium && styles.optionDisabled,
                   ]}
                   onPress={() => handleSelectMode(option.value)}
                   activeOpacity={0.7}
@@ -331,6 +334,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
+  },
+  optionDisabled: {
+    opacity: 0.5,
   },
   optionContent: {
     flexDirection: 'row',

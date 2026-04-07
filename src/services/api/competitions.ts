@@ -14,6 +14,7 @@ import type {
   GameType,
   RoundStatus,
 } from '@/types';
+import type { HandicapSource } from '@/types/database/enums';
 import type {
   Competition as DBCompetition,
   Round as DBRound,
@@ -86,6 +87,7 @@ export async function createCompetition(
       start_date: formatDateForDB(input.startDate),
       end_date: input.endDate ? formatDateForDB(input.endDate) : null,
       handicap_system: input.handicapSystem as HandicapSystem,
+      handicap_source: (input.handicapSource || 'profile') as HandicapSource,
       visibility: (input.visibility || 'private') as CompetitionVisibility,
       invite_code: inviteCode,
       organizer_id: user.id,

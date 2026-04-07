@@ -15,6 +15,7 @@ import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handica
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
 import { teeBoxToRatings } from '@/utils/teeTransformers';
+import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 
 /**
@@ -303,29 +304,70 @@ function calculateHandicapData(scorecard: Scorecard): {
     const ratings = getRatingsForGender(teeBoxToRatings(teeData), playerGender);
 
     if (ratings) {
-      courseRatingUsed = ratings.courseRating;
-      slopeRatingUsed = ratings.slopeRating;
+      // Apply 9-hole rating selection if this is a 9-hole round
+      const nineType = scorecard.syncNineType ?? 'full';
+      let finalCourseRating = ratings.courseRating;
+      let finalSlopeRating = ratings.slopeRating;
+      let has9HoleRatings = false;
+
+      if (nineType !== 'full' && teeData) {
+        const nineRatingField = nineType === 'front9' ? teeData.courseRatingFront9 : teeData.courseRatingBack9;
+        has9HoleRatings = nineRatingField != null;
+
+        const { slope, cr } = getEffectiveTeeRatings(
+          {
+            name: teeData.name,
+            color: teeData.color,
+            slopeRating: ratings.slopeRating,
+            courseRating: ratings.courseRating,
+            slopeRatingFront9: teeData.slopeRatingFront9,
+            courseRatingFront9: teeData.courseRatingFront9,
+            slopeRatingBack9: teeData.slopeRatingBack9,
+            courseRatingBack9: teeData.courseRatingBack9,
+          },
+          nineType,
+        );
+        if (slope != null) finalSlopeRating = slope;
+        if (cr != null) finalCourseRating = cr;
+      }
+
+      courseRatingUsed = finalCourseRating;
+      slopeRatingUsed = finalSlopeRating;
 
       // Calculate daily handicap if player has a WHS handicap index
       if (playerHandicap != null) {
         // Capture the WHS handicap index used for this round (historical snapshot)
         gaHandicapUsed = playerHandicap;
 
-        const dailyResult = calculateGADailyHandicap({
-          gaHandicap: playerHandicap,
-          slopeRating: ratings.slopeRating,
-          courseRating: ratings.courseRating,
-          par: coursePar,
-          gender: playerGender,
-        });
-        dailyHandicapUsed = dailyResult.dailyHandicap;
+        if (nineType !== 'full' && !has9HoleRatings) {
+          // No 9-hole ratings available: calculate 18-hole daily handicap then halve it
+          // Use 18-hole par (coursePar × 2 approximation since coursePar is already 9-hole filtered)
+          const fullPar = coursePar * 2;
+          const fullDailyResult = calculateGADailyHandicap({
+            gaHandicap: playerHandicap,
+            slopeRating: ratings.slopeRating,
+            courseRating: ratings.courseRating,
+            par: fullPar,
+            gender: playerGender,
+          });
+          dailyHandicapUsed = Math.round(fullDailyResult.dailyHandicap / 2);
+        } else {
+          const dailyResult = calculateGADailyHandicap({
+            gaHandicap: playerHandicap,
+            slopeRating: finalSlopeRating,
+            courseRating: finalCourseRating,
+            par: coursePar,
+            gender: playerGender,
+          });
+          dailyHandicapUsed = dailyResult.dailyHandicap;
+        }
       }
 
       // Calculate score differential (uses raw gross score - no Net Double Bogey adjustment)
       const differential = calculateScoreDifferential({
         adjustedGrossScore: scorecard.totalGross || 0,
-        courseRating: ratings.courseRating,
-        slopeRating: ratings.slopeRating,
+        courseRating: finalCourseRating,
+        slopeRating: finalSlopeRating,
       });
       handicapDifferential = differential;
 
@@ -334,6 +376,7 @@ function calculateHandicapData(scorecard: Scorecard): {
         handicapDifferential,
         courseRatingUsed,
         slopeRatingUsed,
+        nineType,
         totalGross: scorecard.totalGross,
         playerGender,
       });

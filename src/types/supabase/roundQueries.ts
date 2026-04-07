@@ -22,6 +22,7 @@ export interface SupabasePlayerData {
   email: string | null;
   phone: string | null;
   handicap: number | null;
+  handicap_index?: number | null; // Social Handicap Index (calculated from app rounds)
   gender?: PlayerGender | null; // For WHS Daily Handicap consistency factor
   photo_url?: string | null;
 }
@@ -157,6 +158,7 @@ export const TEAMS_WITH_MEMBERS_SELECT = `
       email,
       phone,
       handicap,
+      handicap_index,
       gender,
       photo_url
     )
@@ -174,6 +176,7 @@ export const COMPETITION_PLAYERS_SELECT = `
     email,
     phone,
     handicap,
+    handicap_index,
     gender
   )
 `;
@@ -197,7 +200,7 @@ export function createDBPlayer(data: SupabasePlayerData): DBPlayer {
     // Default values for required fields not fetched
     golf_id: null,
     handicap_updated_at: null,
-    handicap_index: null,
+    handicap_index: data.handicap_index ?? null,
     handicap_index_updated_at: null,
     home_club_id: null,
     is_placeholder: false,

@@ -26,6 +26,10 @@ export function teeToTeeBox(tee: Tee): TeeBox {
     totalYardage: tee.total_length ?? null,
     courseRating: tee.course_rating ?? undefined,
     slopeRating: tee.slope ?? undefined,
+    courseRatingFront9: tee.course_rating_front9 ?? undefined,
+    slopeRatingFront9: tee.slope_front9 ?? undefined,
+    courseRatingBack9: tee.course_rating_back9 ?? undefined,
+    slopeRatingBack9: tee.slope_back9 ?? undefined,
   };
 }
 

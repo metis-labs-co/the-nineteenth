@@ -14,7 +14,9 @@ import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
 import { syncLogger } from '@/utils/debugLogger';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
-import type { TeeBox, Hole } from '@/types/database/base';
+import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
+import type { TeeBox, Hole, HoleScore } from '@/types/database/base';
+import { isSingleBallScore } from '@/types/database/base';
 import type { NineType } from '@/types/database/enums';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,11 +46,13 @@ interface ScorecardRecord {
   player_id: string;
   total_gross: number;
   ga_handicap_used: number | null;
+  scores: Record<string, HoleScore> | null;
 }
 
 interface RoundRecord {
   id: string;
   course_id: string;
+  game_type: string | null;
   selected_tee: TeeBox | null;
   nine_type: NineType | null;
   courses: { holes: Hole[] | null } | null;
@@ -158,7 +162,7 @@ export async function recalculateScorecardDifferential(
   // 1. Fetch the scorecard
   const { data: scorecardData, error: scError } = await supabase
     .from('scorecards')
-    .select('id, round_id, player_id, total_gross, ga_handicap_used')
+    .select('id, round_id, player_id, total_gross, ga_handicap_used, scores')
     .eq('id', scorecardId)
     .single();
 
@@ -174,7 +178,7 @@ export async function recalculateScorecardDifferential(
 
   // 2. Fetch the round with course data
   const { data: roundData, error: roundError } = await from('rounds')
-    .select('id, course_id, selected_tee, nine_type, courses!course_id (holes)')
+    .select('id, course_id, game_type, selected_tee, nine_type, courses!course_id (holes)')
     .eq('id', scorecard.round_id)
     .single();
 
@@ -233,8 +237,14 @@ export async function recalculateScorecardDifferential(
   const nineType: NineType = round.nine_type ?? 'full';
   let finalSlopeRating = baseRatings.slopeRating;
   let finalCourseRating = baseRatings.courseRating;
+  let has9HoleRatings = false;
 
   if (nineType !== 'full' && effectiveSelectedTee) {
+    const nineRatingField = nineType === 'front9'
+      ? effectiveSelectedTee.courseRatingFront9
+      : effectiveSelectedTee.courseRatingBack9;
+    has9HoleRatings = nineRatingField != null;
+
     // Build a TeeBox with gender-resolved full ratings plus 9-hole overrides
     const teeBoxForResolution: TeeBox = {
       name: effectiveSelectedTee.name,
@@ -273,12 +283,34 @@ export async function recalculateScorecardDifferential(
     gaHandicapUsed = player.handicap;
   }
 
-  if (gaHandicapUsed != null) {
-    // Calculate course par from holes
-    const holes = round.courses?.holes;
-    if (holes && Array.isArray(holes)) {
-      const coursePar = holes.reduce((sum, h) => sum + (h.par || 0), 0);
-      if (coursePar > 0) {
+  // Filter holes by nineType for correct par calculation
+  const allHoles = round.courses?.holes;
+  let effectiveHoles: Hole[] = [];
+  if (allHoles && Array.isArray(allHoles)) {
+    if (nineType === 'front9') {
+      effectiveHoles = allHoles.filter((h) => h.number <= 9);
+    } else if (nineType === 'back9') {
+      effectiveHoles = allHoles.filter((h) => h.number > 9);
+    } else {
+      effectiveHoles = allHoles;
+    }
+  }
+
+  if (gaHandicapUsed != null && effectiveHoles.length > 0) {
+    const coursePar = effectiveHoles.reduce((sum, h) => sum + (h.par || 0), 0);
+    if (coursePar > 0) {
+      if (nineType !== 'full' && !has9HoleRatings) {
+        // No 9-hole ratings: calculate 18-hole daily handicap then halve it
+        const fullPar = coursePar * 2;
+        const fullDailyResult = calculateGADailyHandicap({
+          gaHandicap: gaHandicapUsed,
+          slopeRating: baseRatings.slopeRating,
+          courseRating: baseRatings.courseRating,
+          par: fullPar,
+          gender: playerGender,
+        });
+        dailyHandicapUsed = Math.round(fullDailyResult.dailyHandicap / 2);
+      } else {
         const dailyResult = calculateGADailyHandicap({
           gaHandicap: gaHandicapUsed,
           slopeRating: ratings.slopeRating,
@@ -291,19 +323,38 @@ export async function recalculateScorecardDifferential(
     }
   }
 
-  // 9. Update the scorecard in Supabase
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { error: updateError, data: _data } = await (
-    supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
-      .from('scorecards') as any
-  ).update({
+  // 9. Recalculate total_points if this is a Stableford round with daily handicap
+  let totalPoints: number | null = null;
+  if (round.game_type === 'stableford' && dailyHandicapUsed != null && scorecard.scores && effectiveHoles.length > 0) {
+    let points = 0;
+    for (const hole of effectiveHoles) {
+      const score = scorecard.scores[String(hole.number)];
+      if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
+      const strokesReceived = getStrokesReceived(dailyHandicapUsed, hole.strokeIndex);
+      points += calculateStablefordPointsNet(score.strokes, hole.par, strokesReceived);
+    }
+    totalPoints = points;
+  }
+
+  // 10. Update the scorecard in Supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updatePayload: Record<string, any> = {
     handicap_differential: handicapDifferential,
     course_rating_used: ratings.courseRating,
     slope_rating_used: ratings.slopeRating,
     daily_handicap_used: dailyHandicapUsed,
     ga_handicap_used: gaHandicapUsed,
-  }).eq('id', scorecardId);
+  };
+  if (totalPoints != null) {
+    updatePayload.total_points = totalPoints;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { error: updateError, data: _data } = await (
+    supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+      .from('scorecards') as any
+  ).update(updatePayload).eq('id', scorecardId);
 
   if (updateError) {
     throw new Error(`Failed to update scorecard: ${updateError.message}`);

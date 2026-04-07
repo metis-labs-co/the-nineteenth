@@ -82,6 +82,7 @@ export function useCompetitionFormSubmit({
         startDate: parsedStartDate,
         endDate: parsedEndDate,
         handicapSystem: step1.handicapSystem,
+        handicapSource: step1.handicapSource || 'profile',
         inviteCode: step1.inviteCode,
         visibility: 'private' as const,
 

@@ -67,7 +67,7 @@ export default function CompetitionDetailsStep({
       startDate: '',
       endDate: '',
       handicapSystem: 'whs', // Always WHS - no toggle exposed
-      handicapSource: 'calculated', // Default to Social Index
+      handicapSource: 'profile', // Default to profile handicap (Social Index is premium)
       inviteCode: '',
       enableTeams: false,
       enablePrizePool: false,
@@ -298,10 +298,10 @@ export default function CompetitionDetailsStep({
               name="handicapSource"
               render={({ field: { value, onChange } }) => (
                 <SegmentedButton
-                  value={value || 'calculated'}
+                  value={value || 'profile'}
                   onValueChange={(newValue) => onChange(newValue as HandicapSource)}
                   buttons={[
-                    { value: 'calculated', label: 'Social Index', icon: 'calculator' },
+                    { value: 'calculated', label: 'Social Index', icon: 'calculator', disabled: !isPremium },
                     { value: 'profile', label: 'Handicap', icon: 'card-account-details' },
                   ]}
                   size="large"
@@ -309,9 +309,11 @@ export default function CompetitionDetailsStep({
               )}
             />
             <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-              {(handicapSource || 'calculated') === 'calculated'
-                ? "Uses Social Handicap Index (calculated from app rounds) with profile handicap fallback"
-                : "Uses player's handicap (manually entered in profile)"}
+              {!isPremium
+                ? 'Social Index requires a Premium subscription'
+                : (handicapSource || 'profile') === 'calculated'
+                  ? "Uses Social Handicap Index (calculated from app rounds) with profile handicap fallback"
+                  : "Uses player's handicap (manually entered in profile)"}
             </Text>
           </View>
 
