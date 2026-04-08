@@ -49,11 +49,11 @@ export function OnboardingCard({
         style,
       ]}
     >
-      {/* Illustration Area */}
-      <View style={styles.illustrationContainer}>{illustration}</View>
+      {/* Centered content group */}
+      <View style={styles.centerGroup}>
+        {/* Illustration */}
+        <View style={styles.illustrationContainer}>{illustration}</View>
 
-      {/* Content Area */}
-      <View style={styles.contentContainer}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {title}
         </Text>
@@ -63,19 +63,19 @@ export function OnboardingCard({
 
         {/* Additional content (e.g., form inputs) */}
         {children}
-
-        {/* Actions Area */}
-        {actions && (
-          <View
-            style={[
-              styles.actionsContainer,
-              { paddingBottom: insets.bottom + 100 },
-            ]}
-          >
-            {actions}
-          </View>
-        )}
       </View>
+
+      {/* Actions Area - pinned to bottom */}
+      {actions && (
+        <View
+          style={[
+            styles.actionsContainer,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+        >
+          {actions}
+        </View>
+      )}
     </View>
   );
 }
@@ -85,21 +85,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
   },
-  illustrationContainer: {
-    flex: 0.4,
+  centerGroup: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  contentContainer: {
-    flex: 0.6,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  illustrationContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   title: {
     ...typography.h1,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   description: {
     ...typography.body,
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
   actionsContainer: {
     alignSelf: 'stretch',
     paddingTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
 });
 

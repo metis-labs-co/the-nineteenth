@@ -6,25 +6,20 @@
  */
 
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { LogoHorizontal } from '@/components/common';
+import { AppIcon } from '@/components/common/AppIcon';
 import { OnboardingCard } from './OnboardingCard';
 import { spacing, typography, borderRadius } from '@/constants/theme';
-import { useThemeColors, useIsDark } from '@/context/ThemeContext';
+import { useThemeColors } from '@/context/ThemeContext';
 import type { StepProps } from '../OnboardingScreen';
 
 export function WelcomeStep({ onNext }: StepProps) {
   const colors = useThemeColors();
-  const isDark = useIsDark();
 
   return (
     <OnboardingCard
-      illustration={
-        <View style={styles.logoContainer}>
-          <LogoHorizontal width={260} variant={isDark ? 'light' : 'dark'} />
-        </View>
-      }
+      illustration={<AppIcon size={120} />}
       title="Welcome to The Nineteenth"
       description="The number one social golf competition and scoring app. Create competitions, track scores, and compete with your friends - all from your phone."
       actions={
@@ -45,11 +40,6 @@ export function WelcomeStep({ onNext }: StepProps) {
 }
 
 const styles = StyleSheet.create({
-  logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',

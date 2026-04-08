@@ -96,7 +96,7 @@ export function useAuthMutations() {
         password,
         options: {
           data: { name, phone, handicap },
-          emailRedirectTo: 'thenineteenth://auth/confirm',
+          emailRedirectTo: 'https://thenineteenth.golf/app/auth/confirm',
         },
       });
 
@@ -145,7 +145,7 @@ export function useAuthMutations() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectTo ?? 'thenineteenth://auth/magic-link',
+          emailRedirectTo: redirectTo ?? 'https://thenineteenth.golf/app/auth/magic-link',
         },
       });
 

@@ -29,7 +29,7 @@ export function usePasswordReset() {
       const { email, redirectTo } = request;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo ?? 'thenineteenth://auth/reset-password',
+        redirectTo: redirectTo ?? 'https://thenineteenth.golf/app/auth/reset-password',
       });
 
       if (error) {
