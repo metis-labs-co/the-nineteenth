@@ -83,8 +83,10 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
   const renderPlayerScorecard = (displayPlayer: ScorecardTablePlayer, index: number) => {
     const player = displayPlayer.player;
     const scores = displayPlayer.scores;
-    const handicap = player?.handicap || 0;
     const stats = playerStats[index];
+    // Use the daily handicap from stats (which prefers the stored snapshot)
+    // so per-hole strokes received match the total and the round list card.
+    const dailyHandicap = stats.dailyHandicap;
 
     const front9Par = front9.reduce((sum, h) => sum + h.par, 0);
     const back9Par = back9.reduce((sum, h) => sum + h.par, 0);
@@ -180,7 +182,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
             {holeList.map((hole) => {
               const score = scores?.[String(hole.number)];
               const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
-              const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+              const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
               const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
               return (
                 <View key={hole.number} style={individualStyles.cell}>
@@ -210,7 +212,7 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
               {player?.name || 'Unknown'}
             </Text>
             <Text style={[individualStyles.playerHandicap, { color: colors.textSecondary }]}>
-              Handicap: {handicap}
+              DHC: {dailyHandicap}
             </Text>
           </View>
           <View style={individualStyles.playerTotals}>
@@ -292,6 +294,9 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           player: player as Player,
           scores: scorecard?.scores || null,
           hasScorecard: !!scorecard,
+          storedGaHandicap: scorecard?.ga_handicap_used ?? null,
+          storedDailyHandicap: scorecard?.daily_handicap_used ?? null,
+          storedTotalPoints: scorecard?.total_points ?? null,
         };
       });
     }
@@ -302,6 +307,9 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
       player: scorecard.player,
       scores: scorecard.scores,
       hasScorecard: true,
+      storedGaHandicap: scorecard.ga_handicap_used ?? null,
+      storedDailyHandicap: scorecard.daily_handicap_used ?? null,
+      storedTotalPoints: scorecard.total_points ?? null,
     }));
   }, [scorecards, roundPlayers]);
 

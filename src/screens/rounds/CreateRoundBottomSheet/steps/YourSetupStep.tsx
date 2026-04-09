@@ -7,13 +7,14 @@
  * - Handicap source selection
  */
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { IconGolf, IconCircle, IconCircleCheck } from '@tabler/icons-react-native';
+import { IconGolf, IconCircle, IconCircleCheck, IconPencil } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
+import { HandicapEditSheet } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import type { TeeBox, GameType } from '@/types/database.types';
@@ -35,6 +36,13 @@ interface YourSetupStepProps {
   onHandicapSourceChange: (source: HandicapSource) => void;
   onStartRound: () => void;
   isSocialOrHigher: boolean;
+  /**
+   * In-wizard handicap override (applied on Start Round). Null = use profile
+   * value as-is. When set, the round start flow writes it back to
+   * `players.handicap`.
+   */
+  currentUserHandicapOverride: number | null;
+  onCurrentUserHandicapChange: (value: number) => void;
 }
 
 // Format handicap display value
@@ -55,13 +63,31 @@ export const YourSetupStep = memo(function YourSetupStep({
   onHandicapSourceChange,
   onStartRound,
   isSocialOrHigher,
+  currentUserHandicapOverride,
+  onCurrentUserHandicapChange,
 }: YourSetupStepProps) {
   const colors = useThemeColors();
   const { player } = useAuth();
   const isPremium = useIsPremium();
 
-  const gaHandicap = player?.handicap ?? null;
+  const profileGaHandicap = player?.handicap ?? null;
+  // Effective handicap used everywhere in this step — the override wins when
+  // set so the DHC preview and stored scorecard reflect the edit immediately.
+  const gaHandicap = currentUserHandicapOverride ?? profileGaHandicap;
   const socialIndex = player?.handicap_index ?? null;
+  const handicapEdited = currentUserHandicapOverride != null;
+
+  // Handicap edit sheet state
+  const [isEditingHandicap, setIsEditingHandicap] = useState(false);
+
+  const handleOpenHandicapEdit = useCallback(() => setIsEditingHandicap(true), []);
+  const handleCloseHandicapEdit = useCallback(() => setIsEditingHandicap(false), []);
+  const handleSaveHandicap = useCallback(
+    (value: number) => {
+      onCurrentUserHandicapChange(value);
+    },
+    [onCurrentUserHandicapChange]
+  );
 
   // Calculate daily HC for each handicap source (best-effort)
   const dailyHC = useMemo(() => {
@@ -205,9 +231,38 @@ export const YourSetupStep = memo(function YourSetupStep({
 
         {/* Round Mode Selection */}
         <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Round Type
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.title, styles.titleInHeader, { color: colors.textPrimary }]}>
+              Round Type
+            </Text>
+            {/* Edit HC pill — always visible, always editable for the current user */}
+            <TouchableOpacity
+              style={[
+                styles.editHcPill,
+                {
+                  backgroundColor: handicapEdited ? colors.primary + '15' : colors.surface,
+                  borderColor: handicapEdited ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={handleOpenHandicapEdit}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit your handicap, currently ${formatHC(gaHandicap)}`}
+            >
+              <IconPencil
+                size={14}
+                color={handicapEdited ? colors.primary : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.editHcPillText,
+                  { color: handicapEdited ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                HC: {formatHC(gaHandicap)}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.optionsList}>
             {modeOptions.map((option) => {
@@ -326,6 +381,15 @@ export const YourSetupStep = memo(function YourSetupStep({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Handicap Edit Sheet */}
+      <HandicapEditSheet
+        visible={isEditingHandicap}
+        playerName={player?.name ?? 'You'}
+        initialHandicap={gaHandicap}
+        onSave={handleSaveHandicap}
+        onClose={handleCloseHandicapEdit}
+      />
     </>
   );
 });
@@ -363,6 +427,28 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h3,
     marginBottom: spacing.sm,
+  },
+  titleInHeader: {
+    marginBottom: 0,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  editHcPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  editHcPillText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   sectionTitle: {
     ...typography.h3,

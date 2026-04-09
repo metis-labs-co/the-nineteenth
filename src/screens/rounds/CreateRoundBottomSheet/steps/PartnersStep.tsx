@@ -15,11 +15,19 @@ import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
 import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
+import { HandicapEditSheet } from '@/components/rounds';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
 import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
+
+/** Identity + effective handicap of the row currently being edited. */
+interface HandicapEditTarget {
+  id: string; // 'current-user' sentinel or a partner id
+  name: string;
+  value: number | null | undefined;
+}
 
 interface PartnersStepProps {
   selectedCourse: SelectedCourse | null;
@@ -38,6 +46,14 @@ interface PartnersStepProps {
   currentUserTee: TeeBox | null;
   onCurrentUserTeeChange: (tee: TeeBox) => void;
   onPartnerTeeChange: (partnerId: string, tee: TeeBox) => void;
+  /**
+   * Handicap edit wiring. Null override means "use the current user's profile
+   * handicap". Partner edits are held in the partner's `handicap` field on
+   * `selectedPartners` and only persisted when the round is started.
+   */
+  currentUserHandicapOverride: number | null;
+  onCurrentUserHandicapChange: (value: number) => void;
+  onPartnerHandicapChange: (partnerId: string, value: number) => void;
 }
 
 export const PartnersStep = memo(function PartnersStep({
@@ -55,12 +71,18 @@ export const PartnersStep = memo(function PartnersStep({
   currentUserTee,
   onCurrentUserTeeChange,
   onPartnerTeeChange,
+  currentUserHandicapOverride,
+  onCurrentUserHandicapChange,
+  onPartnerHandicapChange,
 }: PartnersStepProps) {
   const colors = useThemeColors();
   const { player } = useAuth();
 
   // State for Add Guest modal
   const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
+
+  // Which row is currently being edited in the HandicapEditSheet (null = closed)
+  const [handicapEditTarget, setHandicapEditTarget] = useState<HandicapEditTarget | null>(null);
 
   // Ref to track pending placeholder that needs to be auto-added
   // This solves timing issues with React Query cache invalidation
@@ -183,6 +205,39 @@ export const PartnersStep = memo(function PartnersStep({
     [friends]
   );
 
+  // Set of placeholder IDs owned by the current user. Every entry in
+  // `usePlaceholderPlayers()` is already scoped to created_by = user.id, so we
+  // can use membership in this set to gate the handicap edit affordance.
+  const ownedPlaceholderIds = useMemo(
+    () => new Set((placeholderPlayers ?? []).map((p) => p.id)),
+    [placeholderPlayers]
+  );
+
+  // Effective handicap the current user will play this round with.
+  const currentUserEffectiveHandicap =
+    currentUserHandicapOverride ?? player?.handicap ?? null;
+  const currentUserHandicapEdited = currentUserHandicapOverride != null;
+
+  // Format handicap for display ('—' when unset)
+  const formatHandicap = useCallback(
+    (value: number | null | undefined): string =>
+      value != null && !Number.isNaN(value) ? value.toFixed(1) : '—',
+    []
+  );
+
+  // Handle Save from the HandicapEditSheet
+  const handleHandicapSheetSave = useCallback(
+    (value: number) => {
+      if (!handicapEditTarget) return;
+      if (handicapEditTarget.id === 'current-user') {
+        onCurrentUserHandicapChange(value);
+      } else {
+        onPartnerHandicapChange(handicapEditTarget.id, value);
+      }
+    },
+    [handicapEditTarget, onCurrentUserHandicapChange, onPartnerHandicapChange]
+  );
+
   // Course par for daily handicap calculation
   // TeeBox doesn't carry hole data, so default to standard 72
   const coursePar = 72;
@@ -237,7 +292,7 @@ export const PartnersStep = memo(function PartnersStep({
               Tee Selection
             </Text>
 
-            {/* Current user tee */}
+            {/* Current user tee + handicap */}
             <View style={[styles.playerTeeRow, { borderColor: colors.border }]}>
               <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
                 {currentUserName} (you)
@@ -272,48 +327,143 @@ export const PartnersStep = memo(function PartnersStep({
                     </TouchableOpacity>
                   );
                 })}
+                {/* Current user HC pill — always editable */}
+                <TouchableOpacity
+                  style={[
+                    styles.teePill,
+                    {
+                      backgroundColor: currentUserHandicapEdited
+                        ? colors.primary + '15'
+                        : colors.surface,
+                      borderColor: currentUserHandicapEdited ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() =>
+                    setHandicapEditTarget({
+                      id: 'current-user',
+                      name: currentUserName,
+                      value: currentUserEffectiveHandicap,
+                    })
+                  }
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Edit your handicap, currently ${formatHandicap(currentUserEffectiveHandicap)}`}
+                  accessibilityRole="button"
+                >
+                  {currentUserHandicapEdited && (
+                    <View style={[styles.editedDot, { backgroundColor: colors.primary }]} />
+                  )}
+                  <Text
+                    style={[
+                      styles.teePillText,
+                      {
+                        color: currentUserHandicapEdited ? colors.primary : colors.textSecondary,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    HC: {formatHandicap(currentUserEffectiveHandicap)}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* Partner tees */}
-            {selectedPartners.map((partner) => (
-              <View key={partner.id} style={[styles.playerTeeRow, { borderColor: colors.border }]}>
-                <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {partner.name}
-                </Text>
-                <View style={styles.teePills}>
-                  {availableTees.map((tee) => {
-                    const isSelected = partner.selectedTee?.name === tee.name;
-                    const dotColor = getTeeColor(tee.color, colors.textSecondary);
-                    return (
-                      <TouchableOpacity
-                        key={tee.name}
+            {/* Partner tees + handicaps */}
+            {selectedPartners.map((partner) => {
+              const isOwnedPlaceholder = ownedPlaceholderIds.has(partner.id);
+              // Compare against the live placeholder profile value (if owned)
+              // so the "edited" indicator tracks divergence from source of truth.
+              const placeholderProfileHandicap =
+                placeholderPlayers?.find((p) => p.id === partner.id)?.handicap ?? null;
+              const partnerHandicapEdited =
+                isOwnedPlaceholder &&
+                partner.handicap != null &&
+                partner.handicap !== placeholderProfileHandicap;
+
+              return (
+                <View key={partner.id} style={[styles.playerTeeRow, { borderColor: colors.border }]}>
+                  <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {partner.name}
+                  </Text>
+                  <View style={styles.teePills}>
+                    {availableTees.map((tee) => {
+                      const isSelected = partner.selectedTee?.name === tee.name;
+                      const dotColor = getTeeColor(tee.color, colors.textSecondary);
+                      return (
+                        <TouchableOpacity
+                          key={tee.name}
+                          style={[
+                            styles.teePill,
+                            {
+                              backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                              borderColor: isSelected ? colors.primary : colors.border,
+                            },
+                          ]}
+                          onPress={() => onPartnerTeeChange(partner.id, tee)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.teeDot, { backgroundColor: dotColor, borderColor: colors.border }]} />
+                          <Text
+                            style={[
+                              styles.teePillText,
+                              { color: isSelected ? colors.primary : colors.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {tee.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {/* Partner HC pill — editable only for owned placeholders */}
+                    <TouchableOpacity
+                      style={[
+                        styles.teePill,
+                        {
+                          backgroundColor: partnerHandicapEdited
+                            ? colors.primary + '15'
+                            : colors.surface,
+                          borderColor: partnerHandicapEdited ? colors.primary : colors.border,
+                          opacity: isOwnedPlaceholder ? 1 : 0.6,
+                        },
+                      ]}
+                      onPress={
+                        isOwnedPlaceholder
+                          ? () =>
+                              setHandicapEditTarget({
+                                id: partner.id,
+                                name: partner.name,
+                                value: partner.handicap ?? null,
+                              })
+                          : undefined
+                      }
+                      disabled={!isOwnedPlaceholder}
+                      activeOpacity={isOwnedPlaceholder ? 0.7 : 1}
+                      accessibilityLabel={
+                        isOwnedPlaceholder
+                          ? `Edit ${partner.name}'s handicap, currently ${formatHandicap(partner.handicap)}`
+                          : `${partner.name}'s handicap: ${formatHandicap(partner.handicap)} (not editable)`
+                      }
+                      accessibilityRole={isOwnedPlaceholder ? 'button' : 'text'}
+                    >
+                      {partnerHandicapEdited && (
+                        <View style={[styles.editedDot, { backgroundColor: colors.primary }]} />
+                      )}
+                      <Text
                         style={[
-                          styles.teePill,
+                          styles.teePillText,
                           {
-                            backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
-                            borderColor: isSelected ? colors.primary : colors.border,
+                            color: partnerHandicapEdited ? colors.primary : colors.textSecondary,
                           },
                         ]}
-                        onPress={() => onPartnerTeeChange(partner.id, tee)}
-                        activeOpacity={0.7}
+                        numberOfLines={1}
                       >
-                        <View style={[styles.teeDot, { backgroundColor: dotColor, borderColor: colors.border }]} />
-                        <Text
-                          style={[
-                            styles.teePillText,
-                            { color: isSelected ? colors.primary : colors.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {tee.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                        HC: {formatHandicap(partner.handicap)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -369,6 +519,15 @@ export const PartnersStep = memo(function PartnersStep({
         visible={showAddPlaceholderModal}
         onClose={() => setShowAddPlaceholderModal(false)}
         onPlayerCreated={handlePlaceholderCreated}
+      />
+
+      {/* Handicap Edit Sheet */}
+      <HandicapEditSheet
+        visible={handicapEditTarget !== null}
+        playerName={handicapEditTarget?.name ?? ''}
+        initialHandicap={handicapEditTarget?.value}
+        onSave={handleHandicapSheetSave}
+        onClose={() => setHandicapEditTarget(null)}
       />
     </View>
   );
@@ -440,6 +599,11 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 1,
+  },
+  editedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   teePillText: {
     ...typography.caption,

@@ -43,7 +43,8 @@ interface UseWizardNavigationParams {
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
     handicapSource?: HandicapSource,
-    nineType?: NineType
+    nineType?: NineType,
+    currentUserHandicapOverride?: number | null
   ) => void;
   onClose: () => void;
 }
@@ -114,7 +115,8 @@ export function useWizardNavigation({
               undefined,
               data.isBuildAsYouPlay || undefined,
               data.handicapSource,
-              data.nineType
+              data.nineType,
+              data.currentUserHandicapOverride
             );
             resetState();
           }
@@ -123,7 +125,7 @@ export function useWizardNavigation({
     } else {
       setCurrentStep('scoringSetup');
     }
-  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, data.handicapSource, data.nineType, onStartRound, resetState, isSocialOrHigher, setCurrentStep]);
+  }, [data.selectedPartners.length, data.selectedCourse, data.selectedTee, data.selectedMatchType, data.isBuildAsYouPlay, data.handicapSource, data.nineType, data.currentUserHandicapOverride, onStartRound, resetState, isSocialOrHigher, setCurrentStep]);
 
   const handleStartSoloRound = useCallback(() => {
     if (data.selectedCourse) {
@@ -140,11 +142,12 @@ export function useWizardNavigation({
         undefined,
         data.isBuildAsYouPlay || undefined,
         data.handicapSource,
-        data.nineType
+        data.nineType,
+        data.currentUserHandicapOverride
       );
       resetState();
     }
-  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, data.handicapSource, data.nineType, onStartRound, resetState]);
+  }, [data.selectedCourse, data.selectedTee, data.selectedMatchType, data.ballCount, data.isBuildAsYouPlay, data.handicapSource, data.nineType, data.currentUserHandicapOverride, onStartRound, resetState]);
 
   const handleStartScoring = useCallback(() => {
     if (data.selectedCourse) {
@@ -197,7 +200,8 @@ export function useWizardNavigation({
         standaloneWolfConfig,
         data.isBuildAsYouPlay || undefined,
         data.handicapSource,
-        data.nineType
+        data.nineType,
+        data.currentUserHandicapOverride
       );
 
       resetState();

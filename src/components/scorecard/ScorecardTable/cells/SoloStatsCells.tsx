@@ -355,17 +355,20 @@ export const SoloStablefordHeaderCell = React.memo(function SoloStablefordHeader
 interface SoloStablefordHoleCellProps {
   hole: Hole;
   player: ScorecardTablePlayer;
+  playerStats: PlayerStats;
 }
 
 export const SoloStablefordHoleCell = React.memo(function SoloStablefordHoleCell({
   hole,
   player,
+  playerStats,
 }: SoloStablefordHoleCellProps) {
   const colors = useThemeColors();
   const score = player.scores?.[String(hole.number)];
   const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
-  const handicap = player.player?.handicap ?? 0;
-  const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+  // Use the daily handicap from stats (which prefers the stored snapshot)
+  // so per-hole points match the stored total_points.
+  const strokesReceived = getStrokesReceived(playerStats.dailyHandicap, hole.strokeIndex);
   const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
 
   return (

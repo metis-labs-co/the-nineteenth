@@ -150,6 +150,12 @@ export interface WizardData {
   handicapSource: HandicapSource;
   /** Nine type selection for 9-hole rounds */
   nineType: NineType;
+  /**
+   * Current user's WHS handicap override for this round. Null means use the
+   * profile value as-is. When set, the round-start flow writes this back to
+   * `players.handicap` as part of the Start Round transaction.
+   */
+  currentUserHandicapOverride: number | null;
 }
 
 /**
@@ -171,7 +177,8 @@ export interface CreateRoundBottomSheetProps {
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
     handicapSource?: HandicapSource,
-    nineType?: NineType
+    nineType?: NineType,
+    currentUserHandicapOverride?: number | null
   ) => void;
   /** Pre-selected course to skip directly to tee selection */
   initialCourse?: InitialCourse;

@@ -35,6 +35,14 @@ export interface ScorecardTablePlayer {
   scores: ScoresRecord | null;
   /** Whether the player has a scorecard submitted */
   hasScorecard: boolean;
+  /**
+   * Historical snapshot fields from the scorecards row, captured at sync time.
+   * When present, these should be preferred over live recomputation so the
+   * view stays consistent with the round list card and leaderboards.
+   */
+  storedGaHandicap?: number | null;
+  storedDailyHandicap?: number | null;
+  storedTotalPoints?: number | null;
 }
 
 /**

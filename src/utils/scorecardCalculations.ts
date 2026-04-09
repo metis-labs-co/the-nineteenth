@@ -73,6 +73,14 @@ export interface ScorecardPlayerData {
   player: ScorecardPlayerInfo | null;
   scores: ScoresRecord | null;
   hasScorecard: boolean;
+  /**
+   * Historical snapshot fields from the scorecards row (captured at sync time).
+   * When present, preferred over recomputation so completed rounds display
+   * the same DHC/points everywhere (round list, leaderboards, scorecard view).
+   */
+  storedGaHandicap?: number | null;
+  storedDailyHandicap?: number | null;
+  storedTotalPoints?: number | null;
 }
 
 // =====================================================
@@ -130,12 +138,24 @@ export function calculatePlayerStats(
     const player = playerData.player;
     const scores = playerData.scores;
 
-    // Get base handicap based on source (profile, calculated, or none)
-    const handicap = getBaseHandicap(player, handicapSource);
+    // Base handicap: prefer historical snapshot (ga_handicap_used) over current profile.
+    // Falls back to getBaseHandicap(handicapSource) when no snapshot exists
+    // (in-progress rounds, legacy rounds synced before snapshots were added).
+    const liveHandicap = getBaseHandicap(player, handicapSource);
+    const handicap = playerData.storedGaHandicap ?? liveHandicap;
 
-    // Calculate daily handicap if tee data is available and not using 'none'
+    // Daily handicap: prefer historical snapshot (daily_handicap_used) over recomputation.
+    // The stored value is what sync used to compute total_points, so reading it
+    // keeps the scorecard view consistent with the round list card.
     let dailyHandicap = handicap;
-    if (handicapSource !== 'none' && selectedTee?.slopeRating && selectedTee?.courseRating && coursePar > 0) {
+    if (playerData.storedDailyHandicap != null) {
+      dailyHandicap = playerData.storedDailyHandicap;
+    } else if (
+      handicapSource !== 'none' &&
+      selectedTee?.slopeRating &&
+      selectedTee?.courseRating &&
+      coursePar > 0
+    ) {
       const result = calculateGADailyHandicap({
         gaHandicap: handicap,
         slopeRating: selectedTee.slopeRating,
@@ -181,7 +201,11 @@ export function calculatePlayerStats(
     const totalGross = front9Gross + back9Gross;
     // Use daily handicap for net score calculation
     const totalNet = totalGross - dailyHandicap;
-    const totalStableford = front9Stableford + back9Stableford;
+    const computedTotalStableford = front9Stableford + back9Stableford;
+    // Prefer the stored total_points snapshot when available so the view
+    // matches the round list card and leaderboards exactly. Falls back to
+    // the per-hole sum (which itself is computed with the stored DHC).
+    const totalStableford = playerData.storedTotalPoints ?? computedTotalStableford;
     const totalParScore = front9ParScore + back9ParScore;
 
     return {

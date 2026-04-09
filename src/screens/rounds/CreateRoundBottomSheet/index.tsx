@@ -605,6 +605,9 @@ export default function CreateRoundBottomSheet({
           currentUserTee={wizard.data.selectedTee}
           onCurrentUserTeeChange={wizard.handleCurrentUserTeeChange}
           onPartnerTeeChange={wizard.handlePlayerTeeChange}
+          currentUserHandicapOverride={wizard.data.currentUserHandicapOverride}
+          onCurrentUserHandicapChange={wizard.handleCurrentUserHandicapChange}
+          onPartnerHandicapChange={wizard.handlePartnerHandicapChange}
         />
       )}
 
@@ -621,6 +624,8 @@ export default function CreateRoundBottomSheet({
           onHandicapSourceChange={wizard.setHandicapSource}
           onStartRound={wizard.handleStartSoloRound}
           isSocialOrHigher={isSocialOrHigher}
+          currentUserHandicapOverride={wizard.data.currentUserHandicapOverride}
+          onCurrentUserHandicapChange={wizard.handleCurrentUserHandicapChange}
         />
       )}
 

@@ -8,6 +8,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog, type DialogConfig } from '@/hooks';
+import {
+  usePlaceholderPlayers,
+  useUpdatePlaceholderPlayer,
+} from '@/hooks/placeholderPlayers';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
@@ -67,7 +71,8 @@ export interface UseStartNewRoundReturn {
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
     handicapSource?: HandicapSource,
-    nineType?: NineType
+    nineType?: NineType,
+    currentUserHandicapOverride?: number | null
   ) => Promise<void>;
   isStartingRound: boolean;
   dialogConfig: DialogConfig;
@@ -76,9 +81,15 @@ export interface UseStartNewRoundReturn {
 
 export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: string): UseStartNewRoundReturn {
   const navigation = useNavigation<NavigationProp>();
-  const { user, player } = useAuth();
+  const { user, player, updateProfile } = useAuth();
   const { initializeRound } = useScorecardStore();
   const setPendingLeagueTag = useSettingsStore((s) => s.setPendingLeagueTag);
+
+  // Handicap-edit mutations. Both are idempotent and cheap — we only call
+  // them when wizard state contains an actual edit for the current user or
+  // an owned placeholder.
+  const updatePlaceholderPlayer = useUpdatePlaceholderPlayer();
+  const { data: ownedPlaceholders } = usePlaceholderPlayers();
 
   // Dialog state for error alerts
   const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
@@ -99,12 +110,65 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
       wolfConfig?: StandaloneWolfConfig,
       isBuildAsYouPlay?: boolean,
       handicapSource?: HandicapSource,
-      nineType: NineType = 'full'
+      nineType: NineType = 'full',
+      currentUserHandicapOverride?: number | null
     ) => {
       if (isStartingRound) return;
 
       setIsStartingRound(true);
       onStarted?.();
+
+      // Commit any in-wizard handicap edits to the player profiles BEFORE
+      // creating the round. Doing this first ensures the scorecard snapshot
+      // (captured in the local `players` array below) uses the edited values
+      // and that the profile reflects the new HC for subsequent rounds.
+      //
+      // Transactional feel: if any profile update fails, abort round creation.
+      const effectiveCurrentUserHC =
+        currentUserHandicapOverride ?? player?.handicap ?? 0;
+
+      const profileUpdatePromises: Promise<unknown>[] = [];
+
+      if (
+        currentUserHandicapOverride != null &&
+        currentUserHandicapOverride !== player?.handicap
+      ) {
+        profileUpdatePromises.push(
+          updateProfile({ handicap: currentUserHandicapOverride })
+        );
+      }
+
+      for (const partner of partners) {
+        // Only attempt to update placeholders the current user owns.
+        // `ownedPlaceholders` is already filtered to created_by = user.id
+        // inside usePlaceholderPlayers, so membership here is sufficient.
+        const placeholder = ownedPlaceholders?.find((p) => p.id === partner.id);
+        if (
+          placeholder &&
+          partner.handicap != null &&
+          partner.handicap !== placeholder.handicap
+        ) {
+          profileUpdatePromises.push(
+            updatePlaceholderPlayer.mutateAsync({
+              id: partner.id,
+              handicap: partner.handicap,
+            })
+          );
+        }
+      }
+
+      if (profileUpdatePromises.length > 0) {
+        try {
+          await Promise.all(profileUpdatePromises);
+        } catch (err) {
+          showAlert(
+            'Could not save handicap changes',
+            err instanceof Error ? err.message : 'Please try again.'
+          );
+          setIsStartingRound(false);
+          return;
+        }
+      }
 
       try {
         // Fetch course data including holes and num_holes
@@ -181,7 +245,10 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
             name: getDisplayName(player.name, user?.email?.split('@')[0] || 'Player 1'),
             email: player.email || '',
             phone: player.phone ?? undefined,
-            handicap: player.handicap ?? 0,
+            // Use the effective HC (override ?? profile) so the scorecard
+            // snapshot captures the edited value even before the profile
+            // update completes its cache refresh.
+            handicap: effectiveCurrentUserHC,
             createdAt: new Date(),
             updatedAt: new Date(),
           });
@@ -355,7 +422,7 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         setIsStartingRound(false);
       }
     },
-    [navigation, player, user, initializeRound, isStartingRound, onStarted, showAlert, pendingLeagueId, setPendingLeagueTag]
+    [navigation, player, user, updateProfile, ownedPlaceholders, updatePlaceholderPlayer, initializeRound, isStartingRound, onStarted, showAlert, pendingLeagueId, setPendingLeagueTag]
   );
 
   return {

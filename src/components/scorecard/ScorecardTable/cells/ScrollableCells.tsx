@@ -19,7 +19,8 @@ import { spacing, borderRadius } from '@/constants/theme';
 import { styles } from '../styles';
 import type { ScorecardTablePlayer, ScoreDisplayMode } from '../types';
 import { isSingleBallScore, type Hole, type TeeBox } from '@/types/database.types';
-import type { PlayerStats, ParTotals } from '@/utils/scorecardCalculations';
+import type { HandicapSource } from '@/types/database/enums';
+import { getBaseHandicap, type PlayerStats, type ParTotals } from '@/utils/scorecardCalculations';
 
 /** Returns width style or flex:1 when playerCellWidth is 0 (solo even layout) */
 const cellSizeStyle = (w: number) => (w > 0 ? { width: w } : { flex: 1 as const });
@@ -35,6 +36,7 @@ interface ScrollableHeaderCellsProps {
   onHandicapInfoPress?: () => void;
   selectedTeeData?: TeeBox | null;
   coursePar: number;
+  handicapSource?: HandicapSource;
 }
 
 export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
@@ -44,18 +46,26 @@ export const ScrollableHeaderCells = React.memo(function ScrollableHeaderCells({
   onHandicapInfoPress,
   selectedTeeData,
   coursePar,
+  handicapSource,
 }: ScrollableHeaderCellsProps) {
   const colors = useThemeColors();
 
   return (
     <>
       {players.map((playerData, index) => {
-        // Calculate daily handicap if tee data is available
-        const rawHandicap = playerData.player?.handicap ?? 0;
+        // Prefer the historical snapshot captured at sync time so the
+        // header matches the round list card and stored leaderboards.
+        // Falls back to live recomputation for in-progress / unsynced rounds.
+        const rawHandicap =
+          playerData.storedGaHandicap ??
+          getBaseHandicap(playerData.player, handicapSource);
         let displayHandicap = rawHandicap;
         let handicapLabel = 'HC';
 
-        if (selectedTeeData?.slopeRating && selectedTeeData?.courseRating) {
+        if (playerData.storedDailyHandicap != null) {
+          displayHandicap = playerData.storedDailyHandicap;
+          handicapLabel = 'DHC';
+        } else if (selectedTeeData?.slopeRating && selectedTeeData?.courseRating) {
           const result = calculateGADailyHandicap({
             gaHandicap: rawHandicap,
             slopeRating: selectedTeeData.slopeRating,
@@ -134,6 +144,7 @@ const headerLocalStyles = RNStyleSheet.create({
 interface ScrollableHoleCellsProps {
   hole: Hole;
   players: ScorecardTablePlayer[];
+  playerStats: PlayerStats[];
   playerCellWidth: number;
   gameType?: string;
   scoreDisplayMode?: ScoreDisplayMode;
@@ -142,6 +153,7 @@ interface ScrollableHoleCellsProps {
 export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
   hole,
   players,
+  playerStats,
   playerCellWidth,
   gameType,
   scoreDisplayMode,
@@ -150,9 +162,12 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
   return (
     <>
-      {players.map((playerData) => {
+      {players.map((playerData, playerIndex) => {
         const score = playerData.scores?.[String(hole.number)];
         const strokes = score && isSingleBallScore(score) ? score.strokes : undefined;
+        // Use the daily handicap from stats (which prefers the stored snapshot)
+        // so per-hole points match the stored total_points.
+        const dailyHandicap = playerStats[playerIndex]?.dailyHandicap ?? 0;
 
         // Stableford points mode: show points with colored pills
         if (scoreDisplayMode === 'points' && gameType === 'stableford') {
@@ -164,8 +179,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
             );
           }
 
-          const handicap = playerData.player?.handicap ?? 0;
-          const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+          const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
           const netStrokes = strokes - strokesReceived;
           const points = strokes >= PICKUP_SCORE
             ? 0
@@ -184,8 +198,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
         // For par game type, show +1/0/-1 instead of strokes
         if (gameType === 'par' && strokes !== undefined && strokes > 0) {
-          const handicap = playerData.player?.handicap ?? 0;
-          const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+          const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
           const parScore = calculateParScore(strokes, hole.par, strokesReceived);
           const parScoreText = parScore > 0 ? `+${parScore}` : parScore === 0 ? 'E' : `${parScore}`;
           const parScoreColor = parScore > 0 ? colors.success : parScore < 0 ? colors.error : colors.textSecondary;
@@ -199,8 +212,7 @@ export const ScrollableHoleCells = React.memo(function ScrollableHoleCells({
 
         // Show stableford points below stroke score for stableford game type
         if (gameType === 'stableford' && strokes && strokes > 0 && strokes < PICKUP_SCORE) {
-          const handicap = playerData.player?.handicap ?? 0;
-          const strokesReceived = getStrokesReceived(handicap, hole.strokeIndex);
+          const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
           const points = calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
 
           return (

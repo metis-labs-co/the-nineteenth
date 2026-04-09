@@ -33,6 +33,7 @@ import { useWizardPartners } from './useWizardPartners';
 import { useWizardSideGames } from './useWizardSideGames';
 import { useWizardNavigation } from './useWizardNavigation';
 import { useWizardTeams } from './useWizardTeams';
+import { useWizardHandicapEdit } from './useWizardHandicapEdit';
 
 interface UseCreateRoundWizardOptions {
   visible: boolean;
@@ -55,7 +56,8 @@ interface UseCreateRoundWizardOptions {
     wolfConfig?: StandaloneWolfConfig,
     isBuildAsYouPlay?: boolean,
     handicapSource?: HandicapSource,
-    nineType?: NineType
+    nineType?: NineType,
+    currentUserHandicapOverride?: number | null
   ) => void;
   onClose: () => void;
 }
@@ -78,6 +80,10 @@ interface UseCreateRoundWizardReturn {
   handleSkipTeeSelection: () => void;
   handlePlayerTeeChange: (playerId: string, tee: TeeBox) => void;
   handleCurrentUserTeeChange: (tee: TeeBox) => void;
+
+  // Handicap edit
+  handleCurrentUserHandicapChange: (value: number) => void;
+  handlePartnerHandicapChange: (partnerId: string, value: number) => void;
 
   // Match type selection
   handleSelectMatchType: (matchType: GameType) => void;
@@ -147,6 +153,7 @@ const initialData: WizardData = {
   isBuildAsYouPlay: false,
   handicapSource: 'profile',
   nineType: 'full' as NineType,
+  currentUserHandicapOverride: null,
 };
 
 export function useCreateRoundWizard({
@@ -193,6 +200,9 @@ export function useCreateRoundWizard({
     useWizardTeeSelection({
       setData,
     });
+
+  const { handleCurrentUserHandicapChange, handlePartnerHandicapChange } =
+    useWizardHandicapEdit({ setData });
 
   const {
     setFriendSearchQuery,
@@ -259,6 +269,8 @@ export function useCreateRoundWizard({
     handleSkipTeeSelection,
     handlePlayerTeeChange,
     handleCurrentUserTeeChange,
+    handleCurrentUserHandicapChange,
+    handlePartnerHandicapChange,
     handleSelectMatchType,
     setFriendSearchQuery,
     handleTogglePartner,
