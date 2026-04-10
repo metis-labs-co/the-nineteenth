@@ -17,7 +17,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RootStackParamList } from '@/navigation/types';
 import { PageHeader, ConfirmationDialog } from '@/components/common';
-import { RoundGameSetupTab } from '@/components/rounds/ViewRound';
+import { RoundGameSetupTab, EditTeesSheet } from '@/components/rounds/ViewRound';
 import { ScoringPairsConfigBottomSheet } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
 import { SkinsConfigBottomSheet } from '@/components/skins';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -25,6 +25,7 @@ import { ErrorState } from '@/components/common/ErrorState';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
+import { useRoundPlayerTees } from '@/hooks/rounds';
 import { useCompetitionInfo } from '@/hooks';
 import { useDeleteRound } from '@/hooks/useDeleteRound';
 import { useSkinsGamesByRound, useCreateSkinsGame } from '@/hooks/useSkins';
@@ -50,6 +51,7 @@ export default function RoundSettingsScreen() {
   const { data: round, isLoading: isLoadingRound, error: roundError, refetch: refetchRound } = useRoundDetails(roundId);
   const { data: scorecards } = useRoundScorecards(roundId);
   const { data: roundPlayers } = useRoundPlayers(roundId);
+  const { data: roundPlayerTees } = useRoundPlayerTees(roundId);
   const { data: competitionInfo } = useCompetitionInfo(competitionId);
   const { data: skinsGames } = useSkinsGamesByRound(roundId);
 
@@ -74,6 +76,7 @@ export default function RoundSettingsScreen() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showScoringPairsSheet, setShowScoringPairsSheet] = useState(false);
   const [showSkinsConfigSheet, setShowSkinsConfigSheet] = useState(false);
+  const [showEditTeesSheet, setShowEditTeesSheet] = useState(false);
   const [showAlert, setShowAlert] = useState<{ title: string; message: string } | null>(null);
 
   // Mutations
@@ -127,6 +130,10 @@ export default function RoundSettingsScreen() {
   // Skins handlers
   const handleSkinsEditPress = useCallback(() => setShowSkinsConfigSheet(true), []);
   const handleSkinsConfigClose = useCallback(() => setShowSkinsConfigSheet(false), []);
+
+  // Edit tees handlers — tees are already fetched via useRoundPlayerTees
+  const handleEditTeesPress = useCallback(() => setShowEditTeesSheet(true), []);
+  const handleEditTeesClose = useCallback(() => setShowEditTeesSheet(false), []);
 
   const handleSkinsConfigSave = useCallback(
     async (config: SkinsConfig) => {
@@ -276,6 +283,34 @@ export default function RoundSettingsScreen() {
           onSkinsEditPress={handleSkinsEditPress}
         />
 
+        {/* Edit Tees Section — owner-only. Lets the organiser correct a
+            tee that was wrong at round start (e.g. wizard auto-selected
+            the first tee but the player physically played another).
+            Recalculates daily handicap + stableford points for the
+            affected scorecards. */}
+        {isOrganizer && round.status === 'completed' && (scorecards?.length ?? 0) > 0 && (
+          <>
+            <Divider style={styles.divider} />
+            <View style={styles.editTeesSection}>
+              <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>Scoring</Text>
+              <TouchableOpacity
+                style={[styles.editTeesButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                onPress={handleEditTeesPress}
+                activeOpacity={0.7}
+              >
+                <Icon source="golf-tee" size={20} color={colors.primary} />
+                <Text style={[styles.editTeesButtonText, { color: colors.textPrimary }]}>
+                  Edit Tees & Recalculate
+                </Text>
+                <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={[styles.editTeesHint, { color: colors.textSecondary }]}>
+                If the wrong tee was recorded at round start, change it here to recalculate daily handicap and stableford points.
+              </Text>
+            </View>
+          </>
+        )}
+
         {/* Danger Zone */}
         {canDelete && (
           <>
@@ -326,6 +361,19 @@ export default function RoundSettingsScreen() {
         confirmLabel="OK"
         onConfirm={() => setShowAlert(null)}
         onCancel={() => setShowAlert(null)}
+      />
+
+      {/* Edit Tees Sheet */}
+      <EditTeesSheet
+        visible={showEditTeesSheet}
+        onClose={handleEditTeesClose}
+        roundId={roundId}
+        competitionId={competitionId}
+        availableTees={round.course?.tees ?? []}
+        scorecards={scorecards ?? []}
+        roundPlayers={roundPlayers}
+        currentTees={roundPlayerTees ?? new Map()}
+        roundDefaultTee={round.selected_tee ?? null}
       />
 
       {/* Bottom Sheets */}
@@ -392,5 +440,29 @@ const styles = StyleSheet.create({
   dangerHint: {
     ...typography.caption,
     textAlign: 'center',
+  },
+  editTeesSection: {
+    gap: spacing.sm,
+  },
+  sectionHeader: {
+    ...typography.bodyBold,
+    marginBottom: spacing.xs,
+  },
+  editTeesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    height: 52,
+    paddingHorizontal: spacing.md,
+    ...shadows.sm,
+  },
+  editTeesButtonText: {
+    ...typography.bodyBold,
+    flex: 1,
+  },
+  editTeesHint: {
+    ...typography.caption,
   },
 });

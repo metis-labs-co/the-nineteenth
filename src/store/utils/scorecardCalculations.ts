@@ -3,20 +3,81 @@
  * Extracted for testability and reuse.
  */
 
-import type { Scorecard, Hole, GameType } from '@/types';
+import type { Scorecard, Hole, GameType, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database';
 import { isSingleBallScore } from '@/types/database/base';
-import { calculateStablefordPoints, calculateNetScore, calculateParScore, getStrokesOnHole } from '@/utils/scoring';
+import {
+  getStrokesReceived,
+  calculateStablefordPointsNet,
+  calculateParScore,
+} from '@/utils/scoring';
+import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
+import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { PICKUP_SCORE } from '@/constants/scoring';
 
 /**
- * Calculate player totals based on game type
+ * Optional round-level context used to compute the correct WHS daily
+ * handicap for stableford / par / stroke calculations. When provided,
+ * the store uses the same DHC formula as the sync pipeline and the
+ * scorecard view, so live totals match the stored snapshot.
+ */
+export interface PlayerTotalsContext {
+  /** The tee the player is using (honours per-player override). */
+  selectedTee?: TeeBox | null;
+  /** Whether to read profile HC, social HC, or no HC for the player. */
+  handicapSource?: HandicapSource;
+}
+
+/**
+ * Calculate player totals based on game type.
+ *
+ * When `context.selectedTee` is provided AND has valid slope/course
+ * ratings, the WHS Daily Handicap is computed via
+ * `calculateGADailyHandicap` and used for strokes received. Otherwise
+ * the function falls back to the player's raw profile handicap, which
+ * preserves behaviour for legacy callers that don't pass context.
  */
 export function calculatePlayerTotals(
   scorecard: Scorecard,
   holes: Hole[],
-  gameType: GameType
+  gameType: GameType,
+  context?: PlayerTotalsContext
 ): { gross: number; net: number; points: number; parScore: number } {
-  const playerHandicap = scorecard.player?.handicap || 0;
+  // Resolve the effective handicap for scoring. Prefer WHS DHC from the
+  // selected tee (via calculateGADailyHandicap) so totals match the sync
+  // pipeline and the scorecard view. Fall back to the raw profile HC only
+  // when tee data or course par isn't available.
+  const rawHandicap = getBaseHandicap(
+    scorecard.player
+      ? {
+          id: scorecard.player.id,
+          name: scorecard.player.name,
+          handicap: scorecard.player.handicap ?? null,
+          handicap_index: scorecard.player.handicapIndex ?? null,
+          gender: scorecard.player.gender ?? null,
+        }
+      : null,
+    context?.handicapSource ?? 'profile'
+  );
+
+  const coursePar = holes.reduce((sum, h) => sum + (h.par || 0), 0);
+
+  let effectiveHandicap = rawHandicap;
+  if (
+    context?.handicapSource !== 'none' &&
+    context?.selectedTee?.slopeRating &&
+    context?.selectedTee?.courseRating &&
+    coursePar > 0
+  ) {
+    const result = calculateGADailyHandicap({
+      gaHandicap: rawHandicap,
+      slopeRating: context.selectedTee.slopeRating,
+      courseRating: context.selectedTee.courseRating,
+      par: coursePar,
+      gender: scorecard.player?.gender ?? null,
+    });
+    effectiveHandicap = result.dailyHandicap;
+  }
 
   let totalGross = 0;
   let totalNet = 0;
@@ -36,15 +97,17 @@ export function calculatePlayerTotals(
 
     totalGross += strokes;
 
+    const strokesReceived = getStrokesReceived(effectiveHandicap, hole.strokeIndex);
+    const netStrokes = strokes - strokesReceived;
+
     if (gameType === 'stableford') {
-      totalPoints += calculateStablefordPoints(strokes, playerHandicap, hole);
-      totalNet = totalPoints; // For stableford, net = points
+      totalPoints += calculateStablefordPointsNet(strokes, hole.par, strokesReceived);
+      totalNet = totalPoints; // For stableford, the store overloads net=points
     } else if (gameType === 'stroke') {
-      totalNet += calculateNetScore(strokes, playerHandicap, hole);
+      totalNet += netStrokes;
     } else if (gameType === 'par') {
-      const strokesReceived = getStrokesOnHole(playerHandicap, hole);
       totalParScore += calculateParScore(strokes, hole.par, strokesReceived);
-      totalNet += calculateNetScore(strokes, playerHandicap, hole);
+      totalNet += netStrokes;
     }
   }
 

@@ -31,6 +31,7 @@ import {
   PlayersTab,
   TeamsTab,
   LeaderboardTab,
+  StatsTab,
 } from '@/components/competitions/detail';
 import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal } from '@/components/leaderboard';
@@ -43,7 +44,7 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
 
-type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard' | 'bracket';
+type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard' | 'bracket' | 'stats';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -140,6 +141,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     handleViewPrizePoolTransactions,
   } = usePrizePoolManagement({ refetchPrizePool });
 
+  // Stats tab only shown when there's at least one non-scramble round — scramble
+  // rounds have no individual hole scores, so individual aggregation is meaningless.
+  // Must be declared before any early returns to satisfy rules-of-hooks.
+  const showStatsTab = useMemo(() => {
+    const roundsList = competitionData?.rounds ?? [];
+    return (
+      roundsList.length > 0 &&
+      roundsList.some((r) => r.game_type !== 'scramble')
+    );
+  }, [competitionData]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -199,6 +211,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           { key: 'rounds', label: 'Rounds' },
           { key: 'players', label: 'Players' },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
+          ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
           ...(competition.competition_type === 'knockout'
             ? [{ key: 'bracket' as const, label: 'Bracket' }]
             : [{ key: 'leaderboard' as const, label: 'Leaderboard' }]),
@@ -286,6 +299,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onUpdateTeamName={handleUpdateTeamName}
             colors={colors}
           />
+        )}
+
+        {activeTab === 'stats' && showStatsTab && (
+          <StatsTab competitionId={id} />
         )}
 
         {activeTab === 'leaderboard' && competition.competition_type !== 'knockout' && (

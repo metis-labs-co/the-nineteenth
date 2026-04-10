@@ -290,6 +290,39 @@ export function useRoundPlayers(roundId: string) {
   });
 }
 
+/**
+ * Fetch every per-player tee override for a round. Returns a Map keyed by
+ * `player_id` → `TeeBox | null`. Consumers typically resolve
+ * `override ?? rounds.selected_tee` to get a player's effective tee.
+ *
+ * Useful for the Details tab (show current user's effective tee) and the
+ * Edit Tees sheet (seed current selections).
+ */
+async function fetchRoundPlayerTees(roundId: string): Promise<Map<string, TeeBox | null>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
+  const { data, error } = await (supabase.from('round_players') as any)
+    .select('player_id, selected_tee')
+    .eq('round_id', roundId);
+  if (error) {
+    throw new Error(`Failed to fetch round player tees: ${error.message}`);
+  }
+  const map = new Map<string, TeeBox | null>();
+  for (const row of (data ?? []) as { player_id: string; selected_tee: TeeBox | null }[]) {
+    map.set(row.player_id, row.selected_tee);
+  }
+  return map;
+}
+
+export function useRoundPlayerTees(roundId: string) {
+  return useQuery({
+    queryKey: [...roundKeys.detail(roundId), 'player-tees'],
+    queryFn: () => fetchRoundPlayerTees(roundId),
+    enabled: !!roundId,
+    staleTime: CACHE_TIMES.MODERATE,
+    gcTime: GC_TIMES.STANDARD,
+  });
+}
+
 // =====================================================
 // HOOK - Game Results
 // =====================================================

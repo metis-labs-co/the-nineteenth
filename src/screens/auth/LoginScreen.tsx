@@ -136,7 +136,13 @@ export default function LoginScreen({ navigation }: Props) {
       navigation.navigate('OTPVerification', { email });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      if (errorMessage.includes('rate limit')) {
+      if (
+        errorMessage.includes('Signups not allowed') ||
+        errorMessage.includes('User not found') ||
+        errorMessage.includes('not found')
+      ) {
+        setError('No account found for this email. Please sign up first.');
+      } else if (errorMessage.includes('rate limit')) {
         setError('Too many requests. Please wait a moment and try again.');
       } else {
         setError(errorMessage || 'Failed to send code. Please try again.');

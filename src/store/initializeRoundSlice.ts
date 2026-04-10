@@ -12,6 +12,7 @@ import {
   saveHoles,
   getHoles,
 } from '@/services/offline/database';
+import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
 import { isValidUUID } from './utils/scorecardCalculations';
 
@@ -169,12 +170,70 @@ export async function loadFromOffline(
       }
     }
 
+    // Restore tee + game context from persisted scorecard metadata +
+    // a lightweight query to the rounds table. Without this, a mid-round
+    // resume after an app kill would submit with teeData=null, causing
+    // sync to skip the handicap snapshot (see calculateHandicapData).
+    //
+    // Strategy:
+    //  1. Use the first scorecard's persisted teeData as the default
+    //     selectedTeeData and build playerTeeMap from each scorecard.
+    //  2. Fall back to rounds.selected_tee from Supabase if scorecards
+    //     have no teeData yet (e.g. round was created but not submitted
+    //     before the app was killed).
+    //  3. Pull game_type / handicap_source / nine_type from the rounds
+    //     row so stableford/par/stroke scoring uses the right calc.
+    //
+    // All supabase reads live behind a try/catch so offline-first
+    // behaviour still works when there's no network — we just fall
+    // back to sensible defaults.
+    let selectedTeeData: TeeBox | null = null;
+    const playerTeeMap = new Map<string, TeeBox>();
+    for (const sc of scorecards) {
+      if (sc.teeData) {
+        playerTeeMap.set(sc.playerId, sc.teeData);
+        if (!selectedTeeData) selectedTeeData = sc.teeData;
+      }
+    }
+
+    let gameType: GameType = 'stableford';
+    let handicapSource: HandicapSource = 'profile';
+    let nineType: NineType = 'full';
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
+      const { data: roundData } = await (supabase.from('rounds') as any)
+        .select('game_type, handicap_source, nine_type, selected_tee')
+        .eq('id', roundId)
+        .maybeSingle();
+
+      if (roundData) {
+        if (roundData.game_type) gameType = roundData.game_type as GameType;
+        if (roundData.handicap_source) handicapSource = roundData.handicap_source as HandicapSource;
+        if (roundData.nine_type) nineType = roundData.nine_type as NineType;
+        // If no scorecard had persisted teeData, fall back to the round's default
+        if (!selectedTeeData && roundData.selected_tee) {
+          selectedTeeData = roundData.selected_tee as TeeBox;
+        }
+      }
+    } catch (err) {
+      storeLogger.warn('Could not fetch round metadata during offline load — using defaults', {
+        roundId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     set({
       currentRoundId: roundId,
       currentPlayers: players,
       currentHole,
       holes,
       groupScorecards: newScorecards,
+      selectedTeeData,
+      playerTeeMap,
+      gameType,
+      handicapSource,
+      nineType,
       isLoading: false,
       isInitialized: true,
     });
@@ -183,6 +242,9 @@ export async function loadFromOffline(
       roundId,
       playerCount: players.length,
       resumeAtHole: currentHole,
+      hasTeeData: !!selectedTeeData,
+      gameType,
+      nineType,
     });
     return true;
   } catch (error) {

@@ -169,7 +169,7 @@ export function useAuthMutations() {
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: true },
+        options: { shouldCreateUser: false },
       });
 
       if (error) {

@@ -73,6 +73,18 @@ jest.mock('@/hooks/wolf', () => ({
   useWolfGameByRound: () => ({ data: null }),
 }));
 
+// Mock per-player tee overrides — default to no overrides so the Details
+// tab falls back to round.selected_tee (matches pre-existing test
+// expectations).
+jest.mock('@/hooks/rounds', () => ({
+  useRoundPlayerTees: () => ({ data: new Map() }),
+}));
+
+// Mock auth — tests don't care about the current user for this tab.
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ player: null, user: null }),
+}));
+
 // Mock StatusBadge
 jest.mock('@/components/common/StatusBadge', () => {
   const { View, Text } = require('react-native');

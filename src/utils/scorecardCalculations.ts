@@ -138,18 +138,29 @@ export function calculatePlayerStats(
     const player = playerData.player;
     const scores = playerData.scores;
 
-    // Base handicap: prefer historical snapshot (ga_handicap_used) over current profile.
-    // Falls back to getBaseHandicap(handicapSource) when no snapshot exists
-    // (in-progress rounds, legacy rounds synced before snapshots were added).
-    const liveHandicap = getBaseHandicap(player, handicapSource);
-    const handicap = playerData.storedGaHandicap ?? liveHandicap;
+    // Stored snapshot fields (ga_handicap_used, daily_handicap_used,
+    // total_points) must be used as a COUPLED SET. They are written
+    // together by the sync pipeline (calculateHandicapData +
+    // calculateTotalPoints) from the same dailyHandicap. Trusting only
+    // one of them leads to internally inconsistent views (e.g.
+    // front9 + back9 ≠ total when the stored total was computed with
+    // a different handicap than what we're live-recomputing here).
+    //
+    // If any piece of the snapshot is missing, fall through to a fully
+    // live recomputation.
+    const hasFullSnapshot =
+      playerData.storedGaHandicap != null &&
+      playerData.storedDailyHandicap != null &&
+      playerData.storedTotalPoints != null;
 
-    // Daily handicap: prefer historical snapshot (daily_handicap_used) over recomputation.
-    // The stored value is what sync used to compute total_points, so reading it
-    // keeps the scorecard view consistent with the round list card.
+    const liveHandicap = getBaseHandicap(player, handicapSource);
+    const handicap = hasFullSnapshot
+      ? (playerData.storedGaHandicap as number)
+      : liveHandicap;
+
     let dailyHandicap = handicap;
-    if (playerData.storedDailyHandicap != null) {
-      dailyHandicap = playerData.storedDailyHandicap;
+    if (hasFullSnapshot) {
+      dailyHandicap = playerData.storedDailyHandicap as number;
     } else if (
       handicapSource !== 'none' &&
       selectedTee?.slopeRating &&
@@ -202,10 +213,12 @@ export function calculatePlayerStats(
     // Use daily handicap for net score calculation
     const totalNet = totalGross - dailyHandicap;
     const computedTotalStableford = front9Stableford + back9Stableford;
-    // Prefer the stored total_points snapshot when available so the view
-    // matches the round list card and leaderboards exactly. Falls back to
-    // the per-hole sum (which itself is computed with the stored DHC).
-    const totalStableford = playerData.storedTotalPoints ?? computedTotalStableford;
+    // Use the stored total_points only when we also trusted the stored
+    // snapshot DHC above. Otherwise use the per-hole sum computed with
+    // the live DHC — this guarantees F9 + B9 = grand total on the UI.
+    const totalStableford = hasFullSnapshot
+      ? (playerData.storedTotalPoints as number)
+      : computedTotalStableford;
     const totalParScore = front9ParScore + back9ParScore;
 
     return {

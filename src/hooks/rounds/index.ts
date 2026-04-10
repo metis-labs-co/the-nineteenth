@@ -52,6 +52,7 @@ export {
   useRoundDetails,
   useRoundScorecards,
   useRoundPlayers,
+  useRoundPlayerTees,
   useGameResults,
   // Types
 } from './queries';
@@ -69,11 +70,12 @@ export type {
 } from './queries';
 
 // Re-export mutation hooks and types
-export { useDeleteRound } from './mutations';
+export { useDeleteRound, useUpdatePlayerTee } from './mutations';
 
 export type {
   DeleteRoundInput,
   DeleteRoundResult,
+  UpdatePlayerTeeInput,
 } from './mutations';
 
 // Re-export leaderboard hooks, types, and type guards

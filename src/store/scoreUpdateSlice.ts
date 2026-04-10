@@ -9,7 +9,8 @@
  * 5. Persist to SQLite
  */
 
-import { Scorecard, HoleScore, Hole, GameType, HoleShotContributions } from '@/types';
+import { Scorecard, HoleScore, Hole, GameType, HoleShotContributions, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database';
 import { isSingleBallScore } from '@/types/database/base';
 import { saveScoreEntry } from '@/services/scoreMismatch';
 import { storeLogger } from '@/utils/debugLogger';
@@ -22,6 +23,9 @@ interface StoreState {
   gameType: GameType;
   allowedPlayerIds: string[];
   currentRoundId: string | null;
+  selectedTeeData: TeeBox | null;
+  playerTeeMap: Map<string, TeeBox>;
+  handicapSource: HandicapSource;
 }
 
 type GetFn = () => StoreState;
@@ -37,6 +41,7 @@ function applyScoreUpdate(
   holes: Hole[],
   gameType: GameType,
   set: SetFn,
+  state: Pick<StoreState, 'selectedTeeData' | 'playerTeeMap' | 'handicapSource'>,
 ): Scorecard {
   const updatedScorecard: Scorecard = {
     ...scorecard,
@@ -47,7 +52,13 @@ function applyScoreUpdate(
     updatedAt: new Date(),
   };
 
-  const totals = calculatePlayerTotals(updatedScorecard, holes, gameType);
+  // Resolve the player's effective tee (per-player override ∨ round default)
+  // so the totals calc can compute WHS DHC instead of using raw profile HC.
+  const playerTee = state.playerTeeMap.get(playerId) ?? state.selectedTeeData;
+  const totals = calculatePlayerTotals(updatedScorecard, holes, gameType, {
+    selectedTee: playerTee,
+    handicapSource: state.handicapSource,
+  });
   updatedScorecard.totalGross = totals.gross;
   updatedScorecard.totalNet = totals.net;
   updatedScorecard.total_par_score = totals.parScore;
@@ -67,7 +78,16 @@ export async function setPlayerScore(
   strokes: number,
   scoredBy?: string,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType, allowedPlayerIds, currentRoundId } = get();
+  const {
+    groupScorecards,
+    holes,
+    gameType,
+    allowedPlayerIds,
+    currentRoundId,
+    selectedTeeData,
+    playerTeeMap,
+    handicapSource,
+  } = get();
 
   storeLogger.debug('Setting player score', {
     playerId: playerId.substring(0, 8) + '...',
@@ -110,7 +130,11 @@ export async function setPlayerScore(
     shotContributions: existingSingleBall?.shotContributions,
   };
 
-  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set);
+  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set, {
+    selectedTeeData,
+    playerTeeMap,
+    handicapSource,
+  });
 
   // Persist to SQLite only — sync is deferred to submission time to avoid
   // excessive intermediate syncs (up to 72 for a 4-player round) that can
@@ -145,7 +169,7 @@ export async function updatePlayerHoleScore(
   hole: number,
   updates: Partial<HoleScore>,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType, allowedPlayerIds } = get();
+  const { groupScorecards, holes, gameType, allowedPlayerIds, selectedTeeData, playerTeeMap, handicapSource } = get();
 
   if (allowedPlayerIds.length > 0 && !allowedPlayerIds.includes(playerId)) {
     storeLogger.warn('Player not in allowed list, rejecting hole score update', { playerId });
@@ -168,7 +192,11 @@ export async function updatePlayerHoleScore(
     ...updates,
   };
 
-  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set);
+  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set, {
+    selectedTeeData,
+    playerTeeMap,
+    handicapSource,
+  });
 
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
@@ -184,7 +212,7 @@ export async function updateShotContributions(
   hole: number,
   contributions: HoleShotContributions,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType } = get();
+  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource } = get();
 
   storeLogger.debug('Updating shot contributions', {
     playerId: playerId.substring(0, 8) + '...',
@@ -208,7 +236,11 @@ export async function updateShotContributions(
     shotContributions: contributions,
   };
 
-  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set);
+  const updatedScorecard = applyScoreUpdate(scorecard, playerId, hole, holeScore, groupScorecards, holes, gameType, set, {
+    selectedTeeData,
+    playerTeeMap,
+    handicapSource,
+  });
 
   const saved = await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
@@ -232,7 +264,7 @@ export async function updateLocalScore(
   holeNumber: number,
   strokes: number,
 ): Promise<void> {
-  const { groupScorecards, holes, gameType } = get();
+  const { groupScorecards, holes, gameType, selectedTeeData, playerTeeMap, handicapSource } = get();
 
   storeLogger.debug('Updating local score after resolution', {
     roundId: roundId.substring(0, 8) + '...',
@@ -259,7 +291,11 @@ export async function updateLocalScore(
     scoredBy: existingSingleBall?.scoredBy,
   };
 
-  const updatedScorecard = applyScoreUpdate(scorecard, playerId, holeNumber, holeScore, groupScorecards, holes, gameType, set);
+  const updatedScorecard = applyScoreUpdate(scorecard, playerId, holeNumber, holeScore, groupScorecards, holes, gameType, set, {
+    selectedTeeData,
+    playerTeeMap,
+    handicapSource,
+  });
 
   const saved = await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber, score: holeScore },

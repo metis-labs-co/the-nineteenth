@@ -22,6 +22,8 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, skinsColor, wolfColor } from '@/constants/theme';
 import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
+import { useRoundPlayerTees } from '@/hooks/rounds';
+import { useAuth } from '@/hooks/useAuth';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
@@ -45,6 +47,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const useMetres = distanceUnit === 'metres';
   const holes = Array.isArray(round.course?.holes) ? round.course.holes : [];
+  const { player } = useAuth();
 
   // Check if round has an active skins game
   const { data: skinsGames } = useSkinsGamesByRound(round.id);
@@ -54,15 +57,33 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const { data: wolfGame } = useWolfGameByRound(round.id);
   const hasWolf = !!wolfGame;
 
+  // Per-player tee overrides (round_players.selected_tee). Used to show
+  // the CURRENT user's effective tee in the Tee row rather than the
+  // round-level default — necessary because players in a group round
+  // can play different tees, and edits made via the Edit Tees sheet only
+  // touch round_players, not rounds.selected_tee.
+  const { data: roundPlayerTees } = useRoundPlayerTees(round.id);
+
+  // Effective tee for the current user on this round. Prefers a
+  // per-player override (round_players.selected_tee) and falls back to
+  // the round-level default (rounds.selected_tee). When neither exists
+  // the display shows "Not set" (no fallback to the first course tee —
+  // that preserves the pre-existing "Not set" behaviour).
+  const effectiveTee = useMemo(() => {
+    const currentUserOverride = player?.id ? roundPlayerTees?.get(player.id) : null;
+    return currentUserOverride ?? round.selected_tee ?? null;
+  }, [player?.id, roundPlayerTees, round.selected_tee]);
+
   // Get selected tee from round, or fall back to course default/first available
   const { totalPar, selectedTeeName } = useMemo(() => {
     const rawHoles = round.course?.holes;
     const courseHoles = Array.isArray(rawHoles) ? rawHoles : [];
 
-    // Priority: round.selected_tee > first course tee > first yardage key
+    // Priority: effective tee (per-player override ∨ round default) >
+    // first course tee > first yardage key
     let teeName: string | null = null;
-    if (round.selected_tee?.name) {
-      teeName = round.selected_tee.name;
+    if (effectiveTee?.name) {
+      teeName = effectiveTee.name;
     } else if (round.course?.tees?.[0]?.name) {
       teeName = round.course.tees[0].name;
     } else if (courseHoles[0]?.yardages) {
@@ -72,7 +93,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     const par = courseHoles.reduce((sum, hole) => sum + (hole.par || 0), 0);
 
     return { totalPar: par, selectedTeeName: teeName };
-  }, [round.course?.holes, round.course?.tees, round.selected_tee]);
+  }, [round.course?.holes, round.course?.tees, effectiveTee]);
 
   // Location comes from the club
   const club = round.course?.club;
@@ -250,7 +271,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
             <View style={styles.detailContent}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Tee</Text>
               <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                {round.selected_tee?.name || 'Not set'}
+                {effectiveTee?.name || 'Not set'}
               </Text>
             </View>
           </View>

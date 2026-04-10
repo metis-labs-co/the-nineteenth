@@ -16,6 +16,9 @@ export type { PlayersTabProps } from './PlayersTab';
 export { TeamsTab } from './TeamsTab';
 export type { TeamsTabProps } from './TeamsTab';
 
+export { StatsTab } from './StatsTab';
+export type { StatsTabProps } from './StatsTab';
+
 // Note: LeaderboardTab has been moved to @/components/leaderboard
 export { LeaderboardTab } from '@/components/leaderboard';
 export type { LeaderboardTabProps } from '@/components/leaderboard';
