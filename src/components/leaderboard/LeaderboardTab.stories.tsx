@@ -83,6 +83,7 @@ function createMockRound(
       golfapi_updated_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      api_locked: false,
     },
     ...overrides,
   };

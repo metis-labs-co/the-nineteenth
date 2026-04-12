@@ -5,10 +5,13 @@
  * - Player Groups (Pairings with tee times)
  * - Scoring Pairs (Premium feature for competitive rounds)
  * - Skins Game (Side betting game)
- * - Wolf Game (Strategic partner selection game)
  *
  * Visible to organizers always (to configure), and to players
  * when features are already configured (read-only).
+ *
+ * Note: Wolf game results are displayed on the dedicated Wolf tab of
+ * ViewRoundScreen, not here. The settings screen intentionally omits
+ * wolf scorecard/standings to keep it focused on configuration.
  */
 
 import React from 'react';
@@ -20,7 +23,6 @@ import {
   PairingsSection,
   ScoringPairsSection,
   SkinsGameSection,
-  WolfGameSection,
 } from './RoundDetailsTab/components';
 import type { RoundWithCourse } from '@/hooks/useRoundDetails';
 import type { RoundStatus } from '@/types/database/enums';
@@ -33,7 +35,6 @@ export interface RoundGameSetupTabProps {
   players?: Player[];
   onScoringPairsEditPress?: () => void;
   onSkinsEditPress?: () => void;
-  onWolfEditPress?: () => void;
 }
 
 export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
@@ -42,7 +43,6 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   players = [],
   onScoringPairsEditPress,
   onSkinsEditPress,
-  onWolfEditPress,
 }: RoundGameSetupTabProps) {
   const colors = useThemeColors();
 
@@ -81,14 +81,6 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
         roundStatus={round.status as RoundStatus}
         cardBackground={colors.surface}
         onEditPress={isOrganizer ? onSkinsEditPress : undefined}
-      />
-
-      {/* Wolf Game Section */}
-      <WolfGameSection
-        roundId={round.id}
-        roundStatus={round.status as RoundStatus}
-        cardBackground={colors.surface}
-        onEditPress={isOrganizer ? onWolfEditPress : undefined}
       />
     </View>
   );

@@ -645,6 +645,7 @@ export type Database = {
       }
       courses: {
         Row: {
+          api_locked: boolean
           club_id: string
           course_rating: number | null
           created_at: string | null
@@ -665,6 +666,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          api_locked?: boolean
           club_id: string
           course_rating?: number | null
           created_at?: string | null
@@ -685,6 +687,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          api_locked?: boolean
           club_id?: string
           course_rating?: number | null
           created_at?: string | null

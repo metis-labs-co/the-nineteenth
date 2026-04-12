@@ -69,6 +69,20 @@ export async function cacheTees(courseId: string, tees: TeeInsert[]): Promise<Te
     return [];
   }
 
+  // Skip update if course is locked from API changes
+  const { data: courseRow } = await supabase
+    .from('courses')
+    .select('*')
+    .eq('id', courseId)
+    .single();
+  if ((courseRow as { api_locked?: boolean } | null)?.api_locked) {
+    const { data: existingTees } = await supabase
+      .from('tees')
+      .select('*')
+      .eq('course_id', courseId);
+    return (existingTees as Tee[]) || [];
+  }
+
   const results: Tee[] = [];
 
   // Get existing tees by GolfAPI IDs for upsert logic

@@ -343,6 +343,7 @@ export function useCourseDetails(courseId: string, options?: UseCourseDetailsOpt
         tees_migrated: courseData.tees_migrated as boolean | null,
         slope_rating: courseData.slope_rating as number | null,
         course_rating: courseData.course_rating as number | null,
+        api_locked: (courseData.api_locked as boolean) ?? false,
         golfapi_updated_at: courseData.golfapi_updated_at as string | null,
         created_at: courseData.created_at as string,
         updated_at: courseData.updated_at as string,

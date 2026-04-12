@@ -372,7 +372,8 @@ export function useFriendStats(friendId: string) {
             competition:competitions(name)
           )
         `)
-        .eq('player_id', friendId);
+        .eq('player_id', friendId)
+        .in('status', ['completed', 'confirmed']);
 
       if (error) {
         console.error('Error fetching friend stats:', error);

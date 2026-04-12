@@ -52,6 +52,11 @@ class CourseCacheService {
       const now = new Date().toISOString();
 
       if (existingCourse) {
+        // Skip update if course is locked from API changes
+        if (existingCourse.api_locked) {
+          return existingCourse as Course;
+        }
+
         // Update existing course
         // Note: num_holes is not stored in DB - computed from holes array length
         const updateData: CourseUpdateDb = {

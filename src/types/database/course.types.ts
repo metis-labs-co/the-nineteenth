@@ -103,6 +103,9 @@ export interface Course {
   slope_rating: number | null; // NUMERIC(4,1)
   course_rating: number | null; // NUMERIC(4,1)
 
+  // API lock
+  api_locked: boolean; // When true, prevents API sync from overwriting this course
+
   // Metadata
   golfapi_updated_at: string | null; // Last update from GolfAPI.io
   created_at: string; // ISO timestamp
