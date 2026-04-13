@@ -1,5 +1,3 @@
-import type { TabItem } from '@/components/common/Tabs';
-
 export type TabKey =
   | 'details'
   | 'scorecard'
@@ -13,8 +11,3 @@ export type TabKey =
   | 'scrambleLeaderboard'
   | 'scrambleContributions'
   | 'leaderboard';
-
-export const BASE_TABS: TabItem<TabKey>[] = [
-  { key: 'details', label: 'Details' },
-  { key: 'scorecard', label: 'Scorecard' },
-];

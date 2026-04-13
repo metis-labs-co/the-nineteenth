@@ -164,10 +164,13 @@ export async function syncScorecard(
   // Calculate correct Stableford points using daily handicap and hole data
   const totalPoints = calculateTotalPoints(scorecard, handicapData.dailyHandicapUsed);
 
-  // For Stableford, the store sets totalNet = totalPoints (incorrect for DB storage).
-  // Correct total_net should be gross - daily handicap.
-  const isStableford = scorecard.syncGameType === 'stableford';
-  const totalNet = isStableford && handicapData.dailyHandicapUsed != null
+  // total_net must equal gross - daily_handicap_used to stay consistent with
+  // calculatePlayerStats (the scorecard view). When the sync pipeline has a
+  // daily handicap, derive it here rather than trusting the store's live total,
+  // which can drift if tee/handicap context was missing during score entry.
+  // (For Stableford the store also overloads totalNet = totalPoints, so this
+  // correction was already required there — now it applies to all game types.)
+  const totalNet = handicapData.dailyHandicapUsed != null
     ? (scorecard.totalGross || 0) - handicapData.dailyHandicapUsed
     : scorecard.totalNet || 0;
 

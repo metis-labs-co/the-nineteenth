@@ -386,6 +386,7 @@ export function useRoundList(): UseRoundListReturn {
             total_gross: number | null;
             total_net: number | null;
             total_points: number | null;
+            daily_handicap_used: number | null;
             status: string;
           }
 
@@ -397,6 +398,7 @@ export function useRoundList(): UseRoundListReturn {
               total_gross,
               total_net,
               total_points,
+              daily_handicap_used,
               status
             `)
             .eq('player_id', user.id)
@@ -409,9 +411,16 @@ export function useRoundList(): UseRoundListReturn {
             const scorecardsByRound = new Map<string, UserScoreData>();
             for (const sc of scorecardsData as ScorecardRow[]) {
               const isCompleted = sc.status === 'completed' || sc.status === 'confirmed';
+              // Derive net from daily_handicap_used to match calculatePlayerStats
+              // (the scorecard view). Falls back to stored total_net when the
+              // handicap snapshot is missing (e.g. handicapSource='none').
+              const derivedNet =
+                sc.daily_handicap_used != null && sc.total_gross != null
+                  ? sc.total_gross - sc.daily_handicap_used
+                  : sc.total_net;
               scorecardsByRound.set(sc.round_id, {
                 totalGross: sc.total_gross,
-                totalNet: sc.total_net,
+                totalNet: derivedNet,
                 totalPoints: sc.total_points,
                 hasScorecard: isCompleted,
                 matchResult: null, // TODO: Add match play result fetching if needed
@@ -515,6 +524,7 @@ export function useRoundList(): UseRoundListReturn {
             total_gross: number | null;
             total_net: number | null;
             total_points: number | null;
+            daily_handicap_used: number | null;
             player: { id: string; name: string } | null;
           }
 
@@ -527,6 +537,7 @@ export function useRoundList(): UseRoundListReturn {
               total_gross,
               total_net,
               total_points,
+              daily_handicap_used,
               player:players!player_id(
                 id,
                 name
@@ -632,7 +643,22 @@ interface ScorecardForWinner {
   total_gross: number | null;
   total_net: number | null;
   total_points: number | null;
+  daily_handicap_used: number | null;
   player: { id: string; name: string } | null;
+}
+
+/**
+ * Derive net score the same way the scorecard view does:
+ * `total_gross - daily_handicap_used` when the handicap snapshot is
+ * available. Falls back to the stored `total_net` otherwise. See the
+ * matching logic in `useRoundList` scorecard mapping and
+ * `src/utils/scorecardCalculations.ts:calculatePlayerStats`.
+ */
+function deriveNetScore(sc: ScorecardForWinner): number | null {
+  if (sc.daily_handicap_used != null && sc.total_gross != null) {
+    return sc.total_gross - sc.daily_handicap_used;
+  }
+  return sc.total_net;
 }
 
 function determineWinner(
@@ -663,9 +689,13 @@ function determineWinner(
 
     case 'stroke':
     case 'scramble':
-      // Lowest net score wins (use gross if net not available)
+      // Lowest net score wins. Derive net from daily_handicap_used to
+      // stay consistent with the scorecard view — the stored total_net
+      // column can drift if the Zustand store lacked tee/handicap
+      // context at score-entry time. Fall back to stored net, then
+      // gross, if no handicap snapshot is available.
       for (const sc of validScorecards) {
-        const score = sc.total_net ?? sc.total_gross ?? 999;
+        const score = deriveNetScore(sc) ?? sc.total_gross ?? 999;
         if (!winner || score < winningScore) {
           winner = sc;
           winningScore = score;

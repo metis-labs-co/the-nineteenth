@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { TabItem } from '@/components/common/Tabs';
-import { BASE_TABS, type TabKey } from '../types';
+import type { TabKey } from '../types';
 
 interface UseViewRoundTabsParams {
   isMatchPlayRound: boolean;
@@ -15,6 +15,16 @@ interface UseViewRoundTabsParams {
   playerCount: number;
 }
 
+/**
+ * Tab order for the View Round screen:
+ *   Details → Leaderboard (stroke play) → Scorecard → Match/Team tabs →
+ *   Scramble suite → Skins → Wolf → Payouts → Stats (always last)
+ *
+ * Rationale: on a multi-player stroke play round the leaderboard is the
+ * first thing players want to see, and Stats is a personal deep-dive that
+ * belongs at the end rather than sandwiched between Scorecard and the
+ * group-level tabs.
+ */
 export function useViewRoundTabs({
   isMatchPlayRound,
   isTeamMatchPlayRound,
@@ -28,44 +38,49 @@ export function useViewRoundTabs({
   playerCount,
 }: UseViewRoundTabsParams) {
   return useMemo<TabItem<TabKey>[]>(() => {
-    const baseTabs = isScrambleRound
-      ? BASE_TABS.filter((tab) => tab.key !== 'scorecard')
-      : [...BASE_TABS];
+    const result: TabItem<TabKey>[] = [{ key: 'details', label: 'Details' }];
 
-    const result: TabItem<TabKey>[] = baseTabs;
+    // Stroke play leaderboard — show right after Details so it's the
+    // first thing after the round header for multi-player stroke rounds.
+    if (isStrokePlayRound && playerCount > 1) {
+      result.push({ key: 'leaderboard', label: 'Leaderboard' });
+    }
 
-    if (hasStats) {
-      result.push({ key: 'stats' as const, label: 'Stats' });
+    // Scorecard (scramble rounds have their own dedicated scorecard tab
+    // in the scramble suite below).
+    if (!isScrambleRound) {
+      result.push({ key: 'scorecard', label: 'Scorecard' });
     }
 
     if (isMatchPlayRound || isTeamMatchPlayRound) {
-      result.push({ key: 'match' as const, label: 'Match' });
+      result.push({ key: 'match', label: 'Match' });
     }
 
     if (isShambleRound) {
-      result.push({ key: 'teamScores' as const, label: 'Team Scores' });
+      result.push({ key: 'teamScores', label: 'Team Scores' });
     }
 
     if (isScrambleRound) {
-      result.push({ key: 'scrambleTeamScore' as const, label: 'Scorecard' });
-      result.push({ key: 'scrambleLeaderboard' as const, label: 'Leaderboard' });
-      result.push({ key: 'scrambleContributions' as const, label: 'Contributions' });
-    }
-
-    if (isStrokePlayRound && playerCount > 1) {
-      result.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      result.push({ key: 'scrambleTeamScore', label: 'Scorecard' });
+      result.push({ key: 'scrambleLeaderboard', label: 'Leaderboard' });
+      result.push({ key: 'scrambleContributions', label: 'Contributions' });
     }
 
     if (hasSkinsGame) {
-      result.push({ key: 'skins' as const, label: 'Skins' });
+      result.push({ key: 'skins', label: 'Skins' });
     }
 
     if (hasWolfGame) {
-      result.push({ key: 'wolf' as const, label: 'Wolf' });
+      result.push({ key: 'wolf', label: 'Wolf' });
     }
 
     if (hasPayoutsTab) {
-      result.push({ key: 'payouts' as const, label: 'Payouts' });
+      result.push({ key: 'payouts', label: 'Payouts' });
+    }
+
+    // Stats always last — it's a personal deep-dive, not group state.
+    if (hasStats) {
+      result.push({ key: 'stats', label: 'Stats' });
     }
 
     return result;

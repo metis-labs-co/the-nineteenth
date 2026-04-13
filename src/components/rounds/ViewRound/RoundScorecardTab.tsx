@@ -64,13 +64,17 @@ interface IndividualScorecardViewProps {
   holes: Hole[];
   /** Selected tee data for daily handicap calculation */
   selectedTeeData?: TeeBox | null;
+  /** Game type — used to hide the Stableford Pts row for stroke play */
+  gameType?: string;
 }
 
 const IndividualScorecardView = React.memo(function IndividualScorecardView({
   displayPlayers,
   holes,
   selectedTeeData,
+  gameType,
 }: IndividualScorecardViewProps) {
+  const showStableford = gameType !== 'stroke';
   const colors = useThemeColors();
 
   const { front9, back9 } = useMemo(() => splitHolesByNine(holes), [holes]);
@@ -174,30 +178,32 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
             </View>
           </View>
 
-          {/* Stableford Row */}
-          <View style={[individualStyles.row, { backgroundColor: colors.primary }]}>
-            <View style={[individualStyles.labelCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
-              <Text style={[individualStyles.labelText, { color: colors.textOnColored }]}>Pts</Text>
+          {/* Stableford Row — hidden for stroke play (points aren't meaningful) */}
+          {showStableford && (
+            <View style={[individualStyles.row, { backgroundColor: colors.primary }]}>
+              <View style={[individualStyles.labelCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
+                <Text style={[individualStyles.labelText, { color: colors.textOnColored }]}>Pts</Text>
+              </View>
+              {holeList.map((hole) => {
+                const score = scores?.[String(hole.number)];
+                const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
+                const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+                const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
+                return (
+                  <View key={hole.number} style={individualStyles.cell}>
+                    <Text style={[individualStyles.cellText, { color: colors.textOnColored }]}>
+                      {strokes > 0 ? points : '-'}
+                    </Text>
+                  </View>
+                );
+              })}
+              <View style={[individualStyles.totalCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
+                <Text style={[individualStyles.totalText, { color: colors.textOnColored }]}>
+                  {nineStableford}
+                </Text>
+              </View>
             </View>
-            {holeList.map((hole) => {
-              const score = scores?.[String(hole.number)];
-              const strokes = score && isSingleBallScore(score) ? score.strokes : 0;
-              const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
-              const points = strokes > 0 ? calculateStablefordPointsNet(strokes, hole.par, strokesReceived) : 0;
-              return (
-                <View key={hole.number} style={individualStyles.cell}>
-                  <Text style={[individualStyles.cellText, { color: colors.textOnColored }]}>
-                    {strokes > 0 ? points : '-'}
-                  </Text>
-                </View>
-              );
-            })}
-            <View style={[individualStyles.totalCell, { backgroundColor: colors.primaryDark || colors.primary }]}>
-              <Text style={[individualStyles.totalText, { color: colors.textOnColored }]}>
-                {nineStableford}
-              </Text>
-            </View>
-          </View>
+          )}
 
         </View>
       );
@@ -228,12 +234,14 @@ const IndividualScorecardView = React.memo(function IndividualScorecardView({
                 {stats.totalNet ? Math.ceil(stats.totalNet) : '-'}
               </Text>
             </View>
-            <View style={[individualStyles.totalItem, individualStyles.stablefordTotal, { backgroundColor: colors.primary }]}>
-              <Text style={[individualStyles.totalLabel, { color: colors.textOnColored }]}>Pts</Text>
-              <Text style={[individualStyles.stablefordValue, { color: colors.textOnColored }]}>
-                {stats.totalStableford}
-              </Text>
-            </View>
+            {showStableford && (
+              <View style={[individualStyles.totalItem, individualStyles.stablefordTotal, { backgroundColor: colors.primary }]}>
+                <Text style={[individualStyles.totalLabel, { color: colors.textOnColored }]}>Pts</Text>
+                <Text style={[individualStyles.stablefordValue, { color: colors.textOnColored }]}>
+                  {stats.totalStableford}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -379,6 +387,7 @@ export const RoundScorecardTab = React.memo(function RoundScorecardTab({
           displayPlayers={displayPlayers}
           holes={courseHoles}
           selectedTeeData={selectedTeeData}
+          gameType={gameType}
         />
       )}
 

@@ -71,6 +71,8 @@ export const ScorecardTable = React.memo(function ScorecardTable({
   const isSoloRound = players.length === 1;
   const showSoloStableford = isSoloRound && (!gameType || gameType === 'stableford') && scoreDisplayMode !== 'points';
   const soloPlayer = isSoloRound ? players[0] : null;
+  // Stableford Pts row is meaningless for stroke play — hide it entirely.
+  const showStablefordRow = gameType !== 'stroke';
 
   // Calculate how many extra columns are shown (for layout width reservation)
   const statsColumnCount = showSoloStableford ? 1 : 0;
@@ -144,9 +146,11 @@ export const ScorecardTable = React.memo(function ScorecardTable({
               <FixedNetCells />
             </View>
             {/* Pts */}
-            <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
-              <FixedStablefordCells gameType={gameType} />
-            </View>
+            {showStablefordRow && (
+              <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
+                <FixedStablefordCells gameType={gameType} />
+              </View>
+            )}
           </View>
 
           {/* Scrollable player columns */}
@@ -206,12 +210,14 @@ export const ScorecardTable = React.memo(function ScorecardTable({
                 {showSoloStableford && <SoloStablefordEmptyCell />}
               </View>
               {/* Pts */}
-              <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
-                <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} gameType={gameType} hideTotals={showSoloStableford} />
-                {showSoloStableford && playerStats[0] && (
-                  <SoloStablefordTotalCell playerStats={playerStats[0]} />
-                )}
-              </View>
+              {showStablefordRow && (
+                <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
+                  <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={playerCellWidth} gameType={gameType} hideTotals={showSoloStableford} />
+                  {showSoloStableford && playerStats[0] && (
+                    <SoloStablefordTotalCell playerStats={playerStats[0]} />
+                  )}
+                </View>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -289,13 +295,15 @@ export const ScorecardTable = React.memo(function ScorecardTable({
       </View>
 
       {/* Stableford row */}
-      <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
-        <FixedStablefordCells gameType={gameType} />
-        <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={flexPlayerWidth} gameType={gameType} hideTotals={showSoloStableford} />
-        {showSoloStableford && playerStats[0] && (
-          <SoloStablefordTotalCell playerStats={playerStats[0]} />
-        )}
-      </View>
+      {showStablefordRow && (
+        <View style={[styles.tableRow, styles.stablefordRow, { borderBottomColor: colors.border }]}>
+          <FixedStablefordCells gameType={gameType} />
+          <ScrollableStablefordCells playerStats={playerStats} playerCellWidth={flexPlayerWidth} gameType={gameType} hideTotals={showSoloStableford} />
+          {showSoloStableford && playerStats[0] && (
+            <SoloStablefordTotalCell playerStats={playerStats[0]} />
+          )}
+        </View>
+      )}
 
       <Portal>
         <HandicapInfoSheet visible={showHandicapInfo} onClose={() => setShowHandicapInfo(false)} />
