@@ -11,9 +11,9 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl } from 'react-native';
+import { StyleSheet, View, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
-import { Text, Badge } from 'react-native-paper';
+import { Text, Badge, Icon } from 'react-native-paper';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -25,7 +25,6 @@ import { useSubscriptionContext, useTierLimits } from '@/context/SubscriptionCon
 import { EmptyState, Tabs } from '@/components/common';
 import { ErrorState } from '@/components/common/ErrorState';
 import { PageHeader } from '@/components/common/PageHeader';
-import { SearchBar } from '@/components/common/SearchBar';
 import { FriendCard } from '@/components/social/FriendCard';
 import { FriendRequestCard } from '@/components/social/FriendRequestCard';
 import { SentRequestCard } from '@/components/social/SentRequestCard';
@@ -66,7 +65,6 @@ export default function FriendsScreen() {
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Subscription tier limits
   const tierLimits = useTierLimits();
@@ -154,19 +152,6 @@ export default function FriendsScreen() {
     setShowAddModal(false);
     setShowUpgradePrompt(true);
   }, []);
-
-  // Filter friends based on search query
-  const filteredFriends = React.useMemo(() => {
-    if (!friends || searchQuery.length === 0) {
-      return friends ?? [];
-    }
-    const query = searchQuery.toLowerCase();
-    return friends.filter(
-      (friend) =>
-        friend.name?.toLowerCase().includes(query) ||
-        friend.email?.toLowerCase().includes(query)
-    );
-  }, [friends, searchQuery]);
 
   const handleRefresh = useCallback(() => {
     refetchFriends();
@@ -280,10 +265,8 @@ export default function FriendsScreen() {
   }
 
   const hasFriends = friends && friends.length > 0;
-  const hasFilteredFriends = filteredFriends.length > 0;
   const hasReceivedRequests = friendRequests && friendRequests.length > 0;
   const hasSentRequests = sentRequests && sentRequests.length > 0;
-  const isSearchActive = searchQuery.length > 0;
 
   // Friends tab content
   const FriendsTabContent = () => (
@@ -299,41 +282,39 @@ export default function FriendsScreen() {
         />
       </View>
 
-      {/* Search Bar */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search friends..."
-        accessibilityLabel="Search friends by name or email"
-      />
+      {/* Add Friends Button */}
+      <TouchableOpacity
+        style={[
+          styles.addFriendsButton,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+        onPress={handleAddFriendPress}
+        accessibilityRole="button"
+        accessibilityLabel="Add friends"
+      >
+        <Icon source="account-plus" size={20} color={colors.primary} />
+        <Text style={[styles.addFriendsButtonText, { color: colors.textPrimary }]}>
+          Add Friends
+        </Text>
+      </TouchableOpacity>
 
       {/* Friends List Section */}
       {hasFriends ? (
-        hasFilteredFriends ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-              {isSearchActive
-                ? `${filteredFriends.length} ${filteredFriends.length === 1 ? 'Result' : 'Results'}`
-                : `${friends.length} ${friends.length === 1 ? 'Friend' : 'Friends'}`}
-            </Text>
-            <View style={styles.friendsList}>
-              {filteredFriends.map((friend) => (
-                <FriendCard
-                  key={friend.id}
-                  friend={friend}
-                  onPress={() => handleFriendPress(friend.id)}
-                  onRemove={() => handleRemoveFriend(friend.friendship_id)}
-                />
-              ))}
-            </View>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {`${friends.length} ${friends.length === 1 ? 'Friend' : 'Friends'}`}
+          </Text>
+          <View style={styles.friendsList}>
+            {friends.map((friend) => (
+              <FriendCard
+                key={friend.id}
+                friend={friend}
+                onPress={() => handleFriendPress(friend.id)}
+                onRemove={() => handleRemoveFriend(friend.friendship_id)}
+              />
+            ))}
           </View>
-        ) : (
-          <EmptyState
-            title="No friends found"
-            message={`No friends match "${searchQuery}"`}
-            icon="account-search-outline"
-          />
-        )
+        </View>
       ) : (
         <EmptyState
           title="No friends yet"
@@ -522,6 +503,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
+  },
+
+  // Add Friends button
+  addFriendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  addFriendsButtonText: {
+    ...typography.bodyBold,
   },
 
   // Friends List
