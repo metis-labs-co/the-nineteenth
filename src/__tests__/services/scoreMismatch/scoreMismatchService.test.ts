@@ -656,15 +656,39 @@ describe('Mismatch Resolution', () => {
   });
 
   describe('applyResolvedScoreToScorecard()', () => {
-    it('should update scorecard with resolved score', async () => {
-      const existingScorecard = {
+    // Minimal 18-hole layout with par 4s and ordered stroke indexes.
+    // Used so the service can recompute totals from the updated scores JSON.
+    const TEST_HOLES = Array.from({ length: 18 }, (_, i) => ({
+      number: i + 1,
+      par: 4,
+      strokeIndex: i + 1,
+      length: 400,
+    }));
+
+    function makeScorecardRow(
+      scores: Record<string, { strokes: number; putts?: number }>,
+      overrides: Partial<{
+        daily_handicap_used: number | null;
+        game_type: string | null;
+      }> = {}
+    ) {
+      return {
         id: 'scorecard-1',
-        scores: {
-          '9': { strokes: 3, putts: 2 },
-          '10': { strokes: 4, putts: 2 }, // Will be updated
-          '11': { strokes: 5, putts: 3 },
+        scores,
+        daily_handicap_used: overrides.daily_handicap_used ?? 10,
+        round: {
+          game_type: overrides.game_type ?? 'stroke',
+          courses: { holes: TEST_HOLES },
         },
       };
+    }
+
+    it('should update scorecard with resolved score and recompute total_gross', async () => {
+      const existingScorecard = makeScorecardRow({
+        '9': { strokes: 3, putts: 2 },
+        '10': { strokes: 4, putts: 2 }, // Will be updated to 5
+        '11': { strokes: 5, putts: 3 },
+      });
 
       const mockChain = {
         select: jest.fn().mockReturnThis(),
@@ -680,19 +704,20 @@ describe('Mismatch Resolution', () => {
       expect(mockChain.update).toHaveBeenCalledWith(
         expect.objectContaining({
           scores: expect.objectContaining({
-            '10': { strokes: 5, putts: 2 }, // Updated
+            '10': { strokes: 5, putts: 2 }, // Updated (putts preserved)
           }),
+          // 3 + 5 + 5 = 13
+          total_gross: 13,
+          // 13 - daily_handicap_used(10)
+          total_net: 3,
         })
       );
     });
 
     it('should create hole score if it does not exist', async () => {
-      const existingScorecard = {
-        id: 'scorecard-1',
-        scores: {
-          '9': { strokes: 3 },
-        },
-      };
+      const existingScorecard = makeScorecardRow({
+        '9': { strokes: 3 },
+      });
 
       const mockChain = {
         select: jest.fn().mockReturnThis(),
@@ -710,6 +735,38 @@ describe('Mismatch Resolution', () => {
           scores: expect.objectContaining({
             '10': { strokes: 5 },
           }),
+          total_gross: 8, // 3 + 5
+          total_net: -2, // 8 - 10
+        })
+      );
+    });
+
+    it('should recompute total_points for stableford rounds', async () => {
+      // DHC = 18 → 1 stroke on every hole. Par 4 hole, strokes 4 = net 3 = birdie = 3pts.
+      const existingScorecard = makeScorecardRow(
+        {
+          '1': { strokes: 4 }, // net 3 → birdie = 3 pts
+          '2': { strokes: 4 }, // net 3 → birdie = 3 pts
+        },
+        { game_type: 'stableford', daily_handicap_used: 18 }
+      );
+
+      const mockChain = {
+        select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: existingScorecard, error: null }),
+        then: jest.fn((resolve) => resolve({ data: null, error: null })),
+      };
+      (supabase.from as jest.Mock).mockReturnValue(mockChain);
+
+      // Resolve hole 3 to 5 (par 4, net 4 = par = 2 pts)
+      await applyResolvedScoreToScorecard(ROUND_ID, PLAYER_A_ID, 3, 5);
+
+      expect(mockChain.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          total_gross: 13, // 4 + 4 + 5
+          total_points: 8, // 3 + 3 + 2
         })
       );
     });

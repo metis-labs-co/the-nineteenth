@@ -169,7 +169,7 @@ export const formatUserScore = (
       }
       return null;
 
-    case 'match_play':
+    case 'match-play':
       // Match Play: Show win/loss status (e.g., "Won 3&2" or "Lost 2&1")
       if (userScore.matchResult) {
         const status = userScore.matchResult.won ? 'Won' : 'Lost';

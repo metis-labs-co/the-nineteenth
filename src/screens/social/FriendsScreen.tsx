@@ -407,7 +407,11 @@ export default function FriendsScreen() {
       <Tabs
         tabs={[
           { key: 'friends', label: 'Friends', count: friends?.length || 0 },
-          { key: 'requests', label: 'Requests', count: friendRequests?.length || undefined },
+          {
+            key: 'requests',
+            label: 'Requests',
+            count: (friendRequests?.length ?? 0) + (sentRequests?.length ?? 0),
+          },
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}

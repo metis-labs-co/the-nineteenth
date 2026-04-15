@@ -16,6 +16,12 @@ export interface WinnerInfo {
   points: number;
   /** Whether the winner is a team */
   isTeam: boolean;
+  /**
+   * Match play margin (e.g. "4&3", "1up", "A/S"). When present, this is
+   * rendered instead of the points/pointsLabel pair. Used for game types
+   * where the result is expressed as a margin rather than a numeric total.
+   */
+  margin?: string;
 }
 
 export interface WinnerRowProps {
@@ -92,7 +98,11 @@ export const WinnerRow = React.memo(function WinnerRow({
     <View
       style={[containerStyle, { backgroundColor }]}
       testID={testID}
-      accessibilityLabel={`Winner: ${winner.name} with ${winner.points} ${pointsLabel}`}
+      accessibilityLabel={
+        winner.margin
+          ? `Winner: ${winner.name} ${winner.margin}`
+          : `Winner: ${winner.name} with ${winner.points} ${pointsLabel}`
+      }
       accessibilityRole="text"
     >
       <IconComponent size={iconSize} color={iconColor} />
@@ -100,7 +110,7 @@ export const WinnerRow = React.memo(function WinnerRow({
         {winner.name}
       </Text>
       <Text style={[pointsStyle, { color: textColor }]}>
-        {winner.points} {pointsLabel}
+        {winner.margin ?? `${winner.points} ${pointsLabel}`}
       </Text>
     </View>
   );
