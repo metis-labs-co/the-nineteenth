@@ -185,7 +185,9 @@ export async function getPlayerLeagueRounds(
   leagueId: string,
   playerId: string
 ): Promise<LeagueRoundDetail[]> {
-  const { data, error } = await from('league_rounds')
+  // Query 1: league_rounds with scorecard data (avoids deep nested join
+  // through rounds table which fails due to RLS on standalone rounds)
+  const { data: leagueRoundsData, error: error1 } = await from('league_rounds')
     .select(`
       id,
       scorecard_id,
@@ -196,25 +198,19 @@ export async function getPlayerLeagueRounds(
         total_gross,
         course_rating_used,
         slope_rating_used,
-        daily_handicap_used,
-        rounds (
-          date,
-          courses (
-            name
-          )
-        )
+        daily_handicap_used
       )
     `)
     .eq('league_id', leagueId)
     .eq('player_id', playerId)
     .order('tagged_at', { ascending: false });
 
-  if (error) {
-    console.error('[Leagues] Error fetching player league rounds:', error);
-    throw new Error(`Failed to fetch player league rounds: ${error.message}`);
+  if (error1) {
+    console.error('[Leagues] Error fetching player league rounds:', error1);
+    throw new Error(`Failed to fetch player league rounds: ${error1.message}`);
   }
 
-  interface NestedLeagueRoundRow {
+  interface LeagueRoundRow {
     id: string;
     scorecard_id: string;
     handicap_differential: number;
@@ -225,13 +221,44 @@ export async function getPlayerLeagueRounds(
       course_rating_used?: number | null;
       slope_rating_used?: number | null;
       daily_handicap_used?: number | null;
-      rounds?: { date?: string; courses?: { name?: string } };
     };
   }
-  return ((data ?? []) as unknown as NestedLeagueRoundRow[]).map((row) => {
+
+  const rows = (leagueRoundsData ?? []) as unknown as LeagueRoundRow[];
+  const roundIds = rows
+    .map((r) => r.scorecards?.round_id)
+    .filter((id): id is string => !!id);
+
+  // Query 2: fetch round date + course name separately (direct query
+  // bypasses the nested RLS issue on standalone rounds)
+  interface RoundWithCourse {
+    id: string;
+    date: string | null;
+    courses?: { name?: string };
+  }
+  let roundsMap = new Map<string, RoundWithCourse>();
+
+  if (roundIds.length > 0) {
+    const { data: roundsData } = await from('rounds')
+      .select(`
+        id,
+        date,
+        courses!course_id (
+          name
+        )
+      `)
+      .in('id', roundIds);
+
+    if (roundsData) {
+      roundsMap = new Map(
+        (roundsData as unknown as RoundWithCourse[]).map((r) => [r.id, r])
+      );
+    }
+  }
+
+  return rows.map((row) => {
     const sc = row.scorecards;
-    const round = sc?.rounds;
-    const course = round?.courses;
+    const round = sc?.round_id ? roundsMap.get(sc.round_id) : undefined;
 
     return {
       id: row.id,
@@ -243,7 +270,7 @@ export async function getPlayerLeagueRounds(
       course_rating_used: sc?.course_rating_used ?? null,
       slope_rating_used: sc?.slope_rating_used ?? null,
       daily_handicap_used: sc?.daily_handicap_used ?? null,
-      course_name: course?.name ?? 'Unknown Course',
+      course_name: round?.courses?.name ?? 'Unknown Course',
       date_played: round?.date ?? null,
     } satisfies LeagueRoundDetail;
   });

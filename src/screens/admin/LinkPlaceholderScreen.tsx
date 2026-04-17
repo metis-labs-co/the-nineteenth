@@ -6,7 +6,7 @@
  * all their scores and history transfer to the real player.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -33,8 +33,8 @@ import {
   useLinkPlaceholderPlayer,
   useDeletePlaceholderPlayer,
 } from '@/hooks/usePlaceholderPlayers';
-import { useSearchPlayers } from '@/hooks/useFriends';
-import type { PlaceholderPlayerWithStats, PlayerSearchResult } from '@/types/database.types';
+import { useFriends } from '@/hooks/useFriends';
+import type { PlaceholderPlayerWithStats, Friend } from '@/types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LinkPlaceholder'>;
 
@@ -163,7 +163,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Additional state for pending link operation
-  const [_pendingLinkPlayer, setPendingLinkPlayer] = useState<PlayerSearchResult | null>(null);
+  const [_pendingLinkPlayer, setPendingLinkPlayer] = useState<Friend | null>(null);
 
   // Data hooks
   const {
@@ -174,16 +174,22 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
     isRefetching,
   } = usePlaceholderPlayers();
 
-  const { data: searchResults, isLoading: isSearching } = useSearchPlayers(searchQuery);
+  const { data: friends, isLoading: isFriendsLoading } = useFriends();
 
   const linkPlaceholder = useLinkPlaceholderPlayer();
   const deletePlaceholder = useDeletePlaceholderPlayer();
 
-  // Filter search results to only show real players (not already friends status, just non-placeholders)
-  // The search already excludes the current user and includes friendship status
-  const filteredSearchResults = searchResults?.filter(
-    (player) => !player.is_friend && !player.has_pending_request
-  );
+  // Filter friends by search query (client-side)
+  const filteredFriends = useMemo(() => {
+    if (!friends || searchQuery.trim().length < 2) return [];
+    const query = searchQuery.trim().toLowerCase();
+    return friends.filter(
+      (friend) =>
+        !friend.is_placeholder &&
+        (friend.name.toLowerCase().includes(query) ||
+          (friend.email && friend.email.toLowerCase().includes(query)))
+    );
+  }, [friends, searchQuery]);
 
   // Handle link button press - open friend search modal
   const handleLinkPress = useCallback((placeholder: PlaceholderPlayerWithStats) => {
@@ -193,7 +199,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
   }, []);
 
   // Perform the actual link operation
-  const performLink = useCallback(async (placeholder: PlaceholderPlayerWithStats, player: PlayerSearchResult) => {
+  const performLink = useCallback(async (placeholder: PlaceholderPlayerWithStats, player: Friend) => {
     setShowFriendSearch(false);
     setLinkingId(placeholder.id);
 
@@ -217,7 +223,7 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
   }, [linkPlaceholder, showAlert]);
 
   // Handle selecting a real player to link to
-  const handleSelectPlayer = useCallback((player: PlayerSearchResult) => {
+  const handleSelectPlayer = useCallback((player: Friend) => {
     if (!selectedPlaceholder) return;
 
     setPendingLinkPlayer(player);
@@ -383,8 +389,8 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search for a player by name..."
-          accessibilityLabel="Search for a player to link to"
+          placeholder="Search friends by name or email..."
+          accessibilityLabel="Search friends to link to"
         />
 
         {/* Search Results */}
@@ -393,16 +399,16 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
             <View style={styles.searchPrompt}>
               <Icon source="account-search" size={48} color={colors.gray300} />
               <Text style={[styles.searchPromptText, { color: colors.textSecondary }]}>
-                Enter at least 2 characters to search for players
+                Search your friends to find the player to link to
               </Text>
             </View>
-          ) : isSearching ? (
+          ) : isFriendsLoading ? (
             <View style={styles.centered}>
               <LoadingSpinner size="lg" />
             </View>
-          ) : filteredSearchResults && filteredSearchResults.length > 0 ? (
+          ) : filteredFriends.length > 0 ? (
             <FlatList
-              data={filteredSearchResults}
+              data={filteredFriends}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
@@ -439,10 +445,10 @@ export default function LinkPlaceholderScreen({ navigation }: Props) {
             <View style={styles.noResults}>
               <Icon source="account-question" size={48} color={colors.gray300} />
               <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                No players found matching &ldquo;{searchQuery}&rdquo;
+                No friends found matching &ldquo;{searchQuery}&rdquo;
               </Text>
               <Text style={[styles.noResultsHint, { color: colors.textSecondary }]}>
-                The player must have an account to be linked
+                The player must be your friend and have an account
               </Text>
             </View>
           )}

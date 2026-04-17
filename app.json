@@ -3,7 +3,7 @@
     "name": "The Nineteenth",
     "slug": "the-nineteenth",
     "scheme": "thenineteenth",
-    "version": "1.8.6",
+    "version": "1.8.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.the.nineteenth.golf",
-      "buildNumber": "2",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "appleTeamId": "TMB3988D5Z",
       "associatedDomains": [

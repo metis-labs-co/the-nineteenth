@@ -250,7 +250,16 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
         handicapSource: 'profile',
       });
 
-      // 3. Get scorecard ID for league tag
+      // 3. Add player to round_players so they can view this round via RLS
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
+      await (supabase.from('round_players') as any)
+        .upsert({
+          round_id: roundId,
+          player_id: selectedPlayer.id,
+          added_by: currentUser.id,
+        }, { onConflict: 'round_id,player_id' });
+
+      // 4. Get scorecard ID for league tag
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { data: scData } = await (supabase.from('scorecards') as any)
         .select('id')
@@ -260,7 +269,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
 
       if (!scData?.id) throw new Error('Scorecard not found after creation');
 
-      // 4. Calculate differential at save time (ensures fresh values)
+      // 5. Calculate differential at save time (ensures fresh values)
       let differential = handicapDifferential;
       if (differential == null && selectedTee?.courseRating && selectedTee?.slopeRating && totals.totalGross > 0) {
         differential = calculateScoreDifferential({
@@ -273,7 +282,7 @@ export function useLeagueQuickAddRound({ leagueId }: UseLeagueQuickAddRoundParam
         throw new Error('Cannot tag to league: the selected tee is missing Course Rating or Slope Rating. Please select a tee with complete rating data.');
       }
 
-      // 5. Tag to league
+      // 6. Tag to league
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types workaround
       const { error: tagError } = await (supabase.from('league_rounds') as any)
         .insert({
