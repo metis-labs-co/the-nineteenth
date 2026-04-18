@@ -6,17 +6,17 @@
  *
  * Webhook Setup:
  * 1. Deploy this function: supabase functions deploy revenuecat-webhook --no-verify-jwt
- * 2. Configure webhook URL in RevenueCat dashboard:
- *    https://<your-project>.supabase.co/functions/v1/revenuecat-webhook
- * 3. Set REVENUECAT_WEBHOOK_SECRET in Supabase secrets:
- *    supabase secrets set REVENUECAT_WEBHOOK_SECRET=your_secret
+ * 2. Configure webhook in RevenueCat dashboard (Integrations → Webhooks):
+ *    - URL: https://<your-project>.supabase.co/functions/v1/revenuecat-webhook
+ *    - Set Authorization header value (this is sent as the HTTP Authorization header)
+ * 3. Set the same value as a Supabase secret:
+ *    supabase secrets set REVENUECAT_WEBHOOK_SECRET=<same-value-as-revenuecat>
  *
  * @see https://docs.revenuecat.com/docs/webhooks
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createHmac, timingSafeEqual } from 'https://deno.land/std@0.177.0/crypto/mod.ts';
 
 // =====================================================
 // TYPES
@@ -99,55 +99,30 @@ function mapProductToTier(productId: string): SubscriptionTier {
 }
 
 // =====================================================
-// SIGNATURE VERIFICATION
+// AUTHORIZATION VERIFICATION
 // =====================================================
 
-async function verifySignature(
-  body: string,
-  signature: string | null,
+function verifyAuthorization(
+  authHeader: string | null,
   secret: string
-): Promise<boolean> {
-  if (!signature || !secret) {
-    console.warn('[Webhook] Missing signature or secret');
+): boolean {
+  if (!authHeader || !secret) {
+    console.warn('[Webhook] Missing Authorization header or secret');
     return false;
   }
 
-  try {
-    // RevenueCat uses HMAC-SHA256 for webhook signatures
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-
-    const signatureBuffer = await crypto.subtle.sign(
-      'HMAC',
-      key,
-      encoder.encode(body)
-    );
-
-    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    // Timing-safe comparison
-    if (signature.length !== expectedSignature.length) {
-      return false;
-    }
-
-    let result = 0;
-    for (let i = 0; i < signature.length; i++) {
-      result |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i);
-    }
-
-    return result === 0;
-  } catch (err) {
-    console.error('[Webhook] Signature verification error:', err);
+  // RevenueCat sends the Authorization header value exactly as configured
+  // in their dashboard. Use timing-safe comparison.
+  if (authHeader.length !== secret.length) {
     return false;
   }
+
+  let result = 0;
+  for (let i = 0; i < authHeader.length; i++) {
+    result |= authHeader.charCodeAt(i) ^ secret.charCodeAt(i);
+  }
+
+  return result === 0;
 }
 
 // =====================================================
@@ -164,6 +139,8 @@ async function updateSubscription(
     product_id?: string;
     expires_at?: string | null;
     cancelled_at?: string | null;
+    trial_started_at?: string | null;
+    trial_ends_at?: string | null;
   }
 ): Promise<WebhookResult> {
   if (!userId) {
@@ -189,8 +166,8 @@ async function updateSubscription(
         started_at: now,
         expires_at: updates.expires_at ?? null,
         cancelled_at: updates.cancelled_at ?? null,
-        trial_started_at: null,
-        trial_ends_at: null,
+        trial_started_at: updates.trial_started_at ?? null,
+        trial_ends_at: updates.trial_ends_at ?? null,
         updated_at: now,
       },
       {
@@ -235,16 +212,23 @@ async function handleInitialPurchase(
   event: RevenueCatWebhookEvent['event']
 ): Promise<WebhookResult> {
   const tier = mapProductToTier(event.product_id);
+  const isTrial = event.period_type === 'TRIAL';
 
   return updateSubscription(supabase, event.app_user_id, {
     tier,
-    status: event.period_type === 'TRIAL' ? 'trial' : 'active',
+    status: isTrial ? 'trial' : 'active',
     external_id: event.original_transaction_id,
     product_id: event.product_id,
     expires_at: event.expiration_at_ms
       ? new Date(event.expiration_at_ms).toISOString()
       : null,
     cancelled_at: null,
+    trial_started_at: isTrial
+      ? new Date(event.purchased_at_ms).toISOString()
+      : null,
+    trial_ends_at: isTrial && event.expiration_at_ms
+      ? new Date(event.expiration_at_ms).toISOString()
+      : null,
   });
 }
 
@@ -262,6 +246,8 @@ async function handleRenewal(
       ? new Date(event.expiration_at_ms).toISOString()
       : null,
     cancelled_at: null,
+    trial_started_at: null,
+    trial_ends_at: null,
   });
 }
 
@@ -406,20 +392,21 @@ serve(async (req: Request) => {
     // Read request body
     const body = await req.text();
 
-    // Verify webhook signature (if secret is configured)
+    // Verify Authorization header (if secret is configured)
+    // RevenueCat sends the value set in their dashboard as the Authorization header
     if (webhookSecret) {
-      const signature = req.headers.get('x-revenuecat-signature');
+      const authHeader = req.headers.get('Authorization');
 
-      if (!(await verifySignature(body, signature, webhookSecret))) {
-        console.warn('[Webhook] Invalid signature');
+      if (!verifyAuthorization(authHeader, webhookSecret)) {
+        console.warn('[Webhook] Invalid Authorization header');
         return new Response(
-          JSON.stringify({ error: 'Invalid signature' }),
+          JSON.stringify({ error: 'Unauthorized' }),
           { status: 401, headers: { 'Content-Type': 'application/json' } }
         );
       }
     } else {
       console.warn(
-        '[Webhook] REVENUECAT_WEBHOOK_SECRET not configured - skipping signature verification'
+        '[Webhook] REVENUECAT_WEBHOOK_SECRET not configured - skipping authorization check'
       );
     }
 

@@ -142,7 +142,7 @@ export interface SubscriptionUpdate {
  *
  * @example
  * ```typescript
- * const tier = mapProductToTier('com.thenineteenth.social.monthly');
+ * const tier = mapProductToTier('the.nineteenth.social.monthly');
  * // Returns: 'social'
  * ```
  */

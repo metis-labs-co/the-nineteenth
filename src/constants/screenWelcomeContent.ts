@@ -60,7 +60,6 @@ export const SCREEN_WELCOME_CONTENT: Record<WelcomeScreenId, ScreenWelcomeConten
       'Browse and save courses from our global database.',
     items: [
       { icon: 'earth', text: '42,000+ courses worldwide with full hole data' },
-      { icon: 'download-outline', text: 'Import courses with tee ratings and stroke indexes' },
       { icon: 'heart-outline', text: 'Save favourite courses for quick access' },
       { icon: 'home-outline', text: 'Set your home club for personalised defaults' },
     ],

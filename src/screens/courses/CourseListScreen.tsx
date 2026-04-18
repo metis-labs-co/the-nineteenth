@@ -12,10 +12,12 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useThemeColors } from '@/context/ThemeContext';
+import { spacing, typography } from '@/constants/theme';
 import { LoadingSpinner, SearchBar, PageHeader, ConfirmationDialog } from '@/components/common';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
 import { useConfirmationDialog } from '@/hooks';
@@ -334,6 +336,11 @@ export default function CourseListScreen() {
         rightActions={!isFirstVisit ? [{ icon: 'information-outline', onPress: showModal, accessibilityLabel: 'Course info' }] : []}
       />
 
+      {/* Intro Text */}
+      <Text style={[styles.introText, { color: colors.textSecondary }]}>
+        Browse featured courses below or search if you cannot find your favourite course.
+      </Text>
+
       {/* Search Bar */}
       <SearchBar
         value={searchQuery}
@@ -404,5 +411,11 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  introText: {
+    ...typography.small,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
 });

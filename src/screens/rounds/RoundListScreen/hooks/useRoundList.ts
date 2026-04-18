@@ -10,11 +10,16 @@ import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { roundListLogger } from '@/utils/debugLogger';
 import { getHolesCompletedByRounds } from '@/services/offline/dao/ScorecardDAO';
 import type { RoundItem, RoundListData, RoundPlayerInfo, UseRoundListReturn } from '../types';
-import type { UserScoreData } from '@/components/rounds/RoundListCard/types';
 import type { WinnerInfo } from '@/components/common';
-import type { HoleScore, MultiBallHoleScore, Hole } from '@/types/database/base';
+import type { HoleScore, MultiBallHoleScore, Hole, TeeBox } from '@/types/database/base';
+import type { HandicapSource } from '@/types/database/enums';
 import { isSingleBallScore } from '@/types/database/base';
 import { getStrokesReceived } from '@/utils/scoring';
+import {
+  calculatePlayerStats,
+  type ScorecardPlayerData,
+  type PlayerStats,
+} from '@/utils/scorecardCalculations';
 
 export function useRoundList(): UseRoundListReturn {
   const { user } = useAuth();
@@ -63,6 +68,16 @@ export function useRoundList(): UseRoundListReturn {
       if (!user?.id) return { active: [], history: [] };
 
       const allRounds: RoundItem[] = [];
+      // Metadata needed to re-run calculatePlayerStats for completed rounds
+      // (keeps round list totals consistent with the scorecard view).
+      const roundMetaByRound = new Map<
+        string,
+        {
+          holes: Hole[];
+          selectedTee: TeeBox | null;
+          handicapSource: HandicapSource;
+        }
+      >();
 
       // Define types for query results
       interface StandaloneRoundRow {
@@ -74,8 +89,8 @@ export function useRoundList(): UseRoundListReturn {
         date: string | null;
         tee_time: string | null;
         nine_type: string | null;
-        handicap_source: string | null;
-        selected_tee: { name: string; color?: string } | null;
+        handicap_source: HandicapSource | null;
+        selected_tee: TeeBox | null;
         courses: {
           id: string;
           name: string;
@@ -132,6 +147,14 @@ export function useRoundList(): UseRoundListReturn {
         });
         for (const round of (standaloneRounds || []) as StandaloneRoundRow[]) {
           standaloneRoundIds.push(round.id);
+          const holes = Array.isArray(round.courses?.holes)
+            ? (round.courses!.holes as Hole[])
+            : [];
+          roundMetaByRound.set(round.id, {
+            holes,
+            selectedTee: round.selected_tee,
+            handicapSource: round.handicap_source ?? 'profile',
+          });
           allRounds.push({
             id: round.id,
             roundNumber: round.round_number,
@@ -151,7 +174,7 @@ export function useRoundList(): UseRoundListReturn {
               state: round.courses?.club?.state ?? undefined,
             },
             holesCompleted: 0,
-            totalHoles: Array.isArray(round.courses?.holes) ? round.courses.holes.length : 18,
+            totalHoles: holes.length || 18,
             players: [], // Will be populated below
             handicapSource: round.handicap_source,
             selectedTeeName: round.selected_tee?.name ?? null,
@@ -213,6 +236,14 @@ export function useRoundList(): UseRoundListReturn {
             // Check if this round is already in the list (shouldn't happen, but just in case)
             if (allRounds.some(r => r.id === round.id)) continue;
 
+            const holes = Array.isArray(round.courses?.holes)
+              ? (round.courses!.holes as Hole[])
+              : [];
+            roundMetaByRound.set(round.id, {
+              holes,
+              selectedTee: round.selected_tee,
+              handicapSource: round.handicap_source ?? 'profile',
+            });
             allRounds.push({
               id: round.id,
               roundNumber: round.round_number,
@@ -232,7 +263,7 @@ export function useRoundList(): UseRoundListReturn {
                 state: round.courses?.club?.state ?? undefined,
               },
               holesCompleted: 0,
-              totalHoles: Array.isArray(round.courses?.holes) ? round.courses.holes.length : 18,
+              totalHoles: holes.length || 18,
               players: [], // Will be populated below
               handicapSource: round.handicap_source,
               selectedTeeName: round.selected_tee?.name ?? null,
@@ -375,76 +406,9 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 5. Fetch user's scorecards for completed rounds
       const completedRoundIds = allRounds
         .filter(r => r.status === 'completed')
         .map(r => r.id);
-
-      if (completedRoundIds.length > 0) {
-        try {
-          interface ScorecardRow {
-            round_id: string;
-            total_gross: number | null;
-            total_net: number | null;
-            total_points: number | null;
-            daily_handicap_used: number | null;
-            status: string;
-          }
-
-          const { data: scorecardsData, error: scorecardsError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-            .from('scorecards') as any)
-            .select(`
-              round_id,
-              total_gross,
-              total_net,
-              total_points,
-              daily_handicap_used,
-              status
-            `)
-            .eq('player_id', user.id)
-            .in('round_id', completedRoundIds);
-
-          if (scorecardsError) {
-            console.error('Error fetching scorecards:', scorecardsError);
-          } else if (scorecardsData) {
-            // Map scorecards by round_id
-            const scorecardsByRound = new Map<string, UserScoreData>();
-            for (const sc of scorecardsData as ScorecardRow[]) {
-              const isCompleted = sc.status === 'completed' || sc.status === 'confirmed';
-              // Derive net from daily_handicap_used to match calculatePlayerStats
-              // (the scorecard view). Falls back to stored total_net when the
-              // handicap snapshot is missing (e.g. handicapSource='none').
-              const derivedNet =
-                sc.daily_handicap_used != null && sc.total_gross != null
-                  ? sc.total_gross - sc.daily_handicap_used
-                  : sc.total_net;
-              scorecardsByRound.set(sc.round_id, {
-                totalGross: sc.total_gross,
-                totalNet: derivedNet,
-                totalPoints: sc.total_points,
-                hasScorecard: isCompleted,
-                matchResult: null, // TODO: Add match play result fetching if needed
-              });
-            }
-
-            // Attach userScore to completed rounds
-            for (const round of allRounds) {
-              if (round.status === 'completed') {
-                const scorecard = scorecardsByRound.get(round.id);
-                if (scorecard) {
-                  round.userScore = scorecard;
-                } else {
-                  // No scorecard found for this round
-                  round.userScore = { hasScorecard: false };
-                }
-              }
-            }
-          }
-        } catch {
-          // Scorecards fetch may not be available
-        }
-      }
 
       // 6. Fetch skins games for all rounds to set hasSkins flag
       const allRoundIds = allRounds.map(r => r.id);
@@ -515,19 +479,27 @@ export function useRoundList(): UseRoundListReturn {
         }
       }
 
-      // 8. Fetch winner for completed rounds
-      // Get all scorecards for completed rounds to determine winner
+      // 8. Fetch scorecards for completed rounds; compute userScore and winner
+      // via calculatePlayerStats so totals match the scorecard view exactly.
       if (completedRoundIds.length > 0) {
         try {
-          interface WinnerScorecardRow {
+          interface ScorecardRow {
             round_id: string;
             player_id: string;
-            scores: Record<string, HoleScore> | null;
+            scores: Record<string, HoleScore | MultiBallHoleScore> | null;
             total_gross: number | null;
             total_net: number | null;
             total_points: number | null;
             daily_handicap_used: number | null;
-            player: { id: string; name: string } | null;
+            ga_handicap_used: number | null;
+            status: string;
+            player: {
+              id: string;
+              name: string;
+              handicap: number | null;
+              handicap_index: number | null;
+              gender: 'male' | 'female' | null;
+            } | null;
           }
 
           const { data: allScorecardsData, error: allScorecardsError } = await (supabase
@@ -541,95 +513,139 @@ export function useRoundList(): UseRoundListReturn {
               total_net,
               total_points,
               daily_handicap_used,
+              ga_handicap_used,
+              status,
               player:players!player_id(
                 id,
-                name
+                name,
+                handicap,
+                handicap_index,
+                gender
               )
             `)
             .in('round_id', completedRoundIds)
             .in('status', ['completed', 'confirmed']);
 
           if (allScorecardsError) {
-            console.error('Error fetching all scorecards for winners:', allScorecardsError);
+            console.error('Error fetching scorecards for completed rounds:', allScorecardsError);
           } else if (allScorecardsData) {
             // Group scorecards by round_id
-            const scorecardsByRound = new Map<string, WinnerScorecardRow[]>();
-            for (const sc of allScorecardsData as WinnerScorecardRow[]) {
+            const scorecardsByRound = new Map<string, ScorecardRow[]>();
+            for (const sc of allScorecardsData as ScorecardRow[]) {
               if (!scorecardsByRound.has(sc.round_id)) {
                 scorecardsByRound.set(sc.round_id, []);
               }
               scorecardsByRound.get(sc.round_id)!.push(sc);
             }
 
-            // For match-play rounds we need course hole data to compute the
-            // hole-by-hole margin. Fetch holes only for those rounds — other
-            // game types determine the winner from stored totals alone.
-            const matchPlayRoundIds = allRounds
-              .filter(
-                (r) =>
-                  r.status === 'completed' && r.gameType === 'match-play'
-              )
-              .map((r) => r.id);
-
-            const holesByRound = new Map<string, Hole[]>();
-            if (matchPlayRoundIds.length > 0) {
-              try {
-                interface MatchPlayHolesRow {
-                  id: string;
-                  courses: { holes: Hole[] | null } | null;
-                }
-                const { data: holesRows } = await (supabase
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-                  .from('rounds') as any)
-                  .select('id, courses!course_id(holes)')
-                  .in('id', matchPlayRoundIds);
-                for (const row of (holesRows ?? []) as MatchPlayHolesRow[]) {
-                  if (Array.isArray(row.courses?.holes)) {
-                    holesByRound.set(row.id, row.courses!.holes as Hole[]);
-                  }
-                }
-              } catch {
-                // Holes fetch is best-effort; match-play rounds without
-                // holes data fall back to a margin-less winner display.
-              }
-            }
-
-            // Determine winner for each completed round
             for (const round of allRounds) {
               if (round.status !== 'completed') continue;
 
               const scorecards = scorecardsByRound.get(round.id);
-              if (!scorecards || scorecards.length <= 1) continue;
-
-              const holes = holesByRound.get(round.id);
-              const winner = determineWinner(scorecards, round.gameType, holes);
-              if (winner) {
-                round.winner = winner;
+              if (!scorecards || scorecards.length === 0) {
+                round.userScore = { hasScorecard: false };
+                continue;
               }
 
-              // For match-play rounds, also populate the user's
-              // matchResult so the "You: Won 4&3" pill renders.
-              if (
-                round.gameType === 'match-play' &&
-                user?.id &&
-                round.userScore?.hasScorecard
-              ) {
-                const userResult = computeUserMatchResult(
-                  scorecards,
-                  user.id,
-                  holes
-                );
-                if (userResult) {
-                  round.userScore = {
-                    ...round.userScore,
-                    matchResult: userResult,
-                  };
+              const meta = roundMetaByRound.get(round.id);
+              const holes = meta?.holes ?? [];
+              const selectedTee = meta?.selectedTee ?? null;
+              const handicapSource = meta?.handicapSource ?? 'profile';
+
+              // Map DB scorecards into the shape calculatePlayerStats expects
+              const playerData: ScorecardPlayerData[] = scorecards.map((sc) => ({
+                id: sc.player_id,
+                playerId: sc.player_id,
+                player: sc.player
+                  ? {
+                      id: sc.player.id,
+                      name: sc.player.name,
+                      handicap: sc.player.handicap,
+                      handicap_index: sc.player.handicap_index,
+                      gender: sc.player.gender,
+                    }
+                  : null,
+                scores: sc.scores,
+                hasScorecard: sc.status === 'completed' || sc.status === 'confirmed',
+                storedGaHandicap: sc.ga_handicap_used,
+                storedDailyHandicap: sc.daily_handicap_used,
+                storedTotalPoints: sc.total_points,
+              }));
+
+              const stats =
+                holes.length > 0
+                  ? calculatePlayerStats(playerData, holes, selectedTee, handicapSource)
+                  : [];
+
+              // --- User's score pill ---
+              const userStat = stats.find((s) => s.playerId === user.id);
+              const userScorecard = scorecards.find((sc) => sc.player_id === user.id);
+              if (userStat && userStat.hasScores) {
+                round.userScore = {
+                  totalGross: userStat.totalGross,
+                  totalNet: Math.ceil(userStat.totalNet),
+                  totalPoints: userStat.totalStableford,
+                  hasScorecard: true,
+                  matchResult: null,
+                };
+              } else if (userScorecard) {
+                // Fall back to stored totals when we can't compute stats
+                // (e.g. missing holes data).
+                round.userScore = {
+                  totalGross: userScorecard.total_gross,
+                  totalNet: userScorecard.total_net,
+                  totalPoints: userScorecard.total_points,
+                  hasScorecard:
+                    userScorecard.status === 'completed' ||
+                    userScorecard.status === 'confirmed',
+                  matchResult: null,
+                };
+              } else {
+                round.userScore = { hasScorecard: false };
+              }
+
+              // --- Winner row ---
+              if (scorecards.length > 1) {
+                if (round.gameType === 'match-play') {
+                  // Match play still needs hole-by-hole walk to produce margin
+                  const validScorecards = scorecards.filter((sc) => sc.player);
+                  if (validScorecards.length === 2 && holes.length > 0) {
+                    const result = computeMatchPlayResult(
+                      validScorecards[0],
+                      validScorecards[1],
+                      holes
+                    );
+                    if (result) {
+                      round.winner = {
+                        name: result.winnerName,
+                        points: 0,
+                        isTeam: false,
+                        margin: result.margin,
+                      };
+                    }
+                    if (user?.id && round.userScore?.hasScorecard) {
+                      const userResult = computeUserMatchResult(
+                        validScorecards,
+                        user.id,
+                        holes
+                      );
+                      if (userResult) {
+                        round.userScore = {
+                          ...round.userScore,
+                          matchResult: userResult,
+                        };
+                      }
+                    }
+                  }
+                } else if (stats.length > 0) {
+                  const w = determineWinnerFromStats(stats, round.gameType);
+                  if (w) round.winner = w;
                 }
               }
             }
           }
-        } catch {
-          // Winner calculation may fail if data is incomplete
+        } catch (err) {
+          roundListLogger.debug('Completed rounds stats skipped', { error: err });
         }
       }
 
@@ -693,114 +709,73 @@ export function useRoundList(): UseRoundListReturn {
 }
 
 /**
- * Determine the winner from a list of scorecards based on game type
+ * Determine the winner from calculatePlayerStats output. Uses the same
+ * per-hole daily-handicap math the scorecard view uses so the round list
+ * and scorecard tab never disagree on gross / net / points totals.
  */
-interface ScorecardForWinner {
-  player_id: string;
-  scores?: Record<string, HoleScore> | null;
-  total_gross: number | null;
-  total_net: number | null;
-  total_points: number | null;
-  daily_handicap_used: number | null;
-  player: { id: string; name: string } | null;
-}
-
-/**
- * Derive net score the same way the scorecard view does:
- * `total_gross - daily_handicap_used` when the handicap snapshot is
- * available. Falls back to the stored `total_net` otherwise. See the
- * matching logic in `useRoundList` scorecard mapping and
- * `src/utils/scorecardCalculations.ts:calculatePlayerStats`.
- */
-function deriveNetScore(sc: ScorecardForWinner): number | null {
-  if (sc.daily_handicap_used != null && sc.total_gross != null) {
-    return sc.total_gross - sc.daily_handicap_used;
-  }
-  return sc.total_net;
-}
-
-function determineWinner(
-  scorecards: ScorecardForWinner[],
-  gameType: string,
-  holes?: Hole[]
+function determineWinnerFromStats(
+  stats: PlayerStats[],
+  gameType: string
 ): WinnerInfo | null {
-  if (scorecards.length === 0) return null;
+  const playersWithScores = stats.filter((s) => s.hasScores);
+  if (playersWithScores.length === 0) return null;
 
-  // Filter out scorecards without player info
-  const validScorecards = scorecards.filter(sc => sc.player);
-  if (validScorecards.length === 0) return null;
-
-  let winner: ScorecardForWinner | null = null;
+  let winner: PlayerStats | null = null;
   let winningScore = 0;
 
   switch (gameType) {
     case 'stableford':
     case 'fourball_bestball':
-      // Highest points wins
-      for (const sc of validScorecards) {
-        const points = sc.total_points ?? 0;
-        if (!winner || points > winningScore) {
-          winner = sc;
-          winningScore = points;
+      // Highest Stableford points wins
+      for (const s of playersWithScores) {
+        if (!winner || s.totalStableford > winningScore) {
+          winner = s;
+          winningScore = s.totalStableford;
         }
       }
       break;
 
     case 'stroke':
     case 'scramble':
-      // Lowest net score wins. Derive net from daily_handicap_used to
-      // stay consistent with the scorecard view — the stored total_net
-      // column can drift if the Zustand store lacked tee/handicap
-      // context at score-entry time. Fall back to stored net, then
-      // gross, if no handicap snapshot is available.
-      for (const sc of validScorecards) {
-        const score = deriveNetScore(sc) ?? sc.total_gross ?? 999;
-        if (!winner || score < winningScore) {
-          winner = sc;
-          winningScore = score;
+      // Lowest net score wins
+      for (const s of playersWithScores) {
+        const net = Math.ceil(s.totalNet);
+        if (!winner || net < winningScore) {
+          winner = s;
+          winningScore = net;
         }
       }
       break;
 
-    case 'match-play': {
-      // Two-player match play: walk the scorecards hole-by-hole using
-      // each player's daily_handicap_used to determine strokes given,
-      // then express the outcome as a margin like "4&3", "1up", or "A/S".
-      if (validScorecards.length !== 2 || !holes || holes.length === 0) {
-        return null;
-      }
-      const result = computeMatchPlayResult(
-        validScorecards[0],
-        validScorecards[1],
-        holes
-      );
-      if (!result) return null;
-      return {
-        name: result.winnerName,
-        points: 0,
-        isTeam: false,
-        margin: result.margin,
-      };
-    }
-
     default:
-      // Default to stableford-style (highest points)
-      for (const sc of validScorecards) {
-        const points = sc.total_points ?? 0;
-        if (!winner || points > winningScore) {
-          winner = sc;
-          winningScore = points;
+      // Default to highest Stableford points
+      for (const s of playersWithScores) {
+        if (!winner || s.totalStableford > winningScore) {
+          winner = s;
+          winningScore = s.totalStableford;
         }
       }
   }
 
-  if (!winner || !winner.player) return null;
+  if (!winner) return null;
 
   return {
-    name: winner.player.name,
+    name: winner.playerName,
     points: winningScore,
     isTeam: false,
   };
+}
+
+/**
+ * Minimal scorecard shape used by the match-play helpers below. Match
+ * play computes the winner hole-by-hole rather than from totals, so it
+ * keeps its own typed slice of the DB row.
+ */
+interface ScorecardForMatchPlay {
+  player_id: string;
+  scores: Record<string, HoleScore | MultiBallHoleScore> | null;
+  daily_handicap_used: number | null;
+  player: { id: string; name: string } | null;
 }
 
 /**
@@ -819,8 +794,8 @@ function determineWinner(
  * scoring engine + course/tee context.
  */
 function computeMatchPlayResult(
-  p1: ScorecardForWinner,
-  p2: ScorecardForWinner,
+  p1: ScorecardForMatchPlay,
+  p2: ScorecardForMatchPlay,
   holes: Hole[]
 ): {
   winnerId: string | null;
@@ -904,7 +879,7 @@ function computeMatchPlayResult(
  * user isn't one of the two match players or there isn't enough data.
  */
 function computeUserMatchResult(
-  scorecards: ScorecardForWinner[],
+  scorecards: ScorecardForMatchPlay[],
   userId: string,
   holes: Hole[] | undefined
 ): { won: boolean; margin: string } | null {

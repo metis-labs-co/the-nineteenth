@@ -25,6 +25,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import { useQueryClient } from '@tanstack/react-query';
+import { subscriptionKeys } from '@/hooks/queryKeys';
 import { useConfirmationDialog } from '@/hooks';
 import { ConfirmationDialog } from '@/components/common';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +79,7 @@ export function Paywall({
 }: PaywallProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
 
   // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
@@ -145,6 +148,8 @@ export function Paywall({
       const result = await subscriptionService.purchaseProduct(selectedProduct.id);
 
       if (result.success && result.data) {
+        // Refresh subscription data from Supabase so the UI updates immediately
+        await queryClient.invalidateQueries({ queryKey: subscriptionKeys.current() });
         onPurchaseSuccess?.(result.data.subscription.tier);
         onDismiss();
       } else if (result.errorCode === 'PURCHASE_CANCELLED') {
@@ -158,7 +163,7 @@ export function Paywall({
     } finally {
       setIsPurchasing(false);
     }
-  }, [selectedProduct, onPurchaseSuccess, onDismiss, showAlert]);
+  }, [selectedProduct, onPurchaseSuccess, onDismiss, showAlert, queryClient]);
 
   // Handle restore purchases
   const handleRestore = useCallback(async () => {
