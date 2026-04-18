@@ -98,8 +98,8 @@ The Nineteenth uses a hybrid notification system that delivers alerts both in-ap
 | `src/services/notifications/pushService.ts` | Push token management + categories |
 | `src/services/notifications/notificationHandler.ts` | Notification response handling + deep linking |
 | `src/hooks/usePushNotifications.ts` | React hook for push |
-| `supabase/functions/send-push-notification/index.ts` | Edge Function for sending |
-| `supabase/functions/send-push-notification/config.ts` | Message templates |
+| `supabase/functions/test-notification/index.ts` | Edge Function for sending |
+| `supabase/functions/test-notification/config.ts` | Message templates |
 | `src/components/settings/PushNotificationSettings.tsx` | Settings UI |
 | `src/components/notifications/NotificationItem.tsx` | Notification display config |
 | `src/utils/pushNotificationTest.ts` | Development testing utility |
@@ -169,20 +169,47 @@ supabase migration up
 
 ```bash
 # Deploy the push notification Edge Function
-supabase functions deploy send-push-notification
+supabase functions deploy test-notification
 ```
 
-### 5. Vault Secrets (Local Development)
+### 5. Vault Secrets (REQUIRED — Local AND Production)
 
-For local development, you need to set up vault secrets:
+`send_push_notification()` reads two Supabase Vault secrets (`supabase_url`, `service_role_key`) to build the Edge Function URL + Authorization header for the `pg_net` call that dispatches each push. **These are NOT auto-populated by Supabase.** If they are missing, every trigger-driven push is silently dropped — the in-app notification row is still written, but no banner is sent and the failure is logged to `push_notification_errors`.
+
+The `vault.create_secret()` signature is `(secret_value, name[, description])`. Run once per environment in the SQL Editor (or via `psql`):
 
 ```sql
--- In Supabase SQL Editor or via psql
-SELECT vault.create_secret('supabase_url', 'http://localhost:54321');
-SELECT vault.create_secret('service_role_key', 'your-service-role-key');
+-- Local development
+SELECT vault.create_secret('http://localhost:54321', 'supabase_url');
+SELECT vault.create_secret('<LOCAL_SERVICE_ROLE_KEY>', 'service_role_key');
+
+-- Production (run against the hosted project)
+SELECT vault.create_secret('https://<PROJECT_REF>.supabase.co', 'supabase_url');
+SELECT vault.create_secret('<PRODUCTION_SERVICE_ROLE_KEY>', 'service_role_key');
 ```
 
-In production (Supabase hosted), these are automatically available.
+Values are pulled from Supabase Dashboard → Settings → API. Do NOT commit them to the repo or to a migration — they live in Vault per-environment.
+
+**Verifying setup:**
+
+```sql
+-- Should return two rows: supabase_url and service_role_key
+SELECT name FROM vault.decrypted_secrets
+WHERE name IN ('supabase_url', 'service_role_key');
+
+-- Should be empty if triggers are working
+SELECT created_at, notification_type, reason
+FROM push_notification_errors
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+**Alternative (GUC settings):** If Vault is unavailable, set the same values as database-level GUCs. Requires a Postgres reconnect before the settings take effect:
+
+```sql
+ALTER DATABASE postgres SET app.settings.supabase_url     = 'https://<PROJECT_REF>.supabase.co';
+ALTER DATABASE postgres SET app.settings.service_role_key = '<SERVICE_ROLE_KEY>';
+```
 
 ---
 
@@ -327,20 +354,20 @@ await pushTestUtils?.clearLocalRegistration();
 
 ```bash
 # Via Supabase CLI
-supabase functions logs send-push-notification
+supabase functions logs test-notification
 
 # Or in Supabase Dashboard
-# Go to: Edge Functions → send-push-notification → Logs
+# Go to: Edge Functions → test-notification → Logs
 ```
 
 ### Testing Edge Function Locally
 
 ```bash
 # Serve the function locally
-supabase functions serve send-push-notification --env-file .env.local
+supabase functions serve test-notification --env-file .env.local
 
 # Test with curl
-curl -X POST http://localhost:54321/functions/v1/send-push-notification \
+curl -X POST http://localhost:54321/functions/v1/test-notification \
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d '{

@@ -1,0 +1,15 @@
+# Supabase project config — edge function JWT verification settings.
+#
+# `test-notification` and `test-push` are invoked server-to-server (from DB
+# triggers via pg_net, or directly from the app with service role auth).
+# They authenticate callers via their own isServiceRole() check against the
+# `sb_secret_...` admin key. Supabase's gateway-level JWT verification
+# rejects non-JWT tokens (like the new sb_secret format) with
+# UNAUTHORIZED_INVALID_JWT_FORMAT before the function runs, so it's
+# disabled here.
+
+[functions.test-notification]
+verify_jwt = false
+
+[functions.test-push]
+verify_jwt = false

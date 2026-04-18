@@ -138,12 +138,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isServiceRole(authHeader: string | null, serviceRoleKey: string): boolean {
-  if (!authHeader) return false;
-  if (authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7) === serviceRoleKey;
-  }
-  return false;
+function isServiceRole(authHeader: string | null): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.substring(7);
+  const candidates = [
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    Deno.env.get('ADMIN_API_KEY'),
+  ].filter((k): k is string => typeof k === 'string' && k.length > 0);
+  return candidates.some((k) => k === token);
+}
+
+function getAdminKey(): string {
+  const override = Deno.env.get('ADMIN_API_KEY');
+  if (override && override.length > 0) return override;
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceRole && serviceRole.length > 0) return serviceRole;
+  throw new Error('Neither ADMIN_API_KEY nor SUPABASE_SERVICE_ROLE_KEY is set');
 }
 
 /**
@@ -250,9 +260,9 @@ serve(async (req: Request): Promise<Response> => {
   try {
     // 1. Auth
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseServiceKey = getAdminKey();
 
-    if (!isServiceRole(req.headers.get('Authorization'), supabaseServiceKey)) {
+    if (!isServiceRole(req.headers.get('Authorization'))) {
       return new Response(
         JSON.stringify({ success: false, errors: ['Unauthorized: Service role required'] }),
         { status: 401, headers: jsonHeaders }

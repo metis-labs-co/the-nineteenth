@@ -191,18 +191,39 @@ function validateRequest(body: unknown): { valid: true; data: SendPushRequest } 
 }
 
 /**
- * Check if auth header contains service role key
+ * Check if auth header contains a recognised admin key.
+ *
+ * Accepts either:
+ *  - `SUPABASE_SERVICE_ROLE_KEY` — auto-populated by Supabase. May be the
+ *    legacy JWT or the new `sb_secret_...` value depending on project
+ *    migration state.
+ *  - `ADMIN_API_KEY` — optional user-set override. Use this if the value you
+ *    need to match (e.g. the one stored in Vault) doesn't match the
+ *    auto-populated `SUPABASE_SERVICE_ROLE_KEY`. We use an un-prefixed name
+ *    because Supabase CLI blocks user secrets beginning with `SUPABASE_`.
  */
-function isServiceRole(authHeader: string | null, serviceRoleKey: string): boolean {
-  if (!authHeader) return false;
+function isServiceRole(authHeader: string | null): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.substring(7);
 
-  // Check for Bearer token format
-  if (authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    return token === serviceRoleKey;
-  }
+  const candidates = [
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    Deno.env.get('ADMIN_API_KEY'),
+  ].filter((k): k is string => typeof k === 'string' && k.length > 0);
 
-  return false;
+  return candidates.some((k) => k === token);
+}
+
+/**
+ * Resolve the admin key to use when instantiating the Supabase client.
+ * Prefers the explicit override if configured, falls back to auto-populated.
+ */
+function getAdminKey(): string {
+  const override = Deno.env.get('ADMIN_API_KEY');
+  if (override && override.length > 0) return override;
+  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceRole && serviceRole.length > 0) return serviceRole;
+  throw new Error('Neither ADMIN_API_KEY nor SUPABASE_SERVICE_ROLE_KEY is set');
 }
 
 /**
@@ -326,10 +347,10 @@ serve(async (req: Request): Promise<Response> => {
   try {
     // 1. Verify service role authentication
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseServiceKey = getAdminKey();
     const authHeader = req.headers.get('Authorization');
 
-    if (!isServiceRole(authHeader, supabaseServiceKey)) {
+    if (!isServiceRole(authHeader)) {
       const response: SendPushResponse = {
         success: false,
         sent: 0,

@@ -137,11 +137,15 @@ export async function setupAndroidNotificationChannel(): Promise<void> {
     name: 'Default',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#1B5E20', // Primary green color
+    lightColor: '#1B5E20',
   });
 
-  // Competition updates channel
-  await Notifications.setNotificationChannelAsync('competitions', {
+  // Channel IDs below MUST match ANDROID_CHANNEL_MAP in
+  // supabase/functions/send-push-notification/index.ts and
+  // supabase/functions/test-push/index.ts. Pushes arriving with a
+  // channelId that isn't registered fall back to the default channel
+  // and won't carry channel-specific importance/grouping.
+  await Notifications.setNotificationChannelAsync('competition-updates', {
     name: 'Competition Updates',
     description: 'Updates about your golf competitions',
     importance: Notifications.AndroidImportance.HIGH,
@@ -149,14 +153,22 @@ export async function setupAndroidNotificationChannel(): Promise<void> {
     lightColor: '#1B5E20',
   });
 
-  // Social channel for friend requests
-  await Notifications.setNotificationChannelAsync('social', {
-    name: 'Social',
+  await Notifications.setNotificationChannelAsync('friend-requests', {
+    name: 'Friend Requests',
     description: 'Friend requests and social updates',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#1B5E20',
   });
 
-  // League updates channel
+  await Notifications.setNotificationChannelAsync('scorecard-updates', {
+    name: 'Scorecard Updates',
+    description: 'Scorecard submissions and round completions',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#1B5E20',
+  });
+
   await Notifications.setNotificationChannelAsync('league-updates', {
     name: 'League Updates',
     description: 'League joins, round tags, and ranking changes',
@@ -165,11 +177,12 @@ export async function setupAndroidNotificationChannel(): Promise<void> {
     lightColor: '#1B5E20',
   });
 
-  // Side game updates channel
   await Notifications.setNotificationChannelAsync('side-game-updates', {
     name: 'Side Game Updates',
     description: 'Skins, Wolf, and prize pool results',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#1B5E20',
   });
 
 }

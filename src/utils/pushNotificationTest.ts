@@ -181,7 +181,7 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
 /**
  * Send a test push notification via the Edge Function
  *
- * Calls the send-push-notification Edge Function directly with test data.
+ * Calls the test-notification Edge Function directly with test data.
  * Requires the user to be authenticated and have a registered push token.
  *
  * @param userId - The user ID to send the notification to
@@ -240,7 +240,7 @@ export async function sendTestNotification(
     }
 
     // Build Edge Function URL
-    const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
+    const edgeFunctionUrl = `${supabaseUrl}/functions/v1/test-notification`;
 
     // Build request body with mock data
     const requestBody = {
@@ -283,7 +283,7 @@ export async function sendTestNotification(
             'Edge Function requires service role key. Use Supabase Dashboard or CLI to test directly.',
           error: 'Unauthorized - service role required',
           data: {
-            hint: 'Run: supabase functions invoke send-push-notification --body \'{"user_id":"...","notification_type":"...","title":"...","body":"..."}\'',
+            hint: 'Run: supabase functions invoke test-notification --body \'{"user_id":"...","notification_type":"...","title":"...","body":"..."}\'',
           },
         };
       }
