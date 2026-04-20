@@ -69,6 +69,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     showIncompleteModal,
     setShowIncompleteModal,
     validateScores,
+    selectedTeeData,
+    handicapSource,
     setCurrentHole,
     resetRound,
     submitScorecards,
@@ -247,6 +249,8 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}
+          selectedTeeData={selectedTeeData}
+          handicapSource={handicapSource}
         />
       )}
 

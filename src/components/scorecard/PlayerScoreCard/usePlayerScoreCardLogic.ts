@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { getStrokesOnHole, calculateStablefordPoints } from '@/utils/scoring';
+import { getStrokesOnHole, calculateStablefordPointsNet } from '@/utils/scoring';
 import type { Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
 import { PICKUP_SCORE } from '@/constants/scoring';
@@ -49,8 +49,8 @@ export function usePlayerScoreCardLogic({
   // Calculate Stableford points for current score
   const stablefordPoints = useMemo(() => {
     if (!selectedScore || isPickedUp) return 0;
-    return calculateStablefordPoints(selectedScore, handicap, currentHole);
-  }, [selectedScore, handicap, currentHole, isPickedUp]);
+    return calculateStablefordPointsNet(selectedScore, currentHole.par, strokesOnHole);
+  }, [selectedScore, currentHole.par, strokesOnHole, isPickedUp]);
 
   // Score handlers
   const handlePickUp = useCallback(() => {

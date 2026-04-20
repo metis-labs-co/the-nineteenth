@@ -32,6 +32,12 @@ interface PlayerScoreCardProps {
   onPickUp: () => void;
   getScoreColor: (score: number | null) => string;
   onPlayerPress?: () => void;
+  /** Rounded daily handicap value (null if not applied) */
+  dailyHandicap?: number | null;
+  /** Raw decimal base handicap value */
+  baseHandicap?: number;
+  /** Label for base value: 'HC' or 'SHC' */
+  baseLabel?: string;
 }
 
 export function PlayerScoreCard({
@@ -47,6 +53,9 @@ export function PlayerScoreCard({
   onPickUp,
   getScoreColor,
   onPlayerPress,
+  dailyHandicap,
+  baseHandicap,
+  baseLabel,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
 
@@ -87,7 +96,11 @@ export function PlayerScoreCard({
           <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
             {player.name}
           </ScaledText>
-          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {player.handicap}</ScaledText>
+          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
+            {dailyHandicap != null
+              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? player.handicap}`
+              : `HC: ${player.handicap}`}
+          </ScaledText>
         </TouchableOpacity>
 
         {/* Stats Display - matches Stableford PlayerScoreCard */}

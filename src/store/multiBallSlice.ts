@@ -11,7 +11,7 @@ import type { BallCount } from '@/types/multiball.types';
 import { isMultiBallScore, type MultiBallHoleScore, type BallTotals } from '@/types/database/base';
 import { saveScorecard } from '@/services/offline/database';
 
-import { calculateStablefordPoints, calculateNetScore } from '@/utils/scoring';
+import { calculateStablefordPointsNet, calculateNetScore, getStrokesReceived } from '@/utils/scoring';
 import { storeLogger } from '@/utils/debugLogger';
 
 // ---------------------------------------------------------------------------
@@ -251,7 +251,8 @@ export function getMultiBallTotals(
           totals[ballNum].gross += ballScore.strokes;
           const netScore = calculateNetScore(ballScore.strokes, playerHandicap, holeData);
           totals[ballNum].net += netScore;
-          const points = calculateStablefordPoints(ballScore.strokes, playerHandicap, holeData);
+          const strokesRcvd = getStrokesReceived(playerHandicap, holeData.strokeIndex);
+          const points = calculateStablefordPointsNet(ballScore.strokes, holeData.par, strokesRcvd);
           totals[ballNum].points += points;
         }
       }

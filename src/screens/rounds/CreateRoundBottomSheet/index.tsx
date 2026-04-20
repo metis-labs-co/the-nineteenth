@@ -23,6 +23,7 @@ import { useDeleteCourse } from '@/hooks/useDeleteCourse';
 import { isLocalClub } from '@/hooks/clubs/helpers';
 import { courseService } from '@/services/courses';
 import { ClubAutocomplete } from '@/components/courses';
+import { teesToTeeBoxes } from '@/utils/teeTransformers';
 import type { Club } from '@/types/database.types';
 import type { SearchResultItem } from '@/hooks/clubs/types';
 import {
@@ -106,6 +107,41 @@ export default function CreateRoundBottomSheet({
     onStartRound,
     onClose,
   });
+
+  // Course data refresh (when tee slope/CR is missing)
+  const [isRefreshingCourseData, setIsRefreshingCourseData] = useState(false);
+
+  const handleRefreshCourseData = useCallback(async () => {
+    const golfapiId = wizard.data.selectedCourse?.golfapiCourseId;
+    if (!golfapiId) return;
+
+    setIsRefreshingCourseData(true);
+    try {
+      // Re-import course from GolfAPI.io (same as CourseDetailScreen refresh)
+      const result = await courseService.importCourse(golfapiId);
+      const freshTeeBoxes = teesToTeeBoxes(result.tees);
+
+      // Update wizard state with fresh tee and hole data
+      const currentTeeName = wizard.data.selectedTee?.name;
+      wizard.setData((prev) => ({
+        ...prev,
+        selectedCourse: prev.selectedCourse
+          ? {
+              ...prev.selectedCourse,
+              tees: freshTeeBoxes,
+              holes: result.course.holes ?? prev.selectedCourse.holes,
+            }
+          : prev.selectedCourse,
+        selectedTee: currentTeeName
+          ? freshTeeBoxes.find((t) => t.name === currentTeeName) ?? freshTeeBoxes[0] ?? prev.selectedTee
+          : freshTeeBoxes[0] ?? prev.selectedTee,
+      }));
+    } catch (error) {
+      console.error('[CreateRound] Failed to refresh course data:', error);
+    } finally {
+      setIsRefreshingCourseData(false);
+    }
+  }, [wizard.data.selectedCourse?.golfapiCourseId, wizard.data.selectedTee?.name, wizard.setData]);
 
   // Clear inline-created course tracking when sheet becomes invisible
   // (round was started successfully — don't clean up the course)
@@ -669,6 +705,8 @@ export default function CreateRoundBottomSheet({
             handicapSource={wizard.data.handicapSource}
             onHandicapSourceChange={wizard.setHandicapSource}
             onStartScoring={wizard.handleStartScoring}
+            onRefreshCourseData={handleRefreshCourseData}
+            isRefreshingCourseData={isRefreshingCourseData}
           />
         )}
       </FullScreenWizard>

@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsSocial } from '@/context/SubscriptionContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
@@ -51,7 +51,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
 
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
-  const isPremium = useIsPremium();
+  const isSocial = useIsSocial();
   const { handicapSource } = useScorecardStore();
 
   // State
@@ -86,7 +86,10 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     return DEFAULT_HOLES;
   }, [roundData]);
 
-  // Pre-compute daily handicap for all team members (Premium-gated)
+  // Determine handicap label for display
+  const handicapLabel = isSocial && selectedTeeBox ? 'DHC' : 'HC';
+
+  // Pre-compute daily handicap for all team members (Social tier+)
   const handicapMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const team of teamsData) {
@@ -98,14 +101,14 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
             holes,
             handicapSource,
             gameType: 'match-play',
-            applyDailyHandicap: isPremium,
+            applyDailyHandicap: isSocial,
           });
           map.set(member.player_id, playingHandicap);
         }
       }
     }
     return map;
-  }, [teamsData, selectedTeeBox, holes, handicapSource, isPremium]);
+  }, [teamsData, selectedTeeBox, holes, handicapSource, isSocial]);
 
   // Find team data based on IDs
   const team1: MatchTeam = useMemo(() => {
@@ -283,6 +286,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
                 onPlayerScoreAdjust={handlePlayerScoreAdjust}
                 onPlayerParSelect={handlePlayerParSelect}
+                handicapLabel={handicapLabel}
               />
 
               <View style={styles.vsDivider}>
@@ -309,6 +313,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
                 onPlayerScoreAdjust={handlePlayerScoreAdjust}
                 onPlayerParSelect={handlePlayerParSelect}
+                handicapLabel={handicapLabel}
               />
             </View>
 

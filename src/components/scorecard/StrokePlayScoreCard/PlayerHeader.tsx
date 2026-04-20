@@ -23,6 +23,12 @@ interface PlayerHeaderProps {
   runningParScore: number;
   teeDotColor?: string;
   onPlayerPress?: (playerId: string) => void;
+  /** Rounded daily handicap value (null if not applied) */
+  dailyHandicap?: number | null;
+  /** Raw decimal base handicap value */
+  baseHandicap?: number;
+  /** Label for base value: 'HC' or 'SHC' */
+  baseLabel?: string;
 }
 
 export const PlayerHeader = React.memo(function PlayerHeader({
@@ -36,6 +42,9 @@ export const PlayerHeader = React.memo(function PlayerHeader({
   runningParScore,
   teeDotColor,
   onPlayerPress,
+  dailyHandicap,
+  baseHandicap,
+  baseLabel,
 }: PlayerHeaderProps) {
   const colors = useThemeColors();
 
@@ -68,7 +77,9 @@ export const PlayerHeader = React.memo(function PlayerHeader({
         </View>
         <View style={styles.handicapRow}>
           <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
-            HC: {handicap}
+            {dailyHandicap != null
+              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? handicap}`
+              : `HC: ${handicap}`}
           </Text>
           {strokesReceived > 0 && (
             <View style={[styles.shotsReceivedBadge, { backgroundColor: colors.primary }]}>

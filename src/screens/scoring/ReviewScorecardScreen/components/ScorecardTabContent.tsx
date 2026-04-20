@@ -20,7 +20,8 @@ import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScorecardTable, ScrambleTeamSelector, ScrambleScorecardTable } from '@/components/scorecard';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
 import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
-import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType } from '@/types';
+import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType, TeeBox } from '@/types';
+import type { HandicapSource } from '@/types/database/enums';
 import type { RoundWithCourse } from '@/hooks/useRoundDetails';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
 
@@ -36,6 +37,8 @@ interface ScorecardTabContentProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   bottomInset: number;
+  selectedTeeData?: TeeBox | null;
+  handicapSource?: HandicapSource;
 }
 
 export function ScorecardTabContent({
@@ -50,12 +53,16 @@ export function ScorecardTabContent({
   isRefreshing,
   onRefresh,
   bottomInset,
+  selectedTeeData,
+  handicapSource,
 }: ScorecardTabContentProps) {
   const colors = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
 
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
-  const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>('strokes');
+  const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>(
+    effectiveGameType === 'stableford' ? 'points' : 'strokes'
+  );
 
   // Extract teams from team_config for multi-team scramble rounds
   const scrambleTeams = useMemo(() => {
@@ -124,24 +131,6 @@ export function ScorecardTabContent({
             <TouchableOpacity
               style={[
                 styles.segmentButton,
-                scoreDisplayMode === 'strokes' && [styles.segmentButtonActive, { backgroundColor: colors.primary }],
-              ]}
-              onPress={() => setScoreDisplayMode('strokes')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: scoreDisplayMode === 'strokes' }}
-              testID="score-display-strokes"
-            >
-              <Text style={[
-                styles.segmentText,
-                { color: scoreDisplayMode === 'strokes' ? colors.textOnColored : colors.textSecondary },
-                scoreDisplayMode === 'strokes' && styles.segmentTextActive,
-              ]}>
-                Strokes
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentButton,
                 scoreDisplayMode === 'points' && [styles.segmentButtonActive, { backgroundColor: colors.primary }],
               ]}
               onPress={() => setScoreDisplayMode('points')}
@@ -155,6 +144,24 @@ export function ScorecardTabContent({
                 scoreDisplayMode === 'points' && styles.segmentTextActive,
               ]}>
                 Points
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                scoreDisplayMode === 'strokes' && [styles.segmentButtonActive, { backgroundColor: colors.primary }],
+              ]}
+              onPress={() => setScoreDisplayMode('strokes')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: scoreDisplayMode === 'strokes' }}
+              testID="score-display-strokes"
+            >
+              <Text style={[
+                styles.segmentText,
+                { color: scoreDisplayMode === 'strokes' ? colors.textOnColored : colors.textSecondary },
+                scoreDisplayMode === 'strokes' && styles.segmentTextActive,
+              ]}>
+                Strokes
               </Text>
             </TouchableOpacity>
           </View>
@@ -204,6 +211,8 @@ export function ScorecardTabContent({
             onHolePress={onHolePress}
             gameType={effectiveGameType}
             scoreDisplayMode={scoreDisplayMode}
+            selectedTeeData={selectedTeeData}
+            handicapSource={handicapSource}
           />
         )}
       </ScrollView>

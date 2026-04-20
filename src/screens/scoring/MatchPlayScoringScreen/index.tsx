@@ -30,7 +30,7 @@ import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import type { RootStackScreenProps } from '@/navigation/types';
 
@@ -52,7 +52,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
-  const isPremium = useIsPremium();
+  const isSocial = useIsSocial();
   const { handicapSource, selectedTeeData: storeTeeData } = useScorecardStore();
 
   // State - start on initialHole if provided (clamped to 1-18)
@@ -168,31 +168,35 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   const currentHoleData = safeHoles[currentHole - 1];
 
-  // Calculate playing handicap for both players (daily HC if Premium)
+  // Calculate playing handicap + display info for both players (daily HC if Social tier+)
   const teeData = storeTeeData || selectedTeeBox;
-  const player1Handicap = useMemo(() => {
-    const { playingHandicap } = calculatePlayingHandicap({
+  const baseLabel = handicapSource === 'calculated' ? 'SHC' : 'HC';
+
+  const player1HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
       player: player1,
       selectedTeeData: teeData,
       holes: safeHoles,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isPremium,
+      applyDailyHandicap: isSocial,
     });
-    return playingHandicap;
-  }, [player1, teeData, safeHoles, handicapSource, isPremium]);
+    return result;
+  }, [player1, teeData, safeHoles, handicapSource, isSocial]);
+  const player1Handicap = player1HandicapResult.playingHandicap;
 
-  const player2Handicap = useMemo(() => {
-    const { playingHandicap } = calculatePlayingHandicap({
+  const player2HandicapResult = useMemo(() => {
+    const result = calculatePlayingHandicap({
       player: player2,
       selectedTeeData: teeData,
       holes: safeHoles,
       handicapSource,
       gameType: 'match-play',
-      applyDailyHandicap: isPremium,
+      applyDailyHandicap: isSocial,
     });
-    return playingHandicap;
-  }, [player2, teeData, safeHoles, handicapSource, isPremium]);
+    return result;
+  }, [player2, teeData, safeHoles, handicapSource, isSocial]);
+  const player2Handicap = player2HandicapResult.playingHandicap;
 
   // Wrap score handlers with logging
   // Note: We allow score edits even after match is complete - scores are only locked after submission
@@ -459,6 +463,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 onPickUp={() => handlePickUp('player1')}
                 getScoreColor={(score) => getScoreColorForHole(score, holeData.par)}
                 onPlayerPress={handlePlayer1Press}
+                dailyHandicap={player1HandicapResult.isDailyHandicap ? player1HandicapResult.dailyHandicap : null}
+                baseHandicap={player1HandicapResult.baseHandicap}
+                baseLabel={baseLabel}
               />
 
               {/* VS Divider - Horizontal between cards */}
@@ -483,6 +490,9 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 onPickUp={() => handlePickUp('player2')}
                 getScoreColor={(score) => getScoreColorForHole(score, holeData.par)}
                 onPlayerPress={handlePlayer2Press}
+                dailyHandicap={player2HandicapResult.isDailyHandicap ? player2HandicapResult.dailyHandicap : null}
+                baseHandicap={player2HandicapResult.baseHandicap}
+                baseLabel={baseLabel}
               />
             </View>
 

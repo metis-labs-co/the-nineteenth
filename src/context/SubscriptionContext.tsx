@@ -363,6 +363,21 @@ export function useIsPremium(): boolean {
 }
 
 /**
+ * Get just the isSocial boolean (Social tier or above)
+ *
+ * @example
+ * const isSocial = useIsSocial();
+ * if (isSocial) { showSocialFeatures(); }
+ */
+export function useIsSocial(): boolean {
+  const context = useContext(SubscriptionContext);
+  if (context === undefined) {
+    throw new Error('useIsSocial must be used within a SubscriptionProvider');
+  }
+  return context.isSocial;
+}
+
+/**
  * Get the checkFeature function for feature access checks
  *
  * @example

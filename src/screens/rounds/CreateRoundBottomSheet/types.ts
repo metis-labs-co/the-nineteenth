@@ -60,6 +60,8 @@ export interface SelectedCourse {
   tees?: TeeBox[] | null;
   /** Course holes for par calculation (daily handicap) */
   holes?: Hole[] | null;
+  /** GolfAPI.io course ID (for refreshing course data from API) */
+  golfapiCourseId?: string | null;
 }
 
 /**

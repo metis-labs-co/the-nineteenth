@@ -90,6 +90,14 @@ interface PlayerScoreCardProps {
   teeDotColor?: string;
   /** Callback when "Add Additional Stats" button is pressed (handled at screen level) */
   onDetailedStatsPress?: () => void;
+  /** Playing handicap (daily if Social+, raw otherwise). Falls back to player.handicap */
+  playingHandicap?: number;
+  /** Rounded daily handicap value (null if not applied) */
+  dailyHandicap?: number | null;
+  /** Raw decimal base handicap value (profile HC or social index) */
+  baseHandicap?: number;
+  /** Label for base value: 'HC' (profile) or 'SHC' (social handicap) */
+  baseLabel?: string;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -105,9 +113,13 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   isOwnScore,
   teeDotColor,
   onDetailedStatsPress,
+  playingHandicap,
+  dailyHandicap,
+  baseHandicap,
+  baseLabel,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
-  const handicap = player.handicap ?? 0;
+  const handicap = playingHandicap ?? player.handicap ?? 0;
   const statsVisibility = useStatsVisibilityWithTier();
   const { showPutts, showFairwayHit, showGreenInRegulation } = statsVisibility;
 
@@ -189,7 +201,11 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
               {player.name}
             </ScaledText>
           </View>
-          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>HC: {handicap}</ScaledText>
+          <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
+            {dailyHandicap != null
+              ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? handicap}`
+              : `HC: ${handicap}`}
+          </ScaledText>
         </TouchableOpacity>
 
         {/* Stats Display */}

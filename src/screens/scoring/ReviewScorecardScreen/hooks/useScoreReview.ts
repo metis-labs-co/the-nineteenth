@@ -7,7 +7,8 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { generateDefaultHoles } from '@/utils/scorecardCalculations';
 import { isSingleBallScore } from '@/types/database/base';
 import type { ScorecardTablePlayer } from '@/components/scorecard';
-import type { Hole, Player, Scorecard, GameType, HoleScore, MultiBallHoleScore } from '@/types/index';
+import type { Hole, Player, Scorecard, GameType, HoleScore, MultiBallHoleScore, TeeBox } from '@/types/index';
+import type { HandicapSource } from '@/types/database/enums';
 
 export interface IncompleteHole {
   holeNumber: number;
@@ -34,6 +35,10 @@ interface UseScoreReviewReturn {
   setShowIncompleteModal: (show: boolean) => void;
   validateScores: () => IncompleteHole[];
 
+  // Handicap display
+  selectedTeeData: TeeBox | null;
+  handicapSource: HandicapSource;
+
   // Actions
   setCurrentHole: (hole: number) => void;
   resetRound: () => void;
@@ -51,6 +56,8 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     submitScorecards,
     resetRound,
     setCurrentHole,
+    selectedTeeData,
+    handicapSource,
   } = useScorecardStore();
 
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
@@ -122,6 +129,10 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     currentRoundId,
     gameType,
     getPlayerScore,
+
+    // Handicap display
+    selectedTeeData,
+    handicapSource: handicapSource ?? 'profile',
 
     // Validation
     incompleteHoles,

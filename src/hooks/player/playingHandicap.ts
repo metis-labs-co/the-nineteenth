@@ -3,15 +3,15 @@
  *
  * Encapsulates all handicap logic:
  * 1. Selects base handicap (WHS or Social) based on handicap source
- * 2. Calculates daily handicap using WHS formula (Premium only)
+ * 2. Calculates daily handicap using WHS formula (Social tier and above)
  * 3. Applies game type allowance
  *
- * Premium gating: Free tier uses raw base handicap. Premium gets
+ * Tier gating: Free tier uses raw base handicap. Social tier and above get
  * course-adjusted daily handicap via slope/course rating.
  */
 
 import { useMemo } from 'react';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
 import { getBaseHandicap } from '@/utils/scorecardCalculations';
 import { getHandicapAllowance } from '@/services/scoring/utils/handicapUtils';
@@ -65,7 +65,7 @@ export function usePlayingHandicap({
   gameType,
   nineType,
 }: UsePlayingHandicapParams): PlayingHandicapResult {
-  const isPremium = useIsPremium();
+  const isSocial = useIsSocial();
 
   return useMemo(() => {
     const source = handicapSource ?? 'profile';
@@ -73,11 +73,11 @@ export function usePlayingHandicap({
     // Step 1: Get base handicap (WHS or Social)
     const baseHandicap = getBaseHandicap(player as Parameters<typeof getBaseHandicap>[0], source);
 
-    // Step 2: Calculate daily handicap (Premium only, requires tee data)
+    // Step 2: Calculate daily handicap (Social tier and above, requires tee data)
     let dailyHandicap = baseHandicap;
     let isDailyHandicap = false;
 
-    if (isPremium && source !== 'none' && selectedTeeData) {
+    if (isSocial && source !== 'none' && selectedTeeData) {
       const { slope, cr } = getEffectiveTeeRatings(selectedTeeData, nineType ?? 'full');
 
       if (slope && cr) {
@@ -110,7 +110,7 @@ export function usePlayingHandicap({
       handicapLabel: isDailyHandicap ? 'DHC' : 'HC',
       isDailyHandicap,
     };
-  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType, isPremium]);
+  }, [player, selectedTeeData, holes, handicapSource, gameType, nineType, isSocial]);
 }
 
 /**

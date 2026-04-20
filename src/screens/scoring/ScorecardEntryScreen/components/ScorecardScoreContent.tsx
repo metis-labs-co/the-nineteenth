@@ -32,8 +32,20 @@ import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
-import { calculateStablefordPoints, calculateNetScore, calculateParScore, getStrokesOnHole } from '@/utils/scoring';
+import { calculateStablefordPointsNet, calculateNetScore, calculateParScore, getStrokesOnHole, getStrokesReceived } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
+
+/** Display info for a player's handicap on scorecard cards */
+export interface PlayerHandicapDisplay {
+  /** Effective HC used for scoring calculations */
+  playingHandicap: number;
+  /** Rounded daily handicap (null if not applied -- Free tier or no tee data) */
+  dailyHandicap: number | null;
+  /** Raw decimal base value (profile HC or social index) */
+  baseHandicap: number;
+  /** Label for the base value: 'HC' (profile) or 'SHC' (social handicap) */
+  baseLabel: string;
+}
 
 export interface ScorecardScoreContentProps {
   // Current hole info
@@ -79,8 +91,8 @@ export interface ScorecardScoreContentProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
-  // Playing handicap map (daily HC for Premium, raw HC for Free)
-  playerHandicapMap?: Map<string, number>;
+  // Playing handicap display info (daily HC for Social+, raw HC for Free)
+  playerHandicapMap?: Map<string, PlayerHandicapDisplay>;
   // Tee dot indicators (shown when players play from different tees)
   showTeeDots?: boolean;
   playerTeeMap?: Map<string, TeeBox>;
@@ -130,7 +142,7 @@ export function ScorecardScoreContent({
   // Stats visibility
   showFIR = false,
   showGIR = false,
-  // Playing handicap map (daily HC for Premium, raw HC for Free)
+  // Playing handicap display info (daily HC for Social+, raw HC for Free)
   playerHandicapMap,
   // Tee dot indicators
   showTeeDots = false,
@@ -176,9 +188,15 @@ export function ScorecardScoreContent({
     [handleShotContributionsChange]
   );
 
-  // Helper: get the playing handicap for a player (daily HC if Premium, raw otherwise)
+  // Helper: get the playing handicap for a player (daily HC if Social+, raw otherwise)
   const getHandicap = useCallback(
-    (player: Player): number => playerHandicapMap?.get(player.id) ?? player.handicap ?? 0,
+    (player: Player): number => playerHandicapMap?.get(player.id)?.playingHandicap ?? player.handicap ?? 0,
+    [playerHandicapMap]
+  );
+
+  // Helper: get the full handicap display info for a player
+  const getHandicapDisplay = useCallback(
+    (player: Player): PlayerHandicapDisplay | undefined => playerHandicapMap?.get(player.id),
     [playerHandicapMap]
   );
 
@@ -207,7 +225,8 @@ export function ScorecardScoreContent({
         if (!strokes || strokes <= 0) continue;
 
         // Calculate Stableford points for this hole
-        totalPoints += calculateStablefordPoints(strokes, playerHandicap, holeData);
+        const strokesReceived = getStrokesReceived(playerHandicap, holeData.strokeIndex);
+        totalPoints += calculateStablefordPointsNet(strokes, holeData.par, strokesReceived);
       }
 
       return totalPoints;
@@ -433,9 +452,10 @@ export function ScorecardScoreContent({
         )}
         {playersToRender.map((player) => {
           const handicap = getHandicap(player);
+          const handicapDisplay = getHandicapDisplay(player);
           const { gross, par } = getRunningGrossNet(player.id, handicap);
           const teeDotColor = showTeeDots && playerTeeMap
-            ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.color ?? '')
+            ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.name ?? '')
             : undefined;
           return (
             <StrokePlayScoreCard
@@ -453,6 +473,10 @@ export function ScorecardScoreContent({
               isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
               teeDotColor={teeDotColor}
               onDetailedStatsPress={onDetailedStatsPress ? () => onDetailedStatsPress(player.id) : undefined}
+              playingHandicap={handicapDisplay?.playingHandicap}
+              dailyHandicap={handicapDisplay?.dailyHandicap}
+              baseHandicap={handicapDisplay?.baseHandicap}
+              baseLabel={handicapDisplay?.baseLabel}
             />
           );
         })}
@@ -487,8 +511,9 @@ export function ScorecardScoreContent({
         />
       )}
       {playersToRender.map((player) => {
+        const handicapDisplay = getHandicapDisplay(player);
         const teeDotColor = showTeeDots && playerTeeMap
-          ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.color ?? '')
+          ? getTeeColor(resolvePlayerTee(player.id, playerTeeMap, selectedTeeData ?? null)?.name ?? '')
           : undefined;
         return (
           <PlayerScoreCard
@@ -504,6 +529,10 @@ export function ScorecardScoreContent({
             isOwnScore={scoringPairsEnabled && currentUserId ? player.id === currentUserId : undefined}
             teeDotColor={teeDotColor}
             onDetailedStatsPress={onDetailedStatsPress ? () => onDetailedStatsPress(player.id) : undefined}
+            playingHandicap={handicapDisplay?.playingHandicap}
+            dailyHandicap={handicapDisplay?.dailyHandicap}
+            baseHandicap={handicapDisplay?.baseHandicap}
+            baseLabel={handicapDisplay?.baseLabel}
           />
         );
       })}

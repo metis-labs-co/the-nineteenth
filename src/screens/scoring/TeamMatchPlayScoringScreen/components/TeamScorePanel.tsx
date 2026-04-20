@@ -26,6 +26,8 @@ interface PlayerScoreRowProps {
   isMatchComplete: boolean;
   onScoreAdjust: (delta: number) => void;
   onParSelect: () => void;
+  /** Label for the handicap value: 'H', 'DHC', etc. */
+  handicapLabel?: string;
 }
 
 function PlayerScoreRow({
@@ -37,6 +39,7 @@ function PlayerScoreRow({
   isMatchComplete,
   onScoreAdjust,
   onParSelect,
+  handicapLabel = 'HC',
 }: PlayerScoreRowProps) {
   const colors = useThemeColors();
 
@@ -68,7 +71,7 @@ function PlayerScoreRow({
           {name}
         </Text>
         <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
-          HC: {handicap}
+          {handicapLabel}: {handicap}
         </Text>
       </View>
 
@@ -153,6 +156,8 @@ export interface TeamScorePanelProps {
   getPlayerScore: (playerId: string) => number | null;
   onPlayerScoreAdjust: (playerId: string, delta: number) => void;
   onPlayerParSelect: (playerId: string, par: number) => void;
+  /** Label for player handicap values: 'H' or 'DHC' */
+  handicapLabel?: string;
 }
 
 export function TeamScorePanel({
@@ -166,6 +171,7 @@ export function TeamScorePanel({
   getPlayerScore,
   onPlayerScoreAdjust,
   onPlayerParSelect,
+  handicapLabel = 'HC',
 }: TeamScorePanelProps) {
   const colors = useThemeColors();
 
@@ -204,7 +210,7 @@ export function TeamScorePanel({
             {team.name}
           </Text>
           <Text style={[styles.teamHandicap, { color: colors.textSecondary }]}>
-            Team HC: {team.handicap}
+            Team {handicapLabel}: {team.handicap}
           </Text>
         </View>
 
@@ -270,6 +276,7 @@ export function TeamScorePanel({
               isMatchComplete={isMatchComplete}
               onScoreAdjust={(delta) => onPlayerScoreAdjust(member.id, delta)}
               onParSelect={() => onPlayerParSelect(member.id, par)}
+              handicapLabel={handicapLabel}
             />
           );
         })}

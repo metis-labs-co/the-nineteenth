@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsSocial } from '@/context/SubscriptionContext';
 import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay } from '@/hooks/scorecard';
 import {
   QuickScorecardView,
@@ -39,7 +39,7 @@ import { useAuth } from '@/hooks';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
-import { hasMultipleTees, resolvePlayerTee } from '@/utils/teeResolution';
+import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
 
 // Local hooks and components
@@ -56,6 +56,7 @@ import {
   ScorecardDialogs,
   ScorecardScoreContent,
 } from './components';
+import type { PlayerHandicapDisplay } from './components/ScorecardScoreContent';
 
 type Props = RootStackScreenProps<'Scorecard'>;
 
@@ -104,32 +105,33 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // Stats visibility (respects Premium tier)
   const statsVisibility = useStatsVisibilityWithTier();
   const { showFairwayHit, showGreenInRegulation } = statsVisibility;
-  const isPremium = useIsPremium();
+  const isSocial = useIsSocial();
 
-  // Pre-compute daily handicap for each player (Premium-gated), using per-player tees
+  // Pre-compute daily handicap + display info for each player (Social tier+), using per-player tees
   const playerHandicapMap = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, PlayerHandicapDisplay>();
     for (const player of currentPlayers) {
       const playerTee = playerTeeMap.get(player.id) || selectedTeeData;
-      const { playingHandicap } = calculatePlayingHandicap({
+      const result = calculatePlayingHandicap({
         player,
         selectedTeeData: playerTee,
         holes,
         handicapSource,
         gameType: undefined, // Game type allowance applied separately per format
-        applyDailyHandicap: isPremium,
+        applyDailyHandicap: isSocial,
       });
-      map.set(player.id, playingHandicap);
+      map.set(player.id, {
+        playingHandicap: result.playingHandicap,
+        dailyHandicap: result.isDailyHandicap ? result.dailyHandicap : null,
+        baseHandicap: result.baseHandicap,
+        baseLabel: handicapSource === 'calculated' ? 'SHC' : 'HC',
+      });
     }
     return map;
-  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, isPremium]);
+  }, [currentPlayers, playerTeeMap, selectedTeeData, holes, handicapSource, isSocial]);
 
-  // Show tee color dots when players have different tees assigned
-  const showTeeDots = hasMultipleTees(
-    currentPlayers.map((p) => p.id),
-    playerTeeMap,
-    selectedTeeData,
-  );
+  // Show tee color dots next to player names (always when tee data is available)
+  const showTeeDots = selectedTeeData != null || playerTeeMap.size > 0;
 
   // Data fetching hook
   const {

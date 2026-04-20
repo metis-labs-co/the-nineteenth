@@ -53,6 +53,7 @@ export function useWizardCourseSelection({
         venue: club,
         tees: course.tees,
         holes: course.holes,
+        golfapiCourseId: course.golfapi_course_id,
       };
 
       setData((prev) => ({
@@ -94,6 +95,7 @@ export function useWizardCourseSelection({
         venue: course.club,
         tees: course.tees,
         holes: course.holes,
+        golfapiCourseId: course.golfapi_course_id,
       };
 
       setData((prev) => ({

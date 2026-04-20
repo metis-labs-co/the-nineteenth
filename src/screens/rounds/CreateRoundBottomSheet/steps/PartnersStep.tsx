@@ -10,10 +10,10 @@
 
 import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { IconGolf } from '@tabler/icons-react-native';
+import { IconGolf, IconUserPlus, IconUserQuestion, IconX } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { FriendSelector, type SelectedPlayer } from '@/components/common/FriendSelector';
+import { type SelectedPlayer } from '@/components/common/FriendSelector';
 import { AddPlaceholderModal } from '@/components/common/AddPlaceholderModal';
 import { HandicapEditSheet } from '@/components/rounds';
 import { usePlaceholderPlayers } from '@/hooks/usePlaceholderPlayers';
@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Friend, TeeBox, GameType, Player } from '@/types/database.types';
 import type { SelectedCourse, PlayingPartner } from '../types';
 import { MAX_PARTNERS, MATCH_TYPES, getTeeColor } from '../types';
+import { FriendSelectorBottomSheet } from './FriendSelectorBottomSheet';
 
 /** Identity + effective handicap of the row currently being edited. */
 interface HandicapEditTarget {
@@ -78,8 +79,9 @@ export const PartnersStep = memo(function PartnersStep({
   const colors = useThemeColors();
   const { player } = useAuth();
 
-  // State for Add Guest modal
+  // State for Add Guest modal and friends bottom sheet
   const [showAddPlaceholderModal, setShowAddPlaceholderModal] = useState(false);
+  const [showFriendsSheet, setShowFriendsSheet] = useState(false);
 
   // Which row is currently being edited in the HandicapEditSheet (null = closed)
   const [handicapEditTarget, setHandicapEditTarget] = useState<HandicapEditTarget | null>(null);
@@ -285,6 +287,26 @@ export const PartnersStep = memo(function PartnersStep({
           </View>
         </View>
 
+        {/* Action Buttons: Create Guest + Add Friend */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={() => setShowAddPlaceholderModal(true)}
+            activeOpacity={0.7}
+          >
+            <IconUserQuestion size={20} color={colors.textSecondary} />
+            <Text style={[styles.actionButtonText, { color: colors.textPrimary }]}>Create Guest</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, { borderColor: colors.primary, backgroundColor: colors.primary + '10' }]}
+            onPress={() => setShowFriendsSheet(true)}
+            activeOpacity={0.7}
+          >
+            <IconUserPlus size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Add Friend</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Inline Tee Selection for Current User & Partners */}
         {hasTees && selectedPartners.length > 0 && (
           <View style={styles.teeSection}>
@@ -381,9 +403,29 @@ export const PartnersStep = memo(function PartnersStep({
 
               return (
                 <View key={partner.id} style={[styles.playerTeeRow, { borderColor: colors.border }]}>
-                  <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {partner.name}
-                  </Text>
+                  <View style={styles.playerTeeNameRow}>
+                    <Text style={[styles.playerTeeName, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {partner.name}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.removeButton, { backgroundColor: colors.gray200 }]}
+                      onPress={() => {
+                        const friend = friends?.find((f) => f.id === partner.id);
+                        if (friend) {
+                          onTogglePartner(friend);
+                          return;
+                        }
+                        const placeholder = placeholderPlayers?.find((p) => p.id === partner.id);
+                        if (placeholder) {
+                          onTogglePartner({ id: placeholder.id, name: placeholder.name, handicap: placeholder.handicap } as Friend);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Remove ${partner.name}`}
+                    >
+                      <IconX size={14} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                   <View style={styles.teePills}>
                     {availableTees.map((tee) => {
                       const isSelected = partner.selectedTee?.name === tee.name;
@@ -467,27 +509,6 @@ export const PartnersStep = memo(function PartnersStep({
           </View>
         )}
 
-        {/* Friend Selector */}
-        <FriendSelector
-          selectedPlayers={selectedPlayers}
-          onSelectionChange={handleSelectionChange}
-          friends={acceptedFriends}
-          friendsLoading={friendsLoading}
-          searchQuery={friendSearchQuery}
-          onSearchQueryChange={onFriendSearchQueryChange}
-          limits={{ max: MAX_PARTNERS, min: 0 }}
-          limitIndicator={{ show: false }}
-          selectedTitle={`Playing with (${selectedPartners.length}/${MAX_PARTNERS})`}
-          listTitle={`Select up to ${MAX_PARTNERS} players (optional)`}
-          emptyMessage="Add friends from the Friends tab to play together"
-          testID="partners-step"
-          placeholderPlayers={placeholderPlayers || []}
-          onAddPlaceholderPress={() => setShowAddPlaceholderModal(true)}
-          addPlaceholderLabel="Add Guest"
-          disableInternalScroll={true}
-          selectedTee={selectedTee}
-          coursePar={coursePar}
-        />
       </ScrollView>
 
       {/* Continue Button */}
@@ -513,6 +534,26 @@ export const PartnersStep = memo(function PartnersStep({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Friends Bottom Sheet */}
+      <FriendSelectorBottomSheet
+        visible={showFriendsSheet}
+        onClose={() => setShowFriendsSheet(false)}
+        selectedPlayers={selectedPlayers}
+        onSelectionChange={handleSelectionChange}
+        friends={acceptedFriends}
+        friendsLoading={friendsLoading}
+        searchQuery={friendSearchQuery}
+        onSearchQueryChange={onFriendSearchQueryChange}
+        maxPartners={MAX_PARTNERS}
+        placeholderPlayers={placeholderPlayers || []}
+        onAddPlaceholderPress={() => {
+          setShowFriendsSheet(false);
+          setTimeout(() => setShowAddPlaceholderModal(true), 300);
+        }}
+        selectedTee={selectedTee}
+        coursePar={coursePar}
+      />
 
       {/* Add Guest Modal */}
       <AddPlaceholderModal
@@ -576,9 +617,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  playerTeeNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
   playerTeeName: {
     ...typography.bodyBold,
-    marginBottom: spacing.xs,
+    flex: 1,
+  },
+  removeButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   teePills: {
     flexDirection: 'row',
@@ -607,6 +661,25 @@ const styles = StyleSheet.create({
   },
   teePillText: {
     ...typography.caption,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  actionButtonText: {
+    ...typography.bodyBold,
   },
   matchPlayHint: {
     ...typography.small,

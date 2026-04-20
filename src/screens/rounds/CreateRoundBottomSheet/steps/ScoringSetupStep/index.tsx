@@ -67,6 +67,10 @@ interface ScoringSetupStepProps {
   onHandicapSourceChange: (source: HandicapSource) => void;
   // Actions
   onStartScoring: () => void;
+  /** Callback to refresh course/tee data */
+  onRefreshCourseData?: () => void;
+  /** Whether course data is currently refreshing */
+  isRefreshingCourseData?: boolean;
 }
 
 export const ScoringSetupStep = memo(function ScoringSetupStep({
@@ -94,6 +98,8 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
   handicapSource,
   onHandicapSourceChange,
   onStartScoring,
+  onRefreshCourseData,
+  isRefreshingCourseData,
 }: ScoringSetupStepProps) {
   const colors = useThemeColors();
   const { player, user } = useAuth();
@@ -138,6 +144,8 @@ export const ScoringSetupStep = memo(function ScoringSetupStep({
             selectedTee={selectedTee}
             holes={selectedCourse?.holes}
             selectedPartners={selectedPartners}
+            onRefreshCourseData={onRefreshCourseData}
+            isRefreshing={isRefreshingCourseData}
           />
 
           {/* Scoring Pairs Toggle - Premium Feature */}

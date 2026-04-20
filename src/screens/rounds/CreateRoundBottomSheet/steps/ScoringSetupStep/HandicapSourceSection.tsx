@@ -10,7 +10,7 @@
  */
 
 import React, { memo, useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -31,6 +31,10 @@ interface HandicapSourceSectionProps {
   holes?: Hole[] | null;
   /** Playing partners selected for the round */
   selectedPartners?: PlayingPartner[];
+  /** Callback to refresh course/tee data when slope/CR is missing */
+  onRefreshCourseData?: () => void;
+  /** Whether course data is currently refreshing */
+  isRefreshing?: boolean;
 }
 
 interface PlayerHandicapInfo {
@@ -39,6 +43,7 @@ interface PlayerHandicapInfo {
   handicap: number | null;
   socialIndex: number | null;
   dailyHandicap: number | null;
+  teeName: string | null;
 }
 
 export const HandicapSourceSection = memo(function HandicapSourceSection({
@@ -47,6 +52,8 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
   selectedTee,
   holes,
   selectedPartners = [],
+  onRefreshCourseData,
+  isRefreshing = false,
 }: HandicapSourceSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
@@ -63,21 +70,20 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 
   // Build player list with handicap info (current user + partners)
   const allPlayers = useMemo((): PlayerHandicapInfo[] => {
-    const canCalcDaily =
-      selectedTee?.slopeRating && selectedTee?.courseRating && holes?.length;
-    const coursePar = canCalcDaily
-      ? holes!.reduce((sum, h) => sum + h.par, 0)
+    const coursePar = holes?.length
+      ? holes.reduce((sum, h) => sum + h.par, 0)
       : 0;
 
     const calcDaily = (
       baseHC: number | null,
+      tee: TeeBox | null | undefined,
       gender?: 'male' | 'female' | null
     ): number | null => {
-      if (baseHC == null || !canCalcDaily || coursePar <= 0) return null;
+      if (baseHC == null || !tee?.slopeRating || !tee?.courseRating || coursePar <= 0) return null;
       return calculateGADailyHandicap({
         gaHandicap: baseHC,
-        slopeRating: selectedTee!.slopeRating!,
-        courseRating: selectedTee!.courseRating!,
+        slopeRating: tee.slopeRating,
+        courseRating: tee.courseRating,
         par: coursePar,
         gender: gender ?? undefined,
       }).dailyHandicap;
@@ -93,7 +99,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 
     const players: PlayerHandicapInfo[] = [];
 
-    // Current user first
+    // Current user first (uses the default selected tee)
     if (player) {
       const hc = player.handicap ?? null;
       const si = player.handicap_index ?? null;
@@ -102,20 +108,23 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
         name: player.name ?? 'You',
         handicap: hc,
         socialIndex: si,
-        dailyHandicap: calcDaily(getBase(hc, si), player.gender),
+        dailyHandicap: calcDaily(getBase(hc, si), selectedTee, player.gender),
+        teeName: selectedTee?.name ?? null,
       });
     }
 
-    // Playing partners
+    // Playing partners (use per-player tee override, fallback to default)
     for (const p of selectedPartners) {
       const hc = p.handicap ?? null;
       const si = p.handicapIndex ?? null;
+      const partnerTee = p.selectedTee ?? selectedTee;
       players.push({
         id: p.id,
         name: p.name,
         handicap: hc,
         socialIndex: si,
-        dailyHandicap: calcDaily(getBase(hc, si), p.gender),
+        dailyHandicap: calcDaily(getBase(hc, si), partnerTee, p.gender),
+        teeName: partnerTee?.name ?? null,
       });
     }
 
@@ -125,6 +134,9 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
   const hintText = handicapSource === 'calculated'
     ? 'Uses Social Handicap Index from your app rounds (profile handicap fallback)'
     : 'Uses your handicap as entered in your profile';
+
+  // Whether tee data is missing for daily handicap calculation
+  const missingTeeData = selectedTee != null && (!selectedTee.slopeRating || !selectedTee.courseRating);
 
   // Format handicap display value
   const formatHandicap = (value: number | null | undefined): string => {
@@ -187,11 +199,46 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
       {/* Player handicap list */}
       {allPlayers.length > 0 && (
         <View style={[styles.playerList, { backgroundColor: colors.surfaceVariant }]}>
-          {/* Tee info header */}
-          {selectedTee?.slopeRating && selectedTee?.courseRating && (
-            <Text style={[styles.teeInfoText, { color: colors.textSecondary }]}>
-              {selectedTee.name} tees · Slope {selectedTee.slopeRating} · CR {selectedTee.courseRating}
-            </Text>
+          {/* Tee info header — only when all players on same tee */}
+          {(() => {
+            const teeNames = new Set(allPlayers.map((p) => p.teeName).filter(Boolean));
+            if (teeNames.size === 1 && selectedTee?.slopeRating && selectedTee?.courseRating) {
+              return (
+                <Text style={[styles.teeInfoText, { color: colors.textSecondary }]}>
+                  {selectedTee.name} tees · Slope {selectedTee.slopeRating} · CR {selectedTee.courseRating}
+                </Text>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Missing tee data notice */}
+          {missingTeeData && (
+            <View style={[styles.missingDataNotice, { backgroundColor: colors.warningLight }]}>
+              <Icon source="information-outline" size={16} color={colors.warning} />
+              <View style={styles.missingDataContent}>
+                <Text style={[styles.missingDataText, { color: colors.textPrimary }]}>
+                  Daily handicap unavailable — the selected tee is missing slope or course rating data.
+                </Text>
+                {onRefreshCourseData && (
+                  <TouchableOpacity
+                    style={[styles.refreshButton, { backgroundColor: colors.surface }]}
+                    onPress={onRefreshCourseData}
+                    disabled={isRefreshing}
+                    activeOpacity={0.7}
+                  >
+                    {isRefreshing ? (
+                      <ActivityIndicator size={14} color={colors.primary} />
+                    ) : (
+                      <Icon source="refresh" size={14} color={colors.primary} />
+                    )}
+                    <Text style={[styles.refreshButtonText, { color: colors.primary }]}>
+                      {isRefreshing ? 'Refreshing...' : 'Refresh Course Data'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           )}
 
           {/* Column headers */}
@@ -203,28 +250,40 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
           </View>
 
           {/* Player rows */}
-          {allPlayers.map((p, idx) => (
-            <View
-              key={p.id}
-              style={[
-                styles.playerRow,
-                idx < allPlayers.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-                {p.name}
-              </Text>
-              <Text style={[styles.playerStat, { color: colors.textPrimary }]}>
-                {formatHandicap(p.handicap)}
-              </Text>
-              <Text style={[styles.playerStat, { color: colors.primary, ...typography.smallBold }]}>
-                {p.dailyHandicap != null ? p.dailyHandicap : '-'}
-              </Text>
-              <Text style={[styles.playerStat, { color: colors.textSecondary }]}>
-                {formatHandicap(p.socialIndex)}
-              </Text>
-            </View>
-          ))}
+          {(() => {
+            const teeNames = new Set(allPlayers.map((p) => p.teeName).filter(Boolean));
+            const hasMultipleTees = teeNames.size > 1;
+
+            return allPlayers.map((p, idx) => (
+              <View
+                key={p.id}
+                style={[
+                  styles.playerRow,
+                  idx < allPlayers.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.playerNameColumn}>
+                  <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  {hasMultipleTees && p.teeName && (
+                    <Text style={[styles.playerTeeLabel, { color: colors.textSecondary }]}>
+                      {p.teeName}
+                    </Text>
+                  )}
+                </View>
+                <Text style={[styles.playerStat, { color: colors.textPrimary }]}>
+                  {formatHandicap(p.handicap)}
+                </Text>
+                <Text style={[styles.playerStat, { color: colors.primary, ...typography.smallBold }]}>
+                  {p.dailyHandicap != null ? p.dailyHandicap : '-'}
+                </Text>
+                <Text style={[styles.playerStat, { color: colors.textSecondary }]}>
+                  {formatHandicap(p.socialIndex)}
+                </Text>
+              </View>
+            ));
+          })()}
         </View>
       )}
     </View>
@@ -297,13 +356,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
   },
+  playerNameColumn: {
+    flex: 1,
+  },
   playerName: {
     ...typography.smallBold,
-    flex: 1,
+  },
+  playerTeeLabel: {
+    ...typography.caption,
+    fontSize: 10,
   },
   playerStat: {
     ...typography.small,
     width: 50,
     textAlign: 'right',
+  },
+  missingDataNotice: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  missingDataContent: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  missingDataText: {
+    ...typography.caption,
+    lineHeight: 16,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  refreshButtonText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });

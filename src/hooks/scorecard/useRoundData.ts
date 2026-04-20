@@ -231,7 +231,8 @@ export function useRoundData({
       false, // isStandalone
       [], // allowedPlayerIds
       metadata.data?.selectedTeeData ?? null, // selectedTeeData for daily handicap
-      metadata.data?.handicapSource ?? 'profile' // handicapSource
+      metadata.data?.handicapSource ?? 'profile', // handicapSource
+      metadata.data?.playerTeeMap ?? new Map(), // per-player tee overrides
     );
   }, [
     roundId,

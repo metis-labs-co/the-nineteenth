@@ -130,6 +130,9 @@ interface UseCreateRoundWizardReturn {
   // Actions
   handleStartScoring: () => void;
   handleClose: () => void;
+
+  // Direct state update (for course data refresh)
+  setData: React.Dispatch<React.SetStateAction<WizardData>>;
 }
 
 const initialData: WizardData = {
@@ -295,5 +298,6 @@ export function useCreateRoundWizard({
     setHandicapSource,
     handleStartScoring,
     handleClose,
+    setData,
   };
 }

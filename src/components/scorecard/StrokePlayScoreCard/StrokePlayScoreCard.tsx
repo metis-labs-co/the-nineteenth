@@ -59,6 +59,14 @@ interface StrokePlayScoreCardProps {
   teeDotColor?: string;
   /** Callback when "Add Additional Stats" button is pressed (handled at screen level) */
   onDetailedStatsPress?: () => void;
+  /** Playing handicap (daily if Social+, raw otherwise). Falls back to player.handicap */
+  playingHandicap?: number;
+  /** Rounded daily handicap value (null if not applied) */
+  dailyHandicap?: number | null;
+  /** Raw decimal base handicap value (profile HC or social index) */
+  baseHandicap?: number;
+  /** Label for base value: 'HC' (profile) or 'SHC' (social handicap) */
+  baseLabel?: string;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -76,9 +84,13 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   runningParScore = 0,
   teeDotColor,
   onDetailedStatsPress,
+  playingHandicap,
+  dailyHandicap,
+  baseHandicap,
+  baseLabel,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
-  const handicap = player.handicap ?? 0;
+  const handicap = playingHandicap ?? player.handicap ?? 0;
   const statsVisibility = useStatsVisibilityWithTier();
   const { showPutts, showFairwayHit, showGreenInRegulation } = statsVisibility;
   const [showExtendedPicker, setShowExtendedPicker] = useState(false);
@@ -220,6 +232,9 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
         runningParScore={runningParScore}
         teeDotColor={teeDotColor}
         onPlayerPress={onPlayerPress}
+        dailyHandicap={dailyHandicap}
+        baseHandicap={baseHandicap}
+        baseLabel={baseLabel}
       />
 
       {/* Divider */}
