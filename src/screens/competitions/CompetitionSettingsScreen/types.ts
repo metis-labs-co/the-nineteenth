@@ -1,5 +1,5 @@
 /**
- * Types for EditCompetitionScreen
+ * Types for CompetitionSettingsScreen
  *
  * Note: Prize pool types are kept here for reuse by EditPrizePoolBottomSheet
  * which handles prize pool configuration separately from competition editing.

@@ -166,13 +166,6 @@ jest.mock('@/screens/admin/AICompetitionScreen', () => {
     return React.createElement(View, { testID: 'aicompetition-screen' }, React.createElement(Text, null, 'AICompetition'));
   };
 });
-jest.mock('@/screens/admin/EditCompetitionScreen', () => {
-  const React = require('react');
-  const { View, Text } = require('react-native');
-  return function MockScreen() {
-    return React.createElement(View, { testID: 'editcompetition-screen' }, React.createElement(Text, null, 'EditCompetition'));
-  };
-});
 jest.mock('@/screens/admin/AddRoundScreen', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
@@ -185,13 +178,6 @@ jest.mock('@/screens/admin/EditRoundScreen', () => {
   const { View, Text } = require('react-native');
   return function MockScreen() {
     return React.createElement(View, { testID: 'editround-screen' }, React.createElement(Text, null, 'EditRound'));
-  };
-});
-jest.mock('@/screens/admin/TeamManagementScreen', () => {
-  const React = require('react');
-  const { View, Text } = require('react-native');
-  return function MockScreen() {
-    return React.createElement(View, { testID: 'teammanagement-screen' }, React.createElement(Text, null, 'TeamManagement'));
   };
 });
 jest.mock('@/screens/admin/ScoringPairsScreen', () => {

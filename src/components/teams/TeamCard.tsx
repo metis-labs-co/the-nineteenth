@@ -87,6 +87,12 @@ export interface TeamCardProps {
   onPress?: () => void;
 
   /**
+   * Callback when a member row is pressed. When provided, members become
+   * tappable — used by organizers on the Teams tab to open the move sheet.
+   */
+  onMemberPress?: (player: Player) => void;
+
+  /**
    * Whether member list is initially expanded
    */
   initiallyExpanded?: boolean;
@@ -123,6 +129,7 @@ export const TeamCard = React.memo(function TeamCard({
   onDelete,
   onNameChange,
   onPress,
+  onMemberPress,
   initiallyExpanded = false,
   testID,
 }: TeamCardProps) {
@@ -233,6 +240,7 @@ export const TeamCard = React.memo(function TeamCard({
                   player={member.player}
                   isLast={index === team.members.length - 1}
                   colors={colors}
+                  onPress={onMemberPress}
                 />
               ))
             ) : (
@@ -254,9 +262,10 @@ interface MemberRowProps {
   player?: Player;
   isLast: boolean;
   colors: ColorPalette;
+  onPress?: (player: Player) => void;
 }
 
-const MemberRow = React.memo(function MemberRow({ player, isLast, colors }: MemberRowProps) {
+const MemberRow = React.memo(function MemberRow({ player, isLast, colors, onPress }: MemberRowProps) {
   if (!player) {
     return null;
   }
@@ -265,12 +274,8 @@ const MemberRow = React.memo(function MemberRow({ player, isLast, colors }: Memb
   const _initials = getInitials(player.name);
   const styles = createMemberStyles(colors);
 
-  return (
-    <View
-      style={[styles.memberRow, !isLast && styles.memberRowBorder]}
-      accessibilityRole="text"
-      accessibilityLabel={`${player.name}, Handicap: ${player.handicap ?? 'N/A'}`}
-    >
+  const rowContent = (
+    <>
       <PlayerAvatar
         photoUrl={player.photo_url}
         name={player.name}
@@ -290,6 +295,31 @@ const MemberRow = React.memo(function MemberRow({ player, isLast, colors }: Memb
           {player.handicap ?? 'N/A'}
         </Text>
       </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.memberRow, !isLast && styles.memberRowBorder]}
+        onPress={() => onPress(player)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Move ${player.name}. Handicap ${player.handicap ?? 'N/A'}.`}
+        accessibilityHint="Opens a menu to move this player to a different team"
+      >
+        {rowContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View
+      style={[styles.memberRow, !isLast && styles.memberRowBorder]}
+      accessibilityRole="text"
+      accessibilityLabel={`${player.name}, Handicap: ${player.handicap ?? 'N/A'}`}
+    >
+      {rowContent}
     </View>
   );
 });

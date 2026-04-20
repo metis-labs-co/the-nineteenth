@@ -106,7 +106,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     handleRemovePlayer,
     handleScoreRound,
     handleViewRound,
-    handleManageTeams,
     handleUpdateTeamName,
     handleManageScoringPairs,
     handleRefresh,
@@ -290,12 +289,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
         {activeTab === 'teams' && competition.team_mode !== 'none' && (
           <TeamsTab
+            competitionId={id}
             teams={teams || []}
             teamMode={competition.team_mode}
+            playerCount={players.filter((p) => p.status === 'accepted').length}
             isLoading={isLoadingTeams}
             isOrganizer={isOrganizer}
             canEditTeamNames={isOrganizer}
-            onManageTeams={handleManageTeams}
             onUpdateTeamName={handleUpdateTeamName}
             colors={colors}
           />

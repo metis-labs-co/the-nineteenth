@@ -32,10 +32,8 @@ import MainTabNavigator from './MainTabNavigator';
 // Admin Screens
 import CreateCompetitionScreen from '@/screens/admin/CreateCompetitionScreen';
 import AICompetitionScreen from '@/screens/admin/AICompetitionScreen';
-import EditCompetitionScreen from '@/screens/admin/EditCompetitionScreen';
 import AddRoundScreen from '@/screens/admin/AddRoundScreen';
 import EditRoundScreen from '@/screens/admin/EditRoundScreen';
-import TeamManagementScreen from '@/screens/admin/TeamManagementScreen';
 import ScoringPairsScreen from '@/screens/admin/ScoringPairsScreen';
 import LinkPlaceholderScreen from '@/screens/admin/LinkPlaceholderScreen';
 
@@ -262,16 +260,6 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
             />
 
             <Stack.Screen
-              name="EditCompetition"
-              component={EditCompetitionScreen}
-              options={{
-                title: 'Edit Competition',
-                headerShown: false,
-                presentation: 'modal',
-              }}
-            />
-
-            <Stack.Screen
               name="CompetitionSettings"
               component={CompetitionSettingsScreen}
               options={{
@@ -314,15 +302,6 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               component={RoundSettingsScreen}
               options={{
                 title: 'Round Settings',
-                headerShown: false,
-              }}
-            />
-
-            <Stack.Screen
-              name="TeamManagement"
-              component={TeamManagementScreen}
-              options={{
-                title: 'Manage Teams',
                 headerShown: false,
               }}
             />

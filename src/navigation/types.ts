@@ -30,7 +30,6 @@ export type RootStackParamList = {
   CompetitionDetail: { id: string };
   CreateCompetition: { initialState?: import('@/utils/aiToWizardState').WizardState } | undefined;
   AICompetition: undefined;
-  EditCompetition: { id: string };
   CompetitionSettings: { competitionId: string };
 
   // Rounds
@@ -71,9 +70,6 @@ export type RootStackParamList = {
   // Players
   AddPlayers: { competitionId: string };
   PlayerDetail: { id: string };
-
-  // Teams
-  TeamManagement: { competitionId: string };
 
   // Scoring Pairs
   ScoringPairs: { roundId: string; competitionId: string };

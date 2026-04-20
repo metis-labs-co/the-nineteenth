@@ -34,7 +34,7 @@ import {
   PrizePoolFormConfig,
   PrizePoolEditState,
   DEFAULT_PRIZE_POOL_CONFIG,
-} from '@/screens/admin/EditCompetitionScreen/types';
+} from '@/screens/competitions/CompetitionSettingsScreen/types';
 
 // ============================================================================
 // Types

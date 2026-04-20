@@ -151,10 +151,6 @@ export function useCompetitionDetailHandlers({
     [navigation, id]
   );
 
-  const handleManageTeams = useCallback(() => {
-    navigation.navigate('TeamManagement', { competitionId: id });
-  }, [navigation, id]);
-
   const handleUpdateTeamName = useCallback(
     (teamId: string, newName: string) => {
       updateTeamNameMutation(
@@ -250,7 +246,6 @@ export function useCompetitionDetailHandlers({
     handleRemovePlayer,
     handleScoreRound,
     handleViewRound,
-    handleManageTeams,
     handleUpdateTeamName,
     handleManageScoringPairs,
     handleRefresh,

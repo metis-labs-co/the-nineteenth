@@ -349,43 +349,24 @@ export function useDeleteTeam() {
 }
 
 /**
- * Mutation hook to auto-generate balanced teams
+ * Mutation hook to auto-generate balanced teams.
  *
- * Uses snake draft algorithm to create teams balanced by handicap.
- * Invalidates the teams list on success.
+ * Runs snake draft + pairwise-swap optimisation against accepted players,
+ * then persists the result.
  *
- * @returns Mutation result with autoGenerateTeams function
+ * Pass `preserveNames: true` to keep existing team rows (ids + names) and
+ * only replace memberships when the existing count matches `numTeams`.
+ * Otherwise the existing teams are wiped and recreated as "Team 1..N".
  *
  * @example
  * ```tsx
- * function AutoGenerateTeamsButton({ competitionId }: { competitionId: string }) {
- *   const { mutate: generateTeams, isPending } = useAutoGenerateTeams();
+ * const { mutate: generateTeams, isPending } = useAutoGenerateTeams();
  *
- *   const handleGenerate = (teamSize: 2 | 3 | 4) => {
- *     generateTeams(
- *       { competitionId, teamSize },
- *       {
- *         onSuccess: (teams) => {
- *           Alert.alert('Success', `Created ${teams.length} teams`);
- *         },
- *         onError: (error) => {
- *           Alert.alert('Error', error.message);
- *         },
- *       }
- *     );
- *   };
+ * // Non-destructive reshuffle (names preserved)
+ * generateTeams({ competitionId, numTeams: 5, preserveNames: true });
  *
- *   return (
- *     <View>
- *       <Button onPress={() => handleGenerate(2)} loading={isPending}>
- *         Generate Pairs (2 players)
- *       </Button>
- *       <Button onPress={() => handleGenerate(4)} loading={isPending}>
- *         Generate Foursomes (4 players)
- *       </Button>
- *     </View>
- *   );
- * }
+ * // Destructive rebuild (count changed, confirm first)
+ * generateTeams({ competitionId, numTeams: 6 });
  * ```
  */
 export function useAutoGenerateTeams() {
@@ -394,16 +375,17 @@ export function useAutoGenerateTeams() {
   return useMutation({
     mutationFn: async ({
       competitionId,
-      teamSize,
+      numTeams,
+      preserveNames,
     }: {
       competitionId: string;
-      teamSize: 2 | 3 | 4;
+      numTeams: number;
+      preserveNames?: boolean;
     }): Promise<TeamWithMembers[]> => {
-      return autoGenerateTeams(competitionId, teamSize);
+      return autoGenerateTeams({ competitionId, numTeams, preserveNames });
     },
 
-    onSuccess: (data, variables) => {
-      // Invalidate the teams list for this competition
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: teamKeys.list(variables.competitionId),
       });

@@ -1,70 +1,94 @@
 /**
  * CompetitionSettingsScreen - Admin settings for a competition
  *
- * - Edit name/description
- * - Share invite code
+ * Single place to edit all configurable competition details:
+ * - Name / description
+ * - Competition type (Event / Knockout) — locked once scoring has started
+ * - Format / team mode (Individual / Teams) — locked once scoring has started
+ * - Start / end dates
+ * - Per-player tee selection
+ * - Invite code (share)
  * - Delete competition
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
+  ScrollView,
   Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Text, Icon, Divider } from 'react-native-paper';
+import { Divider, Icon, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { PageHeader, FormInput, ConfirmationDialog, SectionHeader } from '@/components/common';
-import { LoadingSpinner } from '@/components/common';
+import {
+  ConfirmationDialog,
+  FormSection,
+  LoadingSpinner,
+  PageHeader,
+  SectionHeader,
+} from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useConfirmationDialog } from '@/hooks';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useCompetitionData } from '@/screens/admin/EditCompetitionScreen/hooks/useCompetitionData';
-import { useCompetitionSubmission } from '@/screens/admin/EditCompetitionScreen/hooks/useCompetitionSubmission';
+import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
-import type { EditCompetitionFormData } from '@/screens/admin/EditCompetitionScreen/hooks/useCompetitionValidation';
 import { supabase } from '@/services/supabase/client';
 import { competitionPlayersService } from '@/services/competitionPlayers/competitionPlayersService';
 import { getTeeColor } from '@/screens/rounds/CreateRoundBottomSheet/types';
 import type { TeeBox } from '@/types/database.types';
+
+import { CompetitionBasicInfo, CompetitionSettings } from './components';
+import {
+  useCompetitionData,
+  useCompetitionSubmission,
+  useEditCompetitionForm,
+} from './hooks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
 
 export default function CompetitionSettingsScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { competitionId } = route.params;
-  const { dialogConfig: alertDialogConfig, showAlert, dismissDialog: dismissAlertDialog } = useConfirmationDialog();
+  const {
+    dialogConfig: alertDialogConfig,
+    showAlert,
+    dismissDialog: dismissAlertDialog,
+  } = useConfirmationDialog();
 
-  const { competition, isLoading, error } = useCompetitionData({ competitionId });
+  const { competition, hasStartedRound, isLoading, error } = useCompetitionData({
+    competitionId,
+  });
 
-  // Local form state (following LeagueSettingsScreen pattern)
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [hasChanges, setHasChanges] = useState(false);
+  // Form state — react-hook-form backed
+  const {
+    control,
+    handleSubmit,
+    errors,
+    isDirty,
+    competitionType,
+    teamMode,
+    startDateParsed,
+    handleCompetitionTypeChange,
+    handleTeamModeChange,
+    handleStartDateChange,
+    handleEndDateChange,
+  } = useEditCompetitionForm({ competition });
 
-  // Player tees state
+  // Per-player tee selection state (kept local, saves optimistically)
   const [players, setPlayers] = useState<
-    { player_id: string; selected_tee: TeeBox | null; players: { id: string; name: string; handicap: number | null } }[]
+    {
+      player_id: string;
+      selected_tee: TeeBox | null;
+      players: { id: string; name: string; handicap: number | null };
+    }[]
   >([]);
   const [availableTees, setAvailableTees] = useState<TeeBox[]>([]);
 
-  // Sync form state when competition data loads
-  useEffect(() => {
-    if (competition) {
-      setName(competition.name);
-      setDescription(competition.description || '');
-    }
-  }, [competition]);
-
-  // Fetch player tees and available tee options
   useEffect(() => {
     if (!competitionId) return;
 
-    // Fetch competition players with player details and selected tee
     supabase
       .from('competition_players')
       .select('player_id, selected_tee, players!player_id(id, name, handicap)')
@@ -83,7 +107,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         }
       });
 
-    // Fetch rounds with course tees to get available tee options
     supabase
       .from('rounds')
       .select('id, round_number, courses!course_id(id, name, tees)')
@@ -98,7 +121,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       });
   }, [competitionId]);
 
-  // Submission hook
+  // Save competition detail changes
   const {
     handleSubmit: submitUpdate,
     isSubmitting,
@@ -107,12 +130,11 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   } = useCompetitionSubmission({
     competitionId,
     onSuccess: () => {
-      setHasChanges(false);
       Alert.alert('Saved', 'Competition settings updated.');
     },
   });
 
-  // Delete hook
+  // Delete
   const {
     showDeleteDialog,
     setShowDeleteDialog,
@@ -120,58 +142,25 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     handleDeleteCompetition,
   } = useDeleteCompetition({
     id: competitionId,
-    onDeleted: () => {
-      // Go back to the competitions list (pop past CompetitionDetail)
-      navigation.popToTop();
-    },
+    onDeleted: () => navigation.popToTop(),
     showAlert,
   });
 
-  const handleNameChange = useCallback((text: string) => {
-    setName(text);
-    setHasChanges(true);
-  }, []);
-
-  const handleDescriptionChange = useCallback((text: string) => {
-    setDescription(text);
-    setHasChanges(true);
-  }, []);
-
-  const handleSave = useCallback(() => {
-    if (!hasChanges || name.trim().length < 3) return;
-    if (!competition) return;
-
-    const formData: EditCompetitionFormData = {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      competitionType: competition.competition_type,
-      teamMode: competition.team_mode,
-      startDate: competition.start_date,
-      endDate: competition.end_date || undefined,
-    };
-
-    submitUpdate(formData);
-  }, [hasChanges, name, description, competition, submitUpdate]);
-
-  const handleTeeChange = useCallback(async (playerId: string, tee: TeeBox) => {
-    // Save previous state for rollback
-    const previousPlayers = players;
-
-    // Optimistic update
-    setPlayers((prev) =>
-      prev.map((p) =>
-        p.player_id === playerId ? { ...p, selected_tee: tee } : p,
-      ),
-    );
-
-    try {
-      await competitionPlayersService.updateCompetitionPlayerTee(competitionId, playerId, tee);
-    } catch {
-      // Revert on failure
-      setPlayers(previousPlayers);
-      Alert.alert('Error', 'Failed to update tee selection. Please try again.');
-    }
-  }, [competitionId, players]);
+  const handleTeeChange = useCallback(
+    async (playerId: string, tee: TeeBox) => {
+      const previousPlayers = players;
+      setPlayers((prev) =>
+        prev.map((p) => (p.player_id === playerId ? { ...p, selected_tee: tee } : p)),
+      );
+      try {
+        await competitionPlayersService.updateCompetitionPlayerTee(competitionId, playerId, tee);
+      } catch {
+        setPlayers(previousPlayers);
+        Alert.alert('Error', 'Failed to update tee selection. Please try again.');
+      }
+    },
+    [competitionId, players],
+  );
 
   const handleShare = useCallback(async () => {
     if (!competition) return;
@@ -184,7 +173,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     }
   }, [competition]);
 
-  // Loading state
+  // Loading
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -196,7 +185,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  // Error state
+  // Error
   if (error || !competition) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -211,7 +200,9 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  const isArchived = competition.status === 'completed' || competition.status === 'cancelled';
+  const isArchived =
+    competition.status === 'completed' || competition.status === 'cancelled';
+  const structureLocked = hasStartedRound;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -221,67 +212,47 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         onBack={() => navigation.goBack()}
       />
 
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Edit Details */}
+      <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
+        {/* Details */}
         {!isArchived && (
           <View style={styles.section}>
             <SectionHeader title="Details" />
+            <FormSection>
+              <CompetitionBasicInfo control={control} errors={errors} />
+              <CompetitionSettings
+                control={control}
+                errors={errors}
+                competitionType={competitionType}
+                teamMode={teamMode}
+                startDateParsed={startDateParsed}
+                onCompetitionTypeChange={handleCompetitionTypeChange}
+                onTeamModeChange={handleTeamModeChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={handleEndDateChange}
+                structureLocked={structureLocked}
+              />
+            </FormSection>
 
-            <FormInput
-              label="Competition Name"
-              floatingLabel
-              placeholder="Competition name"
-              value={name}
-              onChangeText={handleNameChange}
-              maxLength={50}
-              accessibilityHint="Edit competition name"
-            />
+            {structureLocked && (
+              <View style={[styles.infoBox, { backgroundColor: colors.primaryLighter }]}>
+                <Icon source="information-outline" size={16} color={colors.primaryDark} />
+                <Text style={[styles.infoText, { color: colors.primaryDark }]}>
+                  Competition type and format are locked once scoring has started.
+                </Text>
+              </View>
+            )}
 
-            <FormInput
-              label="Description"
-              floatingLabel
-              placeholder="Optional description"
-              value={description}
-              onChangeText={handleDescriptionChange}
-              maxLength={500}
-              multiline
-              numberOfLines={3}
-              accessibilityHint="Edit competition description"
-            />
-
-            <View style={[styles.infoBox, { backgroundColor: colors.primaryLighter }]}>
-              <Icon source="information-outline" size={16} color={colors.primaryDark} />
-              <Text style={[styles.infoText, { color: colors.primaryDark }]}>
-                Competition type, handicap system, and dates can be changed from the Edit Competition screen.
-              </Text>
-            </View>
-
-            {hasChanges && (
+            {isDirty && (
               <TouchableOpacity
-                onPress={handleSave}
-                disabled={name.trim().length < 3 || isSubmitting}
-                style={[
-                  styles.saveButton,
-                  {
-                    backgroundColor:
-                      name.trim().length >= 3 ? colors.primary : colors.gray200,
-                  },
-                ]}
+                onPress={handleSubmit(submitUpdate)}
+                disabled={isSubmitting}
+                style={[styles.saveButton, { backgroundColor: colors.primary }]}
                 activeOpacity={0.7}
                 accessibilityLabel="Save changes"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isSubmitting }}
               >
-                <Text
-                  style={[
-                    styles.saveButtonText,
-                    {
-                      color:
-                        name.trim().length >= 3 ? colors.white : colors.textSecondary,
-                    },
-                  ]}
-                >
+                <Text style={[styles.saveButtonText, { color: colors.white }]}>
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Text>
               </TouchableOpacity>
@@ -338,7 +309,9 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
                           {player.name}
                         </Text>
                         {player.handicap != null && (
-                          <Text style={[styles.playerTeeHandicap, { color: colors.textSecondary }]}>
+                          <Text
+                            style={[styles.playerTeeHandicap, { color: colors.textSecondary }]}
+                          >
                             HC {player.handicap}
                           </Text>
                         )}
@@ -373,7 +346,8 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
                                   styles.teeDot,
                                   {
                                     backgroundColor: dotColor,
-                                    borderWidth: tee.color.toLowerCase() === 'white' ? 1 : 0,
+                                    borderWidth:
+                                      tee.color.toLowerCase() === 'white' ? 1 : 0,
                                     borderColor: colors.border,
                                   },
                                 ]}
@@ -402,7 +376,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
           </>
         )}
 
-        {/* Delete Competition */}
+        {/* Delete */}
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.section}>
           <SectionHeader title="Danger Zone" />
@@ -418,12 +392,12 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
             </Text>
           </TouchableOpacity>
           <Text style={[styles.deleteHint, { color: colors.textSecondary }]}>
-            All rounds, scores, and player data will be permanently removed. This action cannot be undone.
+            All rounds, scores, and player data will be permanently removed. This action
+            cannot be undone.
           </Text>
         </View>
       </ScrollView>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         visible={showDeleteDialog}
         title="Delete Competition"
@@ -437,10 +411,7 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
         loading={isDeleting}
       />
 
-      {/* Alert Dialog */}
       <ConfirmationDialog {...alertDialogConfig} onCancel={dismissAlertDialog} />
-
-      {/* Submission Error Dialog */}
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </View>
   );

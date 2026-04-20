@@ -1,5 +1,5 @@
 /**
- * Hook exports for EditCompetitionScreen
+ * Hook exports for CompetitionSettingsScreen
  */
 
 export { useEditCompetitionForm, Controller } from './useEditCompetitionForm';

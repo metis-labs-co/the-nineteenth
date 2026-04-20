@@ -49,6 +49,8 @@ interface CompetitionSettingsProps {
   onTeamModeChange: (value: TeamMode) => void;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
+  /** When true, Competition Type and Format selectors are disabled (scoring has started) */
+  structureLocked?: boolean;
 }
 
 // ============================================================================
@@ -65,6 +67,7 @@ export function CompetitionSettings({
   onTeamModeChange,
   onStartDateChange,
   onEndDateChange,
+  structureLocked = false,
 }: CompetitionSettingsProps) {
   return (
     <>
@@ -78,6 +81,7 @@ export function CompetitionSettings({
               value={value}
               onValueChange={onCompetitionTypeChange}
               buttons={COMPETITION_TYPE_BUTTONS}
+              disabled={structureLocked}
             />
           )}
         />
@@ -93,6 +97,7 @@ export function CompetitionSettings({
               value={value}
               onValueChange={onTeamModeChange}
               buttons={TEAM_MODE_BUTTONS}
+              disabled={structureLocked}
             />
           )}
         />

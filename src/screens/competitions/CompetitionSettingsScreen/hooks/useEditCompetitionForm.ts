@@ -1,5 +1,5 @@
 /**
- * Hook for managing EditCompetitionScreen form state
+ * Hook for managing CompetitionSettingsScreen form state
  *
  * Handles core competition details:
  * - Name and description
