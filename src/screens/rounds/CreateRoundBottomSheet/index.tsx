@@ -662,6 +662,8 @@ export default function CreateRoundBottomSheet({
           isSocialOrHigher={isSocialOrHigher}
           currentUserHandicapOverride={wizard.data.currentUserHandicapOverride}
           onCurrentUserHandicapChange={wizard.handleCurrentUserHandicapChange}
+          onRefreshCourseData={handleRefreshCourseData}
+          isRefreshingCourseData={isRefreshingCourseData}
         />
       )}
 

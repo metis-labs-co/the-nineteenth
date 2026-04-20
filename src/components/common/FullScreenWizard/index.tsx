@@ -20,8 +20,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '../PageHeader';
 import { WizardProgressBar } from './WizardProgressBar';
@@ -38,7 +37,6 @@ export function FullScreenWizard({
   onClose,
 }: FullScreenWizardProps) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
 
   const content = scrollable ? (
     <ScrollView
@@ -74,14 +72,10 @@ export function FullScreenWizard({
         steps={wizard.steps}
         currentStepIndex={wizard.currentStepIndex}
       />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top + 56}
-      >
+      <View style={styles.flex}>
         {content}
         {showFooter && <WizardFooter wizard={wizard} isSubmitting={isSubmitting} />}
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

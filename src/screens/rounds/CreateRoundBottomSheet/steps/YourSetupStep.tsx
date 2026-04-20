@@ -8,8 +8,8 @@
  */
 
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { IconGolf, IconCircle, IconCircleCheck, IconPencil } from '@tabler/icons-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { IconGolf, IconCircle, IconCircleCheck, IconPencil, IconRefresh, IconInfoCircle } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
@@ -43,6 +43,10 @@ interface YourSetupStepProps {
    */
   currentUserHandicapOverride: number | null;
   onCurrentUserHandicapChange: (value: number) => void;
+  /** Callback to refresh course/tee data when slope/CR is missing */
+  onRefreshCourseData?: () => void;
+  /** Whether course data is currently refreshing */
+  isRefreshingCourseData?: boolean;
 }
 
 // Format handicap display value
@@ -65,6 +69,8 @@ export const YourSetupStep = memo(function YourSetupStep({
   isSocialOrHigher,
   currentUserHandicapOverride,
   onCurrentUserHandicapChange,
+  onRefreshCourseData,
+  isRefreshingCourseData = false,
 }: YourSetupStepProps) {
   const colors = useThemeColors();
   const { player } = useAuth();
@@ -225,6 +231,35 @@ export const YourSetupStep = memo(function YourSetupStep({
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+        )}
+
+        {/* Missing tee data notice */}
+        {selectedTee != null && (!selectedTee.slopeRating || !selectedTee.courseRating) && (
+          <View style={[styles.missingDataNotice, { backgroundColor: colors.warningLight }]}>
+            <IconInfoCircle size={16} color={colors.warning} />
+            <View style={styles.missingDataContent}>
+              <Text style={[styles.missingDataText, { color: colors.textPrimary }]}>
+                Daily handicap unavailable — the selected tee is missing slope or course rating data.
+              </Text>
+              {onRefreshCourseData && (
+                <TouchableOpacity
+                  style={[styles.refreshButton, { backgroundColor: colors.surface }]}
+                  onPress={onRefreshCourseData}
+                  disabled={isRefreshingCourseData}
+                  activeOpacity={0.7}
+                >
+                  {isRefreshingCourseData ? (
+                    <ActivityIndicator size={14} color={colors.primary} />
+                  ) : (
+                    <IconRefresh size={14} color={colors.primary} />
+                  )}
+                  <Text style={[styles.refreshButtonText, { color: colors.primary }]}>
+                    {isRefreshingCourseData ? 'Refreshing...' : 'Refresh Course Data'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -395,6 +430,35 @@ export const YourSetupStep = memo(function YourSetupStep({
 });
 
 const styles = StyleSheet.create({
+  missingDataNotice: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.lg,
+  },
+  missingDataContent: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  missingDataText: {
+    ...typography.caption,
+    lineHeight: 16,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  refreshButtonText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
   selectedBanner: {
     flexDirection: 'row',
     alignItems: 'center',

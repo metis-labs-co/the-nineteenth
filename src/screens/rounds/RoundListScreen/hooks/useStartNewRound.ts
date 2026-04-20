@@ -402,11 +402,11 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         // Navigate to appropriate scoring screen based on game type
         // Individual match play (2 players) goes to dedicated MatchPlayScoring screen
         // Team match play (3+ players with teams) goes to regular Scorecard
-        if (gameType === 'match-play' && !isMatchPlayWithTeams) {
+        if (gameType === 'match-play' && !isMatchPlayWithTeams && players.length >= 2) {
           navigation.navigate('MatchPlayScoring', {
             roundId,
-            player1Id: players[0]?.id,
-            player2Id: players[1]?.id,
+            player1Id: players[0].id,
+            player2Id: players[1].id,
           });
         } else {
           navigation.navigate('Scorecard', {

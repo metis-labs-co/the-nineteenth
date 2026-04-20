@@ -14,7 +14,7 @@ import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-nat
 import { Text, Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useIsPremium } from '@/context/SubscriptionContext';
+import { useIsPremium, useIsSocial } from '@/context/SubscriptionContext';
 import { SegmentedButton, Pill } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
@@ -57,6 +57,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 }: HandicapSourceSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
+  const isSocial = useIsSocial();
   const { player } = useAuth();
 
   // Calculate handicap values for the current user (used in segmented button labels)
@@ -144,7 +145,8 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
     return value >= 0 ? value.toFixed(1) : `+${Math.abs(value).toFixed(1)}`;
   };
 
-  if (!isPremium) {
+  if (!isSocial) {
+    // Free tier: show locked state, no player list
     return (
       <View style={[styles.container, styles.lockedContainer, { backgroundColor: colors.gray100, borderColor: colors.gray200 }]}>
         <View style={styles.headerRow}>
@@ -154,10 +156,10 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
           <View style={styles.labelContainer}>
             <View style={styles.labelRow}>
               <Text style={[styles.label, { color: colors.gray500 }]}>Handicap Mode</Text>
-              <Pill label="Premium" variant="warning" size="sm" />
+              <Pill label="Social" variant="warning" size="sm" />
             </View>
             <Text style={[styles.hint, { color: colors.gray400 }]}>
-              Upgrade to choose between your handicap and Social Index
+              Upgrade to see daily handicap calculations
             </Text>
           </View>
         </View>
@@ -174,27 +176,35 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
         <Text style={[styles.label, { color: colors.textPrimary }]}>Handicap Mode</Text>
       </View>
 
-      <SegmentedButton
-        value={handicapSource}
-        onValueChange={(value) => onHandicapSourceChange(value as HandicapSource)}
-        buttons={[
-          {
-            value: 'profile',
-            label: `Handicap${handicapInfo?.gaHandicap != null ? ` (${formatHandicap(handicapInfo.gaHandicap)})` : ''}`,
-            icon: 'card-account-details',
-          },
-          {
-            value: 'calculated',
-            label: `Social Index${handicapInfo?.socialIndex != null ? ` (${formatHandicap(handicapInfo.socialIndex)})` : ''}`,
-            icon: 'calculator',
-          },
-        ]}
-        size="medium"
-      />
-
-      <Text style={[styles.hint, { color: colors.textSecondary }]}>
-        {hintText}
-      </Text>
+      {/* Handicap source toggle — Premium only */}
+      {isPremium ? (
+        <>
+          <SegmentedButton
+            value={handicapSource}
+            onValueChange={(value) => onHandicapSourceChange(value as HandicapSource)}
+            buttons={[
+              {
+                value: 'profile',
+                label: `Handicap${handicapInfo?.gaHandicap != null ? ` (${formatHandicap(handicapInfo.gaHandicap)})` : ''}`,
+                icon: 'card-account-details',
+              },
+              {
+                value: 'calculated',
+                label: `Social Index${handicapInfo?.socialIndex != null ? ` (${formatHandicap(handicapInfo.socialIndex)})` : ''}`,
+                icon: 'calculator',
+              },
+            ]}
+            size="medium"
+          />
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            {hintText}
+          </Text>
+        </>
+      ) : (
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          Using your profile handicap for daily handicap calculations
+        </Text>
+      )}
 
       {/* Player handicap list */}
       {allPlayers.length > 0 && (

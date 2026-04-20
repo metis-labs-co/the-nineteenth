@@ -67,6 +67,7 @@ export const PartnersStep = memo(function PartnersStep({
   friends,
   friendsLoading,
   onTogglePartner,
+  onRemovePartner,
   onContinue,
   availableTees,
   currentUserTee,
@@ -161,24 +162,8 @@ export const PartnersStep = memo(function PartnersStep({
       // Find removed player
       for (const partner of selectedPartners) {
         if (!newIds.has(partner.id)) {
-          // Check if it's a friend
-          const friend = friends?.find((f) => f.id === partner.id);
-          if (friend) {
-            onTogglePartner(friend);
-            return;
-          }
-
-          // Check if it's a placeholder player
-          const placeholder = placeholderPlayers?.find((p) => p.id === partner.id);
-          if (placeholder) {
-            // Cast to Friend - wizard only uses id, name, handicap
-            onTogglePartner({
-              id: placeholder.id,
-              name: placeholder.name,
-              handicap: placeholder.handicap,
-            } as Friend);
-            return;
-          }
+          onRemovePartner(partner.id);
+          return;
         }
       }
     },
@@ -409,17 +394,7 @@ export const PartnersStep = memo(function PartnersStep({
                     </Text>
                     <TouchableOpacity
                       style={[styles.removeButton, { backgroundColor: colors.gray200 }]}
-                      onPress={() => {
-                        const friend = friends?.find((f) => f.id === partner.id);
-                        if (friend) {
-                          onTogglePartner(friend);
-                          return;
-                        }
-                        const placeholder = placeholderPlayers?.find((p) => p.id === partner.id);
-                        if (placeholder) {
-                          onTogglePartner({ id: placeholder.id, name: placeholder.name, handicap: placeholder.handicap } as Friend);
-                        }
-                      }}
+                      onPress={() => onRemovePartner(partner.id)}
                       activeOpacity={0.7}
                       accessibilityLabel={`Remove ${partner.name}`}
                     >
