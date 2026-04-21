@@ -101,6 +101,22 @@ jest.mock('@/utils/debugLogger', () => ({
   },
 }));
 
+// Mock playing handicap calculation so the test doesn't pull in the
+// SubscriptionContext/Auth/Notifications chain.
+jest.mock('@/hooks/usePlayingHandicap', () => ({
+  calculatePlayingHandicap: jest.fn(() => ({
+    playingHandicap: 0,
+    isDailyHandicap: false,
+    dailyHandicap: null,
+    baseHandicap: 0,
+  })),
+}));
+
+// Mock subscription context.
+jest.mock('@/context/SubscriptionContext', () => ({
+  useIsSocial: jest.fn(() => false),
+}));
+
 // Mock react-native-paper additions (Portal, Dialog, Button not in global mock)
 jest.mock('react-native-paper', () => {
   const React = require('react');

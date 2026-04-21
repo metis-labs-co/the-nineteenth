@@ -36,7 +36,11 @@ export function useSubscription() {
     isError: status.isError || limitsData.isError,
     error: status.error ?? limitsData.error ?? null,
     tier: status.tier,
-    isPremium: status.tier === 'premium' || status.tier === 'super_admin',
+    isPremium:
+      status.tier === 'premium' ||
+      status.tier === 'enterprise' ||
+      status.tier === 'super_admin' ||
+      status.tier === 'developer',
     isSocial: status.tier !== 'free',
     isFree: status.tier === 'free',
     isSuperAdmin,

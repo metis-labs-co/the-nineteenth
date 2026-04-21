@@ -166,8 +166,12 @@ export function useMatchPlayScoring({
         // Player 2 picked up = Player 1 wins
         winner = 'player1';
       } else {
-        // Normal score comparison
-        winner = determineHoleWinner(p1Score, p2Score);
+        // Compare net scores so handicap strokes received on the hole decide the winner.
+        const p1StrokesReceived = getStrokesReceived(player1Handicap, strokeIndex);
+        const p2StrokesReceived = getStrokesReceived(player2Handicap, strokeIndex);
+        const p1NetScore = p1Score !== null ? p1Score - p1StrokesReceived : null;
+        const p2NetScore = p2Score !== null ? p2Score - p2StrokesReceived : null;
+        winner = determineHoleWinner(p1NetScore, p2NetScore);
       }
 
       results[h] = {

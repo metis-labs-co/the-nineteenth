@@ -5,7 +5,7 @@
  * and stats visibility. Also computes game type flags used across the screen.
  */
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { TabItem } from '@/components/common/Tabs';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useActiveSkinsGameForRound } from '@/hooks/useSkins';
@@ -19,10 +19,6 @@ import type { GameType } from '@/types';
 // =====================================================
 
 export type TabKey = 'scorecard' | 'stats' | 'leaderboard' | 'contributions' | 'skins' | 'wolf' | 'payouts';
-
-const BASE_TABS: TabItem<TabKey>[] = [
-  { key: 'scorecard', label: 'Scorecard' },
-];
 
 // =====================================================
 // HOOK
@@ -48,6 +44,8 @@ export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScor
   const isStrokePlay = effectiveGameType === 'stroke';
   const isScramble = effectiveGameType === 'scramble' || roundDetails?.team_format === 'scramble';
   const isShamble = effectiveGameType === 'shamble' || roundDetails?.team_format === 'shamble';
+  const isBestBall = roundDetails?.team_format === 'best-ball';
+  const isMatchPlayTeam = roundDetails?.team_format === 'match-play-team';
 
   // Check for active skins game
   const { data: skinsGame } = useActiveSkinsGameForRound(roundId || undefined);
@@ -89,58 +87,83 @@ export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScor
     statsVisibility.showBunkerShots ||
     statsVisibility.showHazards;
 
-  // Build tabs dynamically based on game type and skins availability
+  // Build tabs dynamically based on game type and skins availability.
+  //
+  // Team format ordering rules:
+  // - Scramble: Leaderboard first, no Stats (individual stats not tracked).
+  // - Shamble: no Stats (same reason); order unchanged — no dedicated leaderboard tab.
+  // - Best-ball / Match-play-team: Leaderboard first, Scorecard, Stats third (less prominent
+  //   because individual stats are tracked but secondary to team outcome).
   const tabs = useMemo<TabItem<TabKey>[]>(() => {
-    const tabList: TabItem<TabKey>[] = [...BASE_TABS];
+    const tabList: TabItem<TabKey>[] = [];
 
-    // Add stats tab if any stats are enabled
-    if (hasStats) {
-      tabList.push({ key: 'stats' as const, label: 'Stats' });
-    }
-
-    // For scramble, keep scorecard tab as "Scorecard", add leaderboard and contributions
     if (isScramble) {
-      tabList[0] = { key: 'scorecard' as const, label: 'Scorecard' };
       tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       tabList.push({ key: 'contributions' as const, label: 'Contributions' });
-    }
-
-    // For shamble, keep scorecard tab as "Scorecard" and add "Team Scores" tab
-    if (isShamble) {
-      tabList[0] = { key: 'scorecard' as const, label: 'Scorecard' };
+    } else if (isShamble) {
+      tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       tabList.push({ key: 'contributions' as const, label: 'Team Scores' });
-    }
-
-    // Add leaderboard tab for stroke play
-    if (isStrokePlay) {
+    } else if (isBestBall || isMatchPlayTeam) {
       tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
+      if (hasStats) {
+        tabList.push({ key: 'stats' as const, label: 'Stats' });
+      }
+    } else {
+      // Default (stroke play, stableford, par, etc.)
+      tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
+      if (hasStats) {
+        tabList.push({ key: 'stats' as const, label: 'Stats' });
+      }
+      if (isStrokePlay) {
+        tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      }
     }
 
-    // Add skins tab if skins game exists
+    // Side-game tabs appended for every format
     if (hasSkinsGame) {
       tabList.push({ key: 'skins' as const, label: 'Skins' });
     }
-
-    // Add wolf tab if wolf game exists
     if (hasWolfGame) {
       tabList.push({ key: 'wolf' as const, label: 'Wolf' });
     }
-
-    // Add payouts tab if any game has a pot
     if (hasPayoutsTab) {
       tabList.push({ key: 'payouts' as const, label: 'Payouts' });
     }
 
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, hasStats]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats]);
 
   // Determine if we need to show tabs (more than just scorecard)
-  const showTabs = isStrokePlay || hasSkinsGame || hasWolfGame || isScramble || isShamble || hasStats;
+  const showTabs =
+    isStrokePlay ||
+    hasSkinsGame ||
+    hasWolfGame ||
+    isScramble ||
+    isShamble ||
+    isBestBall ||
+    isMatchPlayTeam ||
+    hasStats;
 
   // Handle tab change
+  const hasUserSelectedTab = useRef(false);
   const handleTabChange = useCallback((tab: TabKey) => {
+    hasUserSelectedTab.current = true;
     setActiveTab(tab);
   }, []);
+
+  // Default active tab tracks the first tab until the user picks one manually.
+  // Important for team formats where Leaderboard is first — otherwise the user
+  // would land on Scorecard (the static initial state) while Leaderboard is highlighted.
+  useEffect(() => {
+    if (hasUserSelectedTab.current) return;
+    if (tabs.length === 0) return;
+    const firstKey = tabs[0].key;
+    if (firstKey !== activeTab) {
+      setActiveTab(firstKey);
+    }
+  }, [tabs, activeTab]);
 
   return {
     // Tab state
@@ -154,6 +177,8 @@ export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScor
     isStrokePlay,
     isScramble,
     isShamble,
+    isBestBall,
+    isMatchPlayTeam,
 
     // Round details
     roundDetails,

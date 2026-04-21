@@ -41,6 +41,8 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
   player2,
   getPlayerScore,
   onHolePress,
+  player1Handicap = 0,
+  player2Handicap = 0,
 }: MatchPlayScorecardTableProps) {
   const colors = useThemeColors();
 
@@ -56,8 +58,8 @@ export const MatchPlayScorecardTable = React.memo(function MatchPlayScorecardTab
 
   // Calculate all match data
   const data = useMemo(
-    () => calculateAllData(holes, player1.id, player2.id, getPlayerScore),
-    [holes, player1.id, player2.id, getPlayerScore]
+    () => calculateAllData(holes, player1.id, player2.id, getPlayerScore, player1Handicap, player2Handicap),
+    [holes, player1.id, player2.id, getPlayerScore, player1Handicap, player2Handicap]
   );
 
   return (

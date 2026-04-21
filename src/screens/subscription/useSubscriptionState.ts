@@ -25,9 +25,9 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 // ============================================================================
 
 /**
- * Display order for tiers in comparison (excludes super_admin)
+ * Display order for tiers in comparison (excludes internal-only tiers)
  */
-export const COMPARISON_TIERS: SubscriptionTier[] = ['free', 'social', 'premium'];
+export const COMPARISON_TIERS: SubscriptionTier[] = ['free', 'social', 'premium', 'enterprise'];
 
 /**
  * Icons for each tier
@@ -36,7 +36,9 @@ export const TIER_ICONS: Record<SubscriptionTier, string> = {
   free: 'account-outline',
   social: 'account-group-outline',
   premium: 'crown-outline',
+  enterprise: 'domain',
   super_admin: 'shield-crown-outline',
+  developer: 'code-tags',
 };
 
 // ============================================================================
@@ -297,6 +299,15 @@ export function useSubscriptionState() {
         'Skins, Wolf & Prize pools',
         'Scoring pairs for competitive rounds'
       );
+    } else if (selectedUpgradeTier === 'enterprise') {
+      benefits.push(
+        'Up to 200 competitions',
+        'Up to 200 leagues',
+        'Up to 100 players per competition',
+        'Up to 20 rounds per competition',
+        'All premium features',
+        'Priority support'
+      );
     }
 
     return {
@@ -339,7 +350,8 @@ export function useSubscriptionState() {
 
   // Handle upgrade press
   const handleUpgradePress = useCallback(() => {
-    const targetTier = tier === 'free' ? 'social' : 'premium';
+    const targetTier: SubscriptionTier =
+      tier === 'free' ? 'social' : tier === 'social' ? 'premium' : 'enterprise';
     // Dev mode: directly switch tier via Supabase (staging only)
     if (isDevSimulationMode) {
       handleDevTierSwitch(targetTier);
@@ -365,7 +377,9 @@ export function useSubscriptionState() {
       free: 0,
       social: 1,
       premium: 2,
-      super_admin: 3,
+      enterprise: 3,
+      super_admin: 4,
+      developer: 5,
     };
 
     const selectedOrder = tierOrder[selectedTier];

@@ -25,7 +25,9 @@ const TIER_ORDER: Record<SubscriptionTier, number> = {
   free: 0,
   social: 1,
   premium: 2,
-  super_admin: 3,
+  enterprise: 3,
+  super_admin: 4,
+  developer: 5,
 };
 
 export const PlansComparison = React.memo(function PlansComparison({
@@ -37,7 +39,7 @@ export const PlansComparison = React.memo(function PlansComparison({
   const colors = useThemeColors();
 
   const tiersToShow = isDevSimulationMode
-    ? (['free', 'social', 'premium', 'super_admin'] as SubscriptionTier[])
+    ? (['free', 'social', 'premium', 'enterprise', 'super_admin', 'developer'] as SubscriptionTier[])
     : COMPARISON_TIERS;
 
   return (

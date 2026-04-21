@@ -292,9 +292,12 @@ export function validateFeatureAccess(
       );
 
     case 'create_premium_league':
-      // Ladder and Eclectic league types require Premium tier
+      // Ladder and Eclectic league types require Premium tier or higher
       return checkBooleanFeature(
-        tier === 'premium' || tier === 'super_admin',
+        tier === 'premium' ||
+          tier === 'enterprise' ||
+          tier === 'super_admin' ||
+          tier === 'developer',
         'Ladder and Eclectic leagues',
         'premium'
       );
@@ -304,6 +307,13 @@ export function validateFeatureAccess(
         limits.canJoinLeague,
         'joining leagues',
         'social'
+      );
+
+    case 'beta_features':
+      return checkBooleanFeature(
+        limits.canAccessBetaFeatures,
+        'Beta features',
+        'developer'
       );
 
     default:

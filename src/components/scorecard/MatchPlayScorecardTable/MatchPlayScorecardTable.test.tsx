@@ -426,6 +426,53 @@ describe('MatchPlayScorecardTable', () => {
     });
   });
 
+  describe('Handicap Strokes', () => {
+    // Hole 3 has stroke index 1 in the default fixture. A player with HC 18 gets
+    // a stroke there; an HC-0 player does not. Equal gross should resolve in
+    // favour of the HC 18 player on net.
+    it('awards the hole to the net winner when gross is tied but one player has a stroke', () => {
+      const scores = {
+        'player-1': { 3: 5 },
+        'player-2': { 3: 5 },
+      };
+
+      render(
+        <MatchPlayScorecardTable
+          holes={defaultHoles}
+          player1={defaultPlayer1}
+          player2={defaultPlayer2}
+          getPlayerScore={createScoreGetter(scores)}
+          player1Handicap={18}
+          player2Handicap={0}
+        />
+      );
+
+      // John (player1) gets a stroke on SI 1, so net 4 vs 5 — 1 UP.
+      expect(screen.getAllByText(/1 UP/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('keeps the hole halved when both players receive the same strokes on net', () => {
+      // Both have HC 18 → both get a stroke on SI 1 hole 3. Net tied.
+      const scores = {
+        'player-1': { 3: 5 },
+        'player-2': { 3: 5 },
+      };
+
+      render(
+        <MatchPlayScorecardTable
+          holes={defaultHoles}
+          player1={defaultPlayer1}
+          player2={defaultPlayer2}
+          getPlayerScore={createScoreGetter(scores)}
+          player1Handicap={18}
+          player2Handicap={18}
+        />
+      );
+
+      expect(screen.getAllByText('AS').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('Winner Highlighting', () => {
     it('does not crash with winner highlighting logic', () => {
       const scores = {

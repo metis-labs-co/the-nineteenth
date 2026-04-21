@@ -38,6 +38,8 @@ interface PlayerScoreCardProps {
   baseHandicap?: number;
   /** Label for base value: 'HC' or 'SHC' */
   baseLabel?: string;
+  /** Hex colour of the tee the player is playing from (dot next to name) */
+  teeDotColor?: string;
 }
 
 export function PlayerScoreCard({
@@ -56,6 +58,7 @@ export function PlayerScoreCard({
   dailyHandicap,
   baseHandicap,
   baseLabel,
+  teeDotColor,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
 
@@ -93,9 +96,19 @@ export function PlayerScoreCard({
           accessibilityLabel={`View ${player.name}'s scorecard`}
           accessibilityRole="button"
         >
-          <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {player.name}
-          </ScaledText>
+          <View style={styles.playerNameRow}>
+            {teeDotColor && (
+              <View
+                style={[
+                  styles.teeDot,
+                  { backgroundColor: teeDotColor, borderColor: colors.border },
+                ]}
+              />
+            )}
+            <ScaledText category="body" style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+              {player.name}
+            </ScaledText>
+          </View>
           <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
               ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? player.handicap}`
@@ -277,9 +290,21 @@ const styles = StyleSheet.create({
     marginLeft: -spacing.xs,
     marginTop: -spacing.xs,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  teeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
+  },
   playerName: {
     ...typography.h3,
-    marginBottom: spacing.xs,
     flexShrink: 1,
   },
   handicapLabel: {

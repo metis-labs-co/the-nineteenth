@@ -36,6 +36,10 @@ export const IOS_PRODUCT_IDS = {
   // Premium tier
   PREMIUM_MONTHLY: `${BUNDLE_ID}.premium.monthly`,
   PREMIUM_YEARLY: `${BUNDLE_ID}.premium.yearly`,
+
+  // Enterprise tier
+  ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
+  ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 } as const;
 
 /**
@@ -50,6 +54,10 @@ export const ANDROID_PRODUCT_IDS = {
   // Premium tier
   PREMIUM_MONTHLY: `${BUNDLE_ID}.premium.monthly`,
   PREMIUM_YEARLY: `${BUNDLE_ID}.premium.yearly`,
+
+  // Enterprise tier
+  ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
+  ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 } as const;
 
 /**
@@ -64,6 +72,10 @@ export const PRODUCT_IDS = {
   // Premium tier products
   PREMIUM_MONTHLY: `${BUNDLE_ID}.premium.monthly`,
   PREMIUM_YEARLY: `${BUNDLE_ID}.premium.yearly`,
+
+  // Enterprise tier products
+  ENTERPRISE_MONTHLY: `${BUNDLE_ID}.enterprise.monthly`,
+  ENTERPRISE_YEARLY: `${BUNDLE_ID}.enterprise.yearly`,
 } as const;
 
 /**
@@ -90,18 +102,22 @@ export const PRODUCT_ID_TO_TIER: Record<ProductId, SubscriptionTier> = {
   [PRODUCT_IDS.SOCIAL_YEARLY]: 'social',
   [PRODUCT_IDS.PREMIUM_MONTHLY]: 'premium',
   [PRODUCT_IDS.PREMIUM_YEARLY]: 'premium',
+  [PRODUCT_IDS.ENTERPRISE_MONTHLY]: 'enterprise',
+  [PRODUCT_IDS.ENTERPRISE_YEARLY]: 'enterprise',
 };
 
 /**
  * Maps tiers to their available product IDs
  * Used for displaying purchase options
+ * (super_admin and developer are internal-only, no product)
  */
 export const TIER_TO_PRODUCT_IDS: Record<
-  Exclude<SubscriptionTier, 'free' | 'super_admin'>,
+  Exclude<SubscriptionTier, 'free' | 'super_admin' | 'developer'>,
   readonly ProductId[]
 > = {
   social: [PRODUCT_IDS.SOCIAL_MONTHLY, PRODUCT_IDS.SOCIAL_YEARLY],
   premium: [PRODUCT_IDS.PREMIUM_MONTHLY, PRODUCT_IDS.PREMIUM_YEARLY],
+  enterprise: [PRODUCT_IDS.ENTERPRISE_MONTHLY, PRODUCT_IDS.ENTERPRISE_YEARLY],
 };
 
 // =====================================================
@@ -153,6 +169,9 @@ export const ENTITLEMENT_IDS = {
 
   /** Premium tier entitlement (includes all social features) */
   PREMIUM: 'premium_access',
+
+  /** Enterprise tier entitlement (includes all premium features + higher limits) */
+  ENTERPRISE: 'enterprise_access',
 } as const;
 
 /**
@@ -166,6 +185,7 @@ export type EntitlementId = (typeof ENTITLEMENT_IDS)[keyof typeof ENTITLEMENT_ID
 export const ENTITLEMENT_TO_TIER: Record<EntitlementId, SubscriptionTier> = {
   [ENTITLEMENT_IDS.SOCIAL]: 'social',
   [ENTITLEMENT_IDS.PREMIUM]: 'premium',
+  [ENTITLEMENT_IDS.ENTERPRISE]: 'enterprise',
 };
 
 // =====================================================
@@ -203,6 +223,17 @@ export const DEFAULT_PRICING_AUD = {
     currency: 'AUD',
     displayPrice: '$84.99/year',
     savings: '29%', // vs monthly
+  },
+  [PRODUCT_IDS.ENTERPRISE_MONTHLY]: {
+    price: 24.99,
+    currency: 'AUD',
+    displayPrice: '$24.99/month',
+  },
+  [PRODUCT_IDS.ENTERPRISE_YEARLY]: {
+    price: 249.99,
+    currency: 'AUD',
+    displayPrice: '$249.99/year',
+    savings: '17%', // vs monthly
   },
 } as const;
 

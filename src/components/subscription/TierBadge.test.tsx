@@ -34,46 +34,69 @@ const mockUseTierLimits = useTierLimits as jest.MockedFunction<typeof useTierLim
 // TEST FIXTURES
 // ============================================================================
 
-const createMockLimits = (tier: SubscriptionTier = 'free'): TierLimits => ({
-  tier,
-  displayName: tier === 'super_admin' ? 'Super Admin' : tier.charAt(0).toUpperCase() + tier.slice(1),
-  description: null,
-  badgeColor: {
-    free: '#6b7280',
-    social: '#3b82f6',
-    premium: '#f59e0b',
-    super_admin: '#dc2626',
-  }[tier] as string,
-  maxCompetitionsOwned: 3,
-  maxRoundsPerCompetition: 2,
-  maxPlayersPerCompetition: 10,
-  maxFriends: 10,
-  maxRoundsPlayed: 50,
-  maxLeaguesOwned: tier === 'free' ? 0 : tier === 'social' ? 3 : -1,
-  allowedGameTypes: ['stableford'] as GameType[],
-  canUseTeamFormats: false,
-  canUseScoringPairs: false,
-  canExportData: false,
-  canUseApiCourseSearch: false,
-  canViewBasicStats: true,
-  canViewScoreDistribution: false,
-  canViewAdvancedStats: false,
-  canCompareStats: false,
-  canViewDetailedStats: tier !== 'free',
-  canViewHandicapHistory: tier !== 'free',
-  canViewAchievementLeaderboard: tier !== 'free',
-  canUseAiCompetition: tier !== 'free',
-  canManageGuests: tier !== 'free',
-  canUseGpsDistance: tier !== 'free',
-  canUseSkinsGame: tier === 'premium' || tier === 'super_admin',
-  canUseWolfGame: tier === 'premium' || tier === 'super_admin',
-  canUsePrizePool: tier === 'premium' || tier === 'super_admin',
-  canCreateLeague: tier !== 'free',
-  canJoinLeague: tier !== 'free',
-  canAccessAdminTools: tier === 'super_admin',
-  requiresPayment: tier !== 'free' && tier !== 'super_admin',
-  canExpire: tier !== 'super_admin',
-});
+const DISPLAY_NAMES: Record<SubscriptionTier, string> = {
+  free: 'Free',
+  social: 'Social',
+  premium: 'Premium',
+  enterprise: 'Enterprise',
+  super_admin: 'Super Admin',
+  developer: 'Developer',
+};
+
+const BADGE_COLORS: Record<SubscriptionTier, string> = {
+  free: '#6b7280',
+  social: '#3b82f6',
+  premium: '#f59e0b',
+  enterprise: '#8b5cf6',
+  super_admin: '#dc2626',
+  developer: '#06b6d4',
+};
+
+const createMockLimits = (tier: SubscriptionTier = 'free'): TierLimits => {
+  const hasPremiumFeatures =
+    tier === 'premium' ||
+    tier === 'enterprise' ||
+    tier === 'super_admin' ||
+    tier === 'developer';
+  const isInternal = tier === 'super_admin' || tier === 'developer';
+
+  return {
+    tier,
+    displayName: DISPLAY_NAMES[tier],
+    description: null,
+    badgeColor: BADGE_COLORS[tier],
+    maxCompetitionsOwned: 3,
+    maxRoundsPerCompetition: 2,
+    maxPlayersPerCompetition: 10,
+    maxFriends: 10,
+    maxRoundsPlayed: 50,
+    maxLeaguesOwned: tier === 'free' ? 0 : tier === 'social' ? 3 : -1,
+    allowedGameTypes: ['stableford'] as GameType[],
+    canUseTeamFormats: false,
+    canUseScoringPairs: false,
+    canExportData: false,
+    canUseApiCourseSearch: false,
+    canViewBasicStats: true,
+    canViewScoreDistribution: false,
+    canViewAdvancedStats: false,
+    canCompareStats: false,
+    canViewDetailedStats: tier !== 'free',
+    canViewHandicapHistory: tier !== 'free',
+    canViewAchievementLeaderboard: tier !== 'free',
+    canUseAiCompetition: tier !== 'free',
+    canManageGuests: tier !== 'free',
+    canUseGpsDistance: tier !== 'free',
+    canUseSkinsGame: hasPremiumFeatures,
+    canUseWolfGame: hasPremiumFeatures,
+    canUsePrizePool: hasPremiumFeatures,
+    canCreateLeague: tier !== 'free',
+    canJoinLeague: tier !== 'free',
+    canAccessAdminTools: isInternal,
+    canAccessBetaFeatures: tier === 'developer',
+    requiresPayment: tier !== 'free' && !isInternal,
+    canExpire: !isInternal,
+  };
+};
 
 // ============================================================================
 // TESTS

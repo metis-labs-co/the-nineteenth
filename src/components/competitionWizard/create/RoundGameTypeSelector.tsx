@@ -91,7 +91,9 @@ const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
   free: 'Free',
   social: 'Social',
   premium: 'Premium',
+  enterprise: 'Enterprise',
   super_admin: 'Super Admin',
+  developer: 'Developer',
 };
 
 /**
@@ -111,7 +113,14 @@ const TIER_BENEFITS: Record<SubscriptionTier, string[]> = {
     'Unlimited competitions',
     'Designated scoring pairs',
   ],
+  enterprise: [
+    'Up to 200 competitions',
+    'Up to 100 players per competition',
+    'All premium features',
+    'Priority support',
+  ],
   super_admin: [],
+  developer: [],
 };
 
 /**

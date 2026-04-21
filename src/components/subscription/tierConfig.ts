@@ -9,7 +9,7 @@
 // TYPES
 // ============================================================================
 
-export type PaywallTier = 'social' | 'premium';
+export type PaywallTier = 'social' | 'premium' | 'enterprise';
 
 export interface TierConfig {
   /** Tier identifier */
@@ -37,6 +37,7 @@ export interface TierConfig {
 export const TIER_COLORS: Record<PaywallTier, string> = {
   social: '#3b82f6',
   premium: '#f59e0b',
+  enterprise: '#8b5cf6',
 } as const;
 
 // ============================================================================
@@ -87,6 +88,22 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
       'Skins side-game',
       'Wolf side-game',
       'Prize pools',
+      'Priority support',
+    ],
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    description: 'For large organisations',
+    icon: 'domain',
+    color: TIER_COLORS.enterprise,
+    features: [
+      'Up to 200 competitions',
+      'Up to 200 leagues',
+      'Up to 20 rounds per competition',
+      'Up to 100 players per competition',
+      'Unlimited friends',
+      'All premium features',
       'Priority support',
     ],
   },

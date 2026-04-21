@@ -47,9 +47,17 @@ export const NO_LIMIT = -2;
  * - free: Basic access, limited features
  * - social: Casual players, social rounds
  * - premium: Full feature access
- * - super_admin: Unrestricted system access
+ * - enterprise: Premium + higher resource limits for large orgs
+ * - super_admin: Unrestricted system access (internal)
+ * - developer: Super admin + beta feature access (internal)
  */
-export type SubscriptionTier = 'free' | 'social' | 'premium' | 'super_admin';
+export type SubscriptionTier =
+  | 'free'
+  | 'social'
+  | 'premium'
+  | 'enterprise'
+  | 'super_admin'
+  | 'developer';
 
 /**
  * Subscription status values
@@ -106,7 +114,9 @@ export type FeatureId =
   | 'create_premium_league' // Ladder/Eclectic (Premium-only creation)
   | 'join_league'
   // Admin features
-  | 'admin_tools';
+  | 'admin_tools'
+  // Developer beta features
+  | 'beta_features';
 
 // =====================================================
 // INTERFACES
@@ -191,6 +201,9 @@ export interface TierLimits {
   // Feature access - Admin
   canAccessAdminTools: boolean;
 
+  // Feature access - Developer beta flag
+  canAccessBetaFeatures: boolean;
+
   // Billing & lifecycle
   requiresPayment: boolean;
   canExpire: boolean;
@@ -242,7 +255,9 @@ export const TIER_HIERARCHY: Record<SubscriptionTier, number> = {
   free: 0,
   social: 1,
   premium: 2,
-  super_admin: 3,
+  enterprise: 3,
+  super_admin: 4,
+  developer: 5,
 };
 
 // =====================================================
@@ -253,7 +268,7 @@ export const TIER_HIERARCHY: Record<SubscriptionTier, number> = {
  * Check if a string is a valid SubscriptionTier
  */
 export function isSubscriptionTier(value: string): value is SubscriptionTier {
-  return ['free', 'social', 'premium', 'super_admin'].includes(value);
+  return ['free', 'social', 'premium', 'enterprise', 'super_admin', 'developer'].includes(value);
 }
 
 /**
@@ -301,6 +316,7 @@ export function isFeatureId(value: string): value is FeatureId {
     'create_league',
     'join_league',
     'admin_tools',
+    'beta_features',
   ];
   return validFeatures.includes(value as FeatureId);
 }
@@ -344,7 +360,10 @@ export function getNextTier(current: SubscriptionTier): SubscriptionTier | null 
     case 'social':
       return 'premium';
     case 'premium':
+      return 'enterprise';
+    case 'enterprise':
     case 'super_admin':
+    case 'developer':
       return null;
   }
 }
@@ -404,6 +423,7 @@ export function mapDBTierLimits(db: DBTierLimits): TierLimits {
     canCreateLeague: db.can_create_league ?? true,
     canJoinLeague: db.can_join_league ?? true,
     canAccessAdminTools: db.can_access_admin_tools,
+    canAccessBetaFeatures: db.can_access_beta_features ?? false,
     requiresPayment: db.requires_payment,
     canExpire: db.can_expire,
     displayName: db.display_name,

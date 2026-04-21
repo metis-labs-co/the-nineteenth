@@ -4,7 +4,7 @@
  * Helper functions for calculating match play data and formatting status text.
  */
 
-import { PICKUP_SCORE } from '@/constants/scoring';
+import { getStrokesReceived } from '@/utils/scoring';
 import { getInitials } from '@/utils/displayHelpers';
 import {
   determineHoleWinner,
@@ -14,14 +14,23 @@ import type { HoleResult, MatchStatus } from '@/screens/scoring/MatchPlayScoring
 import type { Hole } from '@/types/database.types';
 import type { CalculatedData } from './types';
 
+/** Extra strokes above par+strokes-received that mark a score as a pickup. */
+const PICKUP_THRESHOLD = 2;
+
 /**
  * Calculate all match play data from holes and scores.
+ *
+ * Hole winners are determined on net strokes (gross minus strokes received
+ * via each player's playing handicap and the hole's stroke index), matching
+ * the live match status shown on the score entry screen.
  */
 export function calculateAllData(
   holes: Hole[],
   player1Id: string,
   player2Id: string,
-  getPlayerScore: (playerId: string, holeNumber: number) => number | undefined
+  getPlayerScore: (playerId: string, holeNumber: number) => number | undefined,
+  player1Handicap = 0,
+  player2Handicap = 0
 ): CalculatedData {
   const holeResults: Record<number, HoleResult> = {};
   const runningStatus: Record<number, MatchStatus> = {};
@@ -44,13 +53,19 @@ export function calculateAllData(
     const p1Score = getPlayerScore(player1Id, holeNum) ?? null;
     const p2Score = getPlayerScore(player2Id, holeNum) ?? null;
 
-    const p1PickedUp = p1Score !== null && p1Score >= PICKUP_SCORE;
-    const p2PickedUp = p2Score !== null && p2Score >= PICKUP_SCORE;
+    // Dynamic pickup threshold: par + strokes received + 2, matching the entry screen.
+    const p1Strokes = getStrokesReceived(player1Handicap, hole.strokeIndex);
+    const p2Strokes = getStrokesReceived(player2Handicap, hole.strokeIndex);
+    const p1PickupThreshold = hole.par + p1Strokes + PICKUP_THRESHOLD;
+    const p2PickupThreshold = hole.par + p2Strokes + PICKUP_THRESHOLD;
+    const p1PickedUp = p1Score !== null && p1Score >= p1PickupThreshold;
+    const p2PickedUp = p2Score !== null && p2Score >= p2PickupThreshold;
 
-    const winner = determineHoleWinner(
-      p1PickedUp ? null : p1Score,
-      p2PickedUp ? null : p2Score
-    );
+    // Compare net scores so handicap strokes received on the hole decide the winner.
+    const p1NetScore = p1Score !== null && !p1PickedUp ? p1Score - p1Strokes : null;
+    const p2NetScore = p2Score !== null && !p2PickedUp ? p2Score - p2Strokes : null;
+
+    const winner = determineHoleWinner(p1NetScore, p2NetScore);
 
     holeResults[holeNum] = {
       player1Score: p1Score,
@@ -63,26 +78,22 @@ export function calculateAllData(
     // Calculate running status up to this hole
     runningStatus[holeNum] = calculateMatchStatus(holeResults);
 
-    // Accumulate totals
+    // Accumulate totals (gross).
+    // Count the hole as played if either player has a non-pickup score.
+    const p1Counts = p1Score !== null && !p1PickedUp;
+    const p2Counts = p2Score !== null && !p2PickedUp;
+    const holePlayed = p1Counts || p2Counts;
     const isFront9 = holeNum <= 9;
     if (isFront9) {
       front9Par += hole.par;
-      if (p1Score !== null && !p1PickedUp) {
-        front9P1 += p1Score;
-        front9Played++;
-      }
-      if (p2Score !== null && !p2PickedUp) {
-        front9P2 += p2Score;
-      }
+      if (p1Counts) front9P1 += p1Score;
+      if (p2Counts) front9P2 += p2Score;
+      if (holePlayed) front9Played++;
     } else {
       back9Par += hole.par;
-      if (p1Score !== null && !p1PickedUp) {
-        back9P1 += p1Score;
-        back9Played++;
-      }
-      if (p2Score !== null && !p2PickedUp) {
-        back9P2 += p2Score;
-      }
+      if (p1Counts) back9P1 += p1Score;
+      if (p2Counts) back9P2 += p2Score;
+      if (holePlayed) back9Played++;
     }
   }
 

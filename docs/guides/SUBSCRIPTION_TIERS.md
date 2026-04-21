@@ -23,51 +23,81 @@ The Nineteenth uses a **tiered subscription model** to control feature access an
 | **Free** | New users trying the app | Free | No |
 | **Social** | Casual golfers, social groups | Paid | Yes |
 | **Premium** | Serious competition organizers | Paid | Yes |
-| **Super Admin** | Internal team, beta testers | Free | Never |
+| **Enterprise** | Large orgs outgrowing Premium | Paid | Yes |
+| **Super Admin** | Internal team | Free | Never |
+| **Developer** | Internal beta testing | Free | Never |
+
+Tier hierarchy (low → high): `free < social < premium < enterprise < super_admin < developer`. Developer sits above Super Admin intentionally — it inherits every Super Admin privilege AND flips `can_access_beta_features = TRUE`, so experimental UI can be shipped to production and tested in the real world without being exposed to ordinary Super Admin users.
 
 ### Feature Limits by Tier
 
-| Feature | Free | Social | Premium | Super Admin |
-|---------|------|--------|---------|-------------|
-| **Competition Management** | | | | |
-| Join competitions | Unlimited | Unlimited | Unlimited | Unlimited |
-| Create competitions | 3 | 8 | 50 | No limit |
-| Rounds per competition | 2 | 5 | 10 | No limit |
-| Players per competition | 8 | 16 | 40 | No limit |
-| **Game Types** | | | | |
-| Stableford | ✅ | ✅ | ✅ | ✅ |
-| Stroke Play | ❌ | ✅ | ✅ | ✅ |
-| Match Play | ❌ | ✅ | ✅ | ✅ |
-| Ambrose/Best Ball/Scramble | ❌ | ❌ | ✅ | ✅ |
-| Team formats | ❌ | ❌ | ✅ | ✅ |
-| **Scoring Features** | | | | |
-| Basic scoring | ✅ | ✅ | ✅ | ✅ |
-| Scoring pairs (designated markers) | ❌ | ❌ | ✅ | ✅ |
-| Skins side-game | ❌ | ❌ | ✅ | ✅ |
-| Wolf side-game | ❌ | ❌ | ✅ | ✅ |
-| Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ |
-| GPS distance to pin | ❌ | ✅ | ✅ | ✅ |
-| **Leagues** | | | | |
-| Create leagues | 1 | 3 | 50 | No limit |
-| Join leagues | ✅ | ✅ | ✅ | ✅ |
-| **Social Features** | | | | |
-| Friends limit | 5 | 15 | Unlimited | Unlimited |
-| View player profiles | ✅ | ✅ | ✅ | ✅ |
-| Compare stats with friends | ❌ | ✅ | ✅ | ✅ |
-| Guest player management | ❌ | ✅ | ✅ | ✅ |
-| **Statistics & Analytics** | | | | |
-| Basic stats (rounds, points) | ✅ | ✅ | ✅ | ✅ |
-| Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ | ✅ |
-| Score distribution | ❌ | ✅ | ✅ | ✅ |
-| Handicap history | ❌ | ✅ | ✅ | ✅ |
-| Achievement leaderboard | ❌ | ✅ | ✅ | ✅ |
-| Advanced analytics & trends | ❌ | ❌ | ✅ | ✅ |
-| **AI Features** | | | | |
-| AI competition creation | ❌ | ✅ | ✅ | ✅ |
-| **Data & Export** | | | | |
-| API course search | ✅ | ✅ | ✅ | ✅ |
-| **Admin Features** | | | | |
-| Admin tools | ❌ | ❌ | ❌ | ✅ |
+| Feature | Free | Social | Premium | Enterprise | Super Admin | Developer |
+|---------|------|--------|---------|-----------|-------------|-----------|
+| **Competition Management** | | | | | | |
+| Join competitions | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
+| Create competitions | 3 | 8 | 50 | 200 | No limit | No limit |
+| Rounds per competition | 2 | 5 | 10 | 20 | No limit | No limit |
+| Players per competition | 8 | 16 | 40 | 100 | No limit | No limit |
+| **Game Types** | | | | | | |
+| Stableford | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Stroke Play | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Match Play | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Ambrose/Best Ball/Scramble | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Team formats | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **Scoring Features** | | | | | | |
+| Basic scoring | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Scoring pairs (designated markers) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Skins side-game | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Wolf side-game | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| GPS distance to pin | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Leagues** | | | | | | |
+| Create leagues | 1 | 3 | 50 | 200 | No limit | No limit |
+| Join leagues | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Social Features** | | | | | | |
+| Friends limit | 5 | 15 | Unlimited | Unlimited | Unlimited | Unlimited |
+| View player profiles | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Compare stats with friends | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Guest player management | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Statistics & Analytics** | | | | | | |
+| Basic stats (rounds, points) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Detailed stats (par type, putting, short game) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Score distribution | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Handicap history | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Achievement leaderboard | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Advanced analytics & trends | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **AI Features** | | | | | | |
+| AI competition creation | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Data & Export** | | | | | | |
+| API course search | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Admin Features** | | | | | | |
+| Admin tools | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Developer Features** | | | | | | |
+| Beta / WIP features (`can_access_beta_features`) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Enterprise vs Premium
+
+Enterprise is a strict superset of Premium's **feature** access — every toggle that's `TRUE` for Premium is also `TRUE` for Enterprise. What Enterprise adds is **capacity**: 4× the competition cap, 4× the league cap, 2.5× players-per-competition, and 2× rounds-per-competition. It's aimed at clubs and corporate organisers who routinely hit Premium's 50-competition ceiling.
+
+### Developer tier (beta access)
+
+Developer is **not** shown in the paywall and cannot be purchased. Assign it manually:
+
+```sql
+SELECT upsert_user_subscription(
+  '<user-uuid>',
+  'developer'::subscription_tier,
+  'active'::subscription_status,
+  'manual'::subscription_source,
+  NULL, NULL, NULL, NULL
+);
+```
+
+Once assigned, the user:
+- Passes every tier check (equivalent to Super Admin)
+- Can access admin tools
+- Has `can_access_beta_features = TRUE` — gate WIP UI with `useCanAccessBetaFeatures()` in components or `user_has_feature(uid, 'beta_features')` in SQL
+- Never expires
 
 ### Special Limit Values
 

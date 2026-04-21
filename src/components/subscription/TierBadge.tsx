@@ -74,7 +74,9 @@ const TIER_ICONS: Record<SubscriptionTier, string> = {
   free: 'account-outline',
   social: 'account-group-outline',
   premium: 'crown-outline',
+  enterprise: 'domain',
   super_admin: 'shield-crown-outline',
+  developer: 'code-tags',
 };
 
 /**
@@ -84,7 +86,9 @@ const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
   free: 'Free',
   social: 'Social',
   premium: 'Premium',
+  enterprise: 'Enterprise',
   super_admin: 'Super Admin',
+  developer: 'Developer',
 };
 
 /**
@@ -94,7 +98,9 @@ const TIER_BADGE_COLORS: Record<SubscriptionTier, string> = {
   free: '#6b7280', // Gray
   social: '#3b82f6', // Blue
   premium: '#f59e0b', // Amber
+  enterprise: '#8b5cf6', // Violet
   super_admin: '#dc2626', // Red
+  developer: '#06b6d4', // Cyan
 };
 
 /**
@@ -165,8 +171,8 @@ export const TierBadge = React.memo(function TierBadge({
   // Get icon for tier
   const iconName = TIER_ICONS[tier];
 
-  // Check if super admin for special styling
-  const isSuperAdmin = tier === 'super_admin';
+  // Check if internal tier for special glow styling (super_admin or developer)
+  const isSuperAdmin = tier === 'super_admin' || tier === 'developer';
 
   return (
     <View

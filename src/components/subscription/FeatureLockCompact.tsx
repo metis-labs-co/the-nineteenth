@@ -60,7 +60,9 @@ function formatTierName(tier: string): string {
     free: 'Free',
     social: 'Social',
     premium: 'Premium',
+    enterprise: 'Enterprise',
     super_admin: 'Super Admin',
+    developer: 'Developer',
   };
   return names[tier] || tier;
 }

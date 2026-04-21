@@ -30,6 +30,8 @@ import { useProcessSkinsIfNeeded, useOnlineStatus } from '@/hooks';
 import { supabase } from '@/services/supabase/client';
 import { matchPlayLogger } from '@/utils/debugLogger';
 import { getStrokesReceived } from '@/utils/scoring';
+import { resolvePlayerTee } from '@/utils/teeResolution';
+import { getTeeColor } from '@/services/courses';
 import { useIsSocial } from '@/context/SubscriptionContext';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import type { RootStackScreenProps } from '@/navigation/types';
@@ -53,7 +55,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
   const isSocial = useIsSocial();
-  const { handicapSource, selectedTeeData: storeTeeData } = useScorecardStore();
+  const { handicapSource, selectedTeeData: storeTeeData, playerTeeMap } = useScorecardStore();
 
   // State - start on initialHole if provided (clamped to 1-18)
   const [currentHole, setCurrentHole] = useState(1);
@@ -197,6 +199,18 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
     return result;
   }, [player2, teeData, safeHoles, handicapSource, isSocial]);
   const player2Handicap = player2HandicapResult.playingHandicap;
+
+  // Resolve per-player tee colour for the dot next to the player's name.
+  // Uses the per-player override from the store, falling back to the round default.
+  const roundDefaultTee = teeData ?? null;
+  const player1TeeDotColor = useMemo(() => {
+    const tee = resolvePlayerTee(player1.id, playerTeeMap, roundDefaultTee);
+    return tee ? getTeeColor(tee.name) : undefined;
+  }, [player1.id, playerTeeMap, roundDefaultTee]);
+  const player2TeeDotColor = useMemo(() => {
+    const tee = resolvePlayerTee(player2.id, playerTeeMap, roundDefaultTee);
+    return tee ? getTeeColor(tee.name) : undefined;
+  }, [player2.id, playerTeeMap, roundDefaultTee]);
 
   // Wrap score handlers with logging
   // Note: We allow score edits even after match is complete - scores are only locked after submission
@@ -466,6 +480,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 dailyHandicap={player1HandicapResult.isDailyHandicap ? player1HandicapResult.dailyHandicap : null}
                 baseHandicap={player1HandicapResult.baseHandicap}
                 baseLabel={baseLabel}
+                teeDotColor={player1TeeDotColor}
               />
 
               {/* VS Divider - Horizontal between cards */}
@@ -493,6 +508,7 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
                 dailyHandicap={player2HandicapResult.isDailyHandicap ? player2HandicapResult.dailyHandicap : null}
                 baseHandicap={player2HandicapResult.baseHandicap}
                 baseLabel={baseLabel}
+                teeDotColor={player2TeeDotColor}
               />
             </View>
 
@@ -543,6 +559,13 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
       handleHolePress,
       handleProgressTouchStart,
       handleProgressTouchEnd,
+      player1Handicap,
+      player2Handicap,
+      player1HandicapResult,
+      player2HandicapResult,
+      baseLabel,
+      player1TeeDotColor,
+      player2TeeDotColor,
     ]
   );
 

@@ -303,8 +303,12 @@ export async function applyGracefulDegradation(
   const allowedActions: GrandfatheringAction[] = [...GRANDFATHERED_ALLOWED_ACTIONS];
   const restrictedActions: GrandfatheringAction[] = [];
 
-  // Check if super_admin or unlimited - allow all
-  if (currentTier === 'super_admin' || isNoLimit(limits.maxRoundsPerCompetition)) {
+  // Check if super_admin/developer or unlimited - allow all
+  if (
+    currentTier === 'super_admin' ||
+    currentTier === 'developer' ||
+    isNoLimit(limits.maxRoundsPerCompetition)
+  ) {
     allowedActions.push(...POTENTIALLY_RESTRICTED_ACTIONS);
     return {
       allowedActions,

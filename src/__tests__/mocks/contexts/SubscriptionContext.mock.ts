@@ -52,6 +52,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canCreateLeague: true,
     canJoinLeague: true,
     canAccessAdminTools: false,
+    canAccessBetaFeatures: false,
     requiresPayment: false,
     canExpire: true,
     displayName: 'Free',
@@ -87,6 +88,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canCreateLeague: true,
     canJoinLeague: true,
     canAccessAdminTools: false,
+    canAccessBetaFeatures: false,
     requiresPayment: true,
     canExpire: true,
     displayName: 'Social',
@@ -122,6 +124,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canCreateLeague: true,
     canJoinLeague: true,
     canAccessAdminTools: false,
+    canAccessBetaFeatures: false,
     requiresPayment: true,
     canExpire: true,
     displayName: 'Premium',
@@ -157,11 +160,84 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     canCreateLeague: true,
     canJoinLeague: true,
     canAccessAdminTools: true,
+    canAccessBetaFeatures: false,
     requiresPayment: false,
     canExpire: false,
     displayName: 'Super Admin',
     description: 'Internal team accounts with full system access',
     badgeColor: '#dc2626',
+  },
+  enterprise: {
+    tier: 'enterprise',
+    maxCompetitionsOwned: 200,
+    maxRoundsPerCompetition: 20,
+    maxPlayersPerCompetition: 100,
+    maxFriends: -1,
+    maxRoundsPlayed: -1,
+    maxLeaguesOwned: 200,
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
+    canUseTeamFormats: true,
+    canUseScoringPairs: true,
+    canExportData: true,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: true,
+    canViewAdvancedStats: true,
+    canCompareStats: true,
+    canViewDetailedStats: true,
+    canViewHandicapHistory: true,
+    canViewAchievementLeaderboard: true,
+    canUseAiCompetition: true,
+    canManageGuests: true,
+    canUseGpsDistance: true,
+    canUseSkinsGame: true,
+    canUseWolfGame: true,
+    canUsePrizePool: true,
+    canCreateLeague: true,
+    canJoinLeague: true,
+    canAccessAdminTools: false,
+    canAccessBetaFeatures: false,
+    requiresPayment: true,
+    canExpire: true,
+    displayName: 'Enterprise',
+    description: 'For large organisations and serious competition organisers',
+    badgeColor: '#8b5cf6',
+  },
+  developer: {
+    tier: 'developer',
+    maxCompetitionsOwned: -2,
+    maxRoundsPerCompetition: -2,
+    maxPlayersPerCompetition: -2,
+    maxFriends: -1,
+    maxRoundsPlayed: -2,
+    maxLeaguesOwned: -2,
+    allowedGameTypes: ['stableford', 'stroke', 'match-play', 'best-ball', 'shamble', 'scramble'],
+    canUseTeamFormats: true,
+    canUseScoringPairs: true,
+    canExportData: true,
+    canUseApiCourseSearch: true,
+    canViewBasicStats: true,
+    canViewScoreDistribution: true,
+    canViewAdvancedStats: true,
+    canCompareStats: true,
+    canViewDetailedStats: true,
+    canViewHandicapHistory: true,
+    canViewAchievementLeaderboard: true,
+    canUseAiCompetition: true,
+    canManageGuests: true,
+    canUseGpsDistance: true,
+    canUseSkinsGame: true,
+    canUseWolfGame: true,
+    canUsePrizePool: true,
+    canCreateLeague: true,
+    canJoinLeague: true,
+    canAccessAdminTools: true,
+    canAccessBetaFeatures: true,
+    requiresPayment: false,
+    canExpire: false,
+    displayName: 'Developer',
+    description: 'Internal beta access for testing work-in-progress features',
+    badgeColor: '#06b6d4',
   },
 };
 
@@ -194,10 +270,14 @@ export function createMockSubscriptionContext(tier: MockTier = 'premium') {
 
     // Computed values
     tier,
-    isPremium: tier === 'premium' || tier === 'super_admin',
+    isPremium:
+      tier === 'premium' ||
+      tier === 'enterprise' ||
+      tier === 'super_admin' ||
+      tier === 'developer',
     isSocial: tier !== 'free',
     isFree: tier === 'free',
-    isSuperAdmin: tier === 'super_admin',
+    isSuperAdmin: tier === 'super_admin' || tier === 'developer',
 
     // Feature checking
     checkFeature: jest.fn((featureId: FeatureId): FeatureAccess => {
@@ -317,7 +397,11 @@ export function createSubscriptionContextMock(tier: MockTier = 'premium') {
     useSubscriptionContext: () => mockContext,
     useTier: () => tier,
     useTierLimits: () => mockTierLimits[tier],
-    useIsPremium: () => tier === 'premium' || tier === 'super_admin',
+    useIsPremium: () =>
+      tier === 'premium' ||
+      tier === 'enterprise' ||
+      tier === 'super_admin' ||
+      tier === 'developer',
     useCheckFeature: () => mockContext.checkFeature,
   };
 }
@@ -329,4 +413,6 @@ export function createSubscriptionContextMock(tier: MockTier = 'premium') {
 export const freeTierMock = createMockSubscriptionContext('free');
 export const socialTierMock = createMockSubscriptionContext('social');
 export const premiumTierMock = createMockSubscriptionContext('premium');
+export const enterpriseTierMock = createMockSubscriptionContext('enterprise');
 export const superAdminMock = createMockSubscriptionContext('super_admin');
+export const developerTierMock = createMockSubscriptionContext('developer');

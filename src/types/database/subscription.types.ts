@@ -89,6 +89,9 @@ export interface TierLimits {
   // Feature access - Admin
   can_access_admin_tools: boolean;
 
+  // Feature access - Developer beta flag
+  can_access_beta_features?: boolean;
+
   // Billing & lifecycle
   requires_payment: boolean;
   can_expire: boolean;

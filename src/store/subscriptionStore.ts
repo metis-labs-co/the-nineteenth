@@ -105,43 +105,90 @@ export function useSubscriptionTier(): SubscriptionTier {
 }
 
 /**
- * Check if user has premium tier or higher (premium or super_admin)
+ * Check if user has premium tier or higher (premium, enterprise, super_admin, developer)
  * Use for premium-only features
  */
 export function useIsPremium(): boolean {
   return useSubscriptionStore((state) => {
     const tier = state.subscription?.tier;
-    return tier === 'premium' || tier === 'super_admin';
+    return (
+      tier === 'premium' ||
+      tier === 'enterprise' ||
+      tier === 'super_admin' ||
+      tier === 'developer'
+    );
   });
 }
 
 /**
- * Check if user has social tier or higher (social, premium, or super_admin)
+ * Check if user has social tier or higher (any paid or admin tier)
  * Use for features available to paying users
  */
 export function useIsSocial(): boolean {
   return useSubscriptionStore((state) => {
     const tier = state.subscription?.tier;
-    return tier === 'social' || tier === 'premium' || tier === 'super_admin';
+    return (
+      tier === 'social' ||
+      tier === 'premium' ||
+      tier === 'enterprise' ||
+      tier === 'super_admin' ||
+      tier === 'developer'
+    );
   });
 }
 
 /**
- * Check if user is a super admin
- * Super admins have unrestricted access to all features
+ * Check if user has enterprise tier or higher
  */
-export function useIsSuperAdmin(): boolean {
-  return useSubscriptionStore((state) => state.subscription?.tier === 'super_admin');
+export function useIsEnterprise(): boolean {
+  return useSubscriptionStore((state) => {
+    const tier = state.subscription?.tier;
+    return tier === 'enterprise' || tier === 'super_admin' || tier === 'developer';
+  });
 }
 
 /**
- * Check if user has full feature access (premium or super_admin)
+ * Check if user has super admin privileges (super_admin or developer tier).
+ * Developer sits above super_admin in the hierarchy and inherits its powers.
+ */
+export function useIsSuperAdmin(): boolean {
+  return useSubscriptionStore((state) => {
+    const tier = state.subscription?.tier;
+    return tier === 'super_admin' || tier === 'developer';
+  });
+}
+
+/**
+ * Check if user is on the developer tier (exact match).
+ * Use for gating developer-only UI. For super-admin-or-higher checks use
+ * useIsSuperAdmin which also returns true for developer.
+ */
+export function useIsDeveloper(): boolean {
+  return useSubscriptionStore((state) => state.subscription?.tier === 'developer');
+}
+
+/**
+ * Check if user can see beta/WIP features.
+ * Driven by the tier_limits.can_access_beta_features column, which is TRUE
+ * only for developer tier.
+ */
+export function useCanAccessBetaFeatures(): boolean {
+  return useSubscriptionStore((state) => state.limits?.canAccessBetaFeatures ?? false);
+}
+
+/**
+ * Check if user has full feature access (premium, enterprise, super_admin, developer)
  * Alias for useIsPremium - use for general feature checks
  */
 export function useHasFullAccess(): boolean {
   return useSubscriptionStore((state) => {
     const tier = state.subscription?.tier;
-    return tier === 'premium' || tier === 'super_admin';
+    return (
+      tier === 'premium' ||
+      tier === 'enterprise' ||
+      tier === 'super_admin' ||
+      tier === 'developer'
+    );
   });
 }
 
@@ -202,10 +249,18 @@ export function getCurrentTier(): SubscriptionTier {
 }
 
 /**
- * Check if current user is super admin (for use in services/utils)
+ * Check if current user has super admin privileges (super_admin or developer).
  */
 export function isSuperAdmin(): boolean {
-  return useSubscriptionStore.getState().subscription?.tier === 'super_admin';
+  const tier = useSubscriptionStore.getState().subscription?.tier;
+  return tier === 'super_admin' || tier === 'developer';
+}
+
+/**
+ * Check if current user is on the developer tier (exact match).
+ */
+export function isDeveloper(): boolean {
+  return useSubscriptionStore.getState().subscription?.tier === 'developer';
 }
 
 /**
@@ -213,5 +268,10 @@ export function isSuperAdmin(): boolean {
  */
 export function hasPremiumAccess(): boolean {
   const tier = useSubscriptionStore.getState().subscription?.tier;
-  return tier === 'premium' || tier === 'super_admin';
+  return (
+    tier === 'premium' ||
+    tier === 'enterprise' ||
+    tier === 'super_admin' ||
+    tier === 'developer'
+  );
 }

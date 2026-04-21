@@ -348,6 +348,34 @@ describe('useMatchPlayScoring', () => {
       expect(holeResult.winner).toBe('halved');
     });
 
+    it('applies handicap strokes when comparing equal gross scores', () => {
+      // Hole 11 has SI 11. P1 HC 18 gets a stroke there (11 ≤ 18);
+      // P2 HC 10 does not (11 > 10). Equal gross 4/4 should resolve to P1 on net.
+      setupStoreMock({
+        'player-1': { 11: { strokes: 4 } },
+        'player-2': { 11: { strokes: 4 } },
+      });
+
+      const { result } = renderHook(() =>
+        useMatchPlayScoring({ ...defaultParams, currentHole: 11 })
+      );
+
+      expect(result.current.getHoleResult(11).winner).toBe('player1');
+    });
+
+    it('halves the hole when both players receive the same strokes on the hole', () => {
+      // Hole 1 SI 1: both P1 (HC 18) and P2 (HC 10) receive 1 stroke, so equal
+      // gross stays halved on net too.
+      setupStoreMock({
+        'player-1': { 1: { strokes: 5 } },
+        'player-2': { 1: { strokes: 5 } },
+      });
+
+      const { result } = renderHook(() => useMatchPlayScoring(defaultParams));
+
+      expect(result.current.getHoleResult(1).winner).toBe('halved');
+    });
+
     it('marks player as picked up when score exceeds threshold', () => {
       setupStoreMock({
         'player-1': { 1: { strokes: 8 } }, // Pickup score

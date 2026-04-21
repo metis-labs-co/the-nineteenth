@@ -3387,6 +3387,7 @@ export type Database = {
           allowed_league_types: string[] | null
           badge_color: string | null
           can_access_admin_tools: boolean
+          can_access_beta_features: boolean
           can_compare_stats: boolean
           can_create_league: boolean
           can_expire: boolean
@@ -3428,6 +3429,7 @@ export type Database = {
           allowed_league_types?: string[] | null
           badge_color?: string | null
           can_access_admin_tools?: boolean
+          can_access_beta_features?: boolean
           can_compare_stats?: boolean
           can_create_league?: boolean
           can_expire?: boolean
@@ -3469,6 +3471,7 @@ export type Database = {
           allowed_league_types?: string[] | null
           badge_color?: string | null
           can_access_admin_tools?: boolean
+          can_access_beta_features?: boolean
           can_compare_stats?: boolean
           can_create_league?: boolean
           can_expire?: boolean
@@ -4896,6 +4899,7 @@ export type Database = {
           allowed_league_types: string[] | null
           badge_color: string | null
           can_access_admin_tools: boolean
+          can_access_beta_features: boolean
           can_compare_stats: boolean
           can_create_league: boolean
           can_expire: boolean
@@ -4997,6 +5001,7 @@ export type Database = {
           allowed_league_types: string[] | null
           badge_color: string | null
           can_access_admin_tools: boolean
+          can_access_beta_features: boolean
           can_compare_stats: boolean
           can_create_league: boolean
           can_expire: boolean
@@ -6045,7 +6050,13 @@ export type Database = {
       handicap_source: "profile" | "calculated" | "none"
       subscription_source: "manual" | "revenuecat" | "stripe"
       subscription_status: "active" | "cancelled" | "expired" | "trial"
-      subscription_tier: "free" | "social" | "premium" | "super_admin"
+      subscription_tier:
+        | "free"
+        | "social"
+        | "premium"
+        | "enterprise"
+        | "super_admin"
+        | "developer"
       team_format:
         | "best-ball"
         | "scramble"
@@ -6205,7 +6216,7 @@ export const Constants = {
       handicap_source: ["profile", "calculated", "none"],
       subscription_source: ["manual", "revenuecat", "stripe"],
       subscription_status: ["active", "cancelled", "expired", "trial"],
-      subscription_tier: ["free", "social", "premium", "super_admin"],
+      subscription_tier: ["free", "social", "premium", "enterprise", "super_admin", "developer"],
       team_format: [
         "best-ball",
         "scramble",

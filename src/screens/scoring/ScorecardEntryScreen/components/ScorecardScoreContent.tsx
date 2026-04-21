@@ -157,24 +157,25 @@ export function ScorecardScoreContent({
   isSoloRound = false,
 }: ScorecardScoreContentProps) {
   // Get shot contributions for a specific team (persisted in scorecard)
-  // Each team stores its own contributions in its members' scorecards
+  // Each team stores its own contributions in its members' scorecards.
+  // Reads via getPlayerScore directly so the UI reflects store updates immediately
+  // (playerScoresMap is memoized without groupScorecards as a dep and would be stale here).
   const getTeamShotContributions = useCallback(
     (teamIndex: number): ShotContributions | undefined => {
       if (!isTeamRound || teamFormat !== 'scramble' || teams.length === 0) {
         return undefined;
       }
-      // Get the first team member's score (all members share the same score in scramble)
       const team = teams[teamIndex];
       const firstMember = team?.members?.[0];
       if (!firstMember) return undefined;
 
-      const score = playerScoresMap.get(firstMember.player_id);
+      const score = getPlayerScore(firstMember.player_id, currentHole);
       if (score && isSingleBallScore(score)) {
         return score.shotContributions;
       }
       return undefined;
     },
-    [isTeamRound, teamFormat, teams, playerScoresMap]
+    [isTeamRound, teamFormat, teams, getPlayerScore, currentHole]
   );
 
   // Create a callback for shot contributions change for a specific team

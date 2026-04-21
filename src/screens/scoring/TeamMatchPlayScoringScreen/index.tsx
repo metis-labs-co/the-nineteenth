@@ -28,6 +28,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
+import { useProcessSkinsIfNeeded } from '@/hooks';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { TeeBox } from '@/types';
@@ -147,7 +148,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     getBestContributorForHole,
     getHoleWinnerForHole,
     getHoleResultDisplay,
-  } = useTeamMatchPlayScores(team1, team2, currentHole);
+  } = useTeamMatchPlayScores(team1, team2, currentHole, holes);
 
   // Match state hook
   const {
@@ -191,6 +192,47 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     dismissDialog,
   });
 
+  // Skins processing hook
+  const { processSkinsHole } = useProcessSkinsIfNeeded();
+
+  // Process skins for the given hole after a score change (non-blocking)
+  const triggerSkinsProcessing = useCallback(
+    (holeNumber: number, holeData: { par: number; strokeIndex: number }) => {
+      const latestScorecards = useScorecardStore.getState().groupScorecards;
+      const scorecardsRecord: Record<string, Record<string, { strokes: number }>> = {};
+      latestScorecards.forEach((scorecard, playerId) => {
+        scorecardsRecord[playerId] = scorecard.scores as Record<string, { strokes: number }>;
+      });
+
+      processSkinsHole({
+        roundId,
+        holeNumber,
+        scorecards: scorecardsRecord,
+        hole: { par: holeData.par, strokeIndex: holeData.strokeIndex },
+      })
+        .then((result) => {
+          if (result.processed) {
+            if (result.hasWinner) {
+              teamMatchPlayLogger.info('SKINS: Hole won', {
+                hole: holeNumber,
+                winner: result.winnerName,
+                amount: result.winningsAmount,
+              });
+            } else if (result.carryoverAmount) {
+              teamMatchPlayLogger.info('SKINS: Carryover', {
+                hole: holeNumber,
+                carryover: result.carryoverAmount,
+              });
+            }
+          }
+        })
+        .catch((error) => {
+          teamMatchPlayLogger.warn('SKINS: Processing error (non-blocking)', { error });
+        });
+    },
+    [roundId, processSkinsHole]
+  );
+
   // Handle player score adjustment
   const handlePlayerScoreAdjust = useCallback(
     async (playerId: string, delta: number) => {
@@ -215,8 +257,21 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       });
 
       await setPlayerScore(playerId, currentHole, newScore);
+
+      triggerSkinsProcessing(currentHole, {
+        par: currentHoleData.par,
+        strokeIndex: currentHoleData.strokeIndex,
+      });
     },
-    [currentHole, currentHoleData.par, isMatchComplete, getPlayerScoreValue, setPlayerScore]
+    [
+      currentHole,
+      currentHoleData.par,
+      currentHoleData.strokeIndex,
+      isMatchComplete,
+      getPlayerScoreValue,
+      setPlayerScore,
+      triggerSkinsProcessing,
+    ]
   );
 
   // Handle player par select
@@ -234,8 +289,20 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       });
 
       await setPlayerScore(playerId, currentHole, par);
+
+      triggerSkinsProcessing(currentHole, {
+        par: currentHoleData.par,
+        strokeIndex: currentHoleData.strokeIndex,
+      });
     },
-    [currentHole, isMatchComplete, setPlayerScore]
+    [
+      currentHole,
+      currentHoleData.par,
+      currentHoleData.strokeIndex,
+      isMatchComplete,
+      setPlayerScore,
+      triggerSkinsProcessing,
+    ]
   );
 
   // Get hole data for any hole number (used by SwipeableHoleNavigator)

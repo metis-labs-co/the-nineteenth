@@ -77,14 +77,24 @@ export function useMockThemeColors() {
 // MOCK SUBSCRIPTION CONTEXT
 // ============================================================================
 
-export type MockSubscriptionTier = 'free' | 'social' | 'premium' | 'super_admin';
+export type MockSubscriptionTier =
+  | 'free'
+  | 'social'
+  | 'premium'
+  | 'enterprise'
+  | 'super_admin'
+  | 'developer';
 
 const createMockSubscriptionValue = (tier: MockSubscriptionTier = 'premium') => ({
   tier,
-  isPremium: tier === 'premium' || tier === 'super_admin',
+  isPremium:
+    tier === 'premium' ||
+    tier === 'enterprise' ||
+    tier === 'super_admin' ||
+    tier === 'developer',
   isSocial: tier !== 'free',
   isFree: tier === 'free',
-  isSuperAdmin: tier === 'super_admin',
+  isSuperAdmin: tier === 'super_admin' || tier === 'developer',
   subscription: null,
   limits: null,
   allTierLimits: null,

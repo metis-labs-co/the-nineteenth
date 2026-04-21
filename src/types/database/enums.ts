@@ -44,7 +44,13 @@ export type PoiType = 'tee_front' | 'tee_back' | 'green_front' | 'green_center' 
 export type MeasureUnit = 'm' | 'y'; // meters or yards
 
 // Subscription enums
-export type SubscriptionTier = 'free' | 'social' | 'premium' | 'super_admin';
+export type SubscriptionTier =
+  | 'free'
+  | 'social'
+  | 'premium'
+  | 'enterprise'
+  | 'super_admin'
+  | 'developer';
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'trial';
 export type SubscriptionSource = 'manual' | 'revenuecat' | 'stripe';
 
@@ -92,7 +98,8 @@ export type TierFeature =
   | 'achievement_leaderboard'
   | 'ai_competition'
   | 'manage_guests'
-  | 'gps_distance';
+  | 'gps_distance'
+  | 'beta_features';
 
 // Knockout enums (re-exported from knockout.types.ts for consistency)
 export type {

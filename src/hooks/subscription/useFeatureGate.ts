@@ -40,7 +40,8 @@ export function useFeatureGate(
   tier: SubscriptionTier,
   limits: TierLimits | null
 ): UseFeatureGateReturn {
-  const isSuperAdmin = tier === 'super_admin';
+  // Developer sits above super_admin in the hierarchy and inherits its bypass.
+  const isSuperAdmin = tier === 'super_admin' || tier === 'developer';
 
   const checkFeature = useCallback(
     (featureId: FeatureId, context: FeatureCheckContext = {}): FeatureAccess => {

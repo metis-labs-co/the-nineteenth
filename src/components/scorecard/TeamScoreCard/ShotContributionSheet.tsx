@@ -5,8 +5,19 @@
  * player selection modal with slide-up animation for the TeamScoreCard.
  */
 
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, ScrollView, Pressable, Animated } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Pressable,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import {
   spacing,
@@ -16,6 +27,10 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import type { ShotContributions } from '@/types';
 import type { TeamWithMembers } from '@/types/database.types';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface ShotContributionSheetProps {
   team: TeamWithMembers;
@@ -43,15 +58,84 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
   disabled = false,
 }: ShotContributionSheetProps) {
   const colors = useThemeColors();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Auto-expand when the player picker opens so the chips are visible
+  // when the modal closes and the user sees their selection.
+  useEffect(() => {
+    if (activeShotType !== null && !isExpanded) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsExpanded(true);
+    }
+  }, [activeShotType, isExpanded]);
+
+  const handleToggleExpanded = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded((prev) => !prev);
+  };
+
+  const driveFilled = !!shotContributions?.drive;
+  const approachFilled = !!shotContributions?.approach;
+  const puttFilled = !!shotContributions?.putt;
+  const anyFilled = driveFilled || approachFilled || puttFilled;
 
   return (
     <>
       <View style={styles.shotContributionsContainer}>
-        <Text style={[styles.shotContributionsTitle, { color: colors.textSecondary }]}>
-          Shot Contributions
-        </Text>
+        <TouchableOpacity
+          style={styles.shotContributionsHeader}
+          onPress={handleToggleExpanded}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          accessibilityLabel="Shot Contributions"
+          accessibilityHint={isExpanded ? 'Collapse shot contributions' : 'Expand shot contributions'}
+        >
+          <Text style={[styles.shotContributionsTitle, { color: colors.textSecondary }]}>
+            Shot Contributions
+          </Text>
+          <View style={styles.shotContributionsHeaderRight}>
+            {!isExpanded && (
+              anyFilled ? (
+                <View style={styles.statusDots}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { borderColor: colors.primary },
+                      driveFilled && { backgroundColor: colors.primary },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { borderColor: colors.success },
+                      approachFilled && { backgroundColor: colors.success },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { borderColor: colors.warning },
+                      puttFilled && { backgroundColor: colors.warning },
+                    ]}
+                  />
+                </View>
+              ) : (
+                <Text style={[styles.tapToTrack, { color: colors.textTertiary }]}>
+                  Tap to track
+                </Text>
+              )
+            )}
+            <Icon
+              source={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </View>
+        </TouchableOpacity>
 
         {/* Shot type chips */}
+        {isExpanded && (
         <View style={styles.shotChipsContainer}>
           {/* Drive */}
           <TouchableOpacity
@@ -140,6 +224,7 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
             )}
           </TouchableOpacity>
         </View>
+        )}
       </View>
 
       {/* Player Selection Modal */}
@@ -246,12 +331,38 @@ const styles = StyleSheet.create({
   shotContributionsContainer: {
     paddingTop: spacing.xs,
   },
+  shotContributionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    marginBottom: spacing.sm,
+  },
+  shotContributionsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   shotContributionsTitle: {
     ...typography.smallBold,
-    marginBottom: spacing.md,
+  },
+  statusDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+  },
+  tapToTrack: {
+    ...typography.caption,
   },
   shotChipsContainer: {
     gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   shotChip: {
     flexDirection: 'row',

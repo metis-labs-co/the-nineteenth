@@ -135,7 +135,9 @@ const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
   free: 'Free',
   social: 'Social',
   premium: 'Premium',
+  enterprise: 'Enterprise',
   super_admin: 'Super Admin',
+  developer: 'Developer',
 };
 
 /**
@@ -145,7 +147,9 @@ const TIER_COLORS: Record<SubscriptionTier, string> = {
   free: '#6b7280',
   social: '#3b82f6',
   premium: '#f59e0b',
+  enterprise: '#8b5cf6',
   super_admin: '#dc2626',
+  developer: '#06b6d4',
 };
 
 // ============================================================================
