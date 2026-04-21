@@ -220,6 +220,8 @@ export function createTestRound(overrides: Partial<Round> = {}): Round {
     selected_tee: null,
     is_team_round: false,
     team_format: null,
+    round_format: 'combined',
+    sub_match_size: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,

@@ -13,7 +13,7 @@
  * Styled to match CourseScreen design patterns.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -26,21 +26,26 @@ import { useRoundPlayerTees } from '@/hooks/rounds';
 import { useAuth } from '@/hooks/useAuth';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
+import { getTeeColor } from '@/components/common/TeeSelector';
 import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
 import { GAME_TYPE_LABELS } from './constants';
-import { PlayersSection } from './components';
+import { PlayersSection, GroupsSection } from './components';
+import { EditDateTimeSheet, EditGameTypeSheet, EditTeeSheet, RoundFormatSheet } from './sheets';
 import type { RoundDetailsTabProps } from './types';
+import { usePairings } from '@/hooks/rounds';
+
+type OpenSheet = 'date-time' | 'game-type' | 'tee' | 'round-format' | null;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   round,
   isOrganizer = false,
-  onEditPress,
   onCourseSelectPress,
+  onUpgradePress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
@@ -48,6 +53,36 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const useMetres = distanceUnit === 'metres';
   const holes = Array.isArray(round.course?.holes) ? round.course.holes : [];
   const { player } = useAuth();
+
+  // Round details are editable only by the round/competition organiser.
+  // `isOrganizer` already resolves to true for standalone-round owners and
+  // for competition organisers (see useViewRoundPermissions). We alias it
+  // locally so the intent at each call site reads as "can edit" rather
+  // than "is organiser" and so additional gates (e.g. round status) can
+  // be layered here later without touching every row.
+  const canEdit = isOrganizer;
+
+  // Per-field edit sheets - only one open at a time. Kept local to the tab
+  // because no other component needs to observe this state.
+  const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
+  const handleCloseSheet = useCallback(() => setOpenSheet(null), []);
+  const openDateTime = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('date-time');
+  }, [canEdit]);
+  const openGameType = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('game-type');
+  }, [canEdit]);
+  const openTee = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('tee');
+  }, [canEdit]);
+  const openRoundFormat = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('round-format');
+  }, [canEdit]);
+  const handleUpgradePress = useCallback(() => onUpgradePress?.(), [onUpgradePress]);
 
   // Check if round has an active skins game
   const { data: skinsGames } = useSkinsGamesByRound(round.id);
@@ -63,6 +98,13 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // can play different tees, and edits made via the Edit Tees sheet only
   // touch round_players, not rounds.selected_tee.
   const { data: roundPlayerTees } = useRoundPlayerTees(round.id);
+
+  // Pairings drive whether the Details tab shows a flat Players list or
+  // a Groups view. A round is considered "grouped" when it has any pairings
+  // OR when its format is 'split' (which always has sub-matches to show).
+  const { data: roundPairings } = usePairings(round.id);
+  const roundFormat = round.round_format ?? 'combined';
+  const hasGroups = (roundPairings && roundPairings.length > 0) || roundFormat === 'split';
 
   // Effective tee for the current user on this round. Prefers a
   // per-player override (round_players.selected_tee) and falls back to
@@ -198,107 +240,245 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Round Details
           </Text>
-          {isOrganizer && onEditPress && (
-            <TouchableOpacity
-              style={[styles.editButton, { backgroundColor: colors.gray100 }]}
-              onPress={onEditPress}
-              accessibilityLabel="Edit round details"
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <Icon source="pencil" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={[styles.detailsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.detailRow}>
-            <View style={styles.detailIconContainer}>
-              <Icon source="calendar" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Date</Text>
-              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                {formatDateWithWeekday(round.date)}
-              </Text>
-            </View>
-          </View>
+          <DetailRow
+            icon="calendar"
+            label="Date"
+            onPress={canEdit ? openDateTime : undefined}
+            accessibilityHint={canEdit ? 'Edit round date' : undefined}
+          >
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+              {formatDateWithWeekday(round.date)}
+            </Text>
+          </DetailRow>
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailIconContainer}>
-              <Icon source="clock-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Tee Time</Text>
-              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                {formatTeeTime(round.tee_time)}
-              </Text>
-            </View>
-          </View>
+          <DetailRow
+            icon="clock-outline"
+            label="Tee Time"
+            onPress={canEdit ? openDateTime : undefined}
+            accessibilityHint={canEdit ? 'Edit tee time' : undefined}
+          >
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+              {formatTeeTime(round.tee_time)}
+            </Text>
+          </DetailRow>
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailIconContainer}>
-              <Icon source="trophy-outline" size={20} color={colors.primary} />
+          <DetailRow
+            icon="trophy-outline"
+            label="Format"
+            onPress={canEdit ? openGameType : undefined}
+            accessibilityHint={canEdit ? 'Edit game format' : undefined}
+          >
+            <View style={styles.formatPillContainer}>
+              {hasSkins && (
+                <Icon source="dice-multiple" size={18} color={skinsColor} />
+              )}
+              {hasWolf && (
+                <Icon source="dog-side" size={18} color={wolfColor} />
+              )}
+              <Pill
+                label={GAME_TYPE_LABELS[round.game_type]}
+                variant="primary"
+                size="md"
+              />
             </View>
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Format</Text>
-              <View style={styles.formatPillContainer}>
-                {hasSkins && (
-                  <Icon source="dice-multiple" size={18} color={skinsColor} />
-                )}
-                {hasWolf && (
-                  <Icon source="dog-side" size={18} color={wolfColor} />
-                )}
-                <Pill
-                  label={GAME_TYPE_LABELS[round.game_type]}
-                  variant="primary"
-                  size="md"
-                />
-              </View>
-            </View>
-          </View>
+          </DetailRow>
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailIconContainer}>
-              <Icon source="golf-tee" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Tee</Text>
-              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                {effectiveTee?.name || 'Not set'}
-              </Text>
-            </View>
-          </View>
+          {(() => {
+            const hasCourseTees = (round.course?.tees?.length ?? 0) > 0;
+            const hasCR = effectiveTee?.courseRating != null;
+            const hasSlope = effectiveTee?.slopeRating != null;
+            return (
+              <DetailRow
+                icon="golf-tee"
+                label="Tee"
+                onPress={canEdit && hasCourseTees ? openTee : undefined}
+                accessibilityHint={
+                  canEdit && hasCourseTees ? 'Edit tee' : undefined
+                }
+              >
+                <View style={styles.teeValue}>
+                  {effectiveTee && (
+                    <View
+                      style={[
+                        styles.teeColorDot,
+                        {
+                          backgroundColor: getTeeColor(
+                            effectiveTee.color || '',
+                            colors.gray400
+                          ),
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    />
+                  )}
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                    {effectiveTee?.name || 'Not set'}
+                  </Text>
+                  {(hasCR || hasSlope) && (
+                    <Text style={[styles.teeMeta, { color: colors.textSecondary }]}>
+                      {[
+                        hasCR ? `CR ${effectiveTee!.courseRating!.toFixed(1)}` : null,
+                        hasSlope ? `SR ${effectiveTee!.slopeRating}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  )}
+                </View>
+              </DetailRow>
+            );
+          })()}
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailIconContainer}>
-              <Icon source="flag-checkered" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Status</Text>
-              <StatusBadge status={round.status as StatusVariant} size="md" />
-            </View>
-          </View>
+          <DetailRow icon="flag-checkered" label="Status">
+            <StatusBadge status={round.status as StatusVariant} size="md" />
+          </DetailRow>
+
+          {round.is_team_round && (
+            <>
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+              <DetailRow
+                icon="account-switch-outline"
+                label="Round Format"
+                onPress={canEdit ? openRoundFormat : undefined}
+                accessibilityHint={canEdit ? 'Edit round format' : undefined}
+              >
+                <View style={styles.formatPillContainer}>
+                  <Pill
+                    label={roundFormat === 'split' ? `Split ${round.sub_match_size ?? ''}v${round.sub_match_size ?? ''}`.trim() : 'Combined'}
+                    variant="primary"
+                    size="md"
+                  />
+                </View>
+              </DetailRow>
+            </>
+          )}
         </View>
       </View>
 
-      {/* Players Section */}
-      <PlayersSection
-        roundId={round.id}
-        cardBackground={colors.surface}
-      />
+      {/* Groups (when pairings exist or the round is split) or flat Players list */}
+      {hasGroups ? (
+        <GroupsSection
+          roundId={round.id}
+          roundFormat={roundFormat}
+          cardBackground={colors.surface}
+        />
+      ) : (
+        <PlayersSection
+          roundId={round.id}
+          cardBackground={colors.surface}
+        />
+      )}
 
+      {/* Per-field edit sheets */}
+      <EditDateTimeSheet
+        visible={openSheet === 'date-time'}
+        onDismiss={handleCloseSheet}
+        roundId={round.id}
+        initialDate={round.date}
+        initialTeeTime={round.tee_time}
+      />
+      <EditGameTypeSheet
+        visible={openSheet === 'game-type'}
+        onDismiss={handleCloseSheet}
+        roundId={round.id}
+        currentGameType={round.game_type}
+        currentIsTeamRound={round.is_team_round}
+        currentTeamFormat={round.team_format}
+        supportsTeams={
+          round.competition
+            ? round.competition.team_mode !== 'none'
+            : round.is_team_round
+        }
+        onUpgradePress={handleUpgradePress}
+      />
+      <EditTeeSheet
+        visible={openSheet === 'tee'}
+        onDismiss={handleCloseSheet}
+        roundId={round.id}
+        tees={round.course?.tees ?? []}
+        currentTee={round.selected_tee ?? null}
+      />
+      {round.is_team_round && (
+        <RoundFormatSheet
+          visible={openSheet === 'round-format'}
+          onDismiss={handleCloseSheet}
+          roundId={round.id}
+          competitionId={round.competition_id ?? null}
+          isTeamRound={round.is_team_round}
+          currentFormat={roundFormat}
+          currentSubMatchSize={round.sub_match_size ?? null}
+          roundTeeTime={round.tee_time}
+        />
+      )}
     </View>
   );
 });
+
+// ============================================================================
+// DETAIL ROW
+// ============================================================================
+
+interface DetailRowProps {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  accessibilityHint?: string;
+  children: React.ReactNode;
+}
+
+function DetailRow({ icon, label, onPress, accessibilityHint, children }: DetailRowProps) {
+  const colors = useThemeColors();
+  const isInteractive = !!onPress;
+
+  const content = (
+    <>
+      <View style={styles.detailIconContainer}>
+        <Icon source={icon} size={20} color={colors.primary} />
+      </View>
+      <View style={styles.detailContent}>
+        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <View style={styles.detailRight}>
+          {children}
+          {isInteractive && (
+            <Icon source="chevron-right" size={20} color={colors.gray400} />
+          )}
+        </View>
+      </View>
+    </>
+  );
+
+  if (!isInteractive) {
+    return (
+      <View style={styles.detailRow} accessibilityLabel={label}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.detailRow}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+    >
+      {content}
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -390,13 +570,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.h4,
   },
-  editButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
   // Details Card
   detailsCard: {
@@ -424,6 +597,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  detailRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   detailLabel: {
     ...typography.body,
   },
@@ -434,6 +612,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  teeValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  teeColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  teeMeta: {
+    ...typography.caption,
   },
   detailDivider: {
     height: 1,

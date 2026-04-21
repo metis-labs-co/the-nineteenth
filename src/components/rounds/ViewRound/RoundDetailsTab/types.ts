@@ -9,8 +9,9 @@ import type { RoundStatus } from '@/types/database/enums';
 export interface RoundDetailsTabProps {
   round: RoundWithCourse;
   isOrganizer?: boolean;
-  onEditPress?: () => void;
   onCourseSelectPress?: () => void;
+  /** Navigation target for upgrade prompts opened from per-field sheets. */
+  onUpgradePress?: () => void;
 }
 
 export interface HoleTableProps {

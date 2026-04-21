@@ -30,6 +30,37 @@ export function getStrokesReceived(handicap: number, strokeIndex: number): numbe
 }
 
 /**
+ * Pickup score offset: strokes above "par + strokes received" that represent
+ * a conceded hole in match-play formats. Example: par 4 + 1 stroke + 2 = 7.
+ */
+export const PICKUP_THRESHOLD = 2;
+
+/**
+ * Calculate the pickup score for a player on a specific hole.
+ * Pickup score = par + strokes received + PICKUP_THRESHOLD
+ */
+export function calculatePickupScore(
+  par: number,
+  handicap: number,
+  strokeIndex: number
+): number {
+  return par + getStrokesReceived(handicap, strokeIndex) + PICKUP_THRESHOLD;
+}
+
+/**
+ * Check whether a stored gross score represents a pickup on the given hole.
+ * Any score at or above the computed pickup threshold counts as a pickup.
+ */
+export function isPickupScore(
+  score: number,
+  par: number,
+  handicap: number,
+  strokeIndex: number
+): boolean {
+  return score >= calculatePickupScore(par, handicap, strokeIndex);
+}
+
+/**
  * Calculate net score for a hole in stroke play
  */
 export function calculateNetScore(

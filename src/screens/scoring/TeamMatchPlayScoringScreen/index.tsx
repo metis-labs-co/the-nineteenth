@@ -14,7 +14,7 @@
  * - Submit match result button when complete
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
@@ -27,11 +27,13 @@ import { useIsSocial } from '@/context/SubscriptionContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
+import { useSubMatches } from '@/hooks/rounds';
+import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded } from '@/hooks';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
 import type { RootStackScreenProps } from '@/navigation/types';
-import type { TeeBox } from '@/types';
+import type { Player, TeeBox } from '@/types';
 
 import {
   TeamMatchPlayHeader,
@@ -53,7 +55,15 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // Super admin check
   const isSuperAdmin = useIsSuperAdmin();
   const isSocial = useIsSocial();
-  const { handicapSource } = useScorecardStore();
+  const {
+    handicapSource,
+    currentRoundId,
+    currentPlayers,
+    isInitialized,
+    initializeRound,
+    loadFromOffline,
+    resetRound,
+  } = useScorecardStore();
 
   // State
   const [currentHole, setCurrentHole] = useState(1);
@@ -72,7 +82,30 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     teams: teamsData,
     isLoading: isTeamsLoading,
     error: teamsError,
-  } = useRoundTeams(competitionId, isTeamRound);
+  } = useRoundTeams(competitionId, isTeamRound, roundId);
+
+  // Split-round support: when round_format === 'split', find the sub-match
+  // this user is scoring (either because they're in it or because the route
+  // specifies team1Id/team2Id to narrow down). Only the players on that
+  // sub-match's two sides are rendered in the scoring UI.
+  const isSplitRound = roundData?.round_format === 'split';
+  const { data: subMatches } = useSubMatches(isSplitRound ? roundId : undefined);
+  const { player: authPlayer } = useAuth();
+
+  const activeSubMatch = useMemo(() => {
+    if (!isSplitRound || !subMatches || subMatches.length === 0) return null;
+    // Prefer a sub-match containing the signed-in player.
+    if (authPlayer?.id) {
+      const own = subMatches.find(
+        (sm) =>
+          sm.team_a_player_ids.includes(authPlayer.id) ||
+          sm.team_b_player_ids.includes(authPlayer.id)
+      );
+      if (own) return own;
+    }
+    // Fallback to the first sub-match (organizer viewing, for example).
+    return subMatches[0] ?? null;
+  }, [isSplitRound, subMatches, authPlayer?.id]);
 
   // Course data from round
   const courseName = roundData?.course?.name;
@@ -86,6 +119,71 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     }
     return DEFAULT_HOLES;
   }, [roundData]);
+
+  // Ensure the scorecard store is initialized for this round.
+  // The initial call from `useStartNewRound` can silently fail (errors are
+  // swallowed in `initializeRoundSlice`), and the resume-from-list flow
+  // skips that call entirely. Without this, downstream screens that read
+  // `currentPlayers` from the store (e.g. ReviewScorecardScreen) hang on
+  // their loading state.
+  useEffect(() => {
+    if (teamsData.length === 0 || holes.length === 0) return;
+
+    const alreadyHydrated =
+      isInitialized &&
+      currentRoundId === roundId &&
+      currentPlayers.length > 0;
+    if (alreadyHydrated) return;
+
+    const players: Player[] = teamsData.flatMap((team) =>
+      (team.members ?? []).map((m) => ({
+        id: m.player_id,
+        name: m.player?.name ?? 'Unknown',
+        email: m.player?.email ?? '',
+        handicap: m.player?.handicap ?? 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }))
+    );
+    if (players.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      if (currentRoundId && currentRoundId !== roundId) {
+        resetRound();
+      }
+
+      const loaded = await loadFromOffline(roundId);
+      if (cancelled || loaded) return;
+
+      await initializeRound(
+        roundId,
+        players,
+        holes,
+        'match-play',
+        false,
+        [],
+        selectedTeeBox ?? null,
+        handicapSource
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    teamsData,
+    holes,
+    roundId,
+    isInitialized,
+    currentRoundId,
+    currentPlayers.length,
+    selectedTeeBox,
+    handicapSource,
+    initializeRound,
+    loadFromOffline,
+    resetRound,
+  ]);
 
   // Determine handicap label for display
   const handicapLabel = isSocial && selectedTeeBox ? 'DHC' : 'HC';
@@ -111,8 +209,23 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     return map;
   }, [teamsData, selectedTeeBox, holes, handicapSource, isSocial]);
 
-  // Find team data based on IDs
+  // Find team data based on IDs. For split rounds, synthesize the two "teams"
+  // from the active sub-match's sides so the existing best-ball scoring UI
+  // scopes down to just those players.
   const team1: MatchTeam = useMemo(() => {
+    if (isSplitRound && activeSubMatch && teamsData.length > 0) {
+      const filtered: import('@/types').TeamWithMembers = {
+        id: `${activeSubMatch.id}-a`,
+        competition_id: teamsData[0].competition_id,
+        name: 'Team A',
+        created_at: teamsData[0].created_at,
+        updated_at: teamsData[0].updated_at,
+        members: teamsData
+          .flatMap((t) => t.members || [])
+          .filter((m) => activeSubMatch.team_a_player_ids.includes(m.player_id)),
+      };
+      return toMatchTeam(filtered, handicapMap);
+    }
     if (team1Id && teamsData.length > 0) {
       const teamData = teamsData.find((t) => t.id === team1Id);
       if (teamData) return toMatchTeam(teamData, handicapMap);
@@ -121,9 +234,22 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       return toMatchTeam(teamsData[0], handicapMap);
     }
     return { id: team1Id || '1', name: 'Team A', members: [], handicap: 0 };
-  }, [team1Id, teamsData, handicapMap]);
+  }, [isSplitRound, activeSubMatch, team1Id, teamsData, handicapMap]);
 
   const team2: MatchTeam = useMemo(() => {
+    if (isSplitRound && activeSubMatch && teamsData.length > 1) {
+      const filtered: import('@/types').TeamWithMembers = {
+        id: `${activeSubMatch.id}-b`,
+        competition_id: teamsData[1].competition_id,
+        name: 'Team B',
+        created_at: teamsData[1].created_at,
+        updated_at: teamsData[1].updated_at,
+        members: teamsData
+          .flatMap((t) => t.members || [])
+          .filter((m) => activeSubMatch.team_b_player_ids.includes(m.player_id)),
+      };
+      return toMatchTeam(filtered, handicapMap);
+    }
     if (team2Id && teamsData.length > 1) {
       const teamData = teamsData.find((t) => t.id === team2Id);
       if (teamData) return toMatchTeam(teamData, handicapMap);
@@ -132,7 +258,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       return toMatchTeam(teamsData[1], handicapMap);
     }
     return { id: team2Id || '2', name: 'Team B', members: [], handicap: 0 };
-  }, [team2Id, teamsData, handicapMap]);
+  }, [isSplitRound, activeSubMatch, team2Id, teamsData, handicapMap]);
 
   const currentHoleData = holes[currentHole - 1];
 
@@ -148,6 +274,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     getBestContributorForHole,
     getHoleWinnerForHole,
     getHoleResultDisplay,
+    getPlayerStrokesReceivedForHole,
+    isPlayerPickedUpOnHole,
+    pickUpPlayer,
   } = useTeamMatchPlayScores(team1, team2, currentHole, holes);
 
   // Match state hook
@@ -191,6 +320,15 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     showDialog,
     dismissDialog,
   });
+
+  // Navigate to full scorecard review (leaderboard + individual scorecards)
+  const handleViewScorecard = useCallback(() => {
+    navigation.navigate('ReviewScorecard', {
+      roundId,
+      competitionId,
+      holes,
+    });
+  }, [navigation, roundId, competitionId, holes]);
 
   // Skins processing hook
   const { processSkinsHole } = useProcessSkinsIfNeeded();
@@ -305,6 +443,37 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     ]
   );
 
+  // Handle player pickup (concede hole). Uses the same setPlayerScore pathway
+  // — pickup is stored as the magic gross score `par + strokes + 2`.
+  const handlePlayerPickUp = useCallback(
+    async (playerId: string) => {
+      if (isMatchComplete) {
+        teamMatchPlayLogger.debug('Pickup ignored - match complete');
+        return;
+      }
+
+      teamMatchPlayLogger.info('TEAM MATCH PLAY: Player pickup toggled', {
+        playerId: playerId.substring(0, 8),
+        hole: currentHole,
+      });
+
+      await pickUpPlayer(playerId);
+
+      triggerSkinsProcessing(currentHole, {
+        par: currentHoleData.par,
+        strokeIndex: currentHoleData.strokeIndex,
+      });
+    },
+    [
+      currentHole,
+      currentHoleData.par,
+      currentHoleData.strokeIndex,
+      isMatchComplete,
+      pickUpPlayer,
+      triggerSkinsProcessing,
+    ]
+  );
+
   // Get hole data for any hole number (used by SwipeableHoleNavigator)
   const getHoleData = useCallback(
     (holeNumber: number) => {
@@ -351,8 +520,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 isWinning={holeWinner === 'team1'}
                 matchStatus={team1MatchStatus}
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
+                getPlayerStrokesReceived={(playerId) => getPlayerStrokesReceivedForHole(playerId, holeNumber)}
+                getPlayerIsPickedUp={(playerId) => isPlayerPickedUpOnHole(playerId, holeNumber)}
                 onPlayerScoreAdjust={handlePlayerScoreAdjust}
                 onPlayerParSelect={handlePlayerParSelect}
+                onPlayerPickUp={handlePlayerPickUp}
                 handicapLabel={handicapLabel}
               />
 
@@ -378,8 +550,11 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
                 isWinning={holeWinner === 'team2'}
                 matchStatus={team2MatchStatus}
                 getPlayerScore={(playerId) => getPlayerScoreForHole(playerId, holeNumber)}
+                getPlayerStrokesReceived={(playerId) => getPlayerStrokesReceivedForHole(playerId, holeNumber)}
+                getPlayerIsPickedUp={(playerId) => isPlayerPickedUpOnHole(playerId, holeNumber)}
                 onPlayerScoreAdjust={handlePlayerScoreAdjust}
                 onPlayerParSelect={handlePlayerParSelect}
+                onPlayerPickUp={handlePlayerPickUp}
                 handicapLabel={handicapLabel}
               />
             </View>
@@ -411,6 +586,8 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       getHoleWinnerForHole,
       getHoleResultDisplay,
       getPlayerScoreForHole,
+      getPlayerStrokesReceivedForHole,
+      isPlayerPickedUpOnHole,
       selectedTeeColor,
       handlePreviousHole,
       handleNextHole,
@@ -421,6 +598,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       team2MatchStatus,
       handlePlayerScoreAdjust,
       handlePlayerParSelect,
+      handlePlayerPickUp,
       colors,
       holeResults,
       handleHolePress,
@@ -530,6 +708,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         onPreviousHole={handlePreviousHole}
         onNextHole={handleNextHole}
         onSubmitMatch={handleSubmitMatch}
+        onViewScorecard={handleViewScorecard}
       />
 
       {/* Confirmation/Alert Dialog */}

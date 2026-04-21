@@ -39,6 +39,10 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   const isShambleRound = round?.game_type === 'shamble' || round?.team_format === 'shamble';
   const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble';
   const isStrokePlayRound = round?.game_type === 'stroke';
+  // Split round: the team round is Ryder-Cup-style (multiple independent
+  // sub-matches aggregated for the round result). Only meaningful for team
+  // rounds — the field is always 'combined' on individual rounds.
+  const isSplitRound = (round?.is_team_round ?? false) && round?.round_format === 'split';
 
   const {
     data: matchPlayData,
@@ -68,6 +72,7 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isSplitRound,
 
     // Loading state
     isLoading,

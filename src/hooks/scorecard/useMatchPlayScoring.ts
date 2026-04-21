@@ -13,7 +13,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
-import { getStrokesReceived } from '@/utils/scoring';
+import { getStrokesReceived, calculatePickupScore, isPickupScore } from '@/utils/scoring';
 import { isSingleBallScore } from '@/types/database/base';
 import {
   determineHoleWinner,
@@ -32,12 +32,6 @@ interface UseMatchPlayScoringParams {
   player2Handicap: number;
   currentHole: number;
 }
-
-/**
- * Threshold above which a score is considered a "pickup"
- * Used to detect if a stored score represents a pickup
- */
-const PICKUP_THRESHOLD = 2;
 
 interface UseMatchPlayScoringResult {
   /** Handle score selection for a player */
@@ -79,30 +73,6 @@ interface ScoreColors {
 // Score bounds
 const MIN_SCORE = 1;
 const MAX_SCORE = 12;
-
-/**
- * Calculate the pickup score for a player on a specific hole.
- * Pickup score = par + strokes received + 2
- *
- * Example: Par 4 hole, player gets 1 stroke = 4 + 1 + 2 = 7
- */
-function calculatePickupScore(par: number, handicap: number, strokeIndex: number): number {
-  const strokesReceived = getStrokesReceived(handicap, strokeIndex);
-  return par + strokesReceived + PICKUP_THRESHOLD;
-}
-
-/**
- * Check if a score represents a pickup (score >= pickup threshold for that hole)
- */
-function isPickupScore(
-  score: number,
-  par: number,
-  handicap: number,
-  strokeIndex: number
-): boolean {
-  const pickupScore = calculatePickupScore(par, handicap, strokeIndex);
-  return score >= pickupScore;
-}
 
 /**
  * Hook for managing match play scoring with store persistence.

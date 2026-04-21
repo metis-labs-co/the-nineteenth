@@ -404,3 +404,150 @@ export function recalculateTeeTimes(
     slotIndex: index,
   }));
 }
+
+// =====================================================
+// Sub-match generation for split team rounds
+// =====================================================
+
+export interface GenerateSubMatchesOptions {
+  /** Players on team A, in any order (sorted internally by handicap) */
+  teamAPlayers: PairingPlayer[];
+  /** Players on team B */
+  teamBPlayers: PairingPlayer[];
+  /** Players per sub-team (1 = 1v1, 2 = 2v2, 3 = 3v3) */
+  subMatchSize: 1 | 2 | 3;
+  /** Start tee time HH:MM */
+  startTime: string;
+  /** Minutes between tee groups */
+  intervalMinutes: number;
+}
+
+export interface GeneratedSubMatch {
+  /** 0-based position within the round */
+  sortOrder: number;
+  /** Sub-team A player IDs (1–subMatchSize, smaller in remainder sub-match) */
+  teamAPlayerIds: string[];
+  /** Sub-team B player IDs */
+  teamBPlayerIds: string[];
+  /** Tee time HH:MM */
+  teeTime: string;
+  /** Sub-team A player details (for preview UI) */
+  teamAPlayers: PairingPlayer[];
+  /** Sub-team B player details */
+  teamBPlayers: PairingPlayer[];
+}
+
+export interface GenerateSubMatchesResult {
+  subMatches: GeneratedSubMatch[];
+  warnings: string[];
+}
+
+/**
+ * Snake-draft a single team into balanced sub-teams.
+ *
+ * Players are sorted by handicap then distributed so each sub-team gets
+ * a mix of skill levels. Mirrors `generateSnakeDraftPairings` for a single
+ * side. The last sub-team absorbs any remainder (e.g. 5 players, size 2 →
+ * sizes [2, 2, 1]).
+ */
+function snakeDraftSubTeams(
+  players: PairingPlayer[],
+  subMatchSize: 1 | 2 | 3
+): PairingPlayer[][] {
+  if (players.length === 0) return [];
+
+  const sorted = [...players].sort((a, b) => {
+    const ha = a.handicap ?? 54;
+    const hb = b.handicap ?? 54;
+    return ha - hb;
+  });
+
+  const numSubTeams = Math.max(1, Math.ceil(sorted.length / subMatchSize));
+  const subTeams: PairingPlayer[][] = Array.from({ length: numSubTeams }, () => []);
+
+  let idx = 0;
+  let dir = 1;
+  for (const p of sorted) {
+    subTeams[idx].push(p);
+    idx += dir;
+    if (idx >= numSubTeams) {
+      idx = numSubTeams - 1;
+      dir = -1;
+    } else if (idx < 0) {
+      idx = 0;
+      dir = 1;
+    }
+  }
+
+  return subTeams;
+}
+
+/**
+ * Generate balanced sub-matches for a split team round.
+ *
+ * Algorithm:
+ *   1. Snake-draft each team by handicap into sub-teams of the requested
+ *      size. Remainder (last sub-team) may be smaller.
+ *   2. Pair sub-team 1 of A vs sub-team 1 of B, sub-team 2 of A vs sub-team 2
+ *      of B, etc. Ranked matching keeps competitive balance across matchups.
+ *   3. Assign staggered tee times by sort order using `calculateTeeTime`.
+ *
+ * Uneven team sizes are allowed but will produce a 1v2 (or similar)
+ * remainder sub-match — callers should surface a warning.
+ */
+export function generateSubMatches(
+  options: GenerateSubMatchesOptions
+): GenerateSubMatchesResult {
+  const { teamAPlayers, teamBPlayers, subMatchSize, startTime, intervalMinutes } = options;
+  const warnings: string[] = [];
+
+  if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
+    return {
+      subMatches: [],
+      warnings: ['Both teams need at least one player'],
+    };
+  }
+
+  const subTeamsA = snakeDraftSubTeams(teamAPlayers, subMatchSize);
+  const subTeamsB = snakeDraftSubTeams(teamBPlayers, subMatchSize);
+
+  const numSubMatches = Math.max(subTeamsA.length, subTeamsB.length);
+
+  // Pad short side with empty arrays so zip doesn't drop rows; empty sub-team
+  // means the opposing side effectively wins by forfeit. Callers should never
+  // hit this in practice because both teams are required to have ≥1 player.
+  while (subTeamsA.length < numSubMatches) subTeamsA.push([]);
+  while (subTeamsB.length < numSubMatches) subTeamsB.push([]);
+
+  const subMatches: GeneratedSubMatch[] = subTeamsA.map((aSide, i) => {
+    const bSide = subTeamsB[i];
+    return {
+      sortOrder: i,
+      teamAPlayerIds: aSide.map((p) => p.id),
+      teamBPlayerIds: bSide.map((p) => p.id),
+      teeTime: calculateTeeTime(startTime, intervalMinutes, i),
+      teamAPlayers: aSide,
+      teamBPlayers: bSide,
+    };
+  });
+
+  // Warn when the final sub-match is uneven (e.g. remainder 1v2)
+  if (numSubMatches > 0) {
+    const last = subMatches[numSubMatches - 1];
+    if (last.teamAPlayerIds.length !== last.teamBPlayerIds.length) {
+      warnings.push(
+        `Sub-match ${numSubMatches} is uneven (${last.teamAPlayerIds.length}v${last.teamBPlayerIds.length}) — team sizes do not divide evenly`
+      );
+    }
+    if (
+      last.teamAPlayerIds.length < subMatchSize ||
+      last.teamBPlayerIds.length < subMatchSize
+    ) {
+      warnings.push(
+        `Sub-match ${numSubMatches} is smaller than the requested ${subMatchSize}v${subMatchSize}`
+      );
+    }
+  }
+
+  return { subMatches, warnings };
+}

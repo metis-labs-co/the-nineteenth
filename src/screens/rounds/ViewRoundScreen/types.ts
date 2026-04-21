@@ -3,6 +3,7 @@ export type TabKey =
   | 'scorecard'
   | 'stats'
   | 'match'
+  | 'subMatches'
   | 'skins'
   | 'wolf'
   | 'payouts'

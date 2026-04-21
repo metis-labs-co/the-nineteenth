@@ -25,7 +25,7 @@ export interface CourseWithClub extends Course {
   club: Pick<Club, 'id' | 'name' | 'city' | 'state' | 'address'> | null;
 }
 
-export type CompetitionSummary = Pick<Competition, 'id' | 'name' | 'competition_type' | 'status' | 'start_date' | 'end_date' | 'handicap_source'>;
+export type CompetitionSummary = Pick<Competition, 'id' | 'name' | 'competition_type' | 'status' | 'start_date' | 'end_date' | 'handicap_source' | 'team_mode'>;
 
 export interface RoundWithCourse extends Round {
   course: CourseWithClub | null;
@@ -88,7 +88,7 @@ async function fetchRoundDetails(roundId: string): Promise<RoundWithCourse> {
         clubs (id, name, city, state, address),
         tees_from_table:tees (*)
       ),
-      competitions (id, name, competition_type, status, start_date, end_date, handicap_source)
+      competitions (id, name, competition_type, status, start_date, end_date, handicap_source, team_mode)
     `)
     .eq('id', roundId)
     .single();

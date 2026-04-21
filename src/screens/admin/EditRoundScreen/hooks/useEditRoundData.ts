@@ -3,7 +3,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import type { GameType, TeeBox } from '@/types/database.types';
+import type { GameType, TeamFormat, TeeBox } from '@/types/database.types';
 
 /**
  * Update round data
@@ -17,6 +17,8 @@ export async function updateRound(
     selected_tee?: TeeBox | null;
     scoring_pairs_required?: boolean;
     course_id?: string | null;
+    is_team_round?: boolean;
+    team_format?: TeamFormat | null;
   }
 ): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround

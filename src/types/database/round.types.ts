@@ -3,7 +3,16 @@
  * Rounds, pairings, and round players
  */
 
-import type { GameType, HandicapSource, NineType, RoundStatus, TeamFormat } from './enums';
+import type {
+  GameType,
+  HandicapSource,
+  NineType,
+  RoundFormat,
+  RoundStatus,
+  SubMatchResult,
+  SubMatchStatus,
+  TeamFormat,
+} from './enums';
 import type { TeeBox } from './base';
 import type { Player } from './player.types';
 
@@ -29,6 +38,13 @@ export interface Round {
   // Team round settings (added for team support)
   is_team_round: boolean; // TRUE if this round uses team scoring
   team_format: TeamFormat | null; // 'best-ball', 'scramble', 'aggregate', 'match-play-team'
+
+  // Round format: 'combined' = one team match (best-ball across all members);
+  // 'split' = multiple independent sub-matches aggregated Ryder-Cup style.
+  round_format: RoundFormat;
+  // Players per sub-team when round_format = 'split'. 1 = 1v1, 2 = 2v2, 3 = 3v3.
+  // NULL for combined rounds.
+  sub_match_size: number | null;
 
   // Scoring pairs
   scoring_pairs_required: boolean; // TRUE if scoring pairs must be set up before round starts
@@ -80,4 +96,32 @@ export interface RoundPlayer {
 export interface RoundPlayerWithPlayer extends RoundPlayer {
   player?: Player;
   added_by_player?: Player;
+}
+
+/**
+ * Independent head-to-head sub-match within a split team round.
+ *
+ * Stored in the `sub_matches` table. One row per sub-match.
+ * Round result for split rounds is derived by aggregating these
+ * rows Ryder-Cup style: 1 point per win, 0.5 for halved, 0 for loss.
+ *
+ * For team match play, `result` + `final_differential` are populated.
+ * For team stroke play pairs-aggregate, `team_a_net_total` +
+ * `team_b_net_total` are populated.
+ */
+export interface SubMatch {
+  id: string; // UUID
+  round_id: string; // UUID, references rounds(id)
+  sort_order: number; // 0-based position within the round
+  team_a_player_ids: string[]; // 1-3 players
+  team_b_player_ids: string[]; // 1-3 players
+  tee_time: string | null; // HH:MM:SS
+  pairing_id: string | null; // UUID, references pairings(id) - physical tee group
+  status: SubMatchStatus;
+  result: SubMatchResult | null;
+  final_differential: number | null; // signed hole differential at close (e.g. 3 for 3&2)
+  team_a_net_total: number | null; // stroke play pairs-aggregate only
+  team_b_net_total: number | null;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
 }

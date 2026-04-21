@@ -400,9 +400,21 @@ export function useStartNewRound(onStarted?: () => void, pendingLeagueId?: strin
         await initializeRound(roundId, players, filteredHoles, gameType, false, [], selectedTee ?? null, handicapSource, playerTeeMap, effectiveNineType);
 
         // Navigate to appropriate scoring screen based on game type
-        // Individual match play (2 players) goes to dedicated MatchPlayScoring screen
-        // Team match play (3+ players with teams) goes to regular Scorecard
-        if (gameType === 'match-play' && !isMatchPlayWithTeams && players.length >= 2) {
+        // Individual match play (2 players) → dedicated MatchPlayScoring screen
+        // Team match play (split into teams) → dedicated TeamMatchPlayScoring screen
+        // Everything else → generic Scorecard
+        if (
+          gameType === 'match-play' &&
+          isMatchPlayWithTeams &&
+          teamConfig &&
+          teamConfig.teams.length >= 2
+        ) {
+          navigation.navigate('TeamMatchPlayScoring', {
+            roundId,
+            team1Id: teamConfig.teams[0].id,
+            team2Id: teamConfig.teams[1].id,
+          });
+        } else if (gameType === 'match-play' && !isMatchPlayWithTeams && players.length >= 2) {
           navigation.navigate('MatchPlayScoring', {
             roundId,
             player1Id: players[0].id,

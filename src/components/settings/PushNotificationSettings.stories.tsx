@@ -60,6 +60,7 @@ const createMockHook = (overrides: Partial<ReturnType<typeof usePushNotification
       pushScorecardUpdates: true,
       pushLeagueUpdates: true,
       pushSideGameUpdates: true,
+      pushRoundReminders: true,
     },
     permissionStatus: 'granted',
     isLoadingTokens: false,
@@ -106,6 +107,7 @@ export const AllEnabled: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -124,6 +126,7 @@ export const AllDisabled: Story = {
           pushScorecardUpdates: false,
           pushLeagueUpdates: false,
           pushSideGameUpdates: false,
+          pushRoundReminders: false,
         },
       })
     );
@@ -142,6 +145,7 @@ export const MasterDisabled: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -164,6 +168,7 @@ export const OnlyCompetitionUpdates: Story = {
           pushScorecardUpdates: false,
           pushLeagueUpdates: false,
           pushSideGameUpdates: false,
+          pushRoundReminders: false,
         },
       })
     );
@@ -182,6 +187,7 @@ export const OnlyFriendRequests: Story = {
           pushScorecardUpdates: false,
           pushLeagueUpdates: false,
           pushSideGameUpdates: false,
+          pushRoundReminders: false,
         },
       })
     );
@@ -200,6 +206,7 @@ export const OnlyScorecardUpdates: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: false,
           pushSideGameUpdates: false,
+          pushRoundReminders: false,
         },
       })
     );
@@ -218,6 +225,7 @@ export const NoCategorySelected: Story = {
           pushScorecardUpdates: false,
           pushLeagueUpdates: false,
           pushSideGameUpdates: false,
+          pushRoundReminders: false,
         },
       })
     );
@@ -263,6 +271,7 @@ export const PermissionUndetermined: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -388,6 +397,7 @@ export const DeniedWithDisabledMaster: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -419,6 +429,7 @@ export const NewUser: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
         isRegistered: false,
       })
@@ -439,6 +450,7 @@ export const FullyConfigured: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
         isPhysicalDevice: true,
         isRegistered: true,
@@ -471,6 +483,7 @@ export const AboutToEnableNotifications: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -497,6 +510,7 @@ export const JustEnabledNotifications: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );
@@ -523,6 +537,7 @@ export const RevokedPermission: Story = {
           pushScorecardUpdates: true,
           pushLeagueUpdates: true,
           pushSideGameUpdates: true,
+          pushRoundReminders: true,
         },
       })
     );

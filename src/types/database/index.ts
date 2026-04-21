@@ -11,7 +11,10 @@ export type {
   CompetitionType,
   GameType,
   HandicapSource,
+  RoundFormat,
   RoundStatus,
+  SubMatchResult,
+  SubMatchStatus,
   TeamMode,
   TeamFormat,
   InvitationStatus,
@@ -185,6 +188,7 @@ export type {
   Pairing,
   RoundPlayer,
   RoundPlayerWithPlayer,
+  SubMatch,
 } from './round.types';
 
 // Scorecard types

@@ -44,7 +44,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
   const {
     round, roundError, scorecards, roundPlayers, matchPlayData, competitionInfo,
-    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound,
+    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound,
     isLoading, refetchRound, refetchScorecards, refetchPlayers, refetchMatchPlay,
   } = dataFetch;
 
@@ -91,6 +91,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isSplitRound,
     hasSkinsGame,
     hasWolfGame,
     hasPayoutsTab,
@@ -186,6 +187,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isSplitRound,
     isUserPlaying: permissions.isUserPlaying,
     isOrganizer: permissions.isOrganizer,
     isTeamSkins,
@@ -228,7 +230,6 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     // Handlers
     handleBack: handlers.handleBack,
     handleScoreRound: handlers.handleScoreRound,
-    handleEditRound: handlers.handleEditRound,
     handleSettingsPress: handlers.handleSettingsPress,
     handleCourseSelectPress: handlers.handleCourseSelectPress,
     handleCourseSelect: handlers.handleCourseSelect,

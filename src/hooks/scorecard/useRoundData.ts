@@ -102,7 +102,8 @@ export function useRoundData({
   const courseHook = useRoundCourse(roundId);
   const teamsHook = useRoundTeams(
     competitionId,
-    metadata.data?.isTeamRound ?? false
+    metadata.data?.isTeamRound ?? false,
+    roundId
   );
   const scoringPairsHook = useRoundScoringPairs(
     roundId,

@@ -106,6 +106,13 @@ export default function NotificationSettingsScreen() {
     [updatePreferences]
   );
 
+  const handleRoundRemindersChange = useCallback(
+    (enabled: boolean) => {
+      updatePreferences({ pushRoundReminders: enabled });
+    },
+    [updatePreferences]
+  );
+
   // Get permission status text and icon
   const getPermissionStatusInfo = () => {
     if (!isPhysicalDevice) {
@@ -296,6 +303,22 @@ export default function NotificationSettingsScreen() {
                   }
                   onPress={() => !isUpdatingPreferences && handleSideGameUpdatesChange(!(preferences?.pushSideGameUpdates ?? true))}
                   testID="setting-side-game-updates"
+                />
+                <MenuItemRow
+                  icon="clock-outline"
+                  title="Tee Time Reminders"
+                  subtitle="Get pinged 30 min before your tee time"
+                  showChevron={false}
+                  disabled={isUpdatingPreferences}
+                  rightContent={
+                    <ToggleSwitch
+                      value={preferences?.pushRoundReminders ?? true}
+                      onValueChange={handleRoundRemindersChange}
+                      disabled={isUpdatingPreferences}
+                    />
+                  }
+                  onPress={() => !isUpdatingPreferences && handleRoundRemindersChange(!(preferences?.pushRoundReminders ?? true))}
+                  testID="setting-round-reminders"
                 />
               </View>
             </View>

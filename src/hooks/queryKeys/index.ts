@@ -11,7 +11,7 @@
 import { authKeys } from './auth';
 import { competitionKeys, playerKeys, teamKeys, pairingKeys, knockoutKeys, competitionDetailsKeys } from './competition';
 import { clubKeys, courseKeys, teeKeys, coordinateKeys, favoriteKeys } from './course';
-import { roundKeys } from './round';
+import { roundKeys, subMatchKeys } from './round';
 import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys } from './scoring';
 import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
 import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
@@ -36,7 +36,7 @@ export {
   favoriteKeys,
 };
 
-export { roundKeys };
+export { roundKeys, subMatchKeys };
 
 export {
   scorecardKeys,
@@ -88,6 +88,7 @@ export const allQueryKeys = [
   authKeys.all,
   competitionKeys.all,
   roundKeys.all,
+  subMatchKeys.all,
   clubKeys.all,
   favoriteKeys.all,
   coordinateKeys.all,

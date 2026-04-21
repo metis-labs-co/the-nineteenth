@@ -355,41 +355,23 @@ export function useShuffleScoringPairs() {
       // 1. Delete existing scoring pairs
       await deleteScoringPairs(roundId);
 
-      // 2. Fetch players from round pairings
+      // 2. Fetch the competition roster. This is the canonical source of
+      // players in the round — `pairings` is a tee-time grouping table
+      // (column: `player_ids UUID[]`) and isn't guaranteed to exist for
+      // every round, so we don't use it here.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-      const { data: pairings, error: pairingsError } = await (supabase as any)
-        .from('pairings')
+      const { data: compPlayers, error: compError } = await (supabase as any)
+        .from('competition_players')
         .select('player_id')
-        .eq('round_id', roundId)
-        .not('player_id', 'is', null);
+        .eq('competition_id', competitionId);
 
-      if (pairingsError) {
-        throw new Error(`Failed to fetch pairings: ${pairingsError.message}`);
+      if (compError) {
+        throw new Error(`Failed to fetch competition players: ${compError.message}`);
       }
 
-      // If no pairings found, try to get players from competition_players
-      let players: { id: string }[] = [];
-
-      if (pairings && pairings.length > 0) {
-        players = (pairings as { player_id: string | null }[])
-          .filter((p) => p.player_id)
-          .map((p) => ({ id: p.player_id as string }));
-      } else {
-        // Fallback: get players from competition
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-        const { data: compPlayers, error: compError } = await (supabase as any)
-          .from('competition_players')
-          .select('player_id')
-          .eq('competition_id', competitionId);
-
-        if (compError) {
-          throw new Error(`Failed to fetch competition players: ${compError.message}`);
-        }
-
-        if (compPlayers) {
-          players = (compPlayers as { player_id: string }[]).map((p) => ({ id: p.player_id }));
-        }
-      }
+      const players: { id: string }[] = (compPlayers ?? []).map(
+        (p: { player_id: string }) => ({ id: p.player_id })
+      );
 
       if (players.length < 2) {
         throw new Error('Not enough players to create scoring pairs');

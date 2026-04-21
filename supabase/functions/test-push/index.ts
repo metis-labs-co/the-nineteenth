@@ -103,6 +103,7 @@ const NOTIFICATION_CATEGORY_MAP: Record<string, string> = {
   wolf_game_completed: 'SIDE_GAME',
   wolf_game_cancelled: 'SIDE_GAME',
   prize_pool_settled: 'SIDE_GAME',
+  tee_time_reminder: 'ROUND_REMINDER',
 };
 
 // Android notification channels
@@ -128,6 +129,7 @@ const ANDROID_CHANNEL_MAP: Record<string, string> = {
   wolf_game_completed: 'side-game-updates',
   wolf_game_cancelled: 'side-game-updates',
   prize_pool_settled: 'side-game-updates',
+  tee_time_reminder: 'round-reminders',
 };
 
 // =====================================================

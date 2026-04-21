@@ -21,6 +21,7 @@ export interface TeamMatchPlayFooterProps {
   onPreviousHole: () => void;
   onNextHole: () => void;
   onSubmitMatch: () => void;
+  onViewScorecard: () => void;
 }
 
 export function TeamMatchPlayFooter({
@@ -30,6 +31,7 @@ export function TeamMatchPlayFooter({
   onPreviousHole,
   onNextHole,
   onSubmitMatch,
+  onViewScorecard,
 }: TeamMatchPlayFooterProps) {
   const colors = useThemeColors();
 
@@ -43,6 +45,20 @@ export function TeamMatchPlayFooter({
         { backgroundColor: colors.surface, borderTopColor: colors.border },
       ]}
     >
+      {/* View Full Scorecard Link */}
+      <View style={styles.viewScorecardRow}>
+        <TouchableOpacity
+          onPress={onViewScorecard}
+          style={styles.viewScorecardButton}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.viewScorecardLabel, { color: colors.primary }]}>
+            View Full Scorecard
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Navigation Buttons */}
       <View style={styles.navButtonsRow}>
         <TouchableOpacity
@@ -114,10 +130,22 @@ export function TeamMatchPlayFooter({
 const styles = StyleSheet.create({
   container: {
     padding: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxxl,
     borderTopWidth: 1,
     ...shadows.sm,
+  },
+  viewScorecardRow: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  viewScorecardButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  viewScorecardLabel: {
+    ...typography.small,
+    textDecorationLine: 'underline',
   },
   navButtonsRow: {
     flexDirection: 'row',

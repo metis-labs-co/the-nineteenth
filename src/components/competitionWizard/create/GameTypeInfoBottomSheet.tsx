@@ -49,6 +49,7 @@ export const GameTypeInfoBottomSheet = React.memo(function GameTypeInfoBottomShe
       onClose={onClose}
       title={gameType.title}
       height={0.75}
+      useModal
       testID="game-type-info-bottom-sheet"
     >
       <ScrollView

@@ -21,6 +21,24 @@ export type CompetitionType = 'knockout' | 'event';
 export type GameType = 'stroke' | 'stableford' | 'par' | 'match-play' | 'best-ball' | 'scramble' | 'shamble';
 export type RoundStatus = 'upcoming' | 'in-progress' | 'completed';
 
+/**
+ * How team-round scoring is aggregated.
+ * - 'combined' — one team match using best-ball across all team members (legacy).
+ * - 'split'    — independent head-to-head sub-matches aggregated Ryder-Cup style.
+ */
+export type RoundFormat = 'combined' | 'split';
+
+/** Status lifecycle for an individual sub-match within a split round. */
+export type SubMatchStatus = 'upcoming' | 'in-progress' | 'completed' | 'forfeited';
+
+/** Final result of a sub-match (null until completed). */
+export type SubMatchResult =
+  | 'a-wins'
+  | 'b-wins'
+  | 'halved'
+  | 'forfeit-a'
+  | 'forfeit-b';
+
 // Team enums
 export type TeamMode = 'none' | 'fixed' | 'per-round';
 export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
@@ -76,7 +94,8 @@ export type NotificationType =
   | 'skins_game_cancelled'
   | 'wolf_game_completed'
   | 'wolf_game_cancelled'
-  | 'prize_pool_settled';
+  | 'prize_pool_settled'
+  | 'tee_time_reminder';
 
 // Feature enums
 export type TierFeature =

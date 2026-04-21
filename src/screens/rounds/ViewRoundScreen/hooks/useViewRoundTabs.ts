@@ -8,6 +8,8 @@ interface UseViewRoundTabsParams {
   isShambleRound: boolean;
   isScrambleRound: boolean;
   isStrokePlayRound: boolean;
+  /** True when the round is a split team round (Ryder-Cup-style sub-matches). */
+  isSplitRound: boolean;
   hasSkinsGame: boolean;
   hasWolfGame: boolean;
   hasPayoutsTab: boolean;
@@ -31,6 +33,7 @@ export function useViewRoundTabs({
   isShambleRound,
   isScrambleRound,
   isStrokePlayRound,
+  isSplitRound,
   hasSkinsGame,
   hasWolfGame,
   hasPayoutsTab,
@@ -54,6 +57,13 @@ export function useViewRoundTabs({
 
     if (isMatchPlayRound || isTeamMatchPlayRound) {
       result.push({ key: 'match', label: 'Match' });
+    }
+
+    // Sub-Matches tab — only for split team rounds (Ryder-Cup-style).
+    // Shown right after Match so the flow is: aggregate Ryder points on
+    // Match tab → per-sub-match detail here.
+    if (isSplitRound) {
+      result.push({ key: 'subMatches', label: 'Sub-Matches' });
     }
 
     if (isShambleRound) {
@@ -84,5 +94,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount]);
 }

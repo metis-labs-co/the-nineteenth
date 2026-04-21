@@ -9,3 +9,5 @@ export { WolfGameSection } from './WolfGameSection';
 export { ScoringPairsConfigBottomSheet } from './ScoringPairsConfigBottomSheet';
 export { PairingsSection } from './PairingsSection';
 export type { PairingsSectionProps } from './PairingsSection';
+export { GroupsSection } from './GroupsSection';
+export type { GroupsSectionProps } from './GroupsSection';

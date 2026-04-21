@@ -49,6 +49,10 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   // Only show pairings for rounds with more than 4 players
   const showPairings = players.length > 4;
 
+  // Scoring pairs only makes sense when at least two players can score each
+  // other; hide the section on solo rounds.
+  const showScoringPairs = players.length > 1;
+
   return (
     <View style={styles.container}>
       {/* Section Header */}
@@ -66,14 +70,16 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
         />
       )}
 
-      {/* Scoring Pairs Section - Premium Feature */}
-      <ScoringPairsSection
-        roundId={round.id}
-        scoringPairsRequired={round.scoring_pairs_required}
-        cardBackground={colors.surface}
-        roundStatus={round.status as RoundStatus}
-        onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
-      />
+      {/* Scoring Pairs Section - Premium Feature, multi-player only */}
+      {showScoringPairs && (
+        <ScoringPairsSection
+          roundId={round.id}
+          scoringPairsRequired={round.scoring_pairs_required}
+          cardBackground={colors.surface}
+          roundStatus={round.status as RoundStatus}
+          onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
+        />
+      )}
 
       {/* Skins Game Section */}
       <SkinsGameSection

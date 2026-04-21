@@ -118,6 +118,10 @@ const MOCK_NOTIFICATION_DATA: Record<NotificationType, Omit<NotificationData, 't
   prize_pool_settled: {
     competitionId: 'test-comp-123',
   },
+  tee_time_reminder: {
+    competitionId: 'test-comp-123',
+    roundId: 'test-round-789',
+  },
 };
 
 /**
@@ -145,6 +149,7 @@ const MOCK_NOTIFICATION_TITLES: Record<NotificationType, string> = {
   wolf_game_completed: 'Wolf Game Complete',
   wolf_game_cancelled: 'Wolf Game Cancelled',
   prize_pool_settled: 'Prize Pool Settled',
+  tee_time_reminder: 'Tee time in 30 min',
 };
 
 /**
@@ -172,6 +177,7 @@ const MOCK_NOTIFICATION_BODIES: Record<NotificationType, string> = {
   wolf_game_completed: 'Wolf game completed for Round 1 of Test Competition',
   wolf_game_cancelled: 'Wolf game for Round 1 of Test Competition has been cancelled',
   prize_pool_settled: 'Prize pool for Test Competition has been settled',
+  tee_time_reminder: 'Test Competition at Test Course · 08:45 AM',
 };
 
 // =====================================================

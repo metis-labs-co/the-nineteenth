@@ -475,8 +475,33 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
         >
           Round Details
         </Text>
+      </View>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 12,
+              "borderWidth": 1,
+              "elevation": 2,
+              "overflow": "hidden",
+              "shadowColor": "#000",
+              "shadowOffset": {
+                "height": 1,
+                "width": 0,
+              },
+              "shadowOpacity": 0.05,
+              "shadowRadius": 2,
+            },
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderColor": "#E0E0E0",
+            },
+          ]
+        }
+      >
         <View
-          accessibilityLabel="Edit round details"
+          accessibilityHint="Edit round date"
+          accessibilityLabel="Date"
           accessibilityRole="button"
           accessibilityState={
             {
@@ -508,54 +533,8 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           style={
             {
               "alignItems": "center",
-              "backgroundColor": "#F5F5F5",
-              "borderRadius": 9999,
-              "height": 44,
-              "justifyContent": "center",
-              "opacity": 1,
-              "width": 44,
-            }
-          }
-        >
-          <View
-            style={
-              {
-                "height": 20,
-                "width": 20,
-              }
-            }
-            testID="icon-pencil"
-          />
-        </View>
-      </View>
-      <View
-        style={
-          [
-            {
-              "borderRadius": 12,
-              "borderWidth": 1,
-              "elevation": 2,
-              "overflow": "hidden",
-              "shadowColor": "#000",
-              "shadowOffset": {
-                "height": 1,
-                "width": 0,
-              },
-              "shadowOpacity": 0.05,
-              "shadowRadius": 2,
-            },
-            {
-              "backgroundColor": "#FFFFFF",
-              "borderColor": "#E0E0E0",
-            },
-          ]
-        }
-      >
-        <View
-          style={
-            {
-              "alignItems": "center",
               "flexDirection": "row",
+              "opacity": 1,
               "padding": 12,
             }
           }
@@ -608,22 +587,41 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
             >
               Date
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Formatted: 2025-01-15
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Formatted: 2025-01-15
+              </Text>
+              <View
+                style={
+                  {
+                    "height": 20,
+                    "width": 20,
+                  }
+                }
+                testID="icon-chevron-right"
+              />
+            </View>
           </View>
         </View>
         <View
@@ -640,10 +638,41 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           }
         />
         <View
+          accessibilityHint="Edit tee time"
+          accessibilityLabel="Tee Time"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
           style={
             {
               "alignItems": "center",
               "flexDirection": "row",
+              "opacity": 1,
               "padding": 12,
             }
           }
@@ -696,22 +725,41 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
             >
               Tee Time
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Time: 08:00:00
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Time: 08:00:00
+              </Text>
+              <View
+                style={
+                  {
+                    "height": 20,
+                    "width": 20,
+                  }
+                }
+                testID="icon-chevron-right"
+              />
+            </View>
           </View>
         </View>
         <View
@@ -728,10 +776,41 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           }
         />
         <View
+          accessibilityHint="Edit game format"
+          accessibilityLabel="Format"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
           style={
             {
               "alignItems": "center",
               "flexDirection": "row",
+              "opacity": 1,
               "padding": 12,
             }
           }
@@ -794,12 +873,31 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
               }
             >
               <View
-                testID="pill-stableford"
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
               >
-                <Text>
-                  Stableford
-                </Text>
+                <View
+                  testID="pill-stableford"
+                >
+                  <Text>
+                    Stableford
+                  </Text>
+                </View>
               </View>
+              <View
+                style={
+                  {
+                    "height": 20,
+                    "width": 20,
+                  }
+                }
+                testID="icon-chevron-right"
+              />
             </View>
           </View>
         </View>
@@ -817,10 +915,41 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           }
         />
         <View
+          accessibilityHint="Edit tee"
+          accessibilityLabel="Tee"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
           style={
             {
               "alignItems": "center",
               "flexDirection": "row",
+              "opacity": 1,
               "padding": 12,
             }
           }
@@ -873,22 +1002,67 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
             >
               Tee
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              White
-            </Text>
+              <View
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
+              >
+                <View
+                  style={
+                    [
+                      {
+                        "borderRadius": 9999,
+                        "borderWidth": 1,
+                        "height": 12,
+                        "width": 12,
+                      },
+                      {
+                        "backgroundColor": "#f5f5f5",
+                        "borderColor": "#E0E0E0",
+                      },
+                    ]
+                  }
+                />
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  White
+                </Text>
+              </View>
+              <View
+                style={
+                  {
+                    "height": 20,
+                    "width": 20,
+                  }
+                }
+                testID="icon-chevron-right"
+              />
+            </View>
           </View>
         </View>
         <View
@@ -905,6 +1079,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
           }
         />
         <View
+          accessibilityLabel="Status"
           style={
             {
               "alignItems": "center",
@@ -962,16 +1137,26 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
               Status
             </Text>
             <View
-              testID="status-badge-upcoming"
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
+              }
             >
-              <Text>
-                upcoming
-              </Text>
-              <Text
-                testID="status-badge-size"
+              <View
+                testID="status-badge-upcoming"
               >
-                md
-              </Text>
+                <Text>
+                  upcoming
+                </Text>
+                <Text
+                  testID="status-badge-size"
+                >
+                  md
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -1398,6 +1583,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
         }
       >
         <View
+          accessibilityLabel="Date"
           style={
             {
               "alignItems": "center",
@@ -1454,22 +1640,32 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
             >
               Date
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Formatted: 2025-01-15
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Formatted: 2025-01-15
+              </Text>
+            </View>
           </View>
         </View>
         <View
@@ -1486,6 +1682,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
           }
         />
         <View
+          accessibilityLabel="Tee Time"
           style={
             {
               "alignItems": "center",
@@ -1542,22 +1739,32 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
             >
               Tee Time
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Time: 08:00:00
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Time: 08:00:00
+              </Text>
+            </View>
           </View>
         </View>
         <View
@@ -1574,6 +1781,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
           }
         />
         <View
+          accessibilityLabel="Format"
           style={
             {
               "alignItems": "center",
@@ -1640,11 +1848,21 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
               }
             >
               <View
-                testID="pill-stableford"
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
               >
-                <Text>
-                  Stableford
-                </Text>
+                <View
+                  testID="pill-stableford"
+                >
+                  <Text>
+                    Stableford
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1663,6 +1881,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
           }
         />
         <View
+          accessibilityLabel="Tee"
           style={
             {
               "alignItems": "center",
@@ -1719,22 +1938,58 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
             >
               Tee
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              White
-            </Text>
+              <View
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
+              >
+                <View
+                  style={
+                    [
+                      {
+                        "borderRadius": 9999,
+                        "borderWidth": 1,
+                        "height": 12,
+                        "width": 12,
+                      },
+                      {
+                        "backgroundColor": "#f5f5f5",
+                        "borderColor": "#E0E0E0",
+                      },
+                    ]
+                  }
+                />
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  White
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
         <View
@@ -1751,6 +2006,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
           }
         />
         <View
+          accessibilityLabel="Status"
           style={
             {
               "alignItems": "center",
@@ -1808,16 +2064,26 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
               Status
             </Text>
             <View
-              testID="status-badge-upcoming"
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
+              }
             >
-              <Text>
-                upcoming
-              </Text>
-              <Text
-                testID="status-badge-size"
+              <View
+                testID="status-badge-upcoming"
               >
-                md
-              </Text>
+                <Text>
+                  upcoming
+                </Text>
+                <Text
+                  testID="status-badge-size"
+                >
+                  md
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -2336,6 +2602,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
         }
       >
         <View
+          accessibilityLabel="Date"
           style={
             {
               "alignItems": "center",
@@ -2392,22 +2659,32 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
             >
               Date
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Formatted: 2025-01-15
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Formatted: 2025-01-15
+              </Text>
+            </View>
           </View>
         </View>
         <View
@@ -2424,6 +2701,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
           }
         />
         <View
+          accessibilityLabel="Tee Time"
           style={
             {
               "alignItems": "center",
@@ -2480,22 +2758,32 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
             >
               Tee Time
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              Time: 08:00:00
-            </Text>
+              <Text
+                style={
+                  [
+                    {
+                      "fontSize": 16,
+                      "fontWeight": "600",
+                      "lineHeight": 24,
+                    },
+                    {
+                      "color": "#1A1A1A",
+                    },
+                  ]
+                }
+              >
+                Time: 08:00:00
+              </Text>
+            </View>
           </View>
         </View>
         <View
@@ -2512,6 +2800,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
           }
         />
         <View
+          accessibilityLabel="Format"
           style={
             {
               "alignItems": "center",
@@ -2578,11 +2867,21 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
               }
             >
               <View
-                testID="pill-stableford"
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
               >
-                <Text>
-                  Stableford
-                </Text>
+                <View
+                  testID="pill-stableford"
+                >
+                  <Text>
+                    Stableford
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -2601,6 +2900,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
           }
         />
         <View
+          accessibilityLabel="Tee"
           style={
             {
               "alignItems": "center",
@@ -2657,22 +2957,58 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
             >
               Tee
             </Text>
-            <Text
+            <View
               style={
-                [
-                  {
-                    "fontSize": 16,
-                    "fontWeight": "600",
-                    "lineHeight": 24,
-                  },
-                  {
-                    "color": "#1A1A1A",
-                  },
-                ]
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
               }
             >
-              White
-            </Text>
+              <View
+                style={
+                  {
+                    "alignItems": "center",
+                    "flexDirection": "row",
+                    "gap": 4,
+                  }
+                }
+              >
+                <View
+                  style={
+                    [
+                      {
+                        "borderRadius": 9999,
+                        "borderWidth": 1,
+                        "height": 12,
+                        "width": 12,
+                      },
+                      {
+                        "backgroundColor": "#f5f5f5",
+                        "borderColor": "#E0E0E0",
+                      },
+                    ]
+                  }
+                />
+                <Text
+                  style={
+                    [
+                      {
+                        "fontSize": 16,
+                        "fontWeight": "600",
+                        "lineHeight": 24,
+                      },
+                      {
+                        "color": "#1A1A1A",
+                      },
+                    ]
+                  }
+                >
+                  White
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
         <View
@@ -2689,6 +3025,7 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
           }
         />
         <View
+          accessibilityLabel="Status"
           style={
             {
               "alignItems": "center",
@@ -2746,16 +3083,26 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
               Status
             </Text>
             <View
-              testID="status-badge-upcoming"
+              style={
+                {
+                  "alignItems": "center",
+                  "flexDirection": "row",
+                  "gap": 4,
+                }
+              }
             >
-              <Text>
-                upcoming
-              </Text>
-              <Text
-                testID="status-badge-size"
+              <View
+                testID="status-badge-upcoming"
               >
-                md
-              </Text>
+                <Text>
+                  upcoming
+                </Text>
+                <Text
+                  testID="status-badge-size"
+                >
+                  md
+                </Text>
+              </View>
             </View>
           </View>
         </View>

@@ -63,6 +63,20 @@ jest.mock('./components', () => {
   };
 });
 
+// Mock the per-field edit sheets so we only assert visibility toggles here;
+// the sheets themselves have their own tests.
+jest.mock('./sheets', () => {
+  const { View } = require('react-native');
+  return {
+    EditDateTimeSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="edit-datetime-sheet" /> : null,
+    EditGameTypeSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="edit-game-type-sheet" /> : null,
+    EditTeeSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="edit-tee-sheet" /> : null,
+  };
+});
+
 // Mock skins hook
 jest.mock('@/hooks/useSkins', () => ({
   useSkinsGamesByRound: () => ({ data: null }),
@@ -75,9 +89,13 @@ jest.mock('@/hooks/wolf', () => ({
 
 // Mock per-player tee overrides — default to no overrides so the Details
 // tab falls back to round.selected_tee (matches pre-existing test
-// expectations).
+// expectations). The Groups section (new) depends on usePairings and
+// useSubMatches; stub them as empty so the tab falls back to the flat
+// PlayersSection just like before.
 jest.mock('@/hooks/rounds', () => ({
   useRoundPlayerTees: () => ({ data: new Map() }),
+  usePairings: () => ({ data: [], isLoading: false }),
+  useSubMatches: () => ({ data: [], isLoading: false }),
 }));
 
 // Mock auth — tests don't care about the current user for this tab.
@@ -170,6 +188,7 @@ function createCompetitionSummary(overrides: Partial<CompetitionSummary> = {}): 
     start_date: '2025-01-15',
     end_date: '2025-01-17',
     handicap_source: 'profile',
+    team_mode: 'none',
     ...overrides,
   };
 }
@@ -188,6 +207,8 @@ function createRoundWithCourse(overrides: Partial<RoundWithCourse> = {}): RoundW
     selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     is_team_round: false,
     team_format: null,
+    round_format: 'combined',
+    sub_match_size: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,
@@ -502,55 +523,77 @@ describe('RoundDetailsTab', () => {
   });
 
   // ===========================================================================
-  // EDIT BUTTON TESTS
+  // PER-FIELD ROW TAP TESTS
   // ===========================================================================
 
-  describe('Edit Button', () => {
-    it('shows edit button for organizers', () => {
-      const onEditPress = jest.fn();
+  describe('Per-field Row Taps', () => {
+    it('does not expose row taps for non-organizers', () => {
       const round = createRoundWithCourse();
 
-      render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
+      render(<RoundDetailsTab round={round} isOrganizer={false} />);
 
-      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
+      const dateRow = screen.queryByLabelText('Date');
+      // Non-organizer rows render as plain Views, so accessibilityRole
+      // button should not be attached.
+      expect(dateRow?.props.accessibilityRole).not.toBe('button');
     });
 
-    it('does not show edit button for non-organizers', () => {
-      const onEditPress = jest.fn();
-      const round = createRoundWithCourse();
-
-      render(<RoundDetailsTab round={round} isOrganizer={false} onEditPress={onEditPress} />);
-
-      expect(screen.queryByLabelText('Edit round details')).toBeNull();
-    });
-
-    it('does not show edit button when no callback', () => {
+    it('opens the date/time sheet when the Date row is tapped', () => {
       const round = createRoundWithCourse();
 
       render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      expect(screen.queryByLabelText('Edit round details')).toBeNull();
+      expect(screen.queryByTestId('edit-datetime-sheet')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Date'));
+      expect(screen.getByTestId('edit-datetime-sheet')).toBeTruthy();
     });
 
-    it('calls onEditPress when edit button pressed', () => {
-      const onEditPress = jest.fn();
+    it('opens the date/time sheet when the Tee Time row is tapped', () => {
       const round = createRoundWithCourse();
 
-      render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      fireEvent.press(screen.getByLabelText('Edit round details'));
-
-      expect(onEditPress).toHaveBeenCalledTimes(1);
+      fireEvent.press(screen.getByLabelText('Tee Time'));
+      expect(screen.getByTestId('edit-datetime-sheet')).toBeTruthy();
     });
 
-    it('has correct accessibility props', () => {
-      const onEditPress = jest.fn();
+    it('opens the game-type sheet when the Format row is tapped', () => {
       const round = createRoundWithCourse();
 
-      render(<RoundDetailsTab round={round} isOrganizer={true} onEditPress={onEditPress} />);
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      const editButton = screen.getByLabelText('Edit round details');
-      expect(editButton).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Format'));
+      expect(screen.getByTestId('edit-game-type-sheet')).toBeTruthy();
+    });
+
+    it('opens the tee sheet when the Tee row is tapped (tees available)', () => {
+      const round = createRoundWithCourse();
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      fireEvent.press(screen.getByLabelText('Tee'));
+      expect(screen.getByTestId('edit-tee-sheet')).toBeTruthy();
+    });
+
+    it('does not open the tee sheet when the course has no tees', () => {
+      const round = createRoundWithCourse({
+        course: createCourseWithVenue({ tees: [] }),
+      });
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      const teeRow = screen.getByLabelText('Tee');
+      fireEvent.press(teeRow);
+      expect(screen.queryByTestId('edit-tee-sheet')).toBeNull();
+    });
+
+    it('does not make the Status row tappable', () => {
+      const round = createRoundWithCourse();
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      const statusRow = screen.queryByLabelText('Status');
+      expect(statusRow?.props.accessibilityRole).not.toBe('button');
     });
   });
 
@@ -666,6 +709,8 @@ describe('RoundDetailsTab', () => {
         selected_tee: null,
         is_team_round: false,
         team_format: null,
+        round_format: 'combined',
+        sub_match_size: null,
         scoring_pairs_required: false,
         ball_count: 1,
         handicap_source: null,
@@ -768,34 +813,15 @@ describe('RoundDetailsTab', () => {
   // ===========================================================================
 
   describe('Props Combinations', () => {
-    it('renders correctly with all props true', () => {
-      const onEditPress = jest.fn();
-      const round = createRoundWithCourse({ scoring_pairs_required: true });
-
-      render(
-        <RoundDetailsTab
-          round={round}
-          isOrganizer={true}
-          onEditPress={onEditPress}
-        />
-      );
-
-      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
-    });
-
-    it('renders correctly with mixed props', () => {
-      const onEditPress = jest.fn();
+    it('renders all editable rows as buttons for organizers', () => {
       const round = createRoundWithCourse();
 
-      render(
-        <RoundDetailsTab
-          round={round}
-          isOrganizer={true}
-          onEditPress={onEditPress}
-        />
-      );
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      expect(screen.getByLabelText('Edit round details')).toBeTruthy();
+      expect(screen.getByLabelText('Date').props.accessibilityRole).toBe('button');
+      expect(screen.getByLabelText('Tee Time').props.accessibilityRole).toBe('button');
+      expect(screen.getByLabelText('Format').props.accessibilityRole).toBe('button');
+      expect(screen.getByLabelText('Tee').props.accessibilityRole).toBe('button');
     });
   });
 
@@ -808,11 +834,7 @@ describe('RoundDetailsTab', () => {
       const round = createRoundWithCourse();
 
       const { toJSON } = render(
-        <RoundDetailsTab
-          round={round}
-          isOrganizer={true}
-          onEditPress={jest.fn()}
-        />
+        <RoundDetailsTab round={round} isOrganizer={true} />
       );
 
       expect(toJSON()).toMatchSnapshot();

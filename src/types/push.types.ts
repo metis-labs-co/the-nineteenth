@@ -73,6 +73,8 @@ export interface PushPreferences {
   pushLeagueUpdates: boolean;
   /** Notifications about side-game results and prize pool settlements */
   pushSideGameUpdates: boolean;
+  /** Tee-time reminders sent 30 min before a round */
+  pushRoundReminders: boolean;
 }
 
 /**
@@ -85,6 +87,7 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   pushScorecardUpdates: true,
   pushLeagueUpdates: true,
   pushSideGameUpdates: true,
+  pushRoundReminders: true,
 };
 
 // =====================================================
@@ -317,6 +320,10 @@ export function getEnabledNotificationTypes(
   // Round completed follows competition updates
   if (preferences.pushCompetitionUpdates) {
     types.push('round_completed');
+  }
+
+  if (preferences.pushRoundReminders) {
+    types.push('tee_time_reminder');
   }
 
   return types;

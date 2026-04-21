@@ -143,6 +143,11 @@ export type {
   Scorecard as DBScorecard,
   Competition as DBCompetition,
   Round as DBRound,
+  // Sub-match types (Ryder-Cup-style split rounds)
+  SubMatch,
+  RoundFormat,
+  SubMatchStatus,
+  SubMatchResult,
   // Team types
   Team,
   TeamMember,

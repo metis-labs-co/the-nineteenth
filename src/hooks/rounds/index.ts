@@ -129,3 +129,11 @@ export {
   useDeleteTeam,
   useAutoGenerateTeams,
 } from './teams';
+
+// Re-export sub-match hooks
+export {
+  useSubMatches,
+  useReplaceSubMatches,
+  useUpdateSubMatchResult,
+  useDeleteAllSubMatches,
+} from './subMatches';

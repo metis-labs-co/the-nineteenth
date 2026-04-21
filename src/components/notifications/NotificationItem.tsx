@@ -217,6 +217,20 @@ const notificationConfig: Record<NotificationType, NotificationConfig> = {
       return `Prize pool for ${data.competition_name || 'a competition'} has been settled. Check the results!`;
     },
   },
+  tee_time_reminder: {
+    icon: 'clock-outline',
+    getTitle: (_data) => 'Tee time in 30 min',
+    getMessage: (data) => {
+      const time = data.tee_time_local || data.teeTimeLocal;
+      const course = data.course_name || data.courseName;
+      const competition = data.competition_name || data.competitionName;
+      const parts: string[] = [];
+      if (competition) parts.push(String(competition));
+      if (course) parts.push(String(course));
+      const prefix = parts.length > 0 ? parts.join(' at ') : 'Your round';
+      return time ? `${prefix} · ${time}` : prefix;
+    },
+  },
 };
 
 /**

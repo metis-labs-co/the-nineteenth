@@ -13,7 +13,11 @@ import { useCallback, useMemo } from 'react';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { isSingleBallScore } from '@/types/database';
 import { useThemeColors } from '@/context/ThemeContext';
-import { getStrokesReceived } from '@/utils/scoring';
+import {
+  getStrokesReceived,
+  calculatePickupScore,
+  isPickupScore,
+} from '@/utils/scoring';
 import { determineTeamHoleWinner } from '../utils';
 import type { MatchTeam } from '../types';
 import type { Hole } from '@/types';
@@ -21,8 +25,10 @@ import type { Hole } from '@/types';
 /**
  * Return the best (lowest-net) team member on a hole.
  * Ties broken by lowest gross, then by team-member order.
+ * Picked-up members are excluded — their gross of `par + strokes + 2` would
+ * otherwise bubble up as the "best" for a team where everyone conceded.
  * Returns { playerId, gross, net } for the best contributor, or null if no
- * team member has a score on the hole.
+ * team member has a non-pickup score on the hole.
  */
 function findBestNetContributor(
   team: MatchTeam,
@@ -34,6 +40,7 @@ function findBestNetContributor(
   for (const member of team.members) {
     const gross = getGross(member.id);
     if (gross === null) continue;
+    if (isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex)) continue;
     const strokes = getStrokesReceived(member.handicap, hole.strokeIndex);
     const net = gross - strokes;
     if (best === null || net < best.net || (net === best.net && gross < best.gross)) {
@@ -135,6 +142,65 @@ export function useTeamMatchPlayScores(
     [getHoleByNumber, getPlayerScoreForHole, team1, team2]
   );
 
+  // Helper: locate a team member across both teams (for handicap + owning team lookup).
+  const findMember = useCallback(
+    (playerId: string) => {
+      for (const team of [team1, team2]) {
+        const member = team.members.find((m) => m.id === playerId);
+        if (member) return member;
+      }
+      return null;
+    },
+    [team1, team2]
+  );
+
+  // Number of handicap strokes a player receives on a given hole.
+  const getPlayerStrokesReceivedForHole = useCallback(
+    (playerId: string, holeNumber: number): number => {
+      const hole = getHoleByNumber(holeNumber);
+      const member = findMember(playerId);
+      if (!hole || !member) return 0;
+      return getStrokesReceived(member.handicap, hole.strokeIndex);
+    },
+    [getHoleByNumber, findMember]
+  );
+
+  // Whether the stored score on a given hole represents a pickup.
+  const isPlayerPickedUpOnHole = useCallback(
+    (playerId: string, holeNumber: number): boolean => {
+      const hole = getHoleByNumber(holeNumber);
+      const member = findMember(playerId);
+      if (!hole || !member) return false;
+      const gross = getPlayerScoreForHole(playerId, holeNumber);
+      if (gross === null) return false;
+      return isPickupScore(gross, hole.par, member.handicap, hole.strokeIndex);
+    },
+    [getHoleByNumber, findMember, getPlayerScoreForHole]
+  );
+
+  // Toggle pickup for a player on the current hole.
+  // Uses the same setPlayerScore pathway as normal score edits — no new store field.
+  const pickUpPlayer = useCallback(
+    async (playerId: string): Promise<void> => {
+      const member = findMember(playerId);
+      if (!member || !currentHoleData) return;
+
+      if (isPlayerPickedUpOnHole(playerId, currentHole)) {
+        // Toggle off — reset to par.
+        await setPlayerScore(playerId, currentHole, currentHoleData.par);
+        return;
+      }
+
+      const pickupScore = calculatePickupScore(
+        currentHoleData.par,
+        member.handicap,
+        currentHoleData.strokeIndex
+      );
+      await setPlayerScore(playerId, currentHole, pickupScore);
+    },
+    [findMember, currentHole, currentHoleData, isPlayerPickedUpOnHole, setPlayerScore]
+  );
+
   // Get hole result display
   const getHoleResultDisplay = useCallback(
     (
@@ -171,5 +237,9 @@ export function useTeamMatchPlayScores(
     getBestContributorForHole,
     getHoleWinnerForHole,
     getHoleResultDisplay,
+    // Pickup + stroke indicator support
+    getPlayerStrokesReceivedForHole,
+    isPlayerPickedUpOnHole,
+    pickUpPlayer,
   };
 }

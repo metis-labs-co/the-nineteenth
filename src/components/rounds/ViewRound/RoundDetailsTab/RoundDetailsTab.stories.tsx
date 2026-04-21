@@ -86,6 +86,7 @@ function createCompetition(overrides: Partial<CompetitionSummary> = {}): Competi
     start_date: '2025-01-15',
     end_date: '2025-01-17',
     handicap_source: 'profile',
+    team_mode: 'none',
     ...overrides,
   };
 }
@@ -104,6 +105,8 @@ function createRound(overrides: Partial<RoundWithCourse> = {}): RoundWithCourse 
     selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
     is_team_round: false,
     team_format: null,
+    round_format: 'combined',
+    sub_match_size: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,
@@ -142,9 +145,9 @@ const meta: Meta<typeof RoundDetailsTab> = {
       control: 'boolean',
       description: 'Whether the current user is the organizer',
     },
-    onEditPress: {
-      action: 'editPressed',
-      description: 'Callback when edit button is pressed',
+    onUpgradePress: {
+      action: 'upgradePressed',
+      description: 'Callback when an upgrade prompt is triggered from a sheet',
     },
   },
 };
@@ -167,7 +170,6 @@ export const OrganizerView: Story = {
   args: {
     round: createRound(),
     isOrganizer: true,
-    onEditPress: () => console.log('Edit pressed'),
   },
 };
 
@@ -204,7 +206,6 @@ export const UpcomingOrganizerView: Story = {
   args: {
     round: createRound({ status: 'upcoming' }),
     isOrganizer: true,
-    onEditPress: () => console.log('Edit pressed'),
   },
 };
 
@@ -456,7 +457,6 @@ export const PremiumUserView: Story = {
   args: {
     round: createRound({ scoring_pairs_required: true }),
     isOrganizer: true,
-    onEditPress: () => console.log('Edit pressed'),
   },
 };
 
@@ -581,6 +581,8 @@ export const MinimalData: Story = {
       selected_tee: null,
       is_team_round: false,
       team_format: null,
+      round_format: 'combined',
+      sub_match_size: null,
       scoring_pairs_required: false,
       ball_count: 1,
       handicap_source: null,

@@ -8,3 +8,4 @@ export { PayoutsTabContent } from './PayoutsTabContent';
 export { ScorecardTabContent } from './ScorecardTabContent';
 export { ContributionsTabContent } from './ContributionsTabContent';
 export { ScrambleLeaderboardTab } from './ScrambleLeaderboardTab';
+export { MatchPlayLeaderboardTab } from './MatchPlayLeaderboardTab';

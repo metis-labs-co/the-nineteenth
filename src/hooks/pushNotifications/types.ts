@@ -29,6 +29,7 @@ export interface UpdatePushPreferencesInput {
   pushScorecardUpdates?: boolean;
   pushLeagueUpdates?: boolean;
   pushSideGameUpdates?: boolean;
+  pushRoundReminders?: boolean;
 }
 
 /**

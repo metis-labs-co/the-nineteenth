@@ -116,13 +116,6 @@ export function useViewRoundHandlers({
     }
   }, [navigation, roundId, competitionId, isMatchPlayRound, isTeamMatchPlayRound]);
 
-  const handleEditRound = useCallback(() => {
-    navigation.navigate('EditRound', {
-      roundId,
-      competitionId,
-    });
-  }, [navigation, roundId, competitionId]);
-
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('RoundSettings', {
       roundId,
@@ -212,7 +205,6 @@ export function useViewRoundHandlers({
     // Handlers
     handleBack,
     handleScoreRound,
-    handleEditRound,
     handleSettingsPress,
     handleCourseSelectPress,
     handleCourseSelect,

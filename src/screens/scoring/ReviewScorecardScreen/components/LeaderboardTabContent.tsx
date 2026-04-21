@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useThemeColors } from '@/context/ThemeContext';
+import { spacing } from '@/constants/theme';
 import { StrokePlayLeaderboardFull } from '@/components/scorecard/StrokePlayLeaderboardFull';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 
@@ -56,5 +57,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
 });

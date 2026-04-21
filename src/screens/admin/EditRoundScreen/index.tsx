@@ -1,6 +1,12 @@
 /**
  * EditRoundScreen - Edit round details
  *
+ * @deprecated No longer reachable from ViewRoundScreen — round editing
+ * now happens via per-field bottom sheets on the Round Details card
+ * (see `src/components/rounds/ViewRound/RoundDetailsTab/sheets/`).
+ * Route is kept registered as a fallback while we verify nothing else
+ * relies on it; slated for removal in a follow-up PR.
+ *
  * Allows organizers to edit:
  * - Course (can add course to blank rounds)
  * - Date

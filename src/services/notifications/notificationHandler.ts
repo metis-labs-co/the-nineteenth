@@ -107,6 +107,9 @@ const NOTIFICATION_SCREEN_MAP: Record<NotificationType, keyof RootStackParamList
 
   // Prize pool -> CompetitionDetail
   prize_pool_settled: 'CompetitionDetail',
+
+  // Tee-time reminder -> ViewRound
+  tee_time_reminder: 'ViewRound',
 };
 
 // =====================================================

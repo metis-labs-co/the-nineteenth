@@ -76,6 +76,10 @@ export function ScoringPairsConfigBottomSheet({
   // Shuffle scoring pairs mutation
   const { mutate: shufflePairs, isPending: isShuffling } = useShuffleScoringPairs();
 
+  // Surfacing shuffle errors inline so users see why nothing happened
+  // instead of just a silent console log.
+  const [shuffleError, setShuffleError] = useState<string | null>(null);
+
   // Handle toggle change
   const handleToggle = useCallback(
     (value: boolean) => {
@@ -88,7 +92,15 @@ export function ScoringPairsConfigBottomSheet({
   // Handle shuffle — the mutation hook handles cache invalidation on its own
   const handleShuffle = useCallback(() => {
     if (!competitionId) return;
-    shufflePairs({ roundId, competitionId });
+    setShuffleError(null);
+    shufflePairs(
+      { roundId, competitionId },
+      {
+        onError: (err) => {
+          setShuffleError(err.message || 'Failed to shuffle scoring pairs');
+        },
+      }
+    );
   }, [roundId, competitionId, shufflePairs]);
 
   // Group pairs for display: show reciprocal pairs once (A↔B) or full circular chain (A→B→C→A)
@@ -129,6 +141,7 @@ export function ScoringPairsConfigBottomSheet({
   React.useEffect(() => {
     if (visible) {
       setScoringPairsRequired(initialValue);
+      setShuffleError(null);
     }
   }, [visible, initialValue]);
 
@@ -139,6 +152,7 @@ export function ScoringPairsConfigBottomSheet({
       height={0.75}
       title="Scoring Pairs"
       showCloseButton
+      useModal
       testID="scoring-pairs-config-bottom-sheet"
     >
       <ScrollView
@@ -285,6 +299,11 @@ export function ScoringPairsConfigBottomSheet({
                         <Text style={[styles.shuffleHint, { color: colors.textSecondary }]}>
                           Clear existing pairs and generate new random assignments
                         </Text>
+                        {shuffleError && (
+                          <Text style={[styles.shuffleError, { color: colors.error }]}>
+                            {shuffleError}
+                          </Text>
+                        )}
                       </>
                     )}
                   </>
@@ -430,6 +449,11 @@ const styles = StyleSheet.create({
   },
   shuffleHint: {
     ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  shuffleError: {
+    ...typography.small,
     textAlign: 'center',
     marginTop: spacing.sm,
   },

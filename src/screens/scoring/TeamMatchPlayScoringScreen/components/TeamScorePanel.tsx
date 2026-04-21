@@ -24,11 +24,19 @@ interface PlayerScoreRowProps {
   isBestScore: boolean;
   par: number;
   isMatchComplete: boolean;
+  /** Handicap strokes received on the current hole (0 if none). */
+  strokesReceived: number;
+  /** Whether the player has picked up on the current hole. */
+  isPickedUp: boolean;
   onScoreAdjust: (delta: number) => void;
   onParSelect: () => void;
+  onPickUp: () => void;
   /** Label for the handicap value: 'H', 'DHC', etc. */
   handicapLabel?: string;
 }
+
+/** Max stroke-indicator dots to render inline before we stop (avoids row overflow). */
+const MAX_STROKE_DOTS = 2;
 
 function PlayerScoreRow({
   name,
@@ -37,8 +45,11 @@ function PlayerScoreRow({
   isBestScore,
   par,
   isMatchComplete,
+  strokesReceived,
+  isPickedUp,
   onScoreAdjust,
   onParSelect,
+  onPickUp,
   handicapLabel = 'HC',
 }: PlayerScoreRowProps) {
   const colors = useThemeColors();
@@ -52,8 +63,11 @@ function PlayerScoreRow({
   };
 
   const disabled = isMatchComplete;
-  const canDecrement = !disabled && (score === null || score > 1);
-  const canIncrement = !disabled && (score === null || score < 12);
+  const canDecrement = !disabled && !isPickedUp && (score === null || score > 1);
+  const canIncrement = !disabled && !isPickedUp && (score === null || score < 12);
+  const canPickUp = !disabled;
+
+  const dotCount = Math.min(strokesReceived, MAX_STROKE_DOTS);
 
   return (
     <View
@@ -70,12 +84,51 @@ function PlayerScoreRow({
         >
           {name}
         </Text>
-        <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
-          {handicapLabel}: {handicap}
-        </Text>
+        <View style={styles.handicapRow}>
+          <Text style={[styles.handicapText, { color: colors.textSecondary }]}>
+            {handicapLabel}: {handicap}
+          </Text>
+          {dotCount > 0 && (
+            <View
+              style={styles.strokeDots}
+              accessibilityLabel={`Receives ${strokesReceived} stroke${strokesReceived === 1 ? '' : 's'} on this hole`}
+            >
+              {Array.from({ length: dotCount }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.strokeDot, { backgroundColor: colors.warning }]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.playerControls}>
+        {/* Pick Up Button */}
+        <TouchableOpacity
+          style={[
+            styles.smallButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            isPickedUp && { backgroundColor: colors.primary, borderColor: colors.primary },
+            !canPickUp && styles.buttonDisabled,
+          ]}
+          onPress={onPickUp}
+          disabled={!canPickUp}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={isPickedUp ? `Clear pickup for ${name}` : `Pick up ${name}`}
+        >
+          <Text
+            style={[
+              styles.pickupButtonText,
+              { color: isPickedUp ? colors.white : colors.textPrimary },
+            ]}
+          >
+            P
+          </Text>
+        </TouchableOpacity>
+
         {/* Minus Button */}
         <TouchableOpacity
           style={[
@@ -92,8 +145,13 @@ function PlayerScoreRow({
 
         {/* Score Display */}
         <View style={styles.scoreDisplay}>
-          <Text style={[styles.scoreText, { color: getScoreColor(score) }]}>
-            {score ?? '-'}
+          <Text
+            style={[
+              styles.scoreText,
+              { color: isPickedUp ? colors.textSecondary : getScoreColor(score) },
+            ]}
+          >
+            {isPickedUp ? 'P' : (score ?? '-')}
           </Text>
         </View>
 
@@ -116,7 +174,7 @@ function PlayerScoreRow({
           style={[
             styles.parButton,
             { borderColor: colors.border, backgroundColor: colors.surface },
-            score === par && { backgroundColor: colors.primary, borderColor: colors.primary },
+            !isPickedUp && score === par && { backgroundColor: colors.primary, borderColor: colors.primary },
             disabled && styles.buttonDisabled,
           ]}
           onPress={onParSelect}
@@ -127,7 +185,7 @@ function PlayerScoreRow({
             style={[
               styles.parButtonText,
               { color: colors.textPrimary },
-              score === par && { color: colors.white },
+              !isPickedUp && score === par && { color: colors.white },
             ]}
           >
             {par}
@@ -135,7 +193,7 @@ function PlayerScoreRow({
         </TouchableOpacity>
 
         {/* Best Score Indicator */}
-        {isBestScore && score !== null && (
+        {isBestScore && score !== null && !isPickedUp && (
           <View style={[styles.bestBadge, { backgroundColor: colors.success }]}>
             <Icon source="star" size={12} color={colors.white} />
           </View>
@@ -154,8 +212,11 @@ export interface TeamScorePanelProps {
   isWinning: boolean;
   matchStatus?: TeamMatchStatusDisplay;
   getPlayerScore: (playerId: string) => number | null;
+  getPlayerStrokesReceived: (playerId: string) => number;
+  getPlayerIsPickedUp: (playerId: string) => boolean;
   onPlayerScoreAdjust: (playerId: string, delta: number) => void;
   onPlayerParSelect: (playerId: string, par: number) => void;
+  onPlayerPickUp: (playerId: string) => void;
   /** Label for player handicap values: 'H' or 'DHC' */
   handicapLabel?: string;
 }
@@ -169,8 +230,11 @@ export function TeamScorePanel({
   isWinning,
   matchStatus,
   getPlayerScore,
+  getPlayerStrokesReceived,
+  getPlayerIsPickedUp,
   onPlayerScoreAdjust,
   onPlayerParSelect,
+  onPlayerPickUp,
   handicapLabel = 'HC',
 }: TeamScorePanelProps) {
   const colors = useThemeColors();
@@ -274,8 +338,11 @@ export function TeamScorePanel({
               isBestScore={isBest}
               par={par}
               isMatchComplete={isMatchComplete}
+              strokesReceived={getPlayerStrokesReceived(member.id)}
+              isPickedUp={getPlayerIsPickedUp(member.id)}
               onScoreAdjust={(delta) => onPlayerScoreAdjust(member.id, delta)}
               onParSelect={() => onPlayerParSelect(member.id, par)}
+              onPickUp={() => onPlayerPickUp(member.id)}
               handicapLabel={handicapLabel}
             />
           );
@@ -372,8 +439,27 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     marginBottom: spacing.xs,
   },
+  handicapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   handicapText: {
     ...typography.caption,
+  },
+  strokeDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  strokeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pickupButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   playerControls: {
     flexDirection: 'row',
