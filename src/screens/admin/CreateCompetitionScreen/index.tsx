@@ -131,6 +131,7 @@ export default function CreateCompetitionScreen() {
           allowedGameTypes={limits?.allowedGameTypes}
           maxRoundsPerCompetition={limits?.maxRoundsPerCompetition}
           competitionStartDate={wizardData.step1?.startDate}
+          enableTeams={wizardData.step1?.enableTeams}
         />
       );
     }

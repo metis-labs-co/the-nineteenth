@@ -5,19 +5,20 @@
  * Allows toggling scoring pairs on/off and shuffling assignments.
  */
 
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Switch, TouchableOpacity, ScrollView } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
-import { GolfBallLoader } from '@/components/common';
+import { GolfBallLoader, PlayerAvatar } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { spacing, borderRadius, typography } from '@/constants/theme';
 import { supabase } from '@/services/supabase/client';
 import { roundKeys } from '@/hooks/queryKeys';
 import { useScoringPairs, useShuffleScoringPairs } from '@/hooks/useScoringPairs';
+import type { ScoringPairWithPlayers } from '@/types/database.types';
 
 // ============================================================================
 // PROPS
@@ -84,18 +85,45 @@ export function ScoringPairsConfigBottomSheet({
     [updateScoringPairs]
   );
 
-  // Handle shuffle
+  // Handle shuffle — the mutation hook handles cache invalidation on its own
   const handleShuffle = useCallback(() => {
     if (!competitionId) return;
-    shufflePairs(
-      { roundId, competitionId },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['scoringPairs', roundId] });
-        },
-      }
+    shufflePairs({ roundId, competitionId });
+  }, [roundId, competitionId, shufflePairs]);
+
+  // Group pairs for display: show reciprocal pairs once (A↔B) or full circular chain (A→B→C→A)
+  const displayPairs = useMemo((): {
+    pairs: ScoringPairWithPlayers[];
+    type: 'reciprocal' | 'circular';
+  } => {
+    if (!scoringPairs || scoringPairs.length === 0) {
+      return { pairs: [], type: 'circular' };
+    }
+
+    const pairMap = new Map<string, ScoringPairWithPlayers>();
+    for (const pair of scoringPairs) {
+      pairMap.set(`${pair.scorer_id}-${pair.player_id}`, pair);
+    }
+
+    const isReciprocal = scoringPairs.every((pair) =>
+      pairMap.has(`${pair.player_id}-${pair.scorer_id}`)
     );
-  }, [roundId, competitionId, shufflePairs, queryClient]);
+
+    if (isReciprocal) {
+      const seen = new Set<string>();
+      const grouped: ScoringPairWithPlayers[] = [];
+      for (const pair of scoringPairs) {
+        const key = [pair.scorer_id, pair.player_id].sort().join('-');
+        if (!seen.has(key)) {
+          seen.add(key);
+          grouped.push(pair);
+        }
+      }
+      return { pairs: grouped, type: 'reciprocal' };
+    }
+
+    return { pairs: scoringPairs, type: 'circular' };
+  }, [scoringPairs]);
 
   // Reset local state when sheet opens
   React.useEffect(() => {
@@ -108,12 +136,16 @@ export function ScoringPairsConfigBottomSheet({
     <BottomSheet
       visible={visible}
       onClose={onDismiss}
-      height={0.5}
+      height={0.75}
       title="Scoring Pairs"
       showCloseButton
       testID="scoring-pairs-config-bottom-sheet"
     >
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {isPremium ? (
           <>
             {/* Toggle */}
@@ -156,12 +188,72 @@ export function ScoringPairsConfigBottomSheet({
                   <>
                     <View style={styles.pairsInfoRow}>
                       <Text style={[styles.pairsInfoLabel, { color: colors.textSecondary }]}>
-                        Current pairs:
+                        {displayPairs.type === 'reciprocal' ? 'Reciprocal pairs' : 'Circular chain'}
                       </Text>
                       <Text style={[styles.pairsInfoValue, { color: colors.textPrimary }]}>
-                        {scoringPairs?.length || 0} assigned
+                        {displayPairs.pairs.length}{' '}
+                        {displayPairs.pairs.length === 1 ? 'pair' : 'pairs'}
                       </Text>
                     </View>
+
+                    {/* Pair list */}
+                    {displayPairs.pairs.length > 0 ? (
+                      <View style={styles.pairList}>
+                        {displayPairs.pairs.map((pair) => (
+                          <View
+                            key={pair.id}
+                            style={[styles.pairRow, { backgroundColor: colors.gray50 }]}
+                          >
+                            <View style={styles.pairPlayer}>
+                              <PlayerAvatar
+                                photoUrl={pair.scorer?.photo_url}
+                                name={pair.scorer?.name}
+                                size={32}
+                              />
+                              <Text
+                                style={[styles.pairName, { color: colors.textPrimary }]}
+                                numberOfLines={1}
+                              >
+                                {pair.scorer?.name || 'Unknown'}
+                              </Text>
+                            </View>
+                            <View style={styles.pairArrow}>
+                              <Icon
+                                source={
+                                  displayPairs.type === 'reciprocal'
+                                    ? 'swap-horizontal'
+                                    : 'arrow-right'
+                                }
+                                size={18}
+                                color={colors.textTertiary}
+                              />
+                            </View>
+                            <View style={styles.pairPlayer}>
+                              <PlayerAvatar
+                                photoUrl={pair.player?.photo_url}
+                                name={pair.player?.name}
+                                size={32}
+                              />
+                              <Text
+                                style={[styles.pairName, { color: colors.textPrimary }]}
+                                numberOfLines={1}
+                              >
+                                {pair.player?.name || 'Unknown'}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <View style={styles.pairsEmpty}>
+                        <Icon source="account-question" size={24} color={colors.gray400} />
+                        <Text
+                          style={[styles.pairsEmptyText, { color: colors.textSecondary }]}
+                        >
+                          No scoring pairs assigned yet
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Shuffle Button */}
                     {competitionId && (
@@ -214,7 +306,7 @@ export function ScoringPairsConfigBottomSheet({
             </Text>
           </View>
         )}
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }
@@ -224,6 +316,9 @@ export function ScoringPairsConfigBottomSheet({
 // ============================================================================
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
@@ -276,10 +371,47 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   pairsInfoLabel: {
-    ...typography.body,
+    ...typography.captionBold,
+    textTransform: 'uppercase',
   },
   pairsInfoValue: {
-    ...typography.bodyBold,
+    ...typography.caption,
+  },
+  pairList: {
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  pairRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  pairPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  pairName: {
+    ...typography.small,
+    fontWeight: '500',
+    flex: 1,
+  },
+  pairArrow: {
+    paddingHorizontal: spacing.sm,
+  },
+  pairsEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  pairsEmptyText: {
+    ...typography.small,
   },
   shuffleButton: {
     flexDirection: 'row',

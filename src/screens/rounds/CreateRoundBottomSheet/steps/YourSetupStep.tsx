@@ -99,7 +99,7 @@ export const YourSetupStep = memo(function YourSetupStep({
   const dailyHC = useMemo(() => {
     if (!selectedTee?.slopeRating || !selectedTee?.courseRating) return { profile: null, calculated: null };
     const holes = selectedCourse?.holes;
-    if (!holes?.length) return { profile: null, calculated: null };
+    if (!Array.isArray(holes) || holes.length === 0) return { profile: null, calculated: null };
     const coursePar = holes.reduce((sum, h) => sum + h.par, 0);
     if (coursePar <= 0) return { profile: null, calculated: null };
 

@@ -11,7 +11,7 @@
  * - Quick-start scoring
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
@@ -24,6 +24,7 @@ import { isLocalClub } from '@/hooks/clubs/helpers';
 import { courseService } from '@/services/courses';
 import { ClubAutocomplete } from '@/components/courses';
 import { teesToTeeBoxes } from '@/utils/teeTransformers';
+import { hasCompleteHoleData } from '@/services/api/golfApiTransformers';
 import type { Club } from '@/types/database.types';
 import type { SearchResultItem } from '@/hooks/clubs/types';
 import {
@@ -143,11 +144,32 @@ export default function CreateRoundBottomSheet({
     }
   }, [wizard.data.selectedCourse?.golfapiCourseId, wizard.data.selectedTee?.name, wizard.setData]);
 
+  // Courses we've already auto-refreshed this session, to avoid re-triggering
+  // when the refresh completes but still doesn't return complete data.
+  const autoRefreshedCourseIdsRef = useRef<Set<string>>(new Set());
+
+  // Auto-refresh course data when selected course has incomplete hole data
+  // and a golfapi_course_id is available to refresh from. Prevents the
+  // scoring step from rendering with missing data (which previously crashed
+  // in par calculations).
+  useEffect(() => {
+    const course = wizard.data.selectedCourse;
+    if (!course?.golfapiCourseId) return;
+    if (autoRefreshedCourseIdsRef.current.has(course.courseId)) return;
+    if (isRefreshingCourseData) return;
+
+    if (!hasCompleteHoleData(course.holes ?? null)) {
+      autoRefreshedCourseIdsRef.current.add(course.courseId);
+      void handleRefreshCourseData();
+    }
+  }, [wizard.data.selectedCourse, isRefreshingCourseData, handleRefreshCourseData]);
+
   // Clear inline-created course tracking when sheet becomes invisible
   // (round was started successfully — don't clean up the course)
   useEffect(() => {
     if (!visible) {
       setInlineCreatedCourse(null);
+      autoRefreshedCourseIdsRef.current.clear();
     }
   }, [visible]);
 

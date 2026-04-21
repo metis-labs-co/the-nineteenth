@@ -170,6 +170,8 @@ export interface SimplifiedRoundDetailsStepProps {
   maxRoundsPerCompetition?: number;
   /** Competition start date from step 1 (DD/MM/YYYY format) - used as default for new rounds */
   competitionStartDate?: string;
+  /** Whether this is a team competition - controls visibility of team game types */
+  enableTeams?: boolean;
 }
 
 // Re-export types from schemas for convenience

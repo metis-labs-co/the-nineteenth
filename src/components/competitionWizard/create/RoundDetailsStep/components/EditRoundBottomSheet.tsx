@@ -28,6 +28,8 @@ export interface EditRoundBottomSheetProps {
   onClose: () => void;
   onSave: (round: SimplifiedRoundFormData) => void;
   allowedGameTypes?: GameType[];
+  /** Whether team game types (Best Ball, Scramble, Shamble) should be shown */
+  enableTeams?: boolean;
 }
 
 export function EditRoundBottomSheet({
@@ -37,6 +39,7 @@ export function EditRoundBottomSheet({
   onClose,
   onSave,
   allowedGameTypes,
+  enableTeams = false,
 }: EditRoundBottomSheetProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
@@ -133,8 +136,8 @@ export function EditRoundBottomSheet({
     setAvailableTees([]);
   };
 
-  // Get available game types
-  const availableGameTypes = getFilteredGameTypes(allowedGameTypes);
+  // Get available game types - team formats only shown when competition has teams enabled
+  const availableGameTypes = getFilteredGameTypes(allowedGameTypes, enableTeams);
 
   return (
     <>
@@ -417,6 +420,7 @@ export function EditRoundBottomSheet({
         availableGameTypes={availableGameTypes}
         onSelect={handleGameTypeSelect}
         onClose={() => setShowGameTypeModal(false)}
+        showTeamFormats={enableTeams}
       />
 
       {/* Tee Selection Modal */}

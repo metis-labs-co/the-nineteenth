@@ -28,6 +28,7 @@ export function SimplifiedRoundDetailsStep({
   allowedGameTypes,
   maxRoundsPerCompetition,
   competitionStartDate,
+  enableTeams,
 }: SimplifiedRoundDetailsStepProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -172,6 +173,7 @@ export function SimplifiedRoundDetailsStep({
         onClose={() => setEditingRoundIndex(null)}
         onSave={handleSaveRound}
         allowedGameTypes={allowedGameTypes}
+        enableTeams={enableTeams}
       />
     </View>
   );

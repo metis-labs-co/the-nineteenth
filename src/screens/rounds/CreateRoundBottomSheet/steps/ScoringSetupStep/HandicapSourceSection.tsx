@@ -71,7 +71,7 @@ export const HandicapSourceSection = memo(function HandicapSourceSection({
 
   // Build player list with handicap info (current user + partners)
   const allPlayers = useMemo((): PlayerHandicapInfo[] => {
-    const coursePar = holes?.length
+    const coursePar = Array.isArray(holes) && holes.length > 0
       ? holes.reduce((sum, h) => sum + h.par, 0)
       : 0;
 

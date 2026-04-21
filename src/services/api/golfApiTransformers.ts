@@ -458,7 +458,7 @@ export function hasHoleData(course: { holes?: Hole[] | null }): boolean {
  * Check if hole data is complete (has all required holes)
  */
 export function hasCompleteHoleData(holes: Hole[] | null | undefined): boolean {
-  if (!holes || holes.length === 0) return false;
+  if (!Array.isArray(holes) || holes.length === 0) return false;
 
   // Check that we have 9 or 18 holes with valid pars
   const validHoles = holes.filter(
