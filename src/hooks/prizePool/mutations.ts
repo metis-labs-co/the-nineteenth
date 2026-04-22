@@ -290,3 +290,80 @@ export function useSettlePrizePool() {
     },
   });
 }
+
+/**
+ * Settle a competition's prize pool by writing final positions from the live
+ * leaderboard to `competition_players.final_position`, then invoking the
+ * existing `settle_prize_pool` RPC. The RPC itself reads `final_position` to
+ * match placements to players — it has no awareness of the leaderboard.
+ *
+ * Ties at paying positions are broken arbitrarily by the RPC's `LIMIT 1`.
+ * Callers should warn the user before invoking when ties exist.
+ */
+export function useSettleCompetitionPayouts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      poolId,
+      competitionId,
+      standings,
+    }: {
+      poolId: string;
+      competitionId: string;
+      /**
+       * Individual leaderboard standings. `participantId` is the player id;
+       * team standings should be filtered out before calling.
+       */
+      standings: { participantId: string; position: number }[];
+    }): Promise<void> => {
+      // 1. Write final_position to each competition_player. Update in place
+      //    (we match on competition_id + player_id) — no upsert needed since
+      //    every accepted player already has a row.
+      for (const standing of standings) {
+        const { error: updateError } = await supabase
+          .from('competition_players' as never)
+          // @ts-expect-error - Supabase types don't cover partial updates well
+          .update({ final_position: standing.position })
+          .eq('competition_id', competitionId)
+          .eq('player_id', standing.participantId);
+
+        if (updateError) {
+          throw createError(
+            `Failed to set final position for player: ${updateError.message}`,
+            'DATABASE'
+          );
+        }
+      }
+
+      // 2. Call the existing RPC to map placements → players and record
+      //    pool_transactions rows.
+      const { error: rpcError } = await supabase.rpc('settle_prize_pool' as never, {
+        p_pool_id: poolId,
+      } as never);
+
+      if (rpcError) {
+        throw createError(`Failed to settle prize pool: ${rpcError.message}`, 'DATABASE');
+      }
+    },
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: prizePoolKeys.pool(variables.competitionId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: prizePoolKeys.placements(variables.poolId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: prizePoolKeys.transactions(variables.poolId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: competitionKeys.detail(variables.competitionId),
+      });
+    },
+
+    onError: (error) => {
+      console.error('[useSettleCompetitionPayouts] Failed to settle payouts:', error);
+    },
+  });
+}

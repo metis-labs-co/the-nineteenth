@@ -10,21 +10,35 @@ interface UseViewRoundTabsParams {
   isStrokePlayRound: boolean;
   /** True when the round is a split team round (Ryder-Cup-style sub-matches). */
   isSplitRound: boolean;
+  /** True for team stroke rounds (best-ball / aggregate) — not match-play, not scramble/shamble. */
+  isTeamStrokeRound: boolean;
+  /** True for any team-format round (drives the unified Teams tab). */
+  isTeamRound: boolean;
   hasSkinsGame: boolean;
   hasWolfGame: boolean;
   hasPayoutsTab: boolean;
   hasStats: boolean;
   playerCount: number;
+  /** Number of tee groups / sub-matches for the Groups tab badge. */
+  groupCount?: number;
+  /** Number of teams for the Teams tab badge. */
+  teamCount?: number;
 }
 
 /**
  * Tab order for the View Round screen:
- *   Details → Leaderboard (stroke play) → Scorecard → Match/Team tabs →
- *   Scramble suite → Skins → Wolf → Payouts → Stats (always last)
+ *   Details → Groups/Sub-Matches → Leaderboard (stroke play) →
+ *   Scorecard → Match/Team tabs → Scramble suite → Skins → Wolf →
+ *   Payouts → Stats (always last)
  *
- * Rationale: on a multi-player stroke play round the leaderboard is the
- * first thing players want to see, and Stats is a personal deep-dive that
- * belongs at the end rather than sandwiched between Scorecard and the
+ * The second tab appears in two situations:
+ *   - Split team rounds → labelled "Sub-Matches" (Ryder-Cup-style head-to-heads).
+ *   - Any other round with more than 4 players → labelled "Groups"
+ *     (tee groups / pairings — a foursome is the largest physical group).
+ *
+ * On a multi-player stroke play round the leaderboard is the first thing
+ * players want to see after the grouping, and Stats is a personal deep-dive
+ * that belongs at the end rather than sandwiched between Scorecard and the
  * group-level tabs.
  */
 export function useViewRoundTabs({
@@ -34,19 +48,50 @@ export function useViewRoundTabs({
   isScrambleRound,
   isStrokePlayRound,
   isSplitRound,
+  // isTeamStrokeRound kept in the param contract because callers still
+  // pass it, but the Teams-tab logic now gates on isTeamRound instead.
+  isTeamStrokeRound: _isTeamStrokeRound,
+  isTeamRound,
   hasSkinsGame,
   hasWolfGame,
   hasPayoutsTab,
   hasStats,
   playerCount,
+  groupCount,
+  teamCount,
 }: UseViewRoundTabsParams) {
   return useMemo<TabItem<TabKey>[]>(() => {
     const result: TabItem<TabKey>[] = [{ key: 'details', label: 'Details' }];
+
+    // Groups / Sub-Matches — split team rounds show the per-sub-match
+    // breakdown; non-split rounds with more than 4 players show tee
+    // groups (pairings). Either way this is the "who plays whom" view
+    // and lives as the second tab.
+    const showGroupsTab = isSplitRound || playerCount > 4;
+    if (showGroupsTab) {
+      result.push({
+        key: 'subMatches',
+        label: isSplitRound ? 'Sub-Matches' : 'Groups',
+        count: groupCount && groupCount > 0 ? groupCount : undefined,
+      });
+    }
 
     // Stroke play leaderboard — show right after Details so it's the
     // first thing after the round header for multi-player stroke rounds.
     if (isStrokePlayRound && playerCount > 1) {
       result.push({ key: 'leaderboard', label: 'Leaderboard' });
+    }
+
+    // Unified Teams tab — rosters for any team round, plus the team
+    // leaderboard appended for stroke-based team rounds (handled inside
+    // the tab content). Replaces the old round-Details TeamsSection so
+    // team rosters live in exactly one place.
+    if (isTeamRound) {
+      result.push({
+        key: 'teams',
+        label: 'Teams',
+        count: teamCount && teamCount > 0 ? teamCount : undefined,
+      });
     }
 
     // Scorecard (scramble rounds have their own dedicated scorecard tab
@@ -57,13 +102,6 @@ export function useViewRoundTabs({
 
     if (isMatchPlayRound || isTeamMatchPlayRound) {
       result.push({ key: 'match', label: 'Match' });
-    }
-
-    // Sub-Matches tab — only for split team rounds (Ryder-Cup-style).
-    // Shown right after Match so the flow is: aggregate Ryder points on
-    // Match tab → per-sub-match detail here.
-    if (isSplitRound) {
-      result.push({ key: 'subMatches', label: 'Sub-Matches' });
     }
 
     if (isShambleRound) {
@@ -89,10 +127,12 @@ export function useViewRoundTabs({
     }
 
     // Stats always last — it's a personal deep-dive, not group state.
-    if (hasStats) {
+    // Team match-play rounds skip it: the team-level view is the point
+    // of interest and per-player putt/fairway stats add clutter.
+    if (hasStats && !isTeamMatchPlayRound) {
       result.push({ key: 'stats', label: 'Stats' });
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount, groupCount, teamCount]);
 }

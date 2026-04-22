@@ -171,8 +171,11 @@ export const DateTimeFieldGroup = memo(function DateTimeFieldGroup({
   );
 
   const handleTimePickerDismiss = useCallback(() => {
+    if (!time && onTimeChange) {
+      onTimeChange(new Date());
+    }
     setShowTimePicker(false);
-  }, []);
+  }, [time, onTimeChange]);
 
   const openTimePicker = useCallback(() => {
     if (!disabled && showTime) {

@@ -60,6 +60,32 @@ jest.mock('./components', () => {
         <Text testID="players-section-round-id">{roundId}</Text>
       </View>
     ),
+    GroupsSection: ({
+      roundId,
+      roundFormat,
+    }: {
+      roundId: string;
+      roundFormat: string;
+      cardBackground: string;
+    }) => (
+      <View testID="groups-section">
+        <Text testID="groups-section-round-id">{roundId}</Text>
+        <Text testID="groups-section-round-format">{roundFormat}</Text>
+      </View>
+    ),
+    TeamsSection: ({
+      roundId,
+      competitionId,
+    }: {
+      roundId: string;
+      competitionId: string | null;
+      cardBackground: string;
+    }) => (
+      <View testID="teams-section">
+        <Text testID="teams-section-round-id">{roundId}</Text>
+        <Text testID="teams-section-competition-id">{competitionId ?? 'none'}</Text>
+      </View>
+    ),
   };
 });
 
@@ -74,6 +100,10 @@ jest.mock('./sheets', () => {
       visible ? <View testID="edit-game-type-sheet" /> : null,
     EditTeeSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="edit-tee-sheet" /> : null,
+    RoundFormatSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="edit-round-format-sheet" /> : null,
+    MatchupSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="matchup-sheet" /> : null,
   };
 });
 
@@ -101,6 +131,20 @@ jest.mock('@/hooks/rounds', () => ({
 // Mock auth — tests don't care about the current user for this tab.
 jest.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ player: null, user: null }),
+}));
+
+// Mock useRoundTeams — TeamsSection calls this whenever is_team_round is
+// true. Default to "no teams" so existing non-team-round tests stay green;
+// individual tests that exercise the team path override with
+// (useRoundTeams as jest.Mock).mockReturnValueOnce(...).
+jest.mock('@/hooks/scorecard/useRoundTeams', () => ({
+  useRoundTeams: jest.fn(() => ({
+    teams: [],
+    isLoading: false,
+    error: null,
+    getPlayerTeam: () => undefined,
+    refetch: jest.fn(),
+  })),
 }));
 
 // Mock StatusBadge
@@ -209,6 +253,8 @@ function createRoundWithCourse(overrides: Partial<RoundWithCourse> = {}): RoundW
     team_format: null,
     round_format: 'combined',
     sub_match_size: null,
+    team1_id: null,
+    team2_id: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,
@@ -711,6 +757,8 @@ describe('RoundDetailsTab', () => {
         team_format: null,
         round_format: 'combined',
         sub_match_size: null,
+        team1_id: null,
+        team2_id: null,
         scoring_pairs_required: false,
         ball_count: 1,
         handicap_source: null,
@@ -828,6 +876,79 @@ describe('RoundDetailsTab', () => {
   // ===========================================================================
   // SNAPSHOT TESTS
   // ===========================================================================
+
+  // ===========================================================================
+  // TEAM ROUND TESTS
+  // ===========================================================================
+
+  describe('Team Round Behaviour', () => {
+    // Team rosters moved to the dedicated Teams tab in the View Round
+    // screen, so the Details tab should not surface TeamsSection for
+    // either team or individual rounds.
+    it('does not render TeamsSection on the Details tab for team rounds', () => {
+      const round = createRoundWithCourse({
+        is_team_round: true,
+        team_format: 'best-ball',
+      });
+
+      render(<RoundDetailsTab round={round} />);
+
+      expect(screen.queryByTestId('teams-section')).toBeNull();
+    });
+
+    it('does not render TeamsSection for individual rounds', () => {
+      const round = createRoundWithCourse({ is_team_round: false });
+
+      render(<RoundDetailsTab round={round} />);
+
+      expect(screen.queryByTestId('teams-section')).toBeNull();
+    });
+
+    it('renders the Round Format detail row for team rounds', () => {
+      const round = createRoundWithCourse({
+        is_team_round: true,
+        team_format: 'match-play-team',
+        game_type: 'match-play' as GameType,
+      });
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      expect(screen.getByLabelText('Round Format')).toBeTruthy();
+    });
+
+    it('hides the Round Format row for individual rounds', () => {
+      const round = createRoundWithCourse({ is_team_round: false });
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      expect(screen.queryByLabelText('Round Format')).toBeNull();
+    });
+
+    it('labels the Round Format pill as "Split 2v2" for split 2v2 rounds', () => {
+      const round = createRoundWithCourse({
+        is_team_round: true,
+        team_format: 'match-play-team',
+        game_type: 'match-play' as GameType,
+        round_format: 'split',
+        sub_match_size: 2,
+      });
+
+      render(<RoundDetailsTab round={round} />);
+
+      expect(screen.getByText('Split 2v2')).toBeTruthy();
+    });
+
+    it('labels the Round Format pill as "Combined" by default', () => {
+      const round = createRoundWithCourse({
+        is_team_round: true,
+        team_format: 'best-ball',
+      });
+
+      render(<RoundDetailsTab round={round} />);
+
+      expect(screen.getByText('Combined')).toBeTruthy();
+    });
+  });
 
   describe('Snapshots', () => {
     it('matches snapshot with full data', () => {

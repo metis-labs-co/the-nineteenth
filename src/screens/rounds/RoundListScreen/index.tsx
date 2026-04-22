@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useSubscriptionContext, useIsPremium } from '@/context/SubscriptionContext';
+import { useSubscriptionContext, useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { ConfirmationDialog, LoadingSpinner } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
@@ -37,7 +37,7 @@ export default function RoundsScreen() {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
-  const isPremium = useIsPremium();
+  const isSuperAdmin = useIsSuperAdmin();
 
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
 
@@ -122,7 +122,7 @@ export default function RoundsScreen() {
         maxRoundsPlayed={maxRoundsPlayed}
         showInfoIcon={!isFirstVisit}
         onInfoPress={showModal}
-        onQuickScore={isPremium ? quickScore.openRoundPicker : undefined}
+        onQuickScore={isSuperAdmin ? quickScore.openRoundPicker : undefined}
       />
 
       {/* Scrollable Rounds List */}

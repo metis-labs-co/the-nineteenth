@@ -97,10 +97,13 @@ export function useViewRoundHandlers({
 
   const handleScoreRound = useCallback(() => {
     if (isTeamMatchPlayRound) {
+      // Prefer the organizer-picked matchup on the rounds row. Falls back
+      // to undefined so the scoring screen uses its legacy "first two teams"
+      // behaviour for back-compat with 2-team competitions.
       navigation.navigate('TeamMatchPlayScoring', {
         roundId,
-        team1Id: undefined,
-        team2Id: undefined,
+        team1Id: round?.team1_id ?? undefined,
+        team2Id: round?.team2_id ?? undefined,
       });
     } else if (isMatchPlayRound) {
       navigation.navigate('MatchPlayScoring', {
@@ -114,7 +117,7 @@ export function useViewRoundHandlers({
         competitionId: competitionId || 'standalone',
       });
     }
-  }, [navigation, roundId, competitionId, isMatchPlayRound, isTeamMatchPlayRound]);
+  }, [navigation, roundId, competitionId, isMatchPlayRound, isTeamMatchPlayRound, round?.team1_id, round?.team2_id]);
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('RoundSettings', {

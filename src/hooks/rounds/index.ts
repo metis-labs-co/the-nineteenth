@@ -135,5 +135,6 @@ export {
   useSubMatches,
   useReplaceSubMatches,
   useUpdateSubMatchResult,
+  useUpdateSubMatchTeeTime,
   useDeleteAllSubMatches,
 } from './subMatches';

@@ -10,6 +10,7 @@ import { LayoutAnimation } from 'react-native';
 import {
   autoGenerateScoringPairs,
   generateCrossTeamPairs,
+  generateGroupAwareScoringPairs,
   validateScoringPairsCoverage,
   type UnevenTeamMetadata,
 } from '@/utils/scoringPairs';
@@ -22,6 +23,11 @@ interface UsePairingStateOptions {
   players: Player[];
   existingPairs?: ScoringPairWithPlayers[];
   teams?: TeamWithMembers[];
+  /** Tee groups for the round — enables the group-aware auto-generator. */
+  groupPlayerIds?: string[][];
+  /** Player-id → team-name lookup — enables cross-team preference within
+   *  each tee group during auto-generation. */
+  teamNameByPlayerId?: Map<string, string>;
   onSave: (pairs: ScoringPairCreateInput[]) => void;
 }
 
@@ -58,6 +64,8 @@ export function usePairingState({
   players,
   existingPairs = [],
   teams,
+  groupPlayerIds,
+  teamNameByPlayerId,
   onSave,
 }: UsePairingStateOptions): UsePairingStateReturn {
   // State
@@ -99,10 +107,39 @@ export function usePairingState({
 
     setIsGenerating(true);
     try {
-      const result = autoGenerateScoringPairs(players);
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setPairs(result.pairs);
-      setPairingType(result.type);
+      // Prefer the group-aware generator when the round has tee groups
+      // AND every player has a team. This is the only path that can
+      // honour "scorer must be in the same tee group" and "prefer cross-
+      // team reciprocal pairs" simultaneously.
+      const hasGroups = !!groupPlayerIds && groupPlayerIds.length > 0;
+      const teamMap = teamNameByPlayerId;
+      const everyPlayerHasTeam =
+        !!teamMap &&
+        teamMap.size > 0 &&
+        players.every((p) => teamMap.has(p.id));
+
+      if (hasGroups && everyPlayerHasTeam) {
+        const result = generateGroupAwareScoringPairs(
+          groupPlayerIds!.map((playerIds) => ({ playerIds })),
+          teamMap!
+        );
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setPairs(result.pairs);
+        // Group-aware output is reciprocal-shaped, so the existing
+        // reciprocal badge best describes it. The "same-team fallback"
+        // warning is logged rather than surfaced — the UI still shows
+        // coverage + cross-team status via the UnevenTeamWarning panel
+        // when applicable.
+        setPairingType('reciprocal');
+        if (result.warnings.length > 0) {
+          console.info('[usePairingState] Group-aware warnings', result.warnings);
+        }
+      } else {
+        const result = autoGenerateScoringPairs(players);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setPairs(result.pairs);
+        setPairingType(result.type);
+      }
       setHasChanges(true);
       setSelectedPlayer(null);
       setUnevenTeamMetadata(null);
@@ -111,7 +148,7 @@ export function usePairingState({
     } finally {
       setIsGenerating(false);
     }
-  }, [players]);
+  }, [players, groupPlayerIds, teamNameByPlayerId]);
 
   const handleCrossTeamPair = useCallback(() => {
     if (!teams || teams.length < 2) return;
@@ -145,32 +182,45 @@ export function usePairingState({
   const handlePlayerPress = useCallback(
     (playerId: string) => {
       if (!selectedPlayer) {
-        // First selection - select this player as scorer
+        // First selection — select this player. Allowed even when the
+        // player is already in a pair, so the user can tap again to
+        // deselect or tap a paired partner to form a new bond (the
+        // duplicate check below enforces uniqueness on the second tap).
         setSelectedPlayer(playerId);
-      } else if (selectedPlayer === playerId) {
+        return;
+      }
+
+      if (selectedPlayer === playerId) {
         // Same player - deselect
         setSelectedPlayer(null);
-      } else {
-        // Different player - create pair (selected scores pressed)
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-
-        // Check if this pair already exists
-        const existingPairIndex = pairs.findIndex(
-          (p) => p.scorerId === selectedPlayer && p.playerId === playerId
-        );
-
-        if (existingPairIndex === -1) {
-          // Add new pair
-          setPairs((prev) => [
-            ...prev,
-            { scorerId: selectedPlayer, playerId },
-          ]);
-          setPairingType('manual');
-          setHasChanges(true);
-        }
-
-        setSelectedPlayer(null);
+        return;
       }
+
+      // Different player — try to create a reciprocal pair (A↔B) so
+      // each manual tap-pair yields exactly one logical relationship.
+      // Existing state can contain at most 2 rows per player (one as
+      // scorer, one as being-scored). A player already appearing in any
+      // existing pair is considered "taken" — block the new pair to
+      // keep the "each player in exactly one pair" invariant.
+      const isTaken = (id: string) =>
+        pairs.some((p) => p.scorerId === id || p.playerId === id);
+
+      if (isTaken(selectedPlayer) || isTaken(playerId)) {
+        // Quietly block; the user can remove the existing pair first
+        // if they want to re-bond.
+        setSelectedPlayer(null);
+        return;
+      }
+
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setPairs((prev) => [
+        ...prev,
+        { scorerId: selectedPlayer, playerId },
+        { scorerId: playerId, playerId: selectedPlayer },
+      ]);
+      setPairingType('manual');
+      setHasChanges(true);
+      setSelectedPlayer(null);
     },
     [selectedPlayer, pairs]
   );
@@ -178,7 +228,17 @@ export function usePairingState({
   const handleRemovePair = useCallback((scorerId: string, playerId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPairs((prev) =>
-      prev.filter((p) => !(p.scorerId === scorerId && p.playerId === playerId))
+      // Drop both directions so removing a reciprocal card clears the
+      // full relationship in one tap. For circular chain rows only the
+      // matching direction is removed (the reverse direction doesn't
+      // exist in that mode), so this also works for circular cards.
+      prev.filter(
+        (p) =>
+          !(
+            (p.scorerId === scorerId && p.playerId === playerId) ||
+            (p.scorerId === playerId && p.playerId === scorerId)
+          )
+      )
     );
     setPairingType('manual');
     setHasChanges(true);

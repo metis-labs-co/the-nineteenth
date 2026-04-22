@@ -63,7 +63,7 @@ export const mockTierLimits: Record<SubscriptionTier, TierLimits> = {
     tier: 'social',
     maxCompetitionsOwned: 8,
     maxRoundsPerCompetition: 5,
-    maxPlayersPerCompetition: 16,
+    maxPlayersPerCompetition: 12,
     maxFriends: 50,
     maxRoundsPlayed: -1, // unlimited
     maxLeaguesOwned: 3,

@@ -9,3 +9,4 @@ export { ScorecardTabContent } from './ScorecardTabContent';
 export { ContributionsTabContent } from './ContributionsTabContent';
 export { ScrambleLeaderboardTab } from './ScrambleLeaderboardTab';
 export { MatchPlayLeaderboardTab } from './MatchPlayLeaderboardTab';
+export { MatchScorecardTabContent } from './MatchScorecardTabContent';

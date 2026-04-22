@@ -3,30 +3,25 @@
  *
  * Displays:
  * - Competition icon and name
- * - Date range
- * - Competition type badge
+ * - Competition status badge
  * - Description (if provided)
- * - Quick stats (rounds, players)
  * - Invite code (tappable to copy)
- * - Edit button (organizers only)
+ *
+ * Rounds/player counts have moved into the Rounds and Players tab labels.
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import * as Clipboard from 'expo-clipboard';
-import { IconCalendar } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { formatDateAustralian } from '@/utils/formatting';
 import { useToast } from '@/context/ToastContext';
-import { Pill } from '@/components/common/Pill';
-import { competitionTypeLabels, type CompetitionInfoSectionProps } from './types';
+import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
+import { type CompetitionInfoSectionProps } from './types';
 
 export function CompetitionInfoSection({
   competition,
-  rounds,
-  playerCount,
 }: CompetitionInfoSectionProps) {
   const colors = useThemeColors();
   const { showSuccessToast } = useToast();
@@ -46,20 +41,9 @@ export function CompetitionInfoSection({
           <Text style={[styles.competitionName, { color: colors.textPrimary }]}>
             {competition.name}
           </Text>
-          <View style={styles.dateRow}>
-            <IconCalendar size={14} color={colors.textSecondary} />
-            <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-              {formatDateAustralian(competition.start_date)}
-              {competition.end_date && ` - ${formatDateAustralian(competition.end_date)}`}
-            </Text>
-          </View>
-          {/* Competition Type Badge */}
-          <View style={styles.typeBadgeContainer}>
-            <Pill
-              label={competitionTypeLabels[competition.competition_type] || 'Event'}
-              variant="primary"
-              size="md"
-            />
+          {/* Competition Status Badge */}
+          <View style={styles.statusBadgeContainer}>
+            <StatusBadge status={competition.status as StatusVariant} />
           </View>
         </View>
 
@@ -72,23 +56,9 @@ export function CompetitionInfoSection({
         </Text>
       )}
 
-      {/* Quick Stats */}
-      <View style={[styles.quickStats, { borderTopColor: colors.border }]}>
-        <View style={styles.statBox}>
-          <Text style={[styles.statValue, { color: colors.primary }]}>{rounds.length}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rounds</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statBox}>
-          <Text style={[styles.statValue, { color: colors.primary }]}>{playerCount}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Players</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-      </View>
-
       {/* Invite Code - Tappable to copy */}
       <TouchableOpacity
-        style={[styles.inviteCodeBox, { backgroundColor: colors.primaryLighter }]}
+        style={[styles.inviteCodeBox, { backgroundColor: colors.primaryBackground }]}
         onPress={handleCopyInviteCode}
         accessibilityLabel={`Copy invite code ${competition.invite_code}`}
         accessibilityHint="Double tap to copy invite code to clipboard"
@@ -136,46 +106,14 @@ const styles = StyleSheet.create({
   competitionName: {
     ...typography.h3,
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  dateText: {
-    ...typography.small,
-  },
   description: {
     ...typography.body,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  typeBadgeContainer: {
+  statusBadgeContainer: {
     marginTop: spacing.sm,
     flexDirection: 'row',
-  },
-
-  // Quick Stats
-  quickStats: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingVertical: spacing.md,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    ...typography.h4,
-  },
-  statLabel: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    alignSelf: 'stretch',
-    marginVertical: spacing.xs,
   },
 
   // Invite Code

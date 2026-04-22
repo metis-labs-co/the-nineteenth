@@ -29,7 +29,7 @@
 
 **What's Included:**
 - 3 active competitions
-- Up to 8 players per competition
+- Up to 4 players per competition
 - 2 rounds per competition
 - Stableford scoring
 - Offline scorecard entry
@@ -51,7 +51,7 @@
 
 **Everything in Free, plus:**
 - 8 active competitions
-- Up to 16 players per competition
+- Up to 12 players per competition
 - 5 rounds per competition
 - Stroke Play format
 - Match Play format

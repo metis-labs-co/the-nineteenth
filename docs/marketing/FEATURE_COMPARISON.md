@@ -55,7 +55,7 @@ If you're organizing competitions for your regular group, mates league, or work 
 | **COMPETITIONS** | | | |
 | Active competitions | 3 | 8 | Unlimited |
 | Rounds per competition | 2 | 5 | 10 |
-| Players per competition | 8 | 16 | 40 |
+| Players per competition | 4 | 12 | 40 |
 | | | | |
 | **SCORING FORMATS** | | | |
 | Stableford | ✅ | ✅ | ✅ |

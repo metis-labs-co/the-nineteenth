@@ -10,6 +10,7 @@
  * - useSubMatches(roundId)          — fetch all sub-matches for a round
  * - useReplaceSubMatches()          — replace entire sub-match set (auto-generate flow)
  * - useUpdateSubMatchResult()       — mark a sub-match complete with its result
+ * - useUpdateSubMatchTeeTime()      — override a single sub-match's tee time
  * - useDeleteAllSubMatches()        — clear sub-matches (switch split → combined)
  */
 
@@ -19,9 +20,11 @@ import {
   listSubMatchesForRound,
   replaceSubMatches,
   updateSubMatchResult,
+  updateSubMatchTeeTime,
   deleteAllSubMatchesForRound,
   type ReplaceSubMatchesInput,
   type UpdateSubMatchResultInput,
+  type UpdateSubMatchTeeTimeInput,
 } from '@/services/subMatches';
 import type { SubMatch } from '@/types';
 
@@ -54,6 +57,18 @@ export function useUpdateSubMatchResult(roundId: string) {
 
   return useMutation({
     mutationFn: (input: UpdateSubMatchResultInput) => updateSubMatchResult(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: subMatchKeys.list(roundId) });
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+    },
+  });
+}
+
+export function useUpdateSubMatchTeeTime(roundId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateSubMatchTeeTimeInput) => updateSubMatchTeeTime(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: subMatchKeys.list(roundId) });
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });

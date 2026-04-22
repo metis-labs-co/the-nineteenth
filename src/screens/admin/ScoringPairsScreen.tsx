@@ -9,7 +9,7 @@
  * - competitionId: UUID of the competition
  */
 
-import React, { useState, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Snackbar } from 'react-native-paper';
 import { ErrorState, LoadingSpinner } from '@/components/common';
@@ -24,6 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { supabase } from '@/services/supabase/client';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
+import { usePairings } from '@/hooks/rounds';
 import { useCreateScoringPairs } from '@/hooks/useScoringPairs';
 import type {
   Player,
@@ -209,6 +210,11 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
     competitionId
   );
 
+  // Existing tee groups — drive the group-aware auto-generator. Fetched
+  // separately so this screen stays reactive to pairing changes made on
+  // the Groups tab without forcing a full refetch of the player roster.
+  const { data: roundPairings } = usePairings(roundId);
+
   // Set header to hidden (we use custom PageHeader)
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -269,6 +275,44 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
   }, []);
 
   const styles = createStyles(colors);
+
+  // Build a player-id → team-name map so the formation UI can render a
+  // small team label under each player's name. Populated whenever the
+  // competition has teams, regardless of the round's game format — team
+  // context still helps organizers pair across teams on individual-scored
+  // rounds (Stableford, Stroke, etc.). Declared before any early return
+  // so the hook order stays stable.
+  const teamNameByPlayerId = useMemo(() => {
+    const map = new Map<string, string>();
+    (data?.teams ?? []).forEach((team) => {
+      (team.members || []).forEach((member) => {
+        if (member.player_id) map.set(member.player_id, team.name);
+      });
+    });
+    return map;
+  }, [data?.teams]);
+
+  // Player-id → team-slot-index map. Drives the chip/card colour tint
+  // in the formation UI: team 0 → green, team 1 → gold, etc. Teams are
+  // already ordered by `created_at` in the query, so indexes are stable
+  // across refetches.
+  const teamIndexByPlayerId = useMemo(() => {
+    const map = new Map<string, number>();
+    (data?.teams ?? []).forEach((team, idx) => {
+      (team.members || []).forEach((member) => {
+        if (member.player_id) map.set(member.player_id, idx);
+      });
+    });
+    return map;
+  }, [data?.teams]);
+
+  // Tee-group composition — drives the group-aware auto-generator in the
+  // formation UI. Memoized separately so the array reference stays
+  // stable when unrelated round data updates.
+  const groupPlayerIds = useMemo(
+    () => (roundPairings ?? []).map((p) => p.playerIds),
+    [roundPairings]
+  );
 
   // =====================================================
   // RENDER STATES
@@ -379,6 +423,9 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
         existingPairs={data.existingPairs}
         teams={isTeamMatchPlay ? data.teams : undefined}
         isTeamMatchPlay={isTeamMatchPlay}
+        teamNameByPlayerId={teamNameByPlayerId}
+        teamIndexByPlayerId={teamIndexByPlayerId}
+        groupPlayerIds={groupPlayerIds}
         onSave={handleSavePairs}
         onCancel={handleCancel}
         testID="scoring-pair-formation-ui"

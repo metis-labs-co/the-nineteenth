@@ -198,9 +198,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     navigation,
     currentHole,
     setCurrentHole: interceptedSetCurrentHole,
-    pendingSyncCount,
-    onLeaveAttempt: dialogs.openLeaveDialog,
-    triggerSync,
     holes,
   });
 
@@ -269,12 +266,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     getHoleInfo,
     processSkinsHole: undefined as never, // Skins processing is handled in useScoreHandlers
   });
-
-  // Handle leave confirm with dialog close
-  const handleLeaveConfirm = useCallback(() => {
-    dialogs.closeLeaveDialog();
-    nav.handleLeaveConfirm();
-  }, [dialogs, nav]);
 
   const isLoading = storeLoading || dataLoading;
   const playersToRender =
@@ -496,10 +487,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       />
 
       <ScorecardDialogs
-        showLeaveDialog={dialogs.showLeaveDialog}
-        pendingSyncCount={pendingSyncCount}
-        onLeaveConfirm={handleLeaveConfirm}
-        onLeaveCancel={dialogs.closeLeaveDialog}
         showIncompleteDialog={dialogs.showIncompleteDialog}
         completedHolesCount={dialogs.completedHolesCount}
         onIncompleteConfirm={submission.performSubmit}

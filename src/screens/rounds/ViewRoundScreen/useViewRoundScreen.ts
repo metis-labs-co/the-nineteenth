@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
+import { usePairings, useSubMatches } from '@/hooks/rounds';
+import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { TabKey } from './types';
@@ -44,7 +46,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
   const {
     round, roundError, scorecards, roundPlayers, matchPlayData, competitionInfo,
-    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound,
+    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, isTeamStrokeRound, isTeamRound,
     isLoading, refetchRound, refetchScorecards, refetchPlayers, refetchMatchPlay,
   } = dataFetch;
 
@@ -84,6 +86,23 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     statsVisibility.showBunkerShots ||
     statsVisibility.showHazards;
 
+  // Counts surfaced as tab badges. Pairings and sub-matches are TanStack
+  // queries so the view inside the Groups / Sub-Matches tab shares the
+  // same cache. Teams fetch is lightweight and already used elsewhere.
+  const { data: pairingsForCount } = usePairings(roundId);
+  const { data: subMatchesForCount } = useSubMatches(
+    isSplitRound ? roundId : undefined
+  );
+  const { teams: teamsForCount } = useRoundTeams(
+    competitionId ?? undefined,
+    !!competitionId || isTeamRound,
+    roundId
+  );
+  const groupCount = isSplitRound
+    ? subMatchesForCount?.length ?? 0
+    : pairingsForCount?.length ?? 0;
+  const teamCount = teamsForCount.length;
+
   // Tabs
   const tabs = useViewRoundTabs({
     isMatchPlayRound,
@@ -92,11 +111,21 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isScrambleRound,
     isStrokePlayRound,
     isSplitRound,
+    isTeamStrokeRound,
+    isTeamRound,
     hasSkinsGame,
     hasWolfGame,
     hasPayoutsTab,
     hasStats,
-    playerCount: scorecards?.length ?? 0,
+    // Prefer the round-player count when it's higher than the scorecard
+    // count — scorecards only exist once scoring starts, but tabs like
+    // "Groups" need to appear before anyone has scored.
+    playerCount: Math.max(
+      scorecards?.length ?? 0,
+      roundPlayers?.length ?? 0
+    ),
+    groupCount,
+    teamCount,
   });
 
   // Player data transformations
@@ -188,6 +217,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isScrambleRound,
     isStrokePlayRound,
     isSplitRound,
+    isTeamStrokeRound,
+    isTeamRound,
     isUserPlaying: permissions.isUserPlaying,
     isOrganizer: permissions.isOrganizer,
     isTeamSkins,

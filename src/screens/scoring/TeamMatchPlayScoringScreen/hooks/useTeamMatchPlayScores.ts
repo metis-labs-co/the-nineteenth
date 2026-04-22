@@ -57,7 +57,12 @@ export function useTeamMatchPlayScores(
   holes: Hole[]
 ) {
   const colors = useThemeColors();
-  const { setPlayerScore, getPlayerScore } = useScorecardStore();
+  // Subscribe to `groupScorecards` so the memos below recompute when scores
+  // update. The Zustand `getPlayerScore`/`setPlayerScore` function references
+  // are stable across renders; without subscribing to the Map itself, the
+  // best-contributor / hole-winner memos would never re-run on score changes
+  // and the per-team match-status badge would go stale.
+  const { setPlayerScore, getPlayerScore, groupScorecards } = useScorecardStore();
 
   const getHoleByNumber = useCallback(
     (holeNumber: number): Hole | undefined => holes.find((h) => h.number === holeNumber),
@@ -65,7 +70,10 @@ export function useTeamMatchPlayScores(
   );
   const currentHoleData = useMemo(() => getHoleByNumber(currentHole), [getHoleByNumber, currentHole]);
 
-  // Get player score for a specific player on current hole
+  // Get player score for a specific player on current hole.
+  // `groupScorecards` is included so the callback identity refreshes when the
+  // underlying store Map changes — cascading through to memos that depend on
+  // this function.
   const getPlayerScoreValue = useCallback(
     (playerId: string): number | null => {
       const score = getPlayerScore(playerId, currentHole);
@@ -74,7 +82,7 @@ export function useTeamMatchPlayScores(
       }
       return null;
     },
-    [currentHole, getPlayerScore]
+    [currentHole, getPlayerScore, groupScorecards]
   );
 
   // Best contributor on the current hole (lowest net).
@@ -99,7 +107,8 @@ export function useTeamMatchPlayScores(
     );
   }, [team1BestContribCurrent, team2BestContribCurrent]);
 
-  // Get player score for any hole (dynamic version for swipe rendering)
+  // Get player score for any hole (dynamic version for swipe rendering).
+  // Depends on `groupScorecards` so consumers re-compute when scores update.
   const getPlayerScoreForHole = useCallback(
     (playerId: string, holeNumber: number): number | null => {
       const score = getPlayerScore(playerId, holeNumber);
@@ -108,7 +117,7 @@ export function useTeamMatchPlayScores(
       }
       return null;
     },
-    [getPlayerScore]
+    [getPlayerScore, groupScorecards]
   );
 
   // Get team best score for any hole (gross of the lowest-net player).

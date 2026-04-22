@@ -10,6 +10,23 @@ import type {
   GeneratePairingsResult,
 } from '@/types';
 
+export interface GenerateTeamBalancedGroupsOptions {
+  /** One entry per team, holding that team's players. Team order is preserved
+   *  in each resulting group (team 0 slots first, then team 1, …). */
+  teamPlayers: PairingPlayer[][];
+  /** Players per physical tee group (typically 4). */
+  groupSize: number;
+  /** Start tee time HH:MM. */
+  startTime: string;
+  /** Minutes between tee groups. */
+  intervalMinutes: number;
+}
+
+export interface GenerateTeamBalancedGroupsResult {
+  groups: PairingGroup[];
+  warnings: string[];
+}
+
 /**
  * Generate pairings using a snake draft algorithm.
  * Players are sorted by handicap and distributed in a snake pattern
@@ -414,8 +431,9 @@ export interface GenerateSubMatchesOptions {
   teamAPlayers: PairingPlayer[];
   /** Players on team B */
   teamBPlayers: PairingPlayer[];
-  /** Players per sub-team (1 = 1v1, 2 = 2v2, 3 = 3v3) */
-  subMatchSize: 1 | 2 | 3;
+  /** Players per sub-team (1 = 1v1, 2 = 2v2, etc.). UI enforces divisors
+   *  of the team size; DB check constraint caps at 10. */
+  subMatchSize: number;
   /** Start tee time HH:MM */
   startTime: string;
   /** Minutes between tee groups */
@@ -452,7 +470,7 @@ export interface GenerateSubMatchesResult {
  */
 function snakeDraftSubTeams(
   players: PairingPlayer[],
-  subMatchSize: 1 | 2 | 3
+  subMatchSize: number
 ): PairingPlayer[][] {
   if (players.length === 0) return [];
 
@@ -478,6 +496,12 @@ function snakeDraftSubTeams(
       dir = 1;
     }
   }
+
+  // Sort sub-teams by size descending so any remainder (smaller group) is
+  // always the last sub-match. Matches the UX spec — users expect "sub-match
+  // N is the smaller/odd one" rather than the snake-draft's natural ordering
+  // which can push the remainder to the front.
+  subTeams.sort((a, b) => b.length - a.length);
 
   return subTeams;
 }
@@ -550,4 +574,114 @@ export function generateSubMatches(
   }
 
   return { subMatches, warnings };
+}
+
+/**
+ * All positive divisors of `n` in ascending order.
+ *
+ * Used to derive the valid sub-match size options for a split round from
+ * the team size — e.g. a 4-player team can split into 1v1 (4 matches),
+ * 2v2 (2 matches), or 4v4 (1 match). Returns `[]` for non-positive input.
+ */
+export function divisorsOf(n: number): number[] {
+  if (!Number.isFinite(n) || n < 1) return [];
+  const result: number[] = [];
+  for (let i = 1; i <= n; i += 1) {
+    if (n % i === 0) result.push(i);
+  }
+  return result;
+}
+
+/**
+ * Generate tee groups that keep teams evenly represented in each group.
+ *
+ * Algorithm:
+ *   1. Decide how many groups to make: ceil(totalPlayers / groupSize).
+ *   2. Snake-draft each team independently by handicap into that many
+ *      buckets, so within a team the skill is balanced across groups.
+ *   3. Concatenate bucket `i` across every team to form physical group `i`.
+ *      Each group ends up with the same share of every team.
+ *
+ * Examples:
+ *   - 2 teams of 4, groupSize 4 → 2 groups of (2 from A + 2 from B) = 4.
+ *   - 2 teams of 3, groupSize 4 → group 1 = (2+2) = 4, group 2 = (1+1) = 2.
+ *   - 2 teams of 5, groupSize 4 → groups of 4, 4, 2.
+ *
+ * Unbalanced team rosters or group sizes that don't divide evenly are
+ * surfaced via `warnings` so the caller can show an inline note.
+ */
+export function generateTeamBalancedGroups(
+  options: GenerateTeamBalancedGroupsOptions
+): GenerateTeamBalancedGroupsResult {
+  const { teamPlayers, groupSize, startTime, intervalMinutes } = options;
+  const warnings: string[] = [];
+
+  const nonEmptyTeams = teamPlayers.filter((t) => t.length > 0);
+  const totalPlayers = nonEmptyTeams.reduce((acc, t) => acc + t.length, 0);
+
+  if (nonEmptyTeams.length < 2) {
+    warnings.push('Need at least two teams with players for team-balanced groups');
+    return { groups: [], warnings };
+  }
+  if (groupSize < 2) {
+    warnings.push('Group size must be at least 2');
+    return { groups: [], warnings };
+  }
+
+  const numGroups = Math.max(1, Math.ceil(totalPlayers / groupSize));
+
+  // Snake-draft each team by handicap into `numGroups` buckets. The draft
+  // direction alternates between teams so the strongest player on team A
+  // and the strongest on team B don't always land together in group 0.
+  const teamBuckets: PairingPlayer[][][] = nonEmptyTeams.map((players, teamIdx) => {
+    const sorted = [...players].sort((a, b) => {
+      const ha = a.handicap ?? 54;
+      const hb = b.handicap ?? 54;
+      return ha - hb;
+    });
+    const buckets: PairingPlayer[][] = Array.from({ length: numGroups }, () => []);
+    let idx = teamIdx % 2 === 0 ? 0 : numGroups - 1;
+    let dir = teamIdx % 2 === 0 ? 1 : -1;
+    for (const p of sorted) {
+      buckets[idx].push(p);
+      const next = idx + dir;
+      if (next >= numGroups) {
+        dir = -1;
+        idx = numGroups - 1;
+      } else if (next < 0) {
+        dir = 1;
+        idx = 0;
+      } else {
+        idx = next;
+      }
+    }
+    return buckets;
+  });
+
+  const groups: PairingGroup[] = [];
+  for (let i = 0; i < numGroups; i += 1) {
+    const playerIds: string[] = [];
+    for (const buckets of teamBuckets) {
+      for (const p of buckets[i]) playerIds.push(p.id);
+    }
+    groups.push({
+      playerIds,
+      teeTime: calculateTeeTime(startTime, intervalMinutes, i),
+      slotIndex: i,
+    });
+  }
+
+  const sizes = groups.map((g) => g.playerIds.length);
+  if (sizes.length > 0 && Math.max(...sizes) - Math.min(...sizes) > 1) {
+    warnings.push(
+      'Groups have uneven sizes — team rosters do not split evenly for this group size'
+    );
+  }
+  if (sizes.some((s) => s > groupSize)) {
+    warnings.push(
+      `At least one group exceeds the requested size of ${groupSize}`
+    );
+  }
+
+  return { groups, warnings };
 }

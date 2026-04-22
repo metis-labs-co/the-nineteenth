@@ -120,7 +120,7 @@ async function fetchCompetitionStatisticsData(
           holes
         )
       ),
-      players!inner (
+      players!scorecards_player_id_fkey!inner (
         id,
         name,
         handicap

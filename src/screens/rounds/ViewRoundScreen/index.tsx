@@ -50,6 +50,7 @@ import { ShambleTeamScoresTab } from './tabs/ShambleTeamScoresTab';
 import { StatsTab } from './tabs/StatsTab';
 import { StrokePlayLeaderboardTab } from './tabs/StrokePlayLeaderboardTab';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
+import { TeamsTab } from './tabs/TeamsTab';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
@@ -291,8 +292,27 @@ export default function ViewRoundScreen(props: Props) {
             roundId={round.id}
           />
         )}
-        {vm.activeTab === 'subMatches' && vm.isSplitRound && (
-          <SubMatchesTab roundId={round.id} />
+        {vm.activeTab === 'subMatches' && (
+          <SubMatchesTab
+            roundId={round.id}
+            competitionId={vm.competitionId ?? null}
+            isOrganizer={vm.isOrganizer}
+            isSplitRound={vm.isSplitRound}
+            isTeamRound={round.is_team_round ?? false}
+            scoringPairsEnabled={round.scoring_pairs_required ?? false}
+            gameType={round.game_type}
+            roundTeeTime={round.tee_time}
+          />
+        )}
+        {vm.activeTab === 'teams' && vm.isTeamRound && (
+          <TeamsTab
+            roundId={round.id}
+            competitionId={vm.competitionId ?? null}
+            isTeamStrokeRound={vm.isTeamStrokeRound}
+            isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
+            teamFormat={round.team_format}
+            currentUserId={vm.user?.id}
+          />
         )}
         {vm.activeTab === 'skins' && vm.hasSkinsGame && vm.activeSkinsGame && (
           <SkinsTab

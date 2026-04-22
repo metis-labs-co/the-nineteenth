@@ -39,6 +39,7 @@ import {
   ContributionsTabContent,
   ScrambleLeaderboardTab,
   MatchPlayLeaderboardTab,
+  MatchScorecardTabContent,
 } from './components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReviewScorecard'>;
@@ -238,7 +239,20 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       )}
 
       {/* Tab Content */}
-      {activeTab === 'scorecard' && (
+      {activeTab === 'scorecard' && isMatchPlayTeam && (
+        <MatchScorecardTabContent
+          roundId={roundId || undefined}
+          holes={holes}
+          roundDetails={roundDetails}
+          selectedTeeData={selectedTeeData}
+          handicapSource={handicapSource}
+          isRefreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          bottomInset={insets.bottom}
+        />
+      )}
+
+      {activeTab === 'scorecard' && !isMatchPlayTeam && (
         <ScorecardTabContent
           holes={holes}
           tablePlayerData={tablePlayerData}
@@ -312,9 +326,12 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
       {activeTab === 'leaderboard' && !isScramble && isMatchPlayTeam && (
         <MatchPlayLeaderboardTab
           roundId={roundId || undefined}
+          holes={holes}
+          roundDetails={roundDetails}
+          selectedTeeData={selectedTeeData}
+          handicapSource={handicapSource}
           currentUserId={currentUserId}
           roundStatus={roundDetails?.status ?? 'in-progress'}
-          isTeamRound
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

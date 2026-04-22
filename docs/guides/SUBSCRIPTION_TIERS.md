@@ -37,7 +37,7 @@ Tier hierarchy (low → high): `free < social < premium < enterprise < super_adm
 | Join competitions | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
 | Create competitions | 3 | 8 | 50 | 200 | No limit | No limit |
 | Rounds per competition | 2 | 5 | 10 | 20 | No limit | No limit |
-| Players per competition | 8 | 16 | 40 | 100 | No limit | No limit |
+| Players per competition | 4 | 12 | 40 | 100 | No limit | No limit |
 | **Game Types** | | | | | | |
 | Stableford | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Stroke Play | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |

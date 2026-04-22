@@ -284,7 +284,7 @@ export function useSubscriptionState() {
     if (selectedUpgradeTier === 'social') {
       benefits.push(
         'Up to 8 competitions',
-        'Up to 16 players per competition',
+        'Up to 12 players per competition',
         'Unlimited social rounds',
         'Stroke Play & Match Play formats',
         'Detailed stats, handicap history & achievements',

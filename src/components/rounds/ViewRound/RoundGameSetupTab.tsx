@@ -2,25 +2,30 @@
  * RoundGameSetupTab - Game configuration tab for ViewRoundScreen
  *
  * Houses configuration sections for optional game features:
- * - Player Groups (Pairings with tee times)
  * - Scoring Pairs (Premium feature for competitive rounds)
  * - Skins Game (Side betting game)
  *
  * Visible to organizers always (to configure), and to players
  * when features are already configured (read-only).
  *
+ * Player groups / tee-group pairings live on the dedicated Groups tab
+ * (alongside the shuffle + scoring-pairs quick link) and are no longer
+ * surfaced here to avoid two places to edit the same data.
+ *
  * Note: Wolf game results are displayed on the dedicated Wolf tab of
  * ViewRoundScreen, not here. The settings screen intentionally omits
  * wolf scorecard/standings to keep it focused on configuration.
  */
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { Alert, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useQueryClient } from '@tanstack/react-query';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography } from '@/constants/theme';
+import { updateRound } from '@/screens/admin/EditRoundScreen/hooks/useEditRoundData';
+import { roundKeys } from '@/hooks/queryKeys';
 import {
-  PairingsSection,
   ScoringPairsSection,
   SkinsGameSection,
 } from './RoundDetailsTab/components';
@@ -31,7 +36,9 @@ import type { Player } from '@/types';
 export interface RoundGameSetupTabProps {
   round: RoundWithCourse;
   isOrganizer: boolean;
-  /** Players available for grouping */
+  /** Players on the round — used to decide whether to show the scoring
+   *  pairs section (requires at least 2 players) and whether pair
+   *  management happens here (≤4) or on the Groups tab (>4). */
   players?: Player[];
   onScoringPairsEditPress?: () => void;
   onSkinsEditPress?: () => void;
@@ -45,13 +52,32 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   onSkinsEditPress,
 }: RoundGameSetupTabProps) {
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
 
-  // Only show pairings for rounds with more than 4 players
-  const showPairings = players.length > 4;
+  // Scoring pairs only applies to individual, multi-player rounds.
+  // Team rounds have their own natural scoring flow (teammates score each
+  // other) and Scramble has no per-player cards at all, so the designated-
+  // marker concept doesn't translate. Solo rounds are also excluded since
+  // there's nobody to pair with.
+  const showScoringPairs = players.length > 1 && !round.is_team_round;
 
-  // Scoring pairs only makes sense when at least two players can score each
-  // other; hide the section on solo rounds.
-  const showScoringPairs = players.length > 1;
+  // Flip round.scoring_pairs_required. For >4-player rounds this just
+  // gates the Groups-tab "Scoring pairs" button; for ≤4-player rounds
+  // it also drives whether the pair-management card below is visible.
+  const handleToggleScoringPairs = useCallback(
+    async (enabled: boolean) => {
+      try {
+        await updateRound(round.id, { scoring_pairs_required: enabled });
+        queryClient.invalidateQueries({ queryKey: roundKeys.detail(round.id) });
+      } catch (err) {
+        Alert.alert(
+          'Unable to update scoring pairs',
+          err instanceof Error ? err.message : 'Please try again.'
+        );
+      }
+    },
+    [round.id, queryClient]
+  );
 
   return (
     <View style={styles.container}>
@@ -59,16 +85,6 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
       <Text style={[styles.headerText, { color: colors.textSecondary }]}>
         Configure optional game features for this round
       </Text>
-
-      {/* Player Groups Section - For rounds with >4 players */}
-      {showPairings && (
-        <PairingsSection
-          roundId={round.id}
-          players={players}
-          defaultTeeTime={round.tee_time}
-          canEdit={isOrganizer}
-        />
-      )}
 
       {/* Scoring Pairs Section - Premium Feature, multi-player only */}
       {showScoringPairs && (
@@ -78,6 +94,8 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
           cardBackground={colors.surface}
           roundStatus={round.status as RoundStatus}
           onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
+          playerCount={players.length}
+          onToggleEnabled={isOrganizer ? handleToggleScoringPairs : undefined}
         />
       )}
 

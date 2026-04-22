@@ -15,6 +15,7 @@ import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
+import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
@@ -25,6 +26,7 @@ import { supabase } from '@/services/supabase/client';
 import LoginScreen from '@/screens/auth/LoginScreen';
 import SignupScreen from '@/screens/auth/SignupScreen';
 import OTPVerificationScreen from '@/screens/auth/OTPVerificationScreen';
+import WelcomeCarouselScreen from '@/screens/auth/WelcomeCarouselScreen';
 
 // Main Tab Navigator
 import MainTabNavigator from './MainTabNavigator';
@@ -115,6 +117,7 @@ interface RootNavigatorProps {
 export default function RootNavigator({ theme }: RootNavigatorProps) {
   const { isAuthenticated, isInitializing, isLoading, player } = useAuth();
   const colors = useThemeColors();
+  const { hasSeenWelcome } = useHasSeenWelcome();
   const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
 
   const handleSignOut = useCallback(() => {
@@ -144,7 +147,13 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   // Show loading screen while:
   // 1. Auth is still initializing (waiting for first auth state)
   // 2. User is authenticated but player data is still loading
-  if (isInitializing || (isAuthenticated && isLoading)) {
+  // 3. Logged-out user whose welcome-seen flag has not yet hydrated from AsyncStorage
+  //    (prevents a flash of Login before we know whether to show the welcome carousel)
+  if (
+    isInitializing ||
+    (isAuthenticated && isLoading) ||
+    (!isAuthenticated && hasSeenWelcome === null)
+  ) {
     if (__DEV__) {
       console.log('[RootNavigator] Showing loading screen');
     }
@@ -180,6 +189,18 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         {!isAuthenticated ? (
           // Auth screens - shown when user is NOT authenticated
           <>
+            {!hasSeenWelcome && (
+              <Stack.Screen
+                name="WelcomeCarousel"
+                component={WelcomeCarouselScreen}
+                options={{
+                  title: 'Welcome',
+                  headerShown: false,
+                  gestureEnabled: false,
+                  animation: 'fade',
+                }}
+              />
+            )}
             <Stack.Screen
               name="Login"
               component={LoginScreen}

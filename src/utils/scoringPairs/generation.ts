@@ -316,3 +316,141 @@ export function shuffleForPairing<T extends PlayerInput>(players: T[]): T[] {
 
   return shuffled;
 }
+
+/** One tee group (pairing) passed to the group-aware generator. */
+export interface GroupAwarePairingInput {
+  /** Unique id for the group (used only for warning messages). */
+  id?: string;
+  /** Players in the group, in play order. */
+  playerIds: string[];
+}
+
+export interface GroupAwarePairsResult {
+  pairs: ScoringPairCreateInput[];
+  warnings: string[];
+  /** Player ids that landed in a same-team pair because their group
+   *  couldn't supply a cross-team partner (e.g. uneven 3v1). */
+  sameTeamPairedPlayerIds: string[];
+  /** Player ids that couldn't be paired at all (solo player in a group,
+   *  no one to reciprocally mark with). */
+  unassignedPlayerIds: string[];
+}
+
+/**
+ * Generate scoring pairs that respect tee-group boundaries and prefer
+ * cross-team partners.
+ *
+ * Invariants the caller can rely on:
+ *  - Every pair's scorer and player are in the *same* group. A player
+ *    can only mark someone they're physically playing with.
+ *  - When a group contains players from 2+ teams, cross-team reciprocal
+ *    pairs are preferred: A↔B, then the next cross-team slot, etc.
+ *  - If one team dominates a group (uneven, e.g. 3 from team A + 1 from
+ *    team B), the leftover team-A players fall back to intra-team
+ *    reciprocal pairs — their ids are surfaced via
+ *    `sameTeamPairedPlayerIds` so the UI can flag it.
+ *  - Solo players in a single-player group can't be paired and are
+ *    returned via `unassignedPlayerIds`.
+ */
+export function generateGroupAwareScoringPairs(
+  groups: GroupAwarePairingInput[],
+  teamByPlayerId: Map<string, string>
+): GroupAwarePairsResult {
+  const pairs: ScoringPairCreateInput[] = [];
+  const warnings: string[] = [];
+  const sameTeamPairedPlayerIds: string[] = [];
+  const unassignedPlayerIds: string[] = [];
+
+  const makePair = (scorerId: string, playerId: string) => {
+    pairs.push({ scorerId, playerId });
+  };
+
+  groups.forEach((group, groupIdx) => {
+    const members = group.playerIds;
+    if (members.length < 2) {
+      if (members.length === 1) unassignedPlayerIds.push(members[0]);
+      return;
+    }
+
+    // Bucket the group's players by team. Players with no team land in
+    // their own bucket keyed by '__none__' so they still pair with each
+    // other without contaminating real teams.
+    const bucketKey = (id: string) => teamByPlayerId.get(id) ?? '__none__';
+    const buckets = new Map<string, string[]>();
+    for (const id of members) {
+      const key = bucketKey(id);
+      const list = buckets.get(key) ?? [];
+      list.push(id);
+      buckets.set(key, list);
+    }
+
+    const bucketKeys = Array.from(buckets.keys());
+
+    // Cross-team reciprocal pairs: walk each team A / team B slot until
+    // one side runs out. Extend naturally to 3+ teams by pairing the two
+    // largest remaining buckets each round.
+    let hasCrossTeamPartners = true;
+    while (hasCrossTeamPartners) {
+      const nonEmpty = bucketKeys.filter((k) => (buckets.get(k) ?? []).length > 0);
+      if (nonEmpty.length < 2) {
+        hasCrossTeamPartners = false;
+        break;
+      }
+      // Pick the two largest buckets — keeps the remainder minimal when
+      // teams are uneven.
+      nonEmpty.sort(
+        (a, b) => (buckets.get(b)?.length ?? 0) - (buckets.get(a)?.length ?? 0)
+      );
+      const [keyA, keyB] = nonEmpty;
+      const a = buckets.get(keyA)!.shift()!;
+      const b = buckets.get(keyB)!.shift()!;
+      makePair(a, b);
+      makePair(b, a);
+    }
+
+    // Leftover players (all from one bucket) — pair them reciprocally
+    // inside the bucket and flag that they're same-team.
+    const leftoverKey = bucketKeys.find(
+      (k) => (buckets.get(k) ?? []).length > 0
+    );
+    if (leftoverKey) {
+      const leftovers = buckets.get(leftoverKey) ?? [];
+      for (let i = 0; i + 1 < leftovers.length; i += 2) {
+        const a = leftovers[i];
+        const b = leftovers[i + 1];
+        makePair(a, b);
+        makePair(b, a);
+        sameTeamPairedPlayerIds.push(a, b);
+      }
+      if (leftovers.length % 2 === 1) {
+        // A truly lonely player — pair them reciprocally with the first
+        // cross-team player available so they're still covered, even if
+        // that doubles one player up.
+        const lonely = leftovers[leftovers.length - 1];
+        const fallbackKey = bucketKeys.find(
+          (k) => k !== leftoverKey && (group.playerIds.some((id) => bucketKey(id) === k))
+        );
+        const fallbackId = fallbackKey
+          ? group.playerIds.find((id) => bucketKey(id) === fallbackKey)
+          : undefined;
+        if (fallbackId) {
+          makePair(lonely, fallbackId);
+          makePair(fallbackId, lonely);
+        } else {
+          unassignedPlayerIds.push(lonely);
+          warnings.push(
+            `Group ${groupIdx + 1} has an odd solo player (${lonely}) with no partner`
+          );
+        }
+      }
+    }
+  });
+
+  if (sameTeamPairedPlayerIds.length > 0) {
+    warnings.push(
+      `Some groups were uneven — ${sameTeamPairedPlayerIds.length} player(s) ended up with a same-team scorer`
+    );
+  }
+
+  return { pairs, warnings, sameTeamPairedPlayerIds, unassignedPlayerIds };
+}

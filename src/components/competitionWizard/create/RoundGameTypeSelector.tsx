@@ -105,7 +105,7 @@ const TIER_BENEFITS: Record<SubscriptionTier, string[]> = {
     'Stroke Play game type',
     'Par game type',
     'Up to 5 competitions',
-    'Up to 16 players per competition',
+    'Up to 12 players per competition',
   ],
   premium: [
     'Match Play game type',

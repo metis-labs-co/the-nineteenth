@@ -1,76 +1,87 @@
 /**
- * SettingsSection - Competition settings display
+ * SettingsSection - Competition settings display and inline edit
  *
- * Displays:
- * - Competition type (league/event)
- * - Handicap system
- * - Team mode/format
- * - Team size (if teams enabled)
- * - Competition status
- * - Edit button (organizers only)
+ * Each line item on this card is tappable for organisers, opening a focused
+ * bottom sheet for that field. Structural fields (Type, Format, Team Size)
+ * are locked once any round has started scoring because changing them mid-
+ * competition would require complex data migration.
+ *
+ * Status stays read-only — it's system-managed by scoring progress.
  */
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon, Chip } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { Pill } from '@/components/common/Pill';
 import { SectionHeader } from '@/components/common';
-import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
+import { formatDateAustralian } from '@/utils/formatting';
 import {
   competitionTypeLabels,
   handicapSystemLabels,
   teamModeLabels,
   type SettingsSectionProps,
-  type EditableDetailRowProps,
 } from './types';
+import {
+  EditCompetitionTypeSheet,
+  EditHandicapSystemSheet,
+  EditTeamModeSheet,
+  EditTeamSizeSheet,
+  EditDatesSheet,
+} from './sheets';
+
+type OpenSheet =
+  | 'type'
+  | 'handicap'
+  | 'team-mode'
+  | 'team-size'
+  | 'dates'
+  | null;
 
 // =====================================================
-// EDITABLE DETAIL ROW COMPONENT
+// SETTING ROW
 // =====================================================
 
-function EditableDetailRow({
-  label,
-  value,
-  isEditable,
-  onPress,
-  icon,
-  chip = false,
-  chipColor,
-}: EditableDetailRowProps) {
+interface SettingRowProps {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  locked?: boolean;
+  children: React.ReactNode;
+}
+
+function SettingRow({ icon, label, onPress, locked = false, children }: SettingRowProps) {
   const colors = useThemeColors();
+  const isInteractive = !!onPress;
 
   const content = (
-    <View style={styles.detailRow}>
-      <View style={styles.detailLabelContainer}>
-        {icon && <Icon source={icon} size={18} color={colors.textSecondary} />}
-        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label}</Text>
+    <>
+      <View style={styles.iconContainer}>
+        <Icon source={icon} size={20} color={colors.primary} />
       </View>
-      <View style={styles.detailValueContainer}>
-        {chip ? (
-          <Chip
-            mode="flat"
-            style={[styles.detailChip, { backgroundColor: chipColor || colors.primaryLighter }]}
-            textStyle={[styles.detailChipText, { color: chipColor ? colors.white : colors.primaryDark }]}
-          >
-            {value}
-          </Chip>
-        ) : (
-          <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{value}</Text>
-        )}
-        {isEditable && (
-          <Icon source="chevron-right" size={20} color={colors.textSecondary} />
-        )}
+      <View style={styles.rowContent}>
+        <View style={styles.labelContainer}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+          {locked && (
+            <Icon source="lock-outline" size={14} color={colors.textSecondary} />
+          )}
+        </View>
+        <View style={styles.valueContainer}>
+          {children}
+          {isInteractive && (
+            <Icon source="chevron-right" size={20} color={colors.gray400} />
+          )}
+        </View>
       </View>
-    </View>
+    </>
   );
 
-  if (isEditable && onPress) {
+  if (isInteractive) {
     return (
       <TouchableOpacity
         onPress={onPress}
-        style={styles.detailRowPressable}
+        style={styles.row}
         accessibilityLabel={`Edit ${label}`}
         accessibilityRole="button"
         activeOpacity={0.7}
@@ -80,89 +91,174 @@ function EditableDetailRow({
     );
   }
 
-  return <View style={styles.detailRowPressable}>{content}</View>;
+  return <View style={styles.row}>{content}</View>;
 }
 
 // =====================================================
-// SETTINGS SECTION COMPONENT
+// SETTINGS SECTION
 // =====================================================
 
 export function SettingsSection({
   competition,
+  isOrganizer,
+  hasStartedRound,
 }: SettingsSectionProps) {
   const colors = useThemeColors();
+  const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
+
+  const handleClose = useCallback(() => setOpenSheet(null), []);
+
+  const canEdit = isOrganizer;
+  const structureLocked = hasStartedRound;
+  const canEditStructure = canEdit && !structureLocked;
+
+  const hasTeams = competition.team_mode !== 'none';
+  const showEndDate = competition.competition_type === 'event' || !!competition.end_date;
 
   return (
     <View style={styles.section}>
-      <SectionHeader
-        title="Settings"
-        icon="cog-outline"
-        primaryIcon={false}
-      />
+      <SectionHeader title="Settings" icon="cog-outline" primaryIcon={false} />
 
-      <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
-        {/* Competition Type */}
-        <View style={styles.detailRowPressable}>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLabelContainer}>
-              <Icon source="tag-outline" size={18} color={colors.textSecondary} />
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type</Text>
-            </View>
-            <View style={styles.detailValueContainer}>
-              <Pill
-                label={competitionTypeLabels[competition.competition_type] || 'Event'}
-                variant="primary"
-                size="md"
-              />
-            </View>
-          </View>
-        </View>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {/* Type */}
+        <SettingRow
+          icon="tag-outline"
+          label="Type"
+          onPress={canEditStructure ? () => setOpenSheet('type') : undefined}
+          locked={canEdit && structureLocked}
+        >
+          <Pill
+            label={competitionTypeLabels[competition.competition_type] || 'Event'}
+            variant="primary"
+            size="md"
+          />
+        </SettingRow>
 
         {/* Handicap System */}
-        <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-        <EditableDetailRow
-          label="Handicap System"
-          value={handicapSystemLabels[competition.handicap_system]}
-          isEditable={false}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <SettingRow
           icon="golf"
-        />
+          label="Handicap"
+          onPress={canEdit ? () => setOpenSheet('handicap') : undefined}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {handicapSystemLabels[competition.handicap_system]}
+          </Text>
+        </SettingRow>
 
-        {/* Team Mode */}
-        <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-        <EditableDetailRow
-          label="Format"
-          value={teamModeLabels[competition.team_mode]}
-          isEditable={false}
+        {/* Format (team mode) */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <SettingRow
           icon="account-group-outline"
-        />
+          label="Format"
+          onPress={canEditStructure ? () => setOpenSheet('team-mode') : undefined}
+          locked={canEdit && structureLocked}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {teamModeLabels[competition.team_mode]}
+          </Text>
+        </SettingRow>
 
         {/* Team Size (only if teams enabled) */}
-        {competition.team_mode !== 'none' && competition.team_size && (
+        {hasTeams && competition.team_size != null && (
           <>
-            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-            <EditableDetailRow
-              label="Team Size"
-              value={`${competition.team_size} players`}
-              isEditable={false}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <SettingRow
               icon="account-multiple-outline"
-            />
+              label="Team Size"
+              onPress={canEditStructure ? () => setOpenSheet('team-size') : undefined}
+              locked={canEdit && structureLocked}
+            >
+              <Text style={[styles.value, { color: colors.textPrimary }]}>
+                {`${competition.team_size} players`}
+              </Text>
+            </SettingRow>
           </>
         )}
 
-        {/* Status */}
-        <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.detailRowPressable}>
-          <View style={styles.detailRow}>
-            <View style={styles.detailLabelContainer}>
-              <Icon source="information-outline" size={18} color={colors.textSecondary} />
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Status</Text>
-            </View>
-            <View style={styles.detailValueContainer}>
-              <StatusBadge status={competition.status as StatusVariant} />
-            </View>
-          </View>
-        </View>
+        {/* Start Date */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <SettingRow
+          icon="calendar-start"
+          label="Start Date"
+          onPress={canEdit ? () => setOpenSheet('dates') : undefined}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {formatDateAustralian(competition.start_date)}
+          </Text>
+        </SettingRow>
+
+        {/* End Date (shown for event type or when set) */}
+        {showEndDate && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <SettingRow
+              icon="calendar-end"
+              label="End Date"
+              onPress={canEdit ? () => setOpenSheet('dates') : undefined}
+            >
+              <Text style={[styles.value, { color: colors.textPrimary }]}>
+                {competition.end_date
+                  ? formatDateAustralian(competition.end_date)
+                  : 'Not set'}
+              </Text>
+            </SettingRow>
+          </>
+        )}
+
       </View>
+
+      {canEdit && structureLocked && (
+        <Text style={[styles.lockedFootnote, { color: colors.textSecondary }]}>
+          Type, Format and Team Size are locked once scoring has started.
+        </Text>
+      )}
+
+      {/* Edit sheets — rendered only when open so their internal hooks
+          (useMutation) don't mount for the common read-only case. */}
+      {openSheet === 'type' && (
+        <EditCompetitionTypeSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentType={competition.competition_type}
+        />
+      )}
+      {openSheet === 'handicap' && (
+        <EditHandicapSystemSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentSystem={competition.handicap_system}
+        />
+      )}
+      {openSheet === 'team-mode' && (
+        <EditTeamModeSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentMode={competition.team_mode}
+          currentTeamSize={competition.team_size ?? null}
+        />
+      )}
+      {openSheet === 'team-size' && (
+        <EditTeamSizeSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentSize={competition.team_size ?? null}
+        />
+      )}
+      {openSheet === 'dates' && (
+        <EditDatesSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          initialStartDate={competition.start_date}
+          initialEndDate={competition.end_date ?? null}
+          competitionType={competition.competition_type}
+        />
+      )}
     </View>
   );
 }
@@ -172,59 +268,60 @@ export function SettingsSection({
 // =====================================================
 
 const styles = StyleSheet.create({
-  // Section
   section: {
     marginTop: spacing.md,
   },
-
-  // Settings Card
-  settingsCard: {
+  card: {
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
     overflow: 'hidden',
     ...shadows.sm,
   },
-
-  // Detail Row
-  detailRowPressable: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  detailRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: spacing.md,
   },
-  detailLabelContainer: {
-    flexDirection: 'row',
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.sm,
+  },
+  rowContent: {
     flex: 1,
+    marginLeft: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  detailLabel: {
-    ...typography.body,
-  },
-  detailValueContainer: {
+  labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    flex: 1,
-    justifyContent: 'flex-end',
   },
-  detailValue: {
+  label: {
     ...typography.body,
+  },
+  valueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  value: {
+    ...typography.bodyBold,
     textAlign: 'right',
   },
-  detailChip: {
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  detailChipText: {
-    ...typography.small,
-  },
-  detailDivider: {
+  divider: {
     height: 1,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
+  },
+  lockedFootnote: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
 });
 

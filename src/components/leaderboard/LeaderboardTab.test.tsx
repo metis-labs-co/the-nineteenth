@@ -202,6 +202,8 @@ function createMockRound(
     team_format: null,
     round_format: 'combined',
     sub_match_size: null,
+    team1_id: null,
+    team2_id: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,

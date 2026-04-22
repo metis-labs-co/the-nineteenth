@@ -17,7 +17,7 @@ import {
 } from '@/constants/theme';
 import { ScoringPairCard } from '../../ScoringPairCard';
 import { PlayerSelectionChip } from './PlayerSelectionChip';
-import { getPlayerById } from '../utils';
+import { getPlayerById, groupScoringPairs, getTeamColor } from '../utils';
 import type { Player } from '@/types/database.types';
 import type { ScoringPairCreateInput } from '@/types';
 import type { PairingType } from '../types';
@@ -29,6 +29,12 @@ interface PairsListSectionProps {
   selectedPlayer: string | null;
   onPlayerPress: (playerId: string) => void;
   onRemovePair: (scorerId: string, playerId: string) => void;
+  /** Optional player-id → team-name map. Drives the small team label
+   *  shown under each player's name in the chips and pair cards. */
+  teamNameByPlayerId?: Map<string, string>;
+  /** Optional player-id → team-slot-index map. Drives the chip/card
+   *  tint so team A reads green, team B gold, etc. */
+  teamIndexByPlayerId?: Map<string, number>;
   colors: ColorPalette;
 }
 
@@ -39,19 +45,27 @@ export const PairsListSection = React.memo(function PairsListSection({
   selectedPlayer,
   onPlayerPress,
   onRemovePair,
+  teamNameByPlayerId,
+  teamIndexByPlayerId,
   colors,
 }: PairsListSectionProps) {
   const hasPairs = pairs.length > 0;
 
-  // Get header text based on pairing type
+  // Collapse reciprocal rows (A→B + B→A) into single logical cards so
+  // "8 players reciprocal" renders as 4 pairs, not 8.
+  const groupedPairs = React.useMemo(() => groupScoringPairs(pairs), [pairs]);
+
+  // Get header text based on pairing type. Counts match the number of
+  // rendered cards — one per logical relationship.
   const getPairsSectionTitle = () => {
+    const count = groupedPairs.length;
     switch (pairingType) {
       case 'circular':
-        return `Chain Assignments (${pairs.length})`;
+        return `Chain Assignments (${count})`;
       case 'reciprocal':
-        return `Reciprocal Pairs (${pairs.length / 2})`;
+        return `Reciprocal Pairs (${count})`;
       default:
-        return `Current Pairs (${pairs.length})`;
+        return `Current Pairs (${count})`;
     }
   };
 
@@ -85,6 +99,11 @@ export const PairsListSection = React.memo(function PairsListSection({
                 player={player}
                 isSelected={selectedPlayer === player.id}
                 onPress={() => onPlayerPress(player.id)}
+                teamName={teamNameByPlayerId?.get(player.id)}
+                teamColor={
+                  getTeamColor(teamIndexByPlayerId?.get(player.id), colors) ??
+                  undefined
+                }
                 colors={colors}
               />
             ))}
@@ -125,6 +144,11 @@ export const PairsListSection = React.memo(function PairsListSection({
               isSelected={selectedPlayer === player.id}
               isCompact
               onPress={() => onPlayerPress(player.id)}
+              teamName={teamNameByPlayerId?.get(player.id)}
+              teamColor={
+                getTeamColor(teamIndexByPlayerId?.get(player.id), colors) ??
+                undefined
+              }
               colors={colors}
             />
           ))}
@@ -145,8 +169,10 @@ export const PairsListSection = React.memo(function PairsListSection({
         )}
       </View>
 
-      {/* Pairs List */}
-      {pairs.map((pair, index) => {
+      {/* Pairs List — one card per logical relationship. Reciprocal
+          pairs collapse to a single card; circular chain links stay as
+          individual directed cards. */}
+      {groupedPairs.map((pair, index) => {
         const scorer = getPlayerById(players, pair.scorerId);
         const scoredPlayer = getPlayerById(players, pair.playerId);
         if (!scorer || !scoredPlayer) return null;
@@ -172,6 +198,17 @@ export const PairsListSection = React.memo(function PairsListSection({
                 createdAt: new Date(scoredPlayer.created_at),
                 updatedAt: new Date(scoredPlayer.updated_at),
               }}
+              scorerTeamName={teamNameByPlayerId?.get(scorer.id)}
+              scoredTeamName={teamNameByPlayerId?.get(scoredPlayer.id)}
+              scorerTeamColor={
+                getTeamColor(teamIndexByPlayerId?.get(scorer.id), colors) ??
+                undefined
+              }
+              scoredTeamColor={
+                getTeamColor(teamIndexByPlayerId?.get(scoredPlayer.id), colors) ??
+                undefined
+              }
+              reciprocal={pair.reciprocal}
               showRemove
               onRemove={() => onRemovePair(pair.scorerId, pair.playerId)}
               testID={`pair-${index}`}

@@ -20,7 +20,7 @@ import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBott
 import { EditPrizePoolBottomSheet } from '@/components/prizePool';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useTierLimits, useIsPremium } from '@/context/SubscriptionContext';
+import { useTierLimits, useIsSuperAdmin } from '@/context/SubscriptionContext';
 import { UpgradePrompt } from '@/components/subscription';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
@@ -32,6 +32,7 @@ import {
   TeamsTab,
   LeaderboardTab,
   StatsTab,
+  PayoutsTab,
 } from '@/components/competitions/detail';
 import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal } from '@/components/leaderboard';
@@ -44,14 +45,22 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
 
-type TabValue = 'details' | 'rounds' | 'players' | 'teams' | 'leaderboard' | 'bracket' | 'stats';
+type TabValue =
+  | 'details'
+  | 'rounds'
+  | 'players'
+  | 'teams'
+  | 'leaderboard'
+  | 'bracket'
+  | 'stats'
+  | 'payouts';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { id } = route.params;
   const insets = useSafeAreaInsets();
   const tierLimits = useTierLimits();
-  const isPremium = useIsPremium();
+  const isSuperAdmin = useIsSuperAdmin();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabValue>('details');
@@ -207,13 +216,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
       <Tabs
         tabs={[
           { key: 'details', label: 'Details' },
-          { key: 'rounds', label: 'Rounds' },
-          { key: 'players', label: 'Players' },
+          { key: 'rounds', label: 'Rounds', count: rounds.length },
+          { key: 'players', label: 'Players', count: players.length },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
           ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
           ...(competition.competition_type === 'knockout'
             ? [{ key: 'bracket' as const, label: 'Bracket' }]
             : [{ key: 'leaderboard' as const, label: 'Leaderboard' }]),
+          ...(prizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
@@ -244,6 +254,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             playerCount={players.length}
             currentStanding={currentStanding}
             isOrganizer={isOrganizer}
+            hasStartedRound={hasStartedRound}
             prizePool={prizePool}
             prizePoolPlacements={prizePoolPlacements}
             isPrizePoolLocked={isPrizePoolLocked}
@@ -261,7 +272,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onAddRound={handleAddRound}
             onScoreRound={handleScoreRound}
             onViewRound={handleViewRound}
-            onQuickScore={isOrganizer && isPremium ? handleQuickScore : undefined}
+            onQuickScore={isOrganizer && isSuperAdmin ? handleQuickScore : undefined}
             onManageScoringPairs={handleManageScoringPairs}
             scoringPairsStatus={scoringPairsStatus}
             allScoredStatus={allScoredStatus}
@@ -324,6 +335,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             isOrganizer={isOrganizer}
           />
         )}
+
+        {activeTab === 'payouts' && prizePool && (
+          <PayoutsTab
+            competition={competition}
+            prizePool={prizePool}
+            placements={prizePoolPlacements ?? []}
+            isOrganizer={isOrganizer}
+          />
+        )}
       </ScrollView>
 
       {/* Add Players Bottom Sheet */}
@@ -378,7 +398,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           targetTier: 'social',
           benefits: [
             'Add more players to competitions',
-            'Up to 16 players on Social',
+            'Up to 12 players on Social',
             'Up to 40 players on Premium',
           ],
         }}

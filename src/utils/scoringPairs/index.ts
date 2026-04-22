@@ -13,14 +13,17 @@ export type {
   ScoringPairsCoverageResult,
 } from './types';
 
-// Pair generation (reciprocal, circular, auto, cross-team, shuffle)
+// Pair generation (reciprocal, circular, auto, cross-team, group-aware,
+// shuffle)
 export {
   generateReciprocalPairs,
   generateCircularChain,
   autoGenerateScoringPairs,
   generateCrossTeamPairs,
+  generateGroupAwareScoringPairs,
   shuffleForPairing,
 } from './generation';
+export type { GroupAwarePairingInput, GroupAwarePairsResult } from './generation';
 
 // Coverage validation
 export { validateScoringPairsCoverage } from './validation';

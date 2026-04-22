@@ -1,50 +1,30 @@
 /**
- * CompetitionSettingsScreen - Admin settings for a competition
+ * CompetitionSettingsScreen - Admin-only utilities for a competition.
  *
- * Single place to edit all configurable competition details:
- * - Name / description
- * - Competition type (Event / Knockout) — locked once scoring has started
- * - Format / team mode (Individual / Teams) — locked once scoring has started
- * - Start / end dates
- * - Per-player tee selection
- * - Invite code (share)
- * - Delete competition
+ * All inline editing of competition metadata now happens on the Details tab
+ * via per-field bottom sheets, so this screen exists only for the two
+ * concerns that didn't have a natural home there:
+ * - Sharing the invite code
+ * - Deleting the competition
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  Share,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useCallback } from 'react';
+import { ScrollView, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Divider, Icon, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import {
   ConfirmationDialog,
-  FormSection,
   LoadingSpinner,
   PageHeader,
   SectionHeader,
 } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useConfirmationDialog } from '@/hooks';
-import { borderRadius, shadows, spacing, typography } from '@/constants/theme';
+import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
-import { supabase } from '@/services/supabase/client';
-import { competitionPlayersService } from '@/services/competitionPlayers/competitionPlayersService';
-import { getTeeColor } from '@/screens/rounds/CreateRoundBottomSheet/types';
-import type { TeeBox } from '@/types/database.types';
 
-import { CompetitionBasicInfo, CompetitionSettings } from './components';
-import {
-  useCompetitionData,
-  useCompetitionSubmission,
-  useEditCompetitionForm,
-} from './hooks';
+import { useCompetitionData } from './hooks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
 
@@ -57,84 +37,8 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     dismissDialog: dismissAlertDialog,
   } = useConfirmationDialog();
 
-  const { competition, hasStartedRound, isLoading, error } = useCompetitionData({
-    competitionId,
-  });
+  const { competition, isLoading, error } = useCompetitionData({ competitionId });
 
-  // Form state — react-hook-form backed
-  const {
-    control,
-    handleSubmit,
-    errors,
-    isDirty,
-    competitionType,
-    teamMode,
-    startDateParsed,
-    handleCompetitionTypeChange,
-    handleTeamModeChange,
-    handleStartDateChange,
-    handleEndDateChange,
-  } = useEditCompetitionForm({ competition });
-
-  // Per-player tee selection state (kept local, saves optimistically)
-  const [players, setPlayers] = useState<
-    {
-      player_id: string;
-      selected_tee: TeeBox | null;
-      players: { id: string; name: string; handicap: number | null };
-    }[]
-  >([]);
-  const [availableTees, setAvailableTees] = useState<TeeBox[]>([]);
-
-  useEffect(() => {
-    if (!competitionId) return;
-
-    supabase
-      .from('competition_players')
-      .select('player_id, selected_tee, players!player_id(id, name, handicap)')
-      .eq('competition_id', competitionId)
-      .eq('status', 'accepted')
-      .then(({ data }) => {
-        if (data) {
-          setPlayers(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (data as any[]).map((d) => ({
-              player_id: d.player_id,
-              selected_tee: d.selected_tee as TeeBox | null,
-              players: d.players as { id: string; name: string; handicap: number | null },
-            })),
-          );
-        }
-      });
-
-    supabase
-      .from('rounds')
-      .select('id, round_number, courses!course_id(id, name, tees)')
-      .eq('competition_id', competitionId)
-      .order('round_number')
-      .then(({ data }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const firstRoundCourse = (data as any)?.[0]?.courses;
-        if (firstRoundCourse?.tees) {
-          setAvailableTees(firstRoundCourse.tees as TeeBox[]);
-        }
-      });
-  }, [competitionId]);
-
-  // Save competition detail changes
-  const {
-    handleSubmit: submitUpdate,
-    isSubmitting,
-    dialogConfig: submissionDialogConfig,
-    dismissDialog: dismissSubmissionDialog,
-  } = useCompetitionSubmission({
-    competitionId,
-    onSuccess: () => {
-      Alert.alert('Saved', 'Competition settings updated.');
-    },
-  });
-
-  // Delete
   const {
     showDeleteDialog,
     setShowDeleteDialog,
@@ -145,22 +49,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     onDeleted: () => navigation.popToTop(),
     showAlert,
   });
-
-  const handleTeeChange = useCallback(
-    async (playerId: string, tee: TeeBox) => {
-      const previousPlayers = players;
-      setPlayers((prev) =>
-        prev.map((p) => (p.player_id === playerId ? { ...p, selected_tee: tee } : p)),
-      );
-      try {
-        await competitionPlayersService.updateCompetitionPlayerTee(competitionId, playerId, tee);
-      } catch {
-        setPlayers(previousPlayers);
-        Alert.alert('Error', 'Failed to update tee selection. Please try again.');
-      }
-    },
-    [competitionId, players],
-  );
 
   const handleShare = useCallback(async () => {
     if (!competition) return;
@@ -173,7 +61,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     }
   }, [competition]);
 
-  // Loading
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -185,7 +72,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  // Error
   if (error || !competition) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -200,10 +86,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     );
   }
 
-  const isArchived =
-    competition.status === 'completed' || competition.status === 'cancelled';
-  const structureLocked = hasStartedRound;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <PageHeader
@@ -213,55 +95,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
-        {/* Details */}
-        {!isArchived && (
-          <View style={styles.section}>
-            <SectionHeader title="Details" />
-            <FormSection>
-              <CompetitionBasicInfo control={control} errors={errors} />
-              <CompetitionSettings
-                control={control}
-                errors={errors}
-                competitionType={competitionType}
-                teamMode={teamMode}
-                startDateParsed={startDateParsed}
-                onCompetitionTypeChange={handleCompetitionTypeChange}
-                onTeamModeChange={handleTeamModeChange}
-                onStartDateChange={handleStartDateChange}
-                onEndDateChange={handleEndDateChange}
-                structureLocked={structureLocked}
-              />
-            </FormSection>
-
-            {structureLocked && (
-              <View style={[styles.infoBox, { backgroundColor: colors.primaryLighter }]}>
-                <Icon source="information-outline" size={16} color={colors.primaryDark} />
-                <Text style={[styles.infoText, { color: colors.primaryDark }]}>
-                  Competition type and format are locked once scoring has started.
-                </Text>
-              </View>
-            )}
-
-            {isDirty && (
-              <TouchableOpacity
-                onPress={handleSubmit(submitUpdate)}
-                disabled={isSubmitting}
-                style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                activeOpacity={0.7}
-                accessibilityLabel="Save changes"
-                accessibilityRole="button"
-                accessibilityState={{ disabled: isSubmitting }}
-              >
-                <Text style={[styles.saveButtonText, { color: colors.white }]}>
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
-
         {/* Invite Code */}
         <View style={styles.section}>
           <SectionHeader title="Invite Code" />
@@ -281,103 +114,9 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
           </TouchableOpacity>
         </View>
 
-        {/* Player Tees */}
-        {players.length > 0 && (
-          <>
-            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
-            <View style={styles.section}>
-              <SectionHeader title="Player Tees" />
-              {availableTees.length === 0 ? (
-                <Text style={[styles.noTeesText, { color: colors.textSecondary }]}>
-                  No tee data available for this course
-                </Text>
-              ) : (
-                players.map((cp) => {
-                  const player = cp.players;
-                  if (!player) return null;
-
-                  return (
-                    <View
-                      key={cp.player_id}
-                      style={[styles.playerTeeRow, { backgroundColor: colors.surface }]}
-                    >
-                      <View style={styles.playerTeeInfo}>
-                        <Text
-                          style={[styles.playerTeeName, { color: colors.textPrimary }]}
-                          numberOfLines={1}
-                        >
-                          {player.name}
-                        </Text>
-                        {player.handicap != null && (
-                          <Text
-                            style={[styles.playerTeeHandicap, { color: colors.textSecondary }]}
-                          >
-                            HC {player.handicap}
-                          </Text>
-                        )}
-                      </View>
-
-                      <View style={styles.teePillsRow}>
-                        {availableTees.map((tee) => {
-                          const isSelected =
-                            cp.selected_tee?.name === tee.name &&
-                            cp.selected_tee?.color === tee.color;
-                          const dotColor = getTeeColor(tee.color, colors.textSecondary);
-
-                          return (
-                            <TouchableOpacity
-                              key={`${tee.name}-${tee.color}`}
-                              onPress={() => handleTeeChange(cp.player_id, tee)}
-                              style={[
-                                styles.teePill,
-                                {
-                                  borderWidth: 1,
-                                  borderColor: isSelected ? colors.primary : colors.border,
-                                  backgroundColor: isSelected
-                                    ? `${colors.primary}26`
-                                    : 'transparent',
-                                },
-                              ]}
-                              activeOpacity={0.7}
-                              accessibilityLabel={`Select ${tee.name} tee for ${player.name}`}
-                            >
-                              <View
-                                style={[
-                                  styles.teeDot,
-                                  {
-                                    backgroundColor: dotColor,
-                                    borderWidth:
-                                      tee.color.toLowerCase() === 'white' ? 1 : 0,
-                                    borderColor: colors.border,
-                                  },
-                                ]}
-                              />
-                              <Text
-                                style={[
-                                  styles.teePillText,
-                                  {
-                                    color: isSelected
-                                      ? colors.primary
-                                      : colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {tee.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </>
-        )}
-
-        {/* Delete */}
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Danger Zone */}
         <View style={styles.section}>
           <SectionHeader title="Danger Zone" />
           <TouchableOpacity
@@ -412,7 +151,6 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       />
 
       <ConfirmationDialog {...alertDialogConfig} onCancel={dismissAlertDialog} />
-      <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
     </View>
   );
 }
@@ -440,29 +178,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginHorizontal: spacing.lg,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  infoText: {
-    ...typography.small,
-    flex: 1,
-  },
-  saveButton: {
-    height: 44,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.md,
-    ...shadows.sm,
-  },
-  saveButtonText: {
-    ...typography.bodyBold,
   },
   inviteRow: {
     flexDirection: 'row',
@@ -498,48 +213,5 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.body,
     textAlign: 'center',
-  },
-  noTeesText: {
-    ...typography.body,
-    fontStyle: 'italic',
-  },
-  playerTeeRow: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  playerTeeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  playerTeeName: {
-    ...typography.bodyBold,
-    flex: 1,
-  },
-  playerTeeHandicap: {
-    ...typography.caption,
-  },
-  teePillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  teePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 6,
-  },
-  teeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  teePillText: {
-    ...typography.caption,
   },
 });

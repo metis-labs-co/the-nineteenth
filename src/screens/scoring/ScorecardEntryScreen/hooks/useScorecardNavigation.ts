@@ -5,7 +5,6 @@
  * - Previous/Next hole navigation
  * - Jump to specific hole
  * - Android back button handling
- * - Leave confirmation when unsaved changes exist
  */
 
 import { useEffect, useCallback } from 'react';
@@ -19,15 +18,11 @@ export interface UseScorecardNavigationParams {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Scorecard'>;
   currentHole: number;
   setCurrentHole: (hole: number) => void;
-  pendingSyncCount: number;
-  onLeaveAttempt: () => void;
-  triggerSync: () => void;
   holes: Hole[];
 }
 
 export interface UseScorecardNavigationReturn {
   handleBackPress: () => void;
-  handleLeaveConfirm: () => void;
   handlePreviousHole: () => void;
   handleNextHole: () => void;
   handleHolePress: (holeNumber: number) => void;
@@ -39,28 +34,16 @@ export function useScorecardNavigation({
   navigation,
   currentHole,
   setCurrentHole,
-  pendingSyncCount,
-  onLeaveAttempt,
-  triggerSync,
   holes,
 }: UseScorecardNavigationParams): UseScorecardNavigationReturn {
   const firstHole = holes[0]?.number ?? 1;
   const lastHole = holes[holes.length - 1]?.number ?? 18;
 
-  // Handle back button press (both header and Android)
+  // Handle back button press (both header and Android). Scores are auto-persisted
+  // to SQLite on each entry, so there's nothing to save on exit.
   const handleBackPress = useCallback(() => {
-    if (pendingSyncCount > 0) {
-      onLeaveAttempt();
-    } else {
-      navigation.goBack();
-    }
-  }, [pendingSyncCount, navigation, onLeaveAttempt]);
-
-  // Confirm leaving with unsaved changes
-  const handleLeaveConfirm = useCallback(() => {
-    triggerSync();
     navigation.goBack();
-  }, [triggerSync, navigation]);
+  }, [navigation]);
 
   // Navigate to previous hole
   const handlePreviousHole = useCallback(() => {
@@ -107,7 +90,6 @@ export function useScorecardNavigation({
 
   return {
     handleBackPress,
-    handleLeaveConfirm,
     handlePreviousHole,
     handleNextHole,
     handleHolePress,

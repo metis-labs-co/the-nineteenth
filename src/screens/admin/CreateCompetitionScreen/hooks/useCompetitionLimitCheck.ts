@@ -35,7 +35,7 @@ export function useCompetitionLimitCheck() {
         const benefits = targetTier === 'social'
           ? [
               'Create up to 5 competitions',
-              'Up to 16 players per competition',
+              'Up to 12 players per competition',
               'Stroke Play game type',
               'Score distribution analytics',
             ]

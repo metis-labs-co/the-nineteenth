@@ -108,7 +108,7 @@ function createDBTierLimits(tier: SubscriptionTier, overrides: Partial<any> = {}
       tier: 'social',
       max_competitions_owned: 8,
       max_rounds_per_competition: 5,
-      max_players_per_competition: 16,
+      max_players_per_competition: 12,
       max_friends: 50,
       allowed_game_types: ['stableford', 'stroke', 'match-play'],
       can_use_team_formats: false,

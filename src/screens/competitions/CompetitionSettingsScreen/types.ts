@@ -1,34 +1,10 @@
 /**
- * Types for CompetitionSettingsScreen
- *
- * Note: Prize pool types are kept here for reuse by EditPrizePoolBottomSheet
- * which handles prize pool configuration separately from competition editing.
+ * Shared prize-pool types — used by EditPrizePoolBottomSheet, which lives
+ * outside this screen but originated with it. Kept here until the prize
+ * pool flow gets its own home.
  */
 
-import type { CompetitionType, TeamMode } from '@/types/database.types';
 import type { PoolFundingType } from '@/types';
-
-export interface CompetitionFormData {
-  name: string;
-  description: string | null;
-  competitionType: CompetitionType;
-  teamMode: TeamMode;
-  startDate: string;
-  endDate: string | null;
-}
-
-export interface CompetitionUpdateInput {
-  name?: string;
-  description?: string | null;
-  competition_type?: CompetitionType;
-  team_mode?: TeamMode;
-  start_date?: string;
-  end_date?: string | null;
-}
-
-// ============================================================================
-// Prize Pool Types (used by EditPrizePoolBottomSheet)
-// ============================================================================
 
 /**
  * Prize pool configuration for edit form

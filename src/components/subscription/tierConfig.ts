@@ -57,7 +57,7 @@ export const TIER_CONFIGS: Record<PaywallTier, TierConfig> = {
     features: [
       'Up to 8 competitions',
       'Up to 5 rounds per competition',
-      'Up to 16 players per competition',
+      'Up to 12 players per competition',
       '15 friends',
       'Unlimited social rounds',
       'Stroke Play & Match Play',

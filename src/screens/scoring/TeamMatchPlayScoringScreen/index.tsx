@@ -27,7 +27,8 @@ import { useIsSocial } from '@/context/SubscriptionContext';
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useRoundDetails } from '@/hooks/useRoundDetails';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
-import { useSubMatches } from '@/hooks/rounds';
+import { useSubMatches, useUpdateSubMatchResult } from '@/hooks/rounds';
+import { useCompetitionInfo } from '@/hooks/competitions';
 import { useAuth } from '@/hooks/useAuth';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { useProcessSkinsIfNeeded } from '@/hooks';
@@ -90,22 +91,46 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
   // sub-match's two sides are rendered in the scoring UI.
   const isSplitRound = roundData?.round_format === 'split';
   const { data: subMatches } = useSubMatches(isSplitRound ? roundId : undefined);
-  const { player: authPlayer } = useAuth();
+  const { user: authUser, player: authPlayer } = useAuth();
+  const { data: competitionInfo } = useCompetitionInfo(competitionId);
+
+  // Organizer check drives the sub-match picker: players auto-land on their
+  // own sub-match, organizers can hop between them.
+  const isOrganizer = useMemo(() => {
+    if (isSuperAdmin) return true;
+    if (!authUser?.id) return false;
+    if (roundData?.user_id === authUser.id) return true;
+    if (competitionInfo?.organizer_id === authUser.id) return true;
+    return false;
+  }, [isSuperAdmin, authUser?.id, roundData?.user_id, competitionInfo?.organizer_id]);
+
+  const ownSubMatchId = useMemo(() => {
+    if (!isSplitRound || !subMatches || !authPlayer?.id) return null;
+    const own = subMatches.find(
+      (sm) =>
+        sm.team_a_player_ids.includes(authPlayer.id) ||
+        sm.team_b_player_ids.includes(authPlayer.id)
+    );
+    return own?.id ?? null;
+  }, [isSplitRound, subMatches, authPlayer?.id]);
+
+  // Organizer picker state: null means "auto" (follow own sub-match or first).
+  const [selectedSubMatchId, setSelectedSubMatchId] = useState<string | null>(null);
 
   const activeSubMatch = useMemo(() => {
     if (!isSplitRound || !subMatches || subMatches.length === 0) return null;
+    if (selectedSubMatchId) {
+      const picked = subMatches.find((sm) => sm.id === selectedSubMatchId);
+      if (picked) return picked;
+    }
     // Prefer a sub-match containing the signed-in player.
-    if (authPlayer?.id) {
-      const own = subMatches.find(
-        (sm) =>
-          sm.team_a_player_ids.includes(authPlayer.id) ||
-          sm.team_b_player_ids.includes(authPlayer.id)
-      );
+    if (ownSubMatchId) {
+      const own = subMatches.find((sm) => sm.id === ownSubMatchId);
       if (own) return own;
     }
     // Fallback to the first sub-match (organizer viewing, for example).
     return subMatches[0] ?? null;
-  }, [isSplitRound, subMatches, authPlayer?.id]);
+  }, [isSplitRound, subMatches, selectedSubMatchId, ownSubMatchId]);
 
   // Course data from round
   const courseName = roundData?.course?.name;
@@ -230,11 +255,19 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
       const teamData = teamsData.find((t) => t.id === team1Id);
       if (teamData) return toMatchTeam(teamData, handicapMap);
     }
+    // Legacy fallback: first team in the list. Warn if the competition has
+    // 3+ teams — an explicit matchup should have been picked in that case.
+    if (teamsData.length >= 3 && !team1Id) {
+      teamMatchPlayLogger.warn(
+        'Team match play fell back to teamsData[0] with 3+ teams — matchup likely unset',
+        { roundId, teamCount: teamsData.length }
+      );
+    }
     if (teamsData.length > 0) {
       return toMatchTeam(teamsData[0], handicapMap);
     }
     return { id: team1Id || '1', name: 'Team A', members: [], handicap: 0 };
-  }, [isSplitRound, activeSubMatch, team1Id, teamsData, handicapMap]);
+  }, [isSplitRound, activeSubMatch, team1Id, teamsData, handicapMap, roundId]);
 
   const team2: MatchTeam = useMemo(() => {
     if (isSplitRound && activeSubMatch && teamsData.length > 1) {
@@ -279,6 +312,32 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     pickUpPlayer,
   } = useTeamMatchPlayScores(team1, team2, currentHole, holes);
 
+  // Persist the completed sub-match's result (only for split rounds). For
+  // combined rounds the round-level result is handled elsewhere — see
+  // existing combined flow — so this mutation only fires when there's an
+  // active sub-match to update.
+  const { mutateAsync: updateSubMatchResult } = useUpdateSubMatchResult(roundId);
+  const handlePersistSubMatchResult = useCallback(
+    async ({
+      winner,
+      differential,
+    }: {
+      winner: 'team1' | 'team2' | 'halved';
+      differential: number;
+    }) => {
+      if (!isSplitRound || !activeSubMatch) return;
+      const result =
+        winner === 'team1' ? 'a-wins' : winner === 'team2' ? 'b-wins' : 'halved';
+      await updateSubMatchResult({
+        subMatchId: activeSubMatch.id,
+        status: 'completed',
+        result,
+        finalDifferential: differential,
+      });
+    },
+    [isSplitRound, activeSubMatch, updateSubMatchResult]
+  );
+
   // Match state hook
   const {
     holeResults,
@@ -287,7 +346,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     matchStatusText,
     team1MatchStatus,
     team2MatchStatus,
-    holesWon,
     handleSubmitMatch,
     dialogConfig,
     showDialog,
@@ -301,6 +359,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     currentHoleWinner,
     getPlayerScoreValue,
     onSubmitSuccess: () => navigation.goBack(),
+    onPersistResult: isSplitRound && activeSubMatch ? handlePersistSubMatchResult : undefined,
   });
 
   // Navigation hook
@@ -314,7 +373,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     currentHole,
     setCurrentHole,
     isMatchComplete,
-    holeResults,
     roundId,
     navigation,
     showDialog,
@@ -635,6 +693,9 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     );
   }
 
+  const showSubMatchPicker =
+    isSplitRound && isOrganizer && !!subMatches && subMatches.length > 1;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
       <TeamMatchPlayHeader
@@ -645,6 +706,48 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         isSuperAdmin={isSuperAdmin}
         roundId={roundId}
       />
+
+      {showSubMatchPicker && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[
+            styles.subMatchPickerRow,
+            { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          ]}
+          contentContainerStyle={styles.subMatchPickerContent}
+        >
+          {subMatches!.map((sm, i) => {
+            const selected = activeSubMatch?.id === sm.id;
+            return (
+              <TouchableOpacity
+                key={sm.id}
+                onPress={() => setSelectedSubMatchId(sm.id)}
+                style={[
+                  styles.subMatchChip,
+                  {
+                    backgroundColor: selected ? colors.primary : colors.surfaceVariant,
+                    borderColor: selected ? colors.primary : colors.border,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Switch to Sub-Match ${i + 1}`}
+                testID={`sub-match-picker-chip-${i}`}
+              >
+                <Text
+                  style={[
+                    styles.subMatchChipText,
+                    { color: selected ? colors.white : colors.textPrimary },
+                  ]}
+                >
+                  Sub-Match {i + 1}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
 
       <View
         style={[
@@ -664,32 +767,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
           <View style={[styles.completeBadge, { backgroundColor: colors.success }]}>
             <Text style={[styles.completeBadgeText, { color: colors.white }]}>COMPLETE</Text>
           </View>
-        )}
-      </View>
-
-      <View
-        style={[
-          styles.holesWonBar,
-          { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.border },
-        ]}
-      >
-        <View style={styles.holesWonItem}>
-          <View style={[styles.holesWonDot, { backgroundColor: colors.success }]} />
-          <Text style={[styles.holesWonText, { color: colors.textPrimary }]}>
-            {holesWon.team1}
-          </Text>
-        </View>
-        <Text style={[styles.holesWonLabel, { color: colors.textSecondary }]}>HOLES WON</Text>
-        <View style={styles.holesWonItem}>
-          <Text style={[styles.holesWonText, { color: colors.textPrimary }]}>
-            {holesWon.team2}
-          </Text>
-          <View style={[styles.holesWonDot, { backgroundColor: colors.error }]} />
-        </View>
-        {holesWon.halved > 0 && (
-          <Text style={[styles.halvedText, { color: colors.textSecondary }]}>
-            {holesWon.halved} halved
-          </Text>
         )}
       </View>
 
@@ -748,6 +825,27 @@ const styles = StyleSheet.create({
   goBackButtonLabel: {
     ...typography.bodyBold,
   },
+  subMatchPickerRow: {
+    borderBottomWidth: 1,
+    flexGrow: 0,
+  },
+  subMatchPickerContent: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  subMatchChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subMatchChipText: {
+    ...typography.captionBold,
+  },
   matchStatusBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -769,35 +867,6 @@ const styles = StyleSheet.create({
   completeBadgeText: {
     ...typography.captionBold,
     letterSpacing: 0.5,
-  },
-  holesWonBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    gap: spacing.lg,
-  },
-  holesWonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  holesWonDot: {
-    width: 12,
-    height: 12,
-    borderRadius: borderRadius.full,
-  },
-  holesWonText: {
-    ...typography.h3,
-  },
-  holesWonLabel: {
-    ...typography.caption,
-    letterSpacing: 0.5,
-  },
-  halvedText: {
-    ...typography.caption,
   },
   contentArea: {
     flex: 1,

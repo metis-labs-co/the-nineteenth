@@ -46,6 +46,12 @@ export interface Round {
   // NULL for combined rounds.
   sub_match_size: number | null;
 
+  // Team match play matchup. For competitions with 3+ teams, identifies the
+  // two teams squaring off in this round. NULL falls back to first two teams
+  // in the competition (back-compat with 2-team rounds).
+  team1_id: string | null;
+  team2_id: string | null;
+
   // Scoring pairs
   scoring_pairs_required: boolean; // TRUE if scoring pairs must be set up before round starts
 

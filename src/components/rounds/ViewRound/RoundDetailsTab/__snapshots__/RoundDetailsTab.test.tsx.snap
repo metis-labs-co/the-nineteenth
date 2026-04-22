@@ -1014,44 +1014,52 @@ exports[`RoundDetailsTab Snapshots matches snapshot with full data 1`] = `
               <View
                 style={
                   {
-                    "alignItems": "center",
-                    "flexDirection": "row",
-                    "gap": 4,
+                    "alignItems": "flex-end",
                   }
                 }
               >
                 <View
                   style={
-                    [
-                      {
-                        "borderRadius": 9999,
-                        "borderWidth": 1,
-                        "height": 12,
-                        "width": 12,
-                      },
-                      {
-                        "backgroundColor": "#f5f5f5",
-                        "borderColor": "#E0E0E0",
-                      },
-                    ]
-                  }
-                />
-                <Text
-                  style={
-                    [
-                      {
-                        "fontSize": 16,
-                        "fontWeight": "600",
-                        "lineHeight": 24,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "alignItems": "center",
+                      "flexDirection": "row",
+                      "gap": 4,
+                    }
                   }
                 >
-                  White
-                </Text>
+                  <View
+                    style={
+                      [
+                        {
+                          "borderRadius": 9999,
+                          "borderWidth": 1,
+                          "height": 12,
+                          "width": 12,
+                        },
+                        {
+                          "backgroundColor": "#f5f5f5",
+                          "borderColor": "#E0E0E0",
+                        },
+                      ]
+                    }
+                  />
+                  <Text
+                    style={
+                      [
+                        {
+                          "fontSize": 16,
+                          "fontWeight": "600",
+                          "lineHeight": 24,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    White
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -1950,44 +1958,52 @@ exports[`RoundDetailsTab Snapshots matches snapshot with minimal data 1`] = `
               <View
                 style={
                   {
-                    "alignItems": "center",
-                    "flexDirection": "row",
-                    "gap": 4,
+                    "alignItems": "flex-end",
                   }
                 }
               >
                 <View
                   style={
-                    [
-                      {
-                        "borderRadius": 9999,
-                        "borderWidth": 1,
-                        "height": 12,
-                        "width": 12,
-                      },
-                      {
-                        "backgroundColor": "#f5f5f5",
-                        "borderColor": "#E0E0E0",
-                      },
-                    ]
-                  }
-                />
-                <Text
-                  style={
-                    [
-                      {
-                        "fontSize": 16,
-                        "fontWeight": "600",
-                        "lineHeight": 24,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "alignItems": "center",
+                      "flexDirection": "row",
+                      "gap": 4,
+                    }
                   }
                 >
-                  White
-                </Text>
+                  <View
+                    style={
+                      [
+                        {
+                          "borderRadius": 9999,
+                          "borderWidth": 1,
+                          "height": 12,
+                          "width": 12,
+                        },
+                        {
+                          "backgroundColor": "#f5f5f5",
+                          "borderColor": "#E0E0E0",
+                        },
+                      ]
+                    }
+                  />
+                  <Text
+                    style={
+                      [
+                        {
+                          "fontSize": 16,
+                          "fontWeight": "600",
+                          "lineHeight": 24,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    White
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -2969,44 +2985,52 @@ exports[`RoundDetailsTab Snapshots matches snapshot without edit capabilities 1`
               <View
                 style={
                   {
-                    "alignItems": "center",
-                    "flexDirection": "row",
-                    "gap": 4,
+                    "alignItems": "flex-end",
                   }
                 }
               >
                 <View
                   style={
-                    [
-                      {
-                        "borderRadius": 9999,
-                        "borderWidth": 1,
-                        "height": 12,
-                        "width": 12,
-                      },
-                      {
-                        "backgroundColor": "#f5f5f5",
-                        "borderColor": "#E0E0E0",
-                      },
-                    ]
-                  }
-                />
-                <Text
-                  style={
-                    [
-                      {
-                        "fontSize": 16,
-                        "fontWeight": "600",
-                        "lineHeight": 24,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "alignItems": "center",
+                      "flexDirection": "row",
+                      "gap": 4,
+                    }
                   }
                 >
-                  White
-                </Text>
+                  <View
+                    style={
+                      [
+                        {
+                          "borderRadius": 9999,
+                          "borderWidth": 1,
+                          "height": 12,
+                          "width": 12,
+                        },
+                        {
+                          "backgroundColor": "#f5f5f5",
+                          "borderColor": "#E0E0E0",
+                        },
+                      ]
+                    }
+                  />
+                  <Text
+                    style={
+                      [
+                        {
+                          "fontSize": 16,
+                          "fontWeight": "600",
+                          "lineHeight": 24,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    White
+                  </Text>
+                </View>
               </View>
             </View>
           </View>

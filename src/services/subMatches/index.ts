@@ -118,17 +118,18 @@ export async function replaceSubMatches(input: ReplaceSubMatchesInput): Promise<
   if (!subMatches || subMatches.length === 0) {
     throw new SubMatchServiceError('At least one sub-match is required', 'VALIDATION');
   }
-  // Validate sub-team sizes
+  // Validate sub-team sizes. Kept in sync with the DB check constraint on
+  // sub_matches.team_a/b_player_ids (1..10).
   subMatches.forEach((sm, i) => {
-    if (sm.teamAPlayerIds.length < 1 || sm.teamAPlayerIds.length > 3) {
+    if (sm.teamAPlayerIds.length < 1 || sm.teamAPlayerIds.length > 10) {
       throw new SubMatchServiceError(
-        `Sub-match ${i + 1} team A must have 1–3 players`,
+        `Sub-match ${i + 1} team A must have 1–10 players`,
         'VALIDATION'
       );
     }
-    if (sm.teamBPlayerIds.length < 1 || sm.teamBPlayerIds.length > 3) {
+    if (sm.teamBPlayerIds.length < 1 || sm.teamBPlayerIds.length > 10) {
       throw new SubMatchServiceError(
-        `Sub-match ${i + 1} team B must have 1–3 players`,
+        `Sub-match ${i + 1} team B must have 1–10 players`,
         'VALIDATION'
       );
     }
@@ -210,6 +211,48 @@ export async function updateSubMatchResult(
     }
     logger.error('Failed to update sub-match result', error);
     throw new SubMatchServiceError(`Failed to update sub-match: ${error.message}`, 'DATABASE');
+  }
+
+  return rowToSubMatch(data as Row);
+}
+
+export interface UpdateSubMatchTeeTimeInput {
+  subMatchId: string;
+  /** HH:MM or HH:MM:SS. Pass `null` to clear. */
+  teeTime: string | null;
+}
+
+/**
+ * Update the tee time of a single sub-match.
+ *
+ * Used by the inline tee-time editor on SubMatchesTab so organizers can
+ * override the auto-generated staggered tee times when the pro shop hands
+ * them a different tee sheet.
+ */
+export async function updateSubMatchTeeTime(
+  input: UpdateSubMatchTeeTimeInput
+): Promise<SubMatch> {
+  const { subMatchId, teeTime } = input;
+  if (!subMatchId) {
+    throw new SubMatchServiceError('Sub-match ID is required', 'VALIDATION');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase.ts not regenerated for sub_matches yet
+  const { data, error } = await (supabase.from('sub_matches') as any)
+    .update({ tee_time: teeTime })
+    .eq('id', subMatchId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new SubMatchServiceError(`Sub-match not found: ${subMatchId}`, 'NOT_FOUND');
+    }
+    logger.error('Failed to update sub-match tee time', error);
+    throw new SubMatchServiceError(
+      `Failed to update sub-match tee time: ${error.message}`,
+      'DATABASE'
+    );
   }
 
   return rowToSubMatch(data as Row);

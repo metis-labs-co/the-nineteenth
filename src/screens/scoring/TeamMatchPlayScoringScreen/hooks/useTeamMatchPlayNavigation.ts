@@ -4,20 +4,18 @@
  * Manages hole navigation and back press handling for team match play:
  * - Previous/next hole navigation
  * - Direct hole selection
- * - Hardware back press handling with unsaved changes warning
+ * - Hardware back press handling
  * - Delete round handler (super admin)
  */
 
 import { useCallback, useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { teamMatchPlayLogger } from '@/utils/debugLogger';
-import type { TeamHoleResult } from '../types';
 
 interface UseTeamMatchPlayNavigationParams {
   currentHole: number;
   setCurrentHole: (hole: number) => void;
   isMatchComplete: boolean;
-  holeResults: Record<number, TeamHoleResult>;
   roundId: string;
   navigation: { goBack: () => void };
   showDialog: (config: {
@@ -36,7 +34,6 @@ export function useTeamMatchPlayNavigation({
   currentHole,
   setCurrentHole,
   isMatchComplete,
-  holeResults,
   roundId,
   navigation,
   showDialog,
@@ -62,24 +59,10 @@ export function useTeamMatchPlayNavigation({
     [setCurrentHole]
   );
 
+  // Scores are auto-persisted to SQLite on entry, so exiting is safe.
   const handleBackPress = useCallback(() => {
-    const holesWithScores = Object.keys(holeResults).length;
-    if (holesWithScores > 0 && !isMatchComplete) {
-      showDialog({
-        title: 'Unsaved Match',
-        message: 'Are you sure you want to leave? Your match progress will be lost.',
-        confirmLabel: 'Leave',
-        confirmVariant: 'destructive',
-        icon: 'alert-outline',
-        onConfirm: () => {
-          dismissDialog();
-          navigation.goBack();
-        },
-      });
-    } else {
-      navigation.goBack();
-    }
-  }, [holeResults, isMatchComplete, navigation, showDialog, dismissDialog]);
+    navigation.goBack();
+  }, [navigation]);
 
   // Handle hardware back button
   useEffect(() => {

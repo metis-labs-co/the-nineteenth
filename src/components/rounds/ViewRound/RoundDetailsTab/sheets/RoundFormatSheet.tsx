@@ -17,13 +17,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useIsSocial } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { roundKeys, subMatchKeys } from '@/hooks/queryKeys';
 import { updateRound } from '@/screens/admin/EditRoundScreen/hooks/useEditRoundData';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
+import { useSubMatches } from '@/hooks/rounds';
+import type { RootStackParamList } from '@/navigation/types';
 import {
   replaceSubMatches,
   deleteAllSubMatchesForRound,
@@ -31,6 +36,7 @@ import {
 import {
   generateSubMatches,
   formatTeeTimeForDisplay,
+  divisorsOf,
   type GeneratedSubMatch,
 } from '@/utils/pairingAlgorithm';
 import type { PairingPlayer } from '@/types';
@@ -48,9 +54,13 @@ export interface RoundFormatSheetProps {
   roundTeeTime: string | null;
 }
 
-type SubMatchSize = 1 | 2 | 3;
-const SUB_MATCH_SIZES: SubMatchSize[] = [1, 2, 3];
+type SubMatchSize = number;
+/** Fallback size options shown while teams are loading or unavailable. */
+const FALLBACK_SIZES: SubMatchSize[] = [1, 2, 3];
 const DEFAULT_INTERVAL_MINUTES = 8;
+/** Team rounds with more than 4 total players physically can't tee off
+ * together, so we recommend the Split format as the default. */
+const AUTO_SPLIT_PLAYER_THRESHOLD = 4;
 
 export function RoundFormatSheet({
   visible,
@@ -64,18 +74,21 @@ export function RoundFormatSheet({
 }: RoundFormatSheetProps) {
   const colors = useThemeColors();
   const queryClient = useQueryClient();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  // Split format is a Social-tier-or-above feature. Free users see the
+  // option locked; tapping it routes to the Subscription screen instead of
+  // toggling the round state. `useIsSocial()` returns true for Social,
+  // Premium, Enterprise, Super Admin, and Developer tiers.
+  const canUseSplit = useIsSocial();
+  const handleUpgradePress = useCallback(() => {
+    onDismiss();
+    navigation.navigate('Subscription');
+  }, [navigation, onDismiss]);
 
   const [format, setFormat] = useState<RoundFormat>(currentFormat);
-  const [size, setSize] = useState<SubMatchSize>(
-    (currentSubMatchSize as SubMatchSize | null) ?? 2
-  );
-
-  useEffect(() => {
-    if (visible) {
-      setFormat(currentFormat);
-      setSize((currentSubMatchSize as SubMatchSize | null) ?? 2);
-    }
-  }, [visible, currentFormat, currentSubMatchSize]);
+  const [size, setSize] = useState<SubMatchSize>(currentSubMatchSize ?? 2);
 
   // Teams drive the preview. Only relevant for split format.
   const { teams, isLoading: isTeamsLoading } = useRoundTeams(
@@ -83,6 +96,69 @@ export function RoundFormatSheet({
     isTeamRound,
     roundId
   );
+
+  // Valid sub-match sizes derive from the smaller team's size — every
+  // divisor of the team size is a valid sub-team size (e.g. team of 4 →
+  // 1v1, 2v2, 4v4). When teams haven't loaded yet we show the legacy
+  // 1/2/3 options so the sheet still renders meaningfully.
+  const teamSize = useMemo(() => {
+    const a = teams[0]?.members?.length ?? 0;
+    const b = teams[1]?.members?.length ?? 0;
+    if (a === 0 || b === 0) return 0;
+    return Math.min(a, b);
+  }, [teams]);
+
+  const sizeOptions = useMemo<SubMatchSize[]>(
+    () => (teamSize > 0 ? divisorsOf(teamSize) : FALLBACK_SIZES),
+    [teamSize]
+  );
+
+  const totalPlayers = useMemo(
+    () =>
+      (teams[0]?.members?.length ?? 0) + (teams[1]?.members?.length ?? 0),
+    [teams]
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+
+    // Recommend Split for team rounds that physically can't play as one
+    // group. The organizer still has to hit Save, so this is a default,
+    // not an auto-write.
+    const shouldRecommendSplit =
+      isTeamRound &&
+      currentFormat === 'combined' &&
+      canUseSplit &&
+      totalPlayers > AUTO_SPLIT_PLAYER_THRESHOLD;
+
+    setFormat(shouldRecommendSplit ? 'split' : currentFormat);
+
+    // Seed the size: respect the saved value if valid, else prefer 2v2
+    // (fits in a foursome), else fall back to the largest option ≤2, else
+    // the first valid option.
+    const saved = currentSubMatchSize ?? null;
+    const fallback =
+      sizeOptions.find((s) => s === 2) ??
+      [...sizeOptions].reverse().find((s) => s <= 2) ??
+      sizeOptions[0] ??
+      2;
+    const seeded =
+      saved !== null && sizeOptions.includes(saved) ? saved : fallback;
+    setSize(seeded);
+    // We intentionally re-run when sizeOptions changes so the size chip
+    // stays in sync when teams finish loading.
+  }, [visible, currentFormat, currentSubMatchSize, isTeamRound, canUseSplit, totalPlayers, sizeOptions]);
+
+  // Existing sub-matches — used to block format switches that would
+  // overwrite scoring state mid-round. A sub-match past 'upcoming' means
+  // scores have been entered; changing the format would lose that work.
+  const { data: existingSubMatches } = useSubMatches(roundId);
+  const hasInProgressSubMatches = useMemo(
+    () => (existingSubMatches ?? []).some((sm) => sm.status !== 'upcoming'),
+    [existingSubMatches]
+  );
+  const isSwitchingFormat = format !== currentFormat;
+  const isSwitchBlocked = isSwitchingFormat && hasInProgressSubMatches;
 
   const startTime = (roundTeeTime ?? '07:00:00').substring(0, 5);
 
@@ -165,8 +241,15 @@ export function RoundFormatSheet({
   const handleSave = useCallback(() => save(), [save]);
 
   const canSave =
-    format === 'combined' ||
-    (format === 'split' && !!preview && preview.subMatches.length > 0);
+    !isSwitchBlocked &&
+    // Belt-and-braces: if a Free user somehow has Split selected (e.g. the
+    // sheet opened on an already-split round after a tier downgrade), they
+    // can switch back to Combined but must not be able to keep / re-save
+    // Split. The Split option itself is locked, so this only triggers for
+    // stale in-memory state.
+    !(format === 'split' && !canUseSplit) &&
+    (format === 'combined' ||
+      (format === 'split' && !!preview && preview.subMatches.length > 0));
 
   return (
     <BottomSheet
@@ -182,24 +265,49 @@ export function RoundFormatSheet({
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
+        {isSwitchBlocked && (
+          <View
+            style={[
+              styles.blockerBox,
+              { backgroundColor: colors.warningBackground ?? colors.surfaceVariant, borderColor: colors.warning },
+            ]}
+          >
+            <Icon source="alert-outline" size={18} color={colors.warning} />
+            <Text style={[styles.blockerText, { color: colors.warning }]}>
+              Can’t change the format: scoring has already started on one or more
+              sub-matches. Reset sub-match results first, or keep the current format.
+            </Text>
+          </View>
+        )}
+
         <FormatOption
+          testID="round-format-combined"
           label="Combined"
           description="One team match. Best-ball across all members. Players split across tee times for logistics."
           selected={format === 'combined'}
           onPress={() => setFormat('combined')}
         />
         <FormatOption
+          testID="round-format-split"
           label="Split into sub-matches"
           description="Multiple independent head-to-heads aggregated Ryder-Cup style (1 point per sub-match won, 0.5 halved)."
           selected={format === 'split'}
-          onPress={() => setFormat('split')}
+          locked={!canUseSplit}
+          lockedLabel="Social tier"
+          onPress={() => {
+            if (!canUseSplit) {
+              handleUpgradePress();
+              return;
+            }
+            setFormat('split');
+          }}
         />
 
         {format === 'split' && (
           <View style={styles.splitDetails}>
             <Text style={[styles.subHeader, { color: colors.textPrimary }]}>Sub-match size</Text>
             <View style={styles.chipRow}>
-              {SUB_MATCH_SIZES.map((s) => (
+              {sizeOptions.map((s) => (
                 <TouchableOpacity
                   key={s}
                   style={[
@@ -317,31 +425,67 @@ interface FormatOptionProps {
   description: string;
   selected: boolean;
   onPress: () => void;
+  /** When true, the card dims and shows a lock indicator + tier pill. Tap
+   * still fires `onPress` so the caller can route to an upgrade screen. */
+  locked?: boolean;
+  /** Label shown inside the tier pill when locked (e.g. "Social tier"). */
+  lockedLabel?: string;
+  testID?: string;
 }
 
-function FormatOption({ label, description, selected, onPress }: FormatOptionProps) {
+function FormatOption({
+  label,
+  description,
+  selected,
+  onPress,
+  locked = false,
+  lockedLabel,
+  testID,
+}: FormatOptionProps) {
   const colors = useThemeColors();
   return (
     <TouchableOpacity
+      testID={testID}
       onPress={onPress}
       style={[
         styles.optionCard,
         {
           backgroundColor: selected ? colors.primaryLighter : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
+          opacity: locked ? 0.55 : 1,
         },
       ]}
       activeOpacity={0.8}
       accessibilityRole="radio"
+      accessibilityLabel={label}
+      // NOTE: Do not set accessibilityState.disabled here. The tap must
+      // remain active even when locked (it routes to the Subscription
+      // screen). `disabled: true` would also cause testing-library's
+      // fireEvent.press to skip the press, breaking the tier-gate test.
       accessibilityState={{ selected }}
+      accessibilityHint={locked ? 'Upgrade required' : undefined}
     >
       <View style={styles.optionHeader}>
         <Icon
-          source={selected ? 'radiobox-marked' : 'radiobox-blank'}
+          source={
+            locked
+              ? 'lock-outline'
+              : selected
+              ? 'radiobox-marked'
+              : 'radiobox-blank'
+          }
           size={22}
-          color={selected ? colors.primary : colors.gray400}
+          color={locked ? colors.gray400 : selected ? colors.primary : colors.gray400}
         />
         <Text style={[styles.optionLabel, { color: colors.textPrimary }]}>{label}</Text>
+        {locked && lockedLabel && (
+          <View style={[styles.tierPill, { backgroundColor: colors.primaryLighter }]}>
+            <Icon source="star-four-points" size={12} color={colors.primary} />
+            <Text style={[styles.tierPillText, { color: colors.primary }]}>
+              {lockedLabel}
+            </Text>
+          </View>
+        )}
       </View>
       <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
         {description}
@@ -372,6 +516,18 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     ...typography.bodyBold,
+    flex: 1,
+  },
+  tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  tierPillText: {
+    ...typography.captionBold,
   },
   optionDescription: {
     ...typography.small,
@@ -438,6 +594,18 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: borderRadius.md,
     gap: 2,
+  },
+  blockerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  blockerText: {
+    ...typography.small,
+    flex: 1,
   },
   warningText: {
     ...typography.caption,

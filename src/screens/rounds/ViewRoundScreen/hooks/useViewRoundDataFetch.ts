@@ -43,6 +43,15 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   // sub-matches aggregated for the round result). Only meaningful for team
   // rounds — the field is always 'combined' on individual rounds.
   const isSplitRound = (round?.is_team_round ?? false) && round?.round_format === 'split';
+  // Team stroke round: best-ball or aggregate team formats that still score
+  // per-player into scorecards. Match-play-team uses the Match tab, scramble
+  // and shamble have their own dedicated tabs — those are excluded here.
+  const isTeamStrokeRound =
+    (round?.is_team_round ?? false) &&
+    (round?.team_format === 'best-ball' || round?.team_format === 'aggregate');
+  // True for any team-format round — drives the unified Teams tab that
+  // shows rosters (and, for stroke-based team rounds, the leaderboard).
+  const isTeamRound = round?.is_team_round ?? false;
 
   const {
     data: matchPlayData,
@@ -73,6 +82,8 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isScrambleRound,
     isStrokePlayRound,
     isSplitRound,
+    isTeamStrokeRound,
+    isTeamRound,
 
     // Loading state
     isLoading,

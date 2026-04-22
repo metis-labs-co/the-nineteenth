@@ -168,6 +168,14 @@ function encodeFormat(id: FormatId): {
   game_type: GameType;
   is_team_round: boolean;
   team_format: TeamFormat | null;
+  /**
+   * When switching into a team format we proactively clear
+   * `scoring_pairs_required` — the RoundGameSetupTab hides the Scoring
+   * Pairs section for team rounds, so leaving a stale "required" flag set
+   * would keep the gate enforced elsewhere (e.g. scoring entry) with no
+   * UI to turn it off.
+   */
+  scoring_pairs_required?: false;
 } {
   switch (id) {
     case 'match-play-team':
@@ -175,13 +183,29 @@ function encodeFormat(id: FormatId): {
         game_type: 'match-play',
         is_team_round: true,
         team_format: 'match-play-team',
+        scoring_pairs_required: false,
       };
     case 'best-ball':
-      return { game_type: 'best-ball', is_team_round: true, team_format: 'best-ball' };
+      return {
+        game_type: 'best-ball',
+        is_team_round: true,
+        team_format: 'best-ball',
+        scoring_pairs_required: false,
+      };
     case 'scramble':
-      return { game_type: 'scramble', is_team_round: true, team_format: 'scramble' };
+      return {
+        game_type: 'scramble',
+        is_team_round: true,
+        team_format: 'scramble',
+        scoring_pairs_required: false,
+      };
     case 'shamble':
-      return { game_type: 'shamble', is_team_round: true, team_format: 'shamble' };
+      return {
+        game_type: 'shamble',
+        is_team_round: true,
+        team_format: 'shamble',
+        scoring_pairs_required: false,
+      };
     default:
       return { game_type: id, is_team_round: false, team_format: null };
   }

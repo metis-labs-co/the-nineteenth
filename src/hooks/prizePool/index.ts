@@ -39,4 +39,5 @@ export {
   useUpdatePrizePool,
   useDeletePrizePool,
   useSettlePrizePool,
+  useSettleCompetitionPayouts,
 } from './mutations';

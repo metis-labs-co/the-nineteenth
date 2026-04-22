@@ -6,3 +6,5 @@ export { EditTeeSheet } from './EditTeeSheet';
 export type { EditTeeSheetProps } from './EditTeeSheet';
 export { RoundFormatSheet } from './RoundFormatSheet';
 export type { RoundFormatSheetProps } from './RoundFormatSheet';
+export { MatchupSheet } from './MatchupSheet';
+export type { MatchupSheetProps } from './MatchupSheet';

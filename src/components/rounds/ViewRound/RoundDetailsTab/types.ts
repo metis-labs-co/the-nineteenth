@@ -26,6 +26,15 @@ export interface ScoringPairsSectionProps {
   cardBackground: string;
   roundStatus: RoundStatus;
   onEditPress?: () => void;
+  /** Number of players in the round. When > 4 the pair-management UI
+   *  moves to the Groups tab (this section just shows a toggle + note);
+   *  when ≤ 4 the management card stays here since there's no Groups
+   *  tab. Optional — defaults to treating the section as management-
+   *  capable (legacy behaviour). */
+  playerCount?: number;
+  /** Fired when the toggle flips. When undefined the toggle renders
+   *  read-only. */
+  onToggleEnabled?: (enabled: boolean) => void | Promise<void>;
 }
 
 export interface SkinsGameSectionProps {

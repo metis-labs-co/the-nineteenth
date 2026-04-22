@@ -4,7 +4,6 @@
 
 import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
-import type { RoundWithCourse } from '../types';
 
 // =====================================================
 // PROPS TYPES
@@ -12,8 +11,6 @@ import type { RoundWithCourse } from '../types';
 
 export interface CompetitionInfoSectionProps {
   competition: Competition;
-  rounds: RoundWithCourse[];
-  playerCount: number;
 }
 
 export interface CurrentStandingSectionProps {
@@ -22,6 +19,13 @@ export interface CurrentStandingSectionProps {
 
 export interface SettingsSectionProps {
   competition: Competition;
+  isOrganizer: boolean;
+  /**
+   * True once any round has started scoring. Locks structural fields
+   * (competition_type, team_mode, team_size) that would otherwise require
+   * complex data migration if changed mid-competition.
+   */
+  hasStartedRound: boolean;
 }
 
 export interface CoursesSectionProps {
@@ -71,9 +75,9 @@ export const competitionTypeDescriptions: Record<CompetitionType, string> = {
 };
 
 export const handicapSystemLabels: Record<HandicapSystem, string> = {
-  'honor': 'Honour System',
-  whs: 'World Handicap System',
-  'gross-only': 'Gross Only',
+  'honor': 'Social',
+  whs: 'WHS',
+  'gross-only': 'Gross',
 };
 
 export const teamModeLabels: Record<TeamMode, string> = {

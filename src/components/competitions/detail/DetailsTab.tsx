@@ -39,6 +39,12 @@ export interface DetailsTabProps {
   playerCount: number;
   currentStanding: { position: number; points: number } | null;
   isOrganizer: boolean;
+  /**
+   * True once any round has started scoring. Locks structural settings
+   * (competition_type, team_mode, team_size) from inline edit. Defaults
+   * to false.
+   */
+  hasStartedRound?: boolean;
   /** Prize pool data (null if none configured) */
   prizePool?: CompetitionPrizePool | null;
   /** Prize pool placement breakdown */
@@ -65,6 +71,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   playerCount,
   currentStanding,
   isOrganizer,
+  hasStartedRound = false,
   prizePool,
   prizePoolPlacements,
   isPrizePoolLocked = false,
@@ -90,11 +97,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   return (
     <View>
       {/* Competition Header Card */}
-      <CompetitionInfoSection
-        competition={competition}
-        rounds={rounds}
-        playerCount={playerCount}
-      />
+      <CompetitionInfoSection competition={competition} />
 
       {/* Current Standing Card - shown for non-organizers who are players */}
       {currentStanding && !isOrganizer && (
@@ -104,6 +107,8 @@ export const DetailsTab = React.memo(function DetailsTab({
       {/* Competition Settings Section */}
       <SettingsSection
         competition={competition}
+        isOrganizer={isOrganizer}
+        hasStartedRound={hasStartedRound}
       />
 
       {/* Prize Pool Section */}

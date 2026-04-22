@@ -222,6 +222,8 @@ export function createTestRound(overrides: Partial<Round> = {}): Round {
     team_format: null,
     round_format: 'combined',
     sub_match_size: null,
+    team1_id: null,
+    team2_id: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,
@@ -280,6 +282,36 @@ export function createTeamMatchPlayRound(overrides: Partial<Round> = {}): Round 
     game_type: 'match-play',
     is_team_round: true,
     team_format: 'match-play-team',
+    ...overrides,
+  });
+}
+
+/**
+ * Create a split (Ryder-Cup-style) Team Match Play round.
+ * round_format='split' groups the round into independent sub-matches that
+ * aggregate via 1-point-per-win to the round result.
+ */
+export function createSplitTeamMatchPlayRound(
+  subMatchSize: 1 | 2 | 3 = 2,
+  overrides: Partial<Round> = {}
+): Round {
+  return createTeamMatchPlayRound({
+    id: 'round-split-team-match-play',
+    round_format: 'split',
+    sub_match_size: subMatchSize,
+    ...overrides,
+  });
+}
+
+/**
+ * Create a generic team round (defaults to best-ball). Use when the specific
+ * team format doesn't matter — only the is_team_round flag does.
+ */
+export function createTeamRound(overrides: Partial<Round> = {}): Round {
+  return createTestRound({
+    id: 'round-team',
+    is_team_round: true,
+    team_format: 'best-ball',
     ...overrides,
   });
 }

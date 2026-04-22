@@ -3,7 +3,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader, Pill, PlayerAvatar } from '@/components/common';
 import { useNavigation } from '@react-navigation/native';
@@ -37,13 +37,22 @@ export function ScoringPairsSection({
   cardBackground,
   roundStatus,
   onEditPress,
+  playerCount,
+  onToggleEnabled,
 }: ScoringPairsSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const navigation = useNavigation<NavigationProp>();
 
-  // Card is only editable when round is upcoming (scheduled)
-  const isEditable = roundStatus === 'upcoming' && !!onEditPress;
+  // Rounds with more than 4 players manage pair assignments from the
+  // Groups tab. On those rounds this section is just a toggle + a hint;
+  // the tap-to-edit card is suppressed.
+  const managedOnGroupsTab = typeof playerCount === 'number' && playerCount > 4;
+  // Card is editable when round is upcoming AND pair management stays
+  // here (≤4 players) AND a handler is wired up.
+  const isEditable =
+    roundStatus === 'upcoming' && !!onEditPress && !managedOnGroupsTab;
+  const canToggle = roundStatus === 'upcoming' && !!onToggleEnabled;
 
   // Fetch scoring pairs for this round
   const { data: scoringPairs, isLoading } = useScoringPairs(roundId);
@@ -171,15 +180,48 @@ export function ScoringPairsSection({
               </Text>
             </View>
           </View>
-          <Pill
-            label={scoringPairsRequired ? 'Required' : 'Optional'}
-            variant={scoringPairsRequired ? 'primary' : 'default'}
-            size="sm"
-          />
+          {canToggle ? (
+            <Switch
+              value={scoringPairsRequired}
+              onValueChange={(v) => onToggleEnabled?.(v)}
+              accessibilityLabel={
+                scoringPairsRequired
+                  ? 'Disable scoring pairs'
+                  : 'Enable scoring pairs'
+              }
+              testID="scoring-pairs-toggle"
+            />
+          ) : (
+            <Pill
+              label={scoringPairsRequired ? 'Required' : 'Optional'}
+              variant={scoringPairsRequired ? 'primary' : 'default'}
+              size="sm"
+            />
+          )}
         </View>
 
-        {/* Pairs List (only show if enabled and has pairs) */}
-        {scoringPairsRequired && (
+        {/* Hint shown for rounds managed from the Groups tab, so the user
+            knows where to go to assign pairs. The pairs-list block below
+            is suppressed in that mode — it's the Groups tab's job. */}
+        {scoringPairsRequired && managedOnGroupsTab && (
+          <View
+            style={[
+              styles.managedElsewhereRow,
+              { backgroundColor: colors.primaryBackground ?? colors.primaryLighter },
+            ]}
+          >
+            <Icon source="information-outline" size={16} color={colors.primary} />
+            <Text
+              style={[styles.managedElsewhereText, { color: colors.primary }]}
+            >
+              Assign scoring pairs on the Groups tab.
+            </Text>
+          </View>
+        )}
+
+        {/* Pairs List (only show if enabled and pair management lives
+            here, i.e. ≤4-player rounds) */}
+        {scoringPairsRequired && !managedOnGroupsTab && (
           <>
             <View style={[styles.scoringPairsDivider, { backgroundColor: colors.border }]} />
 
@@ -357,6 +399,20 @@ const styles = StyleSheet.create({
   scoringPairsDivider: {
     height: 1,
     marginHorizontal: spacing.md,
+  },
+  managedElsewhereRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  managedElsewhereText: {
+    ...typography.caption,
+    flex: 1,
   },
   scoringPairsLoading: {
     flexDirection: 'row',

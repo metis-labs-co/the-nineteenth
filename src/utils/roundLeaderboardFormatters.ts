@@ -53,7 +53,13 @@ export interface ParScoreData {
 /** Match play-specific score data */
 export interface MatchPlayScoreData {
   type: 'match-play';
-  matchResult: 'win' | 'loss' | 'halved';
+  /**
+   * Undefined means the match is in progress and no final result has been
+   * determined yet. The leaderboard helpers (`isMatchComplete`,
+   * `formatMatchStatusText`, `calculateTeamAggregate`) already treat an
+   * undefined/absent value as in-progress.
+   */
+  matchResult?: 'win' | 'loss' | 'halved';
   holesUpDown: string; // e.g., "3&2", "1 UP", "A/S"
   opponentId: string;
   opponentName: string;

@@ -32,12 +32,12 @@ import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
 import { GAME_TYPE_LABELS } from './constants';
-import { PlayersSection, GroupsSection } from './components';
-import { EditDateTimeSheet, EditGameTypeSheet, EditTeeSheet, RoundFormatSheet } from './sheets';
+import { PlayersSection } from './components';
+import { EditDateTimeSheet, EditGameTypeSheet, EditTeeSheet, RoundFormatSheet, MatchupSheet } from './sheets';
 import type { RoundDetailsTabProps } from './types';
-import { usePairings } from '@/hooks/rounds';
+import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 
-type OpenSheet = 'date-time' | 'game-type' | 'tee' | 'round-format' | null;
+type OpenSheet = 'date-time' | 'game-type' | 'tee' | 'round-format' | 'matchup' | null;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -82,6 +82,10 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     if (!canEdit) return;
     setOpenSheet('round-format');
   }, [canEdit]);
+  const openMatchup = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('matchup');
+  }, [canEdit]);
   const handleUpgradePress = useCallback(() => onUpgradePress?.(), [onUpgradePress]);
 
   // Check if round has an active skins game
@@ -99,12 +103,25 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // touch round_players, not rounds.selected_tee.
   const { data: roundPlayerTees } = useRoundPlayerTees(round.id);
 
-  // Pairings drive whether the Details tab shows a flat Players list or
-  // a Groups view. A round is considered "grouped" when it has any pairings
-  // OR when its format is 'split' (which always has sub-matches to show).
-  const { data: roundPairings } = usePairings(round.id);
+  // Group/sub-match viewing lives on the dedicated Groups/Sub-Matches tab.
+  // The Details tab only shows the flat player list so it stays focused
+  // on round metadata.
   const roundFormat = round.round_format ?? 'combined';
-  const hasGroups = (roundPairings && roundPairings.length > 0) || roundFormat === 'split';
+
+  // Teams for this round — drives the Matchup row visibility. We only
+  // surface the picker when the competition has 3+ teams (2-team rounds
+  // fall back to "first two" automatically, so there's nothing to choose).
+  const { teams: roundTeams } = useRoundTeams(
+    round.competition_id ?? undefined,
+    round.is_team_round,
+    round.id
+  );
+  const isTeamMatchPlayRound = round.is_team_round && round.game_type === 'match-play';
+  const showMatchupRow = isTeamMatchPlayRound && roundTeams.length >= 3;
+  const team1Name =
+    roundTeams.find((t) => t.id === round.team1_id)?.name ?? roundTeams[0]?.name ?? 'Team A';
+  const team2Name =
+    roundTeams.find((t) => t.id === round.team2_id)?.name ?? roundTeams[1]?.name ?? 'Team B';
 
   // Effective tee for the current user on this round. Prefers a
   // per-player override (round_players.selected_tee) and falls back to
@@ -306,23 +323,25 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
                 }
               >
                 <View style={styles.teeValue}>
-                  {effectiveTee && (
-                    <View
-                      style={[
-                        styles.teeColorDot,
-                        {
-                          backgroundColor: getTeeColor(
-                            effectiveTee.color || '',
-                            colors.gray400
-                          ),
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    />
-                  )}
-                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                    {effectiveTee?.name || 'Not set'}
-                  </Text>
+                  <View style={styles.teeValueNameRow}>
+                    {effectiveTee && (
+                      <View
+                        style={[
+                          styles.teeColorDot,
+                          {
+                            backgroundColor: getTeeColor(
+                              effectiveTee.color || '',
+                              colors.gray400
+                            ),
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      />
+                    )}
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                      {effectiveTee?.name || 'Not set'}
+                    </Text>
+                  </View>
                   {(hasCR || hasSlope) && (
                     <Text style={[styles.teeMeta, { color: colors.textSecondary }]}>
                       {[
@@ -363,22 +382,36 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
               </DetailRow>
             </>
           )}
+
+          {showMatchupRow && (
+            <>
+              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+              <DetailRow
+                icon="sword-cross"
+                label="Matchup"
+                onPress={canEdit ? openMatchup : undefined}
+                accessibilityHint={canEdit ? 'Pick the two teams playing this round' : undefined}
+              >
+                <Text
+                  style={[styles.detailValue, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {team1Name} vs {team2Name}
+                </Text>
+              </DetailRow>
+            </>
+          )}
         </View>
       </View>
 
-      {/* Groups (when pairings exist or the round is split) or flat Players list */}
-      {hasGroups ? (
-        <GroupsSection
-          roundId={round.id}
-          roundFormat={roundFormat}
-          cardBackground={colors.surface}
-        />
-      ) : (
-        <PlayersSection
-          roundId={round.id}
-          cardBackground={colors.surface}
-        />
-      )}
+      {/* Flat players list. Team rosters live on the dedicated Teams
+          tab; group / sub-match breakdowns live on the Groups (or
+          Sub-Matches, for split team rounds) tab. */}
+      <PlayersSection
+        roundId={round.id}
+        cardBackground={colors.surface}
+      />
+
 
       {/* Per-field edit sheets */}
       <EditDateTimeSheet
@@ -419,6 +452,16 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           currentFormat={roundFormat}
           currentSubMatchSize={round.sub_match_size ?? null}
           roundTeeTime={round.tee_time}
+        />
+      )}
+      {showMatchupRow && (
+        <MatchupSheet
+          visible={openSheet === 'matchup'}
+          onDismiss={handleCloseSheet}
+          roundId={round.id}
+          competitionId={round.competition_id ?? null}
+          currentTeam1Id={round.team1_id ?? null}
+          currentTeam2Id={round.team2_id ?? null}
         />
       )}
     </View>
@@ -614,6 +657,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   teeValue: {
+    alignItems: 'flex-end',
+  },
+  teeValueNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -626,6 +672,7 @@ const styles = StyleSheet.create({
   },
   teeMeta: {
     ...typography.caption,
+    marginTop: 2,
   },
   detailDivider: {
     height: 1,

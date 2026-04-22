@@ -197,6 +197,8 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
     team_format: null,
     round_format: 'combined',
     sub_match_size: null,
+    team1_id: null,
+    team2_id: null,
     scoring_pairs_required: false,
     ball_count: 1,
     handicap_source: null,
@@ -277,34 +279,6 @@ describe('DetailsTab', () => {
       });
       render(<DetailsTab {...defaultProps} competition={knockout} />);
       expect(screen.getByText('15/1/2025')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
-  // QUICK STATS TESTS
-  // ===========================================================================
-
-  describe('Quick Stats', () => {
-    it('displays number of rounds', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('2')).toBeTruthy();
-      expect(screen.getByText('Rounds')).toBeTruthy();
-    });
-
-    it('displays player count', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('16')).toBeTruthy();
-      expect(screen.getByText('Players')).toBeTruthy();
-    });
-
-    it('displays zero rounds when none exist', () => {
-      render(<DetailsTab {...defaultProps} rounds={[]} />);
-      expect(screen.getByText('0')).toBeTruthy();
-    });
-
-    it('displays zero players when none exist', () => {
-      render(<DetailsTab {...defaultProps} playerCount={0} />);
-      expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -442,23 +416,6 @@ describe('DetailsTab', () => {
       const knockout = createTestCompetition({ competition_type: 'knockout' });
       render(<DetailsTab {...defaultProps} competition={knockout} />);
       expect(screen.getAllByText('Knockout').length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('displays handicap system - Honor System', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Honour System')).toBeTruthy();
-    });
-
-    it('displays handicap system - World Handicap System', () => {
-      const comp = createTestCompetition({ handicap_system: 'whs' });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('World Handicap System')).toBeTruthy();
-    });
-
-    it('displays handicap system - Gross Only', () => {
-      const comp = createTestCompetition({ handicap_system: 'gross-only' });
-      render(<DetailsTab {...defaultProps} competition={comp} />);
-      expect(screen.getByText('Gross Only')).toBeTruthy();
     });
 
     it('displays team mode - Individual', () => {
@@ -638,17 +595,6 @@ describe('DetailsTab', () => {
       const comp = createTestCompetition({ description: '' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
       expect(screen.queryByText('')).toBeNull(); // Empty text not rendered
-    });
-
-    it('handles large player count', () => {
-      render(<DetailsTab {...defaultProps} playerCount={1000} />);
-      expect(screen.getByText('1000')).toBeTruthy();
-    });
-
-    it('handles large round count', () => {
-      const manyRounds = Array.from({ length: 20 }, (_, i) => createTestRound(i + 1, defaultCourse));
-      render(<DetailsTab {...defaultProps} rounds={manyRounds} />);
-      expect(screen.getByText('20')).toBeTruthy();
     });
 
     it('handles competition with team_size null when team_mode is not none', () => {

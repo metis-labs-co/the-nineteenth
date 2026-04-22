@@ -14,6 +14,9 @@ import type { CompositeScreenProps } from '@react-navigation/native';
  * Contains auth screens and main app screens
  */
 export type RootStackParamList = {
+  // First-launch welcome/intro carousel (pre-auth)
+  WelcomeCarousel: undefined;
+
   // Auth Flow
   Login: undefined;
   Signup: undefined;

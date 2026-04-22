@@ -378,6 +378,22 @@ export function useIsSocial(): boolean {
 }
 
 /**
+ * Get just the isSuperAdmin boolean (super_admin or developer tier).
+ * Use for gating internal-only UI such as quick score flows.
+ *
+ * @example
+ * const isSuperAdmin = useIsSuperAdmin();
+ * if (isSuperAdmin) { showInternalTools(); }
+ */
+export function useIsSuperAdmin(): boolean {
+  const context = useContext(SubscriptionContext);
+  if (context === undefined) {
+    throw new Error('useIsSuperAdmin must be used within a SubscriptionProvider');
+  }
+  return context.isSuperAdmin;
+}
+
+/**
  * Get the checkFeature function for feature access checks
  *
  * @example
