@@ -3,17 +3,17 @@
  *
  * Fetches and derives all data needed for the competition detail screen:
  * - Competition details, rounds, players
- * - Leaderboard data
+ * - Leaderboard data (individual + team)
  * - Teams data
  * - Prize pool data + allocation summary
  * - Scoring pairs status
- * - Derived flags (isOrganizer, hasStartedRound, isPrizePoolLocked, currentStanding)
- * - Available tabs
+ * - Derived flags (isOrganizer, hasStartedRound, isPrizePoolLocked, isPlayer)
+ * - Mini-leaderboard windows (miniIndividual, miniTeam)
  */
 
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { useCompetitionDetailsData, getCurrentPlayerStanding } from '@/hooks';
+import { useCompetitionDetailsData } from '@/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/useTeams';
@@ -21,6 +21,11 @@ import { useCompetitionPrizePool, usePrizePoolPlacements } from '@/hooks/prizePo
 import { scoringPairsKeys, scorecardKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
 import { supabase } from '@/services/supabase/client';
+import {
+  getMiniIndividualRows,
+  getMiniTeamRows,
+  resolveUserTeamId,
+} from '@/utils/miniLeaderboard';
 
 export function useCompetitionDetailData(id: string) {
   const { user } = useAuth();
@@ -39,6 +44,11 @@ export function useCompetitionDetailData(id: string) {
     data: leaderboard,
     refetch: refetchLeaderboard,
   } = useCompetitionLeaderboard(id, { filter: 'individuals' });
+
+  // Fetch team leaderboard data for the team mini-leaderboard
+  const { data: teamLeaderboard } = useCompetitionLeaderboard(id, {
+    filter: 'teams',
+  });
 
   // Fetch teams data
   const {
@@ -134,10 +144,32 @@ export function useCompetitionDetailData(id: string) {
     return !!prizePool?.is_locked || hasStartedRound;
   }, [prizePool?.is_locked, hasStartedRound]);
 
-  // Get current player's standing (for non-organizers)
-  const currentStanding = useMemo(
-    () => getCurrentPlayerStanding(leaderboard, user?.id),
+  // Derive whether the current user is a player in this competition
+  const isPlayer = useMemo(() => {
+    if (!user || !competitionData?.players) return false;
+    return competitionData.players.some((p) => p.player_id === user.id);
+  }, [competitionData?.players, user]);
+
+  // Resolve current user's team (if any)
+  const userTeamId = useMemo(
+    () => resolveUserTeamId(teams, user?.id),
+    [teams, user?.id]
+  );
+
+  const userTeamName = useMemo(() => {
+    if (!userTeamId || !teams) return undefined;
+    return teams.find((t) => t.id === userTeamId)?.name;
+  }, [teams, userTeamId]);
+
+  // Derive 3-row mini-leaderboard windows
+  const miniIndividual = useMemo(
+    () => getMiniIndividualRows(leaderboard, user?.id),
     [leaderboard, user?.id]
+  );
+
+  const miniTeam = useMemo(
+    () => getMiniTeamRows(teamLeaderboard, userTeamId),
+    [teamLeaderboard, userTeamId]
   );
 
   return {
@@ -160,6 +192,10 @@ export function useCompetitionDetailData(id: string) {
     isOrganizer,
     hasStartedRound,
     isPrizePoolLocked,
-    currentStanding,
+    isPlayer,
+    userTeamId,
+    userTeamName,
+    miniIndividual,
+    miniTeam,
   };
 }

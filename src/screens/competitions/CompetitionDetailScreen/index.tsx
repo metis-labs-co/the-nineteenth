@@ -9,7 +9,7 @@
  * - Leaderboard: Competition standings
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
@@ -65,6 +65,14 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabValue>('details');
 
+  // Lifted leaderboard state — lets the mini-leaderboard tap-through select a view
+  const [leaderboardView, setLeaderboardView] = useState<'individual' | 'team'>(
+    'individual'
+  );
+  const [leaderboardScrollTarget, setLeaderboardScrollTarget] = useState<
+    { kind: 'player' | 'team'; id: string } | null
+  >(null);
+
   // Data hook
   const {
     user,
@@ -83,10 +91,33 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     isOrganizer,
     hasStartedRound,
     isPrizePoolLocked,
-    currentStanding,
+    isPlayer,
+    userTeamId,
+    userTeamName,
+    miniIndividual,
+    miniTeam,
     refetchLeaderboard,
     refetchTeams,
   } = useCompetitionDetailData(id);
+
+  const handleOpenLeaderboardFromMini = useCallback(
+    (view: 'individual' | 'team') => {
+      setActiveTab('leaderboard');
+      setLeaderboardView(view);
+      if (view === 'team' && userTeamId) {
+        setLeaderboardScrollTarget({ kind: 'team', id: userTeamId });
+      } else if (view === 'individual' && user?.id) {
+        setLeaderboardScrollTarget({ kind: 'player', id: user.id });
+      } else {
+        setLeaderboardScrollTarget(null);
+      }
+    },
+    [user?.id, userTeamId]
+  );
+
+  const handleScrollHandled = useCallback(() => {
+    setLeaderboardScrollTarget(null);
+  }, []);
 
   // Handlers hook
   const {
@@ -252,7 +283,11 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             competition={competition}
             rounds={rounds}
             playerCount={players.length}
-            currentStanding={currentStanding}
+            isPlayer={isPlayer}
+            miniIndividual={miniIndividual}
+            miniTeam={miniTeam}
+            userTeamName={userTeamName}
+            onOpenLeaderboard={handleOpenLeaderboardFromMini}
             isOrganizer={isOrganizer}
             hasStartedRound={hasStartedRound}
             prizePool={prizePool}
@@ -323,6 +358,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             rounds={rounds}
             currentUserId={user?.id}
             onEntryPress={handleLeaderboardEntryPress}
+            selectedView={leaderboardView}
+            onViewChange={setLeaderboardView}
+            scrollTarget={leaderboardScrollTarget}
+            onScrollHandled={handleScrollHandled}
           />
         )}
 

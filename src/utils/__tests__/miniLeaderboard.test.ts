@@ -124,7 +124,6 @@ describe('resolveUserTeamId', () => {
     id,
     competition_id: 'c1',
     name: `Team ${id}`,
-    color: null,
     created_at: '',
     updated_at: '',
     members: memberIds.map((pid) => ({
