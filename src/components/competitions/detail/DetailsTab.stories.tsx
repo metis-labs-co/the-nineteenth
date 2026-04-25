@@ -13,6 +13,16 @@ import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } f
 import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
 import { spacing } from '@/constants/theme';
+import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
+
+const miniWithPosition = (position: number, points: number): MiniLeaderboardData => ({
+  above:
+    position > 1
+      ? { id: 'p-above', position: position - 1, name: 'Jess Patel', points: points + 4, isCurrent: false }
+      : null,
+  you: { id: 'p-current', position, name: 'You', points, isCurrent: true },
+  below: { id: 'p-below', position: position + 1, name: "Mike O'Brien", points: points - 4, isCurrent: false },
+});
 
 // ===========================================================================
 // META
@@ -163,7 +173,9 @@ export const OrganizerView: Story = {
     competition: defaultCompetition,
     rounds: defaultRounds,
     playerCount: 16,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -179,7 +191,9 @@ export const PlayerView: Story = {
     competition: defaultCompetition,
     rounds: defaultRounds,
     playerCount: 16,
-    currentStanding: { position: 3, points: 32 },
+    isPlayer: true,
+    miniIndividual: miniWithPosition(3, 32),
+    miniTeam: null,
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -194,7 +208,9 @@ export const PlayerInFirstPlace: Story = {
     competition: defaultCompetition,
     rounds: defaultRounds,
     playerCount: 16,
-    currentStanding: { position: 1, points: 45 },
+    isPlayer: true,
+    miniIndividual: miniWithPosition(1, 45),
+    miniTeam: null,
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -221,7 +237,9 @@ export const KnockoutCompetition: Story = {
       createRound(4, kingstonHeath, '2025-04-15'),
     ],
     playerCount: 24,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -241,7 +259,9 @@ export const FixedTeamsCompetition: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 16,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -261,7 +281,9 @@ export const PerRoundTeamsCompetition: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 20,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -280,7 +302,9 @@ export const WHSHandicap: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 32,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -299,7 +323,9 @@ export const GrossOnlyCompetition: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 12,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -321,7 +347,9 @@ export const SingleCourse: Story = {
       createRound(3, royalMelbourne, '2025-01-17'),
     ],
     playerCount: 24,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -344,7 +372,9 @@ export const MultipleCourses: Story = {
       createRound(4, createCourse('course-4', 'Victoria Golf Club', 'Victoria Golf Club'), '2025-01-18'),
     ],
     playerCount: 20,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -366,7 +396,9 @@ export const NoCourses: Story = {
       { ...createRound(2, null, '2025-01-16'), course: null },
     ],
     playerCount: 0,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -385,7 +417,9 @@ export const NoRounds: Story = {
     }),
     rounds: [],
     playerCount: 4,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -405,7 +439,9 @@ export const InProgressCompetition: Story = {
       { ...createRound(2, kingstonHeath, '2025-01-16'), status: 'in-progress' },
     ],
     playerCount: 16,
-    currentStanding: { position: 5, points: 28 },
+    isPlayer: true,
+    miniIndividual: miniWithPosition(5, 28),
+    miniTeam: null,
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -425,7 +461,9 @@ export const CompletedCompetition: Story = {
       { ...createRound(2, kingstonHeath, '2025-01-16'), status: 'completed' },
     ],
     playerCount: 16,
-    currentStanding: { position: 2, points: 42 },
+    isPlayer: true,
+    miniIndividual: miniWithPosition(2, 42),
+    miniTeam: null,
     isOrganizer: false,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -442,7 +480,9 @@ export const NoDescription: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 8,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -460,7 +500,9 @@ export const LongCompetitionName: Story = {
     }),
     rounds: defaultRounds,
     playerCount: 32,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 
@@ -480,7 +522,9 @@ export const LargeCompetition: Story = {
       createRound(1, royalMelbourne, '2025-01-15'),
     ],
     playerCount: 120,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: (course) => console.log('View course:', course.name),
 

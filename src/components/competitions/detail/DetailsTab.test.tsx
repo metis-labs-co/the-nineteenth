@@ -17,6 +17,16 @@ import { DetailsTab } from './DetailsTab';
 import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import { DEFAULT_POINT_SYSTEM } from '@/types/database.types';
 import type { RoundWithCourse } from './types';
+import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
+
+const miniWithPosition = (position: number, points: number): MiniLeaderboardData => ({
+  above:
+    position > 1
+      ? { id: 'p-above', position: position - 1, name: 'Above', points: points + 4, isCurrent: false }
+      : null,
+  you: { id: 'p-current', position, name: 'You', points, isCurrent: true },
+  below: { id: 'p-below', position: position + 1, name: 'Below', points: points - 4, isCurrent: false },
+});
 
 // =====================================================
 // MOCKS
@@ -229,7 +239,9 @@ describe('DetailsTab', () => {
     competition: defaultCompetition,
     rounds: defaultRounds,
     playerCount: 16,
-    currentStanding: null,
+    isPlayer: false,
+    miniIndividual: null,
+    miniTeam: null,
     isOrganizer: true,
     onViewCourse: mockOnViewCourse,
     onUpdateCompetition: mockOnUpdateCompetition,
@@ -330,70 +342,82 @@ describe('DetailsTab', () => {
   });
 
   // ===========================================================================
-  // CURRENT STANDING TESTS
+  // MINI-LEADERBOARD TESTS
   // ===========================================================================
 
-  describe('Current Standing Card', () => {
-    it('does not show standing card for organizers', () => {
+  describe('Mini-Leaderboard Section', () => {
+    it('renders mini-leaderboard for organiser-player (regression: bug fix)', () => {
       const props = {
         ...defaultProps,
         isOrganizer: true,
-        currentStanding: { position: 1, points: 45 },
+        isPlayer: true,
+        miniIndividual: miniWithPosition(2, 36),
+        miniTeam: null,
       };
       render(<DetailsTab {...props} />);
-      expect(screen.queryByTestId('current-standing-card')).toBeNull();
+      expect(screen.getByTestId('mini-leaderboard-card')).toBeTruthy();
     });
 
-    it('shows standing card for non-organizers with standing', () => {
+    it('renders mini-leaderboard for player who is not organizer', () => {
       const props = {
         ...defaultProps,
         isOrganizer: false,
-        currentStanding: { position: 1, points: 45 },
+        isPlayer: true,
+        miniIndividual: miniWithPosition(1, 45),
+        miniTeam: null,
       };
       render(<DetailsTab {...props} />);
-      expect(screen.getByTestId('current-standing-card')).toBeTruthy();
+      expect(screen.getByTestId('mini-leaderboard-card')).toBeTruthy();
     });
 
-    it('does not show standing card when no standing data', () => {
+    it('hides mini-leaderboard when user is not a player', () => {
+      const props = {
+        ...defaultProps,
+        isOrganizer: true,
+        isPlayer: false,
+        miniIndividual: null,
+        miniTeam: null,
+      };
+      render(<DetailsTab {...props} />);
+      expect(screen.queryByTestId('mini-leaderboard-card')).toBeNull();
+    });
+
+    it('hides mini-leaderboard when miniIndividual is null', () => {
       const props = {
         ...defaultProps,
         isOrganizer: false,
-        currentStanding: null,
+        isPlayer: true,
+        miniIndividual: null,
+        miniTeam: null,
       };
       render(<DetailsTab {...props} />);
-      expect(screen.queryByTestId('current-standing-card')).toBeNull();
+      expect(screen.queryByTestId('mini-leaderboard-card')).toBeNull();
     });
 
-    it('displays position with ordinal suffix', () => {
+    it('hides mini-leaderboard for knockout competitions', () => {
+      const knockout = createTestCompetition({ competition_type: 'knockout' });
       const props = {
         ...defaultProps,
-        isOrganizer: false,
-        currentStanding: { position: 1, points: 45 },
+        competition: knockout,
+        isPlayer: true,
+        miniIndividual: miniWithPosition(2, 36),
+        miniTeam: null,
       };
       render(<DetailsTab {...props} />);
-      expect(screen.getByText('1st')).toBeTruthy();
+      expect(screen.queryByTestId('mini-leaderboard-card')).toBeNull();
     });
 
-    it('displays points correctly', () => {
+    it('renders both individual and team sub-sections when team data present', () => {
       const props = {
         ...defaultProps,
-        isOrganizer: false,
-        currentStanding: { position: 3, points: 32 },
+        isPlayer: true,
+        miniIndividual: miniWithPosition(2, 36),
+        miniTeam: miniWithPosition(2, 80),
+        userTeamName: 'Hawks',
       };
       render(<DetailsTab {...props} />);
-      expect(screen.getByText('32')).toBeTruthy();
-    });
-
-    it('displays standing labels', () => {
-      const props = {
-        ...defaultProps,
-        isOrganizer: false,
-        currentStanding: { position: 2, points: 40 },
-      };
-      render(<DetailsTab {...props} />);
-      expect(screen.getByText('Your Current Standing')).toBeTruthy();
-      expect(screen.getByText('Position')).toBeTruthy();
-      expect(screen.getByText('Points')).toBeTruthy();
+      expect(screen.getByTestId('mini-leaderboard-individual')).toBeTruthy();
+      expect(screen.getByTestId('mini-leaderboard-team')).toBeTruthy();
     });
   });
 
