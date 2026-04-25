@@ -4,6 +4,7 @@
 
 import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
+import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 
 // =====================================================
 // PROPS TYPES
@@ -13,8 +14,15 @@ export interface CompetitionInfoSectionProps {
   competition: Competition;
 }
 
-export interface CurrentStandingSectionProps {
-  standing: { position: number; points: number };
+export interface MiniLeaderboardSectionProps {
+  /** 3-row window for individual standings (null hides the whole section) */
+  individual: MiniLeaderboardData | null;
+  /** 3-row window for team standings (null hides only the team sub-section) */
+  team: MiniLeaderboardData | null;
+  /** Display label for the user's team (e.g. "Hawks") */
+  teamName?: string;
+  /** Called when a sub-section is tapped */
+  onOpenLeaderboard: (view: 'individual' | 'team') => void;
 }
 
 export interface SettingsSectionProps {
