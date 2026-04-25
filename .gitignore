@@ -99,6 +99,7 @@ supabase/.temp/
 # Claude / AI
 .claude/
 .superpowers/
+.worktrees/
 
 # Misc
 *.tgz
