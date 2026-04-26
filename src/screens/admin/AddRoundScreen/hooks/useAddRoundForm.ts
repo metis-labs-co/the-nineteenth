@@ -433,6 +433,7 @@ export function useAddRoundForm({
           presetConfig: {
             round_format: presetConfig.round_format,
             sub_match_size: presetConfig.sub_match_size,
+            is_team_round: presetConfig.is_team_round,
           },
           pairingStyle: formData.pairingStyle,
           pairingMetric: formData.pairingMetric,

@@ -38,8 +38,13 @@ export interface ReseedRoundPairingsInput {
    *  `round_number < this`. */
   roundNumber: number;
   /** Six-field config from the round's preset. Drives the split vs combined
-   *  branch and the cross-team cardinality (sub_match_size). */
-  presetConfig: Pick<RoundPresetConfig, 'round_format' | 'sub_match_size'>;
+   *  branch, the cross-team cardinality (sub_match_size), and whether teams
+   *  are honoured at all (singles match play in a team competition still
+   *  pairs flat — the `is_team_round` flag is the source of truth). */
+  presetConfig: Pick<
+    RoundPresetConfig,
+    'round_format' | 'sub_match_size' | 'is_team_round'
+  >;
   pairingStyle: BracketSeedingStyle;
   pairingMetric: QualifyingMetric;
   /** Round-level tee time (HH:MM:SS or HH:MM). Falls back to '07:00' for
@@ -128,7 +133,11 @@ export async function reseedRoundPairings(
   const isSplit = presetConfig.round_format === 'split';
   const subMatchSize = presetConfig.sub_match_size ?? 1;
   const startTime = (teeTime || '07:00').substring(0, 5);
-  const hasTeams = !!teams && teams.length >= 2;
+  // Singles match play (is_team_round: false) ALWAYS ignores the
+  // competition's teams, even if the caller forwarded them. This guards
+  // against any caller that hasn't been updated to gate on isTeamRound.
+  const hasTeams =
+    presetConfig.is_team_round && !!teams && teams.length >= 2;
 
   if (!isSplit) {
     // Combined-format match-play presets — one `pairings` row per pair.

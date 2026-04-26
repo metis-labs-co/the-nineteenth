@@ -43,7 +43,7 @@ describe('reseedRoundPairings — combined (individual) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'combined', sub_match_size: null },
+      presetConfig: { round_format: 'combined', sub_match_size: null, is_team_round: false },
       pairingStyle: 'standard',
       pairingMetric: 'competition_points',
       teeTime: '08:00:00',
@@ -77,7 +77,7 @@ describe('reseedRoundPairings — combined (individual) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'combined', sub_match_size: null },
+      presetConfig: { round_format: 'combined', sub_match_size: null, is_team_round: false },
       pairingStyle: 'adjacent',
       pairingMetric: 'stableford_points',
       teeTime: null,
@@ -98,7 +98,7 @@ describe('reseedRoundPairings — combined (individual) presets', () => {
         roundId: 'round-1',
         competitionId: 'comp-1',
         roundNumber: 1,
-        presetConfig: { round_format: 'combined', sub_match_size: null },
+        presetConfig: { round_format: 'combined', sub_match_size: null, is_team_round: false },
         pairingStyle: 'standard',
         pairingMetric: 'competition_points',
         teeTime: null,
@@ -114,7 +114,7 @@ describe('reseedRoundPairings — combined (individual) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'combined', sub_match_size: null },
+      presetConfig: { round_format: 'combined', sub_match_size: null, is_team_round: false },
       pairingStyle: 'standard',
       pairingMetric: 'competition_points',
       teeTime: '08:00:00',
@@ -181,7 +181,7 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'split', sub_match_size: 1 },
+      presetConfig: { round_format: 'split', sub_match_size: 1, is_team_round: true },
       pairingStyle: 'adjacent',
       pairingMetric: 'competition_points',
       teeTime: '08:00:00',
@@ -213,7 +213,7 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'split', sub_match_size: 1 },
+      presetConfig: { round_format: 'split', sub_match_size: 1, is_team_round: true },
       pairingStyle: 'standard',
       pairingMetric: 'competition_points',
       teeTime: '08:00:00',
@@ -242,7 +242,7 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
       roundId: 'round-1',
       competitionId: 'comp-1',
       roundNumber: 2,
-      presetConfig: { round_format: 'split', sub_match_size: 1 },
+      presetConfig: { round_format: 'split', sub_match_size: 1, is_team_round: false },
       pairingStyle: 'adjacent',
       pairingMetric: 'competition_points',
       teeTime: '08:00:00',
@@ -260,6 +260,37 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
     expect(subMatches[1].teamBPlayerIds).toEqual(['p4']);
   });
 
+  it('singles split ignores teams even when caller forwards them (defence in depth)', async () => {
+    // Singles match play in a team competition — caller forwards the
+    // competition's teams but is_team_round: false tells reseedRoundPairings
+    // to ignore them and pair from the flat standings list.
+    mockedGetStandings.mockResolvedValue([
+      { id: 'a1', name: 'A1', handicap: 5 },
+      { id: 'b1', name: 'B1', handicap: 6 },
+      { id: 'a2', name: 'A2', handicap: 10 },
+      { id: 'b2', name: 'B2', handicap: 12 },
+    ]);
+
+    await reseedRoundPairings({
+      roundId: 'round-1',
+      competitionId: 'comp-1',
+      roundNumber: 2,
+      presetConfig: { round_format: 'split', sub_match_size: 1, is_team_round: false },
+      pairingStyle: 'adjacent',
+      pairingMetric: 'competition_points',
+      teeTime: '08:00:00',
+      teams: buildTeams(), // ← provided but ignored because is_team_round: false
+    });
+
+    const [{ subMatches }] = mockedReplaceSubMatches.mock.calls[0];
+    expect(subMatches).toHaveLength(2);
+    // Flat-standings adjacent: 1v2, 3v4 — NOT cross-team
+    expect(subMatches[0].teamAPlayerIds).toEqual(['a1']);
+    expect(subMatches[0].teamBPlayerIds).toEqual(['b1']);
+    expect(subMatches[1].teamAPlayerIds).toEqual(['a2']);
+    expect(subMatches[1].teamBPlayerIds).toEqual(['b2']);
+  });
+
   it('singles split rejects sub_match_size > 1', async () => {
     mockedGetStandings.mockResolvedValue([
       { id: 'p1', name: 'P1', handicap: 5 },
@@ -271,7 +302,7 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
         roundId: 'round-1',
         competitionId: 'comp-1',
         roundNumber: 2,
-        presetConfig: { round_format: 'split', sub_match_size: 2 },
+        presetConfig: { round_format: 'split', sub_match_size: 2, is_team_round: false },
         pairingStyle: 'adjacent',
         pairingMetric: 'competition_points',
         teeTime: null,

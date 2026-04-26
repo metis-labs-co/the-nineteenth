@@ -192,13 +192,14 @@ export function EditPairingConfigSheet({
           roundId,
           competitionId,
           roundNumber,
-          presetConfig,
+          presetConfig: { ...presetConfig, is_team_round: isTeamRound },
           pairingStyle: style,
           pairingMetric: metric,
           teeTime,
           // Only forward teams for team-format rounds. Singles match play
           // (is_team_round: false) ignores the competition's teams entirely
-          // and pairs head-to-head from the flat standings list.
+          // and pairs head-to-head from the flat standings list. Defence in
+          // depth: reseedRoundPairings also re-checks is_team_round.
           teams: isTeamRound ? teams : undefined,
         });
       } catch (err) {
