@@ -55,10 +55,16 @@ export function MatchTab({
 }: MatchTabProps) {
   const colors = useThemeColors();
 
-  const hasRyderCup = isSplitRound && !!roundId;
+  // Ryder-Cup-style team aggregate only applies to *team* split rounds. A
+  // singles-split round (Singles Match Play with sub_matches) has no
+  // team-level aggregate to render.
+  const hasRyderCup = isSplitRound && isTeamRound && !!roundId;
   const hasScorecard = isMatchPlayRound && !!matchPlayPlayers && !!holes;
+  // Hide the per-round match-play leaderboard only when the team aggregate
+  // replaces it (team split rounds). Singles split rounds still benefit from
+  // the leaderboard view.
   const hasLeaderboard =
-    !isSplitRound && !!matchPlayData && matchPlayData.entries.length > 0;
+    !hasRyderCup && !!matchPlayData && matchPlayData.entries.length > 0;
   const isNotStarted = roundStatus === 'upcoming';
 
   // When the round hasn't produced match data yet (typical for rounds

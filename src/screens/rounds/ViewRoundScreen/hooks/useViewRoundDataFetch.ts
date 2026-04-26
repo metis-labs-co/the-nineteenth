@@ -39,10 +39,13 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
   const isShambleRound = round?.game_type === 'shamble' || round?.team_format === 'shamble';
   const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble';
   const isStrokePlayRound = round?.game_type === 'stroke';
-  // Split round: the team round is Ryder-Cup-style (multiple independent
-  // sub-matches aggregated for the round result). Only meaningful for team
-  // rounds — the field is always 'combined' on individual rounds.
-  const isSplitRound = (round?.is_team_round ?? false) && round?.round_format === 'split';
+  // Split round: the round is rendered as a list of independent sub_matches
+  // rather than tee-time groups. Two flavours:
+  //   - Team split (Ryder Cup): sub_matches aggregated for the round result
+  //     (also satisfies isTeamRound).
+  //   - Singles split (Singles Match Play): each sub_match is a 1v1; no team
+  //     aggregation — the per-match results stand on their own.
+  const isSplitRound = round?.round_format === 'split';
   // Team stroke round: best-ball or aggregate team formats that still score
   // per-player into scorecards. Match-play-team uses the Match tab, scramble
   // and shamble have their own dedicated tabs — those are excluded here.
