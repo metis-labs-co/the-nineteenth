@@ -58,12 +58,16 @@ export async function applyPresetToRound(input: ApplyPresetInput): Promise<void>
   const preset = getRoundPreset(presetId);
   const config = preset.config;
 
-  // Guard: split presets need a non-empty sub-matches list or there's
-  // nothing to persist. Callers that can't produce one (e.g. round
-  // missing team rosters) should short-circuit before calling.
-  if (config.round_format === 'split' && (!subMatches || subMatches.length === 0)) {
+  // Guard: TEAM split presets need a non-empty sub-matches list (the caller
+  // generates them from team rosters). Singles split (e.g. individual_match_play)
+  // legitimately starts empty — the organiser pairs them via EditPairingConfigSheet.
+  if (
+    config.round_format === 'split' &&
+    config.is_team_round &&
+    (!subMatches || subMatches.length === 0)
+  ) {
     throw new ApplyPresetError(
-      `Preset "${presetId}" is split but no sub-matches were provided`
+      `Preset "${presetId}" is a team split format but no sub-matches were provided`
     );
   }
 
@@ -83,9 +87,14 @@ export async function applyPresetToRound(input: ApplyPresetInput): Promise<void>
   } as never);
 
   // 2. Reconcile sub-matches.
-  if (config.round_format === 'split') {
-    await replaceSubMatches({ roundId, subMatches: subMatches! });
-  } else if (currentRoundFormat === 'split') {
+  if (config.round_format === 'split' && subMatches && subMatches.length > 0) {
+    await replaceSubMatches({ roundId, subMatches });
+  } else if (config.round_format === 'split' && !config.is_team_round) {
+    // Singles split: clear any existing (likely team-vs-team) sub_matches so
+    // the round starts from a clean slate. Organiser then sets up pairings
+    // via EditPairingConfigSheet.
+    await deleteAllSubMatchesForRound(roundId);
+  } else if (currentRoundFormat === 'split' && config.round_format !== 'split') {
     // Transitioning split → combined: existing sub-matches are dead weight.
     await deleteAllSubMatchesForRound(roundId);
   }

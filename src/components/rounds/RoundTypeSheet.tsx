@@ -145,6 +145,10 @@ export function RoundTypeSheet({
   const preview = useMemo<GeneratedSubMatch[] | null>(() => {
     if (!pendingPreset) return null;
     if (pendingPreset.config.round_format !== 'split') return null;
+    // Singles match play (split + is_team_round: false) must NOT pre-generate
+    // cross-team pairings. The round starts empty and the organiser sets up
+    // pairings via EditPairingConfigSheet (manual or standings-driven).
+    if (!pendingPreset.config.is_team_round) return null;
     if (teams.length < 2) return null;
     const size = pendingPreset.config.sub_match_size ?? 2;
 
@@ -181,7 +185,11 @@ export function RoundTypeSheet({
     mutationFn: async () => {
       if (!pendingPresetId) return;
       const target = ROUND_PRESETS[pendingPresetId];
-      const needsSubMatches = target.config.round_format === 'split';
+      // Only team split presets ship a pre-generated sub-matches list.
+      // Singles match play (split + is_team_round: false) flips to split
+      // format with empty sub_matches; the organiser pairs via the edit sheet.
+      const needsSubMatches =
+        target.config.round_format === 'split' && target.config.is_team_round;
 
       await applyPresetToRound({
         roundId,
