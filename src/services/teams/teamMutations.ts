@@ -43,7 +43,7 @@ const logger = createModuleLogger('TeamService');
 export async function createTeam(
   input: CreateTeamInput
 ): Promise<TeamWithMembers> {
-  const { competitionId, name, memberIds } = input;
+  const { competitionId, name, memberIds, color } = input;
 
   // Validate input
   if (!competitionId) {
@@ -62,6 +62,7 @@ export async function createTeam(
     .insert({
       competition_id: competitionId,
       name: name.trim(),
+      ...(color ? { color } : {}),
     } as unknown as never)
     .select()
     .single();
@@ -321,27 +322,42 @@ export async function removeTeamMember(
 }
 
 /**
- * Update a team's name
+ * Update a team's editable metadata (name and/or colour)
+ *
+ * Only the fields present in `updates` are written. Empty/whitespace
+ * names are rejected; an explicit `null` colour is allowed (clears).
  *
  * @param teamId - Team UUID
- * @param name - New team name
+ * @param updates - Partial update payload ({ name?, color? })
  * @returns Updated team
  * @throws TeamServiceError if update fails
  */
-export async function updateTeamName(
+export async function updateTeamMetadata(
   teamId: string,
-  name: string
+  updates: { name?: string; color?: string | null }
 ): Promise<Team> {
   if (!teamId) {
     throw createError('Team ID is required', 'VALIDATION');
   }
-  if (!name || name.trim().length === 0) {
-    throw createError('Team name is required', 'VALIDATION');
+
+  const patch: Record<string, string | null> = {};
+  if (updates.name !== undefined) {
+    if (!updates.name || updates.name.trim().length === 0) {
+      throw createError('Team name is required', 'VALIDATION');
+    }
+    patch.name = updates.name.trim();
+  }
+  if (updates.color !== undefined) {
+    patch.color = updates.color;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    throw createError('No updates provided', 'VALIDATION');
   }
 
   const { data: team, error } = await supabase
     .from('teams')
-    .update({ name: name.trim() } as unknown as never)
+    .update(patch as unknown as never)
     .eq('id', teamId)
     .select()
     .single();
@@ -352,13 +368,13 @@ export async function updateTeamName(
     }
     if (error.code === '23505') {
       throw createError(
-        `A team named "${name}" already exists in this competition`,
+        `A team named "${updates.name}" already exists in this competition`,
         'DUPLICATE'
       );
     }
-    logger.error('Failed to update team name', error);
+    logger.error('Failed to update team metadata', error);
     throw createError(
-      `Failed to update team name: ${error.message}`,
+      `Failed to update team: ${error.message}`,
       'DATABASE'
     );
   }

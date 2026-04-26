@@ -12,11 +12,12 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { EmptyState, LoadingSpinner, ScaledText } from '@/components/common';
+import { Badge, EmptyState, LoadingSpinner, ScaledText } from '@/components/common';
 import { IconTrophy, IconChevronRight } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
+import { getTeamColorHex } from '@/utils/teamColor';
 import type { LeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
 export interface LeaderboardTableProps {
@@ -157,17 +158,37 @@ export function LeaderboardTable({
 
             {/* Player Name */}
             <View style={[styles.tableCell, styles.playerCol]}>
-              <ScaledText
-                category="body"
-                style={[
-                  styles.playerName,
-                  { color: colors.textPrimary },
-                  isCurrentUser && [styles.playerNameHighlighted, { color: colors.primary }],
-                ]}
-                numberOfLines={1}
-              >
-                {isCurrentUser ? 'You' : entry.playerName}
-              </ScaledText>
+              <View style={styles.playerNameRow}>
+                <ScaledText
+                  category="body"
+                  style={[
+                    styles.playerName,
+                    { color: colors.textPrimary },
+                    isCurrentUser && [styles.playerNameHighlighted, { color: colors.primary }],
+                  ]}
+                  numberOfLines={1}
+                >
+                  {entry.playerName}
+                </ScaledText>
+                {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+              </View>
+              {entry.teamName && (
+                <View style={styles.teamRow}>
+                  <View
+                    style={[
+                      styles.teamColorDot,
+                      { backgroundColor: getTeamColorHex(entry.teamColor, 0, colors) },
+                    ]}
+                  />
+                  <ScaledText
+                    category="caption"
+                    style={[styles.teamNameText, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {entry.teamName}
+                  </ScaledText>
+                </View>
+              )}
               {showRoundsPlayed && entry.roundsPlayed > 0 && (
                 <ScaledText category="caption" style={[styles.roundsPlayedText, { color: colors.textSecondary }]}>
                   {entry.roundsPlayed} round{entry.roundsPlayed !== 1 ? 's' : ''}
@@ -325,8 +346,15 @@ const styles = StyleSheet.create({
   },
 
   // Player
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   playerName: {
     ...typography.body,
+    flexShrink: 1,
   },
   playerNameHighlighted: {
     ...typography.bodyBold,
@@ -334,6 +362,21 @@ const styles = StyleSheet.create({
   roundsPlayedText: {
     ...typography.caption,
     marginTop: 2,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  teamColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  teamNameText: {
+    ...typography.caption,
+    flexShrink: 1,
   },
 
   // Handicap

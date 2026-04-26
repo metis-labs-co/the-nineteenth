@@ -29,6 +29,7 @@ import { useAchievementToast } from '@/context/AchievementToastContext';
 import { useAuth } from '@/hooks/useAuth';
 import type { AchievementEventData } from '@/types/database/achievement.types';
 import { useQueryClient } from '@tanstack/react-query';
+import { roundKeys, scorecardKeys } from '@/hooks/queryKeys';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import type { IncompleteHole } from './useScoreReview';
@@ -129,9 +130,12 @@ export function useScoreSubmission({
   const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(achievementPlayerId);
   const { showMultipleToasts } = useAchievementToast();
 
-  // Check bypass availability on mount and periodically
+  // Check bypass availability on mount and periodically.
+  // Runs for both scoring-pairs and multi-scorer rounds — both modes can
+  // have a pending bypass timer once the user has attempted submission while
+  // other scorers were still in progress.
   useEffect(() => {
-    if (!scoringPairsEnabled || !currentRoundId || !currentUserId) return;
+    if (!currentRoundId || !currentUserId) return;
 
     const checkBypassStatus = async () => {
       try {
@@ -156,7 +160,7 @@ export function useScoreSubmission({
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [scoringPairsEnabled, currentRoundId, currentUserId, bypassAvailableAt]);
+  }, [currentRoundId, currentUserId, bypassAvailableAt]);
 
   // Refresh partner status
   const refreshPartnerStatus = useCallback(async () => {
@@ -218,11 +222,21 @@ export function useScoreSubmission({
 
     const roundId = currentRoundId || routeRoundId;
 
-    // Check submission readiness when scoring pairs are enabled
-    if (scoringPairsEnabled && currentUserId && roundId && isOnline) {
+    // Submission readiness check.
+    // Runs for ALL online submissions:
+    //  - Scoring pairs enabled → 2-way self-vs-partner verification.
+    //  - Otherwise → multi-scorer auto-detect: if 2+ users actually wrote
+    //    score_entries, run N-way mismatch + completeness checks. Solo scorer
+    //    rounds short-circuit inside the service and submit normally.
+    if (currentUserId && roundId && isOnline) {
       try {
-        submitLogger.info('Checking submission readiness for scoring pairs');
-        const readiness = await checkSubmissionReadiness(roundId, currentUserId, true, holeCount);
+        submitLogger.info('Checking submission readiness', { scoringPairsEnabled });
+        const readiness = await checkSubmissionReadiness(
+          roundId,
+          currentUserId,
+          scoringPairsEnabled,
+          holeCount,
+        );
 
         if (!readiness.canSubmit) {
           if (readiness.reason === 'waiting_for_partner') {
@@ -270,6 +284,49 @@ export function useScoreSubmission({
             return;
           }
 
+          if (readiness.reason === 'waiting_for_other_scorers') {
+            const incomplete = readiness.incompleteScorers ?? [];
+            submitLogger.info('Waiting for other scorers to complete', {
+              count: incomplete.length,
+              names: incomplete.map((s) => s.scorerName),
+            });
+
+            // Reuse partner-waiting state for the dialog refresh path; treat
+            // the first incomplete scorer as the surfaced "name" for display.
+            setIsWaitingForPartner(true);
+            setPartnerName(incomplete[0]?.scorerName ?? null);
+            setPartnerProgress(incomplete[0]?.progress ?? null);
+
+            // Start bypass timer if not already started. Multi-scorer has no
+            // single canonical partner, so partner_id is null.
+            const existingStatus = await getSubmissionStatus(roundId, currentUserId);
+            if (!existingStatus?.bypass_available_at) {
+              const { bypass_available_at } = await startBypassTimer(roundId, currentUserId, null);
+              setBypassAvailableAt(new Date(bypass_available_at));
+              submitLogger.info('Bypass timer started (multi-scorer)', { bypass_available_at });
+            }
+
+            const namesList = incomplete
+              .map((s) => `• ${s.scorerName} (${s.progress.completed}/${s.progress.total})`)
+              .join('\n');
+            const bypassLine = bypassAvailableAt
+              ? `\n\nBypass available ${bypassAvailable ? 'now' : `at ${bypassAvailableAt.toLocaleTimeString()}`}`
+              : '';
+
+            showDialog({
+              title: 'Waiting for Other Scorers',
+              message: `These scorers haven't finished entering all scores yet:\n\n${namesList}${bypassLine}`,
+              confirmLabel: 'Check Again',
+              cancelLabel: 'OK',
+              icon: 'account-clock-outline',
+              onConfirm: () => {
+                dismissDialog();
+                refreshPartnerStatus();
+              },
+            });
+            return;
+          }
+
           if (readiness.reason === 'unresolved_mismatches') {
             submitLogger.info('Unresolved mismatches found', { count: readiness.mismatchCount });
             setShowMismatchModal(true);
@@ -277,19 +334,23 @@ export function useScoreSubmission({
           }
         }
 
-        // Partner complete - now detect and create any mismatches
-        submitLogger.info('Partner complete, detecting mismatches');
-        const mismatchCount = await createMismatchRecords(roundId);
-        submitLogger.info('Mismatch detection complete', { mismatchCount });
+        // Pairs flow: partner complete; run a final mismatch sweep before submit.
+        // (Multi-scorer already runs createMismatchRecords inside the readiness
+        // check, so this is a no-op for that path.)
+        if (scoringPairsEnabled) {
+          submitLogger.info('Partner complete, detecting mismatches');
+          const mismatchCount = await createMismatchRecords(roundId);
+          submitLogger.info('Mismatch detection complete', { mismatchCount });
 
-        if (mismatchCount > 0) {
-          const mismatches = await getPendingMismatches(roundId);
-          if (mismatches.length > 0) {
-            submitLogger.info('Pending mismatches found, showing resolution modal', {
-              count: mismatches.length,
-            });
-            setShowMismatchModal(true);
-            return;
+          if (mismatchCount > 0) {
+            const mismatches = await getPendingMismatches(roundId);
+            if (mismatches.length > 0) {
+              submitLogger.info('Pending mismatches found, showing resolution modal', {
+                count: mismatches.length,
+              });
+              setShowMismatchModal(true);
+              return;
+            }
           }
         }
 
@@ -390,6 +451,13 @@ export function useScoreSubmission({
         if (userId) {
           submitLogger.info('Invalidating round list query', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
+        }
+        // Also invalidate the round detail + scorecards so ViewRound shows
+        // the new status / submitted scores on its next mount instead of
+        // serving stale cache (no swipe-to-refresh needed).
+        if (roundId) {
+          queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+          queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
         }
 
         if (!isOnline) {
@@ -564,6 +632,9 @@ export function useScoreSubmission({
           submitLogger.info('Invalidating round list query (bypass)', { userId: userId.substring(0, 8) + '...' });
           queryClient.invalidateQueries({ queryKey: ['rounds', userId] });
         }
+        // Also invalidate round detail + scorecards (see handleSubmit for rationale).
+        queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+        queryClient.invalidateQueries({ queryKey: scorecardKeys.list({ roundId }) });
 
         showDialog({
           title: 'Submitted (Unverified)',

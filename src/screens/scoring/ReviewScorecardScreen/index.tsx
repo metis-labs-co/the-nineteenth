@@ -3,7 +3,7 @@
  * leaderboard, skins, wolf, and payouts. Handles offline submission and sync.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -25,7 +25,7 @@ import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/ho
 import { useRoundScoringPairs } from '@/hooks/scorecard';
 import { StatsTab } from '@/screens/rounds/ViewRoundScreen/tabs/StatsTab';
 
-import { useScoreReview, useScoreSubmission, useReviewScorecardTabs } from './hooks';
+import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
 import {
   IncompleteScoresModal,
   ReviewActions,
@@ -102,6 +102,13 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     hasStats,
   } = useReviewScorecardTabs({ roundId: roundId || undefined, storeGameType: gameType });
 
+  const scrambleTeams = useScrambleTeams({
+    isScramble,
+    roundId: roundId || undefined,
+    roundDetails,
+    currentPlayers,
+  });
+
   const holeCount = holes.length || 18;
 
   // Scoring pairs hook for mismatch detection
@@ -112,6 +119,15 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     false, // isTeamRound
     currentPlayers
   );
+
+  // Player name lookup for the N-way mismatch resolution UI
+  const playerNamesById = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const player of currentPlayers) {
+      if (player.id && player.name) map[player.id] = player.name;
+    }
+    return map;
+  }, [currentPlayers]);
 
   // Mismatch hooks
   const { data: mismatches = [] } = usePendingMismatches(roundId || undefined);
@@ -259,7 +275,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           currentPlayers={currentPlayers}
           effectiveGameType={effectiveGameType}
           isScramble={isScramble}
-          roundDetails={roundDetails}
+          scrambleTeams={scrambleTeams}
           getPlayerScore={getPlayerScore}
           onHolePress={handleHolePress}
           isRefreshing={isRefreshing}
@@ -302,7 +318,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           isShamble={isShamble}
           holes={holes}
           currentPlayers={currentPlayers}
-          roundDetails={roundDetails}
+          scrambleTeams={scrambleTeams}
           getPlayerScore={getPlayerScore}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
@@ -315,7 +331,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           holes={holes}
           currentPlayers={currentPlayers}
           currentUserId={currentUserId}
-          roundDetails={roundDetails}
+          scrambleTeams={scrambleTeams}
           getPlayerScore={getPlayerScore}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
@@ -402,6 +418,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
         mismatches={mismatches}
         currentUserId={currentUserId ?? ''}
         partnerName={partnerStatus?.partnerName ?? myScorer?.name ?? 'Partner'}
+        playerNamesById={playerNamesById}
         onResolve={handleResolveMismatch}
         onClose={() => setShowMismatchModal(false)}
         isOnline={isOnline}

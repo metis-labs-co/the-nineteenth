@@ -142,8 +142,8 @@ export function useContributionData({
       const contribs = score.shotContributions;
       if (!contribs) continue;
 
-      if (contribs.drive && playerContribs.has(contribs.drive)) {
-        const player = playerContribs.get(contribs.drive)!;
+      if (contribs.teeShot && playerContribs.has(contribs.teeShot)) {
+        const player = playerContribs.get(contribs.teeShot)!;
         player.drives += 1;
         player.total += 1;
       }
@@ -180,8 +180,8 @@ export function useContributionData({
       const score = getTeamScore(holeNum);
       if (!score || !isSingleBallScore(score)) continue;
       const contribs = score.shotContributions;
-      if (!contribs?.drive) continue;
-      const existingHoles = playerDriveHoles.get(contribs.drive);
+      if (!contribs?.teeShot) continue;
+      const existingHoles = playerDriveHoles.get(contribs.teeShot);
       if (existingHoles) existingHoles.push(holeNum);
     }
 

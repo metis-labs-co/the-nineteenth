@@ -1,5 +1,11 @@
 /**
- * EditTeamNameModal - Modal dialog for editing a team's name
+ * EditTeamModal - Modal dialog for editing a team's name and colour.
+ *
+ * The 12 colour swatches mirror the avatar palette (`src/constants/avatars.ts`).
+ * Swatches that are already used by *another* team in the same competition
+ * render disabled (translucent + non-interactive). The team's own current
+ * colour is always selectable so the organiser can re-confirm or just edit
+ * the name.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -17,50 +23,64 @@ import { Text, Icon } from 'react-native-paper';
 import { GolfBallLoader } from '@/components/common';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { AVATARS } from '@/constants/avatars';
 
-export interface EditTeamNameModalProps {
+export interface EditTeamModalProps {
   /** Whether the modal is visible */
   visible: boolean;
   /** Current team name */
   currentName: string;
-  /** Callback when save is pressed with new name */
-  onSave: (newName: string) => void;
+  /** Current avatar palette id (e.g. 'avatar-green'); null for legacy teams */
+  currentColor: string | null;
+  /** Avatar ids already taken by other teams in the same competition.
+   *  Excludes the team being edited. */
+  takenColorIds: readonly string[];
+  /** Callback when save is pressed */
+  onSave: (input: { name: string; color: string }) => void;
   /** Callback when modal is dismissed */
   onCancel: () => void;
   /** Show loading state on save button */
   loading?: boolean;
 }
 
-export function EditTeamNameModal({
+const SWATCH_SIZE = 44;
+
+export function EditTeamModal({
   visible,
   currentName,
+  currentColor,
+  takenColorIds,
   onSave,
   onCancel,
   loading = false,
-}: EditTeamNameModalProps) {
+}: EditTeamModalProps) {
   const colors = useThemeColors();
   const [name, setName] = useState(currentName);
+  const [selectedColor, setSelectedColor] = useState<string>(
+    currentColor ?? AVATARS[0].id
+  );
   const inputRef = useRef<TextInput>(null);
 
-  // Reset name when modal opens with new current name
   useEffect(() => {
     if (visible) {
       setName(currentName);
-      // Focus input after modal animation
+      setSelectedColor(currentColor ?? AVATARS[0].id);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [visible, currentName]);
+  }, [visible, currentName, currentColor]);
+
+  const trimmedName = name.trim();
+  const nameChanged = trimmedName.length > 0 && trimmedName !== currentName;
+  const colorChanged = selectedColor !== currentColor;
+  const canSave = trimmedName.length > 0 && (nameChanged || colorChanged);
 
   const handleSave = () => {
-    const trimmedName = name.trim();
-    if (trimmedName && trimmedName !== currentName) {
-      onSave(trimmedName);
-    } else {
+    if (!canSave) {
       onCancel();
+      return;
     }
+    onSave({ name: trimmedName, color: selectedColor });
   };
-
-  const canSave = name.trim().length > 0 && name.trim() !== currentName;
 
   return (
     <Modal
@@ -96,10 +116,15 @@ export function EditTeamNameModal({
 
                 {/* Title */}
                 <Text style={[styles.title, { color: colors.textPrimary }]}>
-                  Edit Team Name
+                  Edit Team
                 </Text>
 
-                {/* Input */}
+                {/* Name input */}
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  Name
+                </Text>
                 <TextInput
                   ref={inputRef}
                   style={[
@@ -121,6 +146,55 @@ export function EditTeamNameModal({
                   autoCapitalize="words"
                   accessibilityLabel="Team name input"
                 />
+
+                {/* Colour picker */}
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    styles.colorLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Colour
+                </Text>
+                <View
+                  style={styles.swatchGrid}
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel="Team colour"
+                >
+                  {AVATARS.map((avatar) => {
+                    const isSelected = avatar.id === selectedColor;
+                    const isTaken =
+                      !isSelected && takenColorIds.includes(avatar.id);
+                    return (
+                      <TouchableOpacity
+                        key={avatar.id}
+                        style={[
+                          styles.swatch,
+                          {
+                            backgroundColor: avatar.colorPalette.dark,
+                            opacity: isTaken ? 0.35 : 1,
+                            borderColor: isSelected
+                              ? colors.textPrimary
+                              : 'transparent',
+                          },
+                        ]}
+                        onPress={() => setSelectedColor(avatar.id)}
+                        disabled={isTaken || loading}
+                        accessibilityRole="radio"
+                        accessibilityState={{
+                          selected: isSelected,
+                          disabled: isTaken,
+                        }}
+                        accessibilityLabel={`${avatar.name}${isTaken ? ', taken' : ''}`}
+                      >
+                        {isSelected && (
+                          <Icon source="check" size={22} color="#ffffff" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
                 {/* Actions */}
                 <View style={styles.actions}>
@@ -157,7 +231,12 @@ export function EditTeamNameModal({
                     {loading ? (
                       <GolfBallLoader size="sm" />
                     ) : (
-                      <Text style={[styles.buttonText, { color: colors.textInverse }]}>
+                      <Text
+                        style={[
+                          styles.buttonText,
+                          { color: colors.textInverse },
+                        ]}
+                      >
                         Save
                       </Text>
                     )}
@@ -184,7 +263,7 @@ const styles = StyleSheet.create({
   },
   dialogContainer: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 360,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     alignItems: 'center',
@@ -202,19 +281,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
+  fieldLabel: {
+    ...typography.captionBold,
+    alignSelf: 'flex-start',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  colorLabel: {
+    marginTop: spacing.lg,
+  },
   input: {
     width: '100%',
     height: 48,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.xl,
     ...typography.body,
+  },
+  swatchGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'flex-start',
+  },
+  swatch: {
+    width: SWATCH_SIZE,
+    height: SWATCH_SIZE,
+    borderRadius: SWATCH_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
   },
   actions: {
     flexDirection: 'row',
     gap: spacing.md,
     width: '100%',
+    marginTop: spacing.xl,
   },
   button: {
     flex: 1,
@@ -233,4 +337,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EditTeamNameModal;
+export default EditTeamModal;

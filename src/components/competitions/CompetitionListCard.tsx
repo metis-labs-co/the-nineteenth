@@ -89,8 +89,9 @@ const formatPrizePoolAmount = (amount: number): string => {
  */
 const getStatusVariant = (status: string): StatusVariant => {
   switch (status?.toLowerCase()) {
-    case 'active':
     case 'in-progress':
+      return 'in-progress';
+    case 'active':
       return 'active';
     case 'completed':
       return 'completed';

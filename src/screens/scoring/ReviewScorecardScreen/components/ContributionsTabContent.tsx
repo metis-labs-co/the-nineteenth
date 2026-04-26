@@ -4,7 +4,7 @@
  * Shows scramble team selector and contribution leaderboard.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -14,15 +14,14 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { spacing } from '@/constants/theme';
 import { ScrambleTeamSelector, ContributionLeaderboard } from '@/components/scorecard';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
-import type { RoundWithCourse } from '@/hooks/useRoundDetails';
-import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import type { ScrambleTeam } from '../hooks/useScrambleTeams';
 
 interface ContributionsTabContentProps {
   isScramble: boolean;
   isShamble: boolean;
   holes: Hole[];
   currentPlayers: Player[];
-  roundDetails: RoundWithCourse | undefined;
+  scrambleTeams: ScrambleTeam[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   isRefreshing: boolean;
   onRefresh: () => void;
@@ -34,7 +33,7 @@ export function ContributionsTabContent({
   isShamble,
   holes,
   currentPlayers,
-  roundDetails,
+  scrambleTeams,
   getPlayerScore,
   isRefreshing,
   onRefresh,
@@ -42,27 +41,6 @@ export function ContributionsTabContent({
 }: ContributionsTabContentProps) {
   const colors = useThemeColors();
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
-
-  // Extract teams from team_config for multi-team scramble rounds
-  const scrambleTeams = useMemo(() => {
-    if (!isScramble) return [];
-
-    const teamConfig = (roundDetails as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
-    if (teamConfig?.teams && teamConfig.teams.length > 0) {
-      return teamConfig.teams;
-    }
-
-    const allPlayerIds = currentPlayers.map((p) => p.id);
-    if (allPlayerIds.length > 0) {
-      return [{
-        id: 'default-team',
-        name: 'Team',
-        memberIds: allPlayerIds,
-      }];
-    }
-
-    return [];
-  }, [isScramble, roundDetails, currentPlayers]);
 
   // Get players for a specific team by index
   const getScrambleTeamPlayersByIndex = useCallback((teamIndex: number): Player[] => {

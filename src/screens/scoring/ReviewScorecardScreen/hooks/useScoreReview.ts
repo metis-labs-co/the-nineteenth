@@ -58,6 +58,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     setCurrentHole,
     selectedTeeData,
     handicapSource,
+    allowedPlayerIds,
   } = useScorecardStore();
 
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
@@ -88,14 +89,19 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
     });
   }, [currentPlayers, groupScorecards]);
 
-  // Validate that all scores are entered for all players on all holes
+  // Validate that all scores are entered for all players on all holes.
+  // When scoring pairs are active, only the user's assigned set (self +
+  // partner) is checked — other players are scored from other devices.
   const validateScores = useCallback((): IncompleteHole[] => {
     const incomplete: IncompleteHole[] = [];
+    const playersToCheck = allowedPlayerIds.length > 0
+      ? currentPlayers.filter((p) => allowedPlayerIds.includes(p.id))
+      : currentPlayers;
 
     for (const hole of holes) {
       const missingPlayers: { id: string; name: string }[] = [];
 
-      for (const player of currentPlayers) {
+      for (const player of playersToCheck) {
         const scorecard = groupScorecards.get(player.id);
         const rawScore = scorecard?.scores[hole.number];
         // Get strokes from single-ball or first ball of multi-ball
@@ -118,7 +124,7 @@ export function useScoreReview({ routeHoles }: UseScoreReviewParams): UseScoreRe
 
     setIncompleteHoles(incomplete);
     return incomplete;
-  }, [holes, currentPlayers, groupScorecards]);
+  }, [holes, currentPlayers, groupScorecards, allowedPlayerIds]);
 
   return {
     // Data

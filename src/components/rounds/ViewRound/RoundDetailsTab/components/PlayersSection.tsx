@@ -10,11 +10,11 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { GolfBallLoader } from '@/components/common';
+import { Badge, GolfBallLoader } from '@/components/common';
 import { useRoundPlayers } from '@/hooks/useRoundDetails';
 import type { PlayersSectionProps } from '../types';
 
-export function PlayersSection({ roundId, cardBackground }: PlayersSectionProps) {
+export function PlayersSection({ roundId, cardBackground, currentUserId }: PlayersSectionProps) {
   const colors = useThemeColors();
   const { data: players, isLoading } = useRoundPlayers(roundId);
 
@@ -68,9 +68,14 @@ export function PlayersSection({ roundId, cardBackground }: PlayersSectionProps)
                   </Text>
                 </View>
                 <View style={styles.playerInfo}>
-                  <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {player.name}
-                  </Text>
+                  <View style={styles.playerNameRow}>
+                    <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {player.name}
+                    </Text>
+                    {player.id === currentUserId && (
+                      <Badge label="You" variant="primary" size="sm" />
+                    )}
+                  </View>
                   {player.handicap !== null && player.handicap !== undefined && (
                     <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
                       HCP {player.handicap}
@@ -170,8 +175,15 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   playerName: {
     ...typography.bodyBold,
+    flexShrink: 1,
   },
   playerHandicap: {
     ...typography.small,

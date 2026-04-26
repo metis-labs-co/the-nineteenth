@@ -37,21 +37,19 @@ export function ScoringPairsSection({
   cardBackground,
   roundStatus,
   onEditPress,
-  playerCount,
   onToggleEnabled,
+  hideTitle = false,
+  teamNameByPlayer,
 }: ScoringPairsSectionProps) {
   const colors = useThemeColors();
   const isPremium = useIsPremium();
   const navigation = useNavigation<NavigationProp>();
 
-  // Rounds with more than 4 players manage pair assignments from the
-  // Groups tab. On those rounds this section is just a toggle + a hint;
-  // the tap-to-edit card is suppressed.
-  const managedOnGroupsTab = typeof playerCount === 'number' && playerCount > 4;
-  // Card is editable when round is upcoming AND pair management stays
-  // here (≤4 players) AND a handler is wired up.
-  const isEditable =
-    roundStatus === 'upcoming' && !!onEditPress && !managedOnGroupsTab;
+  // Card is editable when round is upcoming AND a handler is wired up.
+  // Callers that want a read-only rendering (e.g. the Groups tab) just
+  // leave `onEditPress` and `onToggleEnabled` unset — the section
+  // degrades to a status pill + pair list.
+  const isEditable = roundStatus === 'upcoming' && !!onEditPress;
   const canToggle = roundStatus === 'upcoming' && !!onToggleEnabled;
 
   // Fetch scoring pairs for this round
@@ -143,14 +141,16 @@ export function ScoringPairsSection({
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-          Scoring Pairs
-        </Text>
-        {isEditable && (
-          <Icon source="pencil" size={18} color={colors.textSecondary} />
-        )}
-      </View>
+      {!hideTitle && (
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+            Scoring Pairs
+          </Text>
+          {isEditable && (
+            <Icon source="pencil" size={18} color={colors.textSecondary} />
+          )}
+        </View>
+      )}
 
       <CardWrapper
         style={[styles.scoringPairsCard, { backgroundColor: cardBackground, borderColor: colors.border }]}
@@ -200,28 +200,8 @@ export function ScoringPairsSection({
           )}
         </View>
 
-        {/* Hint shown for rounds managed from the Groups tab, so the user
-            knows where to go to assign pairs. The pairs-list block below
-            is suppressed in that mode — it's the Groups tab's job. */}
-        {scoringPairsRequired && managedOnGroupsTab && (
-          <View
-            style={[
-              styles.managedElsewhereRow,
-              { backgroundColor: colors.primaryBackground ?? colors.primaryLighter },
-            ]}
-          >
-            <Icon source="information-outline" size={16} color={colors.primary} />
-            <Text
-              style={[styles.managedElsewhereText, { color: colors.primary }]}
-            >
-              Assign scoring pairs on the Groups tab.
-            </Text>
-          </View>
-        )}
-
-        {/* Pairs List (only show if enabled and pair management lives
-            here, i.e. ≤4-player rounds) */}
-        {scoringPairsRequired && !managedOnGroupsTab && (
+        {/* Pairs list — always shown when scoring pairs are enabled. */}
+        {scoringPairsRequired && (
           <>
             <View style={[styles.scoringPairsDivider, { backgroundColor: colors.border }]} />
 
@@ -242,55 +222,83 @@ export function ScoringPairsSection({
                     {displayPairs.pairs.length} {displayPairs.pairs.length === 1 ? 'pair' : 'pairs'}
                   </Text>
                 </View>
-                {displayPairs.pairs.map((pair, index) => (
-                  <View
-                    key={pair.id}
-                    style={[
-                      styles.scoringPairRow,
-                      { backgroundColor: colors.gray50 },
-                      index === displayPairs.pairs.length - 1 && styles.scoringPairRowLast,
-                    ]}
-                  >
-                    {/* Scorer */}
-                    <View style={styles.scoringPairPlayer}>
-                      <PlayerAvatar
-                        photoUrl={pair.scorer?.photo_url}
-                        name={pair.scorer?.name}
-                        size={32}
-                      />
-                      <Text
-                        style={[styles.scoringPairName, { color: colors.textPrimary }]}
-                        numberOfLines={1}
-                      >
-                        {pair.scorer?.name || 'Unknown'}
-                      </Text>
-                    </View>
+                {displayPairs.pairs.map((pair, index) => {
+                  const scorerTeam = pair.scorer?.id
+                    ? teamNameByPlayer?.get(pair.scorer.id)
+                    : undefined;
+                  const playerTeam = pair.player?.id
+                    ? teamNameByPlayer?.get(pair.player.id)
+                    : undefined;
+                  return (
+                    <View
+                      key={pair.id}
+                      style={[
+                        styles.scoringPairRow,
+                        { backgroundColor: colors.gray50 },
+                        index === displayPairs.pairs.length - 1 && styles.scoringPairRowLast,
+                      ]}
+                    >
+                      {/* Scorer */}
+                      <View style={styles.scoringPairPlayer}>
+                        <PlayerAvatar
+                          photoUrl={pair.scorer?.photo_url}
+                          name={pair.scorer?.name}
+                          size={32}
+                        />
+                        <View style={styles.scoringPairNameColumn}>
+                          <Text
+                            style={[styles.scoringPairName, { color: colors.textPrimary }]}
+                            numberOfLines={1}
+                          >
+                            {pair.scorer?.name || 'Unknown'}
+                          </Text>
+                          {scorerTeam && (
+                            <Text
+                              style={[styles.scoringPairTeam, { color: colors.textSecondary }]}
+                              numberOfLines={1}
+                            >
+                              {scorerTeam}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
 
-                    {/* Arrow */}
-                    <View style={styles.scoringPairArrow}>
-                      <Icon
-                        source={displayPairs.type === 'reciprocal' ? 'swap-horizontal' : 'arrow-right'}
-                        size={18}
-                        color={colors.textTertiary}
-                      />
-                    </View>
+                      {/* Arrow */}
+                      <View style={styles.scoringPairArrow}>
+                        <Icon
+                          source={displayPairs.type === 'reciprocal' ? 'swap-horizontal' : 'arrow-right'}
+                          size={18}
+                          color={colors.textTertiary}
+                        />
+                      </View>
 
-                    {/* Player being scored */}
-                    <View style={styles.scoringPairPlayer}>
-                      <PlayerAvatar
-                        photoUrl={pair.player?.photo_url}
-                        name={pair.player?.name}
-                        size={32}
-                      />
-                      <Text
-                        style={[styles.scoringPairName, { color: colors.textPrimary }]}
-                        numberOfLines={1}
-                      >
-                        {pair.player?.name || 'Unknown'}
-                      </Text>
+                      {/* Player being scored */}
+                      <View style={styles.scoringPairPlayer}>
+                        <PlayerAvatar
+                          photoUrl={pair.player?.photo_url}
+                          name={pair.player?.name}
+                          size={32}
+                        />
+                        <View style={styles.scoringPairNameColumn}>
+                          <Text
+                            style={[styles.scoringPairName, { color: colors.textPrimary }]}
+                            numberOfLines={1}
+                          >
+                            {pair.player?.name || 'Unknown'}
+                          </Text>
+                          {playerTeam && (
+                            <Text
+                              style={[styles.scoringPairTeam, { color: colors.textSecondary }]}
+                              numberOfLines={1}
+                            >
+                              {playerTeam}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.scoringPairsEmpty}>
@@ -400,20 +408,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginHorizontal: spacing.md,
   },
-  managedElsewhereRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  managedElsewhereText: {
-    ...typography.caption,
-    flex: 1,
-  },
   scoringPairsLoading: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -458,10 +452,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flex: 1,
   },
+  scoringPairNameColumn: {
+    flex: 1,
+  },
   scoringPairName: {
     ...typography.small,
     fontWeight: '500',
-    flex: 1,
+  },
+  scoringPairTeam: {
+    ...typography.caption,
+    fontStyle: 'italic',
+    opacity: 0.7,
+    marginTop: 1,
   },
   scoringPairArrow: {
     paddingHorizontal: spacing.sm,

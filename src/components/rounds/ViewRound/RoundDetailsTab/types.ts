@@ -25,16 +25,21 @@ export interface ScoringPairsSectionProps {
   scoringPairsRequired: boolean;
   cardBackground: string;
   roundStatus: RoundStatus;
+  /** Fired when the card is tapped. When undefined, the card renders
+   *  without a tap affordance (read-only display). */
   onEditPress?: () => void;
-  /** Number of players in the round. When > 4 the pair-management UI
-   *  moves to the Groups tab (this section just shows a toggle + note);
-   *  when ≤ 4 the management card stays here since there's no Groups
-   *  tab. Optional — defaults to treating the section as management-
-   *  capable (legacy behaviour). */
-  playerCount?: number;
   /** Fired when the toggle flips. When undefined the toggle renders
-   *  read-only. */
+   *  as a read-only status pill. */
   onToggleEnabled?: (enabled: boolean) => void | Promise<void>;
+  /** Suppress the "Scoring Pairs" heading — useful when the section is
+   *  rendered inside a container (e.g. a sub-tab) that already labels
+   *  this content. Defaults to false. */
+  hideTitle?: boolean;
+  /** Optional map of player id → team name. When provided, each player
+   *  in a pair row gets a small italic team label under their name.
+   *  Used by the Groups tab's scoring-pairs sub-tab so organisers can
+   *  see at a glance which team each player belongs to. */
+  teamNameByPlayer?: Map<string, string>;
 }
 
 export interface SkinsGameSectionProps {
@@ -54,4 +59,5 @@ export interface WolfGameSectionProps {
 export interface PlayersSectionProps {
   roundId: string;
   cardBackground: string;
+  currentUserId?: string;
 }

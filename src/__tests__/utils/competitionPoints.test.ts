@@ -221,6 +221,151 @@ describe('Competition Points', () => {
         expect(scored[4].competitionPoints).toBe(0); // Position 5
       });
     });
+
+    describe('individualRule modes', () => {
+      describe('mode: raw_score', () => {
+        it('uses each participant\'s rawScore as the competition points', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 51 },
+            { participantId: 'p2', rawScore: 44 },
+            { participantId: 'p3', rawScore: 42 },
+            { participantId: 'p4', rawScore: 39 },
+            { participantId: 'p5', rawScore: 38 },
+            { participantId: 'p6', rawScore: 33 },
+            { participantId: 'p7', rawScore: 31 },
+            { participantId: 'p8', rawScore: 30 },
+          ];
+
+          const scored = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'raw_score' }
+          );
+
+          // Positions still assigned by raw score (Stableford = higher better)
+          expect(scored[0].participantId).toBe('p1');
+          expect(scored[0].position).toBe(1);
+          expect(scored[7].participantId).toBe('p8');
+          expect(scored[7].position).toBe(8);
+
+          // Competition points are the raw Stableford totals — NOT 10/8/6/...
+          expect(scored[0].competitionPoints).toBe(51);
+          expect(scored[1].competitionPoints).toBe(44);
+          expect(scored[2].competitionPoints).toBe(42);
+          expect(scored[3].competitionPoints).toBe(39);
+          expect(scored[4].competitionPoints).toBe(38);
+          expect(scored[5].competitionPoints).toBe(33);
+          expect(scored[6].competitionPoints).toBe(31);
+          expect(scored[7].competitionPoints).toBe(30);
+        });
+
+        it('preserves tie grouping but each tied participant gets their own raw score', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 36 },
+            { participantId: 'p2', rawScore: 36 },
+            { participantId: 'p3', rawScore: 30 },
+          ];
+
+          const scored = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'raw_score' }
+          );
+
+          const tiedPair = scored.filter((s) => s.position === 1);
+          expect(tiedPair).toHaveLength(2);
+          expect(tiedPair[0].tied).toBe(true);
+          expect(tiedPair[0].competitionPoints).toBe(36);
+          expect(tiedPair[1].competitionPoints).toBe(36);
+
+          const third = scored.find((s) => s.participantId === 'p3');
+          expect(third!.position).toBe(3);
+          expect(third!.tied).toBe(false);
+          expect(third!.competitionPoints).toBe(30);
+        });
+      });
+
+      describe('mode: win_tie_loss', () => {
+        it('awards win/loss values by position with no tie', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 40 },
+            { participantId: 'p2', rawScore: 35 },
+          ];
+
+          const scored = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'win_tie_loss', values: { win: 2, tie: 1, loss: 0 } }
+          );
+
+          expect(scored[0].position).toBe(1);
+          expect(scored[0].competitionPoints).toBe(2);
+          expect(scored[1].position).toBe(2);
+          expect(scored[1].competitionPoints).toBe(0);
+        });
+
+        it('awards tie value to all tied participants', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 36 },
+            { participantId: 'p2', rawScore: 36 },
+            { participantId: 'p3', rawScore: 30 },
+          ];
+
+          const scored = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'win_tie_loss', values: { win: 2, tie: 1, loss: 0 } }
+          );
+
+          const tied = scored.filter((s) => s.position === 1);
+          expect(tied).toHaveLength(2);
+          tied.forEach((p) => expect(p.competitionPoints).toBe(1));
+
+          const third = scored.find((s) => s.participantId === 'p3');
+          expect(third!.competitionPoints).toBe(0);
+        });
+      });
+
+      describe('mode: positional', () => {
+        it('matches default behaviour when no rule is supplied', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 40 },
+            { participantId: 'p2', rawScore: 35 },
+          ];
+
+          const a = calculateCompetitionPoints(results, 'stableford', STANDARD_POINT_SYSTEM);
+          const b = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'positional' }
+          );
+
+          expect(a.map((s) => s.competitionPoints)).toEqual(b.map((s) => s.competitionPoints));
+        });
+
+        it('uses the rule.rules map when provided to override the base pointSystem', () => {
+          const results: RoundResult[] = [
+            { participantId: 'p1', rawScore: 40 },
+            { participantId: 'p2', rawScore: 35 },
+          ];
+
+          const scored = calculateCompetitionPoints(
+            results,
+            'stableford',
+            STANDARD_POINT_SYSTEM,
+            { mode: 'positional', rules: { '1': 5, '2': 3, default: 0 } }
+          );
+
+          expect(scored[0].competitionPoints).toBe(5);
+          expect(scored[1].competitionPoints).toBe(3);
+        });
+      });
+    });
   });
 
   // ============================================================================

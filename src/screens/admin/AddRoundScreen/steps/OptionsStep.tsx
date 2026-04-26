@@ -23,12 +23,27 @@ import { useCheckFeature } from '@/context/SubscriptionContext';
 import { Pill } from '@/components/common';
 import type { SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
+import type {
+  BracketSeedingStyle,
+  PairingSource,
+  QualifyingMetric,
+} from '@/types/database/enums';
 
 interface OptionsStepProps {
   // Scoring pairs
   scoringPairsRequired: boolean;
   isTeamMatchPlay: boolean;
   onScoringPairsToggle: (value: boolean) => void;
+
+  // Standings-driven pairing (1v1 match-play presets only)
+  /** Whether the selected preset can opt into standings-based pairing. */
+  supportsStandingsPairing: boolean;
+  pairingSource: PairingSource;
+  pairingStyle: BracketSeedingStyle;
+  pairingMetric: QualifyingMetric;
+  onPairingSourceToggle: (enabled: boolean) => void;
+  onPairingStyleChange: (style: BracketSeedingStyle) => void;
+  onPairingMetricChange: (metric: QualifyingMetric) => void;
 
   // Skins
   skinsEnabled: boolean;
@@ -58,6 +73,13 @@ export const OptionsStep = memo(function OptionsStep({
   scoringPairsRequired,
   isTeamMatchPlay,
   onScoringPairsToggle,
+  supportsStandingsPairing,
+  pairingSource,
+  pairingStyle,
+  pairingMetric,
+  onPairingSourceToggle,
+  onPairingStyleChange,
+  onPairingMetricChange,
   skinsEnabled,
   skinsConfig,
   onSkinsTogglePress,
@@ -82,12 +104,187 @@ export const OptionsStep = memo(function OptionsStep({
   const isPremiumSkins = checkFeature('skins_game').allowed;
   const isPremiumWolf = checkFeature('wolf_game').allowed;
 
+  const pairingStandingsOn = pairingSource === 'current_standings';
+
   return (
     <View style={styles.container}>
       {/* Section Title */}
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         Scoring Configuration
       </Text>
+
+      {/* ===== Standings-Driven Pairings (1v1 match-play presets only) ===== */}
+      {supportsStandingsPairing && (
+        <>
+          <TouchableOpacity
+            style={[
+              styles.toggleCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: pairingStandingsOn ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => onPairingSourceToggle(!pairingStandingsOn)}
+            activeOpacity={0.7}
+            disabled={disabled}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: pairingStandingsOn }}
+            accessibilityLabel={
+              pairingStandingsOn
+                ? 'Disable auto-pair from current standings'
+                : 'Enable auto-pair from current standings'
+            }
+          >
+            <View style={styles.toggleContent}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  {
+                    backgroundColor: pairingStandingsOn
+                      ? colors.primaryLighter
+                      : colors.gray100,
+                  },
+                ]}
+              >
+                <IconArrowsExchange
+                  size={20}
+                  color={pairingStandingsOn ? colors.primary : colors.gray400}
+                />
+              </View>
+              <View style={styles.toggleText}>
+                <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                  Auto-pair from current standings
+                </Text>
+                <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                  Pairings are generated from the cumulative individual leaderboard
+                  of completed prior rounds.
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: pairingStandingsOn ? colors.primary : colors.surface,
+                  borderColor: pairingStandingsOn ? colors.primary : colors.gray300,
+                },
+              ]}
+            >
+              {pairingStandingsOn && <IconCheck size={14} color={colors.white} />}
+            </View>
+          </TouchableOpacity>
+
+          {pairingStandingsOn && (
+            <View style={styles.pairingConfigBox}>
+              {/* Style picker */}
+              <Text style={[styles.pairingFieldLabel, { color: colors.textSecondary }]}>
+                Pairing style
+              </Text>
+              <View style={styles.pairingChipRow}>
+                {(['standard', 'adjacent'] as const).map((style) => {
+                  const selected = pairingStyle === style;
+                  return (
+                    <TouchableOpacity
+                      key={style}
+                      style={[
+                        styles.pairingChip,
+                        {
+                          backgroundColor: selected ? colors.primary : colors.surface,
+                          borderColor: selected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => onPairingStyleChange(style)}
+                      disabled={disabled}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={
+                        style === 'standard'
+                          ? 'Standard pairing style'
+                          : 'Adjacent pairing style'
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.pairingChipLabel,
+                          { color: selected ? colors.white : colors.textPrimary },
+                        ]}
+                      >
+                        {style === 'standard'
+                          ? 'Standard (1 vs N, 2 vs N-1…)'
+                          : 'Adjacent (1 vs 2, 3 vs 4…)'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Metric picker */}
+              <Text
+                style={[
+                  styles.pairingFieldLabel,
+                  { color: colors.textSecondary, marginTop: spacing.md },
+                ]}
+              >
+                Standings metric
+              </Text>
+              <View style={styles.pairingChipColumn}>
+                {(
+                  [
+                    ['competition_points', 'Competition points'],
+                    ['stableford_points', 'Stableford points'],
+                    ['net_strokes', 'Net strokes'],
+                  ] as const
+                ).map(([metric, label]) => {
+                  const selected = pairingMetric === metric;
+                  return (
+                    <TouchableOpacity
+                      key={metric}
+                      style={[
+                        styles.pairingChip,
+                        {
+                          backgroundColor: selected ? colors.primary : colors.surface,
+                          borderColor: selected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => onPairingMetricChange(metric)}
+                      disabled={disabled}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Use ${label} for standings`}
+                    >
+                      <Text
+                        style={[
+                          styles.pairingChipLabel,
+                          { color: selected ? colors.white : colors.textPrimary },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View
+                style={[
+                  styles.infoBox,
+                  { backgroundColor: colors.infoLight, marginTop: spacing.md },
+                ]}
+              >
+                <Icon source="information-outline" size={20} color={colors.info} />
+                <Text style={[styles.infoText, { color: colors.infoDark }]}>
+                  Pairings are generated when the round is created. Needs at least
+                  one completed prior round in this competition.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+        </>
+      )}
 
       {/* ===== Scoring Pairs Toggle ===== */}
       {isPremium ? (
@@ -564,5 +761,36 @@ const styles = StyleSheet.create({
   infoText: {
     ...typography.small,
     flex: 1,
+  },
+  // Standings-driven pairing config
+  pairingConfigBox: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  pairingFieldLabel: {
+    ...typography.smallBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  pairingChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  pairingChipColumn: {
+    gap: spacing.sm,
+  },
+  pairingChip: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  pairingChipLabel: {
+    ...typography.small,
+    fontWeight: '600',
   },
 });

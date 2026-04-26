@@ -32,6 +32,12 @@ export interface StablefordLeaderboardProps {
   scoreLabel?: string;
   /** Custom score formatter (default: raw value) */
   formatScore?: (value: number) => string;
+  /**
+   * Whether to render the CP (competition points) column. Defaults to `true`
+   * for back-compat. The per-round leaderboard view passes `false` because
+   * CP belongs on the competition standings, not the round-specific table.
+   */
+  showCompetitionPoints?: boolean;
 }
 
 export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
@@ -40,6 +46,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
   scoreColumnHeader,
   scoreLabel,
   formatScore,
+  showCompetitionPoints = true,
 }: StablefordLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -61,9 +68,11 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
         <ScaledText category="caption" style={[styles.headerCell, styles.scoreCol, { color: colors.textSecondary }]}>
           {scoreColumnHeader ?? 'Pts'}
         </ScaledText>
-        <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
-          CP
-        </ScaledText>
+        {showCompetitionPoints && (
+          <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+            CP
+          </ScaledText>
+        )}
       </View>
 
       {/* Table Rows */}
@@ -95,7 +104,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
             isTied={isTied}
             scoreDisplay={scoreDisplay}
             scoreLabel={scoreLabel ?? 'points'}
-            showCompetitionPoints
+            showCompetitionPoints={showCompetitionPoints}
           />
         );
       })}

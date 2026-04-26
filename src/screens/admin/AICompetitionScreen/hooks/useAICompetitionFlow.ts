@@ -19,6 +19,7 @@ import { useCreateCompetition } from '@/hooks/useCreateCompetition';
 import type { TeamFormat } from '@/types/database.types';
 import { useCreatePlaceholderPlayer } from '@/hooks/usePlaceholderPlayers';
 import { useCheckFeature } from '@/context/SubscriptionContext';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 import {
   aiOutputToWizardState,
   getRoundsWithMissingCourses,
@@ -227,7 +228,7 @@ export function useAICompetitionFlow(): UseAICompetitionFlowReturn {
         // Rounds - set team properties based on competition team mode and game type
         rounds: generatedCompetition.rounds.map((round) => {
           // Determine if this round should be a team round based on AI output or inference
-          const isTeamGameType = ['best-ball', 'scramble', 'shamble'].includes(round.gameType);
+          const isTeamGameType = (TEAM_ONLY_GAME_TYPES as string[]).includes(round.gameType);
           const hasTeams = generatedCompetition.teamMode !== 'none';
           const isTeamRound = round.isTeamRound ?? (hasTeams && isTeamGameType);
 

@@ -13,7 +13,11 @@ import { isSingleBallScore } from '@/types/database/base';
 import { syncLogger, logScorecardSummary } from '@/utils/debugLogger';
 import { calculateScoreDifferential, getRatingsForGender } from '@/utils/handicapDifferential';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
-import { getStrokesReceived, calculateStablefordPointsNet } from '@/utils/scoring';
+import {
+  getStrokesReceived,
+  calculateStablefordPointsNet,
+  calculateParScore,
+} from '@/utils/scoring';
 import { teeBoxToRatings } from '@/utils/teeTransformers';
 import { getEffectiveTeeRatings } from '@/utils/teeResolution';
 import { updatePlayerHandicapIndex } from '@/services/handicap/updatePlayerHandicapIndex';
@@ -164,6 +168,12 @@ export async function syncScorecard(
   // Calculate correct Stableford points using daily handicap and hole data
   const totalPoints = calculateTotalPoints(scorecard, handicapData.dailyHandicapUsed);
 
+  // Calculate Par-game score (+1/0/-1 per hole) using the same DHC + hole
+  // data. Without this, Par-format rounds would sync with total_par_score
+  // null/0 and the round-results pipeline (which reads total_par_score
+  // for the rawScore on Par rounds) would treat every player as a 0.
+  const totalParScore = calculateTotalParScore(scorecard, handicapData.dailyHandicapUsed);
+
   // total_net must equal gross - daily_handicap_used to stay consistent with
   // calculatePlayerStats (the scorecard view). When the sync pipeline has a
   // daily handicap, derive it here rather than trusting the store's live total,
@@ -183,6 +193,7 @@ export async function syncScorecard(
     total_gross: scorecard.totalGross || 0,
     total_net: totalNet,
     total_points: totalPoints,
+    total_par_score: totalParScore,
     status: scorecard.status === 'in-progress' ? 'in-progress' : scorecard.status,
     submitted_at: toISOString(scorecard.submittedAt),
     submitted_by: scorecard.submittedBy || null,
@@ -439,6 +450,42 @@ function calculateTotalPoints(
 
   // Fallback: use totalNet (which for non-stableford games is the net score)
   return scorecard.totalNet || 0;
+}
+
+/**
+ * Calculate Par-game total score (+1/0/-1 per hole, summed) from per-hole
+ * scores using the captured daily handicap and hole stroke indexes.
+ *
+ * Mirrors `calculateTotalPoints` but for the Par game type. Returns null
+ * when the game type isn't Par or hole data isn't present, leaving the
+ * server column unset (rather than overwriting a potentially-correct
+ * value with 0). Falls back to the locally-computed `totalParScore` on
+ * the scorecard when DHC is missing — preserves the value the store
+ * already wrote via calculatePlayerTotals.
+ */
+function calculateTotalParScore(
+  scorecard: Scorecard,
+  dailyHandicap: number | null
+): number | null {
+  const holes = scorecard.syncHoles;
+  const gameType = scorecard.syncGameType;
+
+  if (gameType !== 'par') return null;
+
+  if (Array.isArray(holes) && holes.length > 0 && dailyHandicap != null) {
+    let totalParScore = 0;
+    for (const hole of holes) {
+      const score = scorecard.scores[hole.number];
+      if (!score || !isSingleBallScore(score) || !score.strokes || score.strokes <= 0) continue;
+      const strokesReceived = getStrokesReceived(dailyHandicap, hole.strokeIndex);
+      totalParScore += calculateParScore(score.strokes, hole.par, strokesReceived);
+    }
+    return totalParScore;
+  }
+
+  // Fallback to whatever the store wrote (which used DHC if context was
+  // available at score entry time).
+  return scorecard.total_par_score ?? 0;
 }
 
 /**

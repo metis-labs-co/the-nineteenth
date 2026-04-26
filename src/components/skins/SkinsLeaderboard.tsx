@@ -26,7 +26,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Text, Icon, Avatar, ActivityIndicator } from 'react-native-paper';
-import { EmptyState, LoadingSpinner } from '@/components/common';
+import { Badge, EmptyState, LoadingSpinner } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, borderRadius, typography, shadows, skinsColor, medalColors } from '@/constants/theme';
 import { formatCurrency } from '@/utils/skins';
@@ -166,17 +166,19 @@ const LeaderboardRow = React.memo(function LeaderboardRow({
 
       {/* Player Info */}
       <View style={styles.playerInfo}>
-        <Text
-          style={[
-            styles.playerName,
-            { color: colors.textPrimary },
-            isCurrentUser && styles.currentUserName,
-          ]}
-          numberOfLines={1}
-        >
-          {playerName}
-          {isCurrentUser && ' (You)'}
-        </Text>
+        <View style={styles.playerNameRow}>
+          <Text
+            style={[
+              styles.playerName,
+              { color: colors.textPrimary },
+              isCurrentUser && styles.currentUserName,
+            ]}
+            numberOfLines={1}
+          >
+            {playerName}
+          </Text>
+          {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+        </View>
         {!compact && (
           <Text style={[styles.playerStats, { color: colors.textSecondary }]}>
             {entry.games_played} game{entry.games_played !== 1 ? 's' : ''} • {winRateFormatted} win
@@ -427,8 +429,15 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
     gap: 2,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   playerName: {
     ...typography.body,
+    flexShrink: 1,
   },
   currentUserName: {
     fontWeight: '600',

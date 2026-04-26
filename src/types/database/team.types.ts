@@ -12,6 +12,7 @@ export interface Team {
   id: string; // UUID
   competition_id: string; // UUID, references competitions(id)
   name: string; // Team name, unique within competition
+  color: string | null; // Avatar palette id (e.g. 'avatar-green'); null on legacy rows
 
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
@@ -105,6 +106,13 @@ export interface RoundResultData {
   // For Team formats
   team_score?: number;
   contributing_player_id?: string; // For best-ball, who contributed on each hole
+  /**
+   * Team handicap as computed during finalization (e.g. scramble's 25%
+   * of sum of member handicaps, rounded to 1 dp). Surfaced through the
+   * round leaderboard formatter so the HC column shows the correct team
+   * handicap rather than a rounded average of member handicaps.
+   */
+  team_handicap?: number;
 }
 
 /**

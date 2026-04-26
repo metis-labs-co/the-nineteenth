@@ -2292,6 +2292,9 @@ export type Database = {
           handicap_source: Database["public"]["Enums"]["handicap_source"] | null
           id: string
           is_team_round: boolean
+          pairing_metric: string | null
+          pairing_source: string
+          pairing_style: string | null
           round_number: number
           scoring_pairs_required: boolean
           selected_tee: Json | null
@@ -2321,6 +2324,9 @@ export type Database = {
             | null
           id?: string
           is_team_round?: boolean
+          pairing_metric?: string | null
+          pairing_source?: string
+          pairing_style?: string | null
           round_number?: number
           scoring_pairs_required?: boolean
           selected_tee?: Json | null
@@ -2350,6 +2356,9 @@ export type Database = {
             | null
           id?: string
           is_team_round?: boolean
+          pairing_metric?: string | null
+          pairing_source?: string
+          pairing_style?: string | null
           round_number?: number
           scoring_pairs_required?: boolean
           selected_tee?: Json | null

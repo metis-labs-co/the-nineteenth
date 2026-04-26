@@ -11,6 +11,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { PlayerAvatar } from '@/components/common/PlayerAvatar';
+import { Badge } from '@/components/common/Badge';
 import type { PartnershipLeaderboardEntry } from '@/types/database';
 
 interface PartnershipLeaderboardRowProps {
@@ -73,12 +74,14 @@ export const PartnershipLeaderboardRow = React.memo(function PartnershipLeaderbo
           />
         </View>
         <View style={styles.nameContainer}>
-          <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
-            {entry.partnership_name ?? `${entry.player_1_name} & ${entry.player_2_name}`}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+              {entry.partnership_name ?? `${entry.player_1_name} & ${entry.player_2_name}`}
+            </Text>
+            {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+          </View>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {entry.rounds_played} round{entry.rounds_played !== 1 ? 's' : ''}
-            {isCurrentUser ? ' · You' : ''}
           </Text>
         </View>
       </View>
@@ -140,8 +143,15 @@ const styles = StyleSheet.create({
   nameContainer: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   name: {
     ...typography.smallBold,
+    flexShrink: 1,
   },
   subtitle: {
     ...typography.small,

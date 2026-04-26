@@ -4,20 +4,20 @@
  * Tests for the team leaderboard table component including:
  * - Loading, empty states
  * - Team rows with position, name, handicap, points
- * - Expandable rows with team members
+ * - Expandable rows showing players + per-round points breakdown
  * - Current user highlighting
  * - Tied positions
  * - First place trophy icon
- * - Hide member points option
  * - Accessibility
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/__tests__/utils/renderHelpers';
+import { render, screen, fireEvent, waitFor, within } from '@/__tests__/utils/renderHelpers';
 import {
   TeamLeaderboardTable,
   TeamLeaderboardEntry,
   TeamMemberEntry,
+  RoundBreakdownEntry,
 } from './TeamLeaderboardTable';
 
 // Mock react-native LayoutAnimation to avoid issues in test environment
@@ -52,9 +52,9 @@ jest.mock('@tabler/icons-react-native', () => {
         <Text>ChevronUpIcon</Text>
       </View>
     ),
-    IconUser: (_props: any) => (
-      <View testID="icon-user">
-        <Text>UserIcon</Text>
+    IconFlag: (_props: any) => (
+      <View testID="icon-flag">
+        <Text>FlagIcon</Text>
       </View>
     ),
   };
@@ -79,6 +79,11 @@ jest.mock('@/components/common', () => {
     ScaledText: ({ children, style, ...props }: any) => (
       <Text style={style} {...props}>{children}</Text>
     ),
+    Badge: ({ label }: { label: string }) => (
+      <View testID="badge">
+        <Text>{label}</Text>
+      </View>
+    ),
   };
 });
 jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {});
@@ -89,21 +94,34 @@ jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {});
 
 /**
  * Create a team member entry
+ *
+ * Extra positional args (e.g. previously `points`, `roundsPlayed`) are accepted
+ * and ignored to keep older test invocations compiling.
  */
 function createTeamMember(
   playerId: string,
   playerName: string,
   handicap: number,
-  points: number,
-  roundsPlayed?: number
+  ..._unused: unknown[]
 ): TeamMemberEntry {
   return {
     playerId,
     playerName,
     handicap,
-    points,
-    roundsPlayed,
   };
+}
+
+/**
+ * Create a per-round breakdown entry
+ */
+function createRoundBreakdown(
+  roundId: string,
+  roundLabel: string,
+  position: number,
+  points: number,
+  courseName?: string
+): RoundBreakdownEntry {
+  return { roundId, roundLabel, position, points, courseName };
 }
 
 /**
@@ -114,7 +132,8 @@ function createTeamEntry(
   teamName: string,
   avgHandicap: number,
   totalPoints: number,
-  members: TeamMemberEntry[]
+  members: TeamMemberEntry[],
+  roundBreakdown?: RoundBreakdownEntry[]
 ): TeamLeaderboardEntry {
   return {
     teamId,
@@ -122,21 +141,29 @@ function createTeamEntry(
     avgHandicap,
     totalPoints,
     members,
+    roundBreakdown,
   };
 }
 
 /**
- * Create a basic team with default members
+ * Create a basic team with default members and a single-round breakdown
  */
 function createBasicTeam(
   teamId: string,
   teamName: string,
   totalPoints: number
 ): TeamLeaderboardEntry {
-  return createTeamEntry(teamId, teamName, 15, totalPoints, [
-    createTeamMember(`${teamId}-player-1`, 'Player One', 12, totalPoints / 2),
-    createTeamMember(`${teamId}-player-2`, 'Player Two', 18, totalPoints / 2),
-  ]);
+  return createTeamEntry(
+    teamId,
+    teamName,
+    15,
+    totalPoints,
+    [
+      createTeamMember(`${teamId}-player-1`, 'Player One', 12),
+      createTeamMember(`${teamId}-player-2`, 'Player Two', 18),
+    ],
+    [createRoundBreakdown(`${teamId}-round-1`, 'R1', 1, totalPoints)]
+  );
 }
 
 // =====================================================
@@ -451,28 +478,35 @@ describe('TeamLeaderboardTable', () => {
       expect(screen.getByTestId('icon-chevron-down')).toBeTruthy();
     });
 
-    it('expands team row on press to show members', async () => {
+    it('expands team row on press to show players and breakdown', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-          createTeamMember('player-2', 'Bob Jones', 18, 24),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [
+            createTeamMember('player-1', 'Alice Smith', 12),
+            createTeamMember('player-2', 'Bob Jones', 18),
+          ],
+          [createRoundBreakdown('round-1', 'R1', 1, 50)]
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
 
-      // Members should not be visible initially
-      expect(screen.queryByText('Alice Smith')).toBeNull();
-      expect(screen.queryByText('Bob Jones')).toBeNull();
+      // Players line and breakdown should not be visible initially
+      expect(screen.queryByText('Players:')).toBeNull();
 
       // Find and press the team row
       const teamRow = screen.getByText('Team Alpha');
       fireEvent.press(teamRow);
 
-      // After expansion, members should be visible
+      // After expansion, the players list and round breakdown should be visible
       await waitFor(() => {
-        expect(screen.getByText('Alice Smith')).toBeTruthy();
-        expect(screen.getByText('Bob Jones')).toBeTruthy();
+        expect(screen.getByText('Players:')).toBeTruthy();
+        expect(screen.getByText('Alice Smith (12), Bob Jones (18)')).toBeTruthy();
+        expect(screen.getByText('R1')).toBeTruthy();
       });
     });
 
@@ -489,11 +523,7 @@ describe('TeamLeaderboardTable', () => {
     });
 
     it('collapses expanded row on second press', async () => {
-      const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
-      ];
+      const teams = [createBasicTeam('team-1', 'Team Alpha', 50)];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
 
@@ -502,24 +532,34 @@ describe('TeamLeaderboardTable', () => {
       // First press - expand
       fireEvent.press(teamRow);
       await waitFor(() => {
-        expect(screen.getByText('Alice Smith')).toBeTruthy();
+        expect(screen.getByText('Players:')).toBeTruthy();
       });
 
       // Second press - collapse
       fireEvent.press(teamRow);
       await waitFor(() => {
-        expect(screen.queryByText('Alice Smith')).toBeNull();
+        expect(screen.queryByText('Players:')).toBeNull();
       });
     });
 
     it('can expand multiple teams simultaneously', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
-        createTeamEntry('team-2', 'Team Beta', 18, 40, [
-          createTeamMember('player-2', 'Bob Jones', 18, 22),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [createTeamMember('p1', 'Alice', 12)],
+          [createRoundBreakdown('r1-a', 'R1', 1, 50)]
+        ),
+        createTeamEntry(
+          'team-2',
+          'Team Beta',
+          18,
+          40,
+          [createTeamMember('p2', 'Bob', 18)],
+          [createRoundBreakdown('r1-b', 'R1', 2, 40)]
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
@@ -527,102 +567,153 @@ describe('TeamLeaderboardTable', () => {
       // Expand first team
       fireEvent.press(screen.getByText('Team Alpha'));
       await waitFor(() => {
-        expect(screen.getByText('Alice Smith')).toBeTruthy();
+        expect(screen.getByText('Alice (12)')).toBeTruthy();
       });
 
       // Expand second team
       fireEvent.press(screen.getByText('Team Beta'));
       await waitFor(() => {
-        expect(screen.getByText('Bob Jones')).toBeTruthy();
+        expect(screen.getByText('Bob (18)')).toBeTruthy();
         // First team should still be expanded
-        expect(screen.getByText('Alice Smith')).toBeTruthy();
+        expect(screen.getByText('Alice (12)')).toBeTruthy();
       });
     });
   });
 
   // ===========================================================================
-  // MEMBER DISPLAY TESTS
+  // EXPANDED CONTENT TESTS — Players line + per-round breakdown
   // ===========================================================================
 
-  describe('Member Display', () => {
-    it('displays member handicap', async () => {
+  describe('Expanded Content', () => {
+    it('shows players inline with their handicap', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [
+            createTeamMember('player-1', 'Alice Smith', 12),
+            createTeamMember('player-2', 'Bob Jones', 18),
+          ],
+          [createRoundBreakdown('round-1', 'R1', 1, 50)]
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
       fireEvent.press(screen.getByText('Team Alpha'));
 
       await waitFor(() => {
-        expect(screen.getByText('HC: 12')).toBeTruthy();
+        expect(screen.getByText('Players:')).toBeTruthy();
+        expect(screen.getByText('Alice Smith (12), Bob Jones (18)')).toBeTruthy();
       });
     });
 
-    it('displays member points by default', async () => {
+    it('renders "You (handicap)" for the current user in the players line', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
-      ];
-
-      render(<TeamLeaderboardTable leaderboard={teams} />);
-      fireEvent.press(screen.getByText('Team Alpha'));
-
-      await waitFor(() => {
-        expect(screen.getByText('26 pts')).toBeTruthy();
-      });
-    });
-
-    it('hides member points when hideMemberPoints is true', async () => {
-      const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
-      ];
-
-      render(<TeamLeaderboardTable leaderboard={teams} hideMemberPoints={true} />);
-      fireEvent.press(screen.getByText('Team Alpha'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Alice Smith')).toBeTruthy();
-        expect(screen.queryByText('26 pts')).toBeNull();
-      });
-    });
-
-    it('shows "You" instead of name for current user in expanded members', async () => {
-      const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('current-user', 'My Name', 15, 25),
-          createTeamMember('player-2', 'Other Player', 15, 25),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [
+            createTeamMember('current-user', 'My Name', 15),
+            createTeamMember('player-2', 'Other Player', 15),
+          ],
+          [createRoundBreakdown('round-1', 'R1', 1, 50)]
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} currentUserId="current-user" />);
       fireEvent.press(screen.getByText('Team Alpha'));
 
       await waitFor(() => {
-        expect(screen.getByText('You')).toBeTruthy();
-        expect(screen.queryByText('My Name')).toBeNull();
-        expect(screen.getByText('Other Player')).toBeTruthy();
+        expect(screen.getByText('You (15), Other Player (15)')).toBeTruthy();
+        expect(screen.queryByText(/My Name/)).toBeNull();
       });
     });
 
-    it('displays user icon for each member', async () => {
+    it('renders the per-round breakdown header and rows', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice', 10, 25),
-          createTeamMember('player-2', 'Bob', 20, 25),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [createTeamMember('p1', 'Alice', 12)],
+          [
+            createRoundBreakdown('round-1', 'R1', 1, 30, 'Pebble Beach'),
+            createRoundBreakdown('round-2', 'R2', 2, 20, 'Augusta National'),
+          ]
+        ),
+      ];
+
+      render(<TeamLeaderboardTable leaderboard={teams} testID="leaderboard" />);
+      fireEvent.press(screen.getByText('Team Alpha'));
+
+      await waitFor(() => {
+        // Scope to the breakdown so we don't collide with the main team table headers ("Pts" etc.)
+        const breakdown = within(screen.getByTestId('leaderboard-breakdown-team-1'));
+
+        // Header
+        expect(breakdown.getByText('Round')).toBeTruthy();
+        expect(breakdown.getByText('Pos')).toBeTruthy();
+        expect(breakdown.getByText('Pts')).toBeTruthy();
+        // Round labels
+        expect(breakdown.getByText('R1')).toBeTruthy();
+        expect(breakdown.getByText('R2')).toBeTruthy();
+        // Course names
+        expect(breakdown.getByText('Pebble Beach')).toBeTruthy();
+        expect(breakdown.getByText('Augusta National')).toBeTruthy();
+        // Ordinal positions
+        expect(breakdown.getByText('1st')).toBeTruthy();
+        expect(breakdown.getByText('2nd')).toBeTruthy();
+        // Points (scoped to breakdown)
+        expect(breakdown.getByText('30')).toBeTruthy();
+        expect(breakdown.getByText('20')).toBeTruthy();
+      });
+    });
+
+    it('shows "No rounds played yet" when the breakdown is empty', async () => {
+      const teams = [
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          0,
+          [createTeamMember('p1', 'Alice', 12)],
+          []
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
       fireEvent.press(screen.getByText('Team Alpha'));
 
       await waitFor(() => {
-        const userIcons = screen.getAllByTestId('icon-user');
-        expect(userIcons.length).toBe(2);
+        expect(screen.getByText('No rounds played yet')).toBeTruthy();
+      });
+    });
+
+    it('renders a flag icon for every breakdown row', async () => {
+      const teams = [
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [createTeamMember('p1', 'Alice', 12)],
+          [
+            createRoundBreakdown('round-1', 'R1', 1, 30),
+            createRoundBreakdown('round-2', 'R2', 2, 20),
+          ]
+        ),
+      ];
+
+      render(<TeamLeaderboardTable leaderboard={teams} />);
+      fireEvent.press(screen.getByText('Team Alpha'));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('icon-flag').length).toBe(2);
       });
     });
   });
@@ -664,19 +755,24 @@ describe('TeamLeaderboardTable', () => {
       });
     });
 
-    it('provides accessible label for member rows', async () => {
+    it('provides accessible label for breakdown rows', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('player-1', 'Alice Smith', 12, 26),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [createTeamMember('p1', 'Alice', 12)],
+          [createRoundBreakdown('round-1', 'R1', 1, 50, 'Pebble Beach')]
+        ),
       ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
       fireEvent.press(screen.getByText('Team Alpha'));
 
       await waitFor(() => {
-        const memberRow = screen.getByRole('text', { name: /Alice Smith/ });
-        expect(memberRow).toBeTruthy();
+        const breakdownRow = screen.getByLabelText(/R1.*Pebble Beach.*1st.*50 points/);
+        expect(breakdownRow).toBeTruthy();
       });
     });
 
@@ -808,20 +904,24 @@ describe('TeamLeaderboardTable', () => {
 
     it('handles large number of team members', async () => {
       const members = Array.from({ length: 10 }, (_, i) =>
-        createTeamMember(`player-${i}`, `Player ${i + 1}`, 10 + i, 5)
+        createTeamMember(`player-${i}`, `Player ${i + 1}`, 10 + i)
       );
-      const teams = [createTeamEntry('team-1', 'Big Team', 15, 50, members)];
+      const teams = [
+        createTeamEntry('team-1', 'Big Team', 15, 50, members, [
+          createRoundBreakdown('round-1', 'R1', 1, 50),
+        ]),
+      ];
 
       render(<TeamLeaderboardTable leaderboard={teams} />);
 
       expect(screen.getByText('10 members')).toBeTruthy();
 
-      // Expand to see all members
+      // Expand and verify the inline players line lists every player
       fireEvent.press(screen.getByText('Big Team'));
 
       await waitFor(() => {
-        expect(screen.getByText('Player 1')).toBeTruthy();
-        expect(screen.getByText('Player 10')).toBeTruthy();
+        const inlineList = members.map((m) => `${m.playerName} (${m.handicap})`).join(', ');
+        expect(screen.getByText(inlineList)).toBeTruthy();
       });
     });
   });
@@ -833,10 +933,17 @@ describe('TeamLeaderboardTable', () => {
   describe('Prop Combinations', () => {
     it('works with all props set', async () => {
       const teams = [
-        createTeamEntry('team-1', 'Team Alpha', 15, 50, [
-          createTeamMember('current-user', 'Current User', 15, 25),
-          createTeamMember('player-2', 'Other Player', 15, 25),
-        ]),
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          15,
+          50,
+          [
+            createTeamMember('current-user', 'Current User', 15),
+            createTeamMember('player-2', 'Other Player', 15),
+          ],
+          [createRoundBreakdown('round-1', 'R1', 1, 50)]
+        ),
         createBasicTeam('team-2', 'Team Beta', 50), // Tied with Alpha
       ];
 
@@ -847,7 +954,6 @@ describe('TeamLeaderboardTable', () => {
           isLoading={false}
           showTiedIndicator={true}
           emptyMessage="Custom message"
-          hideMemberPoints={true}
           testID="full-props-test"
         />
       );
@@ -855,12 +961,11 @@ describe('TeamLeaderboardTable', () => {
       expect(screen.getByTestId('full-props-test')).toBeTruthy();
       expect(screen.getByText('Team Alpha')).toBeTruthy();
 
-      // Expand to verify hideMemberPoints
+      // Expand to verify the players line uses "You" for current user
       fireEvent.press(screen.getByText('Team Alpha'));
 
       await waitFor(() => {
-        expect(screen.getByText('You')).toBeTruthy();
-        expect(screen.queryByText('25 pts')).toBeNull();
+        expect(screen.getByText('You (15), Other Player (15)')).toBeTruthy();
       });
     });
 

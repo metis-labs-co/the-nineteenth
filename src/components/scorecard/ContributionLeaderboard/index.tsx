@@ -134,7 +134,7 @@ export function ContributionLeaderboard({
 
       {/* Individual Categories */}
       <View style={styles.categoriesRow}>
-        <LeaderboardCard title="Drives" icon="golf-tee" iconColor={colors.primary} entries={driveLeaderboard} />
+        <LeaderboardCard title="Tee Shots" icon="golf-tee" iconColor={colors.primary} entries={driveLeaderboard} />
       </View>
       <View style={styles.categoriesRow}>
         <LeaderboardCard title="Approaches" icon="flag" iconColor={colors.success} entries={approachLeaderboard} />

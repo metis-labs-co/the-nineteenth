@@ -12,6 +12,7 @@ import { isSingleBallScore } from '@/types/database';
 import { PICKUP_SCORE } from '@/constants/scoring';
 import type { Hole, HoleScore, MultiBallHoleScore, ShotContributions } from '@/types';
 import type { TeamWithMembers } from '@/types/database.types';
+import type { ShotSlot } from '@/utils/teamScoring';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 export const SHEET_HEIGHT = SCREEN_HEIGHT * 0.7;
@@ -51,8 +52,8 @@ interface UseTeamScoreControlsParams {
   shotContributions?: ShotContributions;
   onShotContributionsChange?: (contributions: ShotContributions) => void;
   disabled: boolean;
-  activeShotType: 'drive' | 'approach' | 'putt' | null;
-  setActiveShotType: (type: 'drive' | 'approach' | 'putt' | null) => void;
+  activeShotType: ShotSlot | null;
+  setActiveShotType: (type: ShotSlot | null) => void;
   slideAnim: Animated.Value;
 }
 
@@ -149,7 +150,7 @@ export function useTeamScoreControls({
   }, [onContributorSelect]);
 
   // Shot contribution handlers
-  const handleShotSelect = useCallback((shotType: 'drive' | 'approach' | 'putt', playerId: string | undefined) => {
+  const handleShotSelect = useCallback((shotType: ShotSlot, playerId: string | undefined) => {
     if (!onShotContributionsChange) return;
     onShotContributionsChange({
       ...shotContributions,

@@ -24,6 +24,7 @@ function createTestTeam(
     id,
     competition_id: 'comp-1',
     name,
+    color: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     members: playerNames.map((playerName, i) => ({

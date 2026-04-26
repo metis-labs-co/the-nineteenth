@@ -26,11 +26,18 @@ export interface StrokePlayLeaderboardProps {
   entries: RoundLeaderboardEntry[];
   /** Current user ID for highlighting */
   currentUserId?: string;
+  /**
+   * Whether to render the CP (competition points) column. Defaults to `true`
+   * for back-compat. The per-round leaderboard view passes `false` because
+   * CP belongs on the competition standings, not the round-specific table.
+   */
+  showCompetitionPoints?: boolean;
 }
 
 export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
   entries,
   currentUserId,
+  showCompetitionPoints = true,
 }: StrokePlayLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -55,9 +62,11 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
         <ScaledText category="caption" style={[styles.headerCell, styles.grossCol, { color: colors.textSecondary }]}>
           Gross
         </ScaledText>
-        <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
-          CP
-        </ScaledText>
+        {showCompetitionPoints && (
+          <ScaledText category="caption" style={[styles.headerCell, styles.compPtsCol, { color: colors.textSecondary }]}>
+            CP
+          </ScaledText>
+        )}
       </View>
 
       {/* Table Rows */}
@@ -89,7 +98,7 @@ export const StrokePlayLeaderboard = React.memo(function StrokePlayLeaderboard({
             scoreLabel="net"
             secondaryScore={grossDisplay}
             secondaryLabel="gross"
-            showCompetitionPoints
+            showCompetitionPoints={showCompetitionPoints}
           />
         );
       })}

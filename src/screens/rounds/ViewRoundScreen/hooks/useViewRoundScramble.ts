@@ -6,16 +6,33 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
+import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import { calculateScrambleTeamHandicap } from '@/utils/teamScoring/scramble';
 
 interface UseViewRoundScrambleParams {
   isScrambleRound: boolean;
-  round: { team_format?: string | null; is_team_round?: boolean } | null | undefined;
+  round:
+    | {
+        id?: string;
+        competition_id?: string | null;
+        team_format?: string | null;
+        is_team_round?: boolean;
+      }
+    | null
+    | undefined;
   scorecards: Array<{
     player_id: string;
     player?: { name?: string; handicap?: number | null; email?: string } | null;
     scores?: Record<string, HoleScore | MultiBallHoleScore>;
+    /**
+     * DHC captured at scoring time — derived from the configured handicap
+     * source (profile vs calculated index) and the round's tee slope/CR/par.
+     * Preferred over `player.handicap` (raw index) when present so team
+     * handicap reflects the day's playing handicap, not the raw index.
+     */
+    daily_handicap_used?: number | null;
   }> | undefined;
   roundPlayers: Array<{
     id: string;
@@ -33,14 +50,32 @@ export function useViewRoundScramble({
 }: UseViewRoundScrambleParams) {
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
 
-  // Extract teams from team_config for standalone scramble rounds
+  // Competition rounds store teams in the `teams` table; standalone rounds use
+  // `rounds.team_config`. `useRoundTeams` branches correctly for both.
+  const { teams: fetchedTeams, isLoading: isLoadingTeams } = useRoundTeams(
+    round?.competition_id ?? undefined,
+    isScrambleRound,
+    round?.id
+  );
+
   const scrambleTeams = useMemo(() => {
     if (!isScrambleRound) return [];
+
+    if (fetchedTeams.length > 0) {
+      return fetchedTeams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        memberIds: (t.members ?? []).map((m) => m.player_id),
+      }));
+    }
 
     const teamConfig = (round as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
     if (teamConfig?.teams && teamConfig.teams.length > 0) {
       return teamConfig.teams;
     }
+
+    // Still fetching — avoid flashing the single-team fallback over the real roster.
+    if (isLoadingTeams) return [];
 
     const allPlayerIds = scorecards?.map((sc) => sc.player_id) ||
       roundPlayers?.map((p) => p.id) || [];
@@ -54,17 +89,25 @@ export function useViewRoundScramble({
     }
 
     return [];
-  }, [isScrambleRound, round, scorecards, roundPlayers]);
+  }, [isScrambleRound, fetchedTeams, isLoadingTeams, round, scorecards, roundPlayers]);
 
-  // Build a player map from scorecards and round players
+  // Build a player map from scorecards and round players.
+  // For scramble team handicap purposes, `Player.handicap` here carries the
+  // round's DHC (preferred) and falls back to the player's raw index. The
+  // scramble formula sums these values, so resolving DHC at this seam keeps
+  // every downstream consumer (team HC display, leaderboard) aligned.
   const buildPlayerMap = useCallback((): Map<string, Player> => {
     const playerMap = new Map<string, Player>();
 
     scorecards?.forEach((sc) => {
+      const dhc =
+        typeof sc.daily_handicap_used === 'number'
+          ? sc.daily_handicap_used
+          : null;
       playerMap.set(sc.player_id, {
         id: sc.player_id,
         name: sc.player?.name || 'Unknown',
-        handicap: sc.player?.handicap ?? 0,
+        handicap: dhc ?? sc.player?.handicap ?? 0,
         email: sc.player?.email || '',
       });
     });
@@ -97,36 +140,49 @@ export function useViewRoundScramble({
       .filter((p): p is Player => p !== undefined);
   }, [isScrambleRound, scrambleTeams, selectedTeamIndex, buildPlayerMap]);
 
-  // Get team handicap (average of team members for scramble)
-  const scrambleTeamHandicap = useMemo(() => {
-    if (scrambleTeamPlayers.length === 0) return 0;
-    const totalHandicap = scrambleTeamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
-    return Math.round((totalHandicap * 0.25) * 10) / 10;
-  }, [scrambleTeamPlayers]);
+  // Get team handicap (25% of sum of member handicaps for scramble).
+  // Shared with finalization via calculateScrambleTeamHandicap.
+  const scrambleTeamHandicap = useMemo(
+    () => calculateScrambleTeamHandicap(scrambleTeamPlayers),
+    [scrambleTeamPlayers]
+  );
 
-  // Get all players for scramble leaderboard (needed for player lookup)
+  // Get all players for scramble leaderboard (needed for team member lookup).
+  // Must UNION scorecards + roundPlayers, not either/or — a team member who
+  // never personally submitted a scorecard (e.g. wasn't the designated scorer
+  // in a scramble) still belongs in the team's member list. A scorecards-only
+  // path silently drops them and the team appears with the wrong member count.
+  // `handicap` here carries DHC where available (see buildPlayerMap).
   const allScramblePlayers: Player[] = useMemo(() => {
     if (!isScrambleRound) return [];
 
-    if (scorecards && scorecards.length > 0) {
-      return scorecards.map((sc) => ({
+    const byId = new Map<string, Player>();
+
+    scorecards?.forEach((sc) => {
+      const dhc =
+        typeof sc.daily_handicap_used === 'number'
+          ? sc.daily_handicap_used
+          : null;
+      byId.set(sc.player_id, {
         id: sc.player_id,
         name: sc.player?.name || 'Unknown',
-        handicap: sc.player?.handicap ?? 0,
+        handicap: dhc ?? sc.player?.handicap ?? 0,
         email: sc.player?.email || '',
-      }));
-    }
+      });
+    });
 
-    if (roundPlayers && roundPlayers.length > 0) {
-      return roundPlayers.map((p) => ({
-        id: p.id,
-        name: p.name,
-        handicap: p.handicap ?? 0,
-        email: p.email || '',
-      }));
-    }
+    roundPlayers?.forEach((p) => {
+      if (!byId.has(p.id)) {
+        byId.set(p.id, {
+          id: p.id,
+          name: p.name,
+          handicap: p.handicap ?? 0,
+          email: p.email || '',
+        });
+      }
+    });
 
-    return [];
+    return Array.from(byId.values());
   }, [isScrambleRound, scorecards, roundPlayers]);
 
   // Get team score for scramble (from first team member's scorecard)
@@ -171,13 +227,12 @@ export function useViewRoundScramble({
       .filter((p): p is Player => p !== undefined);
   }, [isScrambleRound, scrambleTeams, buildPlayerMap]);
 
-  // Get team handicap for a specific team by index
-  const getScrambleTeamHandicapByIndex = useCallback((teamIndex: number): number => {
-    const teamPlayers = getScrambleTeamPlayersByIndex(teamIndex);
-    if (teamPlayers.length === 0) return 0;
-    const totalHandicap = teamPlayers.reduce((sum, p) => sum + (p.handicap ?? 0), 0);
-    return Math.round((totalHandicap * 0.25) * 10) / 10;
-  }, [getScrambleTeamPlayersByIndex]);
+  // Get team handicap for a specific team by index (shared formula).
+  const getScrambleTeamHandicapByIndex = useCallback(
+    (teamIndex: number): number =>
+      calculateScrambleTeamHandicap(getScrambleTeamPlayersByIndex(teamIndex)),
+    [getScrambleTeamPlayersByIndex]
+  );
 
   return {
     selectedTeamIndex,

@@ -39,6 +39,12 @@ export interface ExpandablePlayerCardProps {
   isCurrentUser?: boolean;
   onCompare?: () => void;
   variant?: 'card' | 'list-item';
+  /**
+   * Optional secondary indicator rendered to the left of the expand
+   * chevron. Used by callers that need to surface auxiliary status
+   * (e.g. competition invitation status) without overloading `badge`.
+   */
+  statusIndicator?: React.ReactNode;
 }
 
 const UPGRADE_CONFIG: UpgradePromptConfig = {
@@ -61,6 +67,7 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
   isCurrentUser = false,
   onCompare,
   variant = 'card',
+  statusIndicator,
 }: ExpandablePlayerCardProps) {
   const colors = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -84,6 +91,7 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
         variant={variant}
         showEmail={false}
         showHandicap={false}
+        rightAction={statusIndicator}
       />
     );
   }
@@ -99,11 +107,14 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
         navigateToProfile={false}
         onPress={handleToggle}
         rightAction={
-          <Icon
-            source={expanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={colors.gray400}
-          />
+          <View style={styles.rightActionRow}>
+            {statusIndicator}
+            <Icon
+              source={expanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.gray400}
+            />
+          </View>
         }
       />
 
@@ -162,6 +173,11 @@ export const ExpandablePlayerCard = React.memo(function ExpandablePlayerCard({
 });
 
 const styles = StyleSheet.create({
+  rightActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   expandedSection: {
     marginTop: -spacing.xs,
     paddingTop: spacing.md,

@@ -32,11 +32,12 @@ import {
   hasAcceptedSkinsDisclaimer,
 } from '@/components/skins';
 import type { SkinsConfig, TeamFormat } from '@/types';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
 /**
  * Team format types that require team mode for skins
  */
-const TEAM_GAME_TYPES: string[] = ['best-ball', 'scramble', 'shamble'];
+const TEAM_GAME_TYPES: string[] = TEAM_ONLY_GAME_TYPES;
 
 /**
  * Simple team info for display

@@ -32,9 +32,12 @@ interface PairsListSectionProps {
   /** Optional player-id → team-name map. Drives the small team label
    *  shown under each player's name in the chips and pair cards. */
   teamNameByPlayerId?: Map<string, string>;
-  /** Optional player-id → team-slot-index map. Drives the chip/card
-   *  tint so team A reads green, team B gold, etc. */
+  /** Optional player-id → team-slot-index map. Used as the colour
+   *  fallback when a team's stored colour is missing. */
   teamIndexByPlayerId?: Map<string, number>;
+  /** Optional player-id → stored team colour id. Drives the chip/card
+   *  tint when present. */
+  teamColorByPlayerId?: Map<string, string | null>;
   colors: ColorPalette;
 }
 
@@ -47,6 +50,7 @@ export const PairsListSection = React.memo(function PairsListSection({
   onRemovePair,
   teamNameByPlayerId,
   teamIndexByPlayerId,
+  teamColorByPlayerId,
   colors,
 }: PairsListSectionProps) {
   const hasPairs = pairs.length > 0;
@@ -101,8 +105,11 @@ export const PairsListSection = React.memo(function PairsListSection({
                 onPress={() => onPlayerPress(player.id)}
                 teamName={teamNameByPlayerId?.get(player.id)}
                 teamColor={
-                  getTeamColor(teamIndexByPlayerId?.get(player.id), colors) ??
-                  undefined
+                  getTeamColor(
+                    teamColorByPlayerId?.get(player.id),
+                    teamIndexByPlayerId?.get(player.id),
+                    colors
+                  ) ?? undefined
                 }
                 colors={colors}
               />
@@ -146,8 +153,11 @@ export const PairsListSection = React.memo(function PairsListSection({
               onPress={() => onPlayerPress(player.id)}
               teamName={teamNameByPlayerId?.get(player.id)}
               teamColor={
-                getTeamColor(teamIndexByPlayerId?.get(player.id), colors) ??
-                undefined
+                getTeamColor(
+                  teamColorByPlayerId?.get(player.id),
+                  teamIndexByPlayerId?.get(player.id),
+                  colors
+                ) ?? undefined
               }
               colors={colors}
             />
@@ -201,12 +211,18 @@ export const PairsListSection = React.memo(function PairsListSection({
               scorerTeamName={teamNameByPlayerId?.get(scorer.id)}
               scoredTeamName={teamNameByPlayerId?.get(scoredPlayer.id)}
               scorerTeamColor={
-                getTeamColor(teamIndexByPlayerId?.get(scorer.id), colors) ??
-                undefined
+                getTeamColor(
+                  teamColorByPlayerId?.get(scorer.id),
+                  teamIndexByPlayerId?.get(scorer.id),
+                  colors
+                ) ?? undefined
               }
               scoredTeamColor={
-                getTeamColor(teamIndexByPlayerId?.get(scoredPlayer.id), colors) ??
-                undefined
+                getTeamColor(
+                  teamColorByPlayerId?.get(scoredPlayer.id),
+                  teamIndexByPlayerId?.get(scoredPlayer.id),
+                  colors
+                ) ?? undefined
               }
               reciprocal={pair.reciprocal}
               showRemove

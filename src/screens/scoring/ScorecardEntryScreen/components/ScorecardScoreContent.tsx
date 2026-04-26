@@ -106,6 +106,12 @@ export interface ScorecardScoreContentProps {
   onDetailedStatsPress?: (playerId: string) => void;
   // Solo round (hide leaderboard)
   isSoloRound?: boolean;
+  /**
+   * When provided and scoring pairs are NOT enabled, replaces `currentPlayers`
+   * in the rendered list. Used by the group-filter feature to scope scoring
+   * to the signed-in user's pairing.
+   */
+  playersOverride?: Player[];
 }
 
 export function ScorecardScoreContent({
@@ -155,6 +161,7 @@ export function ScorecardScoreContent({
   isWolfProcessing = false,
   onDetailedStatsPress,
   isSoloRound = false,
+  playersOverride,
 }: ScorecardScoreContentProps) {
   // Get shot contributions for a specific team (persisted in scorecard)
   // Each team stores its own contributions in its members' scorecards.
@@ -202,8 +209,11 @@ export function ScorecardScoreContent({
   );
 
   // Determine which players to render based on scoring pairs setting
+  // When scoring pairs are off, an optional `playersOverride` (e.g. group filter) wins over the full list
   const playersToRender =
-    scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
+    scoringPairsEnabled && playersToScore.length > 0
+      ? playersToScore
+      : playersOverride ?? currentPlayers;
 
   /**
    * Calculate running total Stableford points for a player up to (but not including) the current hole.
@@ -367,7 +377,7 @@ export function ScorecardScoreContent({
       if (!firstMember) return undefined;
       const score = playerScoresMap.get(firstMember.player_id);
       if (score && isSingleBallScore(score)) {
-        return score.shotContributions?.drive;
+        return score.shotContributions?.teeShot;
       }
       return undefined;
     })();
@@ -380,9 +390,8 @@ export function ScorecardScoreContent({
               team={team}
               selectedPlayerId={shambleDriveContributor}
               onSelect={(playerId) => {
-                // Store drive contributor in shotContributions
                 if (handleShotContributionsChange) {
-                  handleShotContributionsChange(index, { drive: playerId });
+                  handleShotContributionsChange(index, { teeShot: playerId });
                 }
               }}
             />

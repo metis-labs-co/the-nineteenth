@@ -10,6 +10,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { Badge } from '@/components/common/Badge';
 import type { KnockoutMatchWithPlayers } from '@/types/database';
 
 export interface KnockoutMatchCardProps {
@@ -58,7 +59,10 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
   ) => {
     const isCurrentUser = currentUserId && player?.id === currentUserId;
     const playerName = player?.name ?? 'TBD';
-    const displayName = playerName.length > 16 ? playerName.slice(0, 14) + '...' : playerName;
+    // When a "You" pill is shown, leave more room for it by truncating earlier
+    const maxNameLength = isCurrentUser ? 12 : 16;
+    const displayName =
+      playerName.length > maxNameLength ? playerName.slice(0, maxNameLength - 2) + '...' : playerName;
 
     return (
       <View
@@ -76,16 +80,19 @@ export const KnockoutMatchCard = React.memo(function KnockoutMatchCard({
         </View>
 
         {/* Player name */}
-        <Text
-          style={[
-            styles.playerName,
-            { color: isLoser ? colors.textDisabled : colors.textPrimary },
-            isWinner && styles.playerNameWinner,
-          ]}
-          numberOfLines={1}
-        >
-          {displayName}
-        </Text>
+        <View style={styles.nameContainer}>
+          <Text
+            style={[
+              styles.playerName,
+              { color: isLoser ? colors.textDisabled : colors.textPrimary },
+              isWinner && styles.playerNameWinner,
+            ]}
+            numberOfLines={1}
+          >
+            {displayName}
+          </Text>
+          {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+        </View>
 
         {/* Score */}
         <Text
@@ -191,9 +198,15 @@ const styles = StyleSheet.create({
   seedText: {
     ...typography.captionBold,
   },
+  nameContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   playerName: {
     ...typography.body,
-    flex: 1,
+    flexShrink: 1,
   },
   playerNameWinner: {
     fontWeight: '600',

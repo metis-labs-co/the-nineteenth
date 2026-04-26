@@ -17,9 +17,10 @@ import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import { RoundLeaderboard } from './RoundLeaderboard';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
+import { useTeams } from '@/hooks/rounds';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { TeamMode, GameType } from '@/types/database.types';
+import type { TeamMode, GameType, TeamWithMembers } from '@/types/database.types';
 import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 // =====================================================
@@ -172,28 +173,81 @@ const EmptyLeaderboardState = React.memo(function EmptyLeaderboardState({
 // =====================================================
 
 /**
- * Convert CompetitionLeaderboardEntry to LeaderboardEntry format for LeaderboardTable
+ * Build a player_id -> { teamName, teamColor } lookup from competition teams.
+ * Used to display each player's team membership on the individual leaderboard.
  */
-function toLeaderboardTableEntries(entries: CompetitionLeaderboardEntry[]) {
-  return entries.map((entry) => ({
-    playerId: entry.participantId,
-    playerName: entry.participantName,
-    handicap: entry.handicap ?? 0,
-    totalPoints: entry.totalPoints,
-    roundsPlayed: entry.roundsPlayed,
-  }));
+function buildPlayerTeamLookup(
+  teams: TeamWithMembers[] | undefined
+): Map<string, { teamName: string; teamColor: string | null }> {
+  const lookup = new Map<string, { teamName: string; teamColor: string | null }>();
+  if (!teams) return lookup;
+  for (const team of teams) {
+    for (const member of team.members) {
+      lookup.set(member.player_id, { teamName: team.name, teamColor: team.color });
+    }
+  }
+  return lookup;
 }
 
 /**
- * Convert CompetitionLeaderboardEntry to TeamLeaderboardEntry format for TeamLeaderboardTable
+ * Convert CompetitionLeaderboardEntry to LeaderboardEntry format for LeaderboardTable.
+ * When a player-team lookup is provided, attaches each player's team name/colour so
+ * the individual standings can show team membership in team competitions.
  */
-function toTeamLeaderboardEntries(entries: CompetitionLeaderboardEntry[]): TeamLeaderboardEntry[] {
+function toLeaderboardTableEntries(
+  entries: CompetitionLeaderboardEntry[],
+  playerTeamLookup?: Map<string, { teamName: string; teamColor: string | null }>
+) {
+  return entries.map((entry) => {
+    const team = playerTeamLookup?.get(entry.participantId);
+    return {
+      playerId: entry.participantId,
+      playerName: entry.participantName,
+      handicap: entry.handicap ?? 0,
+      totalPoints: entry.totalPoints,
+      roundsPlayed: entry.roundsPlayed,
+      teamName: team?.teamName ?? null,
+      teamColor: team?.teamColor ?? null,
+    };
+  });
+}
+
+/**
+ * Convert CompetitionLeaderboardEntry to TeamLeaderboardEntry format for TeamLeaderboardTable.
+ *
+ * The expanded row shows a per-round points breakdown (rather than per-player
+ * points, which aren't tracked at the competition level for teams). Round
+ * labels are looked up from the competition's rounds list.
+ */
+function toTeamLeaderboardEntries(
+  entries: CompetitionLeaderboardEntry[],
+  rounds: RoundWithCourse[]
+): TeamLeaderboardEntry[] {
+  // Build a lookup for round metadata so the breakdown can show round number + course
+  const roundsById = new Map(rounds.map((r) => [r.id, r]));
+
   return entries.map((entry) => {
     // Calculate average handicap from team members
     const avgHandicap =
       entry.teamMembers.length > 0
         ? entry.teamMembers.reduce((sum, m) => sum + m.handicap, 0) / entry.teamMembers.length
         : 0;
+
+    // Build per-round breakdown, ordered by round_number where available
+    const roundBreakdown = entry.roundPoints
+      .map((rp) => {
+        const round = roundsById.get(rp.roundId);
+        return {
+          roundId: rp.roundId,
+          roundLabel: round ? `R${round.round_number}` : 'R?',
+          courseName: round?.course?.name ?? undefined,
+          position: rp.position,
+          points: rp.points,
+          _sortKey: round?.round_number ?? Number.MAX_SAFE_INTEGER,
+        };
+      })
+      .sort((a, b) => a._sortKey - b._sortKey)
+      .map(({ _sortKey: _omit, ...keep }) => keep);
 
     return {
       teamId: entry.participantId,
@@ -204,9 +258,8 @@ function toTeamLeaderboardEntries(entries: CompetitionLeaderboardEntry[]): TeamL
         playerId: member.playerId,
         playerName: member.playerName,
         handicap: member.handicap,
-        points: 0, // Individual points not tracked at competition level
-        roundsPlayed: entry.roundsPlayed,
       })),
+      roundBreakdown,
     };
   });
 }
@@ -271,6 +324,12 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     autoRefresh,
   });
 
+  // Fetch teams (only for team competitions) so individual standings can show
+  // each player's team under their name.
+  const { data: teams } = useTeams(hasTeams ? competitionId : '');
+
+  const playerTeamLookup = useMemo(() => buildPlayerTeamLookup(teams), [teams]);
+
   // Handle view change
   const handleViewChange = useCallback((view: LeaderboardView) => {
     setSelectedView(view);
@@ -288,13 +347,13 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   // Convert to appropriate format based on view
   const individualEntries = useMemo(() => {
     if (!leaderboard || effectiveView !== 'individual') return [];
-    return toLeaderboardTableEntries(leaderboard);
-  }, [leaderboard, effectiveView]);
+    return toLeaderboardTableEntries(leaderboard, hasTeams ? playerTeamLookup : undefined);
+  }, [leaderboard, effectiveView, hasTeams, playerTeamLookup]);
 
   const teamEntries = useMemo(() => {
     if (!leaderboard || effectiveView !== 'team') return [];
-    return toTeamLeaderboardEntries(leaderboard);
-  }, [leaderboard, effectiveView]);
+    return toTeamLeaderboardEntries(leaderboard, rounds);
+  }, [leaderboard, effectiveView, rounds]);
 
   // Render loading state
   if (isLoading) {
@@ -343,7 +402,6 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
           currentUserId={currentUserId}
           isLoading={false}
           showTiedIndicator
-          hideMemberPoints={isAllScrambleFormat}
           testID="competition-team-leaderboard"
         />
       ) : (

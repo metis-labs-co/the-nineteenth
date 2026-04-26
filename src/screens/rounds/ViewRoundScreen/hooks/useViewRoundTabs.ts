@@ -65,9 +65,17 @@ export function useViewRoundTabs({
 
     // Groups / Sub-Matches — split team rounds show the per-sub-match
     // breakdown; non-split rounds with more than 4 players show tee
-    // groups (pairings). Either way this is the "who plays whom" view
-    // and lives as the second tab.
-    const showGroupsTab = isSplitRound || playerCount > 4;
+    // groups (pairings). Team rounds with 2+ teams always need this tab
+    // so organisers can assign tee times even before pairings exist —
+    // playerCount can transiently read <5 while scorecards/round_players
+    // are still loading. Individual 1v1 match-play also always needs this
+    // tab — pairings are *the* matchups, and a 4-player round (2 matches)
+    // would otherwise have nowhere to display them.
+    const showGroupsTab =
+      isSplitRound ||
+      playerCount > 4 ||
+      (isTeamRound && (teamCount ?? 0) >= 2) ||
+      isMatchPlayRound;
     if (showGroupsTab) {
       result.push({
         key: 'subMatches',
@@ -127,9 +135,10 @@ export function useViewRoundTabs({
     }
 
     // Stats always last — it's a personal deep-dive, not group state.
-    // Team match-play rounds skip it: the team-level view is the point
-    // of interest and per-player putt/fairway stats add clutter.
-    if (hasStats && !isTeamMatchPlayRound) {
+    // Skipped for team match-play (team view is the point of interest)
+    // and for scramble/shamble (team-format scoring makes per-player
+    // putt/fairway stats meaningless).
+    if (hasStats && !isTeamMatchPlayRound && !isScrambleRound && !isShambleRound) {
       result.push({ key: 'stats', label: 'Stats' });
     }
 

@@ -28,3 +28,7 @@ export {
   calculateMatchPlayHoleResultWithHandicaps,
   formatMatchPlayScore,
 } from './matchPlay';
+
+// Scramble shot slot configuration
+export type { ShotSlot, ShotSlotColorKey, ShotSlotConfig } from './shotSlots';
+export { getShotSlotsForPar } from './shotSlots';

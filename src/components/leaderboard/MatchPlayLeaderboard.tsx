@@ -16,6 +16,7 @@ import { IconSwords, IconTrophy, IconClock, IconCheck } from '@tabler/icons-reac
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { ScaledText } from '@/components/common/ScaledText';
+import { Badge } from '@/components/common/Badge';
 import {
   type RoundLeaderboardEntry,
   type PlayerLeaderboardEntry,
@@ -30,6 +31,7 @@ import {
   formatMatchStatusText,
   calculateTeamAggregate,
 } from './leaderboardUtils';
+import { averageTeamHandicap } from '@/utils/teamHandicap';
 import { styles } from './RoundLeaderboard.styles';
 
 export interface MatchPlayLeaderboardProps {
@@ -64,6 +66,18 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
     if (!isTeamRound) return null;
     return calculateTeamAggregate(entries, roundStatus);
   }, [entries, isTeamRound, roundStatus]);
+
+  const teamHandicaps = useMemo(() => {
+    if (!teamAggregate) return null;
+    const findTeam = (id: string) =>
+      entries.find((e) => isTeamEntry(e) && e.teamId === id);
+    const t1 = findTeam(teamAggregate.team1Id);
+    const t2 = findTeam(teamAggregate.team2Id);
+    return {
+      team1: t1 && isTeamEntry(t1) ? averageTeamHandicap(t1.members) : 0,
+      team2: t2 && isTeamEntry(t2) ? averageTeamHandicap(t2.members) : 0,
+    };
+  }, [teamAggregate, entries]);
 
   // Group entries by matches (pairs of opponents)
   // Only show each match once (from winner's perspective or first entry if halved)
@@ -141,6 +155,14 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
               >
                 {teamAggregate.team1Name}
               </ScaledText>
+              {teamHandicaps && (
+                <ScaledText
+                  category="caption"
+                  style={[localStyles.teamHandicap, { color: colors.textSecondary }]}
+                >
+                  HC {teamHandicaps.team1.toFixed(1)}
+                </ScaledText>
+              )}
             </View>
             <View style={localStyles.teamScoreCenter}>
               <ScaledText category="display" style={[localStyles.teamScore, { color: colors.textPrimary }]}>
@@ -164,6 +186,14 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
               >
                 {teamAggregate.team2Name}
               </ScaledText>
+              {teamHandicaps && (
+                <ScaledText
+                  category="caption"
+                  style={[localStyles.teamHandicap, { color: colors.textSecondary }]}
+                >
+                  HC {teamHandicaps.team2.toFixed(1)}
+                </ScaledText>
+              )}
             </View>
           </View>
           <View style={[localStyles.teamStatusRow, { borderTopColor: colors.borderLight }]}>
@@ -259,25 +289,28 @@ export const MatchPlayLeaderboard = React.memo(function MatchPlayLeaderboard({
             <View style={styles.matchContent}>
               {/* Player/Team */}
               <View style={styles.matchPlayer}>
-                <ScaledText
-                  category="body"
-                  style={[
-                    styles.matchPlayerName,
-                    { color: colors.textPrimary },
-                    isWin && { color: colors.success, fontWeight: '700' },
-                    isCurrentUser && { color: colors.primary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {isCurrentUser ? 'You' : name}
-                </ScaledText>
+                <View style={localStyles.matchPlayerNameRow}>
+                  <ScaledText
+                    category="body"
+                    style={[
+                      styles.matchPlayerName,
+                      { color: colors.textPrimary },
+                      isWin && { color: colors.success, fontWeight: '700' },
+                      isCurrentUser && { color: colors.primary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {name}
+                  </ScaledText>
+                  {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+                </View>
                 {isTeamEntry(entry) && (
                   <ScaledText
                     category="caption"
                     style={[styles.matchPlayerMembers, { color: colors.textTertiary }]}
                     numberOfLines={1}
                   >
-                    {entry.members.map((m) => m.playerName).join(', ')}
+                    {entry.members.map((m) => m.playerName).join(', ')} · HC {averageTeamHandicap(entry.members).toFixed(1)}
                   </ScaledText>
                 )}
               </View>
@@ -361,6 +394,10 @@ const localStyles = StyleSheet.create({
   teamName: {
     ...typography.bodyBold,
   },
+  teamHandicap: {
+    ...typography.caption,
+    marginTop: 2,
+  },
   teamScoreCenter: {
     alignItems: 'center',
     paddingHorizontal: spacing.md,
@@ -408,5 +445,11 @@ const localStyles = StyleSheet.create({
   statusTextSmall: {
     ...typography.caption,
     fontWeight: '600',
+  },
+  matchPlayerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
   },
 });

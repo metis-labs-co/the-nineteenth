@@ -108,11 +108,23 @@ export function getEntryId(entry: RoundLeaderboardEntry): string {
 }
 
 /**
- * Get the handicap from a leaderboard entry
- * For team entries, returns the average handicap of all members
+ * Get the handicap to display for a leaderboard entry.
+ *
+ * For player entries: their individual handicap.
+ *
+ * For team entries: the team handicap from `scoreData.teamHandicap` when
+ * the finalizer persisted it (e.g. Scramble's 25%-of-sum). Falls back to
+ * a rounded average of member handicaps otherwise — this is only correct
+ * for legacy rows that predate team_handicap persistence.
  */
 export function getEntryHandicap(entry: RoundLeaderboardEntry): number {
   if (isTeamEntry(entry)) {
+    if (
+      entry.scoreData.type === 'team' &&
+      typeof entry.scoreData.teamHandicap === 'number'
+    ) {
+      return entry.scoreData.teamHandicap;
+    }
     if (entry.members.length === 0) return 0;
     return Math.round(
       entry.members.reduce((sum, m) => sum + m.handicap, 0) / entry.members.length

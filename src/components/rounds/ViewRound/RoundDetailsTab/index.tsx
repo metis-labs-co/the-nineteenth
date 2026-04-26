@@ -24,6 +24,7 @@ import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
 import { useRoundPlayerTees } from '@/hooks/rounds';
 import { useAuth } from '@/hooks/useAuth';
+import { useCompetitionInfo } from '@/hooks/competitions';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
 import { Pill } from '@/components/common/Pill';
 import { getTeeColor } from '@/components/common/TeeSelector';
@@ -31,13 +32,17 @@ import { formatDateWithWeekday, formatTeeTime } from '@/utils/formatting';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { RootStackParamList } from '@/navigation/types';
 
-import { GAME_TYPE_LABELS } from './constants';
+import {
+  ROUND_PRESETS,
+  inferPresetIdFromRound,
+} from '@/constants/roundPresets';
 import { PlayersSection } from './components';
-import { EditDateTimeSheet, EditGameTypeSheet, EditTeeSheet, RoundFormatSheet, MatchupSheet } from './sheets';
+import { EditDateTimeSheet, EditTeeSheet, MatchupSheet } from './sheets';
+import { RoundTypeSheet } from '@/components/rounds/RoundTypeSheet';
 import type { RoundDetailsTabProps } from './types';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 
-type OpenSheet = 'date-time' | 'game-type' | 'tee' | 'round-format' | 'matchup' | null;
+type OpenSheet = 'date-time' | 'tee' | 'matchup' | 'round-type' | null;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,13 +59,14 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   const holes = Array.isArray(round.course?.holes) ? round.course.holes : [];
   const { player } = useAuth();
 
-  // Round details are editable only by the round/competition organiser.
-  // `isOrganizer` already resolves to true for standalone-round owners and
-  // for competition organisers (see useViewRoundPermissions). We alias it
-  // locally so the intent at each call site reads as "can edit" rather
-  // than "is organiser" and so additional gates (e.g. round status) can
-  // be layered here later without touching every row.
-  const canEdit = isOrganizer;
+  // Round details are editable only by the round/competition organiser
+  // AND only while the round hasn't started. Once a round goes
+  // in-progress (or is completed) the metadata is locked — changing
+  // date, format, tee, etc. mid-round would invalidate scoring already
+  // entered against the old values. `isOrganizer` already resolves to
+  // true for standalone-round owners and for competition organisers
+  // (see useViewRoundPermissions).
+  const canEdit = isOrganizer && round.status === 'upcoming';
 
   // Per-field edit sheets - only one open at a time. Kept local to the tab
   // because no other component needs to observe this state.
@@ -70,23 +76,53 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     if (!canEdit) return;
     setOpenSheet('date-time');
   }, [canEdit]);
-  const openGameType = useCallback(() => {
-    if (!canEdit) return;
-    setOpenSheet('game-type');
-  }, [canEdit]);
   const openTee = useCallback(() => {
     if (!canEdit) return;
     setOpenSheet('tee');
-  }, [canEdit]);
-  const openRoundFormat = useCallback(() => {
-    if (!canEdit) return;
-    setOpenSheet('round-format');
   }, [canEdit]);
   const openMatchup = useCallback(() => {
     if (!canEdit) return;
     setOpenSheet('matchup');
   }, [canEdit]);
-  const handleUpgradePress = useCallback(() => onUpgradePress?.(), [onUpgradePress]);
+  const openRoundType = useCallback(() => {
+    if (!canEdit) return;
+    setOpenSheet('round-type');
+  }, [canEdit]);
+
+  // Competition flag that decides whether `rules_override` is honored at
+  // finalization. Used by the preset sheet to surface an "override will
+  // be ignored" note when the competition is in general-rules mode.
+  const { data: competitionInfo } = useCompetitionInfo(round.competition_id);
+  const perRoundRulesEnabled = competitionInfo?.per_round_rules_enabled ?? false;
+
+  // Canonical round-shape slice for the preset catalog. The six fields
+  // below fully determine which preset matches this round (see
+  // `inferPresetIdFromRound`) and they're the ones `applyPresetToRound`
+  // will overwrite.
+  const roundShape = useMemo(
+    () => ({
+      game_type: round.game_type,
+      is_team_round: round.is_team_round,
+      team_format: round.team_format,
+      round_format: round.round_format,
+      sub_match_size: round.sub_match_size,
+      rules_override: round.rules_override ?? null,
+    }),
+    [
+      round.game_type,
+      round.is_team_round,
+      round.team_format,
+      round.round_format,
+      round.sub_match_size,
+      round.rules_override,
+    ]
+  );
+
+  const currentPresetId = useMemo(
+    () => inferPresetIdFromRound(roundShape),
+    [roundShape]
+  );
+  const currentPreset = currentPresetId ? ROUND_PRESETS[currentPresetId] : null;
 
   // Check if round has an active skins game
   const { data: skinsGames } = useSkinsGamesByRound(round.id);
@@ -102,11 +138,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   // can play different tees, and edits made via the Edit Tees sheet only
   // touch round_players, not rounds.selected_tee.
   const { data: roundPlayerTees } = useRoundPlayerTees(round.id);
-
-  // Group/sub-match viewing lives on the dedicated Groups/Sub-Matches tab.
-  // The Details tab only shows the flat player list so it stays focused
-  // on round metadata.
-  const roundFormat = round.round_format ?? 'combined';
 
   // Teams for this round — drives the Matchup row visibility. We only
   // surface the picker when the competition has 3+ teams (2-team rounds
@@ -286,11 +317,20 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
 
           <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
 
+          {/* Round Type — single preset picker that writes the full set
+              of format fields (game_type, is_team_round, team_format,
+              round_format, sub_match_size, rules_override) in one shot.
+              Replaces the separate Format / Round Format / Scoring Rules
+              rows so organisers can't produce invalid combinations. When
+              the round's saved fields don't match any catalog preset
+              (e.g. legacy rounds, hand-crafted combos) the pill reads
+              "Custom" and the picker lets the organiser pick a canonical
+              preset to convert it. */}
           <DetailRow
-            icon="trophy-outline"
-            label="Format"
-            onPress={canEdit ? openGameType : undefined}
-            accessibilityHint={canEdit ? 'Edit game format' : undefined}
+            icon={currentPreset?.icon ?? 'puzzle-outline'}
+            label="Round Type"
+            onPress={canEdit ? openRoundType : undefined}
+            accessibilityHint={canEdit ? 'Change round type' : undefined}
           >
             <View style={styles.formatPillContainer}>
               {hasSkins && (
@@ -300,7 +340,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
                 <Icon source="dog-side" size={18} color={wolfColor} />
               )}
               <Pill
-                label={GAME_TYPE_LABELS[round.game_type]}
+                label={currentPreset?.shortTitle ?? 'Custom'}
                 variant="primary"
                 size="md"
               />
@@ -363,26 +403,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
             <StatusBadge status={round.status as StatusVariant} size="md" />
           </DetailRow>
 
-          {round.is_team_round && (
-            <>
-              <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
-              <DetailRow
-                icon="account-switch-outline"
-                label="Round Format"
-                onPress={canEdit ? openRoundFormat : undefined}
-                accessibilityHint={canEdit ? 'Edit round format' : undefined}
-              >
-                <View style={styles.formatPillContainer}>
-                  <Pill
-                    label={roundFormat === 'split' ? `Split ${round.sub_match_size ?? ''}v${round.sub_match_size ?? ''}`.trim() : 'Combined'}
-                    variant="primary"
-                    size="md"
-                  />
-                </View>
-              </DetailRow>
-            </>
-          )}
-
           {showMatchupRow && (
             <>
               <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
@@ -410,6 +430,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
       <PlayersSection
         roundId={round.id}
         cardBackground={colors.surface}
+        currentUserId={player?.id}
       />
 
 
@@ -421,20 +442,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         initialDate={round.date}
         initialTeeTime={round.tee_time}
       />
-      <EditGameTypeSheet
-        visible={openSheet === 'game-type'}
-        onDismiss={handleCloseSheet}
-        roundId={round.id}
-        currentGameType={round.game_type}
-        currentIsTeamRound={round.is_team_round}
-        currentTeamFormat={round.team_format}
-        supportsTeams={
-          round.competition
-            ? round.competition.team_mode !== 'none'
-            : round.is_team_round
-        }
-        onUpgradePress={handleUpgradePress}
-      />
       <EditTeeSheet
         visible={openSheet === 'tee'}
         onDismiss={handleCloseSheet}
@@ -442,18 +449,6 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         tees={round.course?.tees ?? []}
         currentTee={round.selected_tee ?? null}
       />
-      {round.is_team_round && (
-        <RoundFormatSheet
-          visible={openSheet === 'round-format'}
-          onDismiss={handleCloseSheet}
-          roundId={round.id}
-          competitionId={round.competition_id ?? null}
-          isTeamRound={round.is_team_round}
-          currentFormat={roundFormat}
-          currentSubMatchSize={round.sub_match_size ?? null}
-          roundTeeTime={round.tee_time}
-        />
-      )}
       {showMatchupRow && (
         <MatchupSheet
           visible={openSheet === 'matchup'}
@@ -462,6 +457,17 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           competitionId={round.competition_id ?? null}
           currentTeam1Id={round.team1_id ?? null}
           currentTeam2Id={round.team2_id ?? null}
+        />
+      )}
+      {openSheet === 'round-type' && (
+        <RoundTypeSheet
+          visible
+          onDismiss={handleCloseSheet}
+          roundId={round.id}
+          competitionId={round.competition_id ?? null}
+          round={roundShape}
+          perRoundRulesEnabled={perRoundRulesEnabled}
+          roundTeeTime={round.tee_time}
         />
       )}
     </View>
@@ -474,15 +480,30 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
 
 interface DetailRowProps {
   icon: string;
+  /** Visible label. May contain `\n` to stack across two lines. */
   label: string;
+  /**
+   * Overrides the string exposed to screen readers / test queries.
+   * Defaults to `label` with any `\n` normalised to a space so the a11y
+   * surface stays flat even when the visible text is stacked.
+   */
+  accessibilityLabel?: string;
   onPress?: () => void;
   accessibilityHint?: string;
   children: React.ReactNode;
 }
 
-function DetailRow({ icon, label, onPress, accessibilityHint, children }: DetailRowProps) {
+function DetailRow({
+  icon,
+  label,
+  accessibilityLabel,
+  onPress,
+  accessibilityHint,
+  children,
+}: DetailRowProps) {
   const colors = useThemeColors();
   const isInteractive = !!onPress;
+  const a11yLabel = accessibilityLabel ?? label.replace(/\n/g, ' ');
 
   const content = (
     <>
@@ -503,7 +524,7 @@ function DetailRow({ icon, label, onPress, accessibilityHint, children }: Detail
 
   if (!isInteractive) {
     return (
-      <View style={styles.detailRow} accessibilityLabel={label}>
+      <View style={styles.detailRow} accessibilityLabel={a11yLabel}>
         {content}
       </View>
     );
@@ -515,7 +536,7 @@ function DetailRow({ icon, label, onPress, accessibilityHint, children }: Detail
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={a11yLabel}
       accessibilityHint={accessibilityHint}
     >
       {content}

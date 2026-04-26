@@ -86,8 +86,10 @@ export function useRoundData({
     isInitialized,
     loadFromOffline,
     initializeRound,
+    ensureTeamMemberScorecards,
     resetRound,
     updateHoles,
+    setAllowedPlayers,
   } = useScorecardStore();
 
   // Track if we've already updated the round status to avoid duplicate calls
@@ -263,6 +265,79 @@ export function useRoundData({
   useEffect(() => {
     initializeRoundData();
   }, [initializeRoundData]);
+
+  // Sync the store's allowedPlayerIds to the user's scoring-pair scope.
+  // Without this, completion checks (isHoleComplete, validateScores) iterate
+  // every player in currentPlayers — which on team rounds with pairs is the
+  // whole team, not just self+partner — and falsely flag the partner pairs'
+  // unscored holes as missing on submit.
+  useEffect(() => {
+    if (!isInitialized || currentRoundId !== roundId) return;
+
+    if (
+      scoringPairsHook.scoringPairsEnabled &&
+      scoringPairsHook.playersToScore.length > 0
+    ) {
+      setAllowedPlayers(scoringPairsHook.playersToScore.map((p) => p.id));
+    } else {
+      setAllowedPlayers([]);
+    }
+  }, [
+    isInitialized,
+    currentRoundId,
+    roundId,
+    scoringPairsHook.scoringPairsEnabled,
+    scoringPairsHook.playersToScore,
+    setAllowedPlayers,
+  ]);
+
+  // Idempotent backfill: ensure every current team member has a scorecard,
+  // even if they were added to the team after the round was first opened
+  // for scoring. Without this, a late-added player has no scorecard row,
+  // is missing from the round leaderboard's team member list, and can't
+  // be picked as the team's contributing scorer.
+  useEffect(() => {
+    if (
+      !isInitialized ||
+      currentRoundId !== roundId ||
+      !metadata.data?.isTeamRound ||
+      teamsHook.teams.length === 0
+    ) {
+      return;
+    }
+
+    const seen = new Set<string>();
+    const teamMemberPlayers: Player[] = [];
+    teamsHook.teams.forEach((team) => {
+      (team.members || []).forEach((member) => {
+        if (member.player && !seen.has(member.player_id)) {
+          seen.add(member.player_id);
+          teamMemberPlayers.push({
+            id: member.player.id,
+            name: getDisplayName(member.player.name, 'Unknown'),
+            email: member.player.email || '',
+            phone: member.player.phone ?? undefined,
+            handicap: member.player.handicap ?? 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      });
+    });
+
+    if (teamMemberPlayers.length === 0) return;
+
+    // Fire-and-forget: ensureTeamMemberScorecards is idempotent and
+    // exits early when nothing's missing. Errors are logged inside.
+    void ensureTeamMemberScorecards(teamMemberPlayers);
+  }, [
+    isInitialized,
+    currentRoundId,
+    roundId,
+    metadata.data?.isTeamRound,
+    teamsHook.teams,
+    ensureTeamMemberScorecards,
+  ]);
 
   // Update store holes when fresh course data has yardages that the cached data is missing
   // This handles the case where offline data was loaded but lacks yardages from the tees table
@@ -507,6 +582,7 @@ export function useRoundData({
           id: t.id,
           competition_id: '',
           name: t.name,
+          color: null,
           created_at: '',
           updated_at: '',
           members: t.memberIds.map((memberId) => {
@@ -529,6 +605,7 @@ export function useRoundData({
           id: 'implicit-team-1',
           competition_id: '',
           name: 'Team',
+          color: null,
           created_at: '',
           updated_at: '',
           members: players.map((p) => ({

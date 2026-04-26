@@ -14,8 +14,8 @@ export {
 } from './teamAlgorithms';
 export type { BalanceQuality } from './teamAlgorithms';
 
-export { EditTeamNameModal } from './EditTeamNameModal';
-export type { EditTeamNameModalProps } from './EditTeamNameModal';
+export { EditTeamModal } from './EditTeamModal';
+export type { EditTeamModalProps } from './EditTeamModal';
 
 export { MoveToTeamSheet } from './MoveToTeamSheet';
 export type { MoveToTeamSheetProps } from './MoveToTeamSheet';

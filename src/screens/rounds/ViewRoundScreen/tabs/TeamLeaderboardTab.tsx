@@ -18,6 +18,7 @@ import { GolfBallLoader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useRoundLeaderboard, isTeamEntry, isTeamScore } from '@/hooks/rounds';
+import { averageTeamHandicap } from '@/utils/teamHandicap';
 import type { TeamFormat } from '@/types';
 
 interface TeamLeaderboardTabProps {
@@ -120,7 +121,7 @@ export function TeamLeaderboardTab({
                   {entry.teamName}
                 </Text>
                 <Text style={[styles.teamSubLabel, { color: colors.textSecondary }]}>
-                  {entry.members.length} {entry.members.length === 1 ? 'player' : 'players'}
+                  {entry.members.length} {entry.members.length === 1 ? 'player' : 'players'} · HC {averageTeamHandicap(entry.members).toFixed(1)}
                 </Text>
               </View>
               <View style={styles.scoreBlock}>

@@ -959,6 +959,7 @@ describe('TeamScoreCard', () => {
         id: 'team-1',
         competition_id: 'comp-1',
         name: 'Team No Members',
+        color: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         members: undefined as any,

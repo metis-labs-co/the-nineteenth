@@ -11,6 +11,7 @@
 import { useCallback, useEffect } from 'react';
 import type { GameType } from '@/types/database.types';
 import type { PlayingPartner, ScrambleTeam, WizardData } from '../types';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
 /** Generate a UUID v4 for team IDs */
 const generateUUID = (): string => {
@@ -25,7 +26,7 @@ const generateUUID = (): string => {
 };
 
 /** Team game types that require splitIntoTeams for skins */
-const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
+const TEAM_GAME_TYPES: GameType[] = TEAM_ONLY_GAME_TYPES;
 
 /** Game types that support optional team splitting (user can choose) */
 const OPTIONAL_TEAM_FORMATS: GameType[] = ['scramble', 'shamble', 'match-play'];

@@ -25,16 +25,11 @@ export function usePrizePoolManagement({ refetchPrizePool }: UsePrizePoolManagem
     refetchPrizePool();
   }, [refetchPrizePool]);
 
-  const handleViewPrizePoolTransactions = useCallback(() => {
-    // TODO: Navigate to prize pool transactions screen
-  }, []);
-
   return {
     showPrizePoolSheet,
     setShowPrizePoolSheet,
     handleAddPrizePool,
     handleEditPrizePool,
     handlePrizePoolSuccess,
-    handleViewPrizePoolTransactions,
   };
 }

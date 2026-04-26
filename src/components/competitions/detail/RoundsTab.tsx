@@ -12,7 +12,7 @@ import type { ColorPalette } from '@/context/ThemeContext';
 import type { RoundWithCourse } from './types';
 import type { GameType } from '@/types';
 import { CompetitionRoundCard } from './CompetitionRoundCard';
-import { EmptyState } from '@/components/common';
+import { EmptyState, SwipeableRow } from '@/components/common';
 
 export interface RoundsTabProps {
   rounds: RoundWithCourse[];
@@ -24,6 +24,8 @@ export interface RoundsTabProps {
   onViewRound: (roundId: string) => void;
   onQuickScore?: (roundId: string) => void;
   onManageScoringPairs?: (roundId: string) => void;
+  /** Called when the organizer triggers swipe-to-delete on a round */
+  onDeleteRound?: (round: RoundWithCourse) => void;
   /** Map of roundId to whether scoring pairs exist */
   scoringPairsStatus?: Record<string, boolean>;
   /** Map of roundId to whether all players have completed scorecards */
@@ -40,10 +42,13 @@ export const RoundsTab = React.memo(function RoundsTab({
   onViewRound,
   onQuickScore,
   onManageScoringPairs,
+  onDeleteRound,
   scoringPairsStatus,
   allScoredStatus,
   colors,
 }: RoundsTabProps) {
+  const canSwipeDelete = isOrganizer && !!onDeleteRound;
+
   return (
     <View>
       {rounds.length === 0 ? (
@@ -55,22 +60,41 @@ export const RoundsTab = React.memo(function RoundsTab({
         />
       ) : (
         <View style={styles.roundsList}>
-          {rounds.map((round) => (
-            <CompetitionRoundCard
-              key={round.id}
-              round={round}
-              roundNumber={round.round_number}
-              isOrganizer={isOrganizer}
-              playerCount={playerCount}
-              onScoreRound={onScoreRound}
-              onViewRound={onViewRound}
-              onQuickScore={onQuickScore}
-              onManageScoringPairs={onManageScoringPairs}
-              hasScoringPairs={scoringPairsStatus?.[round.id]}
-              allPlayersScored={allScoredStatus?.[round.id]}
-              colors={colors}
-            />
-          ))}
+          {rounds.map((round, index) => {
+            // Display number is derived from position so gaps left by deleted
+            // rounds don't surface to users. The stored `round.round_number`
+            // remains authoritative for IDs, ordering, and server references.
+            const displayNumber = index + 1;
+            const card = (
+              <CompetitionRoundCard
+                round={round}
+                roundNumber={displayNumber}
+                isOrganizer={isOrganizer}
+                playerCount={playerCount}
+                onScoreRound={onScoreRound}
+                onViewRound={onViewRound}
+                onQuickScore={onQuickScore}
+                onManageScoringPairs={onManageScoringPairs}
+                hasScoringPairs={scoringPairsStatus?.[round.id]}
+                allPlayersScored={allScoredStatus?.[round.id]}
+                colors={colors}
+              />
+            );
+
+            if (!canSwipeDelete) {
+              return <View key={round.id}>{card}</View>;
+            }
+
+            return (
+              <SwipeableRow
+                key={round.id}
+                onDelete={() => onDeleteRound?.(round)}
+                deleteAccessibilityLabel={`Delete round ${displayNumber}`}
+              >
+                {card}
+              </SwipeableRow>
+            );
+          })}
         </View>
       )}
 

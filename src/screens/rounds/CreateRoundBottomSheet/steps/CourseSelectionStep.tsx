@@ -7,29 +7,36 @@
  * - List all clubs
  */
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import { SearchBar } from '@/components/common';
-import { ClubCard } from '@/components/courses/ClubCard';
+import { ClubCard, type ClubCardItem } from '@/components/courses/ClubCard';
 import type { Club } from '@/types/database.types';
-import type { CourseWithFavoriteStatus, ClubCourseDisplayItem } from '@/hooks/useClubs';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { RecentCourse } from '@/hooks/courses';
 
 interface CourseSelectionStepProps {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  displayItems: ClubCourseDisplayItem[];
+  displayItems: ClubCardItem[];
   isLoading: boolean;
   favoriteCourses?: (CourseWithFavoriteStatus & { club: Club })[];
+  recentCourses?: RecentCourse[];
   onSelectCourse: (course: CourseWithFavoriteStatus, club: Club) => void;
   onSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: Club }) => void;
+  onSelectRecentCourse?: (course: RecentCourse) => void;
   /** Whether current user is a super admin (shows "Add New Course" button) */
   isSuperAdmin?: boolean;
   /** Callback when "Add New Course" is pressed */
   onAddNewCourse?: () => void;
+  /** Callback when a GolfAPI-only club is tapped — imports full data then selects */
+  onSelectApiClub?: (golfapiClubId: string) => void;
+  /** Set of golfapi_club_ids currently being imported */
+  importingClubIds?: Set<string>;
   /** Distance from user to each club in meters (keyed by club ID) */
   clubDistances?: Map<string, number>;
 }
@@ -40,13 +47,24 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
   displayItems,
   isLoading,
   favoriteCourses,
+  recentCourses,
   onSelectCourse,
   onSelectFavoriteCourse,
+  onSelectRecentCourse,
   isSuperAdmin,
   onAddNewCourse,
+  onSelectApiClub,
+  importingClubIds,
   clubDistances,
 }: CourseSelectionStepProps) {
   const colors = useThemeColors();
+
+  // Hide recents that are already shown as favourites to avoid duplicate pills.
+  const filteredRecents = useMemo(() => {
+    if (!recentCourses || recentCourses.length === 0) return [];
+    const favouriteIds = new Set((favoriteCourses ?? []).map((c) => c.id));
+    return recentCourses.filter((c) => !favouriteIds.has(c.id));
+  }, [recentCourses, favoriteCourses]);
 
   return (
     <>
@@ -58,6 +76,45 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
         accessibilityLabel="Search courses"
         hideBorder
       />
+
+      {/* Recent Courses Pills */}
+      {filteredRecents.length > 0 && onSelectRecentCourse && (
+        <View style={styles.favoritesContainer}>
+          <View style={styles.favoritesHeader}>
+            <Icon source="history" size={14} color={colors.textSecondary} />
+            <Text style={[styles.favoritesLabel, { color: colors.textSecondary }]}>
+              Recent
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.favoritesScroll}
+          >
+            {filteredRecents.map((course) => (
+              <TouchableOpacity
+                key={course.id}
+                style={[
+                  styles.favoritePill,
+                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+                ]}
+                onPress={() => onSelectRecentCourse(course)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Recent course ${course.name}`}
+              >
+                <Icon source="golf" size={14} color={colors.textSecondary} />
+                <Text
+                  style={[styles.favoritePillText, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {course.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Favorite Courses Pills */}
       {favoriteCourses && favoriteCourses.length > 0 && (
@@ -134,18 +191,31 @@ export const CourseSelectionStep = memo(function CourseSelectionStep({
         ) : displayItems && displayItems.length > 0 ? (
           <FlatList
             data={displayItems}
-            keyExtractor={(item) => item.club.id}
-            renderItem={({ item }) => (
-              <View style={styles.clubCardWrapper}>
-                <ClubCard
-                  item={item}
-                  onCourseSelect={onSelectCourse}
-                  showFavoriteButton={false}
-                  selectionMode
-                  distanceMeters={clubDistances?.get(item.club.id)}
-                />
-              </View>
-            )}
+            keyExtractor={(item) => ('club' in item ? item.club.id : item.id)}
+            renderItem={({ item }) => {
+              const isApiItem = 'source' in item && item.source === 'golfapi';
+              const clubId = 'club' in item ? item.club.id : item.id;
+              const golfapiClubId = isApiItem
+                ? (item as { golfapi_club_id: string }).golfapi_club_id
+                : null;
+              return (
+                <View style={styles.clubCardWrapper}>
+                  <ClubCard
+                    item={item}
+                    onCourseSelect={onSelectCourse}
+                    onClubPress={
+                      isApiItem && onSelectApiClub && golfapiClubId
+                        ? () => onSelectApiClub(golfapiClubId)
+                        : undefined
+                    }
+                    showFavoriteButton={false}
+                    selectionMode
+                    isImporting={golfapiClubId ? importingClubIds?.has(golfapiClubId) : false}
+                    distanceMeters={clubDistances?.get(clubId)}
+                  />
+                </View>
+              );
+            }}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.clubCardSeparator} />}

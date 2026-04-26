@@ -17,6 +17,10 @@ export type {
   SubMatchStatus,
   TeamMode,
   TeamFormat,
+  TeamAggregationMethod,
+  RoundTemplateId,
+  QualifyingMetric,
+  BracketSeedingStyle,
   InvitationStatus,
   FriendshipStatus,
   ScorecardStatus,
@@ -190,6 +194,14 @@ export type {
   RoundPlayerWithPlayer,
   SubMatch,
 } from './round.types';
+
+// Round rules override
+export type {
+  RoundRulesOverride,
+  WinTieLossPoints,
+  TeamAggregationConfig,
+} from './roundRules.types';
+export { isRoundRulesOverride } from './roundRules.types';
 
 // Scorecard types
 export type {

@@ -14,6 +14,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useQueryClient } from '@tanstack/react-query';
 import { spacing, borderRadius, typography, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useFriends } from '@/hooks/useFriends';
@@ -25,7 +26,9 @@ import { courseService } from '@/services/courses';
 import { ClubAutocomplete } from '@/components/courses';
 import { teesToTeeBoxes } from '@/utils/teeTransformers';
 import { hasCompleteHoleData } from '@/services/api/golfApiTransformers';
+import { clubKeys, courseKeys } from '@/hooks/queryKeys';
 import type { Club } from '@/types/database.types';
+import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
 import type { SearchResultItem } from '@/hooks/clubs/types';
 import {
   useSearchClubs,
@@ -35,7 +38,8 @@ import {
   sortHomeClubFirst,
   sortByDistance,
 } from '@/hooks/useClubs';
-import type { ClubCourseDisplayItem } from '@/hooks/useClubs';
+import { isGolfApiResult } from '@/hooks/courses';
+import type { ClubCardItem } from '@/components/courses/ClubCard';
 import { useOneShotLocation } from '@/hooks/useOneShotLocation';
 import { FullScreenWizard } from '@/components/common';
 import type { UseWizardReturn, WizardStepConfig } from '@/components/common';
@@ -75,6 +79,7 @@ export default function CreateRoundBottomSheet({
   skipPartnerStep,
 }: CreateRoundBottomSheetProps) {
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
   const isSuperAdmin = useIsSuperAdmin();
   const isSocialOrHigher = useIsSocial();
   const { location: userLocation } = useOneShotLocation(visible);
@@ -87,6 +92,7 @@ export default function CreateRoundBottomSheet({
   const [newCourseName, setNewCourseName] = useState('');
   const [numHoles, setNumHoles] = useState<9 | 18>(18);
   const [isImportingClub, setIsImportingClub] = useState(false);
+  const [importingClubIds, setImportingClubIds] = useState<Set<string>>(new Set());
   const createClubWithCourse = useCreateClubWithCourse();
   const createCourse = useCreateCourse();
   const deleteCourseMutation = useDeleteCourse();
@@ -183,6 +189,53 @@ export default function CreateRoundBottomSheet({
     setNumHoles(18);
     setIsImportingClub(false);
   }, []);
+
+  // User tapped a GolfAPI-only result from the search list. Import the full
+  // club + courses + tees + coordinates, then auto-select if single-course.
+  const handleSelectApiClub = useCallback(
+    async (golfapiClubId: string) => {
+      if (importingClubIds.has(golfapiClubId)) return;
+
+      setImportingClubIds((prev) => {
+        const next = new Set(prev);
+        next.add(golfapiClubId);
+        return next;
+      });
+
+      try {
+        const result = await courseService.importClubWithCourses(golfapiClubId);
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: clubKeys.all }),
+          queryClient.invalidateQueries({ queryKey: courseKeys.all }),
+        ]);
+
+        // Single-course clubs: auto-select the imported course so the user
+        // doesn't have to re-tap after the list refetches.
+        if (result.courses.length === 1) {
+          const imported = result.courses[0];
+          const teeBoxes = teesToTeeBoxes(
+            result.tees.filter((t) => t.course_id === imported.id)
+          );
+          const courseForWizard: CourseWithFavoriteStatus = {
+            ...imported,
+            tees: teeBoxes,
+            is_favorite: false,
+          };
+          wizard.handleSelectCourse(courseForWizard, result.club);
+        }
+      } catch (error) {
+        console.error('[CreateRound] Failed to import API club:', error);
+      } finally {
+        setImportingClubIds((prev) => {
+          const next = new Set(prev);
+          next.delete(golfapiClubId);
+          return next;
+        });
+      }
+    },
+    [importingClubIds, queryClient, wizard]
+  );
 
   // Autocomplete: user selected an existing club from dropdown
   const handleSelectClubFromAutocomplete = useCallback(
@@ -316,14 +369,16 @@ export default function CreateRoundBottomSheet({
   );
   const { data: allClubs, isLoading: clubsLoading } = useClubsWithCourses();
 
-  // Transform clubs to display items, sorted by distance (or home-first + alphabetical fallback)
-  const rawDisplayItems = useMemo(
-    () =>
-      wizard.data.searchQuery.trim().length >= 2
-        ? (searchResults ?? []).map(toClubCourseDisplayItem)
-        : (allClubs ?? []).map(toClubCourseDisplayItem),
-    [wizard.data.searchQuery, searchResults, allClubs]
-  );
+  // Display items preserve GolfAPI-only search results as-is (so ClubCard
+  // routes them to ApiResultCard). Local DB clubs are transformed normally.
+  const rawDisplayItems: ClubCardItem[] = useMemo(() => {
+    if (wizard.data.searchQuery.trim().length >= 2) {
+      return (searchResults ?? []).map((item) =>
+        isGolfApiResult(item) ? item : toClubCourseDisplayItem(item)
+      );
+    }
+    return (allClubs ?? []).map(toClubCourseDisplayItem);
+  }, [wizard.data.searchQuery, searchResults, allClubs]);
 
   const { items: displayItems, distances: clubDistances } = useMemo(() => {
     if (userLocation) {
@@ -465,10 +520,14 @@ export default function CreateRoundBottomSheet({
           displayItems={displayItems}
           isLoading={coursesLoading}
           favoriteCourses={favoriteCourses}
+          recentCourses={wizard.recentCourses}
           onSelectCourse={wizard.handleSelectCourse}
           onSelectFavoriteCourse={wizard.handleSelectFavoriteCourse}
+          onSelectRecentCourse={wizard.handleSelectFavoriteCourse}
           isSuperAdmin={isSuperAdmin}
           onAddNewCourse={handleAddNewCourse}
+          onSelectApiClub={handleSelectApiClub}
+          importingClubIds={importingClubIds}
           clubDistances={clubDistances}
         />
       )}

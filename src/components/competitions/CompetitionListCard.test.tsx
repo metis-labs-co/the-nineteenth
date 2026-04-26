@@ -271,11 +271,11 @@ describe('CompetitionListCard', () => {
       expect(screen.getByTestId('status-badge-active')).toBeTruthy();
     });
 
-    it('displays active status badge for in-progress competition', () => {
+    it('displays in-progress status badge for in-progress competition', () => {
       const competition = createCompetitionData({ status: 'in-progress' });
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-active')).toBeTruthy();
+      expect(screen.getByTestId('status-badge-in-progress')).toBeTruthy();
     });
 
     it('displays completed status badge', () => {
@@ -839,7 +839,7 @@ describe('CompetitionListCard', () => {
       const competition = createCompetitionData({ status: 'In-Progress' });
       render(<CompetitionListCard competition={competition} onPress={defaultOnPress} />);
 
-      expect(screen.getByTestId('status-badge-active')).toBeTruthy();
+      expect(screen.getByTestId('status-badge-in-progress')).toBeTruthy();
     });
   });
 
@@ -951,7 +951,7 @@ describe('CompetitionListCard', () => {
   describe('All Status Combinations', () => {
     const statusToVariant: Record<string, string> = {
       active: 'active',
-      'in-progress': 'active',
+      'in-progress': 'in-progress',
       completed: 'completed',
       upcoming: 'upcoming',
       draft: 'draft',

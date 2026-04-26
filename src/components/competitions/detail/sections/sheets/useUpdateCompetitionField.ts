@@ -6,12 +6,16 @@ import type { Competition } from '@/types/database.types';
 type CompetitionUpdate = Partial<
   Pick<
     Competition,
+    | 'name'
+    | 'description'
     | 'competition_type'
     | 'handicap_system'
     | 'team_mode'
     | 'team_size'
     | 'start_date'
     | 'end_date'
+    | 'point_system'
+    | 'per_round_rules_enabled'
   >
 >;
 

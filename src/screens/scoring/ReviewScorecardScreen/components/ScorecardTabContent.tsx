@@ -5,7 +5,7 @@
  * scramble team selection, and standard scorecard rendering.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,8 +22,7 @@ import type { ScorecardTablePlayer } from '@/components/scorecard';
 import type { ScoreDisplayMode } from '@/components/scorecard/ScorecardTable/types';
 import type { Player, Hole, HoleScore, MultiBallHoleScore, GameType, TeeBox } from '@/types';
 import type { HandicapSource } from '@/types/database/enums';
-import type { RoundWithCourse } from '@/hooks/useRoundDetails';
-import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import type { ScrambleTeam } from '../hooks/useScrambleTeams';
 
 interface ScorecardTabContentProps {
   holes: Hole[];
@@ -31,7 +30,7 @@ interface ScorecardTabContentProps {
   currentPlayers: Player[];
   effectiveGameType: GameType;
   isScramble: boolean;
-  roundDetails: RoundWithCourse | undefined;
+  scrambleTeams: ScrambleTeam[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   onHolePress: (holeNumber: number) => void;
   isRefreshing: boolean;
@@ -47,7 +46,7 @@ export function ScorecardTabContent({
   currentPlayers,
   effectiveGameType,
   isScramble,
-  roundDetails,
+  scrambleTeams,
   getPlayerScore,
   onHolePress,
   isRefreshing,
@@ -63,29 +62,6 @@ export function ScorecardTabContent({
   const [scoreDisplayMode, setScoreDisplayMode] = useState<ScoreDisplayMode>(
     effectiveGameType === 'stableford' ? 'points' : 'strokes'
   );
-
-  // Extract teams from team_config for multi-team scramble rounds
-  const scrambleTeams = useMemo(() => {
-    if (!isScramble) return [];
-
-    // Check for standalone team config from round details
-    const teamConfig = (roundDetails as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
-    if (teamConfig?.teams && teamConfig.teams.length > 0) {
-      return teamConfig.teams;
-    }
-
-    // Fallback: treat all players as one team
-    const allPlayerIds = currentPlayers.map((p) => p.id);
-    if (allPlayerIds.length > 0) {
-      return [{
-        id: 'default-team',
-        name: 'Team',
-        memberIds: allPlayerIds,
-      }];
-    }
-
-    return [];
-  }, [isScramble, roundDetails, currentPlayers]);
 
   // Get players for a specific team by index
   const getScrambleTeamPlayersByIndex = useCallback((teamIndex: number): Player[] => {

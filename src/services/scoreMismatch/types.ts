@@ -27,15 +27,24 @@ export interface ScoreEntry {
   updated_at: string;
 }
 
+/** A single conflicting entry in an N-way score mismatch */
+export interface MismatchEntry {
+  scorer_id: string;
+  strokes: number;
+}
+
 export interface ScoreMismatch {
   id: string;
   round_id: string;
   player_id: string;
   hole_number: number;
-  self_score: number;
-  partner_score: number;
-  self_scorer_id: string;
-  partner_scorer_id: string;
+  /** Legacy 2-way columns (scoring pairs flow). Nullable when entries[] is populated. */
+  self_score: number | null;
+  partner_score: number | null;
+  self_scorer_id: string | null;
+  partner_scorer_id: string | null;
+  /** Full N-way conflict list. Populated for multi-scorer mismatches. */
+  entries: MismatchEntry[] | null;
   status: 'pending' | 'resolved';
   resolved_score?: number | null;
   resolved_by?: string | null;
@@ -49,7 +58,7 @@ export interface ScoreSubmissionStatus {
   id: string;
   round_id: string;
   player_id: string;
-  partner_id: string;
+  partner_id: string | null;
   bypass_available_at: string | null;
   bypassed_at: string | null;
   bypassed: boolean;
@@ -57,12 +66,25 @@ export interface ScoreSubmissionStatus {
   updated_at: string;
 }
 
+/** A scorer who hasn't finished entering all their scores yet (multi-scorer rounds) */
+export interface IncompleteScorer {
+  scorerId: string;
+  scorerName: string;
+  progress: { completed: number; total: number };
+}
+
 export interface SubmissionReadiness {
   canSubmit: boolean;
-  reason?: 'waiting_for_partner' | 'unresolved_mismatches' | 'incomplete_scores';
+  reason?:
+    | 'waiting_for_partner'
+    | 'waiting_for_other_scorers'
+    | 'unresolved_mismatches'
+    | 'incomplete_scores';
   partnerName?: string;
   mismatchCount?: number;
   partnerProgress?: { completed: number; total: number };
+  /** Multi-scorer: scorers still owing entries before submission can proceed */
+  incompleteScorers?: IncompleteScorer[];
 }
 
 export interface PartnerProgress {

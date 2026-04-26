@@ -1,4 +1,5 @@
 import type { GameType } from '@/types';
+import type { IndividualPointsRule } from '@/types/database/roundRules.types';
 import type {
   PointSystemRules,
   RoundResult,
@@ -14,22 +15,26 @@ import type {
  * Calculate competition points for a set of round results.
  *
  * Sorts results by raw score (descending for Stableford, ascending for Stroke),
- * assigns positions with proper tie handling, and awards competition points
- * based on the provided point system.
+ * assigns positions with proper tie handling, and awards competition points.
  *
  * Tie handling: When players tie, they share the average of the positions
  * they would have occupied. For example, if two players tie for 1st, they
- * both receive the average of 1st and 2nd place points.
+ * both receive the average of 1st and 2nd place points (positional mode) or
+ * the configured `tie` value (win_tie_loss mode).
  *
  * @param results - Array of round results to score
  * @param gameType - The game type (affects sorting direction)
- * @param pointSystem - Point allocation rules
+ * @param pointSystem - Positional point allocation (used for mode='positional'
+ *   and as a fallback for matchPlay configuration)
+ * @param individualRule - Optional per-round mode override. When undefined the
+ *   positional pointSystem is used (current/default behaviour).
  * @returns Array of scored results with positions and competition points
  */
 export function calculateCompetitionPoints<TParticipant = string>(
   results: RoundResult<TParticipant>[],
   gameType: GameType,
-  pointSystem: PointSystemRules
+  pointSystem: PointSystemRules,
+  individualRule?: IndividualPointsRule
 ): ScoredResult<TParticipant>[] {
   if (results.length === 0) {
     return [];
@@ -55,25 +60,21 @@ export function calculateCompetitionPoints<TParticipant = string>(
     const groupSize = group.length;
     const isTied = groupSize > 1;
 
-    // Calculate average points for tied positions
-    const positionsOccupied = Array.from(
-      { length: groupSize },
-      (_, i) => currentPosition + i
+    const competitionPointsByParticipant = computeCompetitionPointsForGroup(
+      group,
+      currentPosition,
+      groupSize,
+      isTied,
+      pointSystem,
+      individualRule
     );
 
-    const totalPoints = positionsOccupied.reduce((sum, pos) => {
-      return sum + getPointsForPosition(pos, pointSystem);
-    }, 0);
-
-    const averagePoints = Math.round(totalPoints / groupSize);
-
-    // Assign same position and averaged points to all tied participants
     for (const result of group) {
       scoredResults.push({
         ...result,
         position: currentPosition,
         tied: isTied,
-        competitionPoints: averagePoints,
+        competitionPoints: competitionPointsByParticipant.get(result.participantId) ?? 0,
       });
     }
 
@@ -81,6 +82,98 @@ export function calculateCompetitionPoints<TParticipant = string>(
   }
 
   return scoredResults;
+}
+
+/**
+ * Compute competition points for a tie group, dispatching on the configured
+ * individualRule mode. Returns a map keyed by participantId so callers can
+ * apply the value when constructing scored rows.
+ */
+function computeCompetitionPointsForGroup<TParticipant>(
+  group: RoundResult<TParticipant>[],
+  currentPosition: number,
+  groupSize: number,
+  isTied: boolean,
+  pointSystem: PointSystemRules,
+  individualRule: IndividualPointsRule | undefined
+): Map<TParticipant, number> {
+  const result = new Map<TParticipant, number>();
+  const mode = individualRule?.mode ?? 'positional';
+
+  switch (mode) {
+    case 'raw_score': {
+      // Each participant's competition points equal their raw round score
+      // (e.g. Stableford total). Aggregating across rounds then yields a
+      // cumulative raw-score total — what the user wants for stableford
+      // competitions where the leaderboard should be ordered by total points.
+      for (const r of group) {
+        result.set(r.participantId, r.rawScore);
+      }
+      break;
+    }
+    case 'win_tie_loss': {
+      const values = (individualRule as Extract<IndividualPointsRule, { mode: 'win_tie_loss' }>).values;
+      const value = isTied
+        ? values.tie
+        : currentPosition === 1
+          ? values.win
+          : values.loss;
+      for (const r of group) {
+        result.set(r.participantId, value);
+      }
+      break;
+    }
+    case 'positional':
+    default: {
+      // When a positional rule supplies its own `rules` map we use it; otherwise
+      // we fall back to the pointSystem the caller passed in (which already
+      // reflects competition.point_system or override).
+      const rulesForGroup =
+        mode === 'positional' && individualRule && (individualRule as Extract<IndividualPointsRule, { mode: 'positional' }>).rules
+          ? mapToPointSystemRules((individualRule as { rules?: Record<string, number> }).rules!, pointSystem)
+          : pointSystem;
+
+      const positionsOccupied = Array.from(
+        { length: groupSize },
+        (_, i) => currentPosition + i
+      );
+      const totalPoints = positionsOccupied.reduce(
+        (sum, pos) => sum + getPointsForPosition(pos, rulesForGroup),
+        0
+      );
+      const averagePoints = Math.round(totalPoints / groupSize);
+      for (const r of group) {
+        result.set(r.participantId, averagePoints);
+      }
+      break;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Convert a position-points map (string key → number) into the engine's
+ * PointSystemRules shape. Preserves matchPlay from the caller-provided base.
+ */
+function mapToPointSystemRules(
+  map: Record<string, number>,
+  base: PointSystemRules
+): PointSystemRules {
+  const positionPoints: number[] = [];
+  for (let i = 1; i <= 20; i++) {
+    const points = map[i.toString()];
+    if (points !== undefined) {
+      positionPoints.push(points);
+    } else {
+      break;
+    }
+  }
+  return {
+    positionPoints,
+    defaultPoints: map['default'] ?? 0,
+    matchPlay: base.matchPlay,
+  };
 }
 
 /**

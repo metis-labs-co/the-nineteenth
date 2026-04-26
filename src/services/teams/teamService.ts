@@ -26,7 +26,7 @@ export { getCompetitionTeams, getTeamWithMembers } from './teamQueries';
 export {
   createTeam,
   updateTeamMembers,
-  updateTeamName,
+  updateTeamMetadata,
   deleteTeam,
   addTeamMember,
   removeTeamMember,
@@ -40,7 +40,7 @@ import { getCompetitionTeams, getTeamWithMembers } from './teamQueries';
 import {
   createTeam,
   updateTeamMembers,
-  updateTeamName,
+  updateTeamMetadata,
   deleteTeam,
   addTeamMember,
   removeTeamMember,
@@ -59,7 +59,7 @@ export const teamService = {
   getCompetitionTeams,
   getTeamWithMembers,
   updateTeamMembers,
-  updateTeamName,
+  updateTeamMetadata,
   deleteTeam,
   autoGenerateTeams,
   addTeamMember,

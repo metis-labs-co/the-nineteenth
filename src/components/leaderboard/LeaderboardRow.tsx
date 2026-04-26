@@ -17,6 +17,7 @@ import { Tooltip } from 'react-native-paper';
 import { IconTrophy, IconAlertTriangle } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScaledText } from '@/components/common/ScaledText';
+import { Badge } from '@/components/common/Badge';
 import {
   type RoundLeaderboardEntry,
   isTeamEntry,
@@ -114,8 +115,9 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
             ]}
             numberOfLines={1}
           >
-            {isCurrentUser ? 'You' : name}
+            {name}
           </ScaledText>
+          {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
           {entry.bypassed && (
             <Tooltip title="Submitted without partner verification">
               <Pressable

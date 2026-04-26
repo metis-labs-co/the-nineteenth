@@ -82,6 +82,7 @@ export interface SupabaseTeamData {
   id: string;
   competition_id: string;
   name: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
   team_members: SupabaseTeamMemberData[] | null;
@@ -146,6 +147,7 @@ export const TEAMS_WITH_MEMBERS_SELECT = `
   id,
   competition_id,
   name,
+  color,
   created_at,
   updated_at,
   team_members (

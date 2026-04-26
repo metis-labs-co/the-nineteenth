@@ -23,7 +23,9 @@ import type {
   Player,
   TeamWithMembers,
   PointSystemConfig,
+  RoundRulesOverride,
 } from '@/types/database.types';
+import type { IndividualPointsRule } from '@/types/database/roundRules.types';
 
 // =====================================================
 // TYPES
@@ -46,6 +48,7 @@ interface TeamQueryRow {
   id: string;
   competition_id: string;
   name: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
   team_members: TeamMemberQueryRow[];
@@ -137,9 +140,20 @@ function createError(
 }
 
 function configToRules(config: PointSystemConfig): PointSystemRules {
+  return rulesFromPositionMap(config.rules, config.matchPlay);
+}
+
+/**
+ * Build PointSystemRules from a raw position-to-points map.
+ * Shared between competition.point_system.rules and rules_override.individual_points.
+ */
+function rulesFromPositionMap(
+  map: Record<string, number>,
+  matchPlay: PointSystemConfig['matchPlay'] | undefined
+): PointSystemRules {
   const positionPoints: number[] = [];
   for (let i = 1; i <= 20; i++) {
-    const points = config.rules[i.toString()];
+    const points = map[i.toString()];
     if (points !== undefined) {
       positionPoints.push(points);
     } else {
@@ -148,9 +162,69 @@ function configToRules(config: PointSystemConfig): PointSystemRules {
   }
   return {
     positionPoints,
-    defaultPoints: config.rules['default'] ?? 0,
-    matchPlay: config.matchPlay,
+    defaultPoints: map['default'] ?? 0,
+    matchPlay,
   };
+}
+
+/**
+ * Normalize the persisted `rules_override.individual_points` shape into a
+ * clean discriminated union the engine can dispatch on. Tolerates both:
+ *
+ * - Discriminated union: `{ mode: 'positional' | 'raw_score' | 'win_tie_loss', … }`
+ * - Legacy bare position-map: `{ '1': 10, '2': 8, default: 0 }`
+ *
+ * Returns `undefined` when the override doesn't supply any individual rule —
+ * callers should treat that as "use the competition point_system positionally".
+ */
+function normalizeIndividualPointsRule(
+  raw: RoundRulesOverride['individual_points']
+): IndividualPointsRule | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw !== 'object') return undefined;
+
+  // Discriminated union has a string `mode` field.
+  if ('mode' in raw && typeof (raw as { mode?: unknown }).mode === 'string') {
+    return raw as IndividualPointsRule;
+  }
+
+  // Legacy bare map → positional with the map as `rules`.
+  return { mode: 'positional', rules: raw as Record<string, number> };
+}
+
+/**
+ * Effective rules resolved from competition + round override.
+ *
+ * `pointSystem` is the positional fallback used when no rule is set or when the
+ * rule's mode is `positional` without its own `rules` map.
+ *
+ * `individualRule` (when present) tells the calculator how to translate
+ * positions → competition_points (positional / raw_score / win_tie_loss).
+ *
+ * Match-play points always come from competition.point_system.matchPlay —
+ * per-round match-play overrides are not supported.
+ */
+interface EffectiveRules {
+  pointSystem: PointSystemRules;
+  individualRule: IndividualPointsRule | undefined;
+}
+
+function resolveEffectiveRules(
+  competitionConfig: PointSystemConfig,
+  override: RoundRulesOverride | null | undefined
+): EffectiveRules {
+  const individualRule = normalizeIndividualPointsRule(override?.individual_points);
+
+  // Positional fallback: prefer the rule's own map (for back-compat with the
+  // legacy bare-map shape), else the competition default.
+  let pointSystem: PointSystemRules;
+  if (individualRule?.mode === 'positional' && individualRule.rules) {
+    pointSystem = rulesFromPositionMap(individualRule.rules, competitionConfig.matchPlay);
+  } else {
+    pointSystem = configToRules(competitionConfig);
+  }
+
+  return { pointSystem, individualRule };
 }
 
 function transformResult(result: RoundResultQueryRow): RoundResultWithParticipant {
@@ -172,6 +246,7 @@ function transformResult(result: RoundResultQueryRow): RoundResultWithParticipan
           id: result.team.id,
           competition_id: result.team.competition_id,
           name: result.team.name,
+          color: result.team.color ?? null,
           created_at: result.team.created_at,
           updated_at: result.team.updated_at,
           members: (result.team.team_members || []).map((m) => ({
@@ -190,7 +265,13 @@ function transformResult(result: RoundResultQueryRow): RoundResultWithParticipan
 // =====================================================
 
 /**
- * Save round results to the database
+ * Save round results to the database.
+ *
+ * Only deletes existing rows whose `is_team_result` flag matches the incoming
+ * batch. This lets individual finalization (isTeamResult=false) and team
+ * finalization (isTeamResult=true) coexist on the same round without
+ * overwriting each other. All callers pass a homogenous batch today, so
+ * there's no call site that relies on "delete everything".
  */
 export async function saveRoundResults(
   roundId: string,
@@ -209,11 +290,21 @@ export async function saveRoundResults(
     }
   }
 
-  // Delete existing results for re-finalization
+  // Enforce homogenous batch so the targeted delete below is unambiguous.
+  const batchIsTeam = results[0].isTeamResult;
+  if (results.some((r) => r.isTeamResult !== batchIsTeam)) {
+    throw createError(
+      'saveRoundResults expects a homogenous batch (all individual OR all team rows)',
+      'VALIDATION'
+    );
+  }
+
+  // Delete only the rows of the same type as the incoming batch. This keeps
+  // team rows intact when re-finalizing individuals, and vice versa.
   const { error: deleteError } = await supabase
     .from('round_results')
     .delete()
-    .eq('round_id', roundId);
+    .match({ round_id: roundId, is_team_result: batchIsTeam });
 
   if (deleteError) {
     throw createError(`Failed to clear existing results: ${deleteError.message}`, 'DATABASE');
@@ -241,6 +332,31 @@ export async function saveRoundResults(
   }
 
   return (data as unknown as RoundResult[]) || [];
+}
+
+/**
+ * Delete only individual rows (`is_team_result = false`) for a round.
+ *
+ * Needed when finalizing a team-only round (Scramble / Best Ball / Shamble)
+ * after a prior, broken finalization may have written stale individual rows
+ * via the now-removed individual code path. saveRoundResults uses targeted
+ * delete-by-`is_team_result`, so it would not clear those stale rows on its
+ * own when the new batch is team rows.
+ */
+export async function deleteIndividualRoundResults(roundId: string): Promise<void> {
+  if (!roundId) throw createError('Round ID is required', 'VALIDATION');
+
+  const { error } = await supabase
+    .from('round_results')
+    .delete()
+    .match({ round_id: roundId, is_team_result: false });
+
+  if (error) {
+    throw createError(
+      `Failed to clear individual round results: ${error.message}`,
+      'DATABASE'
+    );
+  }
 }
 
 /**
@@ -326,40 +442,91 @@ export async function getCompetitionResults(competitionId: string): Promise<Comp
 
 /**
  * Finalize a round by calculating scores and competition points
+ *
+ * @param rulesOverride Optional per-round rules override from `rounds.rules_override`.
+ *   When present, `individual_points` takes precedence over competition.point_system.rules.
+ *   When `contributes_to_individual_leaderboard === false`, all saved results receive
+ *   `competition_points = 0` (round still finalizes so position/raw data is preserved
+ *   for display, but it won't affect the individual competition leaderboard).
+ *   The override is honored regardless of the user's current tier — saved overrides
+ *   always apply (graceful degradation if the user downgrades).
+ * @param perRoundRulesEnabled Explicit mode flag from `competitions.per_round_rules_enabled`.
+ *   When explicitly `false`, the override is ignored entirely and the competition's
+ *   `point_system` is used verbatim. When undefined (legacy callers) or `true`, the
+ *   override is honored.
  */
 export async function finalizeRound(
   roundId: string,
   scorecards: Scorecard[],
   gameType: GameType,
-  pointSystem: PointSystemConfig
+  pointSystem: PointSystemConfig,
+  rulesOverride?: RoundRulesOverride | null,
+  perRoundRulesEnabled?: boolean
 ): Promise<RoundResult[]> {
   if (!roundId) throw createError('Round ID is required', 'VALIDATION');
   if (!scorecards?.length) throw createError('At least one scorecard is required', 'VALIDATION');
   if (!gameType) throw createError('Game type is required', 'VALIDATION');
   if (!pointSystem) throw createError('Point system is required', 'VALIDATION');
 
-  const rules = configToRules(pointSystem);
+  // Mode gate. When the competition is in general-rules mode we drop the
+  // override entirely — saved rules_override rows stay on disk but have no
+  // effect until mode flips back on. Undefined = legacy caller = honour
+  // override (Phase 1 default) so existing tests + behaviour don't change.
+  const effectiveOverride = perRoundRulesEnabled === false ? null : rulesOverride;
+
+  const { pointSystem: rules, individualRule } = resolveEffectiveRules(
+    pointSystem,
+    effectiveOverride
+  );
   const results =
     gameType === 'match-play'
       ? calculateMatchPlayResults(roundId, scorecards, rules)
-      : calculateStandardResults(roundId, scorecards, gameType, rules);
+      : calculateStandardResults(roundId, scorecards, gameType, rules, individualRule);
 
-  return saveRoundResults(roundId, results);
+  // Per-round rules can disable individual-leaderboard contribution (e.g. a
+  // scramble round that shouldn't feed qualifying standings). We still save
+  // the rows for round-level display but zero the competition points so the
+  // aggregator won't count them. Only consulted when the override is active.
+  const contributesIndividual =
+    effectiveOverride?.contributes_to_individual_leaderboard ?? true;
+  const adjusted = contributesIndividual
+    ? results
+    : results.map((r) => ({ ...r, competitionPoints: 0 }));
+
+  return saveRoundResults(roundId, adjusted);
 }
 
 /**
  * Finalize a team round
+ *
+ * @param rulesOverride Optional per-round override. When `team_points` is set,
+ *   the two-team winner/tie/loser allocation overrides position-based points
+ *   (use case: "2 pts winning team, 1 pt each on tie" from template
+ *   team_stableford_best_n_of_m). When `contributes_to_team_leaderboard === false`,
+ *   all saved rows get `competition_points = 0`.
+ * @param perRoundRulesEnabled Mode flag. When explicitly `false`, the override
+ *   is ignored entirely — team rows are still written, but via position-based
+ *   points from competition.point_system with no win/tie/loss allocation.
  */
 export async function finalizeTeamRound(
   roundId: string,
   teamScores: { teamId: string; rawScore: number; rawResultData: RoundResultData }[],
   gameType: GameType,
-  pointSystem: PointSystemConfig
+  pointSystem: PointSystemConfig,
+  rulesOverride?: RoundRulesOverride | null,
+  perRoundRulesEnabled?: boolean
 ): Promise<RoundResult[]> {
   if (!roundId) throw createError('Round ID is required', 'VALIDATION');
   if (!teamScores?.length) throw createError('At least one team score is required', 'VALIDATION');
 
-  const rules = configToRules(pointSystem);
+  const effectiveOverride = perRoundRulesEnabled === false ? null : rulesOverride;
+
+  // Team finalization uses the competition's positional point_system (or the
+  // legacy `individual_points` bare-map override) for its base position →
+  // points lookup. The new mode-based individualRule applies only to
+  // individual leaderboard contributions, not team standings — `team_points`
+  // override below is the team-level analogue.
+  const { pointSystem: rules } = resolveEffectiveRules(pointSystem, effectiveOverride);
   const roundResults: CompetitionPointsRoundResult[] = teamScores.map((ts) => ({
     participantId: ts.teamId,
     rawScore: ts.rawScore,
@@ -368,15 +535,30 @@ export async function finalizeTeamRound(
 
   const scored = calculateCompetitionPoints(roundResults, gameType, rules);
 
+  // Per-round win/tie/loss team point allocation takes precedence over the
+  // position-based point_system when `team_points` is set AND we have exactly
+  // two teams (the "A vs B" case the allocation models). With more teams,
+  // we fall back to the competition position-based rules.
+  const teamPoints = effectiveOverride?.team_points;
+  const useWinTieLoss = teamPoints && scored.length === 2;
+  const contributesTeam = effectiveOverride?.contributes_to_team_leaderboard ?? true;
+
   const results: SaveRoundResultInput[] = scored.map((s) => {
     const original = teamScores.find((ts) => ts.teamId === s.participantId);
+    let competitionPoints = s.competitionPoints;
+    if (useWinTieLoss && teamPoints) {
+      if (s.tied) competitionPoints = teamPoints.tie;
+      else if (s.position === 1) competitionPoints = teamPoints.win;
+      else competitionPoints = teamPoints.loss;
+    }
+    if (!contributesTeam) competitionPoints = 0;
     return {
       roundId,
       teamId: s.participantId as string,
       rawScore: s.rawScore,
       rawResultData: original?.rawResultData || {},
       position: s.position,
-      competitionPoints: s.competitionPoints,
+      competitionPoints,
       isTeamResult: true,
     };
   });
@@ -392,7 +574,8 @@ function calculateStandardResults(
   roundId: string,
   scorecards: Scorecard[],
   gameType: GameType,
-  rules: PointSystemRules
+  rules: PointSystemRules,
+  individualRule?: IndividualPointsRule
 ): SaveRoundResultInput[] {
   const roundResults = scorecards.map((sc) => {
     let rawScore: number;
@@ -425,7 +608,7 @@ function calculateStandardResults(
     return { participantId: sc.player_id, rawScore, _resultData: resultData };
   });
 
-  const scored = calculateCompetitionPoints(roundResults, gameType, rules);
+  const scored = calculateCompetitionPoints(roundResults, gameType, rules, individualRule);
 
   return scored.map((s) => {
     const original = roundResults.find((r) => r.participantId === s.participantId);

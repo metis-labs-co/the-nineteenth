@@ -43,6 +43,51 @@ export type SubMatchResult =
 export type TeamMode = 'none' | 'fixed' | 'per-round';
 export type TeamFormat = 'best-ball' | 'scramble' | 'aggregate' | 'match-play-team' | 'shamble';
 
+/**
+ * How individual scores combine into a team score for per-round rule overrides.
+ * - 'best_n_of_m'       — sum the best N individual scores (e.g. best 3 of 4 Stableford).
+ * - 'sum'               — sum every team member's score (same as existing 'aggregate').
+ * - 'best_ball'         — best member score per hole (same as existing best-ball team_format).
+ * - 'pairs_better_ball' — better ball within each sub-match pair (round_format='split').
+ * - 'scramble'          — team scramble (uses existing scramble team handicap).
+ */
+export type TeamAggregationMethod =
+  | 'best_n_of_m'
+  | 'sum'
+  | 'best_ball'
+  | 'pairs_better_ball'
+  | 'scramble';
+
+/** Built-in round rule templates. Resolved to concrete overrides in src/constants/roundTemplates.ts. */
+export type RoundTemplateId =
+  | 'team_stableford_best_n_of_m'
+  | 'pairs_better_ball'
+  | 'pairs_scramble'
+  | 'team_scramble_fixed_points'
+  | 'qualifying_match_play';
+
+/** Metric used to rank qualifying-round participants when auto-seeding a knockout bracket. */
+export type QualifyingMetric =
+  | 'stableford_points'
+  | 'net_strokes'
+  | 'competition_points';
+
+/**
+ * Bracket seeding style for knockout generation.
+ * - 'standard' — (1,N), (2,N-1), … — top seed rewarded (classic).
+ * - 'adjacent' — (1,2), (3,4), … — closely-matched social format.
+ */
+export type BracketSeedingStyle = 'standard' | 'adjacent';
+
+/**
+ * How player pairings are generated for a round.
+ * - 'manual'             — organiser sets pairings by hand (default).
+ * - 'current_standings'  — auto-generate 1v1 pairings from the cumulative
+ *                          individual leaderboard of completed prior rounds
+ *                          in the competition. Used by 1v1 match-play presets.
+ */
+export type PairingSource = 'manual' | 'current_standings';
+
 // Player/Invitation enums
 export type InvitationStatus = 'invited' | 'accepted' | 'declined';
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
@@ -118,7 +163,8 @@ export type TierFeature =
   | 'ai_competition'
   | 'manage_guests'
   | 'gps_distance'
-  | 'beta_features';
+  | 'beta_features'
+  | 'advanced_round_rules';
 
 // Knockout enums (re-exported from knockout.types.ts for consistency)
 export type {

@@ -5,14 +5,12 @@
  * - Playing handicap calculation with course adjustments
  * - Handicap allowance percentages by game type
  * - Strokes received per hole based on handicap and stroke index
- * - Ambrose team handicap calculation
  */
 
 import {
   getPlayingHandicap,
   getHandicapAllowance,
   getStrokesReceivedPerHole,
-  calculateAmbroseHandicap,
   calculateStrokesForHole,
 } from '@/services/scoring/utils/handicapUtils';
 import type { Hole } from '@/services/scoring/types';
@@ -409,103 +407,4 @@ describe('handicapUtils', () => {
     });
   });
 
-  // ==========================================================================
-  // calculateAmbroseHandicap
-  // ==========================================================================
-  describe('calculateAmbroseHandicap', () => {
-    describe('2-person team', () => {
-      it('calculates correctly: (H1 + H2) / 4', () => {
-        // (20 + 16) / 4 = 9
-        const result = calculateAmbroseHandicap([20, 16]);
-        expect(result).toBe(9);
-      });
-
-      it('rounds to nearest integer', () => {
-        // (15 + 10) / 4 = 6.25 → 6
-        const result = calculateAmbroseHandicap([15, 10]);
-        expect(result).toBe(6);
-      });
-
-      it('handles equal handicaps', () => {
-        // (18 + 18) / 4 = 9
-        const result = calculateAmbroseHandicap([18, 18]);
-        expect(result).toBe(9);
-      });
-
-      it('handles zero handicaps', () => {
-        const result = calculateAmbroseHandicap([0, 0]);
-        expect(result).toBe(0);
-      });
-
-      it('handles mixed zero and non-zero', () => {
-        // (0 + 20) / 4 = 5
-        const result = calculateAmbroseHandicap([0, 20]);
-        expect(result).toBe(5);
-      });
-    });
-
-    describe('3-person team', () => {
-      it('calculates correctly: (H1 + H2 + H3) / 6', () => {
-        // (18 + 12 + 6) / 6 = 6
-        const result = calculateAmbroseHandicap([18, 12, 6]);
-        expect(result).toBe(6);
-      });
-
-      it('rounds to nearest integer', () => {
-        // (20 + 15 + 10) / 6 = 7.5 → 8
-        const result = calculateAmbroseHandicap([20, 15, 10]);
-        expect(result).toBe(8);
-      });
-    });
-
-    describe('4-person team', () => {
-      it('calculates correctly: (H1 + H2 + H3 + H4) / 8', () => {
-        // (20 + 16 + 12 + 8) / 8 = 7
-        const result = calculateAmbroseHandicap([20, 16, 12, 8]);
-        expect(result).toBe(7);
-      });
-
-      it('rounds to nearest integer', () => {
-        // (18 + 18 + 18 + 18) / 8 = 9
-        const result = calculateAmbroseHandicap([18, 18, 18, 18]);
-        expect(result).toBe(9);
-      });
-
-      it('handles all zeros', () => {
-        const result = calculateAmbroseHandicap([0, 0, 0, 0]);
-        expect(result).toBe(0);
-      });
-    });
-
-    describe('edge cases', () => {
-      it('returns 0 for empty team', () => {
-        const result = calculateAmbroseHandicap([]);
-        expect(result).toBe(0);
-      });
-
-      it('calculates for single player team', () => {
-        // 18 / 2 = 9
-        const result = calculateAmbroseHandicap([18]);
-        expect(result).toBe(9);
-      });
-
-      it('calculates for 5+ player team', () => {
-        // (10 + 10 + 10 + 10 + 10) / 10 = 5
-        const result = calculateAmbroseHandicap([10, 10, 10, 10, 10]);
-        expect(result).toBe(5);
-      });
-
-      it('handles high handicaps', () => {
-        // (36 + 36) / 4 = 18
-        const result = calculateAmbroseHandicap([36, 36]);
-        expect(result).toBe(18);
-      });
-
-      it('handles very high handicaps', () => {
-        // (54 + 54 + 54 + 54) / 8 = 27
-        const result = calculateAmbroseHandicap([54, 54, 54, 54]);
-        expect(result).toBe(27);
-      });
-    });
-  });
 });

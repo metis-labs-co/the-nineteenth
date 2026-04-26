@@ -67,7 +67,17 @@ export interface RoundMetadata {
 
 /** Complete response from the hook */
 export interface RoundLeaderboardResponse {
+  /**
+   * All entries (teams + individuals) sorted by position. Kept for callers
+   * that don't care about the split. Prefer `teamEntries` / `individualEntries`
+   * when rendering the per-round view so team rows and individual rows can
+   * be displayed in separate sub-tables.
+   */
   entries: import('@/utils/roundLeaderboardFormatters').RoundLeaderboardEntry[];
+  /** Team rows (`is_team_result=true`) for this round, sorted by position. */
+  teamEntries: import('@/utils/roundLeaderboardFormatters').RoundLeaderboardEntry[];
+  /** Individual rows (`is_team_result=false`) for this round, sorted by position. */
+  individualEntries: import('@/utils/roundLeaderboardFormatters').RoundLeaderboardEntry[];
   metadata: RoundMetadata;
 }
 
@@ -197,8 +207,13 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
     )
   );
 
-  // Sort by position
+  // Sort by position. Then split into team / individual subsets — each subset
+  // already has its own 1..N position numbering on disk (finalizeRound and
+  // finalizeTeamRound write independently), so callers can render each as a
+  // self-contained table.
   const sortedEntries = sortLeaderboardEntries(entries);
+  const teamEntries = sortedEntries.filter((e) => e.isTeamResult);
+  const individualEntries = sortedEntries.filter((e) => !e.isTeamResult);
 
   // Build metadata
   const metadata: RoundMetadata = {
@@ -214,6 +229,8 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
 
   return {
     entries: sortedEntries,
+    teamEntries,
+    individualEntries,
     metadata,
   };
 }

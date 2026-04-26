@@ -16,12 +16,15 @@ import type {
   KnockoutConfig,
   ValidPlayerCount,
   SeedingMethod,
+  BracketSeedingStyle,
+  QualifyingMetric,
 } from '@/types/database';
 import {
   generateSeedings,
   buildBracketStructure,
   type SeededPlayer,
 } from '@/utils/bracketGeneration';
+import { aggregateQualifyingStandings } from '@/utils/knockoutSeeding';
 
 // Helper to bypass Supabase generated types for new tables
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,6 +37,23 @@ const from = (table: string) => (supabase as any).from(table);
 export interface GenerateBracketInput {
   competitionId: string;
   seedingMethod: SeedingMethod;
+  /**
+   * Bracket pairing style for the first round.
+   * - 'standard' (default): (1,N), (2,N-1), … — classic, top seed rewarded.
+   * - 'adjacent': (1,2), (3,4), … — closely-matched, social-friendly.
+   * Only honored when the feature is unlocked (the UI gates selection).
+   */
+  bracketSeedingStyle?: BracketSeedingStyle;
+  /**
+   * Required when `seedingMethod === 'qualifying'`. Rounds whose aggregated
+   * individual results determine initial seeding (seed 1 = top qualifier).
+   */
+  qualifyingRoundIds?: string[];
+  /**
+   * Which column aggregated across qualifying rounds drives the ordering.
+   * Defaults to 'competition_points'.
+   */
+  qualifyingMetric?: QualifyingMetric;
 }
 
 export interface CompleteMatchInput {
@@ -68,6 +88,114 @@ export async function getKnockoutBracket(
   }
 
   return (data ?? []) as KnockoutMatchWithPlayers[];
+}
+
+/**
+ * Fetch qualifying standings across a set of rounds.
+ *
+ * Returns the competition's accepted players in seed order — seed 1 is the
+ * top qualifier per `metric`. Players who didn't post a result in any
+ * qualifying round fall to the bottom in handicap order so the bracket is
+ * always fully seeded.
+ *
+ * This uses the round_results table, which already reflects per-round
+ * rules_override behaviour (see finalization in roundResultsService.ts), so
+ * e.g. a scramble round flagged `contributes_to_individual_leaderboard=false`
+ * contributes 0 to each player's qualifying total.
+ */
+export async function getQualifyingStandings(
+  competitionId: string,
+  qualifyingRoundIds: string[],
+  metric: QualifyingMetric
+): Promise<{ id: string; name: string; handicap: number | null }[]> {
+  if (qualifyingRoundIds.length === 0) return [];
+
+  const { data: resultsData, error: resultsError } = await from('round_results')
+    .select(`
+      round_id,
+      player_id,
+      is_team_result,
+      raw_score,
+      raw_result_data,
+      competition_points,
+      player:players!round_results_player_id_fkey (id, name, handicap)
+    `)
+    .in('round_id', qualifyingRoundIds);
+
+  if (resultsError) {
+    console.error('[Knockout] Error fetching qualifying results:', resultsError);
+    throw new Error(`Failed to fetch qualifying results: ${resultsError.message}`);
+  }
+
+  const qualifying = aggregateQualifyingStandings(
+    (resultsData ?? []) as any[],
+    qualifyingRoundIds,
+    metric
+  );
+
+  // Include accepted players who didn't post in any qualifying round so the
+  // bracket is always full. They sort to the bottom, tied at 0, then by
+  // handicap ascending.
+  const { data: allPlayers } = await from('competition_players')
+    .select('player_id, players (id, name, handicap)')
+    .eq('competition_id', competitionId)
+    .eq('status', 'accepted');
+
+  const qualifyingIds = new Set(qualifying.map((q) => q.id));
+  const missingPlayers: { id: string; name: string; handicap: number | null }[] = [];
+  for (const row of (allPlayers ?? []) as any[]) {
+    const p = row.players;
+    if (!p || qualifyingIds.has(p.id)) continue;
+    missingPlayers.push({ id: p.id, name: p.name, handicap: p.handicap ?? null });
+  }
+  missingPlayers.sort((a, b) => {
+    if (a.handicap == null && b.handicap == null) return 0;
+    if (a.handicap == null) return 1;
+    if (b.handicap == null) return -1;
+    return a.handicap - b.handicap;
+  });
+
+  return [
+    ...qualifying.map((q) => ({ id: q.id, name: q.name, handicap: q.handicap })),
+    ...missingPlayers,
+  ];
+}
+
+/**
+ * Fetch the current competition standings as a seeded player list.
+ *
+ * Used by 1v1 match-play presets that opt into `pairing_source='current_standings'`:
+ * the round being created reads the cumulative individual leaderboard of every
+ * completed prior round (round_number < `beforeRoundNumber`) and the resulting
+ * order drives `pairFromStandings` / `pairCrossTeamFromStandings`.
+ *
+ * Reuses `getQualifyingStandings` semantics — same metric extraction, same
+ * fallback to handicap-sorted accepted players for non-qualifiers — so the
+ * pairing surface stays consistent with the existing knockout-bracket flow.
+ *
+ * Returns `[]` only when there are no completed prior rounds. Callers must
+ * handle that case (the wizard blocks submit).
+ */
+export async function getCurrentCompetitionStandings(
+  competitionId: string,
+  beforeRoundNumber: number,
+  metric: QualifyingMetric
+): Promise<{ id: string; name: string; handicap: number | null }[]> {
+  const { data: priorRoundsData, error: priorRoundsError } = await from('rounds')
+    .select('id')
+    .eq('competition_id', competitionId)
+    .eq('status', 'completed')
+    .lt('round_number', beforeRoundNumber);
+
+  if (priorRoundsError) {
+    console.error('[Knockout] Error fetching prior rounds for standings:', priorRoundsError);
+    throw new Error(`Failed to fetch prior rounds: ${priorRoundsError.message}`);
+  }
+
+  const priorRoundIds = ((priorRoundsData ?? []) as { id: string }[]).map((r) => r.id);
+  if (priorRoundIds.length === 0) return [];
+
+  return getQualifyingStandings(competitionId, priorRoundIds, metric);
 }
 
 /**
@@ -111,7 +239,19 @@ export async function getKnockoutMatch(
 export async function generateBracket(
   input: GenerateBracketInput
 ): Promise<void> {
-  const { competitionId, seedingMethod } = input;
+  const {
+    competitionId,
+    seedingMethod,
+    bracketSeedingStyle = 'standard',
+    qualifyingRoundIds,
+    qualifyingMetric = 'competition_points',
+  } = input;
+
+  if (seedingMethod === 'qualifying' && (!qualifyingRoundIds || qualifyingRoundIds.length === 0)) {
+    throw new Error(
+      'Qualifying seeding requires at least one qualifying round. Pick the prior rounds that should determine seeding, or choose a different method.'
+    );
+  }
 
   // Fetch competition and players
   const { data: competition, error: compError } = await from('competitions')
@@ -152,13 +292,24 @@ export async function generateBracket(
     throw new Error(`Player count must be 4, 8, 16, or 32. Currently ${players.length} players.`);
   }
 
-  // Seed players
-  const seededPlayers = generateSeedings(players, seedingMethod);
+  // Seed players. For 'qualifying', we pre-sort by the aggregated metric and
+  // hand the pre-ordered list to generateSeedings — that way seed 1 is the
+  // top qualifier regardless of handicap.
+  let preOrdered: { id: string; name: string; handicap: number | null }[] | undefined;
+  if (seedingMethod === 'qualifying' && qualifyingRoundIds) {
+    preOrdered = await getQualifyingStandings(
+      competitionId,
+      qualifyingRoundIds,
+      qualifyingMetric
+    );
+  }
+
+  const seededPlayers = generateSeedings(players, seedingMethod, preOrdered);
   const seedMap = new Map<number, SeededPlayer>();
   seededPlayers.forEach(p => seedMap.set(p.seed, p));
 
-  // Build bracket structure
-  const bracketSlots = buildBracketStructure(playerCount);
+  // Build bracket structure (pairing style controls first-round matchups only).
+  const bracketSlots = buildBracketStructure(playerCount, bracketSeedingStyle);
   const totalMainStages = Math.log2(playerCount);
 
   // Create rounds for each stage
@@ -304,11 +455,19 @@ export async function generateBracket(
     }
   }
 
-  // Update competition knockout_config
+  // Update competition knockout_config. We persist the full config so the
+  // bracket can be rendered / re-edited later with the same settings.
   const config: KnockoutConfig = {
     playerCount,
     seedingMethod,
     bracketGenerated: true,
+    bracketSeedingStyle,
+    ...(seedingMethod === 'qualifying'
+      ? {
+          qualifyingRoundIds,
+          qualifyingMetric,
+        }
+      : {}),
   };
 
   await from('competitions')

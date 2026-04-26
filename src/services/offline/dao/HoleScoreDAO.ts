@@ -4,13 +4,27 @@
  * Data access operations for hole scores in SQLite.
  */
 
-import type { HoleScore, MultiBallHoleScore } from '@/types';
+import type { HoleScore, HoleShotContributions, MultiBallHoleScore } from '@/types';
 import { isMultiBallScore } from '@/types/database/base';
 import type { HoleScoreRow } from '../types';
 import { getDb } from '../DatabaseManager';
 import { nowSQLite } from '../utils/dateUtils';
 import { TABLE_NAMES } from '../schema/tables';
 import { dbLogger } from '@/utils/debugLogger';
+
+/**
+ * Parse a stored shot_contributions JSON blob, mapping the legacy `drive`
+ * key to `teeShot` if present so older offline rows continue to work even
+ * if the SQLite migration hasn't run yet (e.g. user upgrades while offline).
+ */
+export function parseShotContributions(raw: string): HoleShotContributions {
+  const parsed = JSON.parse(raw) as HoleShotContributions & { drive?: string };
+  if (parsed.drive && !parsed.teeShot) {
+    parsed.teeShot = parsed.drive;
+  }
+  delete parsed.drive;
+  return parsed;
+}
 
 /**
  * Save a single hole score (supports both single-ball and multi-ball scores)
@@ -96,7 +110,7 @@ export async function getHoleScores(
       let shotContributions: HoleScore['shotContributions'];
       if (row.shot_contributions) {
         try {
-          shotContributions = JSON.parse(row.shot_contributions);
+          shotContributions = parseShotContributions(row.shot_contributions);
         } catch (error) {
           dbLogger.warn('Failed to parse shot_contributions JSON', {
             scorecardId: scorecardId.substring(0, 8) + '...',

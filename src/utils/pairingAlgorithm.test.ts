@@ -7,9 +7,11 @@
  */
 
 import {
+  generateSnakeDraftPairings,
   generateSubMatches,
   divisorsOf,
   generateTeamBalancedGroups,
+  generateTeamTogetherGroups,
 } from './pairingAlgorithm';
 import type { PairingPlayer } from '@/types';
 
@@ -138,6 +140,73 @@ describe('generateSubMatches', () => {
     expect(result.subMatches.map((sm) => sm.sortOrder)).toEqual([0, 1, 2]);
     expect(result.subMatches.map((sm) => sm.teeTime)).toEqual(['08:00', '08:08', '08:16']);
   });
+
+  describe('with preOrderedTeamA / preOrderedTeamB (standings-driven pairing)', () => {
+    it('honours the supplied order instead of handicap snake-draft', () => {
+      // Players are listed in low-to-high handicap order so handicap snake-draft
+      // would pair (a1+a4) vs (a2+a3) — but the pre-ordered list overrides that
+      // and buckets them in the supplied order: (a1,a2) vs (a3,a4).
+      const teamA = [player('a1', 1), player('a2', 5), player('a3', 10), player('a4', 25)];
+      const teamB = [player('b1', 2), player('b2', 6), player('b3', 11), player('b4', 26)];
+
+      const result = generateSubMatches({
+        ...baseOpts,
+        teamAPlayers: teamA,
+        teamBPlayers: teamB,
+        subMatchSize: 2,
+        preOrderedTeamA: ['a1', 'a2', 'a3', 'a4'],
+        preOrderedTeamB: ['b1', 'b2', 'b3', 'b4'],
+      });
+
+      expect(result.subMatches).toHaveLength(2);
+      expect(result.subMatches[0].teamAPlayerIds).toEqual(['a1', 'a2']);
+      expect(result.subMatches[0].teamBPlayerIds).toEqual(['b1', 'b2']);
+      expect(result.subMatches[1].teamAPlayerIds).toEqual(['a3', 'a4']);
+      expect(result.subMatches[1].teamBPlayerIds).toEqual(['b3', 'b4']);
+    });
+
+    it('falls back to snake-draft when the pre-ordered list is incomplete', () => {
+      const teamA = [player('a1', 5), player('a2', 15)];
+      const teamB = [player('b1', 6), player('b2', 14)];
+
+      const result = generateSubMatches({
+        ...baseOpts,
+        teamAPlayers: teamA,
+        teamBPlayers: teamB,
+        subMatchSize: 1,
+        // Missing a2 — fallback path engages.
+        preOrderedTeamA: ['a1'],
+        preOrderedTeamB: ['b1', 'b2'],
+      });
+
+      expect(result.subMatches).toHaveLength(2);
+    });
+
+    it('produces 1v1 sub-matches in standings rank order for ryder_cup_singles', () => {
+      const teamA = [player('a1', 5), player('a2', 15), player('a3', 25)];
+      const teamB = [player('b1', 6), player('b2', 14), player('b3', 22)];
+
+      const result = generateSubMatches({
+        ...baseOpts,
+        teamAPlayers: teamA,
+        teamBPlayers: teamB,
+        subMatchSize: 1,
+        preOrderedTeamA: ['a3', 'a1', 'a2'], // a3 is the team's top qualifier
+        preOrderedTeamB: ['b2', 'b3', 'b1'],
+      });
+
+      expect(result.subMatches.map((sm) => sm.teamAPlayerIds)).toEqual([
+        ['a3'],
+        ['a1'],
+        ['a2'],
+      ]);
+      expect(result.subMatches.map((sm) => sm.teamBPlayerIds)).toEqual([
+        ['b2'],
+        ['b3'],
+        ['b1'],
+      ]);
+    });
+  });
 });
 
 describe('generateTeamBalancedGroups', () => {
@@ -223,6 +292,169 @@ describe('generateTeamBalancedGroups', () => {
     const result = generateTeamBalancedGroups({
       ...baseOpts,
       teamPlayers: [teamA, []],
+    });
+
+    expect(result.groups).toEqual([]);
+    expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('produces different arrangements on successive calls while preserving team mix', () => {
+    // 2×4 players × 20 runs — probability all runs produce identical group
+    // compositions is (1/binomial)^19, effectively zero with distinct handicaps.
+    // Every run must still put 2A + 2B in each group (the balance invariant).
+    const teamA = [player('a1', 5), player('a2', 12), player('a3', 18), player('a4', 24)];
+    const teamB = [player('b1', 6), player('b2', 14), player('b3', 20), player('b4', 28)];
+
+    const arrangements = new Set<string>();
+    for (let run = 0; run < 20; run += 1) {
+      const result = generateTeamBalancedGroups({
+        ...baseOpts,
+        teamPlayers: [teamA, teamB],
+      });
+      // Each group's id set is sorted for stable comparison.
+      const key = result.groups
+        .map((g) => [...g.playerIds].sort().join(','))
+        .join('|');
+      arrangements.add(key);
+      for (const g of result.groups) {
+        const aCount = g.playerIds.filter((id) => id.startsWith('a')).length;
+        const bCount = g.playerIds.filter((id) => id.startsWith('b')).length;
+        expect(aCount).toBe(2);
+        expect(bCount).toBe(2);
+      }
+    }
+    // At least two distinct arrangements across 20 runs — the shuffle is
+    // working. Tighter bounds would risk flaky tests; this is enough to
+    // catch "shuffle is fully deterministic" regressions.
+    expect(arrangements.size).toBeGreaterThan(1);
+  });
+});
+
+describe('generateSnakeDraftPairings', () => {
+  const baseOpts = { startTime: '08:00', intervalMinutes: 8, groupSize: 4 as const };
+
+  it('produces different arrangements on successive calls with distinct handicaps', () => {
+    // 12 players with distinct handicaps split into 3 groups. Each group
+    // must still receive one player from each of the 3 handicap tiers
+    // (best/mid/worst), but which specific player varies per shuffle.
+    const players = Array.from({ length: 12 }, (_, i) => player(`p${i}`, i + 1));
+
+    const arrangements = new Set<string>();
+    for (let run = 0; run < 20; run += 1) {
+      const result = generateSnakeDraftPairings({ ...baseOpts, players });
+      const key = result.groups
+        .map((g) => [...g.playerIds].sort().join(','))
+        .join('|');
+      arrangements.add(key);
+      expect(result.groups).toHaveLength(3);
+      for (const g of result.groups) {
+        expect(g.playerIds).toHaveLength(4);
+      }
+    }
+    expect(arrangements.size).toBeGreaterThan(1);
+  });
+
+  it('preserves skill balance across groups (best/mid/worst tier mix)', () => {
+    // 8 players → 2 groups. Sorted handicaps 1..8, tier size 4 (numGroups=2
+    // groups × 2 rounds per tier? actually numGroups=2, so tiers of 2).
+    // Each group should contain one from each adjacent-handicap pair.
+    const players = Array.from({ length: 8 }, (_, i) => player(`p${i + 1}`, i + 1));
+
+    for (let run = 0; run < 10; run += 1) {
+      const result = generateSnakeDraftPairings({ ...baseOpts, players });
+      expect(result.groups).toHaveLength(2);
+      for (const g of result.groups) {
+        // Tier invariant: each group must contain exactly one player from
+        // each pair (p1|p2), (p3|p4), (p5|p6), (p7|p8).
+        for (let pair = 0; pair < 4; pair += 1) {
+          const a = `p${pair * 2 + 1}`;
+          const b = `p${pair * 2 + 2}`;
+          const count =
+            (g.playerIds.includes(a) ? 1 : 0) + (g.playerIds.includes(b) ? 1 : 0);
+          expect(count).toBe(1);
+        }
+      }
+    }
+  });
+});
+
+describe('generateTeamTogetherGroups', () => {
+  const baseOpts = { startTime: '08:00', intervalMinutes: 8 };
+
+  it('keeps each 4-player team in its own group (2 teams → 2 groups of 4)', () => {
+    const teamA = [player('a1', 5), player('a2', 12), player('a3', 18), player('a4', 24)];
+    const teamB = [player('b1', 6), player('b2', 14), player('b3', 20), player('b4', 28)];
+
+    const result = generateTeamTogetherGroups({
+      ...baseOpts,
+      teamPlayers: [teamA, teamB],
+    });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.groups).toHaveLength(2);
+    expect(result.groups[0].playerIds).toEqual(['a1', 'a2', 'a3', 'a4']);
+    expect(result.groups[1].playerIds).toEqual(['b1', 'b2', 'b3', 'b4']);
+    expect(result.groups.map((g) => g.teeTime)).toEqual(['08:00', '08:08']);
+    expect(result.groups.map((g) => g.slotIndex)).toEqual([0, 1]);
+  });
+
+  it('handles uneven teams (3+3) by keeping each team together', () => {
+    const teamA = [player('a1', 5), player('a2', 15), player('a3', 25)];
+    const teamB = [player('b1', 6), player('b2', 14), player('b3', 22)];
+
+    const result = generateTeamTogetherGroups({
+      ...baseOpts,
+      teamPlayers: [teamA, teamB],
+    });
+
+    expect(result.groups).toHaveLength(2);
+    expect(result.groups[0].playerIds).toEqual(['a1', 'a2', 'a3']);
+    expect(result.groups[1].playerIds).toEqual(['b1', 'b2', 'b3']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('splits a team larger than maxGroupSize and warns', () => {
+    const teamA = [
+      player('a1', 5),
+      player('a2', 10),
+      player('a3', 15),
+      player('a4', 20),
+      player('a5', 25),
+    ];
+    const teamB = [player('b1', 6), player('b2', 14)];
+
+    const result = generateTeamTogetherGroups({
+      ...baseOpts,
+      teamPlayers: [teamA, teamB],
+    });
+
+    // Team A (5 players) splits into 4 + 1; Team B fits in one group.
+    expect(result.groups).toHaveLength(3);
+    expect(result.groups[0].playerIds).toEqual(['a1', 'a2', 'a3', 'a4']);
+    expect(result.groups[1].playerIds).toEqual(['a5']);
+    expect(result.groups[2].playerIds).toEqual(['b1', 'b2']);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toMatch(/Team 1/);
+  });
+
+  it('skips empty teams without erroring', () => {
+    const teamA = [player('a1', 5), player('a2', 12)];
+
+    const result = generateTeamTogetherGroups({
+      ...baseOpts,
+      teamPlayers: [teamA, []],
+    });
+
+    // One team with players → one group. No error — team-together is valid
+    // for single-team configurations (e.g. solo standalone team round).
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].playerIds).toEqual(['a1', 'a2']);
+  });
+
+  it('returns no groups when every team is empty', () => {
+    const result = generateTeamTogetherGroups({
+      ...baseOpts,
+      teamPlayers: [[], []],
     });
 
     expect(result.groups).toEqual([]);

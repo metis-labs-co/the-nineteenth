@@ -119,3 +119,7 @@ export {
   isGolfApiResult,
 } from './golfApiSearch';
 export type { GolfApiSearchResultItem } from './golfApiSearch';
+
+// Re-export recent courses hook
+export { useRecentCourses } from './useRecentCourses';
+export type { RecentCourse } from './useRecentCourses';

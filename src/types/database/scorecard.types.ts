@@ -117,8 +117,10 @@ export interface ScoringPairsValidation {
  */
 export interface ShotContributions {
   /** Player ID who hit the tee shot used */
-  drive?: string;
-  /** Player ID who hit the approach shot used */
+  teeShot?: string;
+  /** Player ID who hit the second shot used (par 5 only) */
+  secondShot?: string;
+  /** Player ID who hit the approach shot used (or chip on par 3) */
   approach?: string;
   /** Player ID who made the putt */
   putt?: string;

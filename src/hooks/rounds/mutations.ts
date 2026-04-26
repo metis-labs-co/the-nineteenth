@@ -18,6 +18,9 @@ import {
   leaderboardKeys,
 } from '@/hooks/queryKeys';
 import { recalculateScorecardDifferential } from '@/services/handicap/recalculateScorecardDifferential';
+import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
+import { getScorecardsByRound, markScorecardsAsSynced } from '@/services/offline/database';
+import { syncScorecard } from '@/services/offline/sync';
 import type { TeeBox } from '@/types';
 
 // =====================================================
@@ -237,6 +240,166 @@ export function useUpdatePlayerTee() {
     },
     onError: (error) => {
       console.error('[useUpdatePlayerTee] Failed to update tee / recalculate:', error);
+    },
+  });
+}
+
+// =====================================================
+// RECALCULATE ROUND RESULTS
+// =====================================================
+
+export interface RecalculateRoundResultsInput {
+  roundId: string;
+  /** Competition ID for cache invalidation. Optional for standalone rounds. */
+  competitionId?: string;
+}
+
+/**
+ * Recalculate the round_results rows for a completed round.
+ *
+ * Re-runs `refinalizeRoundResults` against the existing completed scorecards.
+ * Reads from `scorecards.total_points / total_net` (already cached at scoring
+ * time) and rewrites individual / team rows according to the round's current
+ * game type, rules_override, and the competition's per_round_rules_enabled
+ * flag. No tee data required.
+ *
+ * Use cases:
+ *   - A scoring engine fix shipped after the round was finalized.
+ *   - The user changed per-round rules post-completion and wants existing
+ *     rounds to reflect the new allocation.
+ *   - The team standings look wrong and the organizer wants a fresh pass.
+ *
+ * Safe to call repeatedly: `saveRoundResults` uses delete-then-insert, and
+ * the team-only path also clears stale individual rows first.
+ */
+export function useRecalculateRoundResults() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: RecalculateRoundResultsInput) => {
+      await refinalizeRoundResults(input.roundId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(variables.roundId) });
+      queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(variables.roundId) });
+      if (variables.competitionId) {
+        queryClient.invalidateQueries({
+          queryKey: leaderboardKeys.competition(variables.competitionId),
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('[useRecalculateRoundResults] Failed:', error);
+    },
+  });
+}
+
+// =====================================================
+// FORCE SYNC ROUND SCORECARDS (LOCAL → SUPABASE)
+// =====================================================
+
+export interface ForceSyncRoundScorecardsInput {
+  roundId: string;
+  /** Competition ID for cache invalidation. Optional for standalone rounds. */
+  competitionId?: string;
+}
+
+export interface ForceSyncRoundScorecardsResult {
+  /** Total completed, non-standalone scorecards found in local SQLite for this round */
+  eligible: number;
+  /** Successfully upserted to Supabase */
+  pushed: number;
+  /** Upsert attempts that threw */
+  failed: number;
+  /** First error message captured (for surfacing to the user) */
+  firstError: string | null;
+}
+
+/**
+ * Force-push every locally-saved completed scorecard for a round up to
+ * Supabase, then re-run round_results finalization.
+ *
+ * The background sync orchestrator already does this on every online tick
+ * via `getUnsyncedScorecards()`, but if a column-mismatch (or any other
+ * upsert error) caused those attempts to keep failing, the user is left
+ * with scorecards trapped in local SQLite while the View Round screen and
+ * leaderboard read empty from Supabase.
+ *
+ * This hook is the manual recovery lever: it reads from local SQLite for
+ * THIS round only, calls `syncScorecard` per row (skipServerCheck=true so
+ * we don't bail when the server has zero rows), and on success marks the
+ * row synced in SQLite. After all pushes complete, it re-runs
+ * `refinalizeRoundResults` so the leaderboard reflects the freshly-landed
+ * data.
+ */
+export function useForceSyncRoundScorecards() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      input: ForceSyncRoundScorecardsInput
+    ): Promise<ForceSyncRoundScorecardsResult> => {
+      const local = await getScorecardsByRound(input.roundId);
+      const eligible = local.filter(
+        (sc) => !sc.isStandalone && sc.status === 'completed'
+      );
+
+      let pushed = 0;
+      let failed = 0;
+      let firstError: string | null = null;
+
+      for (const sc of eligible) {
+        try {
+          await syncScorecard(sc, { skipServerCheck: true });
+          await markScorecardsAsSynced([sc.id]);
+          pushed++;
+        } catch (error) {
+          failed++;
+          if (firstError === null) {
+            firstError = error instanceof Error ? error.message : String(error);
+          }
+          console.error('[useForceSyncRoundScorecards] sync failed', {
+            scorecardId: sc.id.substring(0, 20) + '...',
+            error,
+          });
+        }
+      }
+
+      // Re-finalize once scorecards have landed so the leaderboard /
+      // round_results pipeline picks up the new data. Non-fatal: if it
+      // throws, the caller can still hit "Recalculate Results" manually.
+      if (pushed > 0) {
+        try {
+          await refinalizeRoundResults(input.roundId);
+        } catch (error) {
+          console.warn(
+            '[useForceSyncRoundScorecards] refinalize failed (non-fatal):',
+            error
+          );
+        }
+      }
+
+      return {
+        eligible: eligible.length,
+        pushed,
+        failed,
+        firstError,
+      };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: scorecardKeys.list({ roundId: variables.roundId }),
+      });
+      queryClient.invalidateQueries({ queryKey: roundKeys.detail(variables.roundId) });
+      queryClient.invalidateQueries({ queryKey: leaderboardKeys.round(variables.roundId) });
+      if (variables.competitionId) {
+        queryClient.invalidateQueries({
+          queryKey: leaderboardKeys.competition(variables.competitionId),
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('[useForceSyncRoundScorecards] Failed:', error);
     },
   });
 }

@@ -21,7 +21,7 @@ import { LoadingSpinner, EmptyState, ConfirmationDialog } from '@/components/com
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import type { ColorPalette } from '@/context/ThemeContext';
 import { TeamCard } from '@/components/teams/TeamCard';
-import { EditTeamNameModal } from '@/components/teams/EditTeamNameModal';
+import { EditTeamModal } from '@/components/teams/EditTeamModal';
 import { MoveToTeamSheet } from '@/components/teams/MoveToTeamSheet';
 import { TeamBalanceIndicator } from '@/components/teams/TeamBalanceIndicator';
 import {
@@ -45,8 +45,23 @@ export interface TeamsTabProps {
   isOrganizer: boolean;
   /** Whether the organizer can edit team names (requires premium+ subscription) */
   canEditTeamNames?: boolean;
-  onUpdateTeamName?: (teamId: string, newName: string) => void;
+  /**
+   * True once any round has started scoring. Locks team mutations (shuffle,
+   * team-count stepper, manual tap-to-move) for organisers because changing
+   * teams mid-competition would invalidate in-flight results and payouts.
+   */
+  hasStartedRound?: boolean;
+  onUpdateTeam?: (
+    teamId: string,
+    updates: { name?: string; color?: string }
+  ) => void;
   colors: ColorPalette;
+  /**
+   * The currently logged-in user's player ID. When provided, their team
+   * card gets a primary-colour border and their member row shows a "You"
+   * pill so the user can spot their own team at a glance.
+   */
+  currentUserId?: string;
 }
 
 /**
@@ -93,9 +108,15 @@ export const TeamsTab = React.memo(function TeamsTab({
   isLoading,
   isOrganizer,
   canEditTeamNames = false,
-  onUpdateTeamName,
+  hasStartedRound = false,
+  onUpdateTeam,
   colors,
+  currentUserId,
 }: TeamsTabProps) {
+  // Lock all team mutations for organisers once scoring has started — mirrors
+  // the `structureLocked` pattern used by SettingsSection.
+  const teamsLocked = isOrganizer && hasStartedRound;
+
   const { min: minTeams, max: maxTeams } = useMemo(
     () => teamCountRange(playerCount),
     [playerCount]
@@ -120,9 +141,9 @@ export const TeamsTab = React.memo(function TeamsTab({
 
   const { mutate: generateTeams, isPending: isGenerating } = useAutoGenerateTeams();
 
-  // Edit team name modal
+  // Edit team modal (name + colour)
   const [editingTeam, setEditingTeam] = useState<TeamWithMembers | null>(null);
-  const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
 
   // Move player sheet
   const [movingPlayer, setMovingPlayer] = useState<{ player: Player; currentTeamId: string } | null>(null);
@@ -184,21 +205,35 @@ export const TeamsTab = React.memo(function TeamsTab({
 
   const handleCloseEditModal = useCallback(() => {
     setEditingTeam(null);
-    setIsSavingName(false);
+    setIsSavingTeam(false);
   }, []);
 
-  const handleSaveTeamName = useCallback(
-    (newName: string) => {
-      if (editingTeam && onUpdateTeamName) {
-        setIsSavingName(true);
-        onUpdateTeamName(editingTeam.id, newName);
+  const handleSaveTeam = useCallback(
+    ({ name, color }: { name: string; color: string }) => {
+      if (editingTeam && onUpdateTeam) {
+        setIsSavingTeam(true);
+        const updates: { name?: string; color?: string } = {};
+        if (name !== editingTeam.name) updates.name = name;
+        if (color !== editingTeam.color) updates.color = color;
+        if (Object.keys(updates).length > 0) {
+          onUpdateTeam(editingTeam.id, updates);
+        }
         setTimeout(() => {
           handleCloseEditModal();
         }, 300);
       }
     },
-    [editingTeam, onUpdateTeamName, handleCloseEditModal]
+    [editingTeam, onUpdateTeam, handleCloseEditModal]
   );
+
+  // Avatar ids already taken by other teams (excluding the team being
+  // edited) — passed to the picker so those swatches render disabled.
+  const takenColorIds = useMemo(() => {
+    if (!editingTeam) return [];
+    return teams
+      .filter((t) => t.id !== editingTeam.id && t.color)
+      .map((t) => t.color as string);
+  }, [teams, editingTeam]);
 
   const handleMemberPress = useCallback(
     (team: TeamWithMembers, player: Player) => {
@@ -244,8 +279,24 @@ export const TeamsTab = React.memo(function TeamsTab({
 
   return (
     <View>
+      {/* Locked notice — shown in place of the organiser controls once any
+          round has started scoring. */}
+      {teamsLocked && (
+        <View
+          style={[
+            styles.lockedNotice,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Icon source="lock-outline" size={18} color={colors.textSecondary} />
+          <Text style={[styles.lockedNoticeText, { color: colors.textSecondary }]}>
+            Teams are locked once scoring has started.
+          </Text>
+        </View>
+      )}
+
       {/* Organizer controls */}
-      {isOrganizer && (
+      {isOrganizer && !teamsLocked && (
         <View style={[styles.controlsCard, shadows.sm, { backgroundColor: colors.surface }]}>
           <View style={styles.controlsHeader}>
             <View style={{ flex: 1 }}>
@@ -311,7 +362,7 @@ export const TeamsTab = React.memo(function TeamsTab({
       )}
 
       {/* Balance banner (organizer only, when teams exist) */}
-      {isOrganizer && teams.length > 1 && (
+      {isOrganizer && !teamsLocked && teams.length > 1 && (
         <TeamBalanceIndicator
           balanceQuality={balanceQuality}
           handicapSpread={handicapSpread}
@@ -319,7 +370,7 @@ export const TeamsTab = React.memo(function TeamsTab({
       )}
 
       {/* Uneven sizes warning after manual move */}
-      {isOrganizer && unevenSizes && teams.length > 0 && (
+      {isOrganizer && !teamsLocked && unevenSizes && teams.length > 0 && (
         <View
           style={[
             styles.warningBanner,
@@ -358,21 +409,28 @@ export const TeamsTab = React.memo(function TeamsTab({
               team={team}
               isEditable={canEditTeamNames}
               onEdit={handleEditTeam}
-              onMemberPress={isOrganizer ? (player) => handleMemberPress(team, player) : undefined}
+              onMemberPress={
+                isOrganizer && !teamsLocked
+                  ? (player) => handleMemberPress(team, player)
+                  : undefined
+              }
               initiallyExpanded
+              currentUserId={currentUserId}
               testID={`team-card-${team.id}`}
             />
           ))}
         </View>
       )}
 
-      {/* Edit team name modal */}
-      <EditTeamNameModal
+      {/* Edit team modal — name + colour */}
+      <EditTeamModal
         visible={!!editingTeam}
         currentName={editingTeam?.name ?? ''}
-        onSave={handleSaveTeamName}
+        currentColor={editingTeam?.color ?? null}
+        takenColorIds={takenColorIds}
+        onSave={handleSaveTeam}
         onCancel={handleCloseEditModal}
-        loading={isSavingName}
+        loading={isSavingTeam}
       />
 
       {/* Move-to-team bottom sheet */}
@@ -517,6 +575,21 @@ const styles = StyleSheet.create({
   },
   warningText: {
     ...typography.small,
+    flex: 1,
+  },
+
+  lockedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  lockedNoticeText: {
+    ...typography.caption,
     flex: 1,
   },
 

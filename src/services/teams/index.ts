@@ -12,7 +12,7 @@ export {
   getCompetitionTeams,
   getTeamWithMembers,
   updateTeamMembers,
-  updateTeamName,
+  updateTeamMetadata,
   deleteTeam,
   autoGenerateTeams,
   addTeamMember,

@@ -53,12 +53,18 @@ export interface ScoringPairFormationUIProps {
   teamNameByPlayerId?: Map<string, string>;
 
   /**
-   * Player-id → team-slot-index lookup (0-based). Drives the colour
-   * tint on the selection chips and pair cards — team 0 renders green,
-   * team 1 gold, and so on. Optional. Only populated when teams are
-   * defined so non-team rounds keep the default neutral styling.
+   * Player-id → team-slot-index lookup (0-based). Used as a colour
+   * fallback when the stored team colour is missing.
    */
   teamIndexByPlayerId?: Map<string, number>;
+
+  /**
+   * Player-id → stored team colour id (e.g. 'avatar-green'). Drives the
+   * colour tint on the selection chips and pair cards. When set and
+   * present, takes precedence over `teamIndexByPlayerId` for colour
+   * resolution. Optional.
+   */
+  teamColorByPlayerId?: Map<string, string | null>;
 
   /**
    * Tee-group composition for the round — each entry is the player ids

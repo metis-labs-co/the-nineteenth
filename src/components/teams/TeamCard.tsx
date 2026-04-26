@@ -13,6 +13,7 @@ import { PlayerAvatar } from '@/components/common';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows, layout, type ColorPalette } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
+import { getTeamColorHex } from '@/utils/teamColor';
 import type { TeamWithMembers, Player } from '@/types/database.types';
 
 // Enable LayoutAnimation on Android
@@ -98,6 +99,14 @@ export interface TeamCardProps {
   initiallyExpanded?: boolean;
 
   /**
+   * The currently logged-in user's player ID. When provided:
+   *   - Member rows for this player display a "You" pill next to the name.
+   *   - The card itself gets a primary-coloured border to visually
+   *     identify the user's own team at a glance.
+   */
+  currentUserId?: string;
+
+  /**
    * Test ID for testing
    */
   testID?: string;
@@ -131,6 +140,7 @@ export const TeamCard = React.memo(function TeamCard({
   onPress,
   onMemberPress,
   initiallyExpanded = false,
+  currentUserId,
   testID,
 }: TeamCardProps) {
   const colors = useThemeColors();
@@ -138,6 +148,12 @@ export const TeamCard = React.memo(function TeamCard({
 
   const { averageHandicap, totalHandicap } = calculateTeamStats(team.members);
   const memberCount = team.members?.length ?? 0;
+
+  // Highlight the user's own team with a primary-colour border so it
+  // stands out at a glance among many teams.
+  const isUsersTeam = !!currentUserId && (team.members ?? []).some(
+    (m) => m.player_id === currentUserId
+  );
 
   const handleToggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -159,18 +175,30 @@ export const TeamCard = React.memo(function TeamCard({
 
   return (
     <Card
-      style={styles.card}
+      style={[
+        styles.card,
+        isUsersTeam && {
+          borderWidth: 2,
+          borderColor: colors.primary,
+        },
+      ]}
       onPress={onPress}
       disabled={!onPress}
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Team: ${team.name}. ${memberCount} members. Average handicap: ${averageHandicap}`}
+      accessibilityLabel={`Team: ${team.name}.${isUsersTeam ? ' Your team.' : ''} ${memberCount} members. Average handicap: ${averageHandicap}`}
       accessibilityHint={onPress ? 'Double tap to view team details' : undefined}
     >
       <Card.Content style={styles.content}>
         {/* Header: Team Name + Edit Action */}
         <View style={styles.header}>
           <View style={styles.nameContainer}>
+            <View
+              style={[
+                styles.colorDot,
+                { backgroundColor: getTeamColorHex(team.color, 0, colors) },
+              ]}
+            />
             <Text style={styles.teamName} numberOfLines={1} ellipsizeMode="tail">
               {team.name}
             </Text>
@@ -241,6 +269,7 @@ export const TeamCard = React.memo(function TeamCard({
                   isLast={index === team.members.length - 1}
                   colors={colors}
                   onPress={onMemberPress}
+                  isCurrentUser={!!currentUserId && member.player_id === currentUserId}
                 />
               ))
             ) : (
@@ -263,9 +292,16 @@ interface MemberRowProps {
   isLast: boolean;
   colors: ColorPalette;
   onPress?: (player: Player) => void;
+  isCurrentUser?: boolean;
 }
 
-const MemberRow = React.memo(function MemberRow({ player, isLast, colors, onPress }: MemberRowProps) {
+const MemberRow = React.memo(function MemberRow({
+  player,
+  isLast,
+  colors,
+  onPress,
+  isCurrentUser = false,
+}: MemberRowProps) {
   if (!player) {
     return null;
   }
@@ -284,9 +320,19 @@ const MemberRow = React.memo(function MemberRow({ player, isLast, colors, onPres
       />
 
       <View style={styles.memberInfo}>
-        <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">
-          {player.name}
-        </Text>
+        <View style={styles.memberNameRow}>
+          <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">
+            {player.name}
+          </Text>
+          {isCurrentUser && (
+            <View
+              style={[styles.youPill, { backgroundColor: colors.primaryLighter }]}
+              accessibilityLabel="You"
+            >
+              <Text style={[styles.youPillText, { color: colors.primaryDark }]}>You</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.handicapBadge}>
@@ -348,10 +394,19 @@ const createStyles = (colors: ColorPalette) =>
     nameContainer: {
       flex: 1,
       marginRight: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    colorDot: {
+      width: 12,
+      height: 12,
+      borderRadius: borderRadius.full,
     },
     teamName: {
       ...typography.h4,
       color: colors.textPrimary,
+      flex: 1,
     },
     actionButton: {
       margin: 0,
@@ -434,9 +489,24 @@ const createMemberStyles = (colors: ColorPalette) =>
       flex: 1,
       justifyContent: 'center',
     },
+    memberNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
     memberName: {
       ...typography.body,
       color: colors.textPrimary,
+      flexShrink: 1,
+    },
+    youPill: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.full,
+    },
+    youPillText: {
+      ...typography.caption,
+      fontWeight: '600',
     },
     handicapBadge: {
       flexDirection: 'row',

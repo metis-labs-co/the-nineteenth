@@ -5,6 +5,7 @@
 import type { Player, ScoringPairWithPlayers } from '@/types/database.types';
 import type { ScoringPairCreateInput } from '@/types';
 import type { ColorPalette } from '@/constants/theme';
+import { getTeamColorHex } from '@/utils/teamColor';
 import type { CoverageQuality } from '../types';
 
 /**
@@ -49,31 +50,27 @@ export const getPlayerById = (players: Player[], playerId: string): Player | und
 };
 
 /**
- * Resolve a team slot to a semantic palette colour. Used to tint player
- * chips / pair cards so at-a-glance you can see which team each player
- * is on. Green for team 0, gold for team 1, then cycles through a
- * distinct set of semantic slots for larger team counts.
+ * Resolve a team slot to a tint colour for player chips / pair cards.
+ * Prefers the team's stored avatar palette colour; falls back to a
+ * legacy index-based theme cycle when no colour is stored (e.g. for
+ * ad-hoc teams or any unmigrated row).
  *
- * Returns `null` for negative / non-finite indexes so the caller can
- * fall back to the default (untinted) styling.
+ * Returns `null` only when both `colorId` is missing AND `teamIndex`
+ * is invalid, so the caller can fall back to untinted styling.
  */
 export const getTeamColor = (
+  colorId: string | null | undefined,
   teamIndex: number | undefined,
   colors: ColorPalette
 ): string | null => {
-  if (typeof teamIndex !== 'number' || !Number.isFinite(teamIndex) || teamIndex < 0) {
+  const hasValidIndex =
+    typeof teamIndex === 'number' &&
+    Number.isFinite(teamIndex) &&
+    teamIndex >= 0;
+  if (!colorId && !hasValidIndex) {
     return null;
   }
-  // Ordered for distinct-looking tints. `warning` reads as gold/amber
-  // on both light and dark themes, pairing well with `success` green.
-  const palette: string[] = [
-    colors.success,
-    colors.warning,
-    colors.info,
-    colors.error,
-    colors.primary,
-  ];
-  return palette[teamIndex % palette.length] ?? colors.textSecondary;
+  return getTeamColorHex(colorId, hasValidIndex ? teamIndex : 0, colors);
 };
 
 /**

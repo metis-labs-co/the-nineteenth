@@ -100,6 +100,7 @@ export function EditDateTimeSheet({
           timeLabel="Tee Time (Optional)"
           onTimeClear={handleClearTime}
           showTimeClear
+          minuteInterval={1}
           disabled={isPending}
           testID="edit-datetime"
         />

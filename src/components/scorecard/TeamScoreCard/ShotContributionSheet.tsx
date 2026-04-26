@@ -1,11 +1,18 @@
 /**
  * ShotContributionSheet Component
  *
- * Displays shot contribution chips (Drive, Approach, Putt) and the
- * player selection modal with slide-up animation for the TeamScoreCard.
+ * Displays par-aware shot contribution chips and the player selection modal
+ * with a slide-up animation for the TeamScoreCard.
+ *
+ * Slot layout depends on the par of the current hole:
+ *   Par 3: Tee Shot · Chip · Putt
+ *   Par 4: Tee Shot · Approach · Putt
+ *   Par 5: Tee Shot · Second Shot · Approach · Putt
+ *
+ * See `getShotSlotsForPar` for the source of truth.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -25,8 +32,14 @@ import {
   borderRadius,
 } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import type { ShotContributions } from '@/types';
+import type { Hole, ShotContributions } from '@/types';
 import type { TeamWithMembers } from '@/types/database.types';
+import {
+  getShotSlotsForPar,
+  type ShotSlot,
+  type ShotSlotColorKey,
+  type ShotSlotConfig,
+} from '@/utils/teamScoring';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -34,9 +47,10 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 interface ShotContributionSheetProps {
   team: TeamWithMembers;
+  currentHole: Hole;
   shotContributions?: ShotContributions;
-  activeShotType: 'drive' | 'approach' | 'putt' | null;
-  setActiveShotType: (type: 'drive' | 'approach' | 'putt' | null) => void;
+  activeShotType: ShotSlot | null;
+  setActiveShotType: (type: ShotSlot | null) => void;
   slideAnim: Animated.Value;
   getShotPlayerName: (playerId: string | undefined) => string;
   handlePlayerSelectForShot: (playerId: string) => void;
@@ -45,8 +59,21 @@ interface ShotContributionSheetProps {
   disabled?: boolean;
 }
 
+function resolveSlotColor(
+  colors: ReturnType<typeof useThemeColors>,
+  colorKey: ShotSlotColorKey,
+): string {
+  switch (colorKey) {
+    case 'primary': return colors.primary;
+    case 'info': return colors.info;
+    case 'success': return colors.success;
+    case 'warning': return colors.warning;
+  }
+}
+
 export const ShotContributionSheet = React.memo(function ShotContributionSheet({
   team,
+  currentHole,
   shotContributions,
   activeShotType,
   setActiveShotType,
@@ -59,6 +86,11 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
 }: ShotContributionSheetProps) {
   const colors = useThemeColors();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const slots = useMemo<ShotSlotConfig[]>(
+    () => getShotSlotsForPar(currentHole.par),
+    [currentHole.par],
+  );
 
   // Auto-expand when the player picker opens so the chips are visible
   // when the modal closes and the user sees their selection.
@@ -74,10 +106,14 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
     setIsExpanded((prev) => !prev);
   };
 
-  const driveFilled = !!shotContributions?.drive;
-  const approachFilled = !!shotContributions?.approach;
-  const puttFilled = !!shotContributions?.putt;
-  const anyFilled = driveFilled || approachFilled || puttFilled;
+  const anyFilled = slots.some((s) => !!shotContributions?.[s.slot]);
+
+  const activeSlotConfig = activeShotType
+    ? slots.find((s) => s.slot === activeShotType)
+    : undefined;
+  const activeSlotColor = activeSlotConfig
+    ? resolveSlotColor(colors, activeSlotConfig.colorKey)
+    : colors.primary;
 
   return (
     <>
@@ -98,27 +134,20 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
             {!isExpanded && (
               anyFilled ? (
                 <View style={styles.statusDots}>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { borderColor: colors.primary },
-                      driveFilled && { backgroundColor: colors.primary },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { borderColor: colors.success },
-                      approachFilled && { backgroundColor: colors.success },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { borderColor: colors.warning },
-                      puttFilled && { backgroundColor: colors.warning },
-                    ]}
-                  />
+                  {slots.map((slot) => {
+                    const slotColor = resolveSlotColor(colors, slot.colorKey);
+                    const filled = !!shotContributions?.[slot.slot];
+                    return (
+                      <View
+                        key={slot.slot}
+                        style={[
+                          styles.statusDot,
+                          { borderColor: slotColor },
+                          filled && { backgroundColor: slotColor },
+                        ]}
+                      />
+                    );
+                  })}
                 </View>
               ) : (
                 <Text style={[styles.tapToTrack, { color: colors.textTertiary }]}>
@@ -137,92 +166,45 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
         {/* Shot type chips */}
         {isExpanded && (
         <View style={styles.shotChipsContainer}>
-          {/* Drive */}
-          <TouchableOpacity
-            style={[
-              styles.shotChip,
-              { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-              shotContributions?.drive && { backgroundColor: colors.primary + '20', borderColor: colors.primary },
-            ]}
-            onPress={() => setActiveShotType('drive')}
-            disabled={disabled}
-            activeOpacity={0.7}
-          >
-            <Icon source="golf-tee" size={16} color={shotContributions?.drive ? colors.primary : colors.textSecondary} />
-            <View style={styles.shotChipContent}>
-              <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Drive</Text>
-              <Text
+          {slots.map((slot) => {
+            const slotColor = resolveSlotColor(colors, slot.colorKey);
+            const playerId = shotContributions?.[slot.slot];
+            const filled = !!playerId;
+            return (
+              <TouchableOpacity
+                key={slot.slot}
                 style={[
-                  styles.shotChipPlayer,
-                  { color: shotContributions?.drive ? colors.primary : colors.textTertiary }
+                  styles.shotChip,
+                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+                  filled && { backgroundColor: slotColor + '20', borderColor: slotColor },
                 ]}
-                numberOfLines={1}
+                onPress={() => setActiveShotType(slot.slot)}
+                disabled={disabled}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`${slot.label} contributor`}
               >
-                {getShotPlayerName(shotContributions?.drive)}
-              </Text>
-            </View>
-            {shotContributions?.drive && (
-              <Icon source="check-circle" size={16} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-
-          {/* Approach */}
-          <TouchableOpacity
-            style={[
-              styles.shotChip,
-              { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-              shotContributions?.approach && { backgroundColor: colors.success + '20', borderColor: colors.success },
-            ]}
-            onPress={() => setActiveShotType('approach')}
-            disabled={disabled}
-            activeOpacity={0.7}
-          >
-            <Icon source="flag" size={16} color={shotContributions?.approach ? colors.success : colors.textSecondary} />
-            <View style={styles.shotChipContent}>
-              <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Approach</Text>
-              <Text
-                style={[
-                  styles.shotChipPlayer,
-                  { color: shotContributions?.approach ? colors.success : colors.textTertiary }
-                ]}
-                numberOfLines={1}
-              >
-                {getShotPlayerName(shotContributions?.approach)}
-              </Text>
-            </View>
-            {shotContributions?.approach && (
-              <Icon source="check-circle" size={16} color={colors.success} />
-            )}
-          </TouchableOpacity>
-
-          {/* Putt */}
-          <TouchableOpacity
-            style={[
-              styles.shotChip,
-              { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-              shotContributions?.putt && { backgroundColor: colors.warning + '20', borderColor: colors.warning },
-            ]}
-            onPress={() => setActiveShotType('putt')}
-            disabled={disabled}
-            activeOpacity={0.7}
-          >
-            <Icon source="circle-outline" size={16} color={shotContributions?.putt ? colors.warning : colors.textSecondary} />
-            <View style={styles.shotChipContent}>
-              <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>Putt</Text>
-              <Text
-                style={[
-                  styles.shotChipPlayer,
-                  { color: shotContributions?.putt ? colors.warning : colors.textTertiary }
-                ]}
-                numberOfLines={1}
-              >
-                {getShotPlayerName(shotContributions?.putt)}
-              </Text>
-            </View>
-            {shotContributions?.putt && (
-              <Icon source="check-circle" size={16} color={colors.warning} />
-            )}
-          </TouchableOpacity>
+                <Icon source={slot.icon} size={16} color={filled ? slotColor : colors.textSecondary} />
+                <View style={styles.shotChipContent}>
+                  <Text style={[styles.shotChipLabel, { color: colors.textSecondary }]}>
+                    {slot.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.shotChipPlayer,
+                      { color: filled ? slotColor : colors.textTertiary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getShotPlayerName(playerId)}
+                  </Text>
+                </View>
+                {filled && (
+                  <Icon source="check-circle" size={16} color={slotColor} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
         )}
       </View>
@@ -251,22 +233,15 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
               </View>
 
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                Select {activeShotType === 'drive' ? 'Drive' : activeShotType === 'approach' ? 'Approach' : 'Putt'} Contributor
+                Select {activeSlotConfig?.label ?? 'Shot'} Contributor
               </Text>
 
               <ScrollView style={styles.modalPlayerList} showsVerticalScrollIndicator={false}>
                 {team.members?.map((member) => {
-                  const isSelected = activeShotType === 'drive'
-                    ? shotContributions?.drive === member.player_id
-                    : activeShotType === 'approach'
-                      ? shotContributions?.approach === member.player_id
-                      : shotContributions?.putt === member.player_id;
-
-                  const shotColor = activeShotType === 'drive'
-                    ? colors.primary
-                    : activeShotType === 'approach'
-                      ? colors.success
-                      : colors.warning;
+                  const selectedPlayerId = activeShotType
+                    ? shotContributions?.[activeShotType]
+                    : undefined;
+                  const isSelected = selectedPlayerId === member.player_id;
 
                   return (
                     <TouchableOpacity
@@ -274,13 +249,13 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
                       style={[
                         styles.modalPlayerItem,
                         { backgroundColor: colors.surfaceVariant },
-                        isSelected && { backgroundColor: shotColor + '20', borderColor: shotColor, borderWidth: 2 },
+                        isSelected && { backgroundColor: activeSlotColor + '20', borderColor: activeSlotColor, borderWidth: 2 },
                       ]}
                       onPress={() => handlePlayerSelectForShot(member.player_id)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.modalPlayerAvatar, { backgroundColor: shotColor + '30' }]}>
-                        <Text style={[styles.modalPlayerInitial, { color: shotColor }]}>
+                      <View style={[styles.modalPlayerAvatar, { backgroundColor: activeSlotColor + '30' }]}>
+                        <Text style={[styles.modalPlayerInitial, { color: activeSlotColor }]}>
                           {(member.player?.name ?? 'U')[0].toUpperCase()}
                         </Text>
                       </View>
@@ -288,7 +263,7 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
                         {member.player?.name ?? 'Unknown'}
                       </Text>
                       {isSelected && (
-                        <Icon source="check-circle" size={24} color={shotColor} />
+                        <Icon source="check-circle" size={24} color={activeSlotColor} />
                       )}
                     </TouchableOpacity>
                   );
@@ -296,9 +271,7 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
               </ScrollView>
 
               {/* Clear selection button */}
-              {((activeShotType === 'drive' && shotContributions?.drive) ||
-                (activeShotType === 'approach' && shotContributions?.approach) ||
-                (activeShotType === 'putt' && shotContributions?.putt)) && (
+              {activeShotType && shotContributions?.[activeShotType] && (
                 <TouchableOpacity
                   style={[styles.modalClearButton, { borderColor: colors.border }]}
                   onPress={handleClearShot}

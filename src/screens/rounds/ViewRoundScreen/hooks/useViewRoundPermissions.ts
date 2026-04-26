@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { User } from '@supabase/supabase-js';
-import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
+import type { RoundWithCourse, ScorecardWithPlayer, RoundPlayer } from '@/hooks/useRoundDetails';
 import type { CompetitionInfo } from '@/hooks/useCompetitionInfo';
 import { getHoleCount } from '@/constants/scoring';
 
@@ -8,6 +8,7 @@ interface UseViewRoundPermissionsParams {
   user: User | null;
   round: RoundWithCourse | undefined;
   scorecards: ScorecardWithPlayer[] | undefined;
+  roundPlayers: RoundPlayer[] | undefined;
   competitionInfo: CompetitionInfo | null | undefined;
   isStandalone: boolean;
 }
@@ -16,15 +17,21 @@ export function useViewRoundPermissions({
   user,
   round,
   scorecards,
+  roundPlayers,
   competitionInfo,
   isStandalone,
 }: UseViewRoundPermissionsParams) {
   const isUserPlaying = useMemo(() => {
     if (!user?.id) return false;
     if (isStandalone && round?.user_id === user.id) return true;
-    if (scorecards) return scorecards.some((sc) => sc.player_id === user.id);
+    if (scorecards?.some((sc) => sc.player_id === user.id)) return true;
+    // Scorecards are created lazily on first score entry, so for upcoming
+    // competition rounds we also have to check the roster (which pulls from
+    // competition_players + pairings) — otherwise the Score Round button
+    // never appears for competition players.
+    if (roundPlayers?.some((rp) => rp.id === user.id)) return true;
     return false;
-  }, [user?.id, scorecards, isStandalone, round?.user_id]);
+  }, [user?.id, scorecards, roundPlayers, isStandalone, round?.user_id]);
 
   const isOrganizer = useMemo(() => {
     if (!user?.id) return false;

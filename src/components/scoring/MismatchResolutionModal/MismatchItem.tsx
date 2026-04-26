@@ -7,7 +7,7 @@
  * - Resolved status for already-resolved mismatches
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -27,7 +27,7 @@ export interface MismatchItemProps {
   isAnyResolving: boolean;
   /** Whether the device is online */
   isOnline: boolean;
-  /** Partner's display name */
+  /** Partner's display name (used for legacy 2-way pairs mismatches) */
   partnerName: string;
   /** Current user's ID */
   currentUserId: string;
@@ -35,6 +35,8 @@ export interface MismatchItemProps {
   localResolution?: { score: number; resolvedBy: string } | undefined;
   /** Player name for the mismatch */
   playerName: string;
+  /** Map of scorer_id → display name. Used to label N-way entries. */
+  playerNamesById?: Record<string, string>;
   /** Called when user selects a score */
   onResolve: (mismatch: ScoreMismatch, score: number) => void;
 }
@@ -52,6 +54,7 @@ export const MismatchItem = React.memo(function MismatchItem({
   currentUserId,
   localResolution,
   playerName,
+  playerNamesById,
   onResolve,
 }: MismatchItemProps) {
   const colors = useThemeColors();
@@ -61,6 +64,24 @@ export const MismatchItem = React.memo(function MismatchItem({
   const resolvedBy = item.resolved_by ?? localResolution?.resolvedBy;
   const resolvedBySelf = resolvedBy === currentUserId;
   const resolvedByPartner = resolvedBy && !resolvedBySelf;
+
+  // N-way mode kicks in for multi-scorer rounds where the entries list is
+  // populated. Group by stroke value so scorers who agree share a button.
+  const nWayOptions = useMemo(() => {
+    if (!item.entries || item.entries.length === 0) return null;
+    const byStrokes = new Map<number, string[]>();
+    for (const entry of item.entries) {
+      const name = playerNamesById?.[entry.scorer_id] ?? `Scorer ${entry.scorer_id.slice(0, 4)}`;
+      const list = byStrokes.get(entry.strokes) ?? [];
+      list.push(name);
+      byStrokes.set(entry.strokes, list);
+    }
+    return [...byStrokes.entries()]
+      .map(([strokes, names]) => ({ strokes, names }))
+      .sort((a, b) => a.strokes - b.strokes);
+  }, [item.entries, playerNamesById]);
+
+  const useNWayLayout = !!nWayOptions && nWayOptions.length > 0;
 
   return (
     <View
@@ -98,20 +119,48 @@ export const MismatchItem = React.memo(function MismatchItem({
             {resolvedByPartner ? ` by ${partnerName}` : ''}
           </Text>
         </View>
+      ) : useNWayLayout && nWayOptions ? (
+        <View style={styles.nWayList}>
+          {nWayOptions.map(({ strokes, names }) => (
+            <TouchableOpacity
+              key={strokes}
+              style={[
+                styles.nWayOption,
+                { borderColor: colors.primary, backgroundColor: colors.surface },
+              ]}
+              onPress={() => onResolve(item, strokes)}
+              disabled={!isOnline || isCurrentlyResolving || isAnyResolving}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Accept score of ${strokes} from ${names.join(', ')}`}
+              accessibilityState={{ disabled: !isOnline || isCurrentlyResolving }}
+            >
+              <View style={styles.nWayOptionLabelGroup}>
+                <Text style={[styles.scoreButtonLabel, { color: colors.textSecondary }]}>
+                  {names.join(', ')}
+                </Text>
+              </View>
+              <Text style={[styles.scoreValue, { color: colors.primary }]}>{strokes}</Text>
+            </TouchableOpacity>
+          ))}
+          {isCurrentlyResolving && (
+            <ActivityIndicator size="small" color={colors.primary} />
+          )}
+        </View>
       ) : (
         <View style={styles.buttonRow}>
-          {/* Your score button */}
+          {/* Your score button (legacy 2-way pairs flow) */}
           <TouchableOpacity
             style={[
               styles.scoreButton,
               styles.scoreButtonPrimary,
               { backgroundColor: colors.primary },
             ]}
-            onPress={() => onResolve(item, item.self_score)}
-            disabled={!isOnline || isCurrentlyResolving || isAnyResolving}
+            onPress={() => item.self_score != null && onResolve(item, item.self_score)}
+            disabled={!isOnline || isCurrentlyResolving || isAnyResolving || item.self_score == null}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Accept your score of ${item.self_score}`}
+            accessibilityLabel={`Accept your score of ${item.self_score ?? ''}`}
             accessibilityState={{ disabled: !isOnline || isCurrentlyResolving }}
           >
             {isCurrentlyResolving ? (
@@ -122,7 +171,7 @@ export const MismatchItem = React.memo(function MismatchItem({
                   Your Score
                 </Text>
                 <Text style={[styles.scoreValue, { color: colors.white }]}>
-                  {item.self_score}
+                  {item.self_score ?? '—'}
                 </Text>
               </>
             )}
@@ -135,18 +184,18 @@ export const MismatchItem = React.memo(function MismatchItem({
               styles.scoreButtonOutline,
               { borderColor: colors.primary },
             ]}
-            onPress={() => onResolve(item, item.partner_score)}
-            disabled={!isOnline || isCurrentlyResolving || isAnyResolving}
+            onPress={() => item.partner_score != null && onResolve(item, item.partner_score)}
+            disabled={!isOnline || isCurrentlyResolving || isAnyResolving || item.partner_score == null}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Accept ${partnerName}'s score of ${item.partner_score}`}
+            accessibilityLabel={`Accept ${partnerName}'s score of ${item.partner_score ?? ''}`}
             accessibilityState={{ disabled: !isOnline || isCurrentlyResolving }}
           >
             <Text style={[styles.scoreButtonLabel, { color: colors.primary }]}>
               {partnerName}
             </Text>
             <Text style={[styles.scoreValue, { color: colors.primary }]}>
-              {item.partner_score}
+              {item.partner_score ?? '—'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -229,5 +278,22 @@ const styles = StyleSheet.create({
   },
   resolvedText: {
     ...typography.body,
+  },
+  nWayList: {
+    gap: spacing.sm,
+  },
+  nWayOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    minHeight: 56,
+  },
+  nWayOptionLabelGroup: {
+    flex: 1,
+    paddingRight: spacing.md,
   },
 });

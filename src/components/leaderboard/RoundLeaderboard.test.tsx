@@ -267,6 +267,8 @@ function createMockResponse(
 ): RoundLeaderboardResponse {
   return {
     entries,
+    teamEntries: entries.filter((e) => e.isTeamResult),
+    individualEntries: entries.filter((e) => !e.isTeamResult),
     metadata: {
       gameType,
       isTeamRound,
@@ -577,9 +579,10 @@ describe('RoundLeaderboard', () => {
 
       render(<RoundLeaderboard {...defaultProps} currentUserId="current-user" />);
 
-      // Should show "You" instead of name
+      // The current user's row shows their name alongside a "You" badge —
+      // the row used to replace the name with "You", but now both render.
       expect(screen.getByText('You')).toBeTruthy();
-      expect(screen.queryByText('Me')).toBeNull();
+      expect(screen.getByText('Me')).toBeTruthy();
     });
   });
 
@@ -922,6 +925,98 @@ describe('RoundLeaderboard', () => {
           enabled: true,
         })
       );
+    });
+  });
+
+  // ===========================================================================
+  // SPLIT TEAM + INDIVIDUAL RENDERING
+  // ===========================================================================
+
+  describe('Team + Individual Split', () => {
+    it('renders separate Teams and Players sections when both result types exist', () => {
+      const teamEntries = [
+        createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          [{ playerId: '1', playerName: 'Carol', handicap: 10 }],
+          134,
+          1
+        ),
+        createTeamEntry(
+          'team-2',
+          'Team Beta',
+          [{ playerId: '2', playerName: 'Dave', handicap: 12 }],
+          111,
+          2
+        ),
+      ];
+      const individualEntries = [
+        createStablefordPlayer('p1', 'Alice', 8, 51, 1),
+        createStablefordPlayer('p2', 'Bob', 12, 44, 2),
+      ];
+
+      mockUseRoundLeaderboard.mockReturnValue({
+        data: createMockResponse([...teamEntries, ...individualEntries], 'stableford', true),
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<RoundLeaderboard {...defaultProps} isTeamRound />);
+
+      // Section labels for both sub-tables.
+      expect(screen.getByText('TEAMS')).toBeTruthy();
+      expect(screen.getByText('PLAYERS')).toBeTruthy();
+
+      // Teams sub-table shows team rows.
+      expect(screen.getByText('Team Alpha')).toBeTruthy();
+      expect(screen.getByText('Team Beta')).toBeTruthy();
+
+      // Individuals sub-table shows player rows (using names that don't
+      // collide with team-member names rendered in the Teams sub-table).
+      expect(screen.getByText('Alice')).toBeTruthy();
+      expect(screen.getByText('Bob')).toBeTruthy();
+    });
+
+    it('hides the CP column at the per-round level (CP belongs on competition standings)', () => {
+      mockUseRoundLeaderboard.mockReturnValue({
+        data: createMockResponse([
+          createStablefordPlayer('p1', 'Alice', 8, 51, 1),
+          createStablefordPlayer('p2', 'Bob', 12, 44, 2),
+        ]),
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<RoundLeaderboard {...defaultProps} />);
+
+      // CP header was previously rendered alongside #, Player, HC, Pts.
+      // Per-round view now hides it because CP belongs on the competition
+      // standings, not the round-specific table.
+      expect(screen.queryByText('CP')).toBeNull();
+    });
+
+    it('renders a single sub-table when only individuals exist (no split sections)', () => {
+      mockUseRoundLeaderboard.mockReturnValue({
+        data: createMockResponse([
+          createStablefordPlayer('p1', 'Alice', 8, 51, 1),
+        ]),
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<RoundLeaderboard {...defaultProps} />);
+
+      // No section labels when there's nothing to split.
+      expect(screen.queryByText('TEAMS')).toBeNull();
+      expect(screen.queryByText('PLAYERS')).toBeNull();
+      // The single table still renders the player row.
+      expect(screen.getByText('Alice')).toBeTruthy();
     });
   });
 });

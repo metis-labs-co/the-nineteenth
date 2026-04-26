@@ -243,6 +243,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         id: `${activeSubMatch.id}-a`,
         competition_id: teamsData[0].competition_id,
         name: 'Team A',
+        color: teamsData[0].color ?? null,
         created_at: teamsData[0].created_at,
         updated_at: teamsData[0].updated_at,
         members: teamsData
@@ -275,6 +276,7 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         id: `${activeSubMatch.id}-b`,
         competition_id: teamsData[1].competition_id,
         name: 'Team B',
+        color: teamsData[1].color ?? null,
         created_at: teamsData[1].created_at,
         updated_at: teamsData[1].updated_at,
         members: teamsData

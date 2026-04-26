@@ -5,7 +5,7 @@
  * permissions, side games, tabs, and handlers.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
@@ -73,6 +73,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     user,
     round,
     scorecards,
+    roundPlayers,
     competitionInfo,
     isStandalone,
   });
@@ -172,6 +173,15 @@ export function useViewRoundScreen({ route, navigation }: Props) {
 
   // Combine isRefreshing from data + side games
   const isRefreshing = dataFetch.isRefreshing || sideGames.isRefetchingSkinsResults;
+
+  // Refetch scorecards whenever the user opens the Scorecard tab so they
+  // see fresh scores immediately (e.g. after returning from score entry,
+  // or when a co-scorer has updated scores in the background).
+  useEffect(() => {
+    if (activeTab === 'scorecard') {
+      refetchScorecards();
+    }
+  }, [activeTab, refetchScorecards]);
 
   return {
     // Route params

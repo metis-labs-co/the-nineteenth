@@ -18,9 +18,13 @@ import { isValidPlayerCount } from '@/utils/bracketGeneration';
 import { BracketToggle } from './BracketToggle';
 import { BracketStageIndicator } from './BracketStageIndicator';
 import { BracketStageView } from './BracketStageView';
-import { GenerateBracketSheet } from './GenerateBracketSheet';
-import type { BracketType, KnockoutConfig, KnockoutMatchWithPlayers } from '@/types/database';
-import type { SeedingMethod } from '@/types/database';
+import { GenerateBracketSheet, type GenerateBracketConfig } from './GenerateBracketSheet';
+import type {
+  BracketType,
+  KnockoutConfig,
+  KnockoutMatchWithPlayers,
+} from '@/types/database';
+import type { RoundWithCourse } from '@/components/competitions/detail/types';
 
 export interface BracketTabProps {
   competitionId: string;
@@ -28,6 +32,8 @@ export interface BracketTabProps {
   playerCount: number;
   currentUserId?: string;
   isOrganizer: boolean;
+  /** Competition rounds — used by the generate sheet to offer qualifying-round selection. */
+  rounds?: RoundWithCourse[];
   onMatchPress?: (match: KnockoutMatchWithPlayers) => void;
 }
 
@@ -37,6 +43,7 @@ export const BracketTab = React.memo(function BracketTab({
   playerCount,
   currentUserId,
   isOrganizer,
+  rounds,
   onMatchPress,
 }: BracketTabProps) {
   const colors = useThemeColors();
@@ -78,9 +85,15 @@ export const BracketTab = React.memo(function BracketTab({
     setActiveStageIndex(0);
   }, []);
 
-  const handleGenerate = useCallback((seedingMethod: SeedingMethod) => {
+  const handleGenerate = useCallback((config: GenerateBracketConfig) => {
     generateBracket(
-      { competitionId, seedingMethod },
+      {
+        competitionId,
+        seedingMethod: config.seedingMethod,
+        bracketSeedingStyle: config.bracketSeedingStyle,
+        qualifyingRoundIds: config.qualifyingRoundIds,
+        qualifyingMetric: config.qualifyingMetric,
+      },
       {
         onSuccess: () => setShowGenerateSheet(false),
       }
@@ -128,6 +141,7 @@ export const BracketTab = React.memo(function BracketTab({
           isValidCount={validCount}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
+          rounds={rounds}
         />
       </View>
     );

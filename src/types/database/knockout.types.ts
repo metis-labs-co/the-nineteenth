@@ -11,7 +11,14 @@ export type BracketType = 'main' | 'consolation';
 
 export type KnockoutMatchStatus = 'pending' | 'ready' | 'in_progress' | 'completed' | 'bye';
 
-export type SeedingMethod = 'handicap' | 'random';
+/**
+ * How initial seeds are assigned to bracket positions.
+ * - 'handicap'    — seed by incoming handicap (lowest seed 1).
+ * - 'random'      — shuffle.
+ * - 'qualifying'  — derive from the sum of `qualifyingRoundIds` results
+ *                   ranked by `qualifyingMetric`. Requires advanced_round_rules.
+ */
+export type SeedingMethod = 'handicap' | 'random' | 'qualifying';
 
 // =====================================================
 // CONFIG
@@ -23,6 +30,19 @@ export interface KnockoutConfig {
   playerCount: ValidPlayerCount;
   seedingMethod: SeedingMethod;
   bracketGenerated: boolean;
+
+  /**
+   * Bracket seeding style. Defaults to 'standard' when unset.
+   * - 'standard' = (1,N), (2,N-1), … (top seed rewarded)
+   * - 'adjacent' = (1,2), (3,4), … (closely-matched social format)
+   * Gated behind advanced_round_rules at edit time.
+   */
+  bracketSeedingStyle?: 'standard' | 'adjacent';
+
+  /** Rounds whose results feed qualifying-based seeding. Only read when seedingMethod='qualifying'. */
+  qualifyingRoundIds?: string[];
+  /** Metric used to rank qualifying participants. Defaults to 'competition_points'. */
+  qualifyingMetric?: 'stableford_points' | 'net_strokes' | 'competition_points';
 }
 
 // =====================================================

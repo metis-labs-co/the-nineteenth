@@ -85,6 +85,11 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     [data?.entries]
   );
 
+  const hasSplit = useMemo(
+    () => !!data && data.teamEntries.length > 0 && data.individualEntries.length > 0,
+    [data]
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -131,7 +136,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     );
   }
 
-  const { entries, metadata } = data;
+  const { entries, teamEntries, individualEntries, metadata } = data;
   const effectiveGameType = metadata.gameType;
 
   // Format par score display (+3, -2, E)
@@ -140,25 +145,40 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     return value > 0 ? `+${value}` : `${value}`;
   };
 
-  // Select the appropriate leaderboard component based on game type
-  const renderLeaderboardContent = () => {
+  // Render the format-specific table for a given subset of entries.
+  // The per-round view drops the CP column (CP belongs on the competition
+  // standings, not the round-specific table) so callers can skip it via
+  // `showCompetitionPoints={false}`.
+  const renderTableFor = (subset: typeof entries) => {
     switch (effectiveGameType) {
       case 'match-play':
+        // Match-play rendering already groups its own match cards; CP isn't
+        // shown there today, so the prop is irrelevant.
         return (
-          <MatchPlayLeaderboard entries={entries} currentUserId={currentUserId} />
+          <MatchPlayLeaderboard
+            entries={subset}
+            currentUserId={currentUserId}
+            isTeamRound={metadata.isTeamRound}
+            roundStatus={metadata.status}
+          />
         );
       case 'stroke':
         return (
-          <StrokePlayLeaderboard entries={entries} currentUserId={currentUserId} />
+          <StrokePlayLeaderboard
+            entries={subset}
+            currentUserId={currentUserId}
+            showCompetitionPoints={false}
+          />
         );
       case 'par':
         return (
           <StablefordLeaderboard
-            entries={entries}
+            entries={subset}
             currentUserId={currentUserId}
             scoreColumnHeader="Score"
             scoreLabel="par score"
             formatScore={formatParScore}
+            showCompetitionPoints={false}
           />
         );
       case 'stableford':
@@ -167,7 +187,11 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
       case 'best-ball':
       default:
         return (
-          <StablefordLeaderboard entries={entries} currentUserId={currentUserId} />
+          <StablefordLeaderboard
+            entries={subset}
+            currentUserId={currentUserId}
+            showCompetitionPoints={false}
+          />
         );
     }
   };
@@ -183,10 +207,41 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         roundNumber={metadata.roundNumber}
       />
 
-      {/* Leaderboard Content */}
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        {renderLeaderboardContent()}
-      </View>
+      {/* Leaderboard Content. When a round has both team and individual
+          results we render two stacked tables so each gets its own header,
+          its own rank-1 trophy, and its own column labels. */}
+      {hasSplit ? (
+        <>
+          <View
+            style={[styles.card, { backgroundColor: colors.surface }, splitStyles.firstSection]}
+            testID={testID ? `${testID}-teams` : undefined}
+          >
+            <ScaledText
+              category="caption"
+              style={[splitStyles.sectionLabel, { color: colors.textSecondary }]}
+            >
+              TEAMS
+            </ScaledText>
+            {renderTableFor(teamEntries)}
+          </View>
+          <View
+            style={[styles.card, { backgroundColor: colors.surface }, splitStyles.secondSection]}
+            testID={testID ? `${testID}-individuals` : undefined}
+          >
+            <ScaledText
+              category="caption"
+              style={[splitStyles.sectionLabel, { color: colors.textSecondary }]}
+            >
+              PLAYERS
+            </ScaledText>
+            {renderTableFor(individualEntries)}
+          </View>
+        </>
+      ) : (
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          {renderTableFor(entries)}
+        </View>
+      )}
 
       {/* Legend for bypassed indicator */}
       {hasBypassedEntries && (
@@ -216,6 +271,21 @@ const legendStyles = StyleSheet.create({
   },
   text: {
     ...typography.caption,
+  },
+});
+
+const splitStyles = StyleSheet.create({
+  firstSection: {
+    marginBottom: spacing.md,
+  },
+  secondSection: {
+    marginBottom: 0,
+  },
+  sectionLabel: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
   },
 });
 

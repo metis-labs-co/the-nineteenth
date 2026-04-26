@@ -685,6 +685,7 @@ describe('BestBallScoreView', () => {
         id: 'team-empty',
         competition_id: 'comp-1',
         name: 'Empty Team',
+        color: null,
         members: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -777,6 +778,7 @@ describe('BestBallScoreView', () => {
         id: 'team-missing',
         competition_id: 'comp-1',
         name: 'Missing Player Team',
+        color: null,
         members: [
           {
             team_id: 'team-missing',

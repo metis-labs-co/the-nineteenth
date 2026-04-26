@@ -89,6 +89,7 @@ const createMockLimits = (tier: SubscriptionTier = 'free'): TierLimits => {
     canUseSkinsGame: hasPremiumFeatures,
     canUseWolfGame: hasPremiumFeatures,
     canUsePrizePool: hasPremiumFeatures,
+    canUseAdvancedRoundRules: hasPremiumFeatures,
     canCreateLeague: tier !== 'free',
     canJoinLeague: tier !== 'free',
     canAccessAdminTools: isInternal,

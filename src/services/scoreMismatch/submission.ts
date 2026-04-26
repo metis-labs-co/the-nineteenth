@@ -8,9 +8,14 @@
 import { supabase } from '@/services/supabase/client';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { fromTable, createError } from './types';
-import type { ScoreSubmissionStatus, SubmissionReadiness, PartnerProgress } from './types';
-import { getScorerEntries } from './entries';
-import { getPendingMismatches } from './detection';
+import type {
+  ScoreSubmissionStatus,
+  SubmissionReadiness,
+  PartnerProgress,
+  IncompleteScorer,
+} from './types';
+import { getRoundScoreEntries, getScorerEntries } from './entries';
+import { createMismatchRecords, getPendingMismatches } from './detection';
 import { applyResolvedScoreToScorecard } from './resolution';
 
 const logger = createModuleLogger('ScoreMismatchService');
@@ -20,7 +25,10 @@ const logger = createModuleLogger('ScoreMismatchService');
 // ============================================================================
 
 /**
- * Check if user can submit (partner complete + no pending mismatches)
+ * Check if user can submit. Dispatches based on scoring mode:
+ *  - Scoring pairs enabled → checkPairsReadiness (self vs assigned partner)
+ *  - Otherwise → checkMultiScorerReadiness (auto-detected: only kicks in
+ *    when 2+ distinct scorers have written entries for the round)
  */
 export async function checkSubmissionReadiness(
   roundId: string,
@@ -28,14 +36,20 @@ export async function checkSubmissionReadiness(
   scoringPairsEnabled: boolean,
   holeCount: number = 18
 ): Promise<SubmissionReadiness> {
-  if (!scoringPairsEnabled) {
-    return { canSubmit: true };
-  }
-
   if (!roundId || !userId) {
     throw createError('Round ID and User ID are required', 'VALIDATION');
   }
 
+  return scoringPairsEnabled
+    ? checkPairsReadiness(roundId, userId, holeCount)
+    : checkMultiScorerReadiness(roundId, userId, holeCount);
+}
+
+async function checkPairsReadiness(
+  roundId: string,
+  userId: string,
+  holeCount: number
+): Promise<SubmissionReadiness> {
   // Check for pending mismatches first
   const pendingMismatches = await getPendingMismatches(roundId);
   if (pendingMismatches.length > 0) {
@@ -59,6 +73,89 @@ export async function checkSubmissionReadiness(
   }
 
   return { canSubmit: true };
+}
+
+/**
+ * Multi-scorer readiness — for rounds without scoring pairs configured.
+ *
+ * Auto-detects whether the verification gate applies: only kicks in if 2+
+ * distinct users have written score_entries. Solo-scorer rounds (e.g. one
+ * keeper for a scramble) submit normally with no extra friction.
+ *
+ * When triggered:
+ *  1. Detect/persist mismatches across all scorers (N-way).
+ *  2. Block on any pending mismatches.
+ *  3. Block until every other scorer has filled in every hole for every
+ *     player they've already scored at least one hole for.
+ */
+async function checkMultiScorerReadiness(
+  roundId: string,
+  userId: string,
+  holeCount: number
+): Promise<SubmissionReadiness> {
+  const entries = await getRoundScoreEntries(roundId);
+  const distinctScorers = new Set(entries.map((e) => e.scorer_id));
+
+  // Auto-detect: only one scorer (or none) has touched the round → no gate.
+  if (distinctScorers.size <= 1) {
+    return { canSubmit: true };
+  }
+
+  // N-way mismatch sweep: surface any disagreements.
+  await createMismatchRecords(roundId);
+  const pendingMismatches = await getPendingMismatches(roundId);
+  if (pendingMismatches.length > 0) {
+    return {
+      canSubmit: false,
+      reason: 'unresolved_mismatches',
+      mismatchCount: pendingMismatches.length,
+    };
+  }
+
+  // For each other scorer, expected entries = holeCount × distinct players
+  // they've started scoring. This avoids waiting forever on a scorer who
+  // only ever touched one hole — they still owe entries for that player.
+  const otherScorerIds = [...distinctScorers].filter((id) => id !== userId);
+  const incompleteScorers: IncompleteScorer[] = [];
+
+  for (const scorerId of otherScorerIds) {
+    const scorerEntries = entries.filter((e) => e.scorer_id === scorerId);
+    const distinctPlayers = new Set(scorerEntries.map((e) => e.player_id));
+    const expected = distinctPlayers.size * holeCount;
+
+    if (scorerEntries.length < expected) {
+      incompleteScorers.push({
+        scorerId,
+        scorerName: await fetchPlayerName(scorerId),
+        progress: { completed: scorerEntries.length, total: expected },
+      });
+    }
+  }
+
+  if (incompleteScorers.length > 0) {
+    return {
+      canSubmit: false,
+      reason: 'waiting_for_other_scorers',
+      incompleteScorers,
+    };
+  }
+
+  return { canSubmit: true };
+}
+
+async function fetchPlayerName(playerId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('name')
+      .eq('id', playerId)
+      .single() as { data: { name: string } | null; error: { message: string } | null };
+
+    if (error || !data) return 'Another scorer';
+    return data.name ?? 'Another scorer';
+  } catch {
+    return 'Another scorer';
+  }
 }
 
 /**
@@ -121,17 +218,21 @@ export async function getPartnerProgress(
 // ============================================================================
 
 /**
- * Start bypass timer (called when submit attempted with complete data but partner hasn't submitted)
+ * Start bypass timer (called when submit attempted with complete data but
+ * other scorers haven't finished). 30-minute window before unverified
+ * submission becomes available.
  *
+ * @param partnerId - The scoring partner (pairs flow) or null for multi-scorer
+ *                    rounds where the wait spans multiple distinct scorers.
  * @returns The bypass_available_at timestamp
  */
 export async function startBypassTimer(
   roundId: string,
   playerId: string,
-  partnerId: string
+  partnerId: string | null
 ): Promise<{ bypass_available_at: string }> {
-  if (!roundId || !playerId || !partnerId) {
-    throw createError('Round ID, Player ID, and Partner ID are required', 'VALIDATION');
+  if (!roundId || !playerId) {
+    throw createError('Round ID and Player ID are required', 'VALIDATION');
   }
 
   const bypassAvailableAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins from now

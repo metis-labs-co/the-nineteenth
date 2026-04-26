@@ -11,3 +11,10 @@ export {
   type CompetitionResults,
   type RoundResultsServiceError,
 } from './roundResultsService';
+
+export { updateRound, type UpdateRoundFields } from './updateRound';
+
+export {
+  reseedRoundPairings,
+  type ReseedRoundPairingsInput,
+} from './reseedRoundPairings';

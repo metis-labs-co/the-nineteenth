@@ -7,6 +7,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { generateBalancedTeams } from '@/utils/teamGeneration';
+import { nextAvailableTeamColor } from '@/utils/teamColor';
 import type {
   Player,
   TeamWithMembers,
@@ -134,13 +135,17 @@ export async function autoGenerateTeams(
   }
 
   const createdTeams: TeamWithMembers[] = [];
+  const assignedColors: string[] = [];
   for (const generated of generatedTeams) {
     try {
+      const color = nextAvailableTeamColor(assignedColors);
       const team = await createTeam({
         competitionId,
         name: generated.name,
         memberIds: generated.members.map((m) => m.id),
+        color,
       });
+      assignedColors.push(color);
       createdTeams.push(team);
     } catch (error) {
       // Rollback on partial failure

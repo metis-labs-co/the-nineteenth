@@ -39,11 +39,16 @@ export interface TeeBox {
 }
 
 /**
- * Shot contributions for scramble format - tracks who contributed each shot type
+ * Shot contributions for scramble format - tracks who contributed each shot type.
+ * Slot presentation varies by par (see {@link getShotSlotsForPar}):
+ *   - Par 3: teeShot + approach (labelled "Chip") + putt
+ *   - Par 4: teeShot + approach + putt
+ *   - Par 5: teeShot + secondShot + approach + putt
  */
 export interface HoleShotContributions {
-  drive?: string; // Player ID who contributed the drive
-  approach?: string; // Player ID who contributed the approach
+  teeShot?: string; // Player ID who hit the tee shot
+  secondShot?: string; // Player ID who hit the second shot (par 5 only)
+  approach?: string; // Player ID who contributed the approach (or chip on par 3)
   putt?: string; // Player ID who made the putt
 }
 

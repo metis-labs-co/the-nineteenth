@@ -18,9 +18,12 @@ const logger = createModuleLogger('ScoreMismatchService');
 /**
  * Detect mismatches by comparing score_entries
  *
- * For each (player_id, hole_number), compares:
- * - Self-entered score (scorer_id = player_id)
- * - Partner-entered score (scorer_id != player_id)
+ * For each (player_id, hole_number) with 2+ entries that disagree on strokes,
+ * emits a single mismatch. Handles both:
+ *  - 2-way (scoring pairs): self + partner. Legacy self/partner columns populated.
+ *  - N-way (multi-scorer free-for-all): any number of distinct scorers.
+ *    `entries[]` carries the full conflict list; legacy columns are populated
+ *    with a representative pair (self if present, plus first other) for back-compat.
  *
  * @returns Array of detected mismatches (not yet persisted)
  */
@@ -37,29 +40,31 @@ export async function detectMismatches(roundId: string): Promise<Omit<ScoreMisma
 
   const mismatches: Omit<ScoreMismatch, 'id' | 'created_at'>[] = [];
 
-  for (const [, pair] of grouped) {
-    // Only process if we have exactly 2 entries (self and partner)
-    if (pair.length === 2) {
-      const selfEntry = pair.find((e) => e.scorer_id === e.player_id);
-      const partnerEntry = pair.find((e) => e.scorer_id !== e.player_id);
+  for (const [, group] of grouped) {
+    if (group.length < 2) continue;
 
-      // Only create mismatch if scores differ
-      if (selfEntry && partnerEntry && selfEntry.strokes !== partnerEntry.strokes) {
-        mismatches.push({
-          round_id: roundId,
-          player_id: selfEntry.player_id,
-          hole_number: selfEntry.hole_number,
-          self_score: selfEntry.strokes,
-          partner_score: partnerEntry.strokes,
-          self_scorer_id: selfEntry.scorer_id,
-          partner_scorer_id: partnerEntry.scorer_id,
-          status: 'pending',
-          resolved_score: null,
-          resolved_by: null,
-          resolved_at: null,
-        });
-      }
-    }
+    const distinctStrokes = new Set(group.map((e) => e.strokes));
+    if (distinctStrokes.size < 2) continue; // all scorers agree
+
+    const selfEntry = group.find((e) => e.scorer_id === e.player_id) ?? group[0];
+    const otherEntry = group.find((e) => e !== selfEntry) ?? null;
+
+    mismatches.push({
+      round_id: roundId,
+      player_id: selfEntry.player_id,
+      hole_number: selfEntry.hole_number,
+      // Legacy 2-way representation (preserved for the existing pairs UI)
+      self_score: selfEntry.strokes,
+      partner_score: otherEntry?.strokes ?? null,
+      self_scorer_id: selfEntry.scorer_id,
+      partner_scorer_id: otherEntry?.scorer_id ?? null,
+      // Full N-way list (consumed by the multi-scorer resolution UI)
+      entries: group.map((e) => ({ scorer_id: e.scorer_id, strokes: e.strokes })),
+      status: 'pending',
+      resolved_score: null,
+      resolved_by: null,
+      resolved_at: null,
+    });
   }
 
   return mismatches;

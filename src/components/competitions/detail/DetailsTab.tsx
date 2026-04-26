@@ -59,6 +59,8 @@ export interface DetailsTabProps {
   onEditPrizePool?: () => void;
   /** Handler for viewing prize pool transactions */
   onViewPrizePoolTransactions?: () => void;
+  /** Called when the Team Size row is pressed — switches to the Teams tab. */
+  onViewTeams?: () => void;
 }
 
 // =====================================================
@@ -80,6 +82,7 @@ export const DetailsTab = React.memo(function DetailsTab({
   onAddPrizePool,
   onEditPrizePool,
   onViewPrizePoolTransactions,
+  onViewTeams,
 }: DetailsTabProps) {
   // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {
@@ -109,6 +112,7 @@ export const DetailsTab = React.memo(function DetailsTab({
         competition={competition}
         isOrganizer={isOrganizer}
         hasStartedRound={hasStartedRound}
+        onViewTeams={onViewTeams}
       />
 
       {/* Prize Pool Section */}

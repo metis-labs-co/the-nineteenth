@@ -4,9 +4,12 @@
  */
 
 import type {
+  BracketSeedingStyle,
   GameType,
   HandicapSource,
   NineType,
+  PairingSource,
+  QualifyingMetric,
   RoundFormat,
   RoundStatus,
   SubMatchResult,
@@ -15,6 +18,7 @@ import type {
 } from './enums';
 import type { TeeBox } from './base';
 import type { Player } from './player.types';
+import type { RoundRulesOverride } from './roundRules.types';
 
 /**
  * Individual round within a competition
@@ -26,6 +30,7 @@ export interface Round {
   competition_id: string | null; // UUID, references competitions(id) - NULL for standalone rounds
   user_id: string | null; // UUID, references auth.users(id) - Owner for standalone rounds
   round_number: number; // 1 for MVP
+  name: string | null; // Optional user-defined name; NULL falls back to derived titles
   course_id: string; // UUID, references courses(id)
   date: string | null; // ISO date (YYYY-MM-DD)
   tee_time: string | null; // HH:MM:SS
@@ -60,6 +65,20 @@ export interface Round {
 
   // Handicap settings
   handicap_source: HandicapSource | null; // NULL = inherit from competition or default to 'profile'
+
+  // Per-round rule override. NULL = inherit competition.point_system.
+  // See src/types/database/roundRules.types.ts for shape. Editing is gated
+  // behind the 'advanced_round_rules' Premium feature; applying is always honored.
+  rules_override: RoundRulesOverride | null;
+
+  // Pairing source — how the round's pairings (or sub-matches, for split team
+  // rounds) are generated. 'manual' (default) leaves pairings to the organiser;
+  // 'current_standings' triggers auto-pairing from the cumulative individual
+  // leaderboard of completed prior rounds. style + metric are required when
+  // source = 'current_standings' and NULL otherwise (DB-enforced).
+  pairing_source: PairingSource;
+  pairing_style: BracketSeedingStyle | null;
+  pairing_metric: QualifyingMetric | null;
 
   // Status
   status: RoundStatus;

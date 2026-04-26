@@ -2,7 +2,7 @@
  * ScrambleLeaderboardTab - Scramble team leaderboard tab content
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -11,14 +11,13 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import { ScrambleTeamLeaderboard } from '@/components/scorecard';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
-import type { RoundWithCourse } from '@/hooks/useRoundDetails';
-import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import type { ScrambleTeam } from '../hooks/useScrambleTeams';
 
 interface ScrambleLeaderboardTabProps {
   holes: Hole[];
   currentPlayers: Player[];
   currentUserId: string | undefined;
-  roundDetails: RoundWithCourse | undefined;
+  scrambleTeams: ScrambleTeam[];
   getPlayerScore: (playerId: string, holeNumber: number) => HoleScore | MultiBallHoleScore | undefined;
   isRefreshing: boolean;
   onRefresh: () => void;
@@ -29,32 +28,13 @@ export function ScrambleLeaderboardTab({
   holes,
   currentPlayers,
   currentUserId,
-  roundDetails,
+  scrambleTeams,
   getPlayerScore,
   isRefreshing,
   onRefresh,
   bottomInset,
 }: ScrambleLeaderboardTabProps) {
   const colors = useThemeColors();
-
-  // Extract teams from team_config
-  const scrambleTeams = useMemo(() => {
-    const teamConfig = (roundDetails as unknown as { team_config?: StandaloneTeamConfig })?.team_config;
-    if (teamConfig?.teams && teamConfig.teams.length > 0) {
-      return teamConfig.teams;
-    }
-
-    const allPlayerIds = currentPlayers.map((p) => p.id);
-    if (allPlayerIds.length > 0) {
-      return [{
-        id: 'default-team',
-        name: 'Team',
-        memberIds: allPlayerIds,
-      }];
-    }
-
-    return [];
-  }, [roundDetails, currentPlayers]);
 
   // Get team score for a specific team by index
   const getScrambleTeamScoreByIndex = useCallback((teamIndex: number, holeNumber: number): HoleScore | MultiBallHoleScore | undefined => {

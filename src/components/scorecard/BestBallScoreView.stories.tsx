@@ -56,6 +56,7 @@ function createTeam(id: string, name: string, players: Player[]): TeamWithMember
     id,
     competition_id: 'comp-1',
     name,
+    color: null,
     members: players.map((player) => ({
       team_id: id,
       player_id: player.id,

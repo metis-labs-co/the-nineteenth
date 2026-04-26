@@ -12,16 +12,15 @@ import type {
   ScorecardWithHandicap,
   CourseHoleData,
   EngineConfig,
-  TeamScoringResult,
 } from './types';
 import { DEFAULT_ENGINE_CONFIG } from './types';
 import type { IScoringEngine } from './engines/IScoringEngine';
 import {
   StablefordEngine,
   StrokePlayEngine,
+  ParEngine,
   MatchPlayEngine,
   TeamScoringEngine,
-  type TeamFormat,
 } from './engines';
 
 /**
@@ -112,90 +111,6 @@ export class ScoringOrchestrator {
   }
 
   /**
-   * Calculate team score for a team format
-   */
-  calculateTeamScore(
-    format: TeamFormat,
-    teamScores: ScorecardWithHandicap[],
-    courseData: CourseHoleData,
-    config: EngineConfig = DEFAULT_ENGINE_CONFIG
-  ): TeamScoringResult {
-    const engine = new TeamScoringEngine(format);
-
-    switch (format) {
-      case 'best-ball':
-        return engine.calculateBestBall(teamScores, courseData, config);
-      case 'scramble':
-        // Scramble uses same logic as Ambrose (team plays one ball)
-        return engine.calculateAmbrose(teamScores, courseData, config);
-      case 'aggregate':
-        return engine.calculateAggregate(teamScores, courseData, config);
-      case 'shamble':
-        // Shamble uses aggregate with Stableford scoring mode (sum of all Stableford points)
-        return engine.calculateAggregate(teamScores, courseData, config, 'stableford');
-      default:
-        return engine.calculateBestBall(teamScores, courseData, config);
-    }
-  }
-
-  /**
-   * Calculate team leaderboard
-   */
-  calculateTeamLeaderboard(
-    format: TeamFormat,
-    teams: { teamId: string; scores: ScorecardWithHandicap[] }[],
-    courseData: CourseHoleData,
-    config: EngineConfig = DEFAULT_ENGINE_CONFIG
-  ): LeaderboardEntry[] {
-    const teamResults: TeamScoringResult[] = teams.map((team) =>
-      this.calculateTeamScore(format, team.scores, courseData, config)
-    );
-
-    // Convert to leaderboard entries
-    const entries: LeaderboardEntry[] = teamResults.map((result) => ({
-      participantId: result.teamId,
-      teamId: result.teamId,
-      rawScore: result.rawScore,
-      position: 0,
-      tied: false,
-      competitionPoints: 0,
-      resultData: result.resultData,
-      isTeamResult: true,
-    }));
-
-    // Sort based on format
-    // Shamble and Best Ball use Stableford points (higher is better)
-    const higherIsBetter = format === 'best-ball' || format === 'shamble';
-    entries.sort((a, b) =>
-      higherIsBetter ? b.rawScore - a.rawScore : a.rawScore - b.rawScore
-    );
-
-    // Assign positions
-    let currentPosition = 1;
-    let i = 0;
-
-    while (i < entries.length) {
-      const currentScore = entries[i].rawScore;
-      const tiedEntries: LeaderboardEntry[] = [];
-
-      while (i < entries.length && entries[i].rawScore === currentScore) {
-        tiedEntries.push(entries[i]);
-        i++;
-      }
-
-      const isTied = tiedEntries.length > 1;
-      for (const entry of tiedEntries) {
-        entry.position = currentPosition;
-        entry.tied = isTied;
-      }
-
-      currentPosition += tiedEntries.length;
-    }
-
-    return entries;
-  }
-
-  /**
    * Clear the result cache
    */
   clearCache(): void {
@@ -221,6 +136,8 @@ export class ScoringOrchestrator {
         return new StablefordEngine();
       case 'stroke':
         return new StrokePlayEngine();
+      case 'par':
+        return new ParEngine();
       case 'match-play':
         return new MatchPlayEngine();
       case 'best-ball':

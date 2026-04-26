@@ -9,6 +9,54 @@ import type {
   GeneratePairingsOptions,
   GeneratePairingsResult,
 } from '@/types';
+import type { TeamFormat } from '@/types/database.types';
+
+/**
+ * The grouping shape that a round type implies.
+ *
+ * - 'team-together'  → each team plays as one tee group (scramble).
+ * - 'team-balanced'  → cross-team split within each group (team round
+ *                      with individual-style scoring, e.g. Stableford).
+ * - 'snake-draft'    → handicap-balanced groups for non-team rounds.
+ * - 'none'           → groups are driven by sub-matches, not by a
+ *                      separate shuffle (split round_format).
+ */
+export type GroupingStrategy =
+  | 'team-together'
+  | 'team-balanced'
+  | 'snake-draft'
+  | 'none';
+
+/**
+ * Decide which grouping algorithm a round should use.
+ *
+ * The mapping is intrinsic to the round's type — organisers don't pick
+ * a grouping shape separately from the round type. Callers should use
+ * this to drive both the "Shuffle groups" UI (hidden for `team-together`
+ * and `none`) and the algorithm dispatch inside shuffle handlers.
+ */
+export function pickGroupingStrategy({
+  teamFormat,
+  isSplitRound,
+  isTeamRound,
+  teamCount,
+}: {
+  teamFormat: TeamFormat | null | undefined;
+  isSplitRound: boolean;
+  isTeamRound: boolean;
+  teamCount: number;
+}): GroupingStrategy {
+  // Split rounds: tee groups come from the sub-matches table — no
+  // separate group shuffle at this level. TODO: regenerate pairings on
+  // preset change (see src/services/rounds/applyPresetToRound.ts).
+  if (isSplitRound) return 'none';
+  // Scramble: whole team plays one ball → teammates MUST share a group.
+  if (teamFormat === 'scramble') return 'team-together';
+  // Any other team round with 2+ rostered teams → balanced cross-team mix.
+  if (isTeamRound && teamCount >= 2) return 'team-balanced';
+  // No team context → handicap-balanced snake draft over everyone.
+  return 'snake-draft';
+}
 
 export interface GenerateTeamBalancedGroupsOptions {
   /** One entry per team, holding that team's players. Team order is preserved
@@ -25,6 +73,51 @@ export interface GenerateTeamBalancedGroupsOptions {
 export interface GenerateTeamBalancedGroupsResult {
   groups: PairingGroup[];
   warnings: string[];
+}
+
+export interface GenerateTeamTogetherGroupsOptions {
+  /** One entry per team, holding that team's players. Each team becomes one
+   *  or more groups in input order. */
+  teamPlayers: PairingPlayer[][];
+  /** Start tee time HH:MM. */
+  startTime: string;
+  /** Minutes between tee groups. */
+  intervalMinutes: number;
+  /** Max players per physical tee group. Teams larger than this are split
+   *  into successive chunks of this size. Defaults to 4 (foursome limit). */
+  maxGroupSize?: number;
+}
+
+export interface GenerateTeamTogetherGroupsResult {
+  groups: PairingGroup[];
+  warnings: string[];
+}
+
+/**
+ * Fisher-Yates shuffle within contiguous tiers of a handicap-sorted array.
+ *
+ * Used by the snake-draft generators so repeated "Shuffle groups" calls
+ * produce different player-to-group assignments while preserving the
+ * skill-balance invariant (each group still receives one player from
+ * each tier). Tier size matches the number of groups — one player per
+ * tier per group, which is what the snake pattern consumes per round.
+ *
+ * Pure with respect to the input array (returns a new array). Uses
+ * Math.random(); callers that need determinism should swap in a seeded
+ * RNG via a parameter — not needed today.
+ */
+function shuffleWithinTiers<T>(sorted: readonly T[], tierSize: number): T[] {
+  if (tierSize < 2 || sorted.length < 2) return [...sorted];
+  const result: T[] = [];
+  for (let i = 0; i < sorted.length; i += tierSize) {
+    const tier = sorted.slice(i, i + tierSize);
+    for (let j = tier.length - 1; j > 0; j -= 1) {
+      const k = Math.floor(Math.random() * (j + 1));
+      [tier[j], tier[k]] = [tier[k], tier[j]];
+    }
+    result.push(...tier);
+  }
+  return result;
 }
 
 /**
@@ -80,6 +173,11 @@ export function generateSnakeDraftPairings(
   // Calculate number of groups needed
   const numGroups = Math.ceil(sortedPlayers.length / groupSize);
 
+  // Randomize within handicap tiers so repeated shuffles produce
+  // different arrangements. Each tier holds `numGroups` players — one
+  // per group per snake-draft round — so skill balance is preserved.
+  const draftOrder = shuffleWithinTiers(sortedPlayers, numGroups);
+
   // Initialize empty groups
   const groups: PairingPlayer[][] = Array.from({ length: numGroups }, () => []);
 
@@ -87,7 +185,7 @@ export function generateSnakeDraftPairings(
   let currentGroup = 0;
   let direction = 1; // 1 = forward, -1 = backward
 
-  for (const player of sortedPlayers) {
+  for (const player of draftOrder) {
     groups[currentGroup].push(player);
 
     // Move to next group using snake pattern
@@ -438,6 +536,18 @@ export interface GenerateSubMatchesOptions {
   startTime: string;
   /** Minutes between tee groups */
   intervalMinutes: number;
+  /**
+   * Optional override of team A's player order. When provided, the snake-draft
+   * is bypassed and players are bucketed into sub-teams in the given order
+   * (slots of `subMatchSize`). Used by `pairing_source='current_standings'`
+   * rounds where the order is already determined by competition standings.
+   *
+   * Must contain exactly the same player IDs as `teamAPlayers` (any order
+   * mismatch falls back to handicap snake-draft for safety).
+   */
+  preOrderedTeamA?: string[];
+  /** See `preOrderedTeamA`. */
+  preOrderedTeamB?: string[];
 }
 
 export interface GeneratedSubMatch {
@@ -458,6 +568,36 @@ export interface GeneratedSubMatch {
 export interface GenerateSubMatchesResult {
   subMatches: GeneratedSubMatch[];
   warnings: string[];
+}
+
+/**
+ * Bucket a team's players into sub-teams using a caller-supplied id order
+ * (e.g. competition standings rank). Slots fill `subMatchSize` at a time —
+ * `[id1, id2, id3, id4]` with size 2 → `[[p1,p2], [p3,p4]]`.
+ *
+ * Returns `null` when the supplied order doesn't exactly match the player
+ * roster, so the caller can fall back to handicap snake-draft.
+ */
+function bucketByOrder(
+  players: PairingPlayer[],
+  orderedIds: string[],
+  subMatchSize: number
+): PairingPlayer[][] | null {
+  if (orderedIds.length !== players.length) return null;
+
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const ordered: PairingPlayer[] = [];
+  for (const id of orderedIds) {
+    const player = byId.get(id);
+    if (!player) return null;
+    ordered.push(player);
+  }
+
+  const subTeams: PairingPlayer[][] = [];
+  for (let i = 0; i < ordered.length; i += subMatchSize) {
+    subTeams.push(ordered.slice(i, i + subMatchSize));
+  }
+  return subTeams;
 }
 
 /**
@@ -522,7 +662,15 @@ function snakeDraftSubTeams(
 export function generateSubMatches(
   options: GenerateSubMatchesOptions
 ): GenerateSubMatchesResult {
-  const { teamAPlayers, teamBPlayers, subMatchSize, startTime, intervalMinutes } = options;
+  const {
+    teamAPlayers,
+    teamBPlayers,
+    subMatchSize,
+    startTime,
+    intervalMinutes,
+    preOrderedTeamA,
+    preOrderedTeamB,
+  } = options;
   const warnings: string[] = [];
 
   if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
@@ -532,8 +680,14 @@ export function generateSubMatches(
     };
   }
 
-  const subTeamsA = snakeDraftSubTeams(teamAPlayers, subMatchSize);
-  const subTeamsB = snakeDraftSubTeams(teamBPlayers, subMatchSize);
+  const subTeamsA = preOrderedTeamA
+    ? bucketByOrder(teamAPlayers, preOrderedTeamA, subMatchSize) ??
+      snakeDraftSubTeams(teamAPlayers, subMatchSize)
+    : snakeDraftSubTeams(teamAPlayers, subMatchSize);
+  const subTeamsB = preOrderedTeamB
+    ? bucketByOrder(teamBPlayers, preOrderedTeamB, subMatchSize) ??
+      snakeDraftSubTeams(teamBPlayers, subMatchSize)
+    : snakeDraftSubTeams(teamBPlayers, subMatchSize);
 
   const numSubMatches = Math.max(subTeamsA.length, subTeamsB.length);
 
@@ -633,16 +787,20 @@ export function generateTeamBalancedGroups(
   // Snake-draft each team by handicap into `numGroups` buckets. The draft
   // direction alternates between teams so the strongest player on team A
   // and the strongest on team B don't always land together in group 0.
+  // Within each team we shuffle within handicap tiers first so repeated
+  // shuffles swap which teammate lands in which group while preserving
+  // the per-group skill balance.
   const teamBuckets: PairingPlayer[][][] = nonEmptyTeams.map((players, teamIdx) => {
     const sorted = [...players].sort((a, b) => {
       const ha = a.handicap ?? 54;
       const hb = b.handicap ?? 54;
       return ha - hb;
     });
+    const draftOrder = shuffleWithinTiers(sorted, numGroups);
     const buckets: PairingPlayer[][] = Array.from({ length: numGroups }, () => []);
     let idx = teamIdx % 2 === 0 ? 0 : numGroups - 1;
     let dir = teamIdx % 2 === 0 ? 1 : -1;
-    for (const p of sorted) {
+    for (const p of draftOrder) {
       buckets[idx].push(p);
       const next = idx + dir;
       if (next >= numGroups) {
@@ -682,6 +840,57 @@ export function generateTeamBalancedGroups(
       `At least one group exceeds the requested size of ${groupSize}`
     );
   }
+
+  return { groups, warnings };
+}
+
+/**
+ * Generate one on-course tee group per team — teammates stay together.
+ *
+ * Used for formats where the whole team plays as a single unit on a hole
+ * (e.g. Team Scramble: all 4 members play from the best shot of the four).
+ * Unlike `generateTeamBalancedGroups`, this does NOT interleave teams —
+ * Team A's players land in one group, Team B's in the next.
+ *
+ * Teams larger than `maxGroupSize` (default 4, foursome limit) are split
+ * into successive chunks; a warning is emitted so the UI can surface the
+ * unusual shape. Empty teams are skipped.
+ */
+export function generateTeamTogetherGroups(
+  options: GenerateTeamTogetherGroupsOptions
+): GenerateTeamTogetherGroupsResult {
+  const { teamPlayers, startTime, intervalMinutes, maxGroupSize = 4 } = options;
+  const warnings: string[] = [];
+
+  if (maxGroupSize < 2) {
+    warnings.push('Group size must be at least 2');
+    return { groups: [], warnings };
+  }
+
+  const nonEmptyTeams = teamPlayers.filter((t) => t.length > 0);
+  if (nonEmptyTeams.length === 0) {
+    warnings.push('No teams with players for team-together groups');
+    return { groups: [], warnings };
+  }
+
+  const groups: PairingGroup[] = [];
+  let slotIndex = 0;
+  nonEmptyTeams.forEach((team, teamIdx) => {
+    if (team.length > maxGroupSize) {
+      warnings.push(
+        `Team ${teamIdx + 1} has ${team.length} players — split across multiple groups to respect the ${maxGroupSize}-player tee group limit`
+      );
+    }
+    for (let i = 0; i < team.length; i += maxGroupSize) {
+      const chunk = team.slice(i, i + maxGroupSize);
+      groups.push({
+        playerIds: chunk.map((p) => p.id),
+        teeTime: calculateTeeTime(startTime, intervalMinutes, slotIndex),
+        slotIndex,
+      });
+      slotIndex += 1;
+    }
+  });
 
   return { groups, warnings };
 }

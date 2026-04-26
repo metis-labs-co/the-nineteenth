@@ -26,6 +26,8 @@ export interface SettingsSectionProps {
    * complex data migration if changed mid-competition.
    */
   hasStartedRound: boolean;
+  /** Called when the Team Size row is pressed — navigates to the Teams tab. */
+  onViewTeams?: () => void;
 }
 
 export interface CoursesSectionProps {

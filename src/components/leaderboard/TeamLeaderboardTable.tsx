@@ -4,7 +4,8 @@
  * Features:
  * - Sorted list of teams by points (descending)
  * - Columns: Position | Team Name | Avg HC | Points
- * - Expandable rows to show team members with individual stats
+ * - Expandable rows show players (names + handicap) and a per-round
+ *   points breakdown so the user can see how the total was earned
  * - Highlight row if current user is a team member
  * - Trophy icon for 1st place
  * - Handle ties with 'T' suffix on position
@@ -13,8 +14,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { EmptyState, LoadingSpinner, ScaledText } from '@/components/common';
-import { IconTrophy, IconChevronDown, IconChevronUp, IconUser } from '@tabler/icons-react-native';
+import { Badge, EmptyState, LoadingSpinner, ScaledText } from '@/components/common';
+import { IconTrophy, IconChevronDown, IconChevronUp, IconFlag } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -24,7 +25,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-/** Team member with individual stats */
+/** Team member info */
 export interface TeamMemberEntry {
   /** Player ID */
   playerId: string;
@@ -32,10 +33,20 @@ export interface TeamMemberEntry {
   playerName: string;
   /** Player handicap */
   handicap: number;
-  /** Individual points contributed */
+}
+
+/** Per-round points breakdown for a team */
+export interface RoundBreakdownEntry {
+  /** Round ID */
+  roundId: string;
+  /** Short round label (e.g., "R1") */
+  roundLabel: string;
+  /** Optional course/round subtitle (e.g., course name) */
+  courseName?: string;
+  /** Position the team finished in this round */
+  position: number;
+  /** Competition points earned this round */
   points: number;
-  /** Number of rounds played */
-  roundsPlayed?: number;
 }
 
 /** Team leaderboard entry */
@@ -48,8 +59,10 @@ export interface TeamLeaderboardEntry {
   avgHandicap: number;
   /** Total team points */
   totalPoints: number;
-  /** Team members with individual stats */
+  /** Team members (used for the inline player list and current-user highlighting) */
   members: TeamMemberEntry[];
+  /** Per-round points breakdown shown when the row is expanded */
+  roundBreakdown?: RoundBreakdownEntry[];
 }
 
 export interface TeamLeaderboardTableProps {
@@ -63,8 +76,6 @@ export interface TeamLeaderboardTableProps {
   showTiedIndicator?: boolean;
   /** Custom empty state message */
   emptyMessage?: string;
-  /** Hide individual member points (e.g., for scramble format where individual scores don't apply) */
-  hideMemberPoints?: boolean;
   /** Test ID for testing */
   testID?: string;
 }
@@ -116,13 +127,31 @@ function calculatePositions(
   });
 }
 
+/**
+ * Add an ordinal suffix to a position number (1 -> "1st", 2 -> "2nd", etc.)
+ */
+function ordinal(n: number): string {
+  const abs = Math.abs(n);
+  const lastTwo = abs % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;
+  switch (abs % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 export function TeamLeaderboardTable({
   leaderboard,
   currentUserId,
   isLoading = false,
   showTiedIndicator = true,
   emptyMessage = 'Team standings will appear here once scores are submitted.',
-  hideMemberPoints = false,
   testID,
 }: TeamLeaderboardTableProps) {
   const colors = useThemeColors();
@@ -210,7 +239,7 @@ export function TeamLeaderboardTable({
               onPress={() => toggleExpanded(entry.teamId)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`${entry.teamName}, Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}, Average handicap ${entry.avgHandicap.toFixed(1)}, ${entry.totalPoints} points. ${isExpanded ? 'Collapse' : 'Expand'} to see team members.`}
+              accessibilityLabel={`${entry.teamName}, Position ${entry.position}${entry.isTied && showTiedIndicator ? ' tied' : ''}, Average handicap ${entry.avgHandicap.toFixed(1)}, ${entry.totalPoints} points. ${isExpanded ? 'Collapse' : 'Expand'} to see players and per-round points breakdown.`}
               accessibilityState={{ expanded: isExpanded }}
             >
               {/* Position */}
@@ -236,17 +265,20 @@ export function TeamLeaderboardTable({
 
               {/* Team Name */}
               <View style={[styles.tableCell, styles.teamCol]}>
-                <ScaledText
-                  category="body"
-                  style={[
-                    styles.teamName,
-                    { color: colors.textPrimary },
-                    entry.hasCurrentUser && [styles.teamNameHighlighted, { color: colors.primary }],
-                  ]}
-                  numberOfLines={1}
-                >
-                  {entry.teamName}
-                </ScaledText>
+                <View style={styles.teamNameRow}>
+                  <ScaledText
+                    category="body"
+                    style={[
+                      styles.teamName,
+                      { color: colors.textPrimary },
+                      entry.hasCurrentUser && [styles.teamNameHighlighted, { color: colors.primary }],
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {entry.teamName}
+                  </ScaledText>
+                  {entry.hasCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+                </View>
                 <ScaledText category="caption" style={[styles.memberCount, { color: colors.textTertiary }]}>
                   {entry.members.length} member{entry.members.length !== 1 ? 's' : ''}
                 </ScaledText>
@@ -291,70 +323,126 @@ export function TeamLeaderboardTable({
               </View>
             </TouchableOpacity>
 
-            {/* Expanded Team Members */}
+            {/* Expanded: Players + Per-round Points Breakdown */}
             {isExpanded && (
-              <View style={[styles.membersContainer, { backgroundColor: colors.surfaceVariant }]}>
-                {entry.members.map((member, memberIndex) => {
-                  const isCurrentUserMember = member.playerId === currentUserId;
-
-                  return (
-                    <View
-                      key={member.playerId}
-                      style={[
-                        styles.memberRow,
-                        memberIndex < entry.members.length - 1 && {
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.border,
-                        },
-                      ]}
-                      accessibilityRole="text"
-                      accessibilityLabel={`${isCurrentUserMember ? 'You' : member.playerName}, Handicap ${member.handicap}${!hideMemberPoints ? `, ${member.points} points` : ''}`}
+              <View
+                style={[styles.expandedContainer, { backgroundColor: colors.surfaceVariant }]}
+                testID={testID ? `${testID}-breakdown-${entry.teamId}` : undefined}
+              >
+                {/* Players inline list */}
+                {entry.members.length > 0 && (
+                  <View style={styles.playersLine}>
+                    <ScaledText
+                      category="caption"
+                      style={[styles.playersLabel, { color: colors.textSecondary }]}
                     >
-                      {/* Member Icon */}
-                      <View style={styles.memberIconCol}>
-                        <IconUser size={16} color={colors.textTertiary} />
-                      </View>
+                      Players:
+                    </ScaledText>
+                    <ScaledText
+                      category="caption"
+                      style={[styles.playersList, { color: colors.textPrimary }]}
+                    >
+                      {entry.members
+                        .map((m) =>
+                          m.playerId === currentUserId
+                            ? `You (${m.handicap})`
+                            : `${m.playerName} (${m.handicap})`
+                        )
+                        .join(', ')}
+                    </ScaledText>
+                  </View>
+                )}
 
-                      {/* Member Name */}
-                      <View style={[styles.memberNameCol, hideMemberPoints && styles.memberNameColExpanded]}>
-                        <ScaledText
-                          category="body"
-                          style={[
-                            styles.memberName,
-                            { color: colors.textPrimary },
-                            isCurrentUserMember && { color: colors.primary, fontWeight: '600' },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {isCurrentUserMember ? 'You' : member.playerName}
-                        </ScaledText>
-                      </View>
+                {/* Per-round breakdown */}
+                {entry.roundBreakdown && entry.roundBreakdown.length > 0 ? (
+                  <View style={styles.breakdownTable}>
+                    {/* Breakdown header */}
+                    <View style={[styles.breakdownHeader, { borderBottomColor: colors.border }]}>
+                      <ScaledText
+                        category="caption"
+                        style={[styles.breakdownHeaderCell, styles.breakdownRoundCol, { color: colors.textSecondary }]}
+                      >
+                        Round
+                      </ScaledText>
+                      <ScaledText
+                        category="caption"
+                        style={[styles.breakdownHeaderCell, styles.breakdownPosCol, { color: colors.textSecondary }]}
+                      >
+                        Pos
+                      </ScaledText>
+                      <ScaledText
+                        category="caption"
+                        style={[styles.breakdownHeaderCell, styles.breakdownPtsCol, { color: colors.textSecondary }]}
+                      >
+                        Pts
+                      </ScaledText>
+                    </View>
 
-                      {/* Member Handicap */}
-                      <View style={styles.memberHandicapCol}>
-                        <ScaledText category="caption" style={[styles.memberStat, { color: colors.textSecondary }]}>
-                          HC: {member.handicap}
-                        </ScaledText>
-                      </View>
+                    {/* Breakdown rows */}
+                    {entry.roundBreakdown.map((round, roundIndex) => (
+                      <View
+                        key={round.roundId}
+                        style={[
+                          styles.breakdownRow,
+                          roundIndex < entry.roundBreakdown!.length - 1 && {
+                            borderBottomWidth: 1,
+                            borderBottomColor: colors.border,
+                          },
+                        ]}
+                        accessibilityRole="text"
+                        accessibilityLabel={`${round.roundLabel}${round.courseName ? `, ${round.courseName}` : ''}, finished ${ordinal(round.position)}, ${round.points} points`}
+                      >
+                        <View style={[styles.breakdownCell, styles.breakdownRoundCol]}>
+                          <View style={styles.roundLabelRow}>
+                            <IconFlag size={14} color={colors.textTertiary} />
+                            <ScaledText
+                              category="caption"
+                              style={[styles.roundLabel, { color: colors.textPrimary }]}
+                            >
+                              {round.roundLabel}
+                            </ScaledText>
+                          </View>
+                          {round.courseName && (
+                            <ScaledText
+                              category="caption"
+                              style={[styles.roundCourse, { color: colors.textTertiary }]}
+                              numberOfLines={1}
+                            >
+                              {round.courseName}
+                            </ScaledText>
+                          )}
+                        </View>
 
-                      {/* Member Points - hidden for scramble format */}
-                      {!hideMemberPoints && (
-                        <View style={styles.memberPointsCol}>
+                        <View style={[styles.breakdownCell, styles.breakdownPosCol]}>
                           <ScaledText
                             category="caption"
-                            style={[
-                              styles.memberPoints,
-                              { color: colors.textPrimary },
-                              isCurrentUserMember && { color: colors.primary },
-                            ]}
+                            style={[styles.breakdownPos, { color: colors.textSecondary }]}
                           >
-                            {member.points} pts
+                            {ordinal(round.position)}
                           </ScaledText>
                         </View>
-                      )}
-                    </View>
-                  );
-                })}
+
+                        <View style={[styles.breakdownCell, styles.breakdownPtsCol]}>
+                          <ScaledText
+                            category="caption"
+                            style={[styles.breakdownPts, { color: colors.textPrimary }]}
+                          >
+                            {round.points}
+                          </ScaledText>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.breakdownEmpty}>
+                    <ScaledText
+                      category="caption"
+                      style={{ color: colors.textTertiary, textAlign: 'center' }}
+                    >
+                      No rounds played yet
+                    </ScaledText>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -439,8 +527,15 @@ const styles = StyleSheet.create({
   },
 
   // Team
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   teamName: {
     ...typography.body,
+    flexShrink: 1,
   },
   teamNameHighlighted: {
     ...typography.bodyBold,
@@ -463,45 +558,84 @@ const styles = StyleSheet.create({
     // Color applied inline
   },
 
-  // Expanded Members
-  membersContainer: {
+  // Expanded section
+  expandedContainer: {
     marginHorizontal: -spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
   },
-  memberRow: {
+
+  // Players inline list
+  playersLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  playersLabel: {
+    ...typography.captionBold,
+  },
+  playersList: {
+    ...typography.caption,
+    flexShrink: 1,
+  },
+
+  // Per-round breakdown table
+  breakdownTable: {
+    paddingHorizontal: spacing.sm,
+  },
+  breakdownHeader: {
+    flexDirection: 'row',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
+  breakdownHeaderCell: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+  },
+  breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
-    paddingLeft: spacing.xl,
   },
-  memberIconCol: {
-    width: 24,
-    alignItems: 'center',
+  breakdownCell: {
+    justifyContent: 'center',
   },
-  memberNameCol: {
+  breakdownRoundCol: {
     flex: 1,
     paddingRight: spacing.sm,
   },
-  memberNameColExpanded: {
-    flex: 2, // Take more space when points column is hidden
-  },
-  memberName: {
-    ...typography.small,
-  },
-  memberHandicapCol: {
-    width: 60,
+  breakdownPosCol: {
+    width: 56,
     alignItems: 'center',
   },
-  memberStat: {
-    ...typography.caption,
-  },
-  memberPointsCol: {
-    width: 60,
+  breakdownPtsCol: {
+    width: 48,
     alignItems: 'flex-end',
   },
-  memberPoints: {
+  roundLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  roundLabel: {
     ...typography.smallBold,
+  },
+  roundCourse: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+  breakdownPos: {
+    ...typography.small,
+  },
+  breakdownPts: {
+    ...typography.smallBold,
+  },
+  breakdownEmpty: {
+    paddingVertical: spacing.md,
   },
 
   // Loading state
@@ -509,11 +643,6 @@ const styles = StyleSheet.create({
     padding: spacing.xxxl,
     alignItems: 'center',
   },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.md,
-  },
-
 });
 
 export default TeamLeaderboardTable;

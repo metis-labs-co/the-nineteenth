@@ -123,6 +123,7 @@ async function fetchScoringPairsData(
         id: string;
         competition_id: string;
         name: string;
+        color: string | null;
         created_at: string;
         updated_at: string;
         team_members: {
@@ -136,6 +137,7 @@ async function fetchScoringPairsData(
         id: team.id,
         competition_id: team.competition_id,
         name: team.name,
+        color: team.color ?? null,
         created_at: team.created_at,
         updated_at: team.updated_at,
         members: (team.team_members || []).map((tm) => ({
@@ -292,15 +294,26 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
     return map;
   }, [data?.teams]);
 
-  // Player-id → team-slot-index map. Drives the chip/card colour tint
-  // in the formation UI: team 0 → green, team 1 → gold, etc. Teams are
-  // already ordered by `created_at` in the query, so indexes are stable
-  // across refetches.
+  // Player-id → team-slot-index map. Used as the colour fallback when a
+  // team's stored colour is missing. Teams are already ordered by
+  // `created_at` in the query, so indexes are stable across refetches.
   const teamIndexByPlayerId = useMemo(() => {
     const map = new Map<string, number>();
     (data?.teams ?? []).forEach((team, idx) => {
       (team.members || []).forEach((member) => {
         if (member.player_id) map.set(member.player_id, idx);
+      });
+    });
+    return map;
+  }, [data?.teams]);
+
+  // Player-id → stored team colour id. Drives the chip/card colour tint
+  // in the formation UI when the team has a colour assigned.
+  const teamColorByPlayerId = useMemo(() => {
+    const map = new Map<string, string | null>();
+    (data?.teams ?? []).forEach((team) => {
+      (team.members || []).forEach((member) => {
+        if (member.player_id) map.set(member.player_id, team.color ?? null);
       });
     });
     return map;
@@ -425,6 +438,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
         isTeamMatchPlay={isTeamMatchPlay}
         teamNameByPlayerId={teamNameByPlayerId}
         teamIndexByPlayerId={teamIndexByPlayerId}
+        teamColorByPlayerId={teamColorByPlayerId}
         groupPlayerIds={groupPlayerIds}
         onSave={handleSavePairs}
         onCancel={handleCancel}

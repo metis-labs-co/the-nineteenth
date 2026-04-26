@@ -54,16 +54,18 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
   const colors = useThemeColors();
   const queryClient = useQueryClient();
 
-  // Scoring pairs only applies to individual, multi-player rounds.
-  // Team rounds have their own natural scoring flow (teammates score each
-  // other) and Scramble has no per-player cards at all, so the designated-
-  // marker concept doesn't translate. Solo rounds are also excluded since
-  // there's nobody to pair with.
-  const showScoringPairs = players.length > 1 && !round.is_team_round;
+  // Scoring pairs need at least 2 players and per-player scorecards. Scramble
+  // is the only team format that can't support them — there's a single shared
+  // card per team, so "designate a marker for each player" is meaningless.
+  // Every other team format (match-play-team, best-ball, shamble, aggregate)
+  // benefits from explicit pairs — for ryder_cup_singles in particular, the
+  // 1v1 sub-match is itself the natural scoring pair, and the engine's cross-
+  // team / group-aware generator handles the assignment automatically.
+  const showScoringPairs = players.length > 1 && round.team_format !== 'scramble';
 
-  // Flip round.scoring_pairs_required. For >4-player rounds this just
-  // gates the Groups-tab "Scoring pairs" button; for ≤4-player rounds
-  // it also drives whether the pair-management card below is visible.
+  // Flip round.scoring_pairs_required. Drives whether the pair-management
+  // card is enabled and whether the read-only summary appears on the
+  // Groups tab during the round.
   const handleToggleScoringPairs = useCallback(
     async (enabled: boolean) => {
       try {
@@ -94,7 +96,6 @@ export const RoundGameSetupTab = React.memo(function RoundGameSetupTab({
           cardBackground={colors.surface}
           roundStatus={round.status as RoundStatus}
           onEditPress={isOrganizer ? onScoringPairsEditPress : undefined}
-          playerCount={players.length}
           onToggleEnabled={isOrganizer ? handleToggleScoringPairs : undefined}
         />
       )}

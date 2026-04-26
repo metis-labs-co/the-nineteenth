@@ -17,6 +17,11 @@ import { storeLogger } from '@/utils/debugLogger';
 import { isValidUUID } from './utils/scorecardCalculations';
 
 type SetFn = (partial: Record<string, unknown>) => void;
+type GetFn = () => {
+  currentRoundId: string | null;
+  currentPlayers: Player[];
+  groupScorecards: Map<string, Scorecard>;
+};
 
 export async function initializeRound(
   set: SetFn,
@@ -252,4 +257,90 @@ export async function loadFromOffline(
     set({ isLoading: false });
     return false;
   }
+}
+
+/**
+ * Idempotent backfill for team-member scorecards.
+ *
+ * Why this exists: `initializeRound` runs once when scoring first opens —
+ * if a player is added to a team after that point, no scorecard ever gets
+ * created for them. They appear on the Teams tab and as a contribution
+ * candidate (those read team_members directly), but they're missing from
+ * the round leaderboard team list and have no entry on the scorecard
+ * screen.
+ *
+ * Called on every mount of useRoundData after the early-return paths so
+ * any newly-added team members get a scorecard inserted now. Skips
+ * players who already have a scorecard.
+ */
+export async function ensureTeamMemberScorecards(
+  set: SetFn,
+  get: GetFn,
+  teamMemberPlayers: Player[]
+): Promise<void> {
+  const state = get();
+  const { currentRoundId, currentPlayers, groupScorecards } = state;
+
+  if (!currentRoundId) return;
+  if (teamMemberPlayers.length === 0) return;
+
+  const missing = teamMemberPlayers.filter(
+    (p) => !groupScorecards.has(p.id)
+  );
+
+  if (missing.length === 0) return;
+
+  storeLogger.info('Ensuring scorecards for newly-added team members', {
+    roundId: currentRoundId,
+    missingCount: missing.length,
+    missingPlayers: missing.map((p) => p.name),
+  });
+
+  const updatedScorecards = new Map(groupScorecards);
+
+  for (const player of missing) {
+    const scorecard: Scorecard = {
+      id: `scorecard-${currentRoundId}-${player.id}`,
+      roundId: currentRoundId,
+      playerId: player.id,
+      player,
+      scores: {},
+      totalGross: 0,
+      totalNet: 0,
+      status: 'in-progress',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // Match initializeRound's behaviour: inherit isStandalone from any
+      // existing scorecard (they all share the same flag for a round).
+      isStandalone: groupScorecards.values().next().value?.isStandalone ?? false,
+    };
+
+    updatedScorecards.set(player.id, scorecard);
+
+    try {
+      await saveScorecard(scorecard);
+    } catch (error) {
+      storeLogger.error('Failed to save backfill scorecard to SQLite', error, {
+        scorecardId: scorecard.id,
+        playerId: player.id,
+      });
+      // Don't bail on the whole batch — keep going for other missing
+      // players. The in-memory state still gets updated below.
+    }
+  }
+
+  // Merge the new players into currentPlayers (preserving original order
+  // for stable rendering, then appending the new ones at the end).
+  const existingIds = new Set(currentPlayers.map((p) => p.id));
+  const appendedPlayers = missing.filter((p) => !existingIds.has(p.id));
+
+  set({
+    currentPlayers: [...currentPlayers, ...appendedPlayers],
+    groupScorecards: updatedScorecards,
+  });
+
+  storeLogger.info('Backfilled team member scorecards', {
+    roundId: currentRoundId,
+    added: missing.length,
+  });
 }

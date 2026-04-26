@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@/__tests__/utils/renderHelpers';
+import { fireEvent, render, screen } from '@/__tests__/utils/renderHelpers';
 import { SubMatchesTab } from './SubMatchesTab';
 import type { SubMatch } from '@/types';
 
@@ -26,7 +26,10 @@ const mockUseUpdateSubMatchTeeTime = jest.fn<unknown, [string | undefined]>(() =
 }));
 
 jest.mock('@/hooks/rounds', () => ({
-  useSubMatches: (roundId: string | undefined) => mockUseSubMatches(roundId),
+  useSubMatches: (roundId: string | undefined) => ({
+    refetch: jest.fn(),
+    ...mockUseSubMatches(roundId),
+  }),
   useRoundScorecards: (roundId: string | undefined) => mockUseRoundScorecards(roundId),
   useUpdateSubMatchResult: (roundId: string | undefined) =>
     mockUseUpdateSubMatchResult(roundId),
@@ -34,10 +37,14 @@ jest.mock('@/hooks/rounds', () => ({
     mockUseUpdateSubMatchTeeTime(roundId),
   // New hooks introduced by the "Groups" mode — split-mode tests don't
   // exercise these paths, so stub them with no-op data.
-  usePairings: () => ({ data: [], isLoading: false }),
+  usePairings: () => ({ data: [], isLoading: false, refetch: jest.fn() }),
   useAutoGeneratePairings: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useReplacePairings: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useUpdatePairing: () => ({ mutateAsync: jest.fn(), isPending: false }),
+}));
+
+jest.mock('@/hooks/competitions', () => ({
+  useCompetitionLeaderboard: () => ({ data: [], isLoading: false }),
 }));
 
 jest.mock('@/hooks/scoringPairs', () => ({
@@ -55,14 +62,16 @@ jest.mock('@/hooks/scoringPairs', () => ({
   }),
 }));
 
+const mockUseRoundTeams = jest.fn(() => ({
+  teams: [] as { id: string; name: string; members: { player_id: string }[] }[],
+  isLoading: false,
+  error: null,
+  getPlayerTeam: () => undefined,
+  refetch: jest.fn(),
+}));
+
 jest.mock('@/hooks/scorecard/useRoundTeams', () => ({
-  useRoundTeams: () => ({
-    teams: [],
-    isLoading: false,
-    error: null,
-    getPlayerTeam: () => undefined,
-    refetch: jest.fn(),
-  }),
+  useRoundTeams: () => mockUseRoundTeams(),
 }));
 
 jest.mock('@/hooks/useRoundDetails', () => ({
@@ -76,6 +85,20 @@ jest.mock('@/hooks/useRoundDetails', () => ({
     isLoading: false,
   }),
 }));
+
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: null, player: null }),
+}));
+
+// Stub the ScoringPairsSection to a sentinel so tests can assert on its
+// presence without dragging in the full scoring-pairs data layer.
+jest.mock('@/components/rounds/ViewRound/RoundDetailsTab/components', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+  const { View } = require('react-native');
+  return {
+    ScoringPairsSection: () => <View testID="scoring-pairs-section-inline" />,
+  };
+});
 
 // ConfirmationDialog pulls in hooks we don't need to exercise here.
 jest.mock('@/components/common', () => {
@@ -112,6 +135,13 @@ describe('SubMatchesTab', () => {
     jest.clearAllMocks();
     mockUseUpdateSubMatchResult.mockImplementation(() => ({ mutateAsync: jest.fn() }));
     mockUseRoundScorecards.mockReturnValue({ data: [], isLoading: false });
+    mockUseRoundTeams.mockReturnValue({
+      teams: [],
+      isLoading: false,
+      error: null,
+      getPlayerTeam: () => undefined,
+      refetch: jest.fn(),
+    });
   });
 
   describe('Empty + loading states', () => {
@@ -229,6 +259,143 @@ describe('SubMatchesTab', () => {
 
       expect(screen.queryByLabelText('Forfeit Team A')).toBeNull();
       expect(screen.queryByLabelText('Forfeit Team B')).toBeNull();
+    });
+
+    it('hides the Shuffle button for combined Scramble rounds (team-together strategy)', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+      mockUseRoundTeams.mockReturnValue({
+        teams: [
+          { id: 't1', name: 'Team A', members: [{ player_id: 'p1' }, { player_id: 'p2' }] },
+          { id: 't2', name: 'Team B', members: [{ player_id: 'p3' }, { player_id: 'p4' }] },
+        ],
+        isLoading: false,
+        error: null,
+        getPlayerTeam: () => undefined,
+        refetch: jest.fn(),
+      });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          isOrganizer
+          isTeamRound
+          teamFormat="scramble"
+          gameType="scramble"
+        />
+      );
+
+      expect(screen.queryByTestId('groups-shuffle-button')).toBeNull();
+    });
+
+    it('shows the Shuffle button for team-balanced rounds (best-ball team round)', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+      mockUseRoundTeams.mockReturnValue({
+        teams: [
+          { id: 't1', name: 'Team A', members: [{ player_id: 'p1' }, { player_id: 'p2' }] },
+          { id: 't2', name: 'Team B', members: [{ player_id: 'p3' }, { player_id: 'p4' }] },
+        ],
+        isLoading: false,
+        error: null,
+        getPlayerTeam: () => undefined,
+        refetch: jest.fn(),
+      });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          isOrganizer
+          isTeamRound
+          teamFormat="best-ball"
+          gameType="stableford"
+        />
+      );
+
+      expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
+    });
+
+    it('shows the Shuffle button for non-team rounds (snake-draft strategy)', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+      // teams default to [] via beforeEach.
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          isOrganizer
+          isTeamRound={false}
+          gameType="stableford"
+        />
+      );
+
+      expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
+    });
+
+    it('no longer renders the Scoring pairs action button', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          competitionId="comp-1"
+          isOrganizer
+          scoringPairsEnabled
+          roundStatus="upcoming"
+          gameType="stableford"
+        />
+      );
+
+      // Management moved to Round Settings — this screen shows only a
+      // read-only summary, never an edit/navigate action button here.
+      expect(screen.queryByTestId('groups-scoring-pairs-button')).toBeNull();
+    });
+
+    it('shows sub-tabs and switches to Scoring Pairs view when enabled', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          competitionId="comp-1"
+          isOrganizer
+          scoringPairsEnabled
+          roundStatus="upcoming"
+          gameType="stableford"
+        />
+      );
+
+      // Sub-tab bar present with both labels.
+      expect(screen.getByText('Groups')).toBeTruthy();
+      expect(screen.getByText('Scoring Pairs')).toBeTruthy();
+
+      // Default view is Groups — shuffle button visible, pair summary hidden.
+      expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
+      expect(screen.queryByTestId('scoring-pairs-section-inline')).toBeNull();
+
+      // Tapping the Scoring Pairs sub-tab swaps the content.
+      fireEvent.press(screen.getByText('Scoring Pairs'));
+
+      expect(screen.queryByTestId('groups-shuffle-button')).toBeNull();
+      expect(screen.getByTestId('scoring-pairs-section-inline')).toBeTruthy();
+    });
+
+    it('omits the sub-tab bar and the Scoring Pairs section when disabled', () => {
+      mockUseSubMatches.mockReturnValue({ data: [], isLoading: false });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          competitionId="comp-1"
+          isOrganizer
+          scoringPairsEnabled={false}
+          roundStatus="upcoming"
+          gameType="stableford"
+        />
+      );
+
+      // No "Scoring Pairs" sub-tab label anywhere on the screen.
+      expect(screen.queryByText('Scoring Pairs')).toBeNull();
+      expect(screen.queryByTestId('scoring-pairs-section-inline')).toBeNull();
+      // Groups view renders directly — shuffle button still visible.
+      expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
     });
 
     it('hides forfeit buttons on completed sub-matches even for organizers', () => {

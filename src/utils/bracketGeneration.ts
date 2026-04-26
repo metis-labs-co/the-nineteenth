@@ -13,6 +13,7 @@ import type {
   KnockoutMatchWithPlayers,
   BracketStage,
   BracketData,
+  BracketSeedingStyle,
   ValidPlayerCount,
   SeedingMethod,
   GameType,
@@ -48,18 +49,33 @@ export interface BracketMatchSlot {
 
 /**
  * Generate seeded player list.
- * - handicap: sort by handicap (lowest = seed 1)
- * - random: shuffle randomly
+ * - handicap:   sort by handicap (lowest = seed 1)
+ * - random:     shuffle randomly
+ * - qualifying: use the `preOrdered` array verbatim (caller has already
+ *               sorted by qualifying-round standings — see
+ *               `getQualifyingStandings` in services/api/knockout.ts).
  */
 export function generateSeedings(
   players: { id: string; name: string; handicap: number | null }[],
-  method: SeedingMethod
+  method: SeedingMethod,
+  preOrdered?: { id: string; name: string; handicap: number | null }[]
 ): SeededPlayer[] {
-  const sorted = [...players];
+  let sorted: { id: string; name: string; handicap: number | null }[];
 
-  if (method === 'handicap') {
-    sorted.sort((a, b) => {
-      // Players without handicap go last
+  if (method === 'qualifying') {
+    // Caller pre-sorts by qualifying metric. If they forget, fall back to
+    // handicap so we never emit an unseeded bracket.
+    sorted = preOrdered && preOrdered.length > 0 ? [...preOrdered] : [...players];
+    if (!preOrdered || preOrdered.length === 0) {
+      sorted.sort((a, b) => {
+        if (a.handicap == null && b.handicap == null) return 0;
+        if (a.handicap == null) return 1;
+        if (b.handicap == null) return -1;
+        return a.handicap - b.handicap;
+      });
+    }
+  } else if (method === 'handicap') {
+    sorted = [...players].sort((a, b) => {
       if (a.handicap == null && b.handicap == null) return 0;
       if (a.handicap == null) return 1;
       if (b.handicap == null) return -1;
@@ -67,6 +83,7 @@ export function generateSeedings(
     });
   } else {
     // Fisher-Yates shuffle
+    sorted = [...players];
     for (let i = sorted.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
@@ -89,7 +106,7 @@ export function generateSeedings(
  * Standard seeding matchups for first round.
  * For 8 players: (1v8, 4v5, 2v7, 3v6) — ensures top seeds don't meet until later rounds.
  */
-function getFirstRoundMatchups(playerCount: ValidPlayerCount): [number, number][] {
+function getStandardFirstRoundMatchups(playerCount: ValidPlayerCount): [number, number][] {
   // Standard bracket ordering ensures top seeds are on opposite sides
   const matchups: Record<ValidPlayerCount, [number, number][]> = {
     4: [
@@ -119,15 +136,48 @@ function getFirstRoundMatchups(playerCount: ValidPlayerCount): [number, number][
 }
 
 /**
+ * Adjacent seeding matchups for first round.
+ * For 8 players: (1v2, 3v4, 5v6, 7v8) — pairs closely-matched seeds, no
+ * "top seed rewarded" structure. Used for social / friendly formats where
+ * every match should be competitive.
+ *
+ * The bracket tree itself (winner-advance links) stays the same — only the
+ * first-round pairings differ from standard.
+ */
+function getAdjacentFirstRoundMatchups(playerCount: ValidPlayerCount): [number, number][] {
+  const pairs: [number, number][] = [];
+  for (let seed = 1; seed <= playerCount; seed += 2) {
+    pairs.push([seed, seed + 1]);
+  }
+  return pairs;
+}
+
+function getFirstRoundMatchups(
+  playerCount: ValidPlayerCount,
+  style: BracketSeedingStyle = 'standard'
+): [number, number][] {
+  return style === 'adjacent'
+    ? getAdjacentFirstRoundMatchups(playerCount)
+    : getStandardFirstRoundMatchups(playerCount);
+}
+
+/**
  * Build the complete bracket structure for a given player count.
  * Returns all match slots for both main and consolation brackets.
+ *
+ * @param style 'standard' (default, classic knockout) or 'adjacent' (closely-
+ *              matched pairings for social play — requires advanced_round_rules
+ *              feature at edit time but honored here unconditionally).
  */
-export function buildBracketStructure(playerCount: ValidPlayerCount): BracketMatchSlot[] {
+export function buildBracketStructure(
+  playerCount: ValidPlayerCount,
+  style: BracketSeedingStyle = 'standard'
+): BracketMatchSlot[] {
   const totalMainStages = Math.log2(playerCount); // e.g. 3 for 8 players
   const matches: BracketMatchSlot[] = [];
 
   // --- MAIN BRACKET ---
-  const firstRoundMatchups = getFirstRoundMatchups(playerCount);
+  const firstRoundMatchups = getFirstRoundMatchups(playerCount, style);
   const mainMatchCountByStage: number[] = [];
 
   for (let stage = 0; stage < totalMainStages; stage++) {

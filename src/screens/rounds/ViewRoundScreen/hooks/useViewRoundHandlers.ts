@@ -176,7 +176,9 @@ export function useViewRoundHandlers({
   }, [refetchRound, refetchScorecards, refetchPlayers, isMatchPlayRound, refetchMatchPlay, hasSkinsGame, refetchSkinsResults, refetchSkinsGame, hasWolfGame, refetchWolfSummary]);
 
   // Header helpers
+  const customName = round?.name?.trim() || null;
   const getHeaderTitle = (): string | React.ReactNode => {
+    if (customName) return customName;
     if (isStandalone) {
       if (hasSkinsGame && hasWolfGame) return 'Skins & Wolf';
       if (hasSkinsGame) return 'Skins Match';
@@ -190,7 +192,9 @@ export function useViewRoundHandlers({
     return `Round ${round?.round_number || ''}`;
   };
 
-  const headerTitleHasIcons = isStandalone && (hasSkinsGame || hasWolfGame);
+  // Skins/Wolf icon treatment only applies to derived standalone titles.
+  // A custom name should render as plain text.
+  const headerTitleHasIcons = !customName && isStandalone && (hasSkinsGame || hasWolfGame);
 
   const handleNavigateToSubscription = useCallback(() => {
     navigation.navigate('Subscription');

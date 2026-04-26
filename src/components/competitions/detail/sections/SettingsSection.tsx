@@ -1,12 +1,11 @@
 /**
- * SettingsSection - Competition settings display and inline edit
+ * SettingsSection - Competition details display and inline edit
  *
  * Each line item on this card is tappable for organisers, opening a focused
- * bottom sheet for that field. Structural fields (Type, Format, Team Size)
- * are locked once any round has started scoring because changing them mid-
- * competition would require complex data migration.
- *
- * Status stays read-only — it's system-managed by scoring progress.
+ * bottom sheet for that field. Structural fields (Type, Format) are locked
+ * once any round has started scoring because changing them mid-competition
+ * would require complex data migration. Team Size is always read-only — it's
+ * fixed at competition setup.
  */
 
 import React, { useCallback, useState } from 'react';
@@ -27,16 +26,19 @@ import {
   EditCompetitionTypeSheet,
   EditHandicapSystemSheet,
   EditTeamModeSheet,
-  EditTeamSizeSheet,
   EditDatesSheet,
+  EditCompetitionRulesSheet,
+  EditScoringRulesModeSheet,
+  detectActivePreset,
 } from './sheets';
 
 type OpenSheet =
   | 'type'
   | 'handicap'
   | 'team-mode'
-  | 'team-size'
   | 'dates'
+  | 'rules-mode'
+  | 'general-rules'
   | null;
 
 // =====================================================
@@ -48,10 +50,12 @@ interface SettingRowProps {
   label: string;
   onPress?: () => void;
   locked?: boolean;
+  /** Overrides the default "Edit {label}" accessibility label when this row is a nav target. */
+  accessibilityLabel?: string;
   children: React.ReactNode;
 }
 
-function SettingRow({ icon, label, onPress, locked = false, children }: SettingRowProps) {
+function SettingRow({ icon, label, onPress, locked = false, accessibilityLabel, children }: SettingRowProps) {
   const colors = useThemeColors();
   const isInteractive = !!onPress;
 
@@ -82,7 +86,7 @@ function SettingRow({ icon, label, onPress, locked = false, children }: SettingR
       <TouchableOpacity
         onPress={onPress}
         style={styles.row}
-        accessibilityLabel={`Edit ${label}`}
+        accessibilityLabel={accessibilityLabel ?? `Edit ${label}`}
         accessibilityRole="button"
         activeOpacity={0.7}
       >
@@ -102,6 +106,7 @@ export function SettingsSection({
   competition,
   isOrganizer,
   hasStartedRound,
+  onViewTeams,
 }: SettingsSectionProps) {
   const colors = useThemeColors();
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
@@ -109,15 +114,28 @@ export function SettingsSection({
   const handleClose = useCallback(() => setOpenSheet(null), []);
 
   const canEdit = isOrganizer;
+  // Every competition setting is locked once any round has started or
+  // completed. Changing core fields (type, format, handicap system) mid-
+  // event would require data migration; changing scoring fields (dates,
+  // rules mode, general rules) would invalidate already-finalized results.
+  // Easier to lock everything uniformly and re-enable by resetting rounds.
   const structureLocked = hasStartedRound;
   const canEditStructure = canEdit && !structureLocked;
 
   const hasTeams = competition.team_mode !== 'none';
   const showEndDate = competition.competition_type === 'event' || !!competition.end_date;
 
+  // Scoring rules section (Phase 6).
+  const perRoundEnabled = competition.per_round_rules_enabled ?? false;
+  const modeLabel = perRoundEnabled ? 'Per-round rules' : 'General rules';
+  const rulesLabel =
+    detectActivePreset(competition.point_system ?? null) === 'standard'
+      ? 'Standard'
+      : 'Custom';
+
   return (
     <View style={styles.section}>
-      <SectionHeader title="Settings" icon="cog-outline" primaryIcon={false} />
+      <SectionHeader title="Competition Details" icon="cog-outline" primaryIcon={false} />
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {/* Type */}
@@ -139,7 +157,8 @@ export function SettingsSection({
         <SettingRow
           icon="golf"
           label="Handicap"
-          onPress={canEdit ? () => setOpenSheet('handicap') : undefined}
+          onPress={canEditStructure ? () => setOpenSheet('handicap') : undefined}
+          locked={canEdit && structureLocked}
         >
           <Text style={[styles.value, { color: colors.textPrimary }]}>
             {handicapSystemLabels[competition.handicap_system]}
@@ -159,15 +178,15 @@ export function SettingsSection({
           </Text>
         </SettingRow>
 
-        {/* Team Size (only if teams enabled) */}
+        {/* Team Size (only if teams enabled). Read-only value; tapping opens Teams tab. */}
         {hasTeams && competition.team_size != null && (
           <>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <SettingRow
               icon="account-multiple-outline"
               label="Team Size"
-              onPress={canEditStructure ? () => setOpenSheet('team-size') : undefined}
-              locked={canEdit && structureLocked}
+              onPress={onViewTeams}
+              accessibilityLabel="View teams"
             >
               <Text style={[styles.value, { color: colors.textPrimary }]}>
                 {`${competition.team_size} players`}
@@ -181,7 +200,8 @@ export function SettingsSection({
         <SettingRow
           icon="calendar-start"
           label="Start Date"
-          onPress={canEdit ? () => setOpenSheet('dates') : undefined}
+          onPress={canEditStructure ? () => setOpenSheet('dates') : undefined}
+          locked={canEdit && structureLocked}
         >
           <Text style={[styles.value, { color: colors.textPrimary }]}>
             {formatDateAustralian(competition.start_date)}
@@ -195,7 +215,8 @@ export function SettingsSection({
             <SettingRow
               icon="calendar-end"
               label="End Date"
-              onPress={canEdit ? () => setOpenSheet('dates') : undefined}
+              onPress={canEditStructure ? () => setOpenSheet('dates') : undefined}
+              locked={canEdit && structureLocked}
             >
               <Text style={[styles.value, { color: colors.textPrimary }]}>
                 {competition.end_date
@@ -206,11 +227,45 @@ export function SettingsSection({
           </>
         )}
 
+        {/* Scoring Rules Mode (Phase 6). Always visible to organisers so
+            the choice is explicit up-front. Per-round option is tier-gated
+            inside the sheet itself. */}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <SettingRow
+          icon="scale-balance"
+          label="Rules Mode"
+          onPress={canEditStructure ? () => setOpenSheet('rules-mode') : undefined}
+          locked={canEdit && structureLocked}
+        >
+          <Text style={[styles.value, { color: colors.textPrimary }]}>
+            {modeLabel}
+          </Text>
+        </SettingRow>
+
+        {/* General Rules — tap to open the point-system editor. Hidden when
+            the competition is in per-round mode (each round's override
+            supersedes this). */}
+        {!perRoundEnabled && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <SettingRow
+              icon="medal-outline"
+              label="General Rules"
+              onPress={canEditStructure ? () => setOpenSheet('general-rules') : undefined}
+              locked={canEdit && structureLocked}
+            >
+              <Text style={[styles.value, { color: colors.textPrimary }]}>
+                {rulesLabel}
+              </Text>
+            </SettingRow>
+          </>
+        )}
+
       </View>
 
       {canEdit && structureLocked && (
         <Text style={[styles.lockedFootnote, { color: colors.textSecondary }]}>
-          Type, Format and Team Size are locked once scoring has started.
+          Competition settings are locked once scoring has started.
         </Text>
       )}
 
@@ -241,14 +296,6 @@ export function SettingsSection({
           currentTeamSize={competition.team_size ?? null}
         />
       )}
-      {openSheet === 'team-size' && (
-        <EditTeamSizeSheet
-          visible
-          onDismiss={handleClose}
-          competitionId={competition.id}
-          currentSize={competition.team_size ?? null}
-        />
-      )}
       {openSheet === 'dates' && (
         <EditDatesSheet
           visible
@@ -257,6 +304,22 @@ export function SettingsSection({
           initialStartDate={competition.start_date}
           initialEndDate={competition.end_date ?? null}
           competitionType={competition.competition_type}
+        />
+      )}
+      {openSheet === 'rules-mode' && (
+        <EditScoringRulesModeSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentPerRoundEnabled={perRoundEnabled}
+        />
+      )}
+      {openSheet === 'general-rules' && (
+        <EditCompetitionRulesSheet
+          visible
+          onDismiss={handleClose}
+          competitionId={competition.id}
+          currentPointSystem={competition.point_system ?? null}
         />
       )}
     </View>

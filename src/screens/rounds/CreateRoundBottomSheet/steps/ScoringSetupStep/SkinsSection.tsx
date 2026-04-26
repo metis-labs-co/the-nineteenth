@@ -20,9 +20,10 @@ import {
 import type { SkinsConfig } from '@/types';
 import type { GameType } from '@/types/database.types';
 import type { PlayingPartner, ScrambleTeam } from '../../types';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
 /** Team game types that require splitIntoTeams for skins */
-const TEAM_GAME_TYPES: GameType[] = ['best-ball', 'scramble', 'shamble'];
+const TEAM_GAME_TYPES: GameType[] = TEAM_ONLY_GAME_TYPES;
 
 /**
  * Check if skins can be enabled for the given game configuration

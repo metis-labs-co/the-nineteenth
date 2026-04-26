@@ -24,11 +24,13 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useIsSocial } from '@/context/SubscriptionContext';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter } from '@/hooks/scorecard';
+import { usePairings } from '@/hooks/rounds';
 import {
   QuickScorecardView,
   HoleHeader,
   SwipeableHoleNavigator,
+  GroupFilterStrip,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
 import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
@@ -268,8 +270,21 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   });
 
   const isLoading = storeLoading || dataLoading;
+
+  // Group filter: when scoring pairs is off and the round has multiple pairings,
+  // default to scoring just the signed-in user's playing group.
+  const { data: pairings } = usePairings(roundId);
+  const groupFilter = useGroupFilter({
+    currentUserId: user?.id,
+    currentPlayers,
+    pairings,
+    scoringPairsEnabled,
+  });
+
   const playersToRender =
-    scoringPairsEnabled && playersToScore.length > 0 ? playersToScore : currentPlayers;
+    scoringPairsEnabled && playersToScore.length > 0
+      ? playersToScore
+      : groupFilter.groupPlayers;
   const hasHoles = holes.length > 0;
   const currentHoleData = getHoleInfo(currentHole);
 
@@ -304,6 +319,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
             contentContainerStyle={styles.playersContent}
             showsVerticalScrollIndicator={false}
           >
+            {groupFilter.canFilter && (
+              <GroupFilterStrip
+                isFiltered={groupFilter.isFiltered}
+                groupCount={groupFilter.groupCount}
+                totalCount={groupFilter.totalCount}
+                onToggle={groupFilter.toggleShowAll}
+              />
+            )}
             <ScorecardScoreContent
               currentHoleData={holeData}
               currentHole={holeNumber}
@@ -346,6 +369,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               isWolfProcessing={wolf.isWolfProcessing}
               onDetailedStatsPress={(playerId) => setDetailedStatsPlayerId(playerId)}
               isSoloRound={isSoloRound}
+              playersOverride={groupFilter.canFilter ? groupFilter.groupPlayers : undefined}
             />
 
             {!isTeamRound && (
@@ -380,6 +404,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       showFairwayHit, showGreenInRegulation, holes, playersToRender, isHoleComplete,
       nav.handleHolePress, wolf.wolfGame, wolf.wolfDecision, wolf.isWolfProcessing,
       showTeeDots, playerTeeMap, selectedTeeData,
+      groupFilter.canFilter, groupFilter.isFiltered, groupFilter.groupCount,
+      groupFilter.totalCount, groupFilter.toggleShowAll, groupFilter.groupPlayers,
     ]
   );
 

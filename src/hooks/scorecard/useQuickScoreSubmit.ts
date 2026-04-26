@@ -9,9 +9,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, getCurrentUser } from '@/services/supabase/client';
 import { calculateScoreDifferential } from '@/utils/handicapDifferential';
 import { calculateGADailyHandicap } from '@/utils/dailyHandicap';
-import { finalizeRound } from '@/services/rounds/roundResultsService';
+import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults';
 import { scorecardKeys } from '@/hooks/queryKeys';
-import type { TeeBox, Hole, Scorecard, PointSystemConfig, GameType } from '@/types/database.types';
+import type { TeeBox, Hole } from '@/types/database.types';
 import type { HandicapSource } from '@/types/database/enums';
 import { getBaseHandicap, type ScorecardPlayerInfo } from '@/utils/scorecardCalculations';
 
@@ -22,6 +22,12 @@ interface QuickScoreSubmitInput {
   totalGross: number;
   totalNet: number;
   totalPoints: number;
+  /**
+   * Par-game total (+1/0/-1 per hole, summed). Required when the round is
+   * Par game type so the round-results pipeline can rank correctly. Pass
+   * 0 / null for non-Par rounds.
+   */
+  totalParScore?: number | null;
   player: ScorecardPlayerInfo;
   selectedTee: TeeBox | null;
   holes: Hole[];
@@ -42,7 +48,7 @@ export function useQuickScoreSubmit() {
       if (!currentUser) throw new Error('Not authenticated');
 
       const {
-        roundId, playerId, scores, totalGross, totalNet, totalPoints,
+        roundId, playerId, scores, totalGross, totalNet, totalPoints, totalParScore,
         player, selectedTee, holes, handicapSource,
       } = input;
 
@@ -84,6 +90,7 @@ export function useQuickScoreSubmit() {
         total_gross: totalGross,
         total_net: totalNet,
         total_points: totalPoints,
+        total_par_score: totalParScore ?? null,
         status: 'completed',
         submitted_at: new Date().toISOString(),
         submitted_by: currentUser.id,
@@ -156,37 +163,16 @@ export function useQuickScoreSubmit() {
         }
       }
 
-      // Finalize round results so the leaderboard picks up the scores
-      try {
-        if (roundRow?.competition_id) {
-          const { data: roundData } = await supabase
-            .from('rounds')
-            .select('game_type')
-            .eq('id', roundId)
-            .single() as unknown as { data: { game_type: string } | null };
-
-          const { data: competition } = await supabase
-            .from('competitions')
-            .select('point_system')
-            .eq('id', roundRow.competition_id)
-            .single() as unknown as { data: { point_system: PointSystemConfig | null } | null };
-
-          const { data: completedScorecards } = await supabase
-            .from('scorecards')
-            .select('*')
-            .eq('round_id', roundId)
-            .eq('status', 'completed') as unknown as { data: Scorecard[] | null };
-
-          if (roundData && completedScorecards?.length) {
-            const pointSystem: PointSystemConfig = competition?.point_system || {
-              type: 'position',
-              rules: { '1': 10, '2': 8, '3': 6, '4': 5, '5': 4, '6': 3, '7': 2, '8': 1, 'default': 1 },
-            };
-            await finalizeRound(roundId, completedScorecards, roundData.game_type as GameType, pointSystem);
-          }
+      // Finalize round results so the leaderboard picks up the scores.
+      // Goes through refinalizeRoundResults so team-only formats (Scramble,
+      // Best Ball, Shamble) take the team-rows path. Quick-entry would
+      // otherwise miss that branch and write stale individual rows.
+      if (roundRow?.competition_id) {
+        try {
+          await refinalizeRoundResults(roundId);
+        } catch {
+          // Non-critical: scorecard is already saved, finalization can be retried
         }
-      } catch {
-        // Non-critical: scorecard is already saved, finalization can be retried
       }
 
       return { success: true, scorecardId: data?.id };

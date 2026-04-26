@@ -189,6 +189,7 @@ const fourPlayerTeam: TeamWithMembers = createTeamWithMembers(
 const emptyTeam: TeamWithMembers = {
   id: 'team-empty',
   name: 'Empty Team',
+  color: null,
   competition_id: 'comp-1',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
@@ -654,6 +655,7 @@ describe('TeamCard', () => {
       const teamWithUndefinedMembers = {
         id: 'team-undef',
         name: 'Undefined Members',
+        color: null,
         competition_id: 'comp-1',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -125,23 +125,3 @@ export function getStrokesReceivedPerHole(
   return strokesMap;
 }
 
-/**
- * Calculate team handicap for Ambrose format.
- *
- * Ambrose handicap is typically a fraction of the combined team handicaps.
- * Common formulas:
- * - 2-person: (H1 + H2) / 4
- * - 3-person: (H1 + H2 + H3) / 6
- * - 4-person: (H1 + H2 + H3 + H4) / 8
- *
- * @param teamHandicaps - Array of team member handicaps
- * @returns Team handicap for Ambrose
- */
-export function calculateAmbroseHandicap(teamHandicaps: number[]): number {
-  if (teamHandicaps.length === 0) return 0;
-
-  const totalHandicap = teamHandicaps.reduce((sum, h) => sum + h, 0);
-  const divisor = teamHandicaps.length * 2;
-
-  return Math.round(totalHandicap / divisor);
-}

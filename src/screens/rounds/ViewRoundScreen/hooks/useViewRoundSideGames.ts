@@ -4,6 +4,7 @@ import { useSkinsGamesByRound, useSkinsResults, useSkinsGame } from '@/hooks/use
 import { useWolfGameByRound, useWolfSummary } from '@/hooks/wolf';
 import type { RoundWithCourse, ScorecardWithPlayer } from '@/hooks/useRoundDetails';
 import type { StandaloneTeamConfig } from '@/types/supabase/roundQueries';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
 interface UseViewRoundSideGamesParams {
   roundId: string;
@@ -42,8 +43,11 @@ export function useViewRoundSideGames({ roundId, round, scorecards }: UseViewRou
   const isTeamSkins = useMemo(() => {
     if (skinsGameWithParticipants?.is_team_skins) return true;
 
-    const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
-    if (round?.is_team_round && round?.team_format && TEAM_GAME_TYPES.includes(round.team_format)) {
+    if (
+      round?.is_team_round &&
+      round?.team_format &&
+      (TEAM_ONLY_GAME_TYPES as string[]).includes(round.team_format)
+    ) {
       return true;
     }
 

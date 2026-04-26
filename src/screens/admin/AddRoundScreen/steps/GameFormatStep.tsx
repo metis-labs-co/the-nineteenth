@@ -1,70 +1,70 @@
 /**
- * GameFormatStep - Step 2: Game Type, Team Round, Team Format
+ * GameFormatStep - Step 2: Round preset selection
+ *
+ * Renders the canonical RoundPresetPicker so the wizard exposes the same
+ * 15-preset catalog (Individual / Team — whole match / Sub-matches) the
+ * View Round screen offers via RoundTypeSheet.
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { spacing } from '@/constants/theme';
+import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { spacing, typography } from '@/constants/theme';
+import { useThemeColors } from '@/context/ThemeContext';
 import { FormSection } from '@/components/common';
-import { RoundGameTypeSelector } from '@/components/competitionWizard/create';
-import { TeamRoundSection } from '../components';
-import type { GameType, TeamFormat, TeamWithMembers } from '@/types/database.types';
+import { RoundPresetPicker } from '@/components/rounds/RoundPresetPicker';
+import type { RoundPresetId } from '@/constants/roundPresets';
+import type { GeneratedSubMatch } from '@/utils/pairingAlgorithm';
 
 interface GameFormatStepProps {
-  gameType: GameType;
-  isTeamRound: boolean;
-  teamFormat: TeamFormat | null;
-  teams: TeamWithMembers[];
+  presetId: RoundPresetId;
+  /** Competition's `team_mode !== 'none'`. When false, team & sub-match presets are hidden. */
   supportsTeams: boolean;
-  teamFormatError?: string;
+  /** Competition's `per_round_rules_enabled`. Drives the "rules will be ignored" notice. */
+  perRoundRulesEnabled: boolean;
+  /** Number of teams configured on the competition. */
+  teamCount: number;
+  /** Pre-computed sub-match preview for split presets (from useAddRoundForm). */
+  subMatchPreview: GeneratedSubMatch[] | null;
+  presetError?: string;
   disabled: boolean;
-  allowedGameTypes?: GameType[];
-  onGameTypeChange: (gameType: GameType) => void;
-  onTeamRoundToggle: (value: boolean) => void;
-  onTeamFormatChange: (format: TeamFormat) => void;
+  onPresetChange: (presetId: RoundPresetId) => void;
   onUpgradePress: () => void;
 }
 
 export function GameFormatStep({
-  gameType,
-  isTeamRound,
-  teamFormat,
-  teams,
+  presetId,
   supportsTeams,
-  teamFormatError,
+  perRoundRulesEnabled,
+  teamCount,
+  subMatchPreview,
+  presetError,
   disabled,
-  allowedGameTypes,
-  onGameTypeChange,
-  onTeamRoundToggle,
-  onTeamFormatChange,
+  onPresetChange,
   onUpgradePress,
 }: GameFormatStepProps) {
+  const colors = useThemeColors();
+
   return (
     <View style={styles.container}>
-      {/* Game Type Selection */}
-      <FormSection noCard title="Game Type *">
-        <RoundGameTypeSelector
-          value={gameType}
-          onChange={onGameTypeChange}
+      <FormSection noCard title="Round Type *">
+        <RoundPresetPicker
+          selectedPresetId={presetId}
+          onSelect={onPresetChange}
+          perRoundRulesEnabled={perRoundRulesEnabled}
+          isStandalone={false}
+          teamCount={teamCount}
+          subMatchPreview={subMatchPreview}
           disabled={disabled}
-          allowedGameTypes={allowedGameTypes}
-          onUpgradePress={onUpgradePress}
-          showTeamFormats={supportsTeams}
+          onUpgrade={onUpgradePress}
+          hideTeamGroups={!supportsTeams}
         />
+        {presetError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {presetError}
+          </Text>
+        )}
       </FormSection>
-
-      {/* Team Round Section - Only shown if competition supports teams */}
-      {supportsTeams && (
-        <TeamRoundSection
-          isTeamRound={isTeamRound}
-          teamFormat={teamFormat}
-          teams={teams}
-          teamFormatError={teamFormatError}
-          onTeamRoundToggle={onTeamRoundToggle}
-          onTeamFormatChange={onTeamFormatChange}
-          disabled={disabled}
-        />
-      )}
     </View>
   );
 }
@@ -72,5 +72,9 @@ export function GameFormatStep({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
+  },
+  errorText: {
+    ...typography.small,
+    marginTop: spacing.sm,
   },
 });

@@ -9,6 +9,7 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { IconTrophy, IconChevronRight } from '@tabler/icons-react-native';
 import { ScaledText } from '@/components/common/ScaledText';
+import { Badge } from '@/components/common/Badge';
 import { useThemeColors } from '@/context/ThemeContext';
 import { withOpacity } from '@/constants/colors';
 import { spacing, typography } from '@/constants/theme';
@@ -66,17 +67,20 @@ export default React.memo(function LeagueLeaderboardRow({
 
       {/* Player Name */}
       <View style={[styles.cell, styles.playerCol]}>
-        <ScaledText
-          category="body"
-          style={[
-            styles.playerName,
-            { color: colors.textPrimary },
-            isCurrentUser && [styles.playerNameHighlighted, { color: colors.primary }],
-          ]}
-          numberOfLines={1}
-        >
-          {isCurrentUser ? 'You' : entry.name}
-        </ScaledText>
+        <View style={styles.playerNameRow}>
+          <ScaledText
+            category="body"
+            style={[
+              styles.playerName,
+              { color: colors.textPrimary },
+              isCurrentUser && [styles.playerNameHighlighted, { color: colors.primary }],
+            ]}
+            numberOfLines={1}
+          >
+            {entry.name}
+          </ScaledText>
+          {isCurrentUser && <Badge label="You" variant="primary" size="sm" />}
+        </View>
         <ScaledText category="caption" style={[styles.roundsText, { color: colors.textSecondary }]}>
           {entry.rounds_counting}/{entry.rounds_played} counting
         </ScaledText>
@@ -211,8 +215,15 @@ const styles = StyleSheet.create({
   tiedIndicator: {
     ...typography.caption,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
   playerName: {
     ...typography.body,
+    flexShrink: 1,
   },
   playerNameHighlighted: {
     ...typography.bodyBold,

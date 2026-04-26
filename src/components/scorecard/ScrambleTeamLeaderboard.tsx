@@ -25,6 +25,7 @@ import { withOpacity } from '@/constants/colors';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
+import { calculateScrambleTeamHandicap } from '@/utils/teamScoring/scramble';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -65,13 +66,6 @@ interface TeamScoreData {
   position: number;
   isTied: boolean;
   hasCurrentUser: boolean;
-}
-
-/** Calculate scramble team handicap: 25% of sum of all handicaps */
-function calculateScrambleTeamHandicap(members: Player[]): number {
-  if (members.length === 0) return 0;
-  const sum = members.reduce((acc, p) => acc + (p.handicap ?? 0), 0);
-  return Math.round((sum * 0.25) * 10) / 10;
 }
 
 /** Calculate handicap strokes for a hole based on team handicap and stroke index */
@@ -334,11 +328,11 @@ export function ScrambleTeamLeaderboard({
                 >
                   {team.teamName}
                 </Text>
-                {team.holesCompleted < holes.length && team.holesCompleted > 0 && (
-                  <Text style={[styles.holesText, { color: colors.textTertiary }]}>
-                    {team.holesCompleted} holes
-                  </Text>
-                )}
+                <Text style={[styles.holesText, { color: colors.textTertiary }]}>
+                  {team.holesCompleted < holes.length && team.holesCompleted > 0
+                    ? `HC: ${team.teamHandicap.toFixed(1)} · ${team.holesCompleted} holes`
+                    : `HC: ${team.teamHandicap.toFixed(1)}`}
+                </Text>
               </View>
 
               {/* Gross */}
@@ -395,9 +389,6 @@ export function ScrambleTeamLeaderboard({
                 <View style={styles.membersHeader}>
                   <Text style={[styles.membersLabel, { color: colors.textSecondary }]}>
                     Team Members
-                  </Text>
-                  <Text style={[styles.handicapLabel, { color: colors.textTertiary }]}>
-                    Team HC: {team.teamHandicap.toFixed(1)}
                   </Text>
                 </View>
                 {team.members.map((member, idx) => {
@@ -536,9 +527,6 @@ const styles = StyleSheet.create({
   membersLabel: {
     ...typography.captionBold,
     textTransform: 'uppercase',
-  },
-  handicapLabel: {
-    ...typography.caption,
   },
   memberRow: {
     flexDirection: 'row',

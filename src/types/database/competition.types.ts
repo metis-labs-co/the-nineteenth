@@ -76,6 +76,13 @@ export interface Competition {
   team_size: number | null; // 2-4, NULL if team_mode is 'none'
   point_system: PointSystemConfig; // Config for converting round results to competition points
 
+  // Scoring rules mode. When TRUE, rounds.rules_override takes precedence over
+  // point_system at finalization. When FALSE (default), the competition's
+  // point_system applies to every round and any saved per-round overrides are
+  // ignored. Editing the per-round option is gated behind the Premium
+  // advanced_round_rules feature.
+  per_round_rules_enabled: boolean;
+
   // Knockout settings (null for event competitions)
   knockout_config: KnockoutConfig | null;
 

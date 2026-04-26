@@ -105,6 +105,7 @@ export type FeatureId =
   | 'skins_game'
   | 'wolf_game'
   | 'prize_pool'
+  | 'advanced_round_rules'
   // Social features
   | 'ai_competition'
   | 'manage_guests'
@@ -188,10 +189,12 @@ export interface TierLimits {
   canManageGuests: boolean;
   canUseGpsDistance: boolean;
 
-  // Feature access - Premium tier (side-games)
+  // Feature access - Premium tier (side-games + advanced rules)
   canUseSkinsGame: boolean;
   canUseWolfGame: boolean;
   canUsePrizePool: boolean;
+  /** Gates the per-round rules engine: custom team aggregation, win/tie point allocation, qualifying-based knockout seeding. */
+  canUseAdvancedRoundRules: boolean;
 
   // Feature access - Leagues
   maxLeaguesOwned: number;
@@ -310,6 +313,7 @@ export function isFeatureId(value: string): value is FeatureId {
     'skins_game',
     'wolf_game',
     'prize_pool',
+    'advanced_round_rules',
     'ai_competition',
     'manage_guests',
     'gps_distance',
@@ -419,6 +423,7 @@ export function mapDBTierLimits(db: DBTierLimits): TierLimits {
     canUseSkinsGame: db.can_use_skins_game ?? true,
     canUseWolfGame: db.can_use_wolf_game ?? true,
     canUsePrizePool: db.can_use_prize_pool ?? true,
+    canUseAdvancedRoundRules: db.can_use_advanced_round_rules ?? false,
     maxLeaguesOwned: db.max_leagues_owned ?? 1,
     canCreateLeague: db.can_create_league ?? true,
     canJoinLeague: db.can_join_league ?? true,

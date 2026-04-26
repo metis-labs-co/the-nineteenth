@@ -22,6 +22,7 @@ import {
 import { useThemeColors } from '@/context/ThemeContext';
 import type { Hole, HoleScore, MultiBallHoleScore, ShotContributions } from '@/types';
 import type { TeamWithMembers } from '@/types/database.types';
+import type { ShotSlot } from '@/utils/teamScoring';
 
 import { ShotContributionSheet } from './ShotContributionSheet';
 import { useTeamScoreControls, SHEET_HEIGHT } from './hooks/useTeamScoreControls';
@@ -66,7 +67,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
 }: TeamScoreCardProps) {
   const colors = useThemeColors();
   const [contributorMenuVisible, setContributorMenuVisible] = useState(false);
-  const [activeShotType, setActiveShotType] = useState<'drive' | 'approach' | 'putt' | null>(null);
+  const [activeShotType, setActiveShotType] = useState<ShotSlot | null>(null);
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   // Animate sheet when modal becomes visible
@@ -269,6 +270,7 @@ export const TeamScoreCard = React.memo(function TeamScoreCard({
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <ShotContributionSheet
             team={team}
+            currentHole={currentHole}
             shotContributions={shotContributions}
             activeShotType={activeShotType}
             setActiveShotType={setActiveShotType}

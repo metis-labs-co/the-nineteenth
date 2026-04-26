@@ -59,8 +59,11 @@ export default function ViewRoundScreen(props: Props) {
   const colors = useThemeColors();
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
-  // Get header title with icons for skins/wolf standalone rounds
+  // Get header title with icons for skins/wolf standalone rounds.
+  // A user-defined round name always wins over the icon-decorated title.
   const getHeaderTitleNode = (): string | React.ReactNode => {
+    const customName = vm.round?.name?.trim();
+    if (customName) return customName;
     if (vm.isStandalone) {
       if (vm.hasSkinsGame && vm.hasWolfGame) {
         return (
@@ -300,8 +303,16 @@ export default function ViewRoundScreen(props: Props) {
             isSplitRound={vm.isSplitRound}
             isTeamRound={round.is_team_round ?? false}
             scoringPairsEnabled={round.scoring_pairs_required ?? false}
+            roundStatus={round.status}
             gameType={round.game_type}
+            teamFormat={round.team_format}
             roundTeeTime={round.tee_time}
+            roundNumber={round.round_number}
+            roundFormat={round.round_format}
+            subMatchSize={round.sub_match_size}
+            pairingSource={round.pairing_source}
+            pairingStyle={round.pairing_style}
+            pairingMetric={round.pairing_metric}
           />
         )}
         {vm.activeTab === 'teams' && vm.isTeamRound && (

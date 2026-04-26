@@ -61,6 +61,17 @@ export const MIGRATIONS: Migration[] = [
     name: 'add_player_handicap_used_column',
     up: `ALTER TABLE scorecards ADD COLUMN player_handicap_used REAL`,
   },
+  {
+    // Rename shot contribution key `drive` -> `teeShot` in stored JSON.
+    // Safe substring replace because `shot_contributions` is a flat object
+    // whose only keys are slot names ("drive", "approach", "putt", etc.) —
+    // no risk of colliding with player UUIDs.
+    version: 9,
+    name: 'rename_shot_contribution_drive_to_tee_shot',
+    up: `UPDATE hole_scores
+            SET shot_contributions = REPLACE(shot_contributions, '"drive":', '"teeShot":')
+          WHERE shot_contributions LIKE '%"drive":%'`,
+  },
 ];
 
 /**

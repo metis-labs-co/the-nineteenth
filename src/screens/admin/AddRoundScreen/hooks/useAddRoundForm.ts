@@ -5,22 +5,46 @@
  * - Form data state
  * - Validation
  * - Course, date, time selection
- * - Team round configuration
+ * - Round preset selection (resolves to all six format columns)
+ * - Sub-match generation for split presets
  * - Scoring pairs toggle
  * - Skins and Wolf game configuration
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { format } from 'date-fns';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTeams } from '@/hooks/useTeams';
 import { wolfKeys } from '@/hooks/queryKeys';
-import type { GameType, TeamFormat, Competition, TeeBox } from '@/types/database.types';
+import {
+  ROUND_PRESETS,
+  type RoundPresetId,
+} from '@/constants/roundPresets';
+import {
+  generateSubMatches,
+  type GeneratedSubMatch,
+} from '@/utils/pairingAlgorithm';
+import { replaceSubMatches } from '@/services/subMatches';
+import { getCurrentCompetitionStandings } from '@/services/api/knockout';
+import { reseedRoundPairings } from '@/services/rounds';
+import type {
+  Competition,
+  GameType,
+  TeamFormat,
+  TeamWithMembers,
+  TeeBox,
+} from '@/types/database.types';
+import type {
+  BracketSeedingStyle,
+  PairingSource,
+  QualifyingMetric,
+} from '@/types/database/enums';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
-import type { SkinsConfig } from '@/types';
+import type { PairingPlayer, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { RoundFormData, FormErrors } from '../types';
 import { INITIAL_FORM_DATA } from '../types';
@@ -31,8 +55,10 @@ import {
   parseTime,
 } from '@/utils/formatting';
 
+const SUB_MATCH_INTERVAL_MINUTES = 8;
+
 /**
- * Fetch competition details to get team_mode
+ * Fetch competition details to get team_mode and per_round_rules_enabled.
  */
 async function fetchCompetition(competitionId: string): Promise<Competition> {
   const { data, error } = await supabase
@@ -48,31 +74,44 @@ async function fetchCompetition(competitionId: string): Promise<Competition> {
   return data as Competition;
 }
 
+interface CreateRoundArgs {
+  competitionId: string;
+  data: RoundFormData;
+  roundNumber: number;
+}
+
 /**
- * Create a new round in the database
- *
- * For competition rounds, skins config is stored on the round and the actual
- * skins_games record is created later when pairings are assigned (so we know participants).
+ * Insert a new round row, writing all six preset-controlled format columns.
+ * For split presets, returns the round id and leaves sub-match insertion to
+ * the caller (which has the generated SubMatchInput[]).
  */
-async function createRound(
-  competitionId: string,
-  data: RoundFormData,
-  roundNumber: number
-): Promise<string> {
+async function createRound({
+  competitionId,
+  data,
+  roundNumber,
+}: CreateRoundArgs): Promise<string> {
   const parsedDate = parseAustralianDate(data.date);
   if (!parsedDate) {
     throw new Error('Invalid date format');
   }
 
-  // Build skins config if enabled (stored on round, skins_games created when pairings assigned)
-  const skinsConfig = data.skinsEnabled && data.skinsConfig
-    ? {
-        pot_type: data.skinsConfig.pot_type,
-        pot_value: data.skinsConfig.pot_value,
-        scoring_type: data.skinsConfig.scoring_type,
-        currency: data.skinsConfig.currency ?? 'AUD',
-      }
-    : null;
+  const preset = ROUND_PRESETS[data.presetId];
+  const config = preset.config;
+
+  const skinsConfig =
+    data.skinsEnabled && data.skinsConfig
+      ? {
+          pot_type: data.skinsConfig.pot_type,
+          pot_value: data.skinsConfig.pot_value,
+          scoring_type: data.skinsConfig.scoring_type,
+          currency: data.skinsConfig.currency ?? 'AUD',
+        }
+      : null;
+
+  // Pairing config columns. Style + metric must be NULL when source = 'manual'
+  // (DB-enforced consistency check) — guard at the write site so a stale form
+  // value doesn't trip the constraint.
+  const isStandings = data.pairingSource === 'current_standings';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
   const { data: insertedRound, error } = await (supabase as any)
@@ -83,10 +122,18 @@ async function createRound(
       round_number: roundNumber,
       date: format(parsedDate, 'yyyy-MM-dd'),
       tee_time: data.teeTime || null,
-      game_type: data.gameType,
-      is_team_round: data.isTeamRound,
-      team_format: data.isTeamRound ? data.teamFormat : null,
+      // The six preset-controlled format columns. Same shape applyPresetToRound
+      // writes after-the-fact when an organiser changes the round type.
+      game_type: config.game_type,
+      is_team_round: config.is_team_round,
+      team_format: config.team_format,
+      round_format: config.round_format,
+      sub_match_size: config.sub_match_size,
+      rules_override: config.rules_override,
       scoring_pairs_required: data.scoringPairsRequired,
+      pairing_source: data.pairingSource,
+      pairing_style: isStandings ? data.pairingStyle : null,
+      pairing_metric: isStandings ? data.pairingMetric : null,
       selected_tee: data.selectedTee, // TeeBox with slope/course ratings for daily handicap
       status: 'upcoming',
       // Skins config stored on round - actual skins_games created when pairings assigned
@@ -124,17 +171,7 @@ async function getNextRoundNumber(competitionId: string): Promise<number> {
 }
 
 /**
- * Team game types that should use team skins
- */
-const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
-
-/**
- * Create a Wolf game for a round
- * Wolf is a strategic partner selection side-game requiring 3-4 players
- *
- * @param roundId - Round UUID
- * @param wolfConfig - Wolf game configuration
- * @param userId - User creating the game
+ * Create a Wolf game for a round.
  */
 async function createWolfGame(
   roundId: string,
@@ -169,6 +206,25 @@ async function createWolfGame(
   return game.id;
 }
 
+/**
+ * Map the team rosters returned by `useTeams` into the PairingPlayer shape
+ * expected by `generateSubMatches`. Mirrors the helper in RoundTypeSheet.
+ */
+function teamMembersToPairingPlayers(
+  members: TeamWithMembers['members']
+): PairingPlayer[] {
+  return (members ?? [])
+    .filter((m) => m.player_id)
+    .map((m) => ({
+      id: m.player_id,
+      name: m.player?.name ?? 'Unknown',
+      handicap: m.player?.handicap ?? null,
+      handicapIndex: m.player?.handicap_index ?? null,
+      gender: m.player?.gender ?? null,
+      photoUrl: m.player?.photo_url ?? null,
+    }));
+}
+
 interface UseAddRoundFormOptions {
   competitionId: string;
   onSuccess: (roundId: string, scoringPairsRequired: boolean) => void;
@@ -183,6 +239,14 @@ interface UseAddRoundFormReturn {
 
   // Computed
   supportsTeams: boolean;
+  perRoundRulesEnabled: boolean;
+  teams: TeamWithMembers[];
+  /** Sub-match preview for the selected preset (split presets only). */
+  subMatchPreview: GeneratedSubMatch[] | null;
+  /** Derived from the selected preset for legacy consumers (OptionsStep). */
+  gameType: GameType;
+  isTeamRound: boolean;
+  teamFormat: TeamFormat | null;
   isTeamMatchPlay: boolean;
 
   // Player count validation for skins/wolf
@@ -199,10 +263,14 @@ interface UseAddRoundFormReturn {
   handleDateChange: (date: Date) => void;
   handleTimeChange: (time: Date) => void;
   clearTeeTime: () => void;
-  handleGameTypeChange: (gameType: GameType) => void;
-  handleTeamRoundToggle: (value: boolean) => void;
-  handleTeamFormatChange: (format: TeamFormat) => void;
+  handlePresetChange: (presetId: RoundPresetId) => void;
   handleScoringPairsToggle: (value: boolean) => void;
+  // Standings-driven pairing handlers (1v1 match-play presets only)
+  /** Whether the selected preset can opt into standings-based pairing. */
+  supportsStandingsPairing: boolean;
+  handlePairingSourceToggle: (enabled: boolean) => void;
+  handlePairingStyleChange: (style: BracketSeedingStyle) => void;
+  handlePairingMetricChange: (metric: QualifyingMetric) => void;
   // Skins handlers
   handleSkinsEnabledChange: (enabled: boolean) => void;
   handleSkinsConfigChange: (config: SkinsConfig) => void;
@@ -241,7 +309,7 @@ export function useAddRoundForm({
   }));
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // Fetch competition to get team_mode
+  // Fetch competition to get team_mode and per_round_rules_enabled
   const { data: competition, isLoading: isLoadingCompetition } = useQuery({
     queryKey: ['competition', competitionId],
     queryFn: () => fetchCompetition(competitionId),
@@ -268,9 +336,41 @@ export function useAddRoundForm({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Teams for the competition — needed for sub-match preview / generation
+  const { data: teams = [] } = useTeams(competitionId);
+
   // Computed values
   const supportsTeams = competition?.team_mode !== 'none';
-  const isTeamMatchPlay = formData.isTeamRound && formData.teamFormat === 'match-play-team';
+  const perRoundRulesEnabled = competition?.per_round_rules_enabled ?? false;
+
+  const presetConfig = ROUND_PRESETS[formData.presetId].config;
+  const gameType = presetConfig.game_type;
+  const isTeamRound = presetConfig.is_team_round;
+  const teamFormat = presetConfig.team_format;
+  const isTeamMatchPlay = isTeamRound && teamFormat === 'match-play-team';
+
+  // The three 1v1 match-play presets that may opt into standings-driven pairing.
+  // individual_match_play_seeded defaults ON when picked (its preset description
+  // already promises this behaviour); the other two are opt-in via the toggle.
+  const supportsStandingsPairing =
+    formData.presetId === 'individual_match_play' ||
+    formData.presetId === 'individual_match_play_seeded' ||
+    formData.presetId === 'ryder_cup_singles';
+
+  // Sub-match preview for split presets — same algorithm RoundTypeSheet uses.
+  const subMatchPreview = useMemo<GeneratedSubMatch[] | null>(() => {
+    if (presetConfig.round_format !== 'split') return null;
+    if (teams.length < 2) return null;
+    const startTime = (formData.teeTime || '07:00').substring(0, 5);
+    const result = generateSubMatches({
+      teamAPlayers: teamMembersToPairingPlayers(teams[0].members),
+      teamBPlayers: teamMembersToPairingPlayers(teams[1].members),
+      subMatchSize: presetConfig.sub_match_size ?? 2,
+      startTime,
+      intervalMinutes: SUB_MATCH_INTERVAL_MINUTES,
+    });
+    return result.subMatches.length > 0 ? result.subMatches : null;
+  }, [presetConfig.round_format, presetConfig.sub_match_size, teams, formData.teeTime]);
 
   // Skins requires 2-4 players
   const canEnableSkins = competitionPlayerCount >= 2;
@@ -294,7 +394,66 @@ export function useAddRoundForm({
   const createMutation = useMutation({
     mutationFn: async () => {
       const nextRoundNumber = await getNextRoundNumber(competitionId);
-      const roundId = await createRound(competitionId, formData, nextRoundNumber);
+
+      // For standings-driven pairing we resolve the rank order BEFORE inserting
+      // the round — an empty/error standings result must abort the insert
+      // outright, otherwise the user is left with an orphan round.
+      let standingsOrder: string[] | null = null;
+      if (formData.pairingSource === 'current_standings') {
+        const standings = await getCurrentCompetitionStandings(
+          competitionId,
+          nextRoundNumber,
+          formData.pairingMetric
+        );
+        if (standings.length === 0) {
+          throw new Error(
+            'Standings-based pairing needs at least one completed prior round in this competition.'
+          );
+        }
+        standingsOrder = standings.map((s) => s.id);
+      }
+
+      const roundId = await createRound({
+        competitionId,
+        data: formData,
+        roundNumber: nextRoundNumber,
+      });
+
+      const isSplit = presetConfig.round_format === 'split';
+
+      if (standingsOrder) {
+        // Standings-driven pairings (both individual and split presets) flow
+        // through the shared service so the create-time path here and the
+        // edit-time path in EditPairingConfigSheet stay in lockstep. We hand
+        // the helper our pre-fetched standings so it doesn't re-query.
+        await reseedRoundPairings({
+          roundId,
+          competitionId,
+          roundNumber: nextRoundNumber,
+          presetConfig: {
+            round_format: presetConfig.round_format,
+            sub_match_size: presetConfig.sub_match_size,
+          },
+          pairingStyle: formData.pairingStyle,
+          pairingMetric: formData.pairingMetric,
+          teeTime: formData.teeTime || null,
+          teams: isSplit ? teams : undefined,
+          preFetchedStandings: standingsOrder.map((id) => ({ id })),
+        });
+      } else if (isSplit && subMatchPreview && subMatchPreview.length > 0) {
+        // Default split-preset path — handicap snake-draft sub-matches.
+        // Standings-driven splits go through reseedRoundPairings above.
+        await replaceSubMatches({
+          roundId,
+          subMatches: subMatchPreview.map((sm) => ({
+            sortOrder: sm.sortOrder,
+            teamAPlayerIds: sm.teamAPlayerIds,
+            teamBPlayerIds: sm.teamBPlayerIds,
+            teeTime: sm.teeTime,
+            pairingId: null,
+          })),
+        });
+      }
 
       // Note: Skins config is stored on the round itself (skins_enabled, skins_config).
       // The actual skins_games record will be created when pairings are assigned,
@@ -378,35 +537,25 @@ export function useAddRoundForm({
     setFormData((prev) => ({ ...prev, teeTime: '' }));
   }, []);
 
-  // Handle game type change
-  const handleGameTypeChange = useCallback((gameType: GameType) => {
-    setFormData((prev) => ({ ...prev, gameType }));
-  }, []);
-
-  // Handle team round toggle
-  const handleTeamRoundToggle = useCallback((value: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      isTeamRound: value,
-      teamFormat: value ? prev.teamFormat : null,
-    }));
-    setErrors((prev) => {
-      if (!value && prev.teamFormat) {
-        const newErrors = { ...prev };
-        delete newErrors.teamFormat;
-        return newErrors;
-      }
-      return prev;
+  // Handle preset change
+  const handlePresetChange = useCallback((presetId: RoundPresetId) => {
+    setFormData((prev) => {
+      // Flip pairing_source defaults for standings-aware presets:
+      //   - individual_match_play_seeded — turn ON automatically (the preset's
+      //     own description promises auto-seeding from standings).
+      //   - individual_match_play / ryder_cup_singles — opt-in (default OFF).
+      //   - anything else — force back to 'manual' so a stale standings choice
+      //     doesn't leak across preset changes.
+      const nextPairingSource: PairingSource =
+        presetId === 'individual_match_play_seeded'
+          ? 'current_standings'
+          : 'manual';
+      return { ...prev, presetId, pairingSource: nextPairingSource };
     });
-  }, []);
-
-  // Handle team format change
-  const handleTeamFormatChange = useCallback((format: TeamFormat) => {
-    setFormData((prev) => ({ ...prev, teamFormat: format }));
     setErrors((prev) => {
-      if (prev.teamFormat) {
+      if (prev.preset) {
         const newErrors = { ...prev };
-        delete newErrors.teamFormat;
+        delete newErrors.preset;
         return newErrors;
       }
       return prev;
@@ -416,6 +565,22 @@ export function useAddRoundForm({
   // Handle scoring pairs toggle
   const handleScoringPairsToggle = useCallback((value: boolean) => {
     setFormData((prev) => ({ ...prev, scoringPairsRequired: value }));
+  }, []);
+
+  // Standings-driven pairing handlers
+  const handlePairingSourceToggle = useCallback((enabled: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      pairingSource: enabled ? 'current_standings' : 'manual',
+    }));
+  }, []);
+
+  const handlePairingStyleChange = useCallback((style: BracketSeedingStyle) => {
+    setFormData((prev) => ({ ...prev, pairingStyle: style }));
+  }, []);
+
+  const handlePairingMetricChange = useCallback((metric: QualifyingMetric) => {
+    setFormData((prev) => ({ ...prev, pairingMetric: metric }));
   }, []);
 
   // Handle skins enabled toggle
@@ -465,8 +630,43 @@ export function useAddRoundForm({
       }
     }
 
-    if (formData.isTeamRound && !formData.teamFormat) {
-      newErrors.teamFormat = 'Please select a team format';
+    // Split presets need 2+ teams with members so we can generate sub-matches.
+    if (presetConfig.round_format === 'split') {
+      if (teams.length < 2) {
+        newErrors.preset =
+          'Set up at least two teams on this competition before picking a sub-matches preset';
+      } else if (!subMatchPreview || subMatchPreview.length === 0) {
+        newErrors.preset =
+          'Both teams need at least one player to generate sub-matches';
+      }
+    }
+
+    // Standings-driven pairing pre-checks. Only runs when the user opted in
+    // for one of the three supported presets — avoids surfacing irrelevant
+    // errors elsewhere.
+    if (formData.pairingSource === 'current_standings' && supportsStandingsPairing) {
+      if (presetConfig.round_format === 'split') {
+        // Split presets — each team's roster must be even-sized so cross-team
+        // pairing slots fill cleanly. competitionPlayerCount overall isn't the
+        // right gauge here; team rosters are.
+        const teamASize = teams[0]?.members.length ?? 0;
+        const teamBSize = teams[1]?.members.length ?? 0;
+        if (teamASize === 0 || teamBSize === 0) {
+          newErrors.pairing =
+            'Both teams need at least one player to use standings-based pairing.';
+        } else if (teamASize !== teamBSize) {
+          newErrors.pairing = `Teams must be the same size for standings-based 1v1 pairing (currently ${teamASize} vs ${teamBSize}).`;
+        }
+      } else {
+        // Individual 1v1 presets — every accepted player gets a match, so the
+        // count must be even. competitionPlayerCount is the input.
+        if (competitionPlayerCount < 2) {
+          newErrors.pairing =
+            'Standings-based pairing needs at least 2 players in the competition.';
+        } else if (competitionPlayerCount % 2 !== 0) {
+          newErrors.pairing = `Standings-based 1v1 pairing needs an even number of players (currently ${competitionPlayerCount}).`;
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -479,7 +679,7 @@ export function useAddRoundForm({
       createMutation.mutate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- createMutation.mutate and validateForm are stable
-  }, [formData]);
+  }, [formData, subMatchPreview]);
 
   // Get selected date for picker
   const getSelectedDate = useCallback(() => {
@@ -503,6 +703,12 @@ export function useAddRoundForm({
     competition,
     isLoadingCompetition,
     supportsTeams,
+    perRoundRulesEnabled,
+    teams,
+    subMatchPreview,
+    gameType,
+    isTeamRound,
+    teamFormat,
     isTeamMatchPlay,
     // Player count validation for skins/wolf
     competitionPlayerCount,
@@ -517,10 +723,12 @@ export function useAddRoundForm({
     handleDateChange,
     handleTimeChange,
     clearTeeTime,
-    handleGameTypeChange,
-    handleTeamRoundToggle,
-    handleTeamFormatChange,
+    handlePresetChange,
     handleScoringPairsToggle,
+    supportsStandingsPairing,
+    handlePairingSourceToggle,
+    handlePairingStyleChange,
+    handlePairingMetricChange,
     handleSkinsEnabledChange,
     handleSkinsConfigChange,
     handleWolfEnabledChange,

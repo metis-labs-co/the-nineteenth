@@ -20,3 +20,14 @@ export { calculateCompetitionPoints, calculateMatchPlayPoints } from './calculat
 
 // Aggregation functions
 export { aggregateCompetitionStandings } from './aggregation';
+
+// Decay models for the competition rules quick-setup editor.
+export {
+  DECAY_MODELS,
+  applyDecayModel,
+  scaledStandard,
+  linearToOne,
+  linearMinusTwo,
+  halvingPairs,
+} from './decay';
+export type { DecayModelId, DecayModel } from './decay';

@@ -12,6 +12,7 @@ import {
   TeamLeaderboardTable,
   TeamLeaderboardEntry,
   TeamMemberEntry,
+  RoundBreakdownEntry,
 } from './TeamLeaderboardTable';
 import { spacing } from '@/constants/theme';
 
@@ -28,7 +29,6 @@ const meta: Meta<typeof TeamLeaderboardTable> = {
   argTypes: {
     isLoading: { control: 'boolean' },
     showTiedIndicator: { control: 'boolean' },
-    hideMemberPoints: { control: 'boolean' },
     emptyMessage: { control: 'text' },
     currentUserId: { control: 'text' },
   },
@@ -54,10 +54,19 @@ function createMember(
   playerId: string,
   playerName: string,
   handicap: number,
-  points: number,
-  roundsPlayed?: number
+  ..._unused: unknown[]
 ): TeamMemberEntry {
-  return { playerId, playerName, handicap, points, roundsPlayed };
+  return { playerId, playerName, handicap };
+}
+
+function createBreakdown(
+  roundId: string,
+  roundLabel: string,
+  position: number,
+  points: number,
+  courseName?: string
+): RoundBreakdownEntry {
+  return { roundId, roundLabel, position, points, courseName };
 }
 
 function createTeam(
@@ -65,9 +74,10 @@ function createTeam(
   teamName: string,
   avgHandicap: number,
   totalPoints: number,
-  members: TeamMemberEntry[]
+  members: TeamMemberEntry[],
+  roundBreakdown?: RoundBreakdownEntry[]
 ): TeamLeaderboardEntry {
-  return { teamId, teamName, avgHandicap, totalPoints, members };
+  return { teamId, teamName, avgHandicap, totalPoints, members, roundBreakdown };
 }
 
 // ===========================================================================
@@ -359,12 +369,11 @@ export const ManyTeams: Story = {
 // ===========================================================================
 
 /**
- * Scramble format (hide member points)
+ * Scramble format
  */
 export const ScrambleFormat: Story = {
   args: {
     leaderboard: scrambleTeams,
-    hideMemberPoints: true,
   },
 };
 
@@ -374,8 +383,47 @@ export const ScrambleFormat: Story = {
 export const ScrambleWithCurrentUser: Story = {
   args: {
     leaderboard: scrambleTeams,
-    hideMemberPoints: true,
     currentUserId: 'player-2', // Jane Doe in Scramble Stars
+  },
+};
+
+/**
+ * Multi-round breakdown — expand a row to see per-round points/positions
+ */
+export const WithMultiRoundBreakdown: Story = {
+  args: {
+    leaderboard: [
+      createTeam(
+        'team-1',
+        'The Eagles',
+        14.5,
+        86,
+        [
+          createMember('player-1', 'John Smith', 12),
+          createMember('player-2', 'Jane Doe', 17),
+        ],
+        [
+          createBreakdown('r1', 'R1', 1, 30, 'Pebble Beach'),
+          createBreakdown('r2', 'R2', 2, 25, 'Augusta National'),
+          createBreakdown('r3', 'R3', 1, 31, 'St Andrews'),
+        ]
+      ),
+      createTeam(
+        'team-2',
+        'Birdie Brigade',
+        16.0,
+        66,
+        [
+          createMember('player-3', 'Bob Wilson', 14),
+          createMember('player-4', 'Alice Brown', 18),
+        ],
+        [
+          createBreakdown('r1', 'R1', 2, 25, 'Pebble Beach'),
+          createBreakdown('r2', 'R2', 1, 30, 'Augusta National'),
+          createBreakdown('r3', 'R3', 4, 11, 'St Andrews'),
+        ]
+      ),
+    ],
   },
 };
 

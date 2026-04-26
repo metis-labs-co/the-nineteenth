@@ -23,8 +23,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
-import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { useTeams } from '@/hooks/useTeams';
 import { ConfirmationDialog, PageHeader } from '@/components/common';
 import type { CourseWithFavorite } from '@/hooks/useCourses';
 import type { SkinsConfig } from '@/types';
@@ -60,7 +58,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
   const { competitionId } = route.params;
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const { limits } = useSubscriptionContext();
 
   // Step state
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -78,9 +75,6 @@ export default function AddRoundScreen({ navigation, route }: Props) {
   // Wolf modal state
   const [showWolfConfigSheet, setShowWolfConfigSheet] = useState(false);
   const [showWolfDisclaimer, setShowWolfDisclaimer] = useState(false);
-
-  // Fetch teams for team pairing preview
-  const { data: teams = [] } = useTeams(competitionId);
 
   // Form hook
   const form = useAddRoundForm({
@@ -213,16 +207,16 @@ export default function AddRoundScreen({ navigation, route }: Props) {
     setShowWolfConfigSheet(true);
   }, []);
 
-  // Validate current step before proceeding
+  // Validate current step before proceeding. Full preset validation (including
+  // split-preset sub-match readiness) happens at submit time inside the hook.
   const canProceed = (() => {
     if (currentStep === 1) {
       return !!form.formData.courseId && !!form.formData.date;
     }
     if (currentStep === 2) {
-      if (form.formData.isTeamRound && !form.formData.teamFormat) {
-        return false;
-      }
-      return true;
+      // Block Next if a preset-level error has been surfaced (e.g. split
+      // preset chosen on a competition with no teams).
+      return !form.errors.preset;
     }
     return true;
   })();
@@ -280,17 +274,14 @@ export default function AddRoundScreen({ navigation, route }: Props) {
       case 2:
         return (
           <GameFormatStep
-            gameType={form.formData.gameType}
-            isTeamRound={form.formData.isTeamRound}
-            teamFormat={form.formData.teamFormat}
-            teams={teams}
+            presetId={form.formData.presetId}
             supportsTeams={form.supportsTeams}
-            teamFormatError={form.errors.teamFormat}
+            perRoundRulesEnabled={form.perRoundRulesEnabled}
+            teamCount={form.teams.length}
+            subMatchPreview={form.subMatchPreview}
+            presetError={form.errors.preset}
             disabled={form.isPending}
-            allowedGameTypes={limits?.allowedGameTypes}
-            onGameTypeChange={form.handleGameTypeChange}
-            onTeamRoundToggle={form.handleTeamRoundToggle}
-            onTeamFormatChange={form.handleTeamFormatChange}
+            onPresetChange={form.handlePresetChange}
             onUpgradePress={() => navigation.navigate('Subscription')}
           />
         );
@@ -300,6 +291,13 @@ export default function AddRoundScreen({ navigation, route }: Props) {
             scoringPairsRequired={form.formData.scoringPairsRequired}
             isTeamMatchPlay={form.isTeamMatchPlay}
             onScoringPairsToggle={form.handleScoringPairsToggle}
+            supportsStandingsPairing={form.supportsStandingsPairing}
+            pairingSource={form.formData.pairingSource}
+            pairingStyle={form.formData.pairingStyle}
+            pairingMetric={form.formData.pairingMetric}
+            onPairingSourceToggle={form.handlePairingSourceToggle}
+            onPairingStyleChange={form.handlePairingStyleChange}
+            onPairingMetricChange={form.handlePairingMetricChange}
             skinsEnabled={form.formData.skinsEnabled}
             skinsConfig={form.formData.skinsConfig}
             onSkinsTogglePress={handleSkinsTogglePress}
@@ -308,7 +306,7 @@ export default function AddRoundScreen({ navigation, route }: Props) {
             skinsDisabledReason={form.skinsDisabledReason}
             wolfEnabled={form.formData.wolfEnabled}
             wolfConfig={form.formData.wolfConfig}
-            isTeamRound={form.formData.isTeamRound}
+            isTeamRound={form.isTeamRound}
             onWolfTogglePress={handleWolfTogglePress}
             onWolfEditPress={handleWolfEditPress}
             canEnableWolf={form.canEnableWolf}

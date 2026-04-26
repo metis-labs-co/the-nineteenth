@@ -32,7 +32,7 @@
  * - `useTeams(competitionId)` - Fetch teams for a competition
  * - `useCreateTeam()` - Create a team
  * - `useUpdateTeam()` - Update team members
- * - `useUpdateTeamName()` - Update team name
+ * - `useUpdateTeamMetadata()` - Update team name and/or colour
  * - `useDeleteTeam()` - Delete a team
  * - `useAutoGenerateTeams()` - Auto-generate balanced teams
  *
@@ -70,12 +70,20 @@ export type {
 } from './queries';
 
 // Re-export mutation hooks and types
-export { useDeleteRound, useUpdatePlayerTee } from './mutations';
+export {
+  useDeleteRound,
+  useUpdatePlayerTee,
+  useRecalculateRoundResults,
+  useForceSyncRoundScorecards,
+} from './mutations';
 
 export type {
   DeleteRoundInput,
   DeleteRoundResult,
   UpdatePlayerTeeInput,
+  RecalculateRoundResultsInput,
+  ForceSyncRoundScorecardsInput,
+  ForceSyncRoundScorecardsResult,
 } from './mutations';
 
 // Re-export leaderboard hooks, types, and type guards
@@ -125,7 +133,7 @@ export {
   useTeams,
   useCreateTeam,
   useUpdateTeam,
-  useUpdateTeamName,
+  useUpdateTeamMetadata,
   useDeleteTeam,
   useAutoGenerateTeams,
 } from './teams';

@@ -41,6 +41,10 @@ export interface LeaderboardEntry {
   handicap: number;
   totalPoints: number;
   roundsPlayed: number;
+  /** Team this player belongs to in the competition (when team mode is enabled) */
+  teamName?: string | null;
+  /** Avatar palette id of the team (e.g. 'avatar-green') for the colour dot */
+  teamColor?: string | null;
 }
 
 /** Team member info for display */

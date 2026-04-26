@@ -394,6 +394,8 @@ export interface CompetitionInfo {
   name: string;
   /** ID of the competition organizer */
   organizer_id: string;
+  /** Whether per-round rules overrides are enabled at the competition level */
+  per_round_rules_enabled: boolean;
 }
 
 /**
@@ -454,12 +456,20 @@ export function useCompetitionInfo(
 
       const { data, error } = await supabase
         .from('competitions')
-        .select('name, organizer_id')
+        .select('name, organizer_id, per_round_rules_enabled')
         .eq('id', competitionId)
         .single();
 
       if (error) throw error;
-      return data as CompetitionInfo | null;
+      if (!data) return null;
+      // Default to FALSE so competitions that predate the flag column behave
+      // as general-rules mode (safest default for the new UI).
+      const raw = data as { name: string; organizer_id: string; per_round_rules_enabled: boolean | null };
+      return {
+        name: raw.name,
+        organizer_id: raw.organizer_id,
+        per_round_rules_enabled: raw.per_round_rules_enabled ?? false,
+      };
     },
     enabled: enabled ?? !!competitionId,
     staleTime,

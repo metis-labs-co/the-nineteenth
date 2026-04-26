@@ -8,6 +8,7 @@ export type {
   TeamLeaderboardTableProps,
   TeamLeaderboardEntry,
   TeamMemberEntry,
+  RoundBreakdownEntry,
 } from './TeamLeaderboardTable';
 
 export { LeaderboardTab } from './LeaderboardTab';

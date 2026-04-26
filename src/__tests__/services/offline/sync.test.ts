@@ -556,6 +556,72 @@ describe('Scorecard Sync Processing', () => {
 
     expect(database.markScorecardsAsSynced).toHaveBeenCalledWith([scorecard.id]);
   });
+
+  it('includes total_par_score in the upsert payload for Par-game rounds', async () => {
+    // Regression: previously the sync omitted total_par_score, so the
+    // server column stayed null and round finalization treated every
+    // Par-game player as 0. Confirm the sync upload now carries the
+    // value the store wrote locally (via calculatePlayerTotals using
+    // DHC-derived strokes received).
+    const upsertSpy = jest.fn(() => Promise.resolve({ data: null, error: null }));
+    (supabase.from as jest.Mock).mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      upsert: upsertSpy,
+    });
+
+    const parScorecard = createTestScorecard({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only optional fields
+      syncGameType: 'par',
+      total_par_score: 5,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only optional fields
+    } as any);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([parScorecard]);
+
+    await syncAll();
+
+    expect(upsertSpy).toHaveBeenCalled();
+    const upsertArg = (upsertSpy.mock.calls as unknown as unknown[][])[0]?.[0] as Record<string, unknown>;
+    expect(upsertArg).toHaveProperty('total_par_score');
+    expect(upsertArg.total_par_score).toBe(5);
+  });
+
+  it('passes total_par_score = null for non-Par game types (avoids overwriting server value)', async () => {
+    const upsertSpy = jest.fn(() => Promise.resolve({ data: null, error: null }));
+    (supabase.from as jest.Mock).mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      upsert: upsertSpy,
+    });
+
+    const stablefordScorecard = createTestScorecard({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only optional fields
+      syncGameType: 'stableford',
+    } as any);
+    (database.getUnsyncedScorecards as jest.Mock).mockResolvedValue([stablefordScorecard]);
+
+    await syncAll();
+
+    const upsertArg = (upsertSpy.mock.calls as unknown as unknown[][])[0]?.[0] as Record<string, unknown>;
+    // For non-Par rounds, total_par_score is null so we don't clobber a
+    // value the server might have from a prior Par round (defensive
+    // against game type changes mid-flight).
+    expect(upsertArg.total_par_score).toBeNull();
+  });
 });
 
 // ============================================================================

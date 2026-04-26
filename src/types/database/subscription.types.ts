@@ -76,10 +76,11 @@ export interface TierLimits {
   can_manage_guests?: boolean;
   can_use_gps_distance?: boolean;
 
-  // Feature access - Premium tier (side-games)
+  // Feature access - Premium tier (side-games + advanced rules)
   can_use_skins_game?: boolean;
   can_use_wolf_game?: boolean;
   can_use_prize_pool?: boolean;
+  can_use_advanced_round_rules?: boolean;
 
   // Feature access - Leagues
   max_leagues_owned?: number; // -1 = unlimited, -2 = no system limit

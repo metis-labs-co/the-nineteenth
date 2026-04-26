@@ -113,6 +113,7 @@ export function useRoundTeams(
           id: t.id,
           competition_id: '',
           name: t.name,
+          color: null,
           created_at: '',
           updated_at: '',
           members: t.memberIds.map((memberId) => {
@@ -166,6 +167,7 @@ export function useRoundTeams(
         id: team.id,
         competition_id: team.competition_id,
         name: team.name,
+        color: team.color ?? null,
         created_at: team.created_at,
         updated_at: team.updated_at,
         members: (team.team_members || []).map((tm: SupabaseTeamMemberData) => ({

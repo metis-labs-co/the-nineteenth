@@ -13,6 +13,7 @@ import type { NineType } from '@/types/database/enums';
 import type { ScoringPairCreateInput, SkinsConfig } from '@/types';
 import type { WolfConfig } from '@/types/database/wolf.types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import type { RecentCourse } from '@/hooks/courses';
 import { useIsSocial } from '@/store/subscriptionStore';
 import type { BallCount } from '@/types/multiball.types';
 import type {
@@ -71,6 +72,7 @@ interface UseCreateRoundWizardReturn {
   setSearchQuery: (query: string) => void;
   handleSelectCourse: (course: CourseWithFavoriteStatus, club: SelectedCourse['club']) => void;
   handleSelectFavoriteCourse: (course: CourseWithFavoriteStatus & { club: SelectedCourse['club'] }) => void;
+  recentCourses: RecentCourse[];
 
   // Nine type selection
   handleSelectNineType: (nineType: NineType) => void;
@@ -189,7 +191,7 @@ export function useCreateRoundWizard({
       onStartRound,
     });
 
-  const { setSearchQuery, handleSelectCourse, handleSelectFavoriteCourse } =
+  const { setSearchQuery, handleSelectCourse, handleSelectFavoriteCourse, recentCourses } =
     useWizardCourseSelection({
       initialMatchType,
       initialPartners,
@@ -267,6 +269,7 @@ export function useCreateRoundWizard({
     setSearchQuery,
     handleSelectCourse,
     handleSelectFavoriteCourse,
+    recentCourses,
     handleSelectNineType,
     handleSelectTee,
     handleSkipTeeSelection,

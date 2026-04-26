@@ -27,6 +27,7 @@ export interface TeamQueryRow {
   id: string;
   competition_id: string;
   name: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
   team_members: TeamMemberQueryRow[];
@@ -48,6 +49,9 @@ export interface CreateTeamInput {
   competitionId: string;
   name: string;
   memberIds: string[];
+  /** Avatar palette id (e.g. 'avatar-green'). Optional — auto-assignment
+   *  callers (autoGenerateTeams) supply this; manual paths can omit. */
+  color?: string;
 }
 
 export interface TeamServiceError extends Error {

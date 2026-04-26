@@ -75,6 +75,7 @@ interface ScorecardState {
   setAllowedPlayers: (playerIds: string[]) => void;
   setSelectedTeeData: (teeData: TeeBox | null) => void;
   loadFromOffline: (roundId: string) => Promise<boolean>;
+  ensureTeamMemberScorecards: (teamMemberPlayers: Player[]) => Promise<void>;
   setCurrentHole: (hole: number) => void;
   setPlayerScore: (playerId: string, hole: number, strokes: number, scoredBy?: string) => Promise<void>;
   updatePlayerHoleScore: (playerId: string, hole: number, updates: Partial<HoleScore>) => Promise<void>;
@@ -145,6 +146,20 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     loadFromOffline: (roundId) =>
       initSlice.loadFromOffline(set, initSyncListener, roundId),
 
+    ensureTeamMemberScorecards: (teamMemberPlayers) =>
+      initSlice.ensureTeamMemberScorecards(
+        set,
+        () => {
+          const s = get();
+          return {
+            currentRoundId: s.currentRoundId,
+            currentPlayers: s.currentPlayers,
+            groupScorecards: s.groupScorecards,
+          };
+        },
+        teamMemberPlayers
+      ),
+
     // Simple setters
     setCurrentHole: (hole) => {
       const { holes } = get();
@@ -209,8 +224,14 @@ export const useScorecardStore = create<ScorecardState>((set, get) => {
     },
 
     isHoleComplete: (hole) => {
-      const { groupScorecards, currentPlayers } = get();
-      return currentPlayers.every((player) => {
+      const { groupScorecards, currentPlayers, allowedPlayerIds } = get();
+      // When scoring pairs are active, completeness only covers the user's
+      // assigned set (self + partner). Other players' scores are entered
+      // on their own devices and would otherwise show as missing here.
+      const playersToCheck = allowedPlayerIds.length > 0
+        ? currentPlayers.filter((p) => allowedPlayerIds.includes(p.id))
+        : currentPlayers;
+      return playersToCheck.every((player) => {
         const scorecard = groupScorecards.get(player.id);
         const score = scorecard?.scores[hole];
         return score && (isSingleBallScore(score) ? score.strokes !== undefined : score.balls?.length > 0);

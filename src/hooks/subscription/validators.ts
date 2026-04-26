@@ -273,6 +273,9 @@ export function validateFeatureAccess(
     case 'prize_pool':
       return checkBooleanFeature(limits.canUsePrizePool, 'Prize pools', 'premium');
 
+    case 'advanced_round_rules':
+      return checkBooleanFeature(limits.canUseAdvancedRoundRules, 'Advanced round rules', 'premium');
+
     case 'ai_competition':
       return checkBooleanFeature(limits.canUseAiCompetition, 'AI competition', 'social');
 

@@ -1,14 +1,16 @@
 /**
  * CompetitionSettingsScreen - Admin-only utilities for a competition.
  *
- * All inline editing of competition metadata now happens on the Details tab
- * via per-field bottom sheets, so this screen exists only for the two
- * concerns that didn't have a natural home there:
+ * Organizer-only editing of the competition name and description lives here,
+ * alongside the two concerns this screen already owned:
  * - Sharing the invite code
  * - Deleting the competition
+ *
+ * Other per-field edits (dates, handicap system, team settings) still live
+ * on the Details tab.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Divider, Icon, Text } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,7 +21,12 @@ import {
   PageHeader,
   SectionHeader,
 } from '@/components/common';
+import {
+  EditDescriptionSheet,
+  EditNameSheet,
+} from '@/components/competitions/detail/sections/sheets';
 import { useThemeColors } from '@/context/ThemeContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useConfirmationDialog } from '@/hooks';
 import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
@@ -31,6 +38,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
 export default function CompetitionSettingsScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { competitionId } = route.params;
+  const { user } = useAuth();
   const {
     dialogConfig: alertDialogConfig,
     showAlert,
@@ -38,6 +46,11 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
   } = useConfirmationDialog();
 
   const { competition, isLoading, error } = useCompetitionData({ competitionId });
+
+  const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+  const [isEditDescriptionOpen, setIsEditDescriptionOpen] = useState(false);
+
+  const isOrganizer = !!user && !!competition && competition.organizer_id === user.id;
 
   const {
     showDeleteDialog,
@@ -95,6 +108,66 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
+        {/* Details - organizer only */}
+        {isOrganizer && (
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="Details" />
+              <TouchableOpacity
+                onPress={() => setIsEditNameOpen(true)}
+                style={[styles.editRow, { backgroundColor: colors.surface }]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Edit competition name"
+              >
+                <View style={styles.editRowText}>
+                  <Text style={[styles.editLabel, { color: colors.textSecondary }]}>
+                    Name
+                  </Text>
+                  <Text
+                    style={[styles.editValue, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {competition.name}
+                  </Text>
+                </View>
+                <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsEditDescriptionOpen(true)}
+                style={[styles.editRow, { backgroundColor: colors.surface, marginTop: spacing.sm }]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Edit competition description"
+              >
+                <View style={styles.editRowText}>
+                  <Text style={[styles.editLabel, { color: colors.textSecondary }]}>
+                    Description
+                  </Text>
+                  <Text
+                    style={[
+                      styles.editValue,
+                      {
+                        color: competition.description
+                          ? colors.textPrimary
+                          : colors.textSecondary,
+                        fontStyle: competition.description ? 'normal' : 'italic',
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {competition.description || 'Add a description'}
+                  </Text>
+                </View>
+                <Icon source="pencil-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
         {/* Invite Code */}
         <View style={styles.section}>
           <SectionHeader title="Invite Code" />
@@ -151,6 +224,23 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
       />
 
       <ConfirmationDialog {...alertDialogConfig} onCancel={dismissAlertDialog} />
+
+      {isOrganizer && (
+        <>
+          <EditNameSheet
+            visible={isEditNameOpen}
+            onDismiss={() => setIsEditNameOpen(false)}
+            competitionId={competitionId}
+            currentName={competition.name}
+          />
+          <EditDescriptionSheet
+            visible={isEditDescriptionOpen}
+            onDismiss={() => setIsEditDescriptionOpen(false)}
+            competitionId={competitionId}
+            currentDescription={competition.description}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -178,6 +268,23 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginHorizontal: spacing.lg,
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  editRowText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  editLabel: {
+    ...typography.caption,
+  },
+  editValue: {
+    ...typography.body,
   },
   inviteRow: {
     flexDirection: 'row',

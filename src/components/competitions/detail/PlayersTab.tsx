@@ -17,6 +17,7 @@ import { PlayerCard } from '@/components/social/PlayerCard';
 import { ExpandablePlayerCard } from '@/components/social/ExpandablePlayerCard';
 import type { ColorPalette } from '@/context/ThemeContext';
 import type { CompetitionPlayer } from './types';
+import { InvitationStatusBadge } from './InvitationStatusBadge';
 
 export interface PlayersTabProps {
   players: CompetitionPlayer[];
@@ -94,9 +95,17 @@ export const PlayersTab = React.memo(function PlayersTab({
               const canRemove = isOrganizer && !isCurrentUser && onRemovePlayer;
               const isBeingRemoved = removingPlayerId === player.id;
 
+              // Invitation status indicator. Shown for everyone (including
+              // current user if their invite is in a non-accepted state,
+              // which can happen for organizers' own competitions on rare
+              // data-migration paths).
+              const statusBadge = (
+                <InvitationStatusBadge status={cp.status} />
+              );
+
               // Organizer view: keep existing remove button pattern
               if (isOrganizer) {
-                const rightAction = canRemove ? (
+                const trailingAction = canRemove ? (
                   <TouchableOpacity
                     onPress={() => onRemovePlayer(player.id, player.name)}
                     disabled={isBeingRemoved}
@@ -127,7 +136,12 @@ export const PlayersTab = React.memo(function PlayersTab({
                     }}
                     badge={badge}
                     variant="card"
-                    rightAction={rightAction}
+                    rightAction={
+                      <View style={styles.rightActionRow}>
+                        {statusBadge}
+                        {trailingAction}
+                      </View>
+                    }
                     testID={`player-card-${player.id}`}
                   />
                 );
@@ -148,6 +162,7 @@ export const PlayersTab = React.memo(function PlayersTab({
                   isCurrentUser={isCurrentUser}
                   variant="card"
                   onCompare={competitionId ? () => handleCompare(player.id) : undefined}
+                  statusIndicator={statusBadge}
                 />
               );
             })}
@@ -206,6 +221,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  rightActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });
 

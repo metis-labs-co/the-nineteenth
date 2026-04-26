@@ -96,16 +96,31 @@ jest.mock('./sheets', () => {
   return {
     EditDateTimeSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="edit-datetime-sheet" /> : null,
-    EditGameTypeSheet: ({ visible }: { visible: boolean }) =>
-      visible ? <View testID="edit-game-type-sheet" /> : null,
     EditTeeSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="edit-tee-sheet" /> : null,
-    RoundFormatSheet: ({ visible }: { visible: boolean }) =>
-      visible ? <View testID="edit-round-format-sheet" /> : null,
     MatchupSheet: ({ visible }: { visible: boolean }) =>
       visible ? <View testID="matchup-sheet" /> : null,
   };
 });
+
+// Mock the new Round Type sheet so we can assert it opens from the
+// consolidated Round Type row without pulling in its full tier/preview
+// tree.
+jest.mock('@/components/rounds/RoundTypeSheet', () => {
+  const { View } = require('react-native');
+  return {
+    RoundTypeSheet: ({ visible }: { visible: boolean }) =>
+      visible ? <View testID="round-type-sheet" /> : null,
+  };
+});
+
+// Mock the competition-info hook used by the Scoring Rules gate. Default
+// to `per_round_rules_enabled: false` so existing tests that don't exercise
+// the rules row stay unchanged. Individual tests override via
+// (useCompetitionInfo as jest.Mock).mockReturnValueOnce(...).
+jest.mock('@/hooks/competitions', () => ({
+  useCompetitionInfo: jest.fn(() => ({ data: { per_round_rules_enabled: false } })),
+}));
 
 // Mock skins hook
 jest.mock('@/hooks/useSkins', () => ({
@@ -243,9 +258,11 @@ function createRoundWithCourse(overrides: Partial<RoundWithCourse> = {}): RoundW
     competition_id: 'comp-1',
     user_id: null,
     round_number: 1,
+    name: null,
     course_id: 'course-1',
     date: '2025-01-15',
     tee_time: '08:00:00',
+    rules_override: null,
     game_type: 'stableford' as GameType,
     nine_type: 'full',
     selected_tee: { name: 'White', color: 'white', totalYardage: 6400 } as TeeBox,
@@ -256,6 +273,9 @@ function createRoundWithCourse(overrides: Partial<RoundWithCourse> = {}): RoundW
     team1_id: null,
     team2_id: null,
     scoring_pairs_required: false,
+    pairing_source: 'manual',
+    pairing_style: null,
+    pairing_metric: null,
     ball_count: 1,
     handicap_source: null,
     status: 'upcoming' as RoundStatus,
@@ -497,29 +517,30 @@ describe('RoundDetailsTab', () => {
       expect(screen.getByText('Time: 10:30:00')).toBeTruthy();
     });
 
-    it('displays game type as pill', () => {
+    it('displays the inferred preset short title on the Round Type row', () => {
       const round = createRoundWithCourse({ game_type: 'stableford' });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('Format')).toBeTruthy();
+      expect(screen.getByText('Round Type')).toBeTruthy();
+      // individual_stableford preset shortTitle = 'Stableford'
       expect(screen.getByTestId('pill-stableford')).toBeTruthy();
     });
 
-    it('displays stroke play format', () => {
-      const round = createRoundWithCourse({ game_type: 'stroke' });
+    it('falls back to the "Custom" pill when the round matches no preset', () => {
+      // shamble + split is not in the catalog.
+      const round = createRoundWithCourse({
+        game_type: 'shamble',
+        is_team_round: true,
+        team_format: 'shamble',
+        round_format: 'split',
+        sub_match_size: 2,
+      });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByTestId('pill-stroke-play')).toBeTruthy();
-    });
-
-    it('displays match play format', () => {
-      const round = createRoundWithCourse({ game_type: 'match-play' });
-
-      render(<RoundDetailsTab round={round} />);
-
-      expect(screen.getByTestId('pill-match-play')).toBeTruthy();
+      expect(screen.getByText('Round Type')).toBeTruthy();
+      expect(screen.getByTestId('pill-custom')).toBeTruthy();
     });
 
     it('displays selected tee name', () => {
@@ -603,13 +624,14 @@ describe('RoundDetailsTab', () => {
       expect(screen.getByTestId('edit-datetime-sheet')).toBeTruthy();
     });
 
-    it('opens the game-type sheet when the Format row is tapped', () => {
+    it('opens the Round Type sheet when the Round Type row is tapped', () => {
       const round = createRoundWithCourse();
 
       render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      fireEvent.press(screen.getByLabelText('Format'));
-      expect(screen.getByTestId('edit-game-type-sheet')).toBeTruthy();
+      expect(screen.queryByTestId('round-type-sheet')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Round Type'));
+      expect(screen.getByTestId('round-type-sheet')).toBeTruthy();
     });
 
     it('opens the tee sheet when the Tee row is tapped (tees available)', () => {
@@ -640,6 +662,27 @@ describe('RoundDetailsTab', () => {
 
       const statusRow = screen.queryByLabelText('Status');
       expect(statusRow?.props.accessibilityRole).not.toBe('button');
+    });
+
+    it('locks every editable row once the round is in progress', () => {
+      const round = createRoundWithCourse({ status: 'in-progress' });
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      ['Date', 'Tee Time', 'Round Type', 'Tee'].forEach((label) => {
+        expect(screen.getByLabelText(label).props.accessibilityRole).not.toBe('button');
+      });
+
+      fireEvent.press(screen.getByLabelText('Date'));
+      expect(screen.queryByTestId('edit-datetime-sheet')).toBeNull();
+    });
+
+    it('keeps editable rows locked once the round is completed', () => {
+      const round = createRoundWithCourse({ status: 'completed' });
+
+      render(<RoundDetailsTab round={round} isOrganizer={true} />);
+
+      expect(screen.getByLabelText('Round Type').props.accessibilityRole).not.toBe('button');
     });
   });
 
@@ -715,23 +758,35 @@ describe('RoundDetailsTab', () => {
   // GAME TYPE LABELS TESTS
   // ===========================================================================
 
-  describe('Game Type Labels', () => {
-    const gameTypes: { type: GameType; expectedLabel: string }[] = [
-      { type: 'stableford', expectedLabel: 'Stableford' },
-      { type: 'stroke', expectedLabel: 'Stroke Play' },
-      { type: 'match-play', expectedLabel: 'Match Play' },
-      { type: 'shamble', expectedLabel: 'Shamble' },
-      { type: 'best-ball', expectedLabel: 'Best Ball' },
-      { type: 'scramble', expectedLabel: 'Scramble' },
+  describe('Round Type preset pills', () => {
+    // The Round Type row pill shows the matched preset's shortTitle.
+    // These cases exercise the common individual presets; exotic team
+    // combinations are covered by the preset catalog's own tests.
+    const cases: Array<{
+      game_type: GameType;
+      expectedPill: string;
+    }> = [
+      { game_type: 'stableford', expectedPill: 'Stableford' },
+      { game_type: 'stroke', expectedPill: 'Stroke Play' },
+      { game_type: 'par', expectedPill: 'Par' },
+      { game_type: 'match-play', expectedPill: 'Match Play' },
     ];
 
-    gameTypes.forEach(({ type, expectedLabel }) => {
-      it(`displays ${expectedLabel} for ${type}`, () => {
-        const round = createRoundWithCourse({ game_type: type });
+    cases.forEach(({ game_type, expectedPill }) => {
+      it(`displays "${expectedPill}" for individual ${game_type}`, () => {
+        const round = createRoundWithCourse({
+          game_type,
+          is_team_round: false,
+          team_format: null,
+        });
 
         render(<RoundDetailsTab round={round} />);
 
-        expect(screen.getByText(expectedLabel)).toBeTruthy();
+        // Use the pill testID (set by the mocked Pill component) so we
+        // don't collide with other literal text on the screen such as the
+        // "Par" column header in the quick-stats bar.
+        const testId = `pill-${expectedPill.toLowerCase().replace(/\s+/g, '-')}`;
+        expect(screen.getByTestId(testId)).toBeTruthy();
       });
     });
   });
@@ -747,9 +802,11 @@ describe('RoundDetailsTab', () => {
         competition_id: null,
         user_id: null,
         round_number: 1,
+        name: null,
         course_id: '',
         date: '2025-01-01',
         tee_time: null,
+        rules_override: null,
         game_type: 'stableford',
         nine_type: 'full',
         selected_tee: null,
@@ -760,6 +817,9 @@ describe('RoundDetailsTab', () => {
         team1_id: null,
         team2_id: null,
         scoring_pairs_required: false,
+        pairing_source: 'manual',
+        pairing_style: null,
+        pairing_metric: null,
         ball_count: 1,
         handicap_source: null,
         status: 'upcoming' as RoundStatus,
@@ -868,7 +928,7 @@ describe('RoundDetailsTab', () => {
 
       expect(screen.getByLabelText('Date').props.accessibilityRole).toBe('button');
       expect(screen.getByLabelText('Tee Time').props.accessibilityRole).toBe('button');
-      expect(screen.getByLabelText('Format').props.accessibilityRole).toBe('button');
+      expect(screen.getByLabelText('Round Type').props.accessibilityRole).toBe('button');
       expect(screen.getByLabelText('Tee').props.accessibilityRole).toBe('button');
     });
   });
@@ -904,49 +964,31 @@ describe('RoundDetailsTab', () => {
       expect(screen.queryByTestId('teams-section')).toBeNull();
     });
 
-    it('renders the Round Format detail row for team rounds', () => {
-      const round = createRoundWithCourse({
-        is_team_round: true,
-        team_format: 'match-play-team',
-        game_type: 'match-play' as GameType,
-      });
-
-      render(<RoundDetailsTab round={round} isOrganizer={true} />);
-
-      expect(screen.getByLabelText('Round Format')).toBeTruthy();
-    });
-
-    it('hides the Round Format row for individual rounds', () => {
-      const round = createRoundWithCourse({ is_team_round: false });
-
-      render(<RoundDetailsTab round={round} isOrganizer={true} />);
-
-      expect(screen.queryByLabelText('Round Format')).toBeNull();
-    });
-
-    it('labels the Round Format pill as "Split 2v2" for split 2v2 rounds', () => {
+    it('pills a 1v1 singles split team round as "1v1 Singles"', () => {
       const round = createRoundWithCourse({
         is_team_round: true,
         team_format: 'match-play-team',
         game_type: 'match-play' as GameType,
         round_format: 'split',
-        sub_match_size: 2,
+        sub_match_size: 1,
       });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('Split 2v2')).toBeTruthy();
+      // ryder_cup_singles preset shortTitle
+      expect(screen.getByText('1v1 Singles')).toBeTruthy();
     });
 
-    it('labels the Round Format pill as "Combined" by default', () => {
+    it('pills a combined best-ball team round as "Team Best Ball"', () => {
       const round = createRoundWithCourse({
+        game_type: 'best-ball',
         is_team_round: true,
         team_format: 'best-ball',
       });
 
       render(<RoundDetailsTab round={round} />);
 
-      expect(screen.getByText('Combined')).toBeTruthy();
+      expect(screen.getByText('Team Best Ball')).toBeTruthy();
     });
   });
 

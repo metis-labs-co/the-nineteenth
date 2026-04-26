@@ -62,6 +62,7 @@ import {
 import { CourseSelectionModal } from '../AddRoundScreen/components';
 import { SkinsSection } from '@/components/skins';
 import { WolfSection } from '@/components/wolf';
+import { PairingSourceSummary } from '@/components/rounds/PairingSourceSummary';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditRound'>;
 
@@ -308,6 +309,15 @@ export default function EditRoundScreen({ navigation, route }: Props) {
           isSubmitting={isSubmitting}
           isShuffling={isShuffling}
         />
+
+        {/* Pairing source — read-only summary when standings-driven */}
+        {round && (
+          <PairingSourceSummary
+            pairingSource={round.pairing_source}
+            pairingStyle={round.pairing_style}
+            pairingMetric={round.pairing_metric}
+          />
+        )}
 
         {/* Skins Game Section - Only for competition rounds */}
         {competitionId && (

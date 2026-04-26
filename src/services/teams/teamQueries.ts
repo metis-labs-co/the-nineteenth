@@ -71,6 +71,7 @@ export async function getCompetitionTeams(
     id: team.id,
     competition_id: team.competition_id,
     name: team.name,
+    color: team.color ?? null,
     created_at: team.created_at,
     updated_at: team.updated_at,
     members: (team.team_members || []).map((member: TeamMemberQueryRow) => ({
@@ -126,6 +127,7 @@ export async function getTeamWithMembers(
     id: teamData.id,
     competition_id: teamData.competition_id,
     name: teamData.name,
+    color: teamData.color ?? null,
     created_at: teamData.created_at,
     updated_at: teamData.updated_at,
     members: (teamData.team_members || []).map((member: TeamMemberQueryRow) => ({

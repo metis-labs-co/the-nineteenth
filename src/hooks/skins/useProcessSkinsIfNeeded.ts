@@ -17,6 +17,7 @@ import { processTeamSkins } from './teamSkinsProcessor';
 import type { ProcessSkinsResult } from './types';
 import type { SkinsGame } from '@/types/database/skins.types';
 import type { TeamFormat } from '@/types/database/enums';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
 // =====================================================
 // LOCAL DB ROW TYPES
@@ -98,8 +99,9 @@ export function useProcessSkinsIfNeeded() {
 
           const round = rawRound as unknown as RoundTeamRow | null;
 
-          const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
-          const hasTeamFormat = round?.team_format && TEAM_GAME_TYPES.includes(round.team_format);
+          const hasTeamFormat =
+            round?.team_format &&
+            (TEAM_ONLY_GAME_TYPES as string[]).includes(round.team_format);
           const hasTeamConfig = round?.team_config && typeof round.team_config === 'object' &&
             round.team_config?.teams?.length;
           const isTeamRound = round?.is_team_round || hasTeamFormat || hasTeamConfig;

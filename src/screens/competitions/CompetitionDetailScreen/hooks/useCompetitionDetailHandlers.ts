@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { useConfirmationDialog } from '@/hooks';
 import { useSubscriptionContext } from '@/context/SubscriptionContext';
-import { useUpdateTeamName } from '@/hooks/useTeams';
+import { useUpdateTeamMetadata } from '@/hooks/useTeams';
 import { useRemoveCompetitionPlayer } from '@/hooks/useRemoveCompetitionPlayer';
 import type { CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 
@@ -57,8 +57,8 @@ export function useCompetitionDetailHandlers({
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [selectedLeaderboardEntry, setSelectedLeaderboardEntry] = useState<CompetitionLeaderboardEntry | null>(null);
 
-  // Team name update hook
-  const { mutate: updateTeamNameMutation } = useUpdateTeamName();
+  // Team metadata update hook (name + colour)
+  const { mutate: updateTeamMutation } = useUpdateTeamMetadata();
 
   // Player removal hook
   const {
@@ -151,18 +151,18 @@ export function useCompetitionDetailHandlers({
     [navigation, id]
   );
 
-  const handleUpdateTeamName = useCallback(
-    (teamId: string, newName: string) => {
-      updateTeamNameMutation(
-        { teamId, competitionId: id, name: newName },
+  const handleUpdateTeam = useCallback(
+    (teamId: string, updates: { name?: string; color?: string }) => {
+      updateTeamMutation(
+        { teamId, competitionId: id, ...updates },
         {
           onError: (error) => {
-            showAlert('Error', error.message || 'Failed to update team name');
+            showAlert('Error', error.message || 'Failed to update team');
           },
         }
       );
     },
-    [updateTeamNameMutation, id, showAlert]
+    [updateTeamMutation, id, showAlert]
   );
 
   const handleManageScoringPairs = useCallback(
@@ -246,7 +246,7 @@ export function useCompetitionDetailHandlers({
     handleRemovePlayer,
     handleScoreRound,
     handleViewRound,
-    handleUpdateTeamName,
+    handleUpdateTeam,
     handleManageScoringPairs,
     handleRefresh,
   };

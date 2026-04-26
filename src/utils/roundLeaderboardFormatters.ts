@@ -73,6 +73,17 @@ export interface TeamScoreData {
   type: 'team';
   teamScore: number;
   teamFormat: TeamFormat;
+  /**
+   * Team handicap as computed during finalization (e.g. scramble's 25%
+   * of sum of member handicaps). Optional — present when the engine
+   * persisted it in raw_result_data. When absent, `getEntryHandicap`
+   * falls back to a rounded average of member handicaps.
+   */
+  teamHandicap?: number;
+  /** Team gross score (raw strokes), present for stroke-based team formats. */
+  teamGross?: number;
+  /** Team net score (gross - team handicap), present for stroke-based team formats. */
+  teamNet?: number;
 }
 
 /** Union type for all score data formats */
@@ -232,6 +243,9 @@ export function formatTeamData(
     type: 'team',
     teamScore: resultData.team_score ?? resultData.stableford_points ?? 0,
     teamFormat: teamFormat ?? 'best-ball',
+    teamHandicap: resultData.team_handicap,
+    teamGross: resultData.gross_score,
+    teamNet: resultData.net_score,
   };
 }
 

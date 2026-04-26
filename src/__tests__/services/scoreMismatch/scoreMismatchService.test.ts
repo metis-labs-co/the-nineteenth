@@ -75,6 +75,7 @@ function createMismatchRecord(overrides: Partial<ScoreMismatch> = {}): ScoreMism
     partner_score: 5,
     self_scorer_id: PLAYER_A_ID,
     partner_scorer_id: PLAYER_B_ID,
+    entries: null,
     status: 'pending',
     resolved_score: null,
     resolved_by: null,
@@ -509,6 +510,41 @@ describe('Mismatch Detection', () => {
 
       expect(mismatches).toHaveLength(0);
     });
+
+    it('should detect N-way mismatch with 3+ scorers and populate entries[]', async () => {
+      const PLAYER_C_ID = '550e8400-e29b-41d4-a716-446655440003';
+      const entries: ScoreEntry[] = [
+        // Three scorers, three different strokes for player A on hole 7
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_A_ID, strokes: 4 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_B_ID, strokes: 5 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_C_ID, strokes: 6 }),
+      ];
+      mockSupabaseSuccess(entries);
+
+      const mismatches = await detectMismatches(ROUND_ID);
+
+      expect(mismatches).toHaveLength(1);
+      expect(mismatches[0].entries).toHaveLength(3);
+      expect(mismatches[0].entries?.map((e) => e.strokes).sort()).toEqual([4, 5, 6]);
+      // Legacy 2-way columns also populated for back-compat
+      expect(mismatches[0].self_score).toBe(4);
+      expect(mismatches[0].self_scorer_id).toBe(PLAYER_A_ID);
+      expect(mismatches[0].partner_score).not.toBeNull();
+    });
+
+    it('should NOT detect mismatch when 3 scorers all agree', async () => {
+      const PLAYER_C_ID = '550e8400-e29b-41d4-a716-446655440003';
+      const entries: ScoreEntry[] = [
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_A_ID, strokes: 4 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_B_ID, strokes: 4 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 7, scorer_id: PLAYER_C_ID, strokes: 4 }),
+      ];
+      mockSupabaseSuccess(entries);
+
+      const mismatches = await detectMismatches(ROUND_ID);
+
+      expect(mismatches).toHaveLength(0);
+    });
   });
 
   describe('createMismatchRecords()', () => {
@@ -802,7 +838,10 @@ describe('Submission Readiness', () => {
   });
 
   describe('checkSubmissionReadiness()', () => {
-    it('should return canSubmit: true when scoring pairs disabled', async () => {
+    it('should return canSubmit: true when scoring pairs disabled and only one scorer present', async () => {
+      // Multi-scorer auto-detect: 0 entries → 0 distinct scorers → solo path
+      mockSupabaseSuccess([]);
+
       const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false);
 
       expect(result).toEqual({ canSubmit: true });
@@ -924,6 +963,167 @@ describe('Submission Readiness', () => {
         checkSubmissionReadiness('', PLAYER_A_ID, true)
       ).rejects.toThrow('Round ID and User ID are required');
     });
+
+    it('should throw validation error for missing IDs in multi-scorer mode', async () => {
+      await expect(
+        checkSubmissionReadiness('', PLAYER_A_ID, false)
+      ).rejects.toThrow('Round ID and User ID are required');
+    });
+  });
+
+  describe('checkSubmissionReadiness() - multi-scorer (no pairs)', () => {
+    const PLAYER_C_ID = '550e8400-e29b-41d4-a716-446655440003';
+
+    it('returns canSubmit when only one scorer has touched the round', async () => {
+      const soloEntries = Array.from({ length: 18 }, (_, i) =>
+        createScoreEntry({ hole_number: i + 1, scorer_id: PLAYER_A_ID, player_id: PLAYER_A_ID })
+      );
+      mockSupabaseSuccess(soloEntries);
+
+      const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18);
+
+      expect(result).toEqual({ canSubmit: true });
+    });
+
+    it('blocks submission with N-way unresolved_mismatches when 2+ scorers disagree', async () => {
+      const entries: ScoreEntry[] = [
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_A_ID, strokes: 4 }),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_B_ID, strokes: 5 }),
+      ];
+      const mismatches = [createMismatchRecord({ hole_number: 1 })];
+
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+        then: jest.fn((resolve) => {
+          if (tableName === 'score_mismatches') {
+            return resolve({ data: mismatches, error: null });
+          }
+          if (tableName === 'score_entries') {
+            return resolve({ data: entries, error: null });
+          }
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18);
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('unresolved_mismatches');
+      expect(result.mismatchCount).toBe(1);
+    });
+
+    it('blocks submission with waiting_for_other_scorers when another scorer has incomplete entries', async () => {
+      // Player A scored everything; Player B started but only filled hole 1.
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        createScoreEntry({ player_id: PLAYER_A_ID, hole_number: 1, scorer_id: PLAYER_B_ID, strokes: 4 }),
+      ];
+
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: { name: 'Bob' }, error: null })),
+        then: jest.fn((resolve) => {
+          if (tableName === 'score_mismatches') {
+            return resolve({ data: [], error: null });
+          }
+          if (tableName === 'score_entries') {
+            return resolve({ data: entries, error: null });
+          }
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18);
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('waiting_for_other_scorers');
+      expect(result.incompleteScorers).toHaveLength(1);
+      expect(result.incompleteScorers?.[0]).toMatchObject({
+        scorerId: PLAYER_B_ID,
+        progress: { completed: 1, total: 18 },
+      });
+    });
+
+    it('returns canSubmit when 2+ scorers all complete and no mismatches', async () => {
+      // Both A and B scored every hole for player A — agreeing scores.
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_B_ID, strokes: 4 })
+        ),
+      ];
+
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: { name: 'Bob' }, error: null })),
+        then: jest.fn((resolve) => {
+          if (tableName === 'score_mismatches') {
+            return resolve({ data: [], error: null });
+          }
+          if (tableName === 'score_entries') {
+            return resolve({ data: entries, error: null });
+          }
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18);
+
+      expect(result.canSubmit).toBe(true);
+    });
+
+    it('handles 3-way scorer scenario by counting per-scorer expected entries', async () => {
+      // Three scorers, each touched only player A. A and C complete (18 each); B incomplete (5).
+      const entries: ScoreEntry[] = [
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_A_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 5 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_B_ID, strokes: 4 })
+        ),
+        ...Array.from({ length: 18 }, (_, i) =>
+          createScoreEntry({ player_id: PLAYER_A_ID, hole_number: i + 1, scorer_id: PLAYER_C_ID, strokes: 4 })
+        ),
+      ];
+
+      (supabase.from as jest.Mock).mockImplementation((tableName: string) => ({
+        select: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        single: jest.fn(() => Promise.resolve({ data: { name: 'Player' }, error: null })),
+        then: jest.fn((resolve) => {
+          if (tableName === 'score_mismatches') {
+            return resolve({ data: [], error: null });
+          }
+          if (tableName === 'score_entries') {
+            return resolve({ data: entries, error: null });
+          }
+          return resolve({ data: [], error: null });
+        }),
+      }));
+
+      const result = await checkSubmissionReadiness(ROUND_ID, PLAYER_A_ID, false, 18);
+
+      expect(result.canSubmit).toBe(false);
+      expect(result.reason).toBe('waiting_for_other_scorers');
+      // Only B is short; C and A are complete.
+      expect(result.incompleteScorers?.map((s) => s.scorerId)).toEqual([PLAYER_B_ID]);
+    });
   });
 
   describe('getPartnerProgress()', () => {
@@ -1006,7 +1206,16 @@ describe('Bypass Handling', () => {
     it('should throw validation error for missing IDs', async () => {
       await expect(
         startBypassTimer('', PLAYER_A_ID, PLAYER_B_ID)
-      ).rejects.toThrow('Round ID, Player ID, and Partner ID are required');
+      ).rejects.toThrow('Round ID and Player ID are required');
+    });
+
+    it('should accept null partnerId for multi-scorer rounds', async () => {
+      mockSupabaseSuccess(null);
+
+      const result = await startBypassTimer(ROUND_ID, PLAYER_A_ID, null);
+
+      expect(result.bypass_available_at).toBeDefined();
+      expect(supabase.from).toHaveBeenCalledWith('score_submission_status');
     });
   });
 

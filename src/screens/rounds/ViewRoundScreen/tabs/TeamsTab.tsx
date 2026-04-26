@@ -50,6 +50,7 @@ export function TeamsTab({
         roundId={roundId}
         competitionId={competitionId}
         cardBackground={colors.surface}
+        currentUserId={currentUserId}
       />
       {isTeamStrokeRound && (
         <View style={styles.leaderboardWrapper}>
@@ -144,7 +145,7 @@ function formatPoints(n: number): string {
 
 const styles = StyleSheet.create({
   content: {
-    padding: spacing.md,
+    paddingVertical: spacing.md,
     gap: spacing.md,
   },
   leaderboardWrapper: {

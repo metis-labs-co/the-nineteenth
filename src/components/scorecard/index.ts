@@ -50,3 +50,6 @@ export type { ScorecardTableProps, ScorecardTablePlayer } from './ScorecardTable
 export { MatchPlayScorecardTable } from './MatchPlayScorecardTable';
 export type { MatchPlayScorecardTableProps } from './MatchPlayScorecardTable';
 
+// Group filter strip
+export { GroupFilterStrip } from './GroupFilterStrip';
+

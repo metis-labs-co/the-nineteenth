@@ -9,11 +9,12 @@
  * - Leaderboard: Competition standings
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Icon } from 'react-native-paper';
 import { LoadingSpinner } from '@/components/common';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
@@ -41,6 +42,7 @@ import {
   useCompetitionDetailData,
   useCompetitionDetailHandlers,
   usePrizePoolManagement,
+  useDeleteCompetitionRound,
 } from './hooks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionDetail'>;
@@ -91,6 +93,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   // Handlers hook
   const {
     dialogConfig,
+    showAlert,
     dismissDialog,
     showRoundUpgradePrompt,
     setShowRoundUpgradePrompt,
@@ -115,7 +118,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     handleRemovePlayer,
     handleScoreRound,
     handleViewRound,
-    handleUpdateTeamName,
+    handleUpdateTeam,
     handleManageScoringPairs,
     handleRefresh,
   } = useCompetitionDetailHandlers({
@@ -146,8 +149,29 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     handleAddPrizePool,
     handleEditPrizePool,
     handlePrizePoolSuccess,
-    handleViewPrizePoolTransactions,
   } = usePrizePoolManagement({ refetchPrizePool });
+
+  // Round deletion (swipe-to-delete on Rounds tab)
+  const {
+    deleteDialogVisible: deleteRoundDialogVisible,
+    roundToDelete,
+    isDeleting: isDeletingRound,
+    handleDeleteRound,
+    handleCancelDelete: handleCancelDeleteRound,
+    handleConfirmDelete: handleConfirmDeleteRound,
+  } = useDeleteCompetitionRound({
+    competitionId: id,
+    onDeleted: refetch,
+    onError: showAlert,
+  });
+
+  // Refetch on focus so returning from a round detail/settings screen shows
+  // updated round data (name, course, date, status) without a manual pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // Stats tab only shown when there's at least one non-scramble round — scramble
   // rounds have no individual hole scores, so individual aggregation is meaningless.
@@ -191,6 +215,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
   }
 
   const { competition, rounds, players } = competitionData;
+
+  // Display number for the round being deleted — matches the pill shown on
+  // the Rounds tab card (derived from list position, not the stored
+  // round.round_number which can have gaps after earlier deletes).
+  const roundToDeleteDisplayNumber = roundToDelete
+    ? rounds.findIndex((r) => r.id === roundToDelete.id) + 1
+    : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -260,7 +291,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             isPrizePoolLocked={isPrizePoolLocked}
             onAddPrizePool={handleAddPrizePool}
             onEditPrizePool={handleEditPrizePool}
-            onViewPrizePoolTransactions={handleViewPrizePoolTransactions}
+            onViewPrizePoolTransactions={prizePool ? () => setActiveTab('payouts') : undefined}
+            onViewTeams={
+              competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
+            }
           />
         )}
 
@@ -274,6 +308,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onViewRound={handleViewRound}
             onQuickScore={isOrganizer && isSuperAdmin ? handleQuickScore : undefined}
             onManageScoringPairs={handleManageScoringPairs}
+            onDeleteRound={isOrganizer ? handleDeleteRound : undefined}
             scoringPairsStatus={scoringPairsStatus}
             allScoredStatus={allScoredStatus}
             colors={colors}
@@ -307,8 +342,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             isLoading={isLoadingTeams}
             isOrganizer={isOrganizer}
             canEditTeamNames={isOrganizer}
-            onUpdateTeamName={handleUpdateTeamName}
+            hasStartedRound={hasStartedRound}
+            onUpdateTeam={handleUpdateTeam}
             colors={colors}
+            currentUserId={user?.id}
           />
         )}
 
@@ -333,6 +370,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             playerCount={players.length}
             currentUserId={user?.id}
             isOrganizer={isOrganizer}
+            rounds={rounds}
           />
         )}
 
@@ -414,6 +452,22 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
       {/* Remove Player Dialog */}
       <ConfirmationDialog {...removePlayerDialogConfig} onCancel={dismissRemovePlayerDialog} />
+
+      {/* Delete Round Dialog */}
+      <ConfirmationDialog
+        visible={deleteRoundDialogVisible}
+        title="Delete Round"
+        message={`Are you sure you want to delete Round ${roundToDeleteDisplayNumber || ''}${
+          roundToDelete?.course?.name ? ` at ${roundToDelete.course.name}` : ''
+        }? All pairings, scores, and data will be permanently removed.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDeleteRound}
+        onCancel={handleCancelDeleteRound}
+        loading={isDeletingRound}
+        icon="delete"
+      />
 
       {/* Points Breakdown Modal */}
       {selectedLeaderboardEntry && (

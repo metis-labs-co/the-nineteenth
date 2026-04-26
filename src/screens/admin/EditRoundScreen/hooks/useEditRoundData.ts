@@ -1,36 +1,15 @@
 /**
  * Data mutation functions for EditRoundScreen
+ *
+ * `updateRound` lives in the shared services layer (`@/services/rounds`) so
+ * every "edit one field" sheet imports from the same place. Re-exported here
+ * for back-compat with the existing call sites that still import via this
+ * module.
  */
 
 import { supabase } from '@/services/supabase/client';
-import type { GameType, TeamFormat, TeeBox } from '@/types/database.types';
 
-/**
- * Update round data
- */
-export async function updateRound(
-  roundId: string,
-  updates: {
-    date?: string;
-    tee_time?: string | null;
-    game_type?: GameType;
-    selected_tee?: TeeBox | null;
-    scoring_pairs_required?: boolean;
-    course_id?: string | null;
-    is_team_round?: boolean;
-    team_format?: TeamFormat | null;
-  }
-): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types restriction workaround
-  const { error } = await (supabase as any)
-    .from('rounds')
-    .update(updates)
-    .eq('id', roundId);
-
-  if (error) {
-    throw new Error(`Failed to update round: ${error.message}`);
-  }
-}
+export { updateRound, type UpdateRoundFields } from '@/services/rounds/updateRound';
 
 /**
  * Shuffle/clear scoring pairs for a round

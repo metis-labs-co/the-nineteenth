@@ -272,6 +272,7 @@ export const TeamMatchPlay: Story = {
           {
             id: 'team-1',
             name: 'Team Alpha',
+            color: null,
             competition_id: 'comp-1',
             members: [
               { player_id: 'player-1', team_id: 'team-1', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[0] },
@@ -283,6 +284,7 @@ export const TeamMatchPlay: Story = {
           {
             id: 'team-2',
             name: 'Team Beta',
+            color: null,
             competition_id: 'comp-1',
             members: [
               { player_id: 'player-3', team_id: 'team-2', joined_at: '2025-01-01T00:00:00Z', player: fourPlayers[2] },

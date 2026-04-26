@@ -30,8 +30,9 @@ import { SkinsIndicatorBadge } from './SkinsIndicatorBadge';
 import { SkinsSummaryModal } from './SkinsSummaryModal';
 import { calculatePlayerTotals, calculateTeamTotals } from './utils';
 import type { LastWinnerInfo } from './utils';
+import { TEAM_ONLY_GAME_TYPES } from '@/services/rounds/resultsEngine';
 
-const TEAM_GAME_TYPES = ['best-ball', 'scramble', 'shamble'];
+const TEAM_GAME_TYPES: string[] = TEAM_ONLY_GAME_TYPES;
 
 // ============================================================================
 // TYPES

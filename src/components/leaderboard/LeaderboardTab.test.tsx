@@ -91,16 +91,20 @@ jest.mock('./LeaderboardTable', () => {
 jest.mock('./TeamLeaderboardTable', () => {
   const { View, Text } = require('react-native');
   return {
-    TeamLeaderboardTable: ({ leaderboard, testID, currentUserId, showTiedIndicator: _showTiedIndicator, hideMemberPoints }: any) => (
+    TeamLeaderboardTable: ({ leaderboard, testID, currentUserId, showTiedIndicator: _showTiedIndicator }: any) => (
       <View testID={testID || 'team-leaderboard-table'}>
         <Text>TeamLeaderboardTable</Text>
         <Text testID="team-leaderboard-count">{leaderboard?.length || 0} teams</Text>
         {currentUserId && <Text testID="team-current-user">{currentUserId}</Text>}
-        {hideMemberPoints && <Text testID="hide-member-points">member-points-hidden</Text>}
         {leaderboard?.map((entry: any) => (
           <View key={entry.teamId} testID={`team-row-${entry.teamId}`}>
             <Text>{entry.teamName}</Text>
             <Text>{entry.totalPoints} pts</Text>
+            {entry.roundBreakdown?.map((rb: any) => (
+              <Text key={rb.roundId} testID={`round-breakdown-${entry.teamId}-${rb.roundId}`}>
+                {rb.roundLabel}:{rb.points}
+              </Text>
+            ))}
           </View>
         ))}
       </View>
@@ -192,9 +196,11 @@ function createMockRound(
     competition_id: 'comp-1',
     user_id: null,
     round_number: 1,
+    name: null,
     course_id: 'course-1',
     date: '2025-01-15',
     tee_time: '08:00',
+    rules_override: null,
     game_type: 'stableford',
     nine_type: 'full',
     selected_tee: { name: 'White', color: 'white', totalYardage: 6200, courseRating: 72, slopeRating: 125 },
@@ -205,6 +211,9 @@ function createMockRound(
     team1_id: null,
     team2_id: null,
     scoring_pairs_required: false,
+    pairing_source: 'manual',
+    pairing_style: null,
+    pairing_metric: null,
     ball_count: 1,
     handicap_source: null,
     status: 'upcoming',
@@ -577,15 +586,18 @@ describe('LeaderboardTab', () => {
       );
     });
 
-    it('hides member points for scramble competitions', () => {
-      const teamEntry = createTeamEntry(
-        'team-1',
-        'Team Alpha',
-        [{ playerId: 'p1', playerName: 'John', handicap: 15 }],
-        42,
-        1,
-        1
-      );
+    it('builds a per-round breakdown from roundPoints and the rounds list', () => {
+      const teamEntry: CompetitionLeaderboardEntry = {
+        ...createTeamEntry(
+          'team-1',
+          'Team Alpha',
+          [{ playerId: 'p1', playerName: 'John', handicap: 15 }],
+          42,
+          1,
+          1
+        ),
+        roundPoints: [{ roundId: scrambleRound.id, points: 42, position: 1 }],
+      };
       mockUseCompetitionLeaderboard.mockReturnValue({
         data: [teamEntry],
         isLoading: false,
@@ -595,7 +607,64 @@ describe('LeaderboardTab', () => {
 
       render(<LeaderboardTab {...defaultProps} teamMode="fixed" rounds={[scrambleRound]} />);
 
-      expect(screen.getByTestId('hide-member-points')).toBeTruthy();
+      // Mock TeamLeaderboardTable renders breakdown rows as `${label}:${points}`
+      expect(
+        screen.getByTestId(`round-breakdown-team-1-${scrambleRound.id}`)
+      ).toBeTruthy();
+    });
+
+    // Regression coverage for the bug where Scramble rounds wrote individual
+    // round_results rows and Team Standings stayed empty. After the fix the
+    // team-only path writes team rows that the leaderboard hook returns; the
+    // UI should render the team table with both teams.
+    it('renders team standings when scramble round has team entries (regression)', () => {
+      const completedScrambleRound = createMockRound({
+        id: 'round-scramble',
+        team_format: 'scramble',
+        is_team_round: true,
+        status: 'completed',
+      });
+      const teamA = createTeamEntry(
+        'team-a',
+        'Team A',
+        [{ playerId: 'p1', playerName: 'John', handicap: 15 }],
+        2, // win = 2 pts
+        1,
+        1
+      );
+      const teamB = createTeamEntry(
+        'team-b',
+        'Team B',
+        [{ playerId: 'p2', playerName: 'Jane', handicap: 18 }],
+        0, // loss = 0 pts
+        1,
+        2
+      );
+      mockUseCompetitionLeaderboard.mockReturnValue({
+        data: [teamA, teamB],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(
+        <LeaderboardTab
+          {...defaultProps}
+          teamMode="fixed"
+          rounds={[completedScrambleRound]}
+        />
+      );
+
+      // Team Standings rendered with both teams.
+      expect(screen.getByText('Team Standings')).toBeTruthy();
+      expect(screen.getByTestId('competition-team-leaderboard')).toBeTruthy();
+      expect(screen.getByTestId('team-row-team-a')).toBeTruthy();
+      expect(screen.getByTestId('team-row-team-b')).toBeTruthy();
+      // Hook called with teams filter, not individuals.
+      expect(mockUseCompetitionLeaderboard).toHaveBeenCalledWith(
+        'comp-1',
+        expect.objectContaining({ filter: 'teams' })
+      );
     });
   });
 

@@ -22,11 +22,18 @@ import { GolfBallLoader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
+import { getTeamColorHex } from '@/utils/teamColor';
 
 export interface TeamsSectionProps {
   roundId: string;
   competitionId: string | null;
   cardBackground: string;
+  /**
+   * The currently logged-in user's player ID. When provided, their team
+   * card gets a primary-coloured border and their member row shows a "You"
+   * pill — same pattern as the competition Teams tab.
+   */
+  currentUserId?: string;
 }
 
 interface TeamMemberDisplay {
@@ -35,13 +42,12 @@ interface TeamMemberDisplay {
   handicap: number | null;
 }
 
-/** Team-colour accents used to visually distinguish sides. Two colours are
- * sufficient for the common 2-team case; beyond that we rotate through the
- * same list (each card still has the team name for identification). */
-const TEAM_ACCENTS = ['success', 'error', 'info', 'warning'] as const;
-type ThemeAccent = (typeof TEAM_ACCENTS)[number];
-
-export function TeamsSection({ roundId, competitionId, cardBackground }: TeamsSectionProps) {
+export function TeamsSection({
+  roundId,
+  competitionId,
+  cardBackground,
+  currentUserId,
+}: TeamsSectionProps) {
   const colors = useThemeColors();
   const {
     teams,
@@ -58,7 +64,6 @@ export function TeamsSection({ roundId, competitionId, cardBackground }: TeamsSe
             name: m.player?.name ?? 'Unknown',
             handicap: m.player?.handicap ?? null,
           }));
-        const accent: ThemeAccent = TEAM_ACCENTS[teamIndex % TEAM_ACCENTS.length];
         // Simple aggregate label — sum of handicaps. Useful for team stroke
         // play; for best-ball it's informational. Skipped if any member has
         // no handicap so we don't show a misleading total.
@@ -69,8 +74,9 @@ export function TeamsSection({ roundId, competitionId, cardBackground }: TeamsSe
         return {
           id: team.id,
           name: team.name,
+          color: team.color,
+          fallbackIndex: teamIndex,
           members,
-          accent,
           totalHandicap,
         };
       }),
@@ -118,18 +124,34 @@ export function TeamsSection({ roundId, competitionId, cardBackground }: TeamsSe
         </View>
       ) : (
         <View style={styles.teamsList}>
-          {teamViewModels.map((t) => (
+          {teamViewModels.map((t) => {
+            const isUsersTeam =
+              !!currentUserId && t.members.some((m) => m.id === currentUserId);
+            return (
             <View
               key={t.id}
               style={[
                 styles.card,
-                { backgroundColor: cardBackground, borderColor: colors.border },
+                {
+                  backgroundColor: cardBackground,
+                  borderColor: isUsersTeam ? colors.primary : colors.border,
+                  borderWidth: isUsersTeam ? 2 : 1,
+                },
               ]}
             >
               <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
                 <View style={styles.cardHeaderLeft}>
                   <View
-                    style={[styles.teamAccent, { backgroundColor: colors[t.accent] }]}
+                    style={[
+                      styles.teamAccent,
+                      {
+                        backgroundColor: getTeamColorHex(
+                          t.color,
+                          t.fallbackIndex,
+                          colors
+                        ),
+                      },
+                    ]}
                   />
                   <Text style={[styles.teamName, { color: colors.textPrimary }]} numberOfLines={1}>
                     {t.name}
@@ -149,39 +171,63 @@ export function TeamsSection({ roundId, competitionId, cardBackground }: TeamsSe
                     No players assigned yet
                   </Text>
                 ) : (
-                  t.members.map((m) => (
-                    <View key={m.id} style={styles.memberRow}>
-                      <View
-                        style={[
-                          styles.memberAvatar,
-                          { backgroundColor: colors.primaryLighter },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.memberInitial, { color: colors.primary }]}
+                  t.members.map((m) => {
+                    const isMe = !!currentUserId && m.id === currentUserId;
+                    return (
+                      <View key={m.id} style={styles.memberRow}>
+                        <View
+                          style={[
+                            styles.memberAvatar,
+                            { backgroundColor: colors.primaryLighter },
+                          ]}
                         >
-                          {m.name.charAt(0).toUpperCase()}
-                        </Text>
+                          <Text
+                            style={[styles.memberInitial, { color: colors.primary }]}
+                          >
+                            {m.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.memberNameRow}>
+                          <Text
+                            style={[styles.memberName, { color: colors.textPrimary }]}
+                            numberOfLines={1}
+                          >
+                            {m.name}
+                          </Text>
+                          {isMe && (
+                            <View
+                              style={[
+                                styles.youPill,
+                                { backgroundColor: colors.primaryLighter },
+                              ]}
+                              accessibilityLabel="You"
+                            >
+                              <Text
+                                style={[
+                                  styles.youPillText,
+                                  { color: colors.primaryDark },
+                                ]}
+                              >
+                                You
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {m.handicap !== null && (
+                          <Text
+                            style={[styles.memberHandicap, { color: colors.textSecondary }]}
+                          >
+                            HC {m.handicap}
+                          </Text>
+                        )}
                       </View>
-                      <Text
-                        style={[styles.memberName, { color: colors.textPrimary }]}
-                        numberOfLines={1}
-                      >
-                        {m.name}
-                      </Text>
-                      {m.handicap !== null && (
-                        <Text
-                          style={[styles.memberHandicap, { color: colors.textSecondary }]}
-                        >
-                          HC {m.handicap}
-                        </Text>
-                      )}
-                    </View>
-                  ))
+                    );
+                  })
                 )}
               </View>
             </View>
-          ))}
+            );
+          })}
         </View>
       )}
     </View>
@@ -270,9 +316,24 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: 14,
   },
+  memberNameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   memberName: {
     ...typography.body,
-    flex: 1,
+    flexShrink: 1,
+  },
+  youPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  youPillText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   memberHandicap: {
     ...typography.caption,

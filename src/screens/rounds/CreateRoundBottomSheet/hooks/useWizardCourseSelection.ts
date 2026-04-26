@@ -11,6 +11,7 @@
 import { useCallback } from 'react';
 import type { TeeBox, GameType } from '@/types/database.types';
 import type { CourseWithFavoriteStatus } from '@/hooks/useClubs';
+import { useRecentCourses } from '@/hooks/courses';
 import type {
   WizardStep,
   WizardData,
@@ -40,6 +41,8 @@ export function useWizardCourseSelection({
   setData,
   startRoundWithCurrentState,
 }: UseWizardCourseSelectionParams) {
+  const { recentCourses, addRecentCourse } = useRecentCourses();
+
   const setSearchQuery = useCallback((query: string) => {
     setData((prev) => ({ ...prev, searchQuery: query }));
   }, [setData]);
@@ -56,6 +59,8 @@ export function useWizardCourseSelection({
         golfapiCourseId: course.golfapi_course_id,
       };
 
+      addRecentCourse({ ...course, club });
+
       setData((prev) => ({
         ...prev,
         selectedCourse: courseData,
@@ -83,7 +88,7 @@ export function useWizardCourseSelection({
         setCurrentStep('nineType');
       }
     },
-    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData]
+    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData, addRecentCourse]
   );
 
   const handleSelectFavoriteCourse = useCallback(
@@ -98,6 +103,8 @@ export function useWizardCourseSelection({
         golfapiCourseId: course.golfapi_course_id,
       };
 
+      addRecentCourse(course);
+
       setData((prev) => ({
         ...prev,
         selectedCourse: courseData,
@@ -125,12 +132,13 @@ export function useWizardCourseSelection({
         setCurrentStep('nineType');
       }
     },
-    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData]
+    [initialMatchType, skipPartnerStep, initialPartners, startRoundWithCurrentState, setCurrentStep, setData, addRecentCourse]
   );
 
   return {
     setSearchQuery,
     handleSelectCourse,
     handleSelectFavoriteCourse,
+    recentCourses,
   };
 }

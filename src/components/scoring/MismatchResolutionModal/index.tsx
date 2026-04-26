@@ -35,8 +35,10 @@ export interface MismatchResolutionModalProps {
   mismatches: ScoreMismatch[];
   /** Current user's ID for tracking who resolved */
   currentUserId: string;
-  /** Partner's display name */
+  /** Partner's display name (used for legacy 2-way pairs mismatches) */
   partnerName: string;
+  /** Map of scorer_id → display name. Used to label N-way (multi-scorer) entries. */
+  playerNamesById?: Record<string, string>;
   /**
    * Called when user selects a score for resolution
    * Returns { alreadyResolved: true } if partner already resolved this mismatch
@@ -65,6 +67,7 @@ export function MismatchResolutionModal({
   mismatches,
   currentUserId,
   partnerName,
+  playerNamesById,
   onResolve,
   onClose,
   isOnline,
@@ -165,6 +168,7 @@ export function MismatchResolutionModal({
           currentUserId={currentUserId}
           localResolution={locallyResolved.get(item.id)}
           playerName={getPlayerName(item)}
+          playerNamesById={playerNamesById}
           onResolve={handleResolve}
         />
       );
@@ -173,6 +177,7 @@ export function MismatchResolutionModal({
       resolvingId,
       currentUserId,
       partnerName,
+      playerNamesById,
       isOnline,
       locallyResolved,
       handleResolve,

@@ -55,7 +55,13 @@ beforeEach(() => {
   mockEq = jest.fn(() => ({ order: mockOrder, in: mockIn }));
   mockSelect = jest.fn(() => ({ eq: mockEq, in: mockIn, order: mockOrder }));
   mockInsert = jest.fn(() => ({ select: jest.fn().mockResolvedValue({ data: [], error: null }) }));
-  mockDelete = jest.fn(() => ({ eq: mockEq }));
+  // saveRoundResults now uses `.delete().match({ round_id, is_team_result })`
+  // for targeted deletion so team/individual rows can coexist on the same
+  // round. mockMatch stands in for the delete's terminal call.
+  const mockMatch = jest.fn().mockResolvedValue({ data: null, error: null });
+  mockDelete = jest.fn(() => ({ eq: mockEq, match: mockMatch }));
+  // Expose for assertions in tests that want to verify the delete filter
+  (globalThis as unknown as { __mockMatch: typeof mockMatch }).__mockMatch = mockMatch;
 
   mockFrom = jest.fn(() => ({
     select: mockSelect,
@@ -242,8 +248,6 @@ describe('saveRoundResults()', () => {
       const roundId = createUUID();
       const results = [createTestResultInput({ roundId })];
 
-      // Mock successful delete and insert
-      mockEq.mockResolvedValueOnce({ data: null, error: null });
       mockInsert.mockReturnValueOnce({
         select: jest.fn().mockResolvedValue({ data: [{ id: 'result-1' }], error: null }),
       });
@@ -252,14 +256,20 @@ describe('saveRoundResults()', () => {
 
       expect(mockFrom).toHaveBeenCalledWith('round_results');
       expect(mockDelete).toHaveBeenCalled();
-      expect(mockEq).toHaveBeenCalledWith('round_id', roundId);
+      // saveRoundResults targets `.match({ round_id, is_team_result })` so
+      // individual + team rows can coexist on the same round.
+      const mockMatch = (globalThis as unknown as { __mockMatch: jest.Mock }).__mockMatch;
+      expect(mockMatch).toHaveBeenCalledWith(
+        expect.objectContaining({ round_id: roundId, is_team_result: false })
+      );
     });
 
     it('should throw DATABASE error when delete fails', async () => {
       const roundId = createUUID();
       const results = [createTestResultInput({ roundId })];
 
-      mockEq.mockResolvedValueOnce({
+      const mockMatch = (globalThis as unknown as { __mockMatch: jest.Mock }).__mockMatch;
+      mockMatch.mockResolvedValueOnce({
         data: null,
         error: { message: 'Delete failed', code: 'PGRST001' },
       });
@@ -958,7 +968,14 @@ describe('finalizeRound()', () => {
     });
   });
 
-  describe('Team Formats', () => {
+  // The cases below test the legacy finalizeRound path for team-format game
+  // types (Scramble, Best Ball, Shamble). The orchestrator
+  // (refinalizeRoundResults) NO LONGER routes these game types here — it
+  // routes them through finalizeTeamOnlyRound, which writes team rows
+  // exclusively. These tests are kept because finalizeRound is still an
+  // exported function and a few legacy callers may invoke it directly;
+  // removing the branches in calculateStandardResults is a separate cleanup.
+  describe('Team Formats (legacy finalizeRound path)', () => {
     it('should handle best-ball game type', async () => {
       const roundId = createUUID();
       const playerId = createUUID();
@@ -1335,16 +1352,452 @@ describe('roundResultsService object', () => {
 // RE-FINALIZATION TESTS
 // ============================================================================
 
+// ============================================================================
+// RULES OVERRIDE TESTS
+// ============================================================================
+
+describe('finalizeRound() with rules_override', () => {
+  it('uses individual_points from override in place of competition rules', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const p2 = createUUID();
+    const p3 = createUUID();
+
+    const scorecards = [
+      createStablefordScorecard(p1, roundId, 38),
+      createStablefordScorecard(p2, roundId, 36),
+      createStablefordScorecard(p3, roundId, 34),
+    ];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }],
+        error: null,
+      }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      individual_points: { '1': 5, '2': 3, '3': 1, default: 0 },
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    const r1 = saved.find((r: any) => r.player_id === p1);
+    const r2 = saved.find((r: any) => r.player_id === p2);
+    const r3 = saved.find((r: any) => r.player_id === p3);
+
+    // Override map wins: 5/3/1 not the standard 10/8/6
+    expect(r1.competition_points).toBe(5);
+    expect(r2.competition_points).toBe(3);
+    expect(r3.competition_points).toBe(1);
+  });
+
+  it('zeros competition_points when contributes_to_individual_leaderboard is false', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+
+    const scorecards = [createStablefordScorecard(p1, roundId, 38)];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [{ id: 'r1' }], error: null }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      contributes_to_individual_leaderboard: false,
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(0);
+    // Position and raw data are still saved for display purposes
+    expect(saved[0].position).toBe(1);
+    expect(saved[0].raw_score).toBe(38);
+  });
+
+  it('falls back to competition point_system when override has no individual_points', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const p2 = createUUID();
+
+    const scorecards = [
+      createStablefordScorecard(p1, roundId, 38),
+      createStablefordScorecard(p2, roundId, 36),
+    ];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    // Override only sets a flag, no individual_points
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      counts_as_qualifying: true,
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    const r1 = saved.find((r: any) => r.player_id === p1);
+    const r2 = saved.find((r: any) => r.player_id === p2);
+
+    expect(r1.competition_points).toBe(10);
+    expect(r2.competition_points).toBe(8);
+  });
+
+  it('treats null override as no override (back-compat)', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+
+    const scorecards = [createStablefordScorecard(p1, roundId, 38)];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [{ id: 'r1' }], error: null }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, null);
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(10);
+  });
+
+  it('individual_points mode raw_score writes Stableford totals as competition points', async () => {
+    const roundId = createUUID();
+    const players = Array.from({ length: 4 }, () => createUUID());
+    const scores = [51, 44, 42, 39];
+    const scorecards = players.map((id, i) => createStablefordScorecard(id, roundId, scores[i]));
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: players.map((_, i) => ({ id: `r${i}` })),
+        error: null,
+      }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      individual_points: { mode: 'raw_score' },
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    // competition_points equals raw Stableford total per player — not 10/8/6/5.
+    players.forEach((id, i) => {
+      const row = saved.find((r: any) => r.player_id === id);
+      expect(row.competition_points).toBe(scores[i]);
+      expect(row.raw_score).toBe(scores[i]);
+    });
+  });
+
+  it('individual_points mode win_tie_loss awards win/tie/loss values by position', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const p2 = createUUID();
+    const p3 = createUUID();
+
+    const scorecards = [
+      createStablefordScorecard(p1, roundId, 40),
+      createStablefordScorecard(p2, roundId, 36),
+      createStablefordScorecard(p3, roundId, 36),
+    ];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }],
+        error: null,
+      }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      individual_points: { mode: 'win_tie_loss', values: { win: 3, tie: 1, loss: 0 } },
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved.find((r: any) => r.player_id === p1).competition_points).toBe(3);
+    // p2 and p3 are tied for 2nd → tie value, not loss.
+    expect(saved.find((r: any) => r.player_id === p2).competition_points).toBe(1);
+    expect(saved.find((r: any) => r.player_id === p3).competition_points).toBe(1);
+  });
+
+  it('legacy bare-map individual_points still resolves to positional override', async () => {
+    // Same behaviour as the existing positional-override test, but framed
+    // as a back-compat assertion for the new shape: a Record<string, number>
+    // shape (without a `mode` field) must still apply as positional rules.
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const p2 = createUUID();
+
+    const scorecards = [
+      createStablefordScorecard(p1, roundId, 40),
+      createStablefordScorecard(p2, roundId, 36),
+    ];
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    await finalizeRound(roundId, scorecards, 'stableford', STANDARD_POINT_SYSTEM, {
+      individual_points: { '1': 7, '2': 4, default: 0 },
+    });
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved.find((r: any) => r.player_id === p1).competition_points).toBe(7);
+    expect(saved.find((r: any) => r.player_id === p2).competition_points).toBe(4);
+  });
+});
+
+describe('finalizeTeamRound() with rules_override', () => {
+  it('applies team_points 2/1/0 allocation to two-team rounds', async () => {
+    const roundId = createUUID();
+    const teamA = createUUID();
+    const teamB = createUUID();
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    await finalizeTeamRound(
+      roundId,
+      [
+        { teamId: teamA, rawScore: 83, rawResultData: { team_score: 83 } },
+        { teamId: teamB, rawScore: 75, rawResultData: { team_score: 75 } },
+      ],
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { team_points: { win: 2, tie: 1, loss: 0 } }
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    const aRow = saved.find((r: any) => r.team_id === teamA);
+    const bRow = saved.find((r: any) => r.team_id === teamB);
+
+    expect(aRow.competition_points).toBe(2); // winner
+    expect(bRow.competition_points).toBe(0); // loser
+  });
+
+  it('awards both teams the tie value on a tied raw score', async () => {
+    const roundId = createUUID();
+    const teamA = createUUID();
+    const teamB = createUUID();
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    await finalizeTeamRound(
+      roundId,
+      [
+        { teamId: teamA, rawScore: 80, rawResultData: { team_score: 80 } },
+        { teamId: teamB, rawScore: 80, rawResultData: { team_score: 80 } },
+      ],
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { team_points: { win: 2, tie: 1, loss: 0 } }
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(1);
+    expect(saved[1].competition_points).toBe(1);
+  });
+
+  it('ignores team_points when there are more than two teams (falls back to position points)', async () => {
+    const roundId = createUUID();
+    const t1 = createUUID();
+    const t2 = createUUID();
+    const t3 = createUUID();
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }],
+        error: null,
+      }),
+    });
+
+    await finalizeTeamRound(
+      roundId,
+      [
+        { teamId: t1, rawScore: 90, rawResultData: { team_score: 90 } },
+        { teamId: t2, rawScore: 80, rawResultData: { team_score: 80 } },
+        { teamId: t3, rawScore: 70, rawResultData: { team_score: 70 } },
+      ],
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { team_points: { win: 2, tie: 1, loss: 0 } }
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    const t1Row = saved.find((r: any) => r.team_id === t1);
+    // Stableford: higher is better → t1 is 1st → position points (10) not team_points.win
+    expect(t1Row.competition_points).toBe(10);
+  });
+
+  it('zeros team competition_points when contributes_to_team_leaderboard is false', async () => {
+    const roundId = createUUID();
+    const teamA = createUUID();
+    const teamB = createUUID();
+
+    mockEq.mockResolvedValueOnce({ data: null, error: null });
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    await finalizeTeamRound(
+      roundId,
+      [
+        { teamId: teamA, rawScore: 83, rawResultData: { team_score: 83 } },
+        { teamId: teamB, rawScore: 75, rawResultData: { team_score: 75 } },
+      ],
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      {
+        team_points: { win: 2, tie: 1, loss: 0 },
+        contributes_to_team_leaderboard: false,
+      }
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(0);
+    expect(saved[1].competition_points).toBe(0);
+  });
+});
+
+describe('finalizeRound() with perRoundRulesEnabled flag (Phase 6)', () => {
+  it('ignores rules_override when perRoundRulesEnabled=false', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+
+    const scorecards = [createStablefordScorecard(p1, roundId, 38)];
+
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [{ id: 'r1' }], error: null }),
+    });
+
+    // Override would normally award position 1 = 5 pts, but mode is off.
+    await finalizeRound(
+      roundId,
+      scorecards,
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      {
+        individual_points: { '1': 5, default: 0 },
+        contributes_to_individual_leaderboard: false, // would zero otherwise
+      },
+      false // general rules mode
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    // Should use competition's STANDARD_POINT_SYSTEM (1st = 10), not the
+    // override's 5. And contributes_to_individual_leaderboard=false is
+    // ignored because the override itself is ignored → points not zeroed.
+    expect(saved[0].competition_points).toBe(10);
+  });
+
+  it('honours rules_override when perRoundRulesEnabled=true', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const scorecards = [createStablefordScorecard(p1, roundId, 38)];
+
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [{ id: 'r1' }], error: null }),
+    });
+
+    await finalizeRound(
+      roundId,
+      scorecards,
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { individual_points: { '1': 5, default: 0 } },
+      true // per-round mode
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(5);
+  });
+
+  it('treats undefined perRoundRulesEnabled as legacy "honour override"', async () => {
+    const roundId = createUUID();
+    const p1 = createUUID();
+    const scorecards = [createStablefordScorecard(p1, roundId, 38)];
+
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [{ id: 'r1' }], error: null }),
+    });
+
+    // No 6th arg — undefined. Phase 1-5 callers keep working.
+    await finalizeRound(
+      roundId,
+      scorecards,
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { individual_points: { '1': 5, default: 0 } }
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    expect(saved[0].competition_points).toBe(5);
+  });
+});
+
+describe('finalizeTeamRound() with perRoundRulesEnabled flag (Phase 6)', () => {
+  it('drops team_points override and falls back to position points when flag is false', async () => {
+    const roundId = createUUID();
+    const teamA = createUUID();
+    const teamB = createUUID();
+
+    mockInsert.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ id: 'r1' }, { id: 'r2' }],
+        error: null,
+      }),
+    });
+
+    await finalizeTeamRound(
+      roundId,
+      [
+        { teamId: teamA, rawScore: 96, rawResultData: { team_score: 96 } },
+        { teamId: teamB, rawScore: 90, rawResultData: { team_score: 90 } },
+      ],
+      'stableford',
+      STANDARD_POINT_SYSTEM,
+      { team_points: { win: 2, tie: 1, loss: 0 } },
+      false // general rules mode → override ignored
+    );
+
+    const saved = mockInsert.mock.calls[0][0];
+    const a = saved.find((r: any) => r.team_id === teamA);
+    // Stableford higher=better → Team A is 1st → position points (10) not win (2).
+    expect(a.competition_points).toBe(10);
+  });
+});
+
 describe('Re-finalization', () => {
   it('should delete old results before saving new ones when re-finalizing', async () => {
     const roundId = createUUID();
 
     const scorecards = [createStablefordScorecard(createUUID(), roundId, 36)];
 
-    // Track call order
+    // Track call order. saveRoundResults now deletes via `.match()` so we
+    // watch that, not `.eq()`.
     const callOrder: string[] = [];
 
-    mockEq.mockImplementation(() => {
+    const mockMatch = (globalThis as unknown as { __mockMatch: jest.Mock }).__mockMatch;
+    mockMatch.mockImplementation(() => {
       callOrder.push('delete');
       return Promise.resolve({ data: null, error: null });
     });

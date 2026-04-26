@@ -7,6 +7,7 @@
  * - useTeams(competitionId) - Fetch all teams for a competition
  * - useCreateTeam() - Create a new team
  * - useUpdateTeam() - Update team members
+ * - useUpdateTeamMetadata() - Update team name and/or colour
  * - useDeleteTeam() - Delete a team
  * - useAutoGenerateTeams() - Auto-generate balanced teams
  */
@@ -17,7 +18,7 @@ import {
   getCompetitionTeams,
   createTeam,
   updateTeamMembers,
-  updateTeamName,
+  updateTeamMetadata,
   deleteTeam,
   autoGenerateTeams,
 } from '@/services/teams';
@@ -212,49 +213,46 @@ export function useUpdateTeam() {
 }
 
 /**
- * Mutation hook to update a team's name
+ * Mutation hook to update a team's name and/or colour.
  *
- * Invalidates the teams list for the competition on success.
+ * Either field can be provided independently. Invalidates the teams
+ * list for the competition on success.
  *
- * @returns Mutation result with updateTeamName function
+ * @returns Mutation result with updateTeamMetadata function
  *
  * @example
  * ```tsx
- * function EditTeamName({ team }: { team: TeamWithMembers }) {
- *   const { mutate: updateName, isPending } = useUpdateTeamName();
+ * function EditTeam({ team }: { team: TeamWithMembers }) {
+ *   const { mutate, isPending } = useUpdateTeamMetadata();
  *
- *   const handleSave = (newName: string) => {
- *     updateName(
- *       {
- *         teamId: team.id,
- *         competitionId: team.competition_id,
- *         name: newName,
- *       },
- *       {
- *         onSuccess: () => {
- *           Alert.alert('Success', 'Team name updated');
- *         },
- *       }
- *     );
+ *   const handleSave = (name: string, color: string) => {
+ *     mutate({
+ *       teamId: team.id,
+ *       competitionId: team.competition_id,
+ *       name,
+ *       color,
+ *     });
  *   };
  *
- *   return <TextInput onSubmitEditing={(e) => handleSave(e.nativeEvent.text)} />;
+ *   return <TextInput onSubmitEditing={(e) => handleSave(e.nativeEvent.text, 'avatar-green')} />;
  * }
  * ```
  */
-export function useUpdateTeamName() {
+export function useUpdateTeamMetadata() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
       teamId,
       name,
+      color,
     }: {
       teamId: string;
       competitionId: string;
-      name: string;
+      name?: string;
+      color?: string | null;
     }): Promise<Team> => {
-      return updateTeamName(teamId, name);
+      return updateTeamMetadata(teamId, { name, color });
     },
 
     onSuccess: (data, variables) => {
@@ -269,7 +267,7 @@ export function useUpdateTeamName() {
     },
 
     onError: (error) => {
-      console.error('[useUpdateTeamName] Failed to update team name:', error);
+      console.error('[useUpdateTeamMetadata] Failed to update team:', error);
     },
   });
 }

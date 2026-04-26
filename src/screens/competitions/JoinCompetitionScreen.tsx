@@ -78,8 +78,6 @@ const getHandicapSystemLabel = (system: string): string => {
 
 /** Map competition status to StatusVariant */
 const getStatusVariant = (status: string): StatusVariant => {
-  // 'in-progress' competitions show as 'active' in the badge
-  if (status === 'in-progress') return 'active';
   return status as StatusVariant;
 };
 
