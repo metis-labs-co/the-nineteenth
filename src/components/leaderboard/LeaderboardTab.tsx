@@ -27,6 +27,13 @@ import type { RoundWithCourse } from '@/components/competitions/detail/types';
 // TYPES
 // =====================================================
 
+export type LeaderboardView = 'individual' | 'team';
+
+export interface LeaderboardScrollTarget {
+  kind: 'player' | 'team';
+  id: string;
+}
+
 export interface LeaderboardTabProps {
   /** Competition ID */
   competitionId: string;
@@ -40,9 +47,18 @@ export interface LeaderboardTabProps {
   autoRefresh?: boolean;
   /** Callback when a leaderboard entry is pressed (for showing points breakdown) */
   onEntryPress?: (entry: CompetitionLeaderboardEntry) => void;
+  /** Optional controlled view. When provided, parent owns the state. */
+  selectedView?: LeaderboardView;
+  /** Called when the view changes (only meaningful when controlled). */
+  onViewChange?: (view: LeaderboardView) => void;
+  /**
+   * Optional row to scroll into focus on next render. The component clears
+   * the target by calling `onScrollHandled` after acting on it.
+   */
+  scrollTarget?: LeaderboardScrollTarget | null;
+  /** Called after the component has acted on `scrollTarget`. */
+  onScrollHandled?: () => void;
 }
-
-type LeaderboardView = 'individual' | 'team';
 
 // =====================================================
 // SUB-COMPONENTS
@@ -275,6 +291,10 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   currentUserId,
   autoRefresh = true,
   onEntryPress,
+  selectedView,
+  onViewChange,
+  scrollTarget,
+  onScrollHandled,
 }: LeaderboardTabProps) {
   const _colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
@@ -297,21 +317,25 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     [rounds]
   );
 
-  // Track selected view
-  const [selectedView, setSelectedView] = useState<LeaderboardView>(
+  // Controlled-with-fallback selectedView. Parent passes selectedView+onViewChange
+  // when it wants to drive the toggle (e.g., from a deep-link). Otherwise we fall
+  // back to internal state so standalone usage (stories/tests) stays unchanged.
+  const [internalView, setInternalView] = useState<LeaderboardView>(
     hasTeams ? 'team' : 'individual'
   );
+  const isControlled = selectedView !== undefined;
+  const view: LeaderboardView = isControlled ? selectedView! : internalView;
 
   // Effective view (forced to 'team' for scramble-only competitions)
-  const effectiveView = isAllScrambleFormat ? 'team' : selectedView;
+  const effectiveView = isAllScrambleFormat ? 'team' : view;
 
   // Determine filter based on selected view
   // For scramble-only competitions, always use 'teams' filter
   const filter: LeaderboardFilter = useMemo(() => {
     if (!hasTeams) return 'individuals';
     if (isAllScrambleFormat) return 'teams'; // Scramble competitions only show team standings
-    return selectedView === 'team' ? 'teams' : 'individuals';
-  }, [hasTeams, selectedView, isAllScrambleFormat]);
+    return view === 'team' ? 'teams' : 'individuals';
+  }, [hasTeams, view, isAllScrambleFormat]);
 
   // Fetch leaderboard data using the new hook
   const {
@@ -330,10 +354,27 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
 
   const playerTeamLookup = useMemo(() => buildPlayerTeamLookup(teams), [teams]);
 
-  // Handle view change
-  const handleViewChange = useCallback((view: LeaderboardView) => {
-    setSelectedView(view);
-  }, []);
+  // Handle view change (forwards to parent when controlled, else updates local state)
+  const handleViewChange = useCallback(
+    (next: LeaderboardView) => {
+      if (isControlled) {
+        onViewChange?.(next);
+      } else {
+        setInternalView(next);
+      }
+    },
+    [isControlled, onViewChange]
+  );
+
+  // Best-effort scrollTarget acknowledgement. Once data is available, signal back
+  // to the parent so it can clear the transient state. The visible currentUserId
+  // row highlight provides the immediate visual cue; imperative scroll-into-view
+  // across all four list variants is deferred.
+  React.useEffect(() => {
+    if (scrollTarget && leaderboard && !isLoading) {
+      onScrollHandled?.();
+    }
+  }, [scrollTarget, leaderboard, isLoading, onScrollHandled]);
 
   // Handle entry press to show points breakdown modal
   const handleEntryPress = useCallback((participantId: string) => {
@@ -381,7 +422,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
     <View style={styles.container} testID="leaderboard-tab">
       {/* View Toggle (Individual / Team) - hidden for scramble-only competitions */}
       <ViewToggle
-        selectedView={selectedView}
+        selectedView={view}
         onViewChange={handleViewChange}
         showTeamOption={hasTeams}
         hideIndividualOption={isAllScrambleFormat}

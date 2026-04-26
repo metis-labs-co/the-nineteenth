@@ -5,7 +5,7 @@
  */
 
 export { CompetitionInfoSection } from './CompetitionInfoSection';
-export { CurrentStandingSection } from './CurrentStandingSection';
+export { MiniLeaderboardSection } from './MiniLeaderboardSection';
 export { SettingsSection } from './SettingsSection';
 export { CoursesSection } from './CoursesSection';
 export { PrizePoolSection } from './PrizePoolSection';

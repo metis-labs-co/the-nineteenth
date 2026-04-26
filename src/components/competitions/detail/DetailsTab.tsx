@@ -2,76 +2,68 @@
  * DetailsTab - Competition details and courses
  *
  * Shows:
- * - Competition header card (name, dates, players, invite code)
- * - Competition settings (type, handicap system, team settings)
- * - Current standing card (for players)
- * - Courses section listing all unique courses used in rounds
- *
- * Organizers can tap on editable fields to modify them.
- *
- * This component has been refactored to use extracted sub-components:
- * - CompetitionInfoSection: Header card with key competition info
- * - CurrentStandingSection: Player's current standing
- * - SettingsSection: Competition settings
- * - CoursesSection: List of courses used
+ * - Competition header card
+ * - Mini-leaderboard standing (you ± 1, individual + team) for players
+ * - Competition settings
+ * - Prize pool section
+ * - Courses used in rounds
  */
 
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import type { Competition, Course } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
+import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 import { type RoundWithCourse } from './types';
 import {
   CompetitionInfoSection,
-  CurrentStandingSection,
+  MiniLeaderboardSection,
   SettingsSection,
   PrizePoolSection,
   CoursesSection,
 } from './sections';
 
-// =====================================================
-// TYPES
-// =====================================================
-
 export interface DetailsTabProps {
   competition: Competition;
   rounds: RoundWithCourse[];
   playerCount: number;
-  currentStanding: { position: number; points: number } | null;
+  /** True when the current user is a player in this competition */
+  isPlayer: boolean;
+  /** 3-row individual mini-leaderboard window, or null to hide */
+  miniIndividual: MiniLeaderboardData | null;
+  /** 3-row team mini-leaderboard window, or null to hide team sub-section */
+  miniTeam: MiniLeaderboardData | null;
+  /** Display name for the user's team */
+  userTeamName?: string;
+  /** Called when user taps a mini-leaderboard sub-section */
+  onOpenLeaderboard?: (view: 'individual' | 'team') => void;
   isOrganizer: boolean;
   /**
    * True once any round has started scoring. Locks structural settings
-   * (competition_type, team_mode, team_size) from inline edit. Defaults
-   * to false.
+   * (competition_type, team_mode, team_size) from inline edit.
    */
   hasStartedRound?: boolean;
-  /** Prize pool data (null if none configured) */
   prizePool?: CompetitionPrizePool | null;
-  /** Prize pool placement breakdown */
   prizePoolPlacements?: PrizePoolPlacement[];
-  /** Whether the prize pool is locked */
   isPrizePoolLocked?: boolean;
   onViewCourse?: (course: Course) => void;
   onUpdateCompetition?: (updates: Partial<Competition>) => Promise<void>;
-  /** Handler for adding a prize pool */
   onAddPrizePool?: () => void;
-  /** Handler for editing the prize pool */
   onEditPrizePool?: () => void;
-  /** Handler for viewing prize pool transactions */
   onViewPrizePoolTransactions?: () => void;
   /** Called when the Team Size row is pressed — switches to the Teams tab. */
   onViewTeams?: () => void;
 }
 
-// =====================================================
-// DETAILS TAB COMPONENT
-// =====================================================
-
 export const DetailsTab = React.memo(function DetailsTab({
   competition,
   rounds,
-  playerCount,
-  currentStanding,
+  playerCount: _playerCount,
+  isPlayer,
+  miniIndividual,
+  miniTeam,
+  userTeamName,
+  onOpenLeaderboard,
   isOrganizer,
   hasStartedRound = false,
   prizePool,
@@ -84,30 +76,37 @@ export const DetailsTab = React.memo(function DetailsTab({
   onViewPrizePoolTransactions,
   onViewTeams,
 }: DetailsTabProps) {
-  // Extract unique courses from rounds (no duplicates)
   const uniqueCourses = useMemo(() => {
-    const courseMap = new Map<string, Course & { clubs?: { name: string; city: string | null; state: string | null } | null }>();
-
+    const courseMap = new Map<
+      string,
+      Course & { clubs?: { name: string; city: string | null; state: string | null } | null }
+    >();
     for (const round of rounds) {
       if (round.course && !courseMap.has(round.course.id)) {
         courseMap.set(round.course.id, round.course);
       }
     }
-
     return Array.from(courseMap.values());
   }, [rounds]);
 
+  const showMiniLeaderboard =
+    isPlayer &&
+    competition.competition_type !== 'knockout' &&
+    miniIndividual !== null;
+
   return (
     <View>
-      {/* Competition Header Card */}
       <CompetitionInfoSection competition={competition} />
 
-      {/* Current Standing Card - shown for non-organizers who are players */}
-      {currentStanding && !isOrganizer && (
-        <CurrentStandingSection standing={currentStanding} />
+      {showMiniLeaderboard && (
+        <MiniLeaderboardSection
+          individual={miniIndividual}
+          team={miniTeam}
+          teamName={userTeamName}
+          onOpenLeaderboard={onOpenLeaderboard ?? (() => {})}
+        />
       )}
 
-      {/* Competition Settings Section */}
       <SettingsSection
         competition={competition}
         isOrganizer={isOrganizer}
@@ -115,7 +114,6 @@ export const DetailsTab = React.memo(function DetailsTab({
         onViewTeams={onViewTeams}
       />
 
-      {/* Prize Pool Section */}
       <PrizePoolSection
         pool={prizePool ?? null}
         placements={prizePoolPlacements ?? []}
@@ -126,7 +124,6 @@ export const DetailsTab = React.memo(function DetailsTab({
         onViewTransactionsPress={onViewPrizePoolTransactions}
       />
 
-      {/* Courses Section */}
       <CoursesSection courses={uniqueCourses} onViewCourse={onViewCourse} />
     </View>
   );
