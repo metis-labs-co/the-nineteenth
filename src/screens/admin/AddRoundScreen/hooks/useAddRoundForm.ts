@@ -437,12 +437,20 @@ export function useAddRoundForm({
           pairingStyle: formData.pairingStyle,
           pairingMetric: formData.pairingMetric,
           teeTime: formData.teeTime || null,
-          teams: isSplit ? teams : undefined,
+          // Only forward teams for team-format split rounds (e.g. ryder
+          // cup singles). Singles match play in a team competition still
+          // ignores the team rosters and pairs head-to-head from the
+          // flat standings list.
+          teams: isSplit && isTeamRound ? teams : undefined,
           preFetchedStandings: standingsOrder.map((id) => ({ id })),
         });
-      } else if (isSplit && subMatchPreview && subMatchPreview.length > 0) {
-        // Default split-preset path — handicap snake-draft sub-matches.
-        // Standings-driven splits go through reseedRoundPairings above.
+      } else if (isSplit && isTeamRound && subMatchPreview && subMatchPreview.length > 0) {
+        // Default *team* split-preset path — handicap snake-draft cross-team
+        // sub-matches (e.g. ryder cup singles without standings). Singles
+        // match play in a team competition deliberately skips this branch:
+        // it's not a team round, so cross-team pairings would be wrong.
+        // The user sets up pairings via EditPairingConfigSheet (manually
+        // or by enabling standings-driven mode).
         await replaceSubMatches({
           roundId,
           subMatches: subMatchPreview.map((sm) => ({
