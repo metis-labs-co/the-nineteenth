@@ -13,9 +13,12 @@
  * `ryder_cup_singles`). Lifting it here keeps the two paths in lockstep.
  */
 
-import { generateSubMatches } from '@/utils/pairingAlgorithm';
+import { generateSubMatches, calculateTeeTime } from '@/utils/pairingAlgorithm';
 import type { PairingPlayer } from '@/types';
-import { pairFromStandings } from '@/utils/standingsPairing';
+import {
+  pairFromStandings,
+  pairCrossTeamFromStandings,
+} from '@/utils/standingsPairing';
 import { getCurrentCompetitionStandings } from '@/services/api/knockout';
 import { replacePairings } from '@/services/pairings';
 import { replaceSubMatches } from '@/services/subMatches';
@@ -123,9 +126,12 @@ export async function reseedRoundPairings(
   }
 
   const isSplit = presetConfig.round_format === 'split';
+  const subMatchSize = presetConfig.sub_match_size ?? 1;
+  const startTime = (teeTime || '07:00').substring(0, 5);
+  const hasTeams = !!teams && teams.length >= 2;
 
   if (!isSplit) {
-    // Individual 1v1 match-play presets — one `pairings` row per pair.
+    // Combined-format match-play presets — one `pairings` row per pair.
     // pairFromStandings throws on odd counts; the sheet/wizard catches
     // this in their validation pass.
     const matchups = pairFromStandings(standingsOrder, pairingStyle);
@@ -140,39 +146,80 @@ export async function reseedRoundPairings(
     return;
   }
 
-  // Split presets (ryder_cup_singles + future) — re-run sub-match generation
-  // with the standings-derived order overriding handicap snake-draft, then
-  // persist via the existing replaceSubMatches path. Requires both team
-  // rosters; if missing or empty we can't pair cross-team.
-  if (!teams || teams.length < 2) {
-    throw new Error(
-      'Split-preset re-seed needs both team rosters; pass `teams` to reseedRoundPairings.'
-    );
+  // Split presets — write `sub_matches` rows. Two shapes:
+  //   1. Team split (ryder_cup_singles + future): teams supplied; pair cross-team.
+  //   2. Singles split (individual_match_play with split format): no teams; pair
+  //      directly from a flat standings list, one player per side.
+  //
+  // For sub_match_size === 1 we honour pairingStyle exactly — `standard` does
+  // top-vs-bottom, `adjacent` does rank-vs-rank. Larger sub_match_size buckets
+  // multiple players per side and falls back to the existing `generateSubMatches`
+  // bucket-by-rank algorithm (which always behaves like 'adjacent'); pairingStyle
+  // is currently a no-op for >1.
+  if (!hasTeams) {
+    // Singles split — each sub_match is a 1v1 pair, no team affiliation.
+    if (subMatchSize !== 1) {
+      throw new Error(
+        `Singles split presets require sub_match_size === 1 (got ${subMatchSize})`
+      );
+    }
+    const matchups = pairFromStandings(standingsOrder, pairingStyle);
+    await replaceSubMatches({
+      roundId,
+      subMatches: matchups.map(([a, b], sortOrder) => ({
+        sortOrder,
+        teamAPlayerIds: [a],
+        teamBPlayerIds: [b],
+        teeTime: calculateTeeTime(startTime, DEFAULT_SUB_MATCH_INTERVAL_MINUTES, sortOrder),
+        pairingId: null,
+      })),
+    });
+    return;
   }
 
-  const teamAIds = teams[0].members
+  // Team split path — both teams supplied. teams is guaranteed non-empty here.
+  const teamAIds = teams![0].members
     .map((m) => m.player_id)
     .filter((id): id is string => Boolean(id));
-  const teamBIds = teams[1].members
+  const teamBIds = teams![1].members
     .map((m) => m.player_id)
     .filter((id): id is string => Boolean(id));
   const teamASet = new Set(teamAIds);
   const teamBSet = new Set(teamBIds);
   const orderedA = standingsOrder.filter((id) => teamASet.has(id));
   const orderedB = standingsOrder.filter((id) => teamBSet.has(id));
+  const haveFullOrderA = orderedA.length === teamAIds.length;
+  const haveFullOrderB = orderedB.length === teamBIds.length;
 
+  // For 1v1 cross-team matches we honour pairingStyle precisely — call the
+  // dedicated helper rather than relying on generateSubMatches' implicit
+  // rank-vs-rank zip, which silently treats 'standard' the same as 'adjacent'.
+  if (subMatchSize === 1 && haveFullOrderA && haveFullOrderB) {
+    const pairs = pairCrossTeamFromStandings(orderedA, orderedB, pairingStyle);
+    await replaceSubMatches({
+      roundId,
+      subMatches: pairs.map(([a, b], sortOrder) => ({
+        sortOrder,
+        teamAPlayerIds: [a],
+        teamBPlayerIds: [b],
+        teeTime: calculateTeeTime(startTime, DEFAULT_SUB_MATCH_INTERVAL_MINUTES, sortOrder),
+        pairingId: null,
+      })),
+    });
+    return;
+  }
+
+  // Larger buckets (sub_match_size > 1) or partial-roster fallback — defer to
+  // the existing snake-draft / pre-ordered bucket algorithm. pairingStyle is a
+  // no-op here; it'd take a bucketed cross-team matcher to apply it cleanly.
   const result = generateSubMatches({
-    teamAPlayers: teamMembersToPairingPlayers(teams[0].members),
-    teamBPlayers: teamMembersToPairingPlayers(teams[1].members),
-    subMatchSize: presetConfig.sub_match_size ?? 1,
-    startTime: (teeTime || '07:00').substring(0, 5),
+    teamAPlayers: teamMembersToPairingPlayers(teams![0].members),
+    teamBPlayers: teamMembersToPairingPlayers(teams![1].members),
+    subMatchSize,
+    startTime,
     intervalMinutes: DEFAULT_SUB_MATCH_INTERVAL_MINUTES,
-    // Only forward the pre-ordered hint when we have every player from the
-    // roster — otherwise let snake-draft fall back so we don't drop anyone.
-    preOrderedTeamA:
-      orderedA.length === teamAIds.length ? orderedA : undefined,
-    preOrderedTeamB:
-      orderedB.length === teamBIds.length ? orderedB : undefined,
+    preOrderedTeamA: haveFullOrderA ? orderedA : undefined,
+    preOrderedTeamB: haveFullOrderB ? orderedB : undefined,
   });
 
   await replaceSubMatches({

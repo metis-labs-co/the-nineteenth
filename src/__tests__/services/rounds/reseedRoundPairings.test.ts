@@ -167,14 +167,41 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
     ];
   }
 
-  it('writes sub_matches via replaceSubMatches in the standings-derived per-team order', async () => {
+  it('emits adjacent cross-team pairings (A best vs B best, A worst vs B worst)', async () => {
     // Standings interleaves teams; per-team rank derived from filter:
     //   A=[a1, a2], B=[b1, b2]
-    // generateSubMatches with preOrderedTeam{A,B} buckets in slots of
-    // sub_match_size and then pairs slot i of A vs slot i of B (rank vs
-    // rank). The `pairingStyle` knob only affects standings ordering, not
-    // the cross-team pairing for split presets — same behaviour as the
-    // wizard pre-refactor.
+    mockedGetStandings.mockResolvedValue([
+      { id: 'a1', name: 'A1', handicap: 5 },
+      { id: 'b1', name: 'B1', handicap: 6 },
+      { id: 'a2', name: 'A2', handicap: 10 },
+      { id: 'b2', name: 'B2', handicap: 12 },
+    ]);
+
+    await reseedRoundPairings({
+      roundId: 'round-1',
+      competitionId: 'comp-1',
+      roundNumber: 2,
+      presetConfig: { round_format: 'split', sub_match_size: 1 },
+      pairingStyle: 'adjacent',
+      pairingMetric: 'competition_points',
+      teeTime: '08:00:00',
+      teams: buildTeams(),
+    });
+
+    expect(mockedReplaceSubMatches).toHaveBeenCalledTimes(1);
+    expect(mockedReplacePairings).not.toHaveBeenCalled();
+
+    const [{ subMatches }] = mockedReplaceSubMatches.mock.calls[0];
+    expect(subMatches).toHaveLength(2);
+    expect(subMatches[0].teamAPlayerIds).toEqual(['a1']);
+    expect(subMatches[0].teamBPlayerIds).toEqual(['b1']);
+    expect(subMatches[1].teamAPlayerIds).toEqual(['a2']);
+    expect(subMatches[1].teamBPlayerIds).toEqual(['b2']);
+  });
+
+  it('emits standard cross-team pairings (A best vs B worst, A worst vs B best)', async () => {
+    // Same per-team standings as adjacent test, different style:
+    //   standard pairs teamA[0] with teamB[N-1] etc.
     mockedGetStandings.mockResolvedValue([
       { id: 'a1', name: 'A1', handicap: 5 },
       { id: 'b1', name: 'B1', handicap: 6 },
@@ -193,21 +220,50 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
       teams: buildTeams(),
     });
 
+    const [{ subMatches }] = mockedReplaceSubMatches.mock.calls[0];
+    expect(subMatches).toHaveLength(2);
+    expect(subMatches[0].teamAPlayerIds).toEqual(['a1']);
+    expect(subMatches[0].teamBPlayerIds).toEqual(['b2']);
+    expect(subMatches[1].teamAPlayerIds).toEqual(['a2']);
+    expect(subMatches[1].teamBPlayerIds).toEqual(['b1']);
+  });
+
+  it('singles split (no teams) writes 1v1 sub_matches direct from standings', async () => {
+    // No teams supplied — singles match play with split round_format.
+    // pairFromStandings runs against the flat standings list.
+    mockedGetStandings.mockResolvedValue([
+      { id: 'p1', name: 'P1', handicap: 5 },
+      { id: 'p2', name: 'P2', handicap: 10 },
+      { id: 'p3', name: 'P3', handicap: 15 },
+      { id: 'p4', name: 'P4', handicap: 20 },
+    ]);
+
+    await reseedRoundPairings({
+      roundId: 'round-1',
+      competitionId: 'comp-1',
+      roundNumber: 2,
+      presetConfig: { round_format: 'split', sub_match_size: 1 },
+      pairingStyle: 'adjacent',
+      pairingMetric: 'competition_points',
+      teeTime: '08:00:00',
+      // teams omitted on purpose — singles match play has no teams
+    });
+
     expect(mockedReplaceSubMatches).toHaveBeenCalledTimes(1);
     expect(mockedReplacePairings).not.toHaveBeenCalled();
 
     const [{ subMatches }] = mockedReplaceSubMatches.mock.calls[0];
     expect(subMatches).toHaveLength(2);
-    expect(subMatches[0].teamAPlayerIds).toEqual(['a1']);
-    expect(subMatches[0].teamBPlayerIds).toEqual(['b1']);
-    expect(subMatches[1].teamAPlayerIds).toEqual(['a2']);
-    expect(subMatches[1].teamBPlayerIds).toEqual(['b2']);
+    expect(subMatches[0].teamAPlayerIds).toEqual(['p1']);
+    expect(subMatches[0].teamBPlayerIds).toEqual(['p2']);
+    expect(subMatches[1].teamAPlayerIds).toEqual(['p3']);
+    expect(subMatches[1].teamBPlayerIds).toEqual(['p4']);
   });
 
-  it('throws when split presets are missing team rosters', async () => {
+  it('singles split rejects sub_match_size > 1', async () => {
     mockedGetStandings.mockResolvedValue([
-      { id: 'a1', name: 'A1', handicap: 5 },
-      { id: 'b1', name: 'B1', handicap: 6 },
+      { id: 'p1', name: 'P1', handicap: 5 },
+      { id: 'p2', name: 'P2', handicap: 10 },
     ]);
 
     await expect(
@@ -215,13 +271,13 @@ describe('reseedRoundPairings — split (sub-matches) presets', () => {
         roundId: 'round-1',
         competitionId: 'comp-1',
         roundNumber: 2,
-        presetConfig: { round_format: 'split', sub_match_size: 1 },
-        pairingStyle: 'standard',
+        presetConfig: { round_format: 'split', sub_match_size: 2 },
+        pairingStyle: 'adjacent',
         pairingMetric: 'competition_points',
         teeTime: null,
-        // teams omitted on purpose
+        // teams omitted — singles only supports sub_match_size === 1
       })
-    ).rejects.toThrow(/both team rosters/);
+    ).rejects.toThrow(/sub_match_size === 1/);
 
     expect(mockedReplaceSubMatches).not.toHaveBeenCalled();
   });

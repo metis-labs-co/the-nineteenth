@@ -182,8 +182,11 @@ export const INDIVIDUAL_MATCH_PLAY: RoundPreset = {
     game_type: 'match-play',
     is_team_round: false,
     team_format: null,
-    round_format: 'combined',
-    sub_match_size: null,
+    // Singles match play renders as a list of 1v1 sub_matches (not generic
+    // tee-time groups). round_format: 'split' + sub_match_size: 1 routes the
+    // round to SubMatchesTab and puts pairings in the sub_matches table.
+    round_format: 'split',
+    sub_match_size: 1,
     rules_override: null,
   },
 };
@@ -202,8 +205,8 @@ export const INDIVIDUAL_MATCH_PLAY_SEEDED: RoundPreset = {
     game_type: 'match-play',
     is_team_round: false,
     team_format: null,
-    round_format: 'combined',
-    sub_match_size: null,
+    round_format: 'split',
+    sub_match_size: 1,
     rules_override: QUALIFYING_MATCH_PLAY.override,
   },
   requiresCompetitionTeams: false,
