@@ -98,6 +98,10 @@ interface PlayerScoreCardProps {
   baseHandicap?: number;
   /** Label for base value: 'HC' (profile) or 'SHC' (social handicap) */
   baseLabel?: string;
+  /** Render the FIR/GIR/Putts row collapsed by default (used for 3+ player rounds) */
+  collapseStatsByDefault?: boolean;
+  /** Team name shown beneath the player's name on team rounds */
+  teamName?: string;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -117,6 +121,8 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   dailyHandicap,
   baseHandicap,
   baseLabel,
+  collapseStatsByDefault = false,
+  teamName,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = playingHandicap ?? player.handicap ?? 0;
@@ -201,6 +207,11 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
               {player.name}
             </ScaledText>
           </View>
+          {teamName && (
+            <ScaledText category="caption" style={[styles.teamName, { color: colors.textSecondary }]} numberOfLines={1}>
+              {teamName}
+            </ScaledText>
+          )}
           <ScaledText category="caption" style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
               ? `DHC: ${dailyHandicap} / ${baseLabel ?? 'HC'}: ${baseHandicap ?? handicap}`
@@ -262,20 +273,17 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
         />
       </View>
 
-      {/* Points Preview - Show what points the current score would earn */}
+      {/* Points Preview - Show net-to-par label for current score */}
       {showPointsPreview && selectedScore && !isPickedUp && (
         <View style={styles.pointsPreviewContainer}>
-          <ScaledText category="body" style={[styles.pointsPreviewLabel, { color: colors.textSecondary }]}>
-            Points for this score:{' '}
-          </ScaledText>
           <ScaledText
-            category="body"
+            category="caption"
             style={[
-              styles.pointsPreviewValue,
+              styles.pointsPreviewLabel,
               { color: getPointsColor(stablefordPoints, colors) },
             ]}
           >
-            {stablefordPoints} ({getPointsDescription(stablefordPoints)})
+            {getPointsDescription(stablefordPoints)}
           </ScaledText>
         </View>
       )}
@@ -303,6 +311,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             showGreenMissDirection={statsVisibility.showGreenMissDirection}
             showBunkerShots={statsVisibility.showBunkerShots}
             showHazards={statsVisibility.showHazards}
+            defaultCollapsed={collapseStatsByDefault}
           />
         </>
       )}
@@ -360,6 +369,11 @@ const styles = StyleSheet.create({
   handicapLabel: {
     ...typography.body,
   },
+  teamName: {
+    ...typography.caption,
+    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
+  },
   statsContainer: {
     flexDirection: 'row',
     gap: spacing.lg,
@@ -387,17 +401,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pointsPreviewContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
+    marginTop: -spacing.sm,
+    marginBottom: -spacing.sm,
   },
   pointsPreviewLabel: {
-    ...typography.body,
-  },
-  pointsPreviewValue: {
-    ...typography.bodyBold,
+    ...typography.small,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

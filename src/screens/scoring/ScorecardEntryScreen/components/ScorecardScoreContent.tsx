@@ -12,7 +12,7 @@
  * the current user is allowed to score.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   PlayerScoreCard,
   TeamScoreCard,
@@ -34,6 +34,7 @@ import type { BallCount } from '@/types/multiball.types';
 import { isSingleBallScore } from '@/types/database';
 import { calculateStablefordPointsNet, calculateNetScore, calculateParScore, getStrokesOnHole, getStrokesReceived } from '@/utils/scoring';
 import { PICKUP_SCORE } from '@/constants/scoring';
+import { useSettingsStore } from '@/store/settingsStore';
 
 /** Display info for a player's handicap on scorecard cards */
 export interface PlayerHandicapDisplay {
@@ -64,6 +65,13 @@ export interface ScorecardScoreContentProps {
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
   teams: TeamWithMembers[];
+  /**
+   * Competition-level teams. Populated for any competition round (regardless
+   * of `isTeamRound`) so individual cards can label players with their team
+   * — e.g. singles match play where each player belongs to a competition
+   * team but scores individually.
+   */
+  competitionTeams?: TeamWithMembers[];
   // Score handlers
   onScoreSelect: (playerId: string, strokes: number) => void;
   onStatsUpdate: (playerId: string, updates: Partial<HoleScore>) => void;
@@ -126,6 +134,7 @@ export function ScorecardScoreContent({
   isTeamRound,
   teamFormat,
   teams,
+  competitionTeams = [],
   onScoreSelect,
   onStatsUpdate,
   onPlayerPress,
@@ -163,6 +172,28 @@ export function ScorecardScoreContent({
   isSoloRound = false,
   playersOverride,
 }: ScorecardScoreContentProps) {
+  // Map of player_id -> team name, used to render team affiliation under
+  // each player's name on individual score cards. Sources, in priority:
+  //  1. Competition-level teams (covers singles match play and any
+  //     individual round inside a team competition).
+  //  2. Round-level `teams` (covers standalone team rounds built from
+  //     team_config when there is no competition).
+  const playerTeamNames = useMemo(() => {
+    const map = new Map<string, string>();
+    const sources: TeamWithMembers[][] = [];
+    if (competitionTeams.length > 0) sources.push(competitionTeams);
+    if (teams.length > 0) sources.push(teams);
+    for (const source of sources) {
+      for (const team of source) {
+        for (const member of team.members ?? []) {
+          if (member.player_id && team.name && !map.has(member.player_id)) {
+            map.set(member.player_id, team.name);
+          }
+        }
+      }
+    }
+    return map;
+  }, [competitionTeams, teams]);
   // Get shot contributions for a specific team (persisted in scorecard)
   // Each team stores its own contributions in its members' scorecards.
   // Reads via getPlayerScore directly so the UI reflects store updates immediately
@@ -214,6 +245,10 @@ export function ScorecardScoreContent({
     scoringPairsEnabled && playersToScore.length > 0
       ? playersToScore
       : playersOverride ?? currentPlayers;
+
+  // Auto-collapse the FIR/GIR/Putts stats row when scoring 3+ players (configurable in settings)
+  const autoCollapseStats = useSettingsStore((s) => s.autoCollapseStatsForLargeGroups);
+  const collapseStatsByDefault = autoCollapseStats && playersToRender.length >= 3;
 
   /**
    * Calculate running total Stableford points for a player up to (but not including) the current hole.
@@ -487,6 +522,8 @@ export function ScorecardScoreContent({
               dailyHandicap={handicapDisplay?.dailyHandicap}
               baseHandicap={handicapDisplay?.baseHandicap}
               baseLabel={handicapDisplay?.baseLabel}
+              collapseStatsByDefault={collapseStatsByDefault}
+              teamName={playerTeamNames.get(player.id)}
             />
           );
         })}
@@ -543,6 +580,8 @@ export function ScorecardScoreContent({
             dailyHandicap={handicapDisplay?.dailyHandicap}
             baseHandicap={handicapDisplay?.baseHandicap}
             baseLabel={handicapDisplay?.baseLabel}
+            collapseStatsByDefault={collapseStatsByDefault}
+            teamName={playerTeamNames.get(player.id)}
           />
         );
       })}

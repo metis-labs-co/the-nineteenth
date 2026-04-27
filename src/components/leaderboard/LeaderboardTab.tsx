@@ -16,6 +16,10 @@ import { IconUsers, IconUser, IconCalendar } from '@tabler/icons-react-native';
 import { LeaderboardTable } from './LeaderboardTable';
 import { TeamLeaderboardTable, type TeamLeaderboardEntry } from './TeamLeaderboardTable';
 import { RoundLeaderboard } from './RoundLeaderboard';
+import {
+  InProgressRoundLeaderboard,
+  IN_PROGRESS_SUPPORTED_GAME_TYPES,
+} from './InProgressRoundLeaderboard';
 import { useCompetitionLeaderboard, type LeaderboardFilter, type CompetitionLeaderboardEntry } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/rounds';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
@@ -58,26 +62,35 @@ export interface LeaderboardTabProps {
   scrollTarget?: LeaderboardScrollTarget | null;
   /** Called after the component has acted on `scrollTarget`. */
   onScrollHandled?: () => void;
+  /**
+   * Render the Individual/Team toggle inside this component. Set to false when
+   * the parent renders the toggle externally (e.g., to keep it pinned above a
+   * scrolling tab body). Defaults to true.
+   */
+  renderInlineToggle?: boolean;
 }
 
 // =====================================================
 // SUB-COMPONENTS
 // =====================================================
 
-interface ViewToggleProps {
+export interface LeaderboardViewToggleProps {
   selectedView: LeaderboardView;
   onViewChange: (view: LeaderboardView) => void;
   showTeamOption: boolean;
   /** Hide individual option (e.g., for scramble-only competitions where individual standings don't apply) */
   hideIndividualOption?: boolean;
+  /** Optional style override (e.g., to remove the default bottom margin when pinned) */
+  style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
 }
 
-const ViewToggle = React.memo(function ViewToggle({
+export const LeaderboardViewToggle = React.memo(function LeaderboardViewToggle({
   selectedView,
   onViewChange,
   showTeamOption,
   hideIndividualOption = false,
-}: ViewToggleProps) {
+  style,
+}: LeaderboardViewToggleProps) {
   const colors = useThemeColors();
 
   // Hide toggle if no team option OR if individual is hidden (only team remains)
@@ -86,7 +99,7 @@ const ViewToggle = React.memo(function ViewToggle({
   }
 
   return (
-    <View style={[styles.toggleContainer, { backgroundColor: colors.gray100 }]}>
+    <View style={[styles.toggleContainer, { backgroundColor: colors.gray100 }, style]}>
       <TouchableOpacity
         style={[
           styles.toggleButton,
@@ -295,6 +308,7 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
   onViewChange,
   scrollTarget,
   onScrollHandled,
+  renderInlineToggle = true,
 }: LeaderboardTabProps) {
   const _colors = useThemeColors();
   const hasTeams = teamMode !== 'none';
@@ -420,13 +434,16 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
 
   return (
     <View style={styles.container} testID="leaderboard-tab">
-      {/* View Toggle (Individual / Team) - hidden for scramble-only competitions */}
-      <ViewToggle
-        selectedView={view}
-        onViewChange={handleViewChange}
-        showTeamOption={hasTeams}
-        hideIndividualOption={isAllScrambleFormat}
-      />
+      {/* View Toggle (Individual / Team) - hidden for scramble-only competitions.
+          Skipped when the parent renders the toggle externally to keep it pinned. */}
+      {renderInlineToggle && (
+        <LeaderboardViewToggle
+          selectedView={view}
+          onViewChange={handleViewChange}
+          showTeamOption={hasTeams}
+          hideIndividualOption={isAllScrambleFormat}
+        />
+      )}
 
       {/* Overall Standings Section */}
       <SectionHeader
@@ -465,19 +482,45 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
             icon="calendar-outline"
           />
 
-          {/* In-Progress Rounds */}
-          {inProgressRounds.map((round) => (
-            <View key={round.id} style={styles.roundLeaderboardContainer}>
-              <RoundLeaderboard
-                roundId={round.id}
-                gameType={round.game_type as GameType}
-                isTeamRound={round.is_team_round || false}
-                currentUserId={currentUserId}
-                autoRefresh={autoRefresh}
-                testID={`round-leaderboard-${round.round_number}`}
-              />
-            </View>
-          ))}
+          {/* In-Progress Rounds. For supported individual formats we render a
+              live leaderboard derived from scorecards directly — `round_results`
+              is only populated on submission, so the round_results-driven
+              RoundLeaderboard would otherwise show "No scores yet" until the
+              round is finalised. Team rounds and unsupported formats fall
+              back to RoundLeaderboard. */}
+          {inProgressRounds.map((round) => {
+            const gameType = round.game_type as GameType;
+            const canRenderLive =
+              !round.is_team_round && IN_PROGRESS_SUPPORTED_GAME_TYPES.has(gameType);
+
+            return (
+              <View key={round.id} style={styles.roundLeaderboardContainer}>
+                {canRenderLive ? (
+                  <InProgressRoundLeaderboard
+                    roundId={round.id}
+                    gameType={gameType}
+                    roundNumber={round.round_number}
+                    courseName={round.course?.name ?? undefined}
+                    currentUserId={currentUserId}
+                    testID={`round-leaderboard-${round.round_number}-live`}
+                  />
+                ) : (
+                  <RoundLeaderboard
+                    roundId={round.id}
+                    gameType={gameType}
+                    isTeamRound={round.is_team_round || false}
+                    currentUserId={currentUserId}
+                    autoRefresh={autoRefresh}
+                    filterView={effectiveView}
+                    playerTeamLookup={
+                      effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                    }
+                    testID={`round-leaderboard-${round.round_number}`}
+                  />
+                )}
+              </View>
+            );
+          })}
 
           {/* Completed Rounds */}
           {completedRounds.map((round) => (
@@ -488,6 +531,10 @@ export const LeaderboardTab = React.memo(function LeaderboardTab({
                 isTeamRound={round.is_team_round || false}
                 currentUserId={currentUserId}
                 autoRefresh={false}
+                filterView={effectiveView}
+                playerTeamLookup={
+                  effectiveView === 'individual' && hasTeams ? playerTeamLookup : undefined
+                }
                 testID={`round-leaderboard-${round.round_number}`}
               />
             </View>

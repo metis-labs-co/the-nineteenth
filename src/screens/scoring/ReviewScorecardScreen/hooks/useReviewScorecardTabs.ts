@@ -27,9 +27,10 @@ export type TabKey = 'scorecard' | 'stats' | 'leaderboard' | 'contributions' | '
 interface UseReviewScorecardTabsParams {
   roundId: string | undefined;
   storeGameType: GameType;
+  playerCount: number;
 }
 
-export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScorecardTabsParams) {
+export function useReviewScorecardTabs({ roundId, storeGameType, playerCount }: UseReviewScorecardTabsParams) {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('scorecard');
 
@@ -87,37 +88,42 @@ export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScor
     statsVisibility.showBunkerShots ||
     statsVisibility.showHazards;
 
+  // Solo rounds (single player) have no meaningful leaderboard, so it's
+  // omitted entirely below — guards every leaderboard push.
+  const isSoloRound = playerCount === 1;
+
   // Build tabs dynamically based on game type and skins availability.
   //
-  // Team format ordering rules:
-  // - Scramble: Leaderboard first, no Stats (individual stats not tracked).
-  // - Shamble: no Stats (same reason); order unchanged — no dedicated leaderboard tab.
-  // - Best-ball / Match-play-team: Leaderboard first, Scorecard, Stats third (less prominent
-  //   because individual stats are tracked but secondary to team outcome).
+  // Ordering rule: Leaderboard is always first when present, so it's the
+  // default landing tab whenever a multi-player round is reviewed.
+  // - Scramble: Leaderboard, Scorecard, Contributions (no Stats — individual
+  //   stats aren't tracked).
+  // - Shamble: no Leaderboard tab (team contributions tab serves the role).
+  // - Best-ball / Match-play-team: Leaderboard, Scorecard, Stats.
+  // - Default (stroke play, stableford, par, etc.): Leaderboard, Scorecard, Stats.
   const tabs = useMemo<TabItem<TabKey>[]>(() => {
     const tabList: TabItem<TabKey>[] = [];
 
     if (isScramble) {
-      tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      if (!isSoloRound) tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       tabList.push({ key: 'contributions' as const, label: 'Contributions' });
     } else if (isShamble) {
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       tabList.push({ key: 'contributions' as const, label: 'Team Scores' });
     } else if (isBestBall || isMatchPlayTeam) {
-      tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
+      if (!isSoloRound) tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       if (hasStats) {
         tabList.push({ key: 'stats' as const, label: 'Stats' });
       }
     } else {
-      // Default (stroke play, stableford, par, etc.)
+      // Default (stroke play, stableford, par, etc.). LeaderboardTabContent
+      // dispatches to the right view based on game type.
+      if (!isSoloRound) tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
       tabList.push({ key: 'scorecard' as const, label: 'Scorecard' });
       if (hasStats) {
         tabList.push({ key: 'stats' as const, label: 'Stats' });
-      }
-      if (isStrokePlay) {
-        tabList.push({ key: 'leaderboard' as const, label: 'Leaderboard' });
       }
     }
 
@@ -133,18 +139,12 @@ export function useReviewScorecardTabs({ roundId, storeGameType }: UseReviewScor
     }
 
     return tabList;
-  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats]);
+  }, [hasSkinsGame, hasWolfGame, hasPayoutsTab, isStrokePlay, isScramble, isShamble, isBestBall, isMatchPlayTeam, hasStats, isSoloRound]);
 
-  // Determine if we need to show tabs (more than just scorecard)
-  const showTabs =
-    isStrokePlay ||
-    hasSkinsGame ||
-    hasWolfGame ||
-    isScramble ||
-    isShamble ||
-    isBestBall ||
-    isMatchPlayTeam ||
-    hasStats;
+  // Show the tab bar whenever there's more than a single tab. Every individual
+  // format now gets a Leaderboard tab alongside Scorecard, so this is true for
+  // virtually all rounds — the check is kept defensive against future changes.
+  const showTabs = tabs.length > 1;
 
   // Handle tab change
   const hasUserSelectedTab = useRef(false);

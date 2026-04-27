@@ -63,6 +63,9 @@ export function useViewRoundPermissions({
 
   const canTagToLeague = useMemo(() => {
     if (!user?.id || !scorecards || !round) return false;
+    // Competition rounds cannot be tagged to leagues — those rounds belong
+    // to the competition leaderboard, not the league differentials feed.
+    if (round.competition_id) return false;
     const userScorecard = scorecards.find((sc) => sc.player_id === user.id);
     if (!userScorecard) return false;
     if (userScorecard.status !== 'completed' && userScorecard.status !== 'confirmed') return false;

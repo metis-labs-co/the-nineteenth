@@ -12,7 +12,7 @@
  * - Compare Stats button (navigates to CompareStatsScreen)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,7 +20,13 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { LoadingSpinner, PlayerAvatar, ErrorState, EmptyState } from '@/components/common';
+import {
+  LoadingSpinner,
+  PlayerAvatar,
+  ErrorState,
+  EmptyState,
+  ConfirmationDialog,
+} from '@/components/common';
 import { Text, Icon } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -29,12 +35,23 @@ import { usePlayer } from '@/hooks/usePlayer';
 import { useAuth } from '@/hooks/useAuth';
 import { useAchievementSummary } from '@/hooks/achievements';
 import { useEquippedCosmetics } from '@/hooks/cosmetics';
+import {
+  useFriendsWithPendingSent,
+  useFriendRequests,
+  useCheckCanAddFriend,
+  useAddFriend,
+  useAcceptFriendRequest,
+} from '@/hooks/friends';
+import { useConfirmationDialog } from '@/hooks';
+import { useToast } from '@/context/ToastContext';
+import { useSubscriptionContext } from '@/context/SubscriptionContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/social';
 import { StatCard, ScoreDistributionBar } from '@/components/statistics';
 import { FeatureLockButton } from '@/components/subscription/FeatureLockButton';
+import { UpgradePrompt, type UpgradePromptConfig } from '@/components/subscription';
 import { ProfileFrame, ProfileBadge, ProfileTitle } from '@/components/cosmetics';
 import { formatDateAustralian } from '@/utils/formatting';
 
@@ -48,6 +65,9 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { id: playerId } = route.params;
   const { user } = useAuth();
+  const { showSuccessToast } = useToast();
+  const { dialogConfig, showAlert, dismissDialog } = useConfirmationDialog();
+  const { tier } = useSubscriptionContext();
 
   // Card background
   const cardBg = colors.surface;
@@ -75,6 +95,38 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
   // Fetch achievements summary for this player
   const { data: achievementSummary } = useAchievementSummary(playerId);
 
+  // Friendship state
+  const { data: friendsWithPending = [] } = useFriendsWithPendingSent();
+  const { data: receivedRequests = [] } = useFriendRequests();
+  const friendsAccess = useCheckCanAddFriend();
+  const addFriend = useAddFriend();
+  const acceptFriendRequest = useAcceptFriendRequest();
+  const [isMutatingFriendship, setIsMutatingFriendship] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  const friendship = useMemo<{
+    status: 'self' | 'friend' | 'sent' | 'received' | 'none';
+    friendshipId?: string;
+  }>(() => {
+    if (user?.id && playerId === user.id) return { status: 'self' };
+
+    const fr = friendsWithPending.find((f) => f.id === playerId);
+    if (fr?.friendship_status === 'accepted') {
+      return { status: 'friend', friendshipId: fr.friendship_id };
+    }
+    if (fr?.friendship_status === 'pending' && fr.is_requester) {
+      return { status: 'sent', friendshipId: fr.friendship_id };
+    }
+
+    const incoming = receivedRequests.find((r) => r.requester.id === playerId);
+    if (incoming) return { status: 'received', friendshipId: incoming.id };
+
+    return { status: 'none' };
+  }, [friendsWithPending, receivedRequests, playerId, user?.id]);
+
+  const showsFullProfile =
+    friendship.status === 'friend' || friendship.status === 'self';
+
   const isLoading = isLoadingPlayer || isLoadingStats;
   const error = playerError || statsError;
 
@@ -99,6 +151,91 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
   const handleViewAchievements = useCallback(() => {
     navigation.navigate('Achievements', { playerId });
   }, [navigation, playerId]);
+
+  const handleAddFriend = useCallback(async () => {
+    if (!friendsAccess.allowed && !friendsAccess.isLoading) {
+      setShowUpgradePrompt(true);
+      return;
+    }
+    setIsMutatingFriendship(true);
+    try {
+      await addFriend.mutateAsync(playerId);
+      showSuccessToast(
+        'Friend Request Sent',
+        player?.name
+          ? `Request sent to ${player.name}`
+          : 'Your friend request has been sent',
+      );
+    } catch (err) {
+      showAlert(
+        'Could not add friend',
+        err instanceof Error ? err.message : 'Please try again later',
+      );
+    } finally {
+      setIsMutatingFriendship(false);
+    }
+  }, [
+    addFriend,
+    friendsAccess.allowed,
+    friendsAccess.isLoading,
+    playerId,
+    player?.name,
+    showAlert,
+    showSuccessToast,
+  ]);
+
+  const handleAcceptRequest = useCallback(async () => {
+    if (!friendship.friendshipId) return;
+    setIsMutatingFriendship(true);
+    try {
+      await acceptFriendRequest.mutateAsync(friendship.friendshipId);
+      showSuccessToast(
+        'Friend Request Accepted',
+        player?.name
+          ? `You and ${player.name} are now friends`
+          : 'Friend request accepted',
+      );
+    } catch (err) {
+      showAlert(
+        'Could not accept request',
+        err instanceof Error ? err.message : 'Please try again later',
+      );
+    } finally {
+      setIsMutatingFriendship(false);
+    }
+  }, [
+    acceptFriendRequest,
+    friendship.friendshipId,
+    player?.name,
+    showAlert,
+    showSuccessToast,
+  ]);
+
+  const handleUpgrade = useCallback(() => {
+    setShowUpgradePrompt(false);
+    navigation.navigate('Subscription');
+  }, [navigation]);
+
+  const upgradePromptConfig: UpgradePromptConfig = {
+    feature: 'add_friend',
+    title: 'Friends Limit Reached',
+    message: `You've reached the maximum number of friends on your ${tier} plan. Upgrade to grow your golf network.`,
+    targetTier: tier === 'free' ? 'social' : 'premium',
+    benefits:
+      tier === 'free'
+        ? [
+            'Up to 25 friends',
+            'Compare stats with friends',
+            'Score distribution analytics',
+            'Export your data',
+          ]
+        : [
+            'Unlimited friends',
+            'Advanced statistics',
+            'All game types',
+            'Team formats',
+          ],
+  };
 
   // Render loading state
   if (isLoading) {
@@ -174,7 +311,9 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
             <ProfileBadge badge={equipped?.badge ?? null} size={18} />
           </View>
           <ProfileTitle title={equipped?.title ?? null} />
-          <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
+          {showsFullProfile && (
+            <Text style={[styles.playerEmail, { color: colors.textSecondary }]}>{player.email}</Text>
+          )}
           {player.handicap !== null && player.handicap !== undefined && (
             <View style={[styles.handicapBadge, { backgroundColor: colors.primaryLighter }]}>
               <Text style={[styles.handicapText, { color: colors.primaryDark }]}>
@@ -205,34 +344,44 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           )}
 
-          {/* Compare Stats Button */}
-          <FeatureLockButton
-            feature="compare_stats"
-            onPress={handleCompareStats}
-            onUpgradePress={() => navigation.navigate('Subscription')}
-            upgradeConfig={{
-              feature: 'compare_stats',
-              title: 'Compare Stats',
-              message: 'Upgrade to compare your statistics with friends and see how you stack up.',
-              targetTier: 'social',
-              benefits: [
-                'Compare stats with any friend',
-                'Side-by-side performance analysis',
-                'Score distribution comparison',
-                'Head-to-head records',
-              ],
-            }}
-            accessibilityLabel="Compare your stats with this player"
-          >
-            <View style={[styles.compareButton, { backgroundColor: colors.primary }]}>
-              <Icon source="chart-bar" size={20} color={colors.white} />
-              <Text style={[styles.compareButtonText, { color: colors.white }]}>Compare Stats</Text>
-            </View>
-          </FeatureLockButton>
+          {/* Compare Stats / Friendship Action Button */}
+          {showsFullProfile ? (
+            <FeatureLockButton
+              feature="compare_stats"
+              onPress={handleCompareStats}
+              onUpgradePress={() => navigation.navigate('Subscription')}
+              upgradeConfig={{
+                feature: 'compare_stats',
+                title: 'Compare Stats',
+                message: 'Upgrade to compare your statistics with friends and see how you stack up.',
+                targetTier: 'social',
+                benefits: [
+                  'Compare stats with any friend',
+                  'Side-by-side performance analysis',
+                  'Score distribution comparison',
+                  'Head-to-head records',
+                ],
+              }}
+              accessibilityLabel="Compare your stats with this player"
+            >
+              <View style={[styles.compareButton, { backgroundColor: colors.primary }]}>
+                <Icon source="chart-bar" size={20} color={colors.white} />
+                <Text style={[styles.compareButtonText, { color: colors.white }]}>Compare Stats</Text>
+              </View>
+            </FeatureLockButton>
+          ) : (
+            <FriendshipActionButton
+              status={friendship.status as 'sent' | 'received' | 'none'}
+              isBusy={isMutatingFriendship}
+              onAdd={handleAddFriend}
+              onAccept={handleAcceptRequest}
+              colors={colors}
+            />
+          )}
         </View>
 
-        {/* No Stats Message */}
-        {!hasStats ? (
+        {/* Stats sections — only shown for friends (or self) */}
+        {showsFullProfile && (!hasStats ? (
           <EmptyState
             title="No statistics yet"
             message={`${player.name} hasn't completed any rounds yet. Statistics will appear once they start playing.`}
@@ -469,12 +618,72 @@ export default function PlayerDetailScreen({ navigation, route }: Props) {
               </>
             )}
           </>
-        )}
+        ))}
 
         {/* Footer spacing */}
         <View style={styles.footer} />
       </ScrollView>
+
+      <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
+
+      <UpgradePrompt
+        config={upgradePromptConfig}
+        onUpgrade={handleUpgrade}
+        onDismiss={() => setShowUpgradePrompt(false)}
+        visible={showUpgradePrompt}
+      />
     </View>
+  );
+}
+
+// =====================================================
+// FRIENDSHIP ACTION BUTTON
+// =====================================================
+
+function FriendshipActionButton({
+  status,
+  isBusy,
+  onAdd,
+  onAccept,
+  colors,
+}: {
+  status: 'sent' | 'received' | 'none';
+  isBusy: boolean;
+  onAdd: () => void;
+  onAccept: () => void;
+  colors: ReturnType<typeof useThemeColors>;
+}) {
+  if (status === 'sent') {
+    return (
+      <View style={[styles.compareButton, { backgroundColor: colors.gray100 }]}>
+        <Icon source="clock-outline" size={20} color={colors.textSecondary} />
+        <Text style={[styles.compareButtonText, { color: colors.textSecondary }]}>
+          Request Sent
+        </Text>
+      </View>
+    );
+  }
+
+  const isAccept = status === 'received';
+  const label = isAccept ? 'Accept Friend Request' : 'Add Friend';
+  const icon = isAccept ? 'account-check' : 'account-plus';
+
+  return (
+    <TouchableOpacity
+      onPress={isAccept ? onAccept : onAdd}
+      disabled={isBusy}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[
+        styles.compareButton,
+        { backgroundColor: colors.primary },
+        isBusy && { opacity: 0.6 },
+      ]}
+    >
+      <Icon source={icon} size={20} color={colors.white} />
+      <Text style={[styles.compareButtonText, { color: colors.white }]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 

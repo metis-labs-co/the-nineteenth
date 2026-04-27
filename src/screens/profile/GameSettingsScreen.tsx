@@ -30,6 +30,9 @@ export default function GameSettingsScreen() {
   const showGreenMissDirection = useSettingsStore((state) => state.showGreenMissDirection);
   const showBunkerShots = useSettingsStore((state) => state.showBunkerShots);
   const showHazards = useSettingsStore((state) => state.showHazards);
+  const autoCollapseStatsForLargeGroups = useSettingsStore(
+    (state) => state.autoCollapseStatsForLargeGroups
+  );
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
@@ -40,6 +43,9 @@ export default function GameSettingsScreen() {
   const setShowGreenMissDirection = useSettingsStore((state) => state.setShowGreenMissDirection);
   const setShowBunkerShots = useSettingsStore((state) => state.setShowBunkerShots);
   const setShowHazards = useSettingsStore((state) => state.setShowHazards);
+  const setAutoCollapseStatsForLargeGroups = useSettingsStore(
+    (state) => state.setAutoCollapseStatsForLargeGroups
+  );
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -179,6 +185,14 @@ export default function GameSettingsScreen() {
                 colors={colors}
               />
             </FeatureLockToggle>
+            <SettingRow
+              icon="arrow-collapse-vertical"
+              label="Collapse stats for groups of 3+"
+              description="When scoring 3 or more players, hide FIR/GIR/Putts behind a tap to keep cards compact"
+              value={autoCollapseStatsForLargeGroups}
+              onValueChange={setAutoCollapseStatsForLargeGroups}
+              colors={colors}
+            />
           </View>
         </View>
 

@@ -6,7 +6,6 @@
  * - Quick stats (rounds, players)
  * - Current standing card for non-organizers
  * - Competition settings section (type, handicap, format)
- * - Courses section
  * - Edit button for organizers
  * - Copy invite code functionality
  */
@@ -74,22 +73,6 @@ jest.mock('@/components/prizePool', () => {
         <Text testID="prize-pool-amount">${pool.total_pool_amount}</Text>
         {isLocked && <Text testID="prize-pool-locked">Locked</Text>}
       </View>
-    ),
-  };
-});
-
-// Mock CourseCard component
-jest.mock('@/components/courses/CourseCard', () => {
-  const { Text, TouchableOpacity } = require('react-native');
-  return {
-    CourseCard: ({ course, onPress }: { course: { id: string; name: string }; onPress?: () => void }) => (
-      <TouchableOpacity
-        testID={`course-card-${course.id}`}
-        onPress={onPress}
-        accessibilityRole="button"
-      >
-        <Text>{course.name}</Text>
-      </TouchableOpacity>
     ),
   };
 });
@@ -231,7 +214,6 @@ function createTestRound(roundNumber: number, course: Course | null = null): Rou
 
 describe('DetailsTab', () => {
   const mockOnEdit = jest.fn();
-  const mockOnViewCourse = jest.fn();
   const mockOnUpdateCompetition = jest.fn();
 
   const defaultCompetition = createTestCompetition();
@@ -249,7 +231,6 @@ describe('DetailsTab', () => {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: mockOnViewCourse,
     onUpdateCompetition: mockOnUpdateCompetition,
   };
 
@@ -512,62 +493,6 @@ describe('DetailsTab', () => {
   });
 
   // ===========================================================================
-  // COURSES SECTION TESTS
-  // ===========================================================================
-
-  describe('Courses Section', () => {
-    it('displays courses section header', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByText('Courses (1)')).toBeTruthy();
-    });
-
-    it('displays correct course count', () => {
-      const course2 = createTestCourse({ id: 'course-2', name: 'Kingston Heath' });
-      const rounds: RoundWithCourse[] = [
-        createTestRound(1, defaultCourse),
-        createTestRound(2, course2),
-      ];
-      render(<DetailsTab {...defaultProps} rounds={rounds} />);
-      expect(screen.getByText('Courses (2)')).toBeTruthy();
-    });
-
-    it('deduplicates courses from multiple rounds', () => {
-      const rounds: RoundWithCourse[] = [
-        createTestRound(1, defaultCourse),
-        createTestRound(2, defaultCourse), // Same course
-        createTestRound(3, defaultCourse), // Same course again
-      ];
-      render(<DetailsTab {...defaultProps} rounds={rounds} />);
-      expect(screen.getByText('Courses (1)')).toBeTruthy();
-    });
-
-    it('renders CourseCard for each unique course', () => {
-      render(<DetailsTab {...defaultProps} />);
-      expect(screen.getByTestId('course-card-course-1')).toBeTruthy();
-    });
-
-    it('calls onViewCourse when course card pressed', () => {
-      render(<DetailsTab {...defaultProps} />);
-      const courseCard = screen.getByTestId('course-card-course-1');
-      fireEvent.press(courseCard);
-      expect(mockOnViewCourse).toHaveBeenCalledWith(expect.objectContaining({ id: 'course-1' }));
-    });
-
-    it('shows empty state when no courses', () => {
-      const roundsWithoutCourses: RoundWithCourse[] = [
-        { ...createTestRound(1), course: null },
-      ];
-      render(<DetailsTab {...defaultProps} rounds={roundsWithoutCourses} />);
-      expect(screen.getByText('No courses have been added to this competition yet.')).toBeTruthy();
-    });
-
-    it('shows empty state when no rounds', () => {
-      render(<DetailsTab {...defaultProps} rounds={[]} />);
-      expect(screen.getByText('No courses have been added to this competition yet.')).toBeTruthy();
-    });
-  });
-
-  // ===========================================================================
   // COMPETITION TYPE BADGE TESTS
   // ===========================================================================
 
@@ -594,12 +519,6 @@ describe('DetailsTab', () => {
       render(<DetailsTab {...defaultProps} />);
       const inviteCodeButton = screen.getByLabelText('Copy invite code SUMMER25');
       expect(inviteCodeButton.props.accessibilityRole).toBe('button');
-    });
-
-    it('course cards have accessibility role', () => {
-      render(<DetailsTab {...defaultProps} />);
-      const courseCard = screen.getByTestId('course-card-course-1');
-      expect(courseCard.props.accessibilityRole).toBe('button');
     });
 
     it('add prize pool button has accessibility role button', () => {
@@ -635,17 +554,6 @@ describe('DetailsTab', () => {
       // Should not crash and should not show team size
     });
 
-    it('handles courses without venue data', () => {
-      // Create a course and explicitly remove venue data
-      const courseWithoutClub: Course & { clubs?: { name: string; city: string | null; state: string | null } | null } = {
-        ...createTestCourse(),
-        clubs: null,
-      };
-      const rounds: RoundWithCourse[] = [createTestRound(1, courseWithoutClub)];
-      render(<DetailsTab {...defaultProps} rounds={rounds} />);
-      expect(screen.getByTestId('course-card-course-1')).toBeTruthy();
-    });
-
     it('handles very long competition name', () => {
       const comp = createTestCompetition({
         name: 'The Annual Melbourne Metropolitan Golf Championship Series 2025',
@@ -658,11 +566,6 @@ describe('DetailsTab', () => {
       const comp = createTestCompetition({ invite_code: 'TEST-2025!' });
       render(<DetailsTab {...defaultProps} competition={comp} />);
       expect(screen.getByText('TEST-2025!')).toBeTruthy();
-    });
-
-    it('works without onViewCourse callback', () => {
-      render(<DetailsTab {...defaultProps} onViewCourse={undefined} />);
-      expect(screen.getByText('Royal Melbourne Golf Course')).toBeTruthy();
     });
 
     it('works without onUpdateCompetition callback', () => {

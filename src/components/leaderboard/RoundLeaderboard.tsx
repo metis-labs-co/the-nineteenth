@@ -29,6 +29,7 @@ import { LeaderboardHeader } from './LeaderboardHeader';
 import { StablefordLeaderboard } from './StablefordLeaderboard';
 import { StrokePlayLeaderboard } from './StrokePlayLeaderboard';
 import { MatchPlayLeaderboard } from './MatchPlayLeaderboard';
+import type { PlayerTeamLookup } from './LeaderboardRow';
 import { styles } from './RoundLeaderboard.styles';
 
 // =====================================================
@@ -52,6 +53,19 @@ export interface RoundLeaderboardProps {
   emptyMessage?: string;
   /** Test ID for testing */
   testID?: string;
+  /**
+   * Restrict the rendered subset to either team or individual rows. When set,
+   * the split TEAMS/PLAYERS layout is bypassed and only the requested subset
+   * is shown. The component renders nothing if the requested subset is empty
+   * but other entries exist (e.g., team tab on an individual-only round).
+   */
+  filterView?: 'team' | 'individual';
+  /**
+   * Optional player_id -> team membership lookup. When provided, individual
+   * player rows render a team chip beneath the name (matching the competition
+   * individual standings). Pass only when the parent has team data available.
+   */
+  playerTeamLookup?: PlayerTeamLookup;
 }
 
 // =====================================================
@@ -67,6 +81,8 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   refetchInterval = 30000,
   emptyMessage = 'Scores will appear here once players submit their scorecards.',
   testID,
+  filterView,
+  playerTeamLookup,
 }: RoundLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -79,15 +95,30 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     }
   );
 
-  // Check if any entries have bypassed scores (must be before early returns)
+  // Subset to display based on filterView. When unfiltered, this is the full
+  // sorted list; the renderer below picks the split layout when both subsets
+  // are populated.
+  const visibleEntries = useMemo(() => {
+    if (!data) return [];
+    if (filterView === 'team') return data.teamEntries;
+    if (filterView === 'individual') return data.individualEntries;
+    return data.entries;
+  }, [data, filterView]);
+
+  // Check if any visible entries have bypassed scores (must be before early returns)
   const hasBypassedEntries = useMemo(
-    () => data?.entries.some((entry) => entry.bypassed) ?? false,
-    [data?.entries]
+    () => visibleEntries.some((entry) => entry.bypassed),
+    [visibleEntries]
   );
 
+  // Only use the TEAMS/PLAYERS split layout when no view filter is active.
   const hasSplit = useMemo(
-    () => !!data && data.teamEntries.length > 0 && data.individualEntries.length > 0,
-    [data]
+    () =>
+      !!data &&
+      filterView === undefined &&
+      data.teamEntries.length > 0 &&
+      data.individualEntries.length > 0,
+    [data, filterView]
   );
 
   // Loading state
@@ -136,7 +167,14 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
     );
   }
 
-  const { entries, teamEntries, individualEntries, metadata } = data;
+  // When a view filter is active and the requested subset has no entries
+  // (e.g., team tab on a round that only produced individual results), hide
+  // this round entirely from the parent list.
+  if (filterView !== undefined && visibleEntries.length === 0) {
+    return null;
+  }
+
+  const { teamEntries, individualEntries, metadata } = data;
   const effectiveGameType = metadata.gameType;
 
   // Format par score display (+3, -2, E)
@@ -149,7 +187,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
   // The per-round view drops the CP column (CP belongs on the competition
   // standings, not the round-specific table) so callers can skip it via
   // `showCompetitionPoints={false}`.
-  const renderTableFor = (subset: typeof entries) => {
+  const renderTableFor = (subset: typeof visibleEntries) => {
     switch (effectiveGameType) {
       case 'match-play':
         // Match-play rendering already groups its own match cards; CP isn't
@@ -168,6 +206,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             entries={subset}
             currentUserId={currentUserId}
             showCompetitionPoints={false}
+            playerTeamLookup={playerTeamLookup}
           />
         );
       case 'par':
@@ -179,6 +218,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             scoreLabel="par score"
             formatScore={formatParScore}
             showCompetitionPoints={false}
+            playerTeamLookup={playerTeamLookup}
           />
         );
       case 'stableford':
@@ -191,6 +231,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
             entries={subset}
             currentUserId={currentUserId}
             showCompetitionPoints={false}
+            playerTeamLookup={playerTeamLookup}
           />
         );
     }
@@ -239,7 +280,7 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         </>
       ) : (
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          {renderTableFor(entries)}
+          {renderTableFor(visibleEntries)}
         </View>
       )}
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { formatPosition } from '@/utils/formatting';
 import type { MiniLeaderboardEntry } from '@/utils/miniLeaderboard';
@@ -13,11 +13,17 @@ interface MiniRowProps {
 
 function MiniRow({ entry }: MiniRowProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  const highlightBg = isDark ? colors.primaryBackground : colors.primaryLighter;
+  const highlightText = isDark ? colors.primaryLight : colors.primaryDark;
   const rowStyle = entry.isCurrent
-    ? [styles.row, { backgroundColor: colors.primaryLighter }]
-    : styles.row;
-  const textColor = entry.isCurrent ? colors.primaryDark : colors.textPrimary;
-  const subColor = entry.isCurrent ? colors.primaryDark : colors.textSecondary;
+    ? [
+        styles.row,
+        { backgroundColor: highlightBg, borderColor: `${colors.primary}66` },
+      ]
+    : [styles.row, styles.rowMuted];
+  const textColor = entry.isCurrent ? highlightText : colors.textPrimary;
+  const subColor = entry.isCurrent ? highlightText : colors.textSecondary;
 
   return (
     <View style={rowStyle}>
@@ -153,6 +159,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  rowMuted: {
+    opacity: 0.6,
   },
   position: {
     ...typography.small,

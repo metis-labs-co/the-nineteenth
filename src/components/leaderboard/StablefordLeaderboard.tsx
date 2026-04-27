@@ -18,7 +18,7 @@ import {
   isParScore,
   isTeamScore,
 } from '@/hooks/useRoundLeaderboard';
-import { LeaderboardRow } from './LeaderboardRow';
+import { LeaderboardRow, type PlayerTeamLookup } from './LeaderboardRow';
 import { styles } from './RoundLeaderboard.styles';
 
 export interface StablefordLeaderboardProps {
@@ -38,6 +38,8 @@ export interface StablefordLeaderboardProps {
    * CP belongs on the competition standings, not the round-specific table.
    */
   showCompetitionPoints?: boolean;
+  /** Optional team-membership lookup forwarded to each row. */
+  playerTeamLookup?: PlayerTeamLookup;
 }
 
 export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
@@ -47,6 +49,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
   scoreLabel,
   formatScore,
   showCompetitionPoints = true,
+  playerTeamLookup,
 }: StablefordLeaderboardProps) {
   const colors = useThemeColors();
 
@@ -105,6 +108,7 @@ export const StablefordLeaderboard = React.memo(function StablefordLeaderboard({
             scoreDisplay={scoreDisplay}
             scoreLabel={scoreLabel ?? 'points'}
             showCompetitionPoints={showCompetitionPoints}
+            playerTeamLookup={playerTeamLookup}
           />
         );
       })}

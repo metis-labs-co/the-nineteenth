@@ -10,11 +10,12 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
 import { IconMapPin, IconCheck, IconAlertTriangle, IconDice, IconBolt } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
-import type { ColorPalette } from '@/context/ThemeContext';
+import { useIsDark, type ColorPalette } from '@/context/ThemeContext';
 import { StatusBadge, Pill, DateTimeDisplay } from '@/components/common';
 import type { StatusVariant } from '@/components/common';
 import { type RoundWithCourse, GAME_TYPE_LABELS } from './types';
 import type { SkinsConfig, GameType } from '@/types';
+import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 
 /** Amber/gold color for skins indicator */
 const SKINS_COLOR = skinsColor;
@@ -80,9 +81,26 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   skinsConfig: skinsConfigOverride,
   colors,
 }: CompetitionRoundCardProps) {
+  const isDark = useIsDark();
+
   // Determine skins status (props override round data)
   const hasSkins = hasSkinsOverride ?? round.has_skins ?? false;
   const skinsConfig = skinsConfigOverride ?? round.skins_config ?? null;
+
+  // Derive a descriptive format label from the round's full shape (e.g.
+  // "1v1 Singles Match Play", "2v2 Pairs Better Ball"). Falls back to the
+  // bare game-type label if the round doesn't match a canonical preset.
+  const presetId = inferPresetIdFromRound({
+    game_type: round.game_type,
+    is_team_round: round.is_team_round,
+    team_format: round.team_format,
+    round_format: round.round_format,
+    sub_match_size: round.sub_match_size,
+    rules_override: round.rules_override ?? null,
+  });
+  const formatLabel =
+    (presetId && ROUND_PRESETS[presetId]?.title) ??
+    GAME_TYPE_LABELS[round.game_type];
 
   // Determine if scoring is disabled
   const hasCourse = !!round.course;
@@ -98,16 +116,15 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
     if (!hasEnoughPlayers) return 'Need at least 2 players';
     return undefined;
   };
-  return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.content}>
+  const cardContent = (
+    <View style={styles.content}>
         {/* Top Row: Status Badge + Game Type Badge + Skins Badge + Round Pill */}
         <View style={styles.topRow}>
           <View style={styles.badgeRow}>
             <StatusBadge status={getStatusVariant(round.status)} />
             <StatusBadge
               status="custom"
-              label={GAME_TYPE_LABELS[round.game_type]}
+              label={formatLabel}
               size="md"
               backgroundColor={colors.gray100}
             />
@@ -126,10 +143,20 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
           <Pill label={`Round ${roundNumber}`} size="md" />
         </View>
 
-        {/* Course Name */}
-        <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-          {round.course?.name || 'Course TBD'}
-        </Text>
+        {/* Course Name + Club Name */}
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+            {round.course?.name || 'Course TBD'}
+          </Text>
+          {round.course?.clubs?.name && (
+            <Text
+              style={[styles.clubName, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {` · ${round.course.clubs.name}`}
+            </Text>
+          )}
+        </View>
 
         {/* Location */}
         {(round.course?.clubs?.city || round.course?.clubs?.state) && (
@@ -191,7 +218,28 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
             </View>
           </TouchableOpacity>
         )}
-      </View>
+    </View>
+  );
+
+  // Once a round is completed, scoring is no-op so the action row adds noise.
+  // Make the whole card a single tap target to view the round details instead.
+  if (isCompleted) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => onViewRound(round.id)}
+        accessibilityLabel={`View round ${roundNumber}`}
+        accessibilityRole="button"
+        activeOpacity={0.7}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {cardContent}
 
       {/* Divider */}
       <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
@@ -199,7 +247,12 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
       {/* Action Buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.primaryLighter }]}
+          style={[
+            styles.actionButton,
+            isDark
+              ? [styles.viewButtonOutline, { borderColor: colors.primary }]
+              : { backgroundColor: colors.primaryLighter },
+          ]}
           onPress={() => onViewRound(round.id)}
           accessibilityLabel={`View round ${roundNumber}`}
           accessibilityRole="button"
@@ -289,9 +342,19 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.xs,
+  },
   title: {
     ...typography.bodyBold,
-    marginBottom: spacing.xs,
+    flexShrink: 1,
+  },
+  clubName: {
+    ...typography.body,
+    flexShrink: 1,
+    minWidth: 0,
   },
   locationRow: {
     flexDirection: 'row',
@@ -360,6 +423,10 @@ const styles = StyleSheet.create({
   quickScoreButton: {
     flexDirection: 'row',
     gap: spacing.xs,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  viewButtonOutline: {
     borderWidth: 1,
     backgroundColor: 'transparent',
   },

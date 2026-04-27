@@ -2,7 +2,7 @@
  * Shared types and constants for DetailsTab sections
  */
 
-import type { Competition, Course, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
+import type { Competition, CompetitionType, HandicapSystem, TeamMode } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 
@@ -36,11 +36,6 @@ export interface SettingsSectionProps {
   hasStartedRound: boolean;
   /** Called when the Team Size row is pressed — navigates to the Teams tab. */
   onViewTeams?: () => void;
-}
-
-export interface CoursesSectionProps {
-  courses: (Course & { clubs?: { name: string; city: string | null; state: string | null } | null })[];
-  onViewCourse?: (course: Course) => void;
 }
 
 export interface PrizePoolSectionProps {

@@ -37,12 +37,23 @@ import {
   inferPresetIdFromRound,
 } from '@/constants/roundPresets';
 import { PlayersSection } from './components';
-import { EditDateTimeSheet, EditTeeSheet, MatchupSheet } from './sheets';
+import {
+  EditDateTimeSheet,
+  EditTeeSheet,
+  MatchupSheet,
+  RoundRulesSheet,
+} from './sheets';
 import { RoundTypeSheet } from '@/components/rounds/RoundTypeSheet';
 import type { RoundDetailsTabProps } from './types';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
 
-type OpenSheet = 'date-time' | 'tee' | 'matchup' | 'round-type' | null;
+type OpenSheet =
+  | 'date-time'
+  | 'tee'
+  | 'matchup'
+  | 'round-type'
+  | 'round-rules'
+  | null;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -88,6 +99,9 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
     if (!canEdit) return;
     setOpenSheet('round-type');
   }, [canEdit]);
+  const openRoundRules = useCallback(() => {
+    setOpenSheet('round-rules');
+  }, []);
 
   // Competition flag that decides whether `rules_override` is honored at
   // finalization. Used by the preset sheet to surface an "override will
@@ -329,8 +343,10 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           <DetailRow
             icon={currentPreset?.icon ?? 'puzzle-outline'}
             label="Round Type"
-            onPress={canEdit ? openRoundType : undefined}
-            accessibilityHint={canEdit ? 'Change round type' : undefined}
+            onPress={canEdit ? openRoundType : openRoundRules}
+            accessibilityHint={
+              canEdit ? 'Change round type' : 'View round rules'
+            }
           >
             <View style={styles.formatPillContainer}>
               {hasSkins && (
@@ -468,6 +484,13 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
           round={roundShape}
           perRoundRulesEnabled={perRoundRulesEnabled}
           roundTeeTime={round.tee_time}
+        />
+      )}
+      {openSheet === 'round-rules' && (
+        <RoundRulesSheet
+          visible
+          onDismiss={handleCloseSheet}
+          preset={currentPreset}
         />
       )}
     </View>

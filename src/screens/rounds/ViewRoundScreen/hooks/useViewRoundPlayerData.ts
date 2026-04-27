@@ -11,6 +11,8 @@ import type { HoleScore, MultiBallHoleScore, Player } from '@/types';
 interface UseViewRoundPlayerDataParams {
   isShambleRound: boolean;
   isStrokePlayRound: boolean;
+  isStablefordRound: boolean;
+  isParRound: boolean;
   isMatchPlayRound: boolean;
   scorecards: Array<{
     player_id: string;
@@ -29,6 +31,29 @@ function buildPlayersFromData(
   scorecards: UseViewRoundPlayerDataParams['scorecards'],
   roundPlayers: UseViewRoundPlayerDataParams['roundPlayers'],
 ): Player[] {
+  // Use round_players as the canonical roster so the leaderboard always shows
+  // every participant, even before their scorecard has been pushed to Supabase.
+  // Fall back to scorecards-only if round_players is unavailable (defensive,
+  // shouldn't happen for competition rounds in practice).
+  const scorecardByPlayerId = new Map<string, NonNullable<UseViewRoundPlayerDataParams['scorecards']>[number]>();
+  for (const sc of scorecards ?? []) {
+    scorecardByPlayerId.set(sc.player_id, sc);
+  }
+
+  if (roundPlayers && roundPlayers.length > 0) {
+    return roundPlayers.map((p) => {
+      const sc = scorecardByPlayerId.get(p.id);
+      return {
+        // Prefer scorecard.player fields where available (more authoritative —
+        // includes handicap derived at scoring time), otherwise round_player.
+        id: p.id,
+        name: sc?.player?.name || p.name,
+        handicap: sc?.player?.handicap ?? p.handicap ?? 0,
+        email: sc?.player?.email || p.email || '',
+      };
+    });
+  }
+
   if (scorecards && scorecards.length > 0) {
     return scorecards.map((sc) => ({
       id: sc.player_id,
@@ -38,21 +63,14 @@ function buildPlayersFromData(
     }));
   }
 
-  if (roundPlayers && roundPlayers.length > 0) {
-    return roundPlayers.map((p) => ({
-      id: p.id,
-      name: p.name,
-      handicap: p.handicap ?? 0,
-      email: p.email || '',
-    }));
-  }
-
   return [];
 }
 
 export function useViewRoundPlayerData({
   isShambleRound,
   isStrokePlayRound,
+  isStablefordRound,
+  isParRound,
   isMatchPlayRound,
   scorecards,
   roundPlayers,
@@ -63,11 +81,15 @@ export function useViewRoundPlayerData({
     return buildPlayersFromData(scorecards, roundPlayers);
   }, [isShambleRound, scorecards, roundPlayers]);
 
-  // Convert round players to Player type for StrokePlayLeaderboard
-  const strokePlayPlayers: Player[] = useMemo(() => {
-    if (!isStrokePlayRound) return [];
+  // Convert round players to Player type for the format-aware leaderboard
+  // (stroke / stableford / par all share the same Player[] shape).
+  const leaderboardPlayers: Player[] = useMemo(() => {
+    if (!isStrokePlayRound && !isStablefordRound && !isParRound) return [];
     return buildPlayersFromData(scorecards, roundPlayers);
-  }, [isStrokePlayRound, scorecards, roundPlayers]);
+  }, [isStrokePlayRound, isStablefordRound, isParRound, scorecards, roundPlayers]);
+
+  // Backwards-compatible alias — older callers still reference strokePlayPlayers.
+  const strokePlayPlayers: Player[] = leaderboardPlayers;
 
   // Get match play players for individual match play rounds
   const matchPlayPlayers = useMemo(() => {
@@ -131,6 +153,7 @@ export function useViewRoundPlayerData({
 
   return {
     shamblePlayers,
+    leaderboardPlayers,
     strokePlayPlayers,
     matchPlayPlayers,
     getPlayerScore,

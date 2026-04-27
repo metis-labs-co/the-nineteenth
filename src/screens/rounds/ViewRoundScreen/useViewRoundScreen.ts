@@ -46,7 +46,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const dataFetch = useViewRoundDataFetch({ roundId, competitionId });
   const {
     round, roundError, scorecards, roundPlayers, matchPlayData, competitionInfo,
-    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, isTeamStrokeRound, isTeamRound,
+    isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamStrokeRound, isTeamRound,
     isLoading, refetchRound, refetchScorecards, refetchPlayers, refetchMatchPlay,
   } = dataFetch;
 
@@ -111,6 +111,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isStablefordRound,
+    isParRound,
     isSplitRound,
     isTeamStrokeRound,
     isTeamRound,
@@ -133,6 +135,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
   const playerData = useViewRoundPlayerData({
     isShambleRound,
     isStrokePlayRound,
+    isStablefordRound,
+    isParRound,
     isMatchPlayRound,
     scorecards,
     roundPlayers,
@@ -226,6 +230,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isStablefordRound,
+    isParRound,
     isSplitRound,
     isTeamStrokeRound,
     isTeamRound,
@@ -256,6 +262,7 @@ export function useViewRoundScreen({ route, navigation }: Props) {
 
     // Stroke play data
     strokePlayPlayers: playerData.strokePlayPlayers,
+    leaderboardPlayers: playerData.leaderboardPlayers,
     getStrokePlayPlayerScore: playerData.getStrokePlayPlayerScore,
 
     // Scramble data

@@ -28,7 +28,10 @@ import {
   getEntryHandicap,
   isCurrentUserEntry,
 } from './leaderboardUtils';
+import { getTeamColorHex } from '@/utils/teamColor';
 import { styles } from './RoundLeaderboard.styles';
+
+export type PlayerTeamLookup = Map<string, { teamName: string; teamColor: string | null }>;
 
 export interface LeaderboardRowProps {
   /** The leaderboard entry data */
@@ -47,6 +50,12 @@ export interface LeaderboardRowProps {
   secondaryLabel?: string;
   /** Show competition points column */
   showCompetitionPoints?: boolean;
+  /**
+   * Optional player_id -> team membership lookup. When provided and the entry
+   * is an individual player, the row renders a colored team chip beneath the
+   * player's name (mirroring the competition individual standings).
+   */
+  playerTeamLookup?: PlayerTeamLookup;
 }
 
 export const LeaderboardRow = React.memo(function LeaderboardRow({
@@ -58,6 +67,7 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   secondaryScore,
   secondaryLabel,
   showCompetitionPoints = false,
+  playerTeamLookup,
 }: LeaderboardRowProps) {
   const colors = useThemeColors();
 
@@ -66,6 +76,12 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
   const name = getEntryName(entry);
   const handicap = getEntryHandicap(entry);
   const id = getEntryId(entry);
+
+  // Resolve the player's team membership (only relevant for individual entries
+  // when the parent passes a competition-team lookup).
+  const playerTeam = !isTeamEntry(entry)
+    ? playerTeamLookup?.get(entry.playerId) ?? null
+    : null;
 
   // Build accessibility label
   const bypassedText = entry.bypassed ? ', unverified submission' : '';
@@ -141,6 +157,23 @@ export const LeaderboardRow = React.memo(function LeaderboardRow({
           >
             {entry.members.map((m) => m.playerName).join(', ')}
           </ScaledText>
+        )}
+        {playerTeam && (
+          <View style={styles.playerTeamRow}>
+            <View
+              style={[
+                styles.playerTeamColorDot,
+                { backgroundColor: getTeamColorHex(playerTeam.teamColor, 0, colors) },
+              ]}
+            />
+            <ScaledText
+              category="caption"
+              style={[styles.playerTeamName, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {playerTeam.teamName}
+            </ScaledText>
+          </View>
         )}
       </View>
 

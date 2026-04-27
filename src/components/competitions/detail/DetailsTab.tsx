@@ -1,17 +1,16 @@
 /**
- * DetailsTab - Competition details and courses
+ * DetailsTab - Competition details
  *
  * Shows:
  * - Competition header card
  * - Mini-leaderboard standing (you ± 1, individual + team) for players
  * - Competition settings
  * - Prize pool section
- * - Courses used in rounds
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View } from 'react-native';
-import type { Competition, Course } from '@/types/database.types';
+import type { Competition } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 import { type RoundWithCourse } from './types';
@@ -20,7 +19,6 @@ import {
   MiniLeaderboardSection,
   SettingsSection,
   PrizePoolSection,
-  CoursesSection,
 } from './sections';
 
 export interface DetailsTabProps {
@@ -46,7 +44,6 @@ export interface DetailsTabProps {
   prizePool?: CompetitionPrizePool | null;
   prizePoolPlacements?: PrizePoolPlacement[];
   isPrizePoolLocked?: boolean;
-  onViewCourse?: (course: Course) => void;
   onUpdateCompetition?: (updates: Partial<Competition>) => Promise<void>;
   onAddPrizePool?: () => void;
   onEditPrizePool?: () => void;
@@ -57,7 +54,7 @@ export interface DetailsTabProps {
 
 export const DetailsTab = React.memo(function DetailsTab({
   competition,
-  rounds,
+  rounds: _rounds,
   playerCount: _playerCount,
   isPlayer,
   miniIndividual,
@@ -69,26 +66,12 @@ export const DetailsTab = React.memo(function DetailsTab({
   prizePool,
   prizePoolPlacements,
   isPrizePoolLocked = false,
-  onViewCourse,
   onUpdateCompetition: _onUpdateCompetition,
   onAddPrizePool,
   onEditPrizePool,
   onViewPrizePoolTransactions,
   onViewTeams,
 }: DetailsTabProps) {
-  const uniqueCourses = useMemo(() => {
-    const courseMap = new Map<
-      string,
-      Course & { clubs?: { name: string; city: string | null; state: string | null } | null }
-    >();
-    for (const round of rounds) {
-      if (round.course && !courseMap.has(round.course.id)) {
-        courseMap.set(round.course.id, round.course);
-      }
-    }
-    return Array.from(courseMap.values());
-  }, [rounds]);
-
   const showMiniLeaderboard =
     isPlayer &&
     competition.competition_type !== 'knockout' &&
@@ -123,8 +106,6 @@ export const DetailsTab = React.memo(function DetailsTab({
         onEditPress={onEditPrizePool}
         onViewTransactionsPress={onViewPrizePoolTransactions}
       />
-
-      <CoursesSection courses={uniqueCourses} onViewCourse={onViewCourse} />
     </View>
   );
 });

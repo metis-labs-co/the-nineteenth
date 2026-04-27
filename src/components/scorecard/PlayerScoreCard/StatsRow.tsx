@@ -5,7 +5,7 @@
  * Shows based on user settings visibility preferences.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import {
@@ -47,6 +47,11 @@ interface StatsRowProps {
   showGreenMissDirection?: boolean;
   showBunkerShots?: boolean;
   showHazards?: boolean;
+  /**
+   * If true, render a compact one-line summary by default that the user can tap to expand.
+   * Used when scoring 3+ players to reduce vertical density.
+   */
+  defaultCollapsed?: boolean;
 }
 
 export const StatsRow = React.memo(function StatsRow({
@@ -68,17 +73,42 @@ export const StatsRow = React.memo(function StatsRow({
   showGreenMissDirection,
   showBunkerShots,
   showHazards,
+  defaultCollapsed = false,
 }: StatsRowProps) {
   const colors = useThemeColors();
 
   // Check if any stats are visible
   const hasVisibleStats = showFIR || showGIR || showPutts;
+
+  // Track collapsed state internally; re-seed if the parent's default flips
+  // (e.g. user toggles the auto-collapse setting mid-round).
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  useEffect(() => {
+    setCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
+
   if (!hasVisibleStats) {
     return null;
   }
 
   // Center putts if it's the only stat shown
   const centerPutts = showPutts && !showFIR && !showGIR;
+
+  if (collapsed) {
+    return (
+      <CollapsedSummary
+        showFIR={showFIR}
+        showGIR={showGIR}
+        showPutts={showPutts}
+        fairwayHit={fairwayHit}
+        greenInRegulation={greenInRegulation}
+        putts={putts}
+        score={score}
+        onPress={() => setCollapsed(false)}
+        disabled={disabled}
+      />
+    );
+  }
 
   return (
     <View>
@@ -222,9 +252,93 @@ export const StatsRow = React.memo(function StatsRow({
           />
         </TouchableOpacity>
       )}
+
+      {defaultCollapsed && (
+        <TouchableOpacity
+          style={styles.hideButton}
+          onPress={() => setCollapsed(true)}
+          disabled={disabled}
+          activeOpacity={0.7}
+          accessibilityLabel="Hide stats"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.hideButtonText, { color: colors.textSecondary }]}>
+            Hide stats
+          </Text>
+          <Icon source="chevron-up" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
+
+interface CollapsedSummaryProps {
+  showFIR: boolean;
+  showGIR: boolean;
+  showPutts: boolean;
+  fairwayHit?: boolean;
+  greenInRegulation?: boolean;
+  putts?: number;
+  score?: HoleScore;
+  onPress: () => void;
+  disabled: boolean;
+}
+
+function CollapsedSummary({
+  showFIR,
+  showGIR,
+  showPutts,
+  fairwayHit,
+  greenInRegulation,
+  putts,
+  score,
+  onPress,
+  disabled,
+}: CollapsedSummaryProps) {
+  const colors = useThemeColors();
+
+  const renderHitMissIcon = (hit: boolean | undefined, missDir: string | undefined) => {
+    if (hit === true) return <Icon source="check" size={14} color={colors.success} />;
+    if (missDir) return <Text style={[styles.summaryMiss, { color: colors.error }]}>×</Text>;
+    return <Text style={[styles.summaryDash, { color: colors.textTertiary }]}>—</Text>;
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.summaryRow, { borderColor: colors.border }]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+      accessibilityLabel="Show stats"
+      accessibilityRole="button"
+      accessibilityState={{ expanded: false }}
+    >
+      <View style={styles.summaryItems}>
+        {showFIR && (
+          <View style={styles.summaryItem}>
+            {renderHitMissIcon(fairwayHit, score?.fairwayMissDirection)}
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>FIR</Text>
+          </View>
+        )}
+        {showGIR && (
+          <View style={styles.summaryItem}>
+            {renderHitMissIcon(greenInRegulation, score?.greenMissDirection)}
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>GIR</Text>
+          </View>
+        )}
+        {showPutts && (
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryPutts, { color: colors.textPrimary }]}>
+              {putts !== undefined ? putts : '—'}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>PUTTS</Text>
+          </View>
+        )}
+      </View>
+      <Icon source="chevron-down" size={18} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -306,6 +420,56 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   additionalStatsText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+  },
+  summaryItems: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    flex: 1,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  summaryLabel: {
+    ...typography.caption,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  summaryPutts: {
+    ...typography.bodyBold,
+  },
+  summaryDash: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  summaryMiss: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  hideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  hideButtonText: {
     ...typography.caption,
     fontWeight: '600',
   },

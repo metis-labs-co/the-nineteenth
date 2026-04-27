@@ -14,10 +14,12 @@
  * - Super admin hole editing (par, SI, yardage)
  */
 
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
+import { useFocusEffect } from '@react-navigation/native';
+import { activeRoundSession } from '@/services/activeRoundSession';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -25,7 +27,7 @@ import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useIsSocial } from '@/context/SubscriptionContext';
 import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter } from '@/hooks/scorecard';
-import { usePairings } from '@/hooks/rounds';
+import { usePairings, useTeams as useCompetitionTeams } from '@/hooks/rounds';
 import {
   QuickScorecardView,
   HoleHeader,
@@ -40,6 +42,7 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks';
 import type { RootStackScreenProps } from '@/navigation/types';
 import type { Hole } from '@/types';
+import { isSingleBallScore } from '@/types/database';
 import { calculatePlayingHandicap } from '@/hooks/usePlayingHandicap';
 import { resolvePlayerTee } from '@/utils/teeResolution';
 import { getTeeColor } from '@/services/courses';
@@ -154,6 +157,14 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     isSoloRound,
   } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
 
+  // Competition teams (used to label individual score cards with team names
+  // even on non-team rounds like singles match play, where round-level
+  // `teams` is empty but players still belong to competition teams).
+  const competitionTeamsQuery = useCompetitionTeams(
+    !isStandaloneRound && competitionId ? competitionId : ''
+  );
+  const competitionTeams = competitionTeamsQuery.data ?? [];
+
   // Build-as-you-play hook
   const buildAsYouPlay = useBuildAsYouPlay({
     enabled: !!isBuildAsYouPlayParam,
@@ -169,12 +180,32 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once when data is ready
   }, [buildAsYouPlay.enabled, dataLoading, holes.length]);
 
+  // Resume-to-first-incomplete-hole logic lives below `playersToRender` so
+  // it can be group-aware (only considers the user's playing group, not all
+  // 8 players of a multi-pairing round).
+  const resumeAppliedRef = useRef<string | null>(null);
+
   // Configure multi-ball mode when round data is loaded
   useEffect(() => {
     if (!dataLoading && ballCount > 1 && isSoloRound) {
       setMultiBallConfig(ballCount);
     }
   }, [dataLoading, ballCount, isSoloRound, setMultiBallConfig]);
+
+  // Persist active scoring session so we can resume on cold start.
+  // Re-set on every focus (covers returning from PlayerScorecard / ReviewScorecard).
+  // Cleared explicitly by submit/back/delete handlers.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      void activeRoundSession.set({
+        roundId,
+        competitionId,
+        isBuildAsYouPlay: isBuildAsYouPlayParam,
+        userId: user.id,
+      });
+    }, [roundId, competitionId, isBuildAsYouPlayParam, user?.id])
+  );
 
   // Wrap setCurrentHole to intercept for build-as-you-play
   const interceptedSetCurrentHole = useCallback(
@@ -288,6 +319,39 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const hasHoles = holes.length > 0;
   const currentHoleData = getHoleInfo(currentHole);
 
+  // Resume to the first hole that's incomplete for the user's playing scope.
+  // Runs once per round so user navigation isn't overridden mid-round.
+  // Build-as-you-play has its own per-hole prompts and is skipped here.
+  useEffect(() => {
+    if (buildAsYouPlay.enabled) return;
+    if (resumeAppliedRef.current === roundId) return;
+    if (!isInitialized || dataLoading || holes.length === 0) return;
+    if (playersToRender.length === 0) return;
+
+    resumeAppliedRef.current = roundId;
+
+    const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
+    let resumeHole = sortedHoles[sortedHoles.length - 1].number;
+    for (const h of sortedHoles) {
+      const allScored = playersToRender.every((player) => {
+        const sc = useScorecardStore.getState().groupScorecards.get(player.id);
+        const score = sc?.scores[h.number];
+        if (!score) return false;
+        return isSingleBallScore(score)
+          ? score.strokes !== undefined
+          : (score.balls?.length ?? 0) > 0;
+      });
+      if (!allScored) {
+        resumeHole = h.number;
+        break;
+      }
+    }
+
+    if (resumeHole !== currentHole) {
+      setCurrentHole(resumeHole);
+    }
+  }, [roundId, isInitialized, dataLoading, holes, playersToRender, currentHole, setCurrentHole, buildAsYouPlay.enabled]);
+
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
     (holeNumber: number) => {
@@ -339,6 +403,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               isTeamRound={isTeamRound}
               teamFormat={teamFormat}
               teams={teams}
+              competitionTeams={competitionTeams}
               onScoreSelect={scoreHandlers.handleScoreSelect}
               onStatsUpdate={scoreHandlers.handleStatsUpdate}
               onPlayerPress={scoreHandlers.handlePlayerPress}

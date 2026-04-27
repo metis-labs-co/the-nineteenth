@@ -26,6 +26,7 @@ import { UpgradePrompt } from '@/components/subscription';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { useRoundScorecards } from '@/hooks/useRoundDetails';
+import { ScorecardsRealtimeSubscription } from '@/hooks/scorecard/useScorecardsRealtime';
 import {
   DetailsTab,
   RoundsTab,
@@ -36,7 +37,7 @@ import {
   PayoutsTab,
 } from '@/components/competitions/detail';
 import { BracketTab } from '@/components/knockout';
-import { PointsBreakdownModal } from '@/components/leaderboard';
+import { PointsBreakdownModal, LeaderboardViewToggle } from '@/components/leaderboard';
 
 import {
   useCompetitionDetailData,
@@ -215,6 +216,25 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     );
   }, [competitionData]);
 
+  // Once the competition is live, surface standings earlier — leaderboard (or
+  // bracket for knockouts) jumps to the 3rd tab so players can see results
+  // without scrolling past Players/Teams/Stats.
+  const promoteLeaderboard =
+    competitionData?.competition.status === 'in-progress' ||
+    competitionData?.competition.status === 'completed';
+
+  // Mirrors the visibility logic inside LeaderboardTab so the pinned
+  // Individual/Team toggle only renders when the inline one would have.
+  const showLeaderboardToggle = useMemo(() => {
+    if (!competitionData) return false;
+    if (competitionData.competition.team_mode === 'none') return false;
+    const roundsList = competitionData.rounds;
+    const isAllScramble =
+      roundsList.length > 0 &&
+      roundsList.every((r) => r.team_format === 'scramble');
+    return !isAllScramble;
+  }, [competitionData]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -256,6 +276,17 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Realtime subscriptions: one channel per round so any submitted
+          scorecard for this competition refreshes the mini-leaderboard /
+          leaderboard tab in place. */}
+      {rounds.map((round) => (
+        <ScorecardsRealtimeSubscription
+          key={round.id}
+          roundId={round.id}
+          competitionId={id}
+        />
+      ))}
+
       {/* Header */}
       <PageHeader
         title={competition.name}
@@ -279,18 +310,42 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         tabs={[
           { key: 'details', label: 'Details' },
           { key: 'rounds', label: 'Rounds', count: rounds.length },
+          ...(promoteLeaderboard
+            ? [
+                competition.competition_type === 'knockout'
+                  ? ({ key: 'bracket', label: 'Bracket' } as const)
+                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
+              ]
+            : []),
           { key: 'players', label: 'Players', count: players.length },
           ...(competition.team_mode !== 'none' ? [{ key: 'teams' as const, label: 'Teams' }] : []),
           ...(showStatsTab ? [{ key: 'stats' as const, label: 'Stats' }] : []),
-          ...(competition.competition_type === 'knockout'
-            ? [{ key: 'bracket' as const, label: 'Bracket' }]
-            : [{ key: 'leaderboard' as const, label: 'Leaderboard' }]),
+          ...(!promoteLeaderboard
+            ? [
+                competition.competition_type === 'knockout'
+                  ? ({ key: 'bracket', label: 'Bracket' } as const)
+                  : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
+              ]
+            : []),
           ...(prizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
         style={styles.tabContainer}
       />
+
+      {/* Pinned leaderboard sub-tabs: render outside the ScrollView so the
+          Individual/Team toggle stays visible while scrolling the standings. */}
+      {activeTab === 'leaderboard' &&
+        competition.competition_type !== 'knockout' &&
+        showLeaderboardToggle && (
+          <LeaderboardViewToggle
+            selectedView={leaderboardView}
+            onViewChange={setLeaderboardView}
+            showTeamOption
+            style={styles.pinnedLeaderboardToggle}
+          />
+        )}
 
       {/* Tab Content */}
       <ScrollView
@@ -399,6 +454,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onViewChange={setLeaderboardView}
             scrollTarget={leaderboardScrollTarget}
             onScrollHandled={handleScrollHandled}
+            renderInlineToggle={false}
           />
         )}
 
@@ -574,6 +630,11 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
+  },
+  pinnedLeaderboardToggle: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: 0,
   },
   scrollView: {
     flex: 1,

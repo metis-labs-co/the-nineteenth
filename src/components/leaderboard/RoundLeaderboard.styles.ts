@@ -143,6 +143,21 @@ export const styles = StyleSheet.create({
     ...typography.caption,
     marginTop: 2,
   },
+  playerTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  playerTeamColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  playerTeamName: {
+    ...typography.caption,
+    flexShrink: 1,
+  },
   handicapText: {
     ...typography.small,
   },

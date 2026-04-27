@@ -579,6 +579,10 @@ export function SubMatchesTab({
     if (autoShuffledRef.current) return;
     if (isSplitRound) return;
     if (!isOrganizer) return;
+    // Don't auto-shuffle once a round is in-progress or completed —
+    // pairings are locked at that point and a silent shuffle would
+    // surprise players already on course.
+    if (roundStatus !== 'upcoming') return;
     if (isShuffling) return;
     if (isPairingsLoading || isPlayersLoading) return;
     if (hasTeamSource && isTeamsLoading) return;
@@ -589,6 +593,7 @@ export function SubMatchesTab({
   }, [
     isSplitRound,
     isOrganizer,
+    roundStatus,
     isShuffling,
     isPairingsLoading,
     isPlayersLoading,
@@ -708,30 +713,40 @@ export function SubMatchesTab({
                     </Text>
                   </TouchableOpacity>
                 )}
-                {!isSplitRound && isOrganizer && showShuffleButton && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      styles.actionButtonPrimary,
-                      {
-                        backgroundColor: isShuffling
-                          ? colors.gray300
-                          : colors.primary,
-                        opacity: isShuffling ? 0.8 : 1,
-                      },
-                    ]}
-                    onPress={handleShuffleGroups}
-                    disabled={isShuffling}
-                    accessibilityRole="button"
-                    accessibilityLabel="Shuffle groups"
-                    testID="groups-shuffle-button"
-                  >
-                    <Icon source="shuffle-variant" size={16} color={colors.white} />
-                    <Text style={[styles.actionButtonLabel, { color: colors.white }]}>
-                      {isShuffling ? 'Shuffling…' : 'Shuffle groups'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                {!isSplitRound && isOrganizer && showShuffleButton && (() => {
+                  const isLocked = roundStatus !== 'upcoming';
+                  const isDisabled = isShuffling || isLocked;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        styles.actionButtonPrimary,
+                        {
+                          backgroundColor: isDisabled
+                            ? colors.gray300
+                            : colors.primary,
+                          opacity: isShuffling ? 0.8 : 1,
+                        },
+                      ]}
+                      onPress={handleShuffleGroups}
+                      disabled={isDisabled}
+                      accessibilityRole="button"
+                      accessibilityLabel="Shuffle groups"
+                      accessibilityHint={
+                        isLocked
+                          ? 'Disabled — round has already started'
+                          : undefined
+                      }
+                      accessibilityState={{ disabled: isDisabled }}
+                      testID="groups-shuffle-button"
+                    >
+                      <Icon source="shuffle-variant" size={16} color={colors.white} />
+                      <Text style={[styles.actionButtonLabel, { color: colors.white }]}>
+                        {isShuffling ? 'Shuffling…' : 'Shuffle groups'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
             )}
 

@@ -497,9 +497,11 @@ const styles = StyleSheet.create({
   },
 
   // Column widths (minWidth for text scaling flexibility)
+  // textAlign applies to the Text headers; alignItems applies to the View row cells
   positionCol: {
     minWidth: 36,
     alignItems: 'center',
+    textAlign: 'center',
   },
   teamCol: {
     flex: 1,
@@ -508,10 +510,12 @@ const styles = StyleSheet.create({
   handicapCol: {
     minWidth: 50,
     alignItems: 'center',
+    textAlign: 'center',
   },
   pointsCol: {
     minWidth: 44,
     alignItems: 'flex-end',
+    textAlign: 'right',
   },
   expandCol: {
     width: 28,
@@ -611,10 +615,12 @@ const styles = StyleSheet.create({
   breakdownPosCol: {
     width: 56,
     alignItems: 'center',
+    textAlign: 'center',
   },
   breakdownPtsCol: {
     width: 48,
     alignItems: 'flex-end',
+    textAlign: 'right',
   },
   roundLabelRow: {
     flexDirection: 'row',

@@ -11,8 +11,8 @@ export type {
   RoundBreakdownEntry,
 } from './TeamLeaderboardTable';
 
-export { LeaderboardTab } from './LeaderboardTab';
-export type { LeaderboardTabProps } from './LeaderboardTab';
+export { LeaderboardTab, LeaderboardViewToggle } from './LeaderboardTab';
+export type { LeaderboardTabProps, LeaderboardViewToggleProps } from './LeaderboardTab';
 
 export { PointsBreakdownModal } from './PointsBreakdownModal';
 export type { PointsBreakdownModalProps } from './PointsBreakdownModal';
@@ -20,6 +20,12 @@ export type { PointsBreakdownModalProps } from './PointsBreakdownModal';
 // RoundLeaderboard and sub-components
 export { RoundLeaderboard } from './RoundLeaderboard';
 export type { RoundLeaderboardProps } from './RoundLeaderboard';
+
+export {
+  InProgressRoundLeaderboard,
+  IN_PROGRESS_SUPPORTED_GAME_TYPES,
+} from './InProgressRoundLeaderboard';
+export type { InProgressRoundLeaderboardProps } from './InProgressRoundLeaderboard';
 
 export { LeaderboardHeader } from './LeaderboardHeader';
 export type { LeaderboardHeaderProps } from './LeaderboardHeader';

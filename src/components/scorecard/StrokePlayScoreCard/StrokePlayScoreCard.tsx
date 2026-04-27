@@ -67,6 +67,10 @@ interface StrokePlayScoreCardProps {
   baseHandicap?: number;
   /** Label for base value: 'HC' (profile) or 'SHC' (social handicap) */
   baseLabel?: string;
+  /** Render the FIR/GIR/Putts row collapsed by default (used for 3+ player rounds) */
+  collapseStatsByDefault?: boolean;
+  /** Team name shown beneath the player's name on team rounds */
+  teamName?: string;
 }
 
 export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
@@ -88,6 +92,8 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
   dailyHandicap,
   baseHandicap,
   baseLabel,
+  collapseStatsByDefault = false,
+  teamName,
 }: StrokePlayScoreCardProps) {
   const colors = useThemeColors();
   const handicap = playingHandicap ?? player.handicap ?? 0;
@@ -235,6 +241,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
         dailyHandicap={dailyHandicap}
         baseHandicap={baseHandicap}
         baseLabel={baseLabel}
+        teamName={teamName}
       />
 
       {/* Divider */}
@@ -289,6 +296,7 @@ export const StrokePlayScoreCard = React.memo(function StrokePlayScoreCard({
             showGreenMissDirection={statsVisibility.showGreenMissDirection}
             showBunkerShots={statsVisibility.showBunkerShots}
             showHazards={statsVisibility.showHazards}
+            defaultCollapsed={collapseStatsByDefault}
           />
         </>
       )}

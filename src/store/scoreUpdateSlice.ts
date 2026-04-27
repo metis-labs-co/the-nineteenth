@@ -15,6 +15,7 @@ import { isSingleBallScore } from '@/types/database/base';
 import { saveScoreEntry } from '@/services/scoreMismatch';
 import { storeLogger } from '@/utils/debugLogger';
 import { persistScorecardUpdate } from './scorecardPersistence';
+import { debouncedQueueScorecardSync } from './scorecardSyncDebounce';
 import { calculatePlayerTotals } from './utils/scorecardCalculations';
 
 interface StoreState {
@@ -136,14 +137,21 @@ export async function setPlayerScore(
     handicapSource,
   });
 
-  // Persist to SQLite only — sync is deferred to submission time to avoid
-  // excessive intermediate syncs (up to 72 for a 4-player round) that can
-  // cause race conditions where incomplete SQLite data overwrites complete data.
+  // Persist to SQLite synchronously, then debounce a Supabase sync so other
+  // devices viewing the round (organisers, other players) see live in-progress
+  // scoring. The debounce coalesces rapid taps; the server-side completeness
+  // check in scorecardSync.ts skips upserts whose local copy has fewer holes
+  // than the server already has, mitigating the original race condition that
+  // led this sync to be deferred to submission time.
   await persistScorecardUpdate({
     holeScore: { scorecardId: scorecard.id, holeNumber: hole, score: holeScore },
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'setPlayerScore',
   });
+
+  if (currentRoundId && !scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 
   if (scoredBy && currentRoundId && !scorecard.isStandalone) {
     try {
@@ -302,6 +310,10 @@ export async function updateLocalScore(
     scorecard: { scorecardId: scorecard.id, scorecard: updatedScorecard },
     context: 'updateLocalScore',
   });
+
+  if (!scorecard.isStandalone) {
+    debouncedQueueScorecardSync(scorecard.id, () => get().groupScorecards.get(playerId));
+  }
 
   if (saved) {
     storeLogger.debug('Local score updated after resolution', {

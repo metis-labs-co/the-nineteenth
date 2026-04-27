@@ -7,11 +7,11 @@
  * - Detail Screens (Competition, Scorecard, etc.)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LoadingSpinner } from '@/components/common';
 import { NavigationContainer, Theme } from '@react-navigation/native';
-import { navigationRef } from './navigationRef';
+import { navigationRef, navigate } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +21,7 @@ import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen } from '@/components/biometric';
 import { supabase } from '@/services/supabase/client';
+import { activeRoundSession } from '@/services/activeRoundSession';
 
 // Auth Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -115,7 +116,7 @@ interface RootNavigatorProps {
 }
 
 export default function RootNavigator({ theme }: RootNavigatorProps) {
-  const { isAuthenticated, isInitializing, isLoading, player } = useAuth();
+  const { isAuthenticated, isInitializing, isLoading, player, user } = useAuth();
   const colors = useThemeColors();
   const { hasSeenWelcome } = useHasSeenWelcome();
   const { isLocked, isAuthenticating: isBioAuthenticating, unlock, error: bioError, biometricType } = useBiometricLock(isAuthenticated);
@@ -129,6 +130,49 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
   // 2. Player exists but hasn't completed onboarding (handicap_updated_at is null)
   // Only check after loading completes (isLoading is handled above)
   const needsOnboarding = isAuthenticated && (!player || player.handicap_updated_at === null);
+
+  // Resume the score-entry screen on cold start if a session was persisted.
+  // Runs once per app launch — only for the matching signed-in user, and only
+  // once we're past auth loading, biometric lock, and onboarding.
+  const hasAttemptedRestoreRef = useRef(false);
+  useEffect(() => {
+    if (hasAttemptedRestoreRef.current) return;
+    if (isInitializing || (isAuthenticated && isLoading)) return;
+    if (!isAuthenticated || !user?.id) return;
+    if (needsOnboarding) return;
+    if (isLocked) return; // wait for biometric unlock; NavigationContainer isn't mounted yet
+
+    hasAttemptedRestoreRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const session = await activeRoundSession.get();
+        if (cancelled || !session || session.userId !== user.id) return;
+
+        // Wait briefly for NavigationContainer to be ready (it usually is by now).
+        const start = Date.now();
+        while (!navigationRef.isReady() && Date.now() - start < 2000) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        if (cancelled || !navigationRef.isReady()) return;
+
+        navigate('Scorecard', {
+          roundId: session.roundId,
+          competitionId: session.competitionId,
+          isBuildAsYouPlay: session.isBuildAsYouPlay,
+        });
+      } catch (err) {
+        if (__DEV__) {
+          console.warn('[RootNavigator] Failed to restore active round session', err);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitializing, isAuthenticated, isLoading, user?.id, needsOnboarding, isLocked]);
 
   // Debug logging for onboarding flow (only in development)
   if (__DEV__) {

@@ -30,6 +30,9 @@ interface SettingsState {
   // GPS distance-to-pin feature
   showGpsDistance: boolean;
 
+  // Collapse the FIR/GIR/Putts stats row by default when scoring 3+ players
+  autoCollapseStatsForLargeGroups: boolean;
+
   // Country override (null = auto-detect)
   countryOverride: string | null;
 
@@ -52,6 +55,7 @@ interface SettingsState {
   setShowBunkerShots: (show: boolean) => void;
   setShowHazards: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
+  setAutoCollapseStatsForLargeGroups: (collapse: boolean) => void;
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
   setDebugModeEnabled: (enabled: boolean) => void;
@@ -70,6 +74,7 @@ const DEFAULT_SETTINGS = {
   showBunkerShots: false,
   showHazards: false,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
+  autoCollapseStatsForLargeGroups: true,
   countryOverride: null as string | null,
   biometricEnabled: false,
   debugModeEnabled: false,
@@ -97,6 +102,9 @@ export const useSettingsStore = create<SettingsState>()(
       setShowHazards: (show) => set({ showHazards: show }),
 
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
+
+      setAutoCollapseStatsForLargeGroups: (collapse) =>
+        set({ autoCollapseStatsForLargeGroups: collapse }),
 
       setCountryOverride: (country) => set({ countryOverride: country }),
 

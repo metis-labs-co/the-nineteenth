@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useRoundDetails, useRoundScorecards, useRoundPlayers } from '@/hooks/useRoundDetails';
 import { useRoundLeaderboard } from '@/hooks/useRoundLeaderboard';
 import { useCompetitionInfo } from '@/hooks';
+import { useScorecardsRealtime } from '@/hooks/scorecard/useScorecardsRealtime';
 
 interface UseViewRoundDataFetchParams {
   roundId: string;
@@ -33,12 +34,19 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
 
   const { data: competitionInfo } = useCompetitionInfo(competitionId);
 
+  // Realtime: invalidate scorecard / competition leaderboard queries the
+  // moment any scorecard for this round changes on the server (typically
+  // when another player submits).
+  useScorecardsRealtime(roundId, competitionId);
+
   // Game type flags
   const isMatchPlayRound = round?.game_type === 'match-play' && !round?.is_team_round;
   const isTeamMatchPlayRound = round?.game_type === 'match-play' && round?.is_team_round;
   const isShambleRound = round?.game_type === 'shamble' || round?.team_format === 'shamble';
   const isScrambleRound = round?.game_type === 'scramble' || round?.team_format === 'scramble';
   const isStrokePlayRound = round?.game_type === 'stroke';
+  const isStablefordRound = round?.game_type === 'stableford';
+  const isParRound = round?.game_type === 'par';
   // Split round: the round is rendered as a list of independent sub_matches
   // rather than tee-time groups. Two flavours:
   //   - Team split (Ryder Cup): sub_matches aggregated for the round result
@@ -84,6 +92,8 @@ export function useViewRoundDataFetch({ roundId, competitionId }: UseViewRoundDa
     isShambleRound,
     isScrambleRound,
     isStrokePlayRound,
+    isStablefordRound,
+    isParRound,
     isSplitRound,
     isTeamStrokeRound,
     isTeamRound,

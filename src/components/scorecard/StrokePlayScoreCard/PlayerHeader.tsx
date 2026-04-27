@@ -29,6 +29,8 @@ interface PlayerHeaderProps {
   baseHandicap?: number;
   /** Label for base value: 'HC' or 'SHC' */
   baseLabel?: string;
+  /** Team name shown beneath the player's name on team rounds */
+  teamName?: string;
 }
 
 export const PlayerHeader = React.memo(function PlayerHeader({
@@ -45,6 +47,7 @@ export const PlayerHeader = React.memo(function PlayerHeader({
   dailyHandicap,
   baseHandicap,
   baseLabel,
+  teamName,
 }: PlayerHeaderProps) {
   const colors = useThemeColors();
 
@@ -75,6 +78,11 @@ export const PlayerHeader = React.memo(function PlayerHeader({
             {playerName}
           </Text>
         </View>
+        {teamName && (
+          <Text style={[styles.teamName, { color: colors.textSecondary }]} numberOfLines={1}>
+            {teamName}
+          </Text>
+        )}
         <View style={styles.handicapRow}>
           <Text style={[styles.handicapLabel, { color: colors.textSecondary }]}>
             {dailyHandicap != null
@@ -144,6 +152,11 @@ const styles = StyleSheet.create({
   playerName: {
     ...typography.h3,
     flexShrink: 1,
+  },
+  teamName: {
+    ...typography.caption,
+    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
   },
   handicapRow: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ import { supabase } from '@/services/supabase/client';
 import { useConfirmationDialog } from '@/hooks/useConfirmationDialog';
 import type { DialogConfig } from '@/hooks/useConfirmationDialog';
 import { deleteScorecardsByRound } from '@/services/offline/database';
+import { activeRoundSession } from '@/services/activeRoundSession';
 import { scoringLogger } from '@/utils/debugLogger';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
@@ -71,6 +72,9 @@ export function useScorecardSubmission({
       await submitScorecards();
       scoringLogger.info('SUBMIT: Scorecard submission successful');
 
+      // Round is submitted — clear the resume-on-launch session.
+      void activeRoundSession.clear();
+
       // Navigate to review screen - skins finalization happens there on final submit
       navigation.navigate('ReviewScorecard', {
         roundId,
@@ -119,6 +123,7 @@ export function useScorecardSubmission({
       }
 
       await deleteScorecardsByRound(roundId);
+      await activeRoundSession.clear();
       resetRound();
       navigation.goBack();
     } catch (error) {

@@ -22,7 +22,7 @@ import { spacing } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks';
 import { usePendingMismatches, useResolveMismatch, usePartnerStatus } from '@/hooks/useScoreMismatch';
-import { useRoundScoringPairs } from '@/hooks/scorecard';
+import { useRoundScoringPairs, useScorecardsRealtime } from '@/hooks/scorecard';
 import { StatsTab } from '@/screens/rounds/ViewRoundScreen/tabs/StatsTab';
 
 import { useScoreReview, useScoreSubmission, useReviewScorecardTabs, useScrambleTeams } from './hooks';
@@ -81,6 +81,11 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
   // Get round ID from route params or store
   const roundId = route.params?.roundId || currentRoundId;
 
+  // Realtime: refresh scorecard / competition leaderboard queries the moment
+  // a co-scorer submits a partner's scorecard, so the in-screen leaderboards
+  // stay in sync without waiting for the 30s poll.
+  useScorecardsRealtime(roundId || undefined, route.params?.competitionId);
+
   // Tab definitions and game type detection
   const {
     activeTab,
@@ -100,7 +105,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
     payoutsMode,
     statsVisibility,
     hasStats,
-  } = useReviewScorecardTabs({ roundId: roundId || undefined, storeGameType: gameType });
+  } = useReviewScorecardTabs({ roundId: roundId || undefined, storeGameType: gameType, playerCount: currentPlayers.length });
 
   const scrambleTeams = useScrambleTeams({
     isScramble,
@@ -360,6 +365,7 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           holes={holes}
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
+          gameType={effectiveGameType}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

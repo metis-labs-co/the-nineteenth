@@ -8,6 +8,8 @@ interface UseViewRoundTabsParams {
   isShambleRound: boolean;
   isScrambleRound: boolean;
   isStrokePlayRound: boolean;
+  isStablefordRound: boolean;
+  isParRound: boolean;
   /** True when the round is a split team round (Ryder-Cup-style sub-matches). */
   isSplitRound: boolean;
   /** True for team stroke rounds (best-ball / aggregate) — not match-play, not scramble/shamble. */
@@ -47,6 +49,8 @@ export function useViewRoundTabs({
   isShambleRound,
   isScrambleRound,
   isStrokePlayRound,
+  isStablefordRound,
+  isParRound,
   isSplitRound,
   // isTeamStrokeRound kept in the param contract because callers still
   // pass it, but the Teams-tab logic now gates on isTeamRound instead.
@@ -84,9 +88,11 @@ export function useViewRoundTabs({
       });
     }
 
-    // Stroke play leaderboard — show right after Details so it's the
-    // first thing after the round header for multi-player stroke rounds.
-    if (isStrokePlayRound && playerCount > 1) {
+    // Format-aware leaderboard — appears right after Details so it's the
+    // first thing after the round header for multi-player rounds. Shown for
+    // every individual stroke-based format; the View Round screen renders
+    // the appropriate leaderboard view (Stroke / Stableford / Par).
+    if ((isStrokePlayRound || isStablefordRound || isParRound) && playerCount > 1) {
       result.push({ key: 'leaderboard', label: 'Leaderboard' });
     }
 
@@ -143,5 +149,5 @@ export function useViewRoundTabs({
     }
 
     return result;
-  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount, groupCount, teamCount]);
+  }, [isMatchPlayRound, isTeamMatchPlayRound, isShambleRound, isScrambleRound, isStrokePlayRound, isStablefordRound, isParRound, isSplitRound, isTeamRound, hasSkinsGame, hasWolfGame, hasPayoutsTab, hasStats, playerCount, groupCount, teamCount]);
 }

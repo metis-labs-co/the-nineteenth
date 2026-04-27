@@ -49,6 +49,8 @@ import { ScrambleContributionsTab } from './tabs/ScrambleContributionsTab';
 import { ShambleTeamScoresTab } from './tabs/ShambleTeamScoresTab';
 import { StatsTab } from './tabs/StatsTab';
 import { StrokePlayLeaderboardTab } from './tabs/StrokePlayLeaderboardTab';
+import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLeaderboardFull';
+import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
 import { TeamsTab } from './tabs/TeamsTab';
 
@@ -363,6 +365,22 @@ export default function ViewRoundScreen(props: Props) {
           <StrokePlayLeaderboardTab
             players={vm.strokePlayPlayers}
             holes={round.course?.holes as Hole[] || []}
+            getPlayerScore={vm.getStrokePlayPlayerScore}
+            currentUserId={vm.user?.id}
+          />
+        )}
+        {vm.activeTab === 'leaderboard' && vm.isStablefordRound && (
+          <StablefordLeaderboardFull
+            players={vm.leaderboardPlayers}
+            holes={(round.course?.holes as Hole[]) || []}
+            getPlayerScore={vm.getStrokePlayPlayerScore}
+            currentUserId={vm.user?.id}
+          />
+        )}
+        {vm.activeTab === 'leaderboard' && vm.isParRound && (
+          <ParLeaderboardFull
+            players={vm.leaderboardPlayers}
+            holes={(round.course?.holes as Hole[]) || []}
             getPlayerScore={vm.getStrokePlayPlayerScore}
             currentUserId={vm.user?.id}
           />

@@ -183,7 +183,6 @@ export const OrganizerView: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
     onUpdateCompetition: async (updates) => console.log('Update:', updates),
   },
@@ -201,7 +200,6 @@ export const PlayerView: Story = {
     miniIndividual: miniWithPosition(3, 32),
     miniTeam: null,
     isOrganizer: false,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -218,7 +216,6 @@ export const PlayerInFirstPlace: Story = {
     miniIndividual: miniWithPosition(1, 45),
     miniTeam: null,
     isOrganizer: false,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -247,7 +244,6 @@ export const KnockoutCompetition: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -269,7 +265,6 @@ export const FixedTeamsCompetition: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -291,7 +286,6 @@ export const PerRoundTeamsCompetition: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -312,7 +306,6 @@ export const WHSHandicap: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -333,7 +326,6 @@ export const GrossOnlyCompetition: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -357,7 +349,6 @@ export const SingleCourse: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -382,7 +373,6 @@ export const MultipleCourses: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -406,7 +396,6 @@ export const NoCourses: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -427,7 +416,6 @@ export const NoRounds: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -449,7 +437,6 @@ export const InProgressCompetition: Story = {
     miniIndividual: miniWithPosition(5, 28),
     miniTeam: null,
     isOrganizer: false,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -471,7 +458,6 @@ export const CompletedCompetition: Story = {
     miniIndividual: miniWithPosition(2, 42),
     miniTeam: null,
     isOrganizer: false,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -490,7 +476,6 @@ export const NoDescription: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -510,7 +495,6 @@ export const LongCompetitionName: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };
@@ -532,7 +516,6 @@ export const LargeCompetition: Story = {
     miniIndividual: null,
     miniTeam: null,
     isOrganizer: true,
-    onViewCourse: (course) => console.log('View course:', course.name),
 
   },
 };

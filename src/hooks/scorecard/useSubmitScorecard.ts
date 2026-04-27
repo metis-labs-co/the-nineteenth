@@ -13,6 +13,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveScorecard } from '@/services/offline/database';
 import { queueScorecardSync, getIsOnline, manualSync } from '@/services/offline/sync';
+import { flushPendingScorecardSyncs } from '@/store/scorecardSyncDebounce';
 import { scorecardKeys } from './useScorecards';
 import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
@@ -146,6 +147,11 @@ export function useSubmitScorecards() {
       courseId: _courseId,
       isCompetition: _isCompetition,
     }): Promise<SubmitScorecardResult> => {
+      // Cancel any in-flight live (in-progress) syncs so a trailing
+      // 'in-progress' upsert can't land after the 'completed' one we're
+      // about to push.
+      flushPendingScorecardSyncs();
+
       const now = new Date();
       const scorecardIds: string[] = [];
 
