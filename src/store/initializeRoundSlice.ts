@@ -14,6 +14,7 @@ import {
 } from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
+import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { isValidUUID } from './utils/scorecardCalculations';
 
 type SetFn = (partial: Record<string, unknown>) => void;
@@ -37,11 +38,18 @@ export async function initializeRound(
   playerTeeMap: Map<string, TeeBox> = new Map(),
   nineType: NineType = 'full',
 ): Promise<void> {
+  // Defensive filter: callers may pass the full course holes (18) regardless
+  // of the round's nine_type. Filtering here keeps the in-memory state, the
+  // SQLite snapshot, and downstream count/par/sync logic in sync with what
+  // the player is actually scoring. Idempotent for already-filtered inputs.
+  const filteredHoles = filterHolesByNineType(holes, nineType);
+
   storeLogger.info('Initializing round', {
     roundId,
     playerCount: players.length,
-    holeCount: holes.length,
+    holeCount: filteredHoles.length,
     gameType,
+    nineType,
     isStandalone,
     allowedPlayerCount: allowedPlayerIds.length,
     hasTeeData: !!selectedTeeData,
@@ -50,8 +58,8 @@ export async function initializeRound(
   initSyncListener();
 
   try {
-    storeLogger.debug('Saving holes to SQLite', { roundId, holeCount: holes.length });
-    await saveHoles(roundId, holes);
+    storeLogger.debug('Saving holes to SQLite', { roundId, holeCount: filteredHoles.length });
+    await saveHoles(roundId, filteredHoles);
 
     const newScorecards = new Map<string, Scorecard>();
 
@@ -83,8 +91,8 @@ export async function initializeRound(
     set({
       currentRoundId: roundId,
       currentPlayers: players,
-      currentHole: 1,
-      holes,
+      currentHole: filteredHoles[0]?.number ?? 1,
+      holes: filteredHoles,
       gameType,
       handicapSource,
       groupScorecards: newScorecards,
@@ -139,10 +147,10 @@ export async function loadFromOffline(
       return false;
     }
 
-    const holes = await getHoles(roundId);
-    storeLogger.debug('Loaded holes from SQLite', { roundId, holeCount: holes.length });
+    const cachedHoles = await getHoles(roundId);
+    storeLogger.debug('Loaded holes from SQLite', { roundId, holeCount: cachedHoles.length });
 
-    if (holes.length === 0) {
+    if (cachedHoles.length === 0) {
       storeLogger.warn('No cached holes found, will fetch from network', { roundId });
       set({ isLoading: false });
       return false;
@@ -155,23 +163,6 @@ export async function loadFromOffline(
       newScorecards.set(scorecard.playerId, scorecard);
       if (scorecard.player) {
         players.push(scorecard.player);
-      }
-    }
-
-    const holeNumbers = holes.map((h: any) => h.number ?? h.hole_number);
-    let currentHole = holeNumbers[0] ?? 1;
-    for (const h of holeNumbers) {
-      const allComplete = players.every((player) => {
-        const sc = newScorecards.get(player.id);
-        const score = sc?.scores[h];
-        return score && (isSingleBallScore(score) ? score.strokes !== undefined : score.balls?.length > 0);
-      });
-      if (!allComplete) {
-        currentHole = h;
-        break;
-      }
-      if (h === holeNumbers[holeNumbers.length - 1]) {
-        currentHole = h;
       }
     }
 
@@ -226,6 +217,29 @@ export async function loadFromOffline(
         roundId,
         error: err instanceof Error ? err.message : String(err),
       });
+    }
+
+    // Defensive filter: SQLite may hold 18 holes (round saved by older code,
+    // or via a path that didn't pass nine_type). Apply the round's nine_type
+    // so getCompletedHolesCount, coursePar, and submit validation match what
+    // the player is actually scoring.
+    const holes = filterHolesByNineType(cachedHoles, nineType);
+
+    const holeNumbers = holes.map((h: any) => h.number ?? h.hole_number);
+    let currentHole = holeNumbers[0] ?? 1;
+    for (const h of holeNumbers) {
+      const allComplete = players.every((player) => {
+        const sc = newScorecards.get(player.id);
+        const score = sc?.scores[h];
+        return score && (isSingleBallScore(score) ? score.strokes !== undefined : score.balls?.length > 0);
+      });
+      if (!allComplete) {
+        currentHole = h;
+        break;
+      }
+      if (h === holeNumbers[holeNumbers.length - 1]) {
+        currentHole = h;
+      }
     }
 
     set({

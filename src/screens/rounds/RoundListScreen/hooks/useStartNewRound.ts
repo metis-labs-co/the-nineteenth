@@ -15,7 +15,7 @@ import {
 import { useScorecardStore } from '@/store/scorecardStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { createScoringPairs } from '@/services/scoringPairs/scoringPairsService';
-import { parseAndTransformHoles } from '@/utils/holeTransformers';
+import { parseAndTransformHoles, filterHolesByNineType } from '@/utils/holeTransformers';
 import { getDisplayName } from '@/utils/displayHelpers';
 import { getLocalDateString } from '@/utils/formatting';
 import type { RootStackParamList } from '@/navigation/types';
@@ -47,12 +47,6 @@ function createPlaceholderHoles(count: number): Hole[] {
     par: 4 as Hole['par'],
     strokeIndex: i + 1,
   }));
-}
-
-function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[] {
-  if (nineType === 'front9') return holes.filter((h) => h.number <= 9);
-  if (nineType === 'back9') return holes.filter((h) => h.number >= 10);
-  return holes;
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;

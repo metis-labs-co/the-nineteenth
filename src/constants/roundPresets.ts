@@ -321,7 +321,6 @@ export const TEAM_SCRAMBLE: RoundPreset = {
     rules_override: TEAM_SCRAMBLE_FIXED_POINTS.override,
   },
   requiresCompetitionTeams: true,
-  comingSoon: true,
 };
 
 export const TEAM_MATCH_PLAY: RoundPreset = {

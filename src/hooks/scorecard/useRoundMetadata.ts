@@ -11,7 +11,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
 import type { TeeBox, TeamFormat, GameType, Tee } from '@/types/database.types';
-import type { HandicapSource, RoundStatus } from '@/types/database/enums';
+import type { HandicapSource, NineType, RoundStatus } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import {
   ROUND_METADATA_SELECT,
@@ -36,6 +36,8 @@ export interface RoundMetadata {
   teamConfig: StandaloneTeamConfig | null;
   /** Handicap source for daily HC calculation ('profile' = GA, 'calculated' = Social, 'none') */
   handicapSource: HandicapSource;
+  /** Whether this is a 9-hole or full round, controls which holes are scored. */
+  nineType: NineType;
   /** Per-player tee overrides: playerId -> TeeBox. Round overrides take precedence over competition defaults. */
   playerTeeMap: Map<string, TeeBox>;
 }
@@ -187,6 +189,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         roundStatus: (roundData.status || 'upcoming') as RoundStatus,
         teamConfig: roundData.team_config ?? null,
         handicapSource: (roundData.handicap_source as HandicapSource) ?? 'profile',
+        nineType: (roundData.nine_type as NineType) ?? 'full',
         playerTeeMap,
       };
 

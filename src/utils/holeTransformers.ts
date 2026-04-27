@@ -12,6 +12,20 @@
  */
 
 import type { Hole } from '@/types';
+import type { NineType } from '@/types/database/enums';
+
+/**
+ * Filter a holes array down to the holes actually being played for the
+ * round's `nine_type`. For 'front9' this is holes 1–9; for 'back9' it's
+ * holes 10–18; for 'full' the array is returned unchanged.
+ *
+ * Idempotent — safe to call on an already-filtered array.
+ */
+export function filterHolesByNineType(holes: Hole[], nineType: NineType): Hole[] {
+  if (nineType === 'front9') return holes.filter((h) => h.number <= 9);
+  if (nineType === 'back9') return holes.filter((h) => h.number >= 10);
+  return holes;
+}
 
 /**
  * Database hole format (snake_case, from Supabase JSONB)

@@ -561,7 +561,8 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
       <SwipeableHoleNavigator
         currentHole={currentHole}
-        totalHoles={18}
+        firstHole={holes[0]?.number ?? 1}
+        totalHoles={holes[holes.length - 1]?.number ?? 18}
         onHoleChange={interceptedSetCurrentHole}
         enabled={!isSyncing && !isLoading && !isQuickViewScrolling}
         renderHole={renderHoleContent}

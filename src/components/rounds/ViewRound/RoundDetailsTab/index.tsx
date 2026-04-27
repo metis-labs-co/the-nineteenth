@@ -18,7 +18,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useIsDark, useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, skinsColor, wolfColor } from '@/constants/theme';
 import { useSkinsGamesByRound } from '@/hooks/useSkins';
 import { useWolfGameByRound } from '@/hooks/wolf';
@@ -64,6 +64,8 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
   onUpgradePress,
 }: RoundDetailsTabProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  const courseIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const navigation = useNavigation<NavigationProp>();
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const useMetres = distanceUnit === 'metres';
@@ -227,7 +229,7 @@ export const RoundDetailsTab = React.memo(function RoundDetailsTab({
         activeOpacity={0.7}
       >
         <View style={styles.headerTop}>
-          <View style={[styles.courseIconLarge, { backgroundColor: colors.primaryLighter }]}>
+          <View style={[styles.courseIconLarge, { backgroundColor: courseIconBackground }]}>
             <Icon source="golf" size={32} color={colors.primary} />
           </View>
           <View style={styles.headerInfo}>

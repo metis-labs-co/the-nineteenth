@@ -236,6 +236,7 @@ export function useRoundData({
       metadata.data?.selectedTeeData ?? null, // selectedTeeData for daily handicap
       metadata.data?.handicapSource ?? 'profile', // handicapSource
       metadata.data?.playerTeeMap ?? new Map(), // per-player tee overrides
+      metadata.data?.nineType ?? 'full', // nine_type — slice filters holes accordingly
     );
   }, [
     roundId,

@@ -36,13 +36,25 @@ COMMENT ON COLUMN rounds.round_format IS
 COMMENT ON COLUMN rounds.sub_match_size IS
   'Players per sub-team when round_format = ''split''. 1 = 1v1, 2 = 2v2, 3 = 3v3. Remainder players form a smaller final sub-match. NULL for combined rounds.';
 
--- Enforce that sub_match_size is only set for split rounds
-ALTER TABLE rounds
-  ADD CONSTRAINT sub_match_size_requires_split
-    CHECK (
-      (round_format = 'split' AND sub_match_size IS NOT NULL)
-      OR (round_format = 'combined' AND sub_match_size IS NULL)
-    );
+-- Enforce that sub_match_size is only set for split rounds.
+-- Guarded so re-runs after a partial apply are no-ops (Postgres has no
+-- ADD CONSTRAINT IF NOT EXISTS shortcut).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'sub_match_size_requires_split'
+      AND conrelid = 'rounds'::regclass
+  ) THEN
+    ALTER TABLE rounds
+      ADD CONSTRAINT sub_match_size_requires_split
+      CHECK (
+        (round_format = 'split' AND sub_match_size IS NOT NULL)
+        OR (round_format = 'combined' AND sub_match_size IS NULL)
+      );
+  END IF;
+END $$;
 
 -- -----------------------------------------------------
 -- 2. Create sub_matches table
@@ -96,6 +108,7 @@ COMMENT ON COLUMN sub_matches.team_b_net_total IS
 -- 3. Updated-at trigger (reuse the standard pattern)
 -- -----------------------------------------------------
 
+DROP TRIGGER IF EXISTS update_sub_matches_updated_at ON sub_matches;
 CREATE TRIGGER update_sub_matches_updated_at
   BEFORE UPDATE ON sub_matches
   FOR EACH ROW
@@ -110,6 +123,7 @@ CREATE TRIGGER update_sub_matches_updated_at
 
 ALTER TABLE sub_matches ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "sub_matches_select_via_round" ON sub_matches;
 CREATE POLICY "sub_matches_select_via_round"
   ON sub_matches
   FOR SELECT
@@ -121,6 +135,7 @@ CREATE POLICY "sub_matches_select_via_round"
     )
   );
 
+DROP POLICY IF EXISTS "sub_matches_insert_organizer" ON sub_matches;
 CREATE POLICY "sub_matches_insert_organizer"
   ON sub_matches
   FOR INSERT
@@ -136,6 +151,7 @@ CREATE POLICY "sub_matches_insert_organizer"
     )
   );
 
+DROP POLICY IF EXISTS "sub_matches_update_organizer" ON sub_matches;
 CREATE POLICY "sub_matches_update_organizer"
   ON sub_matches
   FOR UPDATE
@@ -151,6 +167,7 @@ CREATE POLICY "sub_matches_update_organizer"
     )
   );
 
+DROP POLICY IF EXISTS "sub_matches_delete_organizer" ON sub_matches;
 CREATE POLICY "sub_matches_delete_organizer"
   ON sub_matches
   FOR DELETE

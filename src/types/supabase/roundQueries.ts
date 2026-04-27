@@ -60,6 +60,7 @@ export interface SupabaseRoundData {
   scoring_pairs_required: boolean | null;
   ball_count: number | null;
   handicap_source: string | null;
+  nine_type: string | null;
   selected_tee: TeeBox | null;
   team_config: StandaloneTeamConfig | null;
   courses: SupabaseCourseData | null;
@@ -113,6 +114,7 @@ export const ROUND_METADATA_SELECT = `
   scoring_pairs_required,
   ball_count,
   handicap_source,
+  nine_type,
   selected_tee,
   team_config,
   courses!course_id (

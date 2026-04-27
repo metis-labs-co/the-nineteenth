@@ -31,10 +31,18 @@ const VELOCITY_THRESHOLD = 0.25; // PanResponder velocity units
 const SLIDE_DURATION = 250; // ms for the full slide transition
 
 interface SwipeableHoleNavigatorProps {
-  /** Current hole number (1-18) */
+  /** Current hole number */
   currentHole: number;
-  /** Total number of holes (typically 18) */
+  /**
+   * Highest hole number the user can navigate to (typically 18 for a full
+   * round, 9 for front 9, 18 for back 9).
+   */
   totalHoles: number;
+  /**
+   * Lowest hole number the user can navigate to. Defaults to 1; pass 10 for
+   * back-9 rounds so the swiper doesn't allow scrolling to holes 1–9.
+   */
+  firstHole?: number;
   /** Callback when hole changes */
   onHoleChange: (newHole: number) => void;
   /** Render function to render content for any hole number */
@@ -46,6 +54,7 @@ interface SwipeableHoleNavigatorProps {
 export function SwipeableHoleNavigator({
   currentHole,
   totalHoles,
+  firstHole = 1,
   onHoleChange,
   renderHole,
   enabled = true,
@@ -66,6 +75,7 @@ export function SwipeableHoleNavigator({
   const enabledRef = useRef(enabled);
   const isAnimatingRef = useRef(isAnimating);
   const totalHolesRef = useRef(totalHoles);
+  const firstHoleRef = useRef(firstHole);
   // These will be assigned after the callbacks are defined
   const animateToHoleRef = useRef<((targetHole: number, direction: 'left' | 'right', startFromCurrentPosition?: boolean) => void) | null>(null);
   const springBackRef = useRef<(() => void) | null>(null);
@@ -87,6 +97,10 @@ export function SwipeableHoleNavigator({
   useEffect(() => {
     totalHolesRef.current = totalHoles;
   }, [totalHoles]);
+
+  useEffect(() => {
+    firstHoleRef.current = firstHole;
+  }, [firstHole]);
 
   useEffect(() => {
     setTransitionTargetRef.current = setTransitionTarget;
@@ -183,6 +197,7 @@ export function SwipeableHoleNavigator({
 
         const hole = currentHoleRef.current;
         const totalHolesValue = totalHolesRef.current;
+        const firstHoleValue = firstHoleRef.current;
         let dx = gestureState.dx;
 
         // Determine direction and target hole
@@ -190,7 +205,7 @@ export function SwipeableHoleNavigator({
         const potentialTarget = direction === 'right' ? hole - 1 : hole + 1;
 
         // Apply rubber band at boundaries
-        const isAtBound = potentialTarget < 1 || potentialTarget > totalHolesValue;
+        const isAtBound = potentialTarget < firstHoleValue || potentialTarget > totalHolesValue;
         if (isAtBound) {
           dx = dx * 0.3;
         }
@@ -216,6 +231,7 @@ export function SwipeableHoleNavigator({
 
         const hole = currentHoleRef.current;
         const totalHolesValue = totalHolesRef.current;
+        const firstHoleValue = firstHoleRef.current;
         const swipeDistance = Math.abs(gestureState.dx);
         const swipeVelocity = Math.abs(gestureState.vx);
 
@@ -226,7 +242,7 @@ export function SwipeableHoleNavigator({
           const swipeDirection = gestureState.dx > 0 ? 'right' : 'left';
           const targetHole = swipeDirection === 'right' ? hole - 1 : hole + 1;
 
-          if (targetHole >= 1 && targetHole <= totalHolesValue) {
+          if (targetHole >= firstHoleValue && targetHole <= totalHolesValue) {
             // Continue animation from current position - use ref for latest callback
             animateToHoleRef.current?.(targetHole, swipeDirection, true);
           } else {
@@ -271,7 +287,7 @@ export function SwipeableHoleNavigator({
         animateToHole(nextHole, 'left');
       }
     } else if (actionName === 'decrement') {
-      const prevHole = Math.max(currentHole - 1, 1);
+      const prevHole = Math.max(currentHole - 1, firstHole);
       if (prevHole !== currentHole) {
         animateToHole(prevHole, 'right');
       }

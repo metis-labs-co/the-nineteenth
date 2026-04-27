@@ -747,24 +747,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PA
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Alpha
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Alpha
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -808,24 +815,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PB
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Beta
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Beta
+                  </Text>
+                </View>
               </View>
             </View>
             <View
@@ -871,24 +885,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PB
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Beta
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Beta
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -932,24 +953,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PC
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Charlie
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Charlie
+                  </Text>
+                </View>
               </View>
             </View>
             <View
@@ -997,24 +1025,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PC
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Charlie
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Charlie
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -1058,24 +1093,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with circula
                     PA
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Alpha
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Alpha
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1422,24 +1464,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
                     PA
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Alpha
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Alpha
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -1483,24 +1532,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
                     PB
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Beta
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Beta
+                  </Text>
+                </View>
               </View>
             </View>
             <View
@@ -1548,24 +1604,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
                     PC
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Charlie
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Charlie
+                  </Text>
+                </View>
               </View>
               <View
                 style={
@@ -1609,24 +1672,31 @@ exports[`ScoringPairsSection Snapshots matches snapshot for enabled with recipro
                     PD
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
+                <View
                   style={
-                    [
-                      {
-                        "flex": 1,
-                        "fontSize": 14,
-                        "fontWeight": "500",
-                        "lineHeight": 20,
-                      },
-                      {
-                        "color": "#1A1A1A",
-                      },
-                    ]
+                    {
+                      "flex": 1,
+                    }
                   }
                 >
-                  Player Delta
-                </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      [
+                        {
+                          "fontSize": 14,
+                          "fontWeight": "500",
+                          "lineHeight": 20,
+                        },
+                        {
+                          "color": "#1A1A1A",
+                        },
+                      ]
+                    }
+                  >
+                    Player Delta
+                  </Text>
+                </View>
               </View>
             </View>
           </View>

@@ -14,7 +14,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import * as Clipboard from 'expo-clipboard';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useIsDark, useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
 import { useToast } from '@/context/ToastContext';
 import { StatusBadge, type StatusVariant } from '@/components/common/StatusBadge';
@@ -24,6 +24,8 @@ export function CompetitionInfoSection({
   competition,
 }: CompetitionInfoSectionProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  const iconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const { showSuccessToast } = useToast();
 
   const handleCopyInviteCode = async () => {
@@ -34,7 +36,7 @@ export function CompetitionInfoSection({
   return (
     <View style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.headerTop}>
-        <View style={[styles.competitionIcon, { backgroundColor: colors.primaryLighter }]}>
+        <View style={[styles.competitionIcon, { backgroundColor: iconBackground }]}>
           <Icon source="trophy-outline" size={32} color={colors.primary} />
         </View>
         <View style={styles.headerInfo}>

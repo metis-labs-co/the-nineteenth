@@ -669,9 +669,17 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      ['Date', 'Tee Time', 'Round Type', 'Tee'].forEach((label) => {
+      // Date / Tee Time / Tee become non-interactive when the round is
+      // locked. The Round Type row stays tappable so organisers can still
+      // open the read-only round-rules sheet — its hint flips from
+      // "Change round type" to "View round rules" instead of disappearing.
+      ['Date', 'Tee Time', 'Tee'].forEach((label) => {
         expect(screen.getByLabelText(label).props.accessibilityRole).not.toBe('button');
       });
+
+      const roundTypeRow = screen.getByLabelText('Round Type');
+      expect(roundTypeRow.props.accessibilityRole).toBe('button');
+      expect(roundTypeRow.props.accessibilityHint).toBe('View round rules');
 
       fireEvent.press(screen.getByLabelText('Date'));
       expect(screen.queryByTestId('edit-datetime-sheet')).toBeNull();
@@ -682,7 +690,11 @@ describe('RoundDetailsTab', () => {
 
       render(<RoundDetailsTab round={round} isOrganizer={true} />);
 
-      expect(screen.getByLabelText('Round Type').props.accessibilityRole).not.toBe('button');
+      const roundTypeRow = screen.getByLabelText('Round Type');
+      expect(roundTypeRow.props.accessibilityHint).toBe('View round rules');
+      expect(screen.getByLabelText('Date').props.accessibilityRole).not.toBe('button');
+      expect(screen.getByLabelText('Tee Time').props.accessibilityRole).not.toBe('button');
+      expect(screen.getByLabelText('Tee').props.accessibilityRole).not.toBe('button');
     });
   });
 
@@ -765,19 +777,28 @@ describe('RoundDetailsTab', () => {
     const cases: Array<{
       game_type: GameType;
       expectedPill: string;
+      extras?: Partial<RoundWithCourse>;
     }> = [
       { game_type: 'stableford', expectedPill: 'Stableford' },
       { game_type: 'stroke', expectedPill: 'Stroke Play' },
       { game_type: 'par', expectedPill: 'Par' },
-      { game_type: 'match-play', expectedPill: 'Match Play' },
+      // INDIVIDUAL_MATCH_PLAY's preset config is round_format='split',
+      // sub_match_size=1 (singles route through SubMatchesTab). Without
+      // those fields the round matches no preset and the pill reads "Custom".
+      {
+        game_type: 'match-play',
+        expectedPill: 'Match Play',
+        extras: { round_format: 'split', sub_match_size: 1 },
+      },
     ];
 
-    cases.forEach(({ game_type, expectedPill }) => {
+    cases.forEach(({ game_type, expectedPill, extras }) => {
       it(`displays "${expectedPill}" for individual ${game_type}`, () => {
         const round = createRoundWithCourse({
           game_type,
           is_team_round: false,
           team_format: null,
+          ...extras,
         });
 
         render(<RoundDetailsTab round={round} />);

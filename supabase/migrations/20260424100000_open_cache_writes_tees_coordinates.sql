@@ -14,30 +14,36 @@
 
 -- -------------------- tees --------------------
 
+DROP POLICY IF EXISTS "Authenticated users can insert tees" ON tees;
 CREATE POLICY "Authenticated users can insert tees" ON tees
   FOR INSERT TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update tees" ON tees;
 CREATE POLICY "Authenticated users can update tees" ON tees
   FOR UPDATE TO authenticated
   USING (true)
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can delete tees" ON tees;
 CREATE POLICY "Authenticated users can delete tees" ON tees
   FOR DELETE TO authenticated
   USING (true);
 
 -- -------------------- hole_coordinates --------------------
 
+DROP POLICY IF EXISTS "Authenticated users can insert hole coordinates" ON hole_coordinates;
 CREATE POLICY "Authenticated users can insert hole coordinates" ON hole_coordinates
   FOR INSERT TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update hole coordinates" ON hole_coordinates;
 CREATE POLICY "Authenticated users can update hole coordinates" ON hole_coordinates
   FOR UPDATE TO authenticated
   USING (true)
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can delete hole coordinates" ON hole_coordinates;
 CREATE POLICY "Authenticated users can delete hole coordinates" ON hole_coordinates
   FOR DELETE TO authenticated
   USING (true);

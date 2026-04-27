@@ -20,7 +20,7 @@ import { IconDog } from '@tabler/icons-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, borderRadius, shadows, typography, skinsColor, wolfColor } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useIsDark, useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorState } from '@/components/common/ErrorState';
@@ -59,6 +59,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 export default function ViewRoundScreen(props: Props) {
   const vm = useViewRoundScreen(props);
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  const competitionIconBackground = isDark ? `${colors.primary}33` : colors.primaryLighter;
   const userScorecard = vm.scorecards?.find((sc) => sc.id === vm.userScorecardId);
 
   // Get header title with icons for skins/wolf standalone rounds.
@@ -208,7 +210,7 @@ export default function ViewRoundScreen(props: Props) {
           onPress={vm.handleCompetitionPress}
           activeOpacity={0.7}
         >
-          <View style={[styles.competitionIconContainer, { backgroundColor: colors.primaryLighter }]}>
+          <View style={[styles.competitionIconContainer, { backgroundColor: competitionIconBackground }]}>
             <Icon source="trophy" size={24} color={colors.primary} />
           </View>
           <View style={styles.competitionInfo}>
