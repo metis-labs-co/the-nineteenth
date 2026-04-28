@@ -52,7 +52,7 @@ import { StrokePlayLeaderboardTab } from './tabs/StrokePlayLeaderboardTab';
 import { StablefordLeaderboardFull } from '@/components/scorecard/StablefordLeaderboardFull';
 import { ParLeaderboardFull } from '@/components/scorecard/ParLeaderboardFull';
 import { SubMatchesTab } from './tabs/SubMatchesTab';
-import { TeamsTab } from './tabs/TeamsTab';
+import { IndividualTeamLeaderboardTab } from './tabs/IndividualTeamLeaderboardTab';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
@@ -310,6 +310,7 @@ export default function ViewRoundScreen(props: Props) {
             roundStatus={round.status}
             gameType={round.game_type}
             teamFormat={round.team_format}
+            holes={(round.course?.holes as Hole[]) || []}
             roundTeeTime={round.tee_time}
             roundNumber={round.round_number}
             roundFormat={round.round_format}
@@ -317,16 +318,6 @@ export default function ViewRoundScreen(props: Props) {
             pairingSource={round.pairing_source}
             pairingStyle={round.pairing_style}
             pairingMetric={round.pairing_metric}
-          />
-        )}
-        {vm.activeTab === 'teams' && vm.isTeamRound && (
-          <TeamsTab
-            roundId={round.id}
-            competitionId={vm.competitionId ?? null}
-            isTeamStrokeRound={vm.isTeamStrokeRound}
-            isTeamMatchPlayRound={vm.isTeamMatchPlayRound}
-            teamFormat={round.team_format}
-            currentUserId={vm.user?.id}
           />
         )}
         {vm.activeTab === 'skins' && vm.hasSkinsGame && vm.activeSkinsGame && (
@@ -363,30 +354,48 @@ export default function ViewRoundScreen(props: Props) {
             playerNameMap={vm.playerNameMap}
           />
         )}
-        {vm.activeTab === 'leaderboard' && vm.isStrokePlayRound && (
-          <StrokePlayLeaderboardTab
-            players={vm.strokePlayPlayers}
-            holes={round.course?.holes as Hole[] || []}
-            getPlayerScore={vm.getStrokePlayPlayerScore}
-            currentUserId={vm.user?.id}
-          />
-        )}
-        {vm.activeTab === 'leaderboard' && vm.isStablefordRound && (
-          <StablefordLeaderboardFull
-            players={vm.leaderboardPlayers}
-            holes={(round.course?.holes as Hole[]) || []}
-            getPlayerScore={vm.getStrokePlayPlayerScore}
-            currentUserId={vm.user?.id}
-          />
-        )}
-        {vm.activeTab === 'leaderboard' && vm.isParRound && (
-          <ParLeaderboardFull
-            players={vm.leaderboardPlayers}
-            holes={(round.course?.holes as Hole[]) || []}
-            getPlayerScore={vm.getStrokePlayPlayerScore}
-            currentUserId={vm.user?.id}
-          />
-        )}
+        {vm.activeTab === 'leaderboard' && (vm.isStrokePlayRound || vm.isStablefordRound || vm.isParRound) && (() => {
+          const individualView = vm.isStrokePlayRound ? (
+            <StrokePlayLeaderboardTab
+              players={vm.strokePlayPlayers}
+              holes={round.course?.holes as Hole[] || []}
+              getPlayerScore={vm.getStrokePlayPlayerScore}
+              currentUserId={vm.user?.id}
+            />
+          ) : vm.isStablefordRound ? (
+            <StablefordLeaderboardFull
+              players={vm.leaderboardPlayers}
+              holes={(round.course?.holes as Hole[]) || []}
+              getPlayerScore={vm.getStrokePlayPlayerScore}
+              currentUserId={vm.user?.id}
+            />
+          ) : (
+            <ParLeaderboardFull
+              players={vm.leaderboardPlayers}
+              holes={(round.course?.holes as Hole[]) || []}
+              getPlayerScore={vm.getStrokePlayPlayerScore}
+              currentUserId={vm.user?.id}
+            />
+          );
+
+          // Team-stroke rounds (best-ball / aggregate) get the toggle wrapper.
+          // Individual stroke rounds render the format-specific leaderboard alone.
+          if (vm.isTeamStrokeRound && round.id) {
+            return (
+              <IndividualTeamLeaderboardTab
+                teams={vm.teams}
+                holes={(round.course?.holes as Hole[]) || []}
+                gameType={round.game_type}
+                teamFormat={round.team_format}
+                getPlayerScore={vm.getStrokePlayPlayerScore}
+                subMatches={vm.subMatches}
+                currentUserId={vm.user?.id}
+                individualView={individualView}
+              />
+            );
+          }
+          return individualView;
+        })()}
         {vm.activeTab === 'teamScores' && vm.isShambleRound && (
           <ShambleTeamScoresTab
             shamblePlayers={vm.shamblePlayers}

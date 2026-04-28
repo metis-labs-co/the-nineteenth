@@ -10,8 +10,8 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { View, StyleSheet, Animated } from 'react-native';
+import { Text } from 'react-native-paper';
 import { ConfirmationDialog } from '@/components/common';
 import { PageHeader, OfflineIndicator } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
@@ -26,7 +26,6 @@ export interface ScorecardHeaderProps {
   courseName?: string;
   selectedTee?: TeeBox | null;
   onBack: () => void;
-  onDeletePress?: () => void;
   isStandaloneRound: boolean;
   // Round ID for skins indicator
   roundId: string;
@@ -47,8 +46,7 @@ export function ScorecardHeader({
   courseName,
   selectedTee,
   onBack,
-  onDeletePress,
-  isStandaloneRound,
+  isStandaloneRound: _isStandaloneRound,
   roundId,
   courseId,
   currentHole,
@@ -139,19 +137,6 @@ export function ScorecardHeader({
 
       {/* Wolf Indicator - shows when Wolf game is active */}
       <WolfIndicator roundId={roundId} currentHole={currentHole} size="sm" variant="minimal" />
-
-      {/* Delete button for standalone rounds - matches other header icons */}
-      {isStandaloneRound && onDeletePress && (
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={onDeletePress}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Delete round"
-        >
-          <Icon source="delete-outline" size={18} color={colors.error} />
-        </TouchableOpacity>
-      )}
     </View>
   );
 

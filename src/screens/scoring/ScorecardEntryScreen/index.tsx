@@ -26,7 +26,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { useStatsVisibilityWithTier } from '@/hooks/useStatsVisibilityWithTier';
 import { useIsSuperAdmin } from '@/store/subscriptionStore';
 import { useIsSocial } from '@/context/SubscriptionContext';
-import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter } from '@/hooks/scorecard';
+import { useOfflineSync, useRoundData, useTeamScoring, useBuildAsYouPlay, useGroupFilter, useActiveSubMatch } from '@/hooks/scorecard';
 import { usePairings, useTeams as useCompetitionTeams } from '@/hooks/rounds';
 import {
   QuickScorecardView,
@@ -105,14 +105,29 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTeeData,
     handicapSource,
     playerTeeMap,
+    currentRoundId,
+    setAllowedPlayers,
   } = useScorecardStore();
 
   // Stats visibility (respects Premium tier)
   const statsVisibility = useStatsVisibilityWithTier();
   const { showFairwayHit, showGreenInRegulation } = statsVisibility;
+  // Aggregate flag for components (e.g. BestBallScoreView) that need a single
+  // signal to hide the stats action when no detailed-stats fields are visible
+  // for the user's tier.
+  const anyStatsVisible =
+    statsVisibility.showPutts ||
+    showFairwayHit ||
+    showGreenInRegulation ||
+    statsVisibility.showBunkerShots ||
+    statsVisibility.showHazards ||
+    statsVisibility.showFairwayMissDirection ||
+    statsVisibility.showGreenMissDirection;
   const isSocial = useIsSocial();
 
-  // Pre-compute daily handicap + display info for each player (Social tier+), using per-player tees
+  // Pre-compute daily handicap + display info for each player (Social tier+), using per-player tees.
+  // Built across the full roster (not the sub-match-scoped slice) so cached
+  // entries stay consistent even when the user navigates between sub-matches.
   const playerHandicapMap = useMemo(() => {
     const map = new Map<string, PlayerHandicapDisplay>();
     for (const player of currentPlayers) {
@@ -146,6 +161,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     selectedTee,
     isTeamRound,
     teamFormat,
+    roundFormat,
     gameType,
     teams,
     fetchError,
@@ -156,6 +172,50 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     ballCount,
     isSoloRound,
   } = useRoundData({ roundId, competitionId, currentUserId: user?.id });
+
+  // Split team rounds (round_format='split') break the round into independent
+  // sub-matches (e.g. a 2v2 better-ball with two cross-team pairs). Each user
+  // should only see and score the players in their own sub-match — not the
+  // full team roster. The lookup is shared with TeamMatchPlayScoringScreen
+  // via useActiveSubMatch so the resolution logic stays in one place.
+  const isSplitRound = roundFormat === 'split';
+  const { activePlayerIds } = useActiveSubMatch({
+    roundId,
+    enabled: isSplitRound,
+    currentPlayerId: user?.id,
+  });
+
+  // Sub-match-scoped projections of the round-level data. When there's no
+  // active sub-match (combined round, or split round still loading), these
+  // pass through unchanged.
+  const scopedCurrentPlayers = useMemo(
+    () =>
+      activePlayerIds
+        ? currentPlayers.filter((p) => activePlayerIds.has(p.id))
+        : currentPlayers,
+    [currentPlayers, activePlayerIds]
+  );
+
+  const scopedPlayersToScore = useMemo(
+    () =>
+      activePlayerIds
+        ? playersToScore.filter((p) => activePlayerIds.has(p.id))
+        : playersToScore,
+    [playersToScore, activePlayerIds]
+  );
+
+  // Filter team rosters down to the active sub-match so the per-team
+  // best-ball / shamble / scramble blocks only render the relevant players.
+  // Empty teams (where no member is in this sub-match) are dropped.
+  const scopedTeams = useMemo(() => {
+    if (!activePlayerIds || teams.length === 0) return teams;
+    return teams
+      .map((t) => ({
+        ...t,
+        members: (t.members ?? []).filter((m) => activePlayerIds.has(m.player_id)),
+      }))
+      .filter((t) => (t.members ?? []).length > 0);
+  }, [teams, activePlayerIds]);
 
   // Competition teams (used to label individual score cards with team names
   // even on non-team rounds like singles match play, where round-level
@@ -232,15 +292,20 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     currentHole,
     setCurrentHole: interceptedSetCurrentHole,
     holes,
+    roundId,
+    competitionId,
+    isStandaloneRound,
   });
 
-  // Submission hook
+  // Submission hook. For split rounds the "player count" reflects the
+  // sub-match scope so the incomplete-holes dialog totals match what the
+  // user actually sees on screen.
   const submission = useScorecardSubmission({
     navigation,
     roundId,
     competitionId,
     holes,
-    playerCount: currentPlayers.length,
+    playerCount: scopedCurrentPlayers.length,
     getCompletedHolesCount,
     submitScorecards,
     resetRound,
@@ -251,20 +316,22 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
 
   const { dialogConfig: submissionDialogConfig, dismissDialog: dismissSubmissionDialog } = submission;
 
-  // Wolf integration
+  // Wolf integration. Wolf is a per-group side game; for split team rounds
+  // it stays bounded to the active sub-match.
   const wolf = useWolfIntegration({
     roundId,
     currentHole,
-    currentPlayers,
+    currentPlayers: scopedCurrentPlayers,
     getPlayerScore,
   });
 
-  // Score handlers
+  // Score handlers — scoped to the active sub-match so skins / quick-jump /
+  // editing actions only touch players the user is actually scoring.
   const scoreHandlers = useScoreHandlers({
     roundId,
     competitionId,
     currentHole,
-    currentPlayers,
+    currentPlayers: scopedCurrentPlayers,
     holes,
     courseId,
     isSuperAdmin,
@@ -279,7 +346,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     setCurrentHole,
   });
 
-  // Team scoring hook
+  // Team scoring hook — receives sub-match-scoped teams and players so
+  // best-ball / scramble / shamble aggregations only consider the players
+  // actually playing in this sub-match.
   const {
     selectedContributor,
     teamMatchPlayResults,
@@ -291,10 +360,10 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     getTeamScore,
     handleShotContributionsChange,
   } = useTeamScoring({
-    teams,
+    teams: scopedTeams,
     teamFormat,
     currentHole,
-    players: currentPlayers,
+    players: scopedCurrentPlayers,
     roundId,
     getHoleInfo,
     processSkinsHole: undefined as never, // Skins processing is handled in useScoreHandlers
@@ -303,18 +372,20 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const isLoading = storeLoading || dataLoading;
 
   // Group filter: when scoring pairs is off and the round has multiple pairings,
-  // default to scoring just the signed-in user's playing group.
+  // default to scoring just the signed-in user's playing group. For split
+  // rounds the sub-match scope is a stricter filter, so the group strip is
+  // suppressed there to avoid stacking two different "subset" indicators.
   const { data: pairings } = usePairings(roundId);
   const groupFilter = useGroupFilter({
     currentUserId: user?.id,
-    currentPlayers,
+    currentPlayers: scopedCurrentPlayers,
     pairings,
-    scoringPairsEnabled,
+    scoringPairsEnabled: scoringPairsEnabled || !!activePlayerIds,
   });
 
   const playersToRender =
-    scoringPairsEnabled && playersToScore.length > 0
-      ? playersToScore
+    scoringPairsEnabled && scopedPlayersToScore.length > 0
+      ? scopedPlayersToScore
       : groupFilter.groupPlayers;
   const hasHoles = holes.length > 0;
   const currentHoleData = getHoleInfo(currentHole);
@@ -351,6 +422,33 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       setCurrentHole(resumeHole);
     }
   }, [roundId, isInitialized, dataLoading, holes, playersToRender, currentHole, setCurrentHole, buildAsYouPlay.enabled]);
+
+  // Narrow the store's `allowedPlayerIds` to the active sub-match so
+  // completion checks (isHoleComplete, validateScores) match what the user
+  // can actually score. useRoundData already sets this for the scoring-pair
+  // case; this effect runs after and intersects the two scopes when both
+  // apply. Cleared back to the scoring-pair default when the sub-match
+  // scope disappears (e.g. data becomes unavailable).
+  useEffect(() => {
+    if (!isInitialized || currentRoundId !== roundId) return;
+    if (!activePlayerIds) return;
+    const subMatchIds = Array.from(activePlayerIds);
+    const intersected =
+      scoringPairsEnabled && playersToScore.length > 0
+        ? playersToScore
+            .filter((p) => activePlayerIds.has(p.id))
+            .map((p) => p.id)
+        : subMatchIds;
+    setAllowedPlayers(intersected);
+  }, [
+    isInitialized,
+    currentRoundId,
+    roundId,
+    activePlayerIds,
+    scoringPairsEnabled,
+    playersToScore,
+    setAllowedPlayers,
+  ]);
 
   // Render content for any hole number (used by SwipeableHoleNavigator for transitions)
   const renderHoleContent = useCallback(
@@ -396,13 +494,13 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               currentHole={holeNumber}
               holes={holes}
               gameType={gameType}
-              currentPlayers={currentPlayers}
-              playersToScore={playersToScore}
+              currentPlayers={scopedCurrentPlayers}
+              playersToScore={scopedPlayersToScore}
               scoringPairsEnabled={scoringPairsEnabled}
               currentUserId={user?.id}
               isTeamRound={isTeamRound}
               teamFormat={teamFormat}
-              teams={teams}
+              teams={scopedTeams}
               competitionTeams={competitionTeams}
               onScoreSelect={scoreHandlers.handleScoreSelect}
               onStatsUpdate={scoreHandlers.handleStatsUpdate}
@@ -424,6 +522,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               getMultiBallScores={getMultiBallScores}
               showFIR={showFairwayHit}
               showGIR={showGreenInRegulation}
+              anyStatsVisible={anyStatsVisible}
               playerHandicapMap={playerHandicapMap}
               showTeeDots={showTeeDots}
               playerTeeMap={playerTeeMap}
@@ -458,15 +557,15 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     [
       getHoleInfo, selectedTee, nav.handlePreviousHole, nav.handleNextHole,
       scoreHandlers.handleViewScorecard, isSuperAdmin, scoreHandlers.handleEditHole,
-      currentPlayers, playersToScore, scoringPairsEnabled, user?.id,
-      isTeamRound, teamFormat, gameType, teams,
+      scopedCurrentPlayers, scopedPlayersToScore, scoringPairsEnabled, user?.id,
+      isTeamRound, teamFormat, gameType, scopedTeams,
       scoreHandlers.handleScoreSelect, scoreHandlers.handleStatsUpdate, scoreHandlers.handlePlayerPress,
       getPlayerScore, getTeamScore, handleTeamScoreSelect, handleBestBallScoreSelect,
       handleTeamMatchPlayScoreSelect, setSelectedContributor, selectedContributor,
       teamMatchPlayResults, playerScoresMap,
       isMultiBall, storeBallCount, scoreHandlers.handleMultiBallScoreChange,
       scoreHandlers.handleMultiBallStatsChange, getMultiBallScores,
-      showFairwayHit, showGreenInRegulation, holes, playersToRender, isHoleComplete,
+      showFairwayHit, showGreenInRegulation, anyStatsVisible, holes, playersToRender, isHoleComplete,
       nav.handleHolePress, wolf.wolfGame, wolf.wolfDecision, wolf.isWolfProcessing,
       showTeeDots, playerTeeMap, selectedTeeData,
       groupFilter.canFilter, groupFilter.isFiltered, groupFilter.groupCount,
@@ -538,7 +637,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
         courseName={courseName ?? undefined}
         selectedTee={courseTees.find((t) => t.color?.toLowerCase() === selectedTee) ?? null}
         onBack={nav.handleBackPress}
-        onDeletePress={submission.handleDeleteRound}
         isStandaloneRound={isStandaloneRound}
         roundId={roundId}
         courseId={courseId ?? undefined}

@@ -2,7 +2,11 @@
  * OnboardingScreen - Multi-step onboarding flow
  *
  * Shows to authenticated users who haven't set their handicap yet.
- * 7 steps: Welcome -> Name -> Create Competitions -> Notifications -> Handicap Capture -> Home Club -> Biometric
+ * 6 steps: Welcome -> Name -> Create Competitions -> Notifications -> Handicap Capture -> Home Club
+ *
+ * Biometric enrollment is no longer part of this flow — it's surfaced as a
+ * one-time bottom sheet immediately after first sign-in
+ * (see `BiometricEnrollPrompt`).
  *
  * Features:
  * - Swipeable cards (FlatList with pagingEnabled)
@@ -34,7 +38,6 @@ import WelcomeStep from './components/WelcomeStep';
 import NameCaptureStep from './components/NameCaptureStep';
 import CreateCompetitionsStep from './components/CreateCompetitionsStep';
 import NotificationsStep from './components/NotificationsStep';
-import BiometricStep from './components/BiometricStep';
 import HandicapCaptureStep from './components/HandicapCaptureStep';
 import HomeClubStep from './components/HomeClubStep';
 import OnboardingDots from './components/OnboardingDots';
@@ -70,7 +73,6 @@ const STEPS: StepItem[] = [
   { key: 'notifications', component: NotificationsStep },
   { key: 'handicap', component: HandicapCaptureStep },
   { key: 'homeClub', component: HomeClubStep },
-  { key: 'biometric', component: BiometricStep },
 ];
 
 export default function OnboardingScreen() {
@@ -101,14 +103,22 @@ export default function OnboardingScreen() {
     itemVisiblePercentThreshold: 50,
   }).current;
 
-  // Navigate to next step
+  // Forward declaration so handleNext can call handleComplete on the last step.
+  // Filled in below; callbacks reference this ref to avoid a circular useCallback dep.
+  const handleCompleteRef = useRef<
+    (skipHandicap?: boolean, explicitHomeClubId?: string) => Promise<void>
+  >(async () => {});
+
+  // Navigate to next step, or finish onboarding if we're on the last one.
   const handleNext = useCallback(() => {
     if (currentStep < STEPS.length - 1) {
       flatListRef.current?.scrollToIndex({
         index: currentStep + 1,
         animated: true,
       });
+      return;
     }
+    void handleCompleteRef.current();
   }, [currentStep]);
 
   // Complete onboarding (with or without handicap)
@@ -150,6 +160,11 @@ export default function OnboardingScreen() {
     },
     [handicap, firstName, lastName, homeClubId, updateProfile, resetAllScreensSeen, isSubmitting]
   );
+
+  // Keep the ref pointing at the latest handleComplete so handleNext can
+  // trigger completion without depending on it (avoids re-creating handleNext
+  // on every keystroke that updates handicap/name/etc.).
+  handleCompleteRef.current = handleComplete;
 
   // Skip entire onboarding
   const handleSkip = useCallback(async () => {

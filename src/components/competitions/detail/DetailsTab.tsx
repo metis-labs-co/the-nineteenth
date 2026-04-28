@@ -8,14 +8,15 @@
  * - Prize pool section
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import type { Competition } from '@/types/database.types';
+import type { Competition, GameType } from '@/types/database.types';
 import type { CompetitionPrizePool, PrizePoolPlacement } from '@/types';
 import type { MiniLeaderboardData } from '@/utils/miniLeaderboard';
 import { type RoundWithCourse } from './types';
 import {
   CompetitionInfoSection,
+  InProgressRoundSection,
   MiniLeaderboardSection,
   SettingsSection,
   PrizePoolSection,
@@ -50,11 +51,15 @@ export interface DetailsTabProps {
   onViewPrizePoolTransactions?: () => void;
   /** Called when the Team Size row is pressed — switches to the Teams tab. */
   onViewTeams?: () => void;
+  /** Open the scorecard for a round (used by the In Progress quick link). */
+  onScoreRound?: (roundId: string, gameType: GameType, isTeamRound: boolean) => void;
+  /** Open the round detail screen (used by the In Progress quick link). */
+  onViewRound?: (roundId: string) => void;
 }
 
 export const DetailsTab = React.memo(function DetailsTab({
   competition,
-  rounds: _rounds,
+  rounds,
   playerCount: _playerCount,
   isPlayer,
   miniIndividual,
@@ -71,15 +76,43 @@ export const DetailsTab = React.memo(function DetailsTab({
   onEditPrizePool,
   onViewPrizePoolTransactions,
   onViewTeams,
+  onScoreRound,
+  onViewRound,
 }: DetailsTabProps) {
   const showMiniLeaderboard =
     isPlayer &&
     competition.competition_type !== 'knockout' &&
     miniIndividual !== null;
 
+  const inProgressRounds = useMemo(
+    () => rounds.filter((r) => r.status === 'in-progress'),
+    [rounds]
+  );
+  // Once the competition is live, the page header already shows the name and
+  // the standings/rounds tabs carry the context — the intro card just adds
+  // scroll distance.
+  const showCompetitionInfo =
+    competition.status !== 'in-progress' && competition.status !== 'completed';
+  const roundDisplayNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    rounds.forEach((r, idx) => {
+      map[r.id] = idx + 1;
+    });
+    return map;
+  }, [rounds]);
+
   return (
     <View>
-      <CompetitionInfoSection competition={competition} />
+      {showCompetitionInfo && <CompetitionInfoSection competition={competition} />}
+
+      {inProgressRounds.length > 0 && onScoreRound && onViewRound && (
+        <InProgressRoundSection
+          rounds={inProgressRounds}
+          onScoreRound={onScoreRound}
+          onViewRound={onViewRound}
+          roundDisplayNumbers={roundDisplayNumbers}
+        />
+      )}
 
       {showMiniLeaderboard && (
         <MiniLeaderboardSection

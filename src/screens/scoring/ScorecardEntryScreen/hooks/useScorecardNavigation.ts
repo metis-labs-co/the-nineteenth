@@ -20,6 +20,9 @@ export interface UseScorecardNavigationParams {
   currentHole: number;
   setCurrentHole: (hole: number) => void;
   holes: Hole[];
+  roundId: string;
+  competitionId: string;
+  isStandaloneRound: boolean;
 }
 
 export interface UseScorecardNavigationReturn {
@@ -36,16 +39,26 @@ export function useScorecardNavigation({
   currentHole,
   setCurrentHole,
   holes,
+  roundId,
+  competitionId,
+  isStandaloneRound,
 }: UseScorecardNavigationParams): UseScorecardNavigationReturn {
   const firstHole = holes[0]?.number ?? 1;
   const lastHole = holes[holes.length - 1]?.number ?? 18;
 
   // Handle back button press (both header and Android). Scores are auto-persisted
-  // to SQLite on each entry, so there's nothing to save on exit.
+  // to SQLite on each entry, so there's nothing to save on exit. For competition
+  // rounds, route back to ViewRound regardless of how the user reached scoring
+  // (deep link, cold-start resume, etc.) — navigate() pops to an existing
+  // ViewRound instance if one is in the stack, otherwise pushes a fresh one.
   const handleBackPress = useCallback(() => {
     void activeRoundSession.clear();
+    if (!isStandaloneRound) {
+      navigation.navigate('ViewRound', { roundId, competitionId });
+      return;
+    }
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, isStandaloneRound, roundId, competitionId]);
 
   // Navigate to previous hole
   const handlePreviousHole = useCallback(() => {

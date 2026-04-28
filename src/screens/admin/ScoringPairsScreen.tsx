@@ -24,7 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 import { useIsPremium } from '@/context/SubscriptionContext';
 import { supabase } from '@/services/supabase/client';
 import { scoringPairsKeys } from '@/hooks/queryKeys';
-import { usePairings } from '@/hooks/rounds';
+import { usePairings, useSubMatches } from '@/hooks/rounds';
 import { useCreateScoringPairs } from '@/hooks/useScoringPairs';
 import type {
   Player,
@@ -217,6 +217,12 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
   // the Groups tab without forcing a full refetch of the player roster.
   const { data: roundPairings } = usePairings(roundId);
 
+  // Sub-matches for split team rounds. When present, Auto-Generate uses
+  // them as buckets for cross-team reciprocal pairs (so a 2v2 better-ball
+  // sub-match always produces 1-from-each-team marker pairs). Same fetch
+  // pattern as `roundPairings` — kept reactive to changes made elsewhere.
+  const { data: roundSubMatches } = useSubMatches(roundId);
+
   // Set header to hidden (we use custom PageHeader)
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -325,6 +331,18 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
   const groupPlayerIds = useMemo(
     () => (roundPairings ?? []).map((p) => p.playerIds),
     [roundPairings]
+  );
+
+  // Sub-match composition for the formation UI's auto-generator. Empty
+  // for combined rounds, populated for split rounds (e.g. 2v2 better
+  // ball). When non-empty, takes precedence over `groupPlayerIds`.
+  const subMatchesForPairing = useMemo(
+    () =>
+      (roundSubMatches ?? []).map((sm) => ({
+        teamAPlayerIds: sm.team_a_player_ids,
+        teamBPlayerIds: sm.team_b_player_ids,
+      })),
+    [roundSubMatches]
   );
 
   // =====================================================
@@ -440,6 +458,7 @@ export default function ScoringPairsScreen({ navigation, route }: Props) {
         teamIndexByPlayerId={teamIndexByPlayerId}
         teamColorByPlayerId={teamColorByPlayerId}
         groupPlayerIds={groupPlayerIds}
+        subMatches={subMatchesForPairing}
         onSave={handleSavePairs}
         onCancel={handleCancel}
         testID="scoring-pair-formation-ui"

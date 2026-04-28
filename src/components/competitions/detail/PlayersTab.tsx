@@ -136,6 +136,7 @@ export const PlayersTab = React.memo(function PlayersTab({
                     }}
                     badge={badge}
                     variant="card"
+                    showEmail={false}
                     rightAction={
                       <View style={styles.rightActionRow}>
                         {statusBadge}

@@ -14,7 +14,8 @@ interface UseViewRoundTabsParams {
   isSplitRound: boolean;
   /** True for team stroke rounds (best-ball / aggregate) — not match-play, not scramble/shamble. */
   isTeamStrokeRound: boolean;
-  /** True for any team-format round (drives the unified Teams tab). */
+  /** True for any team-format round. Used to gate the Groups tab visibility
+   *  for small (≤4 player) team rounds where pairings still need a surface. */
   isTeamRound: boolean;
   hasSkinsGame: boolean;
   hasWolfGame: boolean;
@@ -94,18 +95,6 @@ export function useViewRoundTabs({
     // the appropriate leaderboard view (Stroke / Stableford / Par).
     if ((isStrokePlayRound || isStablefordRound || isParRound) && playerCount > 1) {
       result.push({ key: 'leaderboard', label: 'Leaderboard' });
-    }
-
-    // Unified Teams tab — rosters for any team round, plus the team
-    // leaderboard appended for stroke-based team rounds (handled inside
-    // the tab content). Replaces the old round-Details TeamsSection so
-    // team rosters live in exactly one place.
-    if (isTeamRound) {
-      result.push({
-        key: 'teams',
-        label: 'Teams',
-        count: teamCount && teamCount > 0 ? teamCount : undefined,
-      });
     }
 
     // Scorecard (scramble rounds have their own dedicated scorecard tab

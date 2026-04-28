@@ -13,6 +13,7 @@ export type { GameTypeHeaderProps, TeamScoreData, TeamMatchStatus } from './Game
 // Team scoring
 export { TeamScoreCard } from './TeamScoreCard';
 export { BestBallScoreView } from './BestBallScoreView';
+export { BestBallTeamHeader } from './BestBallTeamHeader';
 export { TeamMatchPlayScoreView } from './TeamMatchPlayScoreView';
 
 // Scramble format

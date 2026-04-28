@@ -15,7 +15,9 @@ import { useThemeColors } from '@/context/ThemeContext';
 import { ScaledText } from '@/components/common/ScaledText';
 import { DateTimeDisplay } from '@/components/common/DateTimeDisplay';
 import { Pill } from '@/components/common/Pill';
-import type { GameType } from '@/types';
+import type { GameType, RoundFormat, TeamFormat } from '@/types';
+import type { RoundRulesOverride } from '@/types/database/roundRules.types';
+import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
 import { getGameTypeLabel, getGameTypeVariant } from './leaderboardUtils';
 import { styles } from './RoundLeaderboard.styles';
 
@@ -30,6 +32,15 @@ export interface LeaderboardHeaderProps {
   courseName?: string;
   /** Round number */
   roundNumber: number;
+  /**
+   * Optional fields used to derive the preset-accurate format label
+   * (e.g. "Team Stableford (aggregate)" instead of just "Stableford"). When
+   * any are missing the header falls back to the engine-level game type label.
+   */
+  teamFormat?: TeamFormat | null;
+  roundFormat?: RoundFormat;
+  subMatchSize?: number | null;
+  rulesOverride?: RoundRulesOverride | null;
 }
 
 export const LeaderboardHeader = React.memo(function LeaderboardHeader({
@@ -38,8 +49,34 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
   date,
   courseName,
   roundNumber,
+  teamFormat,
+  roundFormat,
+  subMatchSize,
+  rulesOverride,
 }: LeaderboardHeaderProps) {
   const colors = useThemeColors();
+
+  // Resolve the most specific format label available. The engine label
+  // (e.g. "Stableford") is shared across many presets — when the parent has
+  // the full round shape we can name the actual preset (e.g. "2v2 Pairs
+  // Better Ball") so the leaderboard header matches the round picker.
+  const formatLabel =
+    roundFormat !== undefined
+      ? (() => {
+          const presetId = inferPresetIdFromRound({
+            game_type: gameType,
+            is_team_round: isTeamRound,
+            team_format: teamFormat ?? null,
+            round_format: roundFormat,
+            sub_match_size: subMatchSize ?? null,
+            rules_override: rulesOverride ?? null,
+          });
+          return (
+            (presetId && ROUND_PRESETS[presetId]?.shortTitle) ??
+            getGameTypeLabel(gameType)
+          );
+        })()
+      : getGameTypeLabel(gameType);
 
   return (
     <View style={styles.header}>
@@ -49,7 +86,7 @@ export const LeaderboardHeader = React.memo(function LeaderboardHeader({
         </ScaledText>
         <View style={styles.badgeRow}>
           <Pill
-            label={getGameTypeLabel(gameType)}
+            label={formatLabel}
             variant={getGameTypeVariant(gameType)}
             size="sm"
           />

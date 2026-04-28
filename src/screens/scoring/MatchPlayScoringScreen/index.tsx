@@ -594,12 +594,11 @@ export default function MatchPlayScoringScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[]}>
-      {/* Header with course/tee info, skins indicator, and delete button */}
+      {/* Header with course/tee info and skins indicator */}
       <MatchPlayHeader
         courseName={courseName ?? undefined}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
-        onDeletePress={isSuperAdmin ? handleDeleteRound : undefined}
         isSuperAdmin={isSuperAdmin}
         roundId={roundId}
       />

@@ -7,14 +7,22 @@
  *      regenerated, scoring pairs need to follow the new tee-group bounds.
  *   2. The `EditPairingConfigSheet` re-seed save flow — same need: a fresh
  *      pairing list invalidates the existing marker assignments.
+ *   3. The split-round sub-match generator — sub-matches define an even
+ *      stricter "who's playing whom" boundary than tee groups.
  *
- * Strategy preference (matches the legacy SubMatchesTab inline block):
- *   1. Group-aware reciprocal pairs when we have both fresh tee groups AND
+ * Strategy preference (highest priority first):
+ *   1. **Sub-match aware** when sub-matches exist. Each sub-match becomes
+ *      its own bucket: cross-team reciprocal pairs are generated between
+ *      the sub-match's `team_a_player_ids` and `team_b_player_ids`. This
+ *      guarantees the scorer is in the same head-to-head as the player
+ *      they're marking — exactly what split team rounds (e.g. 2v2 better
+ *      ball) require.
+ *   2. Group-aware reciprocal pairs when we have both fresh tee groups AND
  *      team membership — every pair stays within a tee group, cross-team
  *      pairs preferred.
- *   2. Cross-team match-play pairs when no group context but it's a team
+ *   3. Cross-team match-play pairs when no group context but it's a team
  *      round with two team rosters (e.g. team match play with 4 players).
- *   3. Auto-generate (reciprocal for even, circular for odd) over the flat
+ *   4. Auto-generate (reciprocal for even, circular for odd) over the flat
  *      player list as the last resort.
  *
  * Failure semantics: this function is intentionally **non-blocking** — the
@@ -27,7 +35,12 @@ import {
   createScoringPairs,
   generateTeamMatchPlayPairs,
 } from '@/services/scoringPairs';
-import { generateGroupAwareScoringPairs } from '@/utils/scoringPairs/generation';
+import { listSubMatchesForRound } from '@/services/subMatches';
+import {
+  generateCrossTeamPairs,
+  generateGroupAwareScoringPairs,
+} from '@/utils/scoringPairs/generation';
+import type { ScoringPairCreateInput } from '@/types';
 
 export interface RegenerateScoringPairsTeamPlayer {
   id: string;
@@ -39,6 +52,16 @@ export interface RegenerateScoringPairsTeam {
   /** Display name only — used to bucket players for the cross-team pass. */
   name: string;
   players: RegenerateScoringPairsTeamPlayer[];
+}
+
+/**
+ * One sub-match passed to the sub-match-aware generator. Mirrors the
+ * shape of `SubMatch` rows but only carries the fields we need so callers
+ * outside the rounds layer don't have to import the full DB type.
+ */
+export interface RegenerateScoringPairsSubMatch {
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
 }
 
 export interface RegenerateScoringPairsForRoundInput {
@@ -53,6 +76,13 @@ export interface RegenerateScoringPairsForRoundInput {
    *  pairings (e.g. a brand-new round); the function will fall back to
    *  team or autogen pairing. */
   pairings: { playerIds: string[] }[];
+  /** Sub-matches for split team rounds. When non-empty, each sub-match is
+   *  used as the bucket for cross-team reciprocal pairs — overriding the
+   *  pairing/group strategy below. Pass `[]` to explicitly skip the
+   *  sub-match path; omit (`undefined`) to let the helper fetch the
+   *  current set from the database (covers callers that just wrote new
+   *  sub-matches and don't have them in hand). */
+  subMatches?: RegenerateScoringPairsSubMatch[];
   /** All players in the round. Used by the autogen fallback when neither
    *  group context nor team rosters are available. */
   players: { id: string }[];
@@ -69,6 +99,7 @@ export async function regenerateScoringPairsForRound(
     isTeamRound,
     teamsWithMembers,
     pairings,
+    subMatches,
     players,
     logTag = 'regenerateScoringPairsForRound',
   } = input;
@@ -79,6 +110,54 @@ export async function regenerateScoringPairsForRound(
       teamByPlayerId.set(p.id, t.name);
     });
   });
+
+  // Resolve sub-matches: caller-provided wins, otherwise fetch fresh from
+  // the DB so post-write callers (e.g. EditPairingConfigSheet after a
+  // re-seed) automatically pick up sub-matches they just created. A `[]`
+  // explicitly opts out of the fetch.
+  let resolvedSubMatches: RegenerateScoringPairsSubMatch[] = subMatches ?? [];
+  if (subMatches === undefined) {
+    try {
+      const rows = await listSubMatchesForRound(roundId);
+      resolvedSubMatches = rows.map((r) => ({
+        teamAPlayerIds: r.team_a_player_ids,
+        teamBPlayerIds: r.team_b_player_ids,
+      }));
+    } catch (err) {
+      console.warn(
+        `[${logTag}] Sub-match fetch failed; falling through to group/team strategies`,
+        err
+      );
+      resolvedSubMatches = [];
+    }
+  }
+
+  // Sub-match-aware generation. Each sub-match becomes its own bucket and
+  // we generate reciprocal cross-team pairs inside it (A1↔B1, A2↔B2, …).
+  // For uneven sub-match sides we wrap, mirroring the team-match-play
+  // semantics — the smaller side's player marks two opponents rather than
+  // leaving one unmarked.
+  const usableSubMatches = resolvedSubMatches.filter(
+    (sm) => sm.teamAPlayerIds.length > 0 && sm.teamBPlayerIds.length > 0
+  );
+
+  if (usableSubMatches.length > 0) {
+    const allPairs: ScoringPairCreateInput[] = [];
+    for (const sm of usableSubMatches) {
+      const teamA = sm.teamAPlayerIds.map((id) => ({ id }));
+      const teamB = sm.teamBPlayerIds.map((id) => ({ id }));
+      const result = generateCrossTeamPairs(teamA, teamB, 'wrap');
+      allPairs.push(...result.pairs);
+    }
+    if (allPairs.length > 0) {
+      await createScoringPairs(roundId, allPairs);
+    } else {
+      console.info(
+        `[${logTag}] Sub-match generator produced no pairs (all sub-matches empty)`
+      );
+    }
+    return;
+  }
 
   const hasGroupContext = pairings.length > 0 && teamByPlayerId.size > 0;
 

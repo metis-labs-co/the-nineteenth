@@ -366,6 +366,9 @@ export default function ReviewScorecardScreen({ navigation, route }: Props) {
           getPlayerScore={getPlayerScore}
           currentUserId={currentUserId}
           gameType={effectiveGameType}
+          roundId={roundId ?? undefined}
+          competitionId={route.params?.competitionId}
+          teamFormat={roundDetails?.team_format ?? null}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           bottomInset={insets.bottom}

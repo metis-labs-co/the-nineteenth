@@ -19,6 +19,12 @@ import type { Player, ScoringPairWithPlayers, TeamWithMembers } from '@/types/da
 import type { ScoringPairCreateInput } from '@/types';
 import type { PairingType, CoverageQuality } from '../types';
 
+/** Bucket of players for one head-to-head in a split team round. */
+export interface PairingSubMatchInput {
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+}
+
 interface UsePairingStateOptions {
   players: Player[];
   existingPairs?: ScoringPairWithPlayers[];
@@ -28,6 +34,10 @@ interface UsePairingStateOptions {
   /** Player-id → team-name lookup — enables cross-team preference within
    *  each tee group during auto-generation. */
   teamNameByPlayerId?: Map<string, string>;
+  /** Sub-matches for split team rounds. When non-empty, takes precedence
+   *  over the group-aware path: each sub-match becomes its own bucket and
+   *  cross-team reciprocal pairs are generated inside it. */
+  subMatches?: PairingSubMatchInput[];
   onSave: (pairs: ScoringPairCreateInput[]) => void;
 }
 
@@ -66,6 +76,7 @@ export function usePairingState({
   teams,
   groupPlayerIds,
   teamNameByPlayerId,
+  subMatches,
   onSave,
 }: UsePairingStateOptions): UsePairingStateReturn {
   // State
@@ -107,6 +118,36 @@ export function usePairingState({
 
     setIsGenerating(true);
     try {
+      // Highest priority: sub-matches. For split team rounds (e.g. 2v2
+      // better ball) each sub-match defines an exact head-to-head, so we
+      // use it as the bucket and generate reciprocal cross-team pairs
+      // inside it. Guarantees the scorer is in the same head-to-head as
+      // the player they're marking — which neither group-aware nor flat
+      // autogen can promise.
+      const usableSubMatches = (subMatches ?? []).filter(
+        (sm) => sm.teamAPlayerIds.length > 0 && sm.teamBPlayerIds.length > 0
+      );
+      if (usableSubMatches.length > 0) {
+        const allPairs: ScoringPairCreateInput[] = [];
+        for (const sm of usableSubMatches) {
+          const teamA = sm.teamAPlayerIds.map((id) => ({ id }));
+          const teamB = sm.teamBPlayerIds.map((id) => ({ id }));
+          const result = generateCrossTeamPairs(teamA, teamB, 'wrap');
+          allPairs.push(...result.pairs);
+        }
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setPairs(allPairs);
+        // Sub-match output is reciprocal-shaped — reuse the cross-team
+        // badge so the UI labels it accurately ("opponents marking each
+        // other") rather than the generic reciprocal hint.
+        setPairingType('cross-team');
+        setHasChanges(true);
+        setSelectedPlayer(null);
+        setUnevenTeamMetadata(null);
+        setIsGenerating(false);
+        return;
+      }
+
       // Prefer the group-aware generator when the round has tee groups
       // AND every player has a team. This is the only path that can
       // honour "scorer must be in the same tee group" and "prefer cross-
@@ -148,7 +189,7 @@ export function usePairingState({
     } finally {
       setIsGenerating(false);
     }
-  }, [players, groupPlayerIds, teamNameByPlayerId]);
+  }, [players, groupPlayerIds, teamNameByPlayerId, subMatches]);
 
   const handleCrossTeamPair = useCallback(() => {
     if (!teams || teams.length < 2) return;

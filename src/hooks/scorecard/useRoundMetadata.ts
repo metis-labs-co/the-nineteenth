@@ -11,7 +11,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
 import { roundDataLogger } from '@/utils/debugLogger';
 import type { TeeBox, TeamFormat, GameType, Tee } from '@/types/database.types';
-import type { HandicapSource, NineType, RoundStatus } from '@/types/database/enums';
+import type { HandicapSource, NineType, RoundFormat, RoundStatus } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import {
   ROUND_METADATA_SELECT,
@@ -24,6 +24,10 @@ export interface RoundMetadata {
   gameType: GameType;
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
+  /** 'combined' = single team match across all members; 'split' = independent
+   *  sub-matches aggregated Ryder-Cup style. Drives sub-match scoping in the
+   *  scorecard and scoring-pair generators. */
+  roundFormat: RoundFormat;
   scoringPairsRequired: boolean;
   ballCount: BallCount;
   selectedTee: string | null;
@@ -179,6 +183,7 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
         gameType: (roundData.game_type || 'stableford') as GameType,
         isTeamRound: roundData.is_team_round ?? false,
         teamFormat: roundData.team_format,
+        roundFormat: (roundData.round_format ?? 'combined') as RoundFormat,
         scoringPairsRequired: roundData.scoring_pairs_required ?? false,
         ballCount: (roundData.ball_count ?? 1) as BallCount,
         selectedTee: selectedTeeColor,

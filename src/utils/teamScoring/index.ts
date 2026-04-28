@@ -16,7 +16,17 @@ export type {
 } from './types';
 
 // Score calculations (best ball, scramble)
-export { calculateBestBallHole, calculateScrambleHole } from './calculations';
+export {
+  calculateBestBallHole,
+  calculateScrambleHole,
+  getBestBallTeamPoints,
+  getBestBallHoleContribution,
+  buildLiveTeamEntries,
+} from './calculations';
+export type {
+  BestBallTeamPointsResult,
+  BestBallHoleContribution,
+} from './calculations';
 
 // Team handicap calculation
 export { calculateTeamHandicap } from './handicap';

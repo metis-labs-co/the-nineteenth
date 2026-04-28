@@ -73,7 +73,7 @@ export function useTeamScoring({
   getHoleInfo,
   processSkinsHole,
 }: UseTeamScoringParams): UseTeamScoringResult {
-  const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards: _groupScorecards } = useScorecardStore();
+  const { setPlayerScore, getPlayerScore, updateShotContributions, groupScorecards } = useScorecardStore();
 
   // Helper to trigger skins processing after team score entry
   const triggerSkinsProcessing = useCallback(async (holeNumber: number) => {
@@ -173,8 +173,13 @@ export function useTeamScoring({
     });
 
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- groupScorecards is not used in the callback
-  }, [players, teams, currentHole, getPlayerScore, teamFormat]);
+    // groupScorecards must be a dep — getPlayerScore reads from it via the
+    // store's `get()`, so without this the memo returns stale scores after
+    // setPlayerScore writes (the BestBallScoreView would never re-render
+    // with the new score). Lint flags it as unnecessary because it's not
+    // referenced directly in the memo body, but it is — through the closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, teams, currentHole, getPlayerScore, teamFormat, groupScorecards]);
 
   // Team score handlers for Scramble format
   const handleTeamScoreSelect = useCallback(

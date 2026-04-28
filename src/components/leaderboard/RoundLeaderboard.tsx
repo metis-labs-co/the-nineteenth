@@ -156,6 +156,10 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
           date={data?.metadata.date}
           courseName={data?.metadata.courseName}
           roundNumber={data?.metadata.roundNumber || 1}
+          teamFormat={data?.metadata.teamFormat}
+          roundFormat={data?.metadata.roundFormat}
+          subMatchSize={data?.metadata.subMatchSize}
+          rulesOverride={data?.metadata.rulesOverride}
         />
         <EmptyState
           title="No scores yet"
@@ -246,6 +250,10 @@ export const RoundLeaderboard = React.memo(function RoundLeaderboard({
         date={metadata.date}
         courseName={metadata.courseName}
         roundNumber={metadata.roundNumber}
+        teamFormat={metadata.teamFormat}
+        roundFormat={metadata.roundFormat}
+        subMatchSize={metadata.subMatchSize}
+        rulesOverride={metadata.rulesOverride}
       />
 
       {/* Leaderboard Content. When a round has both team and individual

@@ -30,20 +30,22 @@ export function WelcomeSlide({
       style={[
         styles.container,
         {
-          paddingTop: insets.top + spacing.huge,
-          paddingBottom: insets.bottom + spacing.massive,
+          paddingTop: insets.top + spacing.xl,
+          paddingBottom: insets.bottom + spacing.huge,
         },
       ]}
     >
-      <View style={styles.illustrationContainer}>{illustration}</View>
+      <View style={styles.mainContent}>
+        <View style={styles.illustrationContainer}>{illustration}</View>
 
-      <View style={styles.textContainer}>
-        <Text style={[styles.headline, { color: colors.textPrimary }]}>
-          {headline}
-        </Text>
-        <Text style={[styles.body, { color: colors.textSecondary }]}>
-          {body}
-        </Text>
+        <View style={styles.textContainer}>
+          <Text style={[styles.headline, { color: colors.textPrimary }]}>
+            {headline}
+          </Text>
+          <Text style={[styles.body, { color: colors.textSecondary }]}>
+            {body}
+          </Text>
+        </View>
       </View>
 
       {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -56,16 +58,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  illustrationContainer: {
+  mainContent: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  illustrationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xxl,
+  },
   textContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
   },
   headline: {
     ...typography.h1,
@@ -80,6 +86,7 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%',
     alignItems: 'stretch',
+    marginBottom: spacing.xl,
   },
 });
 

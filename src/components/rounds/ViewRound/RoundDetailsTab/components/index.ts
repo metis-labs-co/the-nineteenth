@@ -10,5 +10,3 @@ export { PairingsSection } from './PairingsSection';
 export type { PairingsSectionProps } from './PairingsSection';
 export { GroupsSection } from './GroupsSection';
 export type { GroupsSectionProps } from './GroupsSection';
-export { TeamsSection } from './TeamsSection';
-export type { TeamsSectionProps } from './TeamsSection';

@@ -3,6 +3,8 @@
 export { LeaderboardTable } from './LeaderboardTable';
 export type { LeaderboardTableProps } from './LeaderboardTable';
 
+export { TeamLeaderboardView } from './TeamLeaderboardView';
+
 export { TeamLeaderboardTable } from './TeamLeaderboardTable';
 export type {
   TeamLeaderboardTableProps,

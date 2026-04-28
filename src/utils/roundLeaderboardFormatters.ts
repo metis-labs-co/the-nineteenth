@@ -120,10 +120,20 @@ export interface TeamLeaderboardEntry extends BaseLeaderboardEntry {
   isTeamResult: true;
   teamId: string;
   teamName: string;
+  /** Avatar palette id stored on the team (e.g. 'avatar-green'), or null
+   *  for legacy rows without a stored colour. Resolved at render-time via
+   *  `getTeamColorHex` so consumers don't need to know the palette. */
+  teamColor?: string | null;
   members: {
     playerId: string;
     playerName: string;
     handicap: number;
+    /** Sum of points / strokes this player contributed to the team total.
+     *  Only populated by the live (in-progress) builder — server-derived
+     *  entries omit this. For best-ball this is the player's points on
+     *  holes where they were the contributing member of their sub-match;
+     *  for aggregate it's their per-hole values summed. */
+    contributedScore?: number;
   }[];
   scoreData: FormatSpecificScoreData;
 }

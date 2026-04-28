@@ -6,6 +6,7 @@
 
 export { CompetitionInfoSection } from './CompetitionInfoSection';
 export { MiniLeaderboardSection } from './MiniLeaderboardSection';
+export { InProgressRoundSection } from './InProgressRoundSection';
 export { SettingsSection } from './SettingsSection';
 export { PrizePoolSection } from './PrizePoolSection';
 

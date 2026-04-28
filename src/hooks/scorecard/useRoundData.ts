@@ -18,6 +18,7 @@ import { getDisplayName } from '@/utils/displayHelpers';
 import type { Player, Scorecard, TeamWithMembers } from '@/types';
 import type { HoleScore } from '@/types/database/base';
 import type { TeamFormat, GameType } from '@/types/database.types';
+import type { RoundFormat } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 import { useRoundMetadata } from './useRoundMetadata';
 import { useRoundPlayers } from './useRoundPlayers';
@@ -33,6 +34,8 @@ interface RoundDataState {
   selectedTee: string | null;
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
+  /** Round-level aggregation: 'split' surfaces sub-matches; 'combined' is one team match. */
+  roundFormat: RoundFormat;
   gameType: GameType;
   teams: TeamWithMembers[];
   fetchError: string | null;
@@ -69,6 +72,7 @@ export function useRoundData({
     selectedTee: null,
     isTeamRound: false,
     teamFormat: null,
+    roundFormat: 'combined',
     gameType: 'stableford',
     teams: [],
     fetchError: null,
@@ -626,6 +630,7 @@ export function useRoundData({
       selectedTee: metadata.data?.selectedTee || null,
       isTeamRound,
       teamFormat: metadata.data?.teamFormat || null,
+      roundFormat: metadata.data?.roundFormat || 'combined',
       gameType: (metadata.data?.gameType as GameType) || 'stableford',
       teams,
       fetchError,

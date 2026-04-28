@@ -77,6 +77,15 @@ export interface ScoringPairFormationUIProps {
   groupPlayerIds?: string[][];
 
   /**
+   * Sub-matches for split team rounds. When non-empty, Auto-Generate
+   * uses each sub-match as the bucket for cross-team reciprocal pairs —
+   * guaranteeing the scorer is in the same head-to-head as the player
+   * they mark. Takes precedence over `groupPlayerIds`. Empty / omitted
+   * for combined rounds.
+   */
+  subMatches?: { teamAPlayerIds: string[]; teamBPlayerIds: string[] }[];
+
+  /**
    * Callback when pairs are saved
    */
   onSave: (pairs: ScoringPairCreateInput[]) => void;

@@ -1,53 +1,40 @@
 /**
- * TeamLeaderboardTab — Team rankings for best-ball / aggregate team stroke rounds.
+ * TeamLeaderboardView — Presentational team leaderboard for best-ball /
+ * aggregate team-stroke rounds.
  *
- * Lives alongside (not replacing) the individual Leaderboard tab:
- *   - Individual leaderboard shows every player's score
- *   - Team leaderboard shows teams ranked by their team score
- *
- * Sorts ascending (lower score = better) because best-ball / aggregate are
- * stroke-based. Match-play team rounds use the Match tab instead; scramble
- * and shamble have their own dedicated tabs.
+ * Renders ranked team cards with members listed underneath each card. Used
+ * by both the View Round and Review Scorecard leaderboard tabs (each owns
+ * its own data fetching) so the team layout stays consistent across surfaces.
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { IconTrophy } from '@tabler/icons-react-native';
 import { EmptyState } from '@/components/common/EmptyState';
 import { GolfBallLoader } from '@/components/common';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
-import { useRoundLeaderboard, isTeamEntry, isTeamScore } from '@/hooks/rounds';
+import { isTeamScore, type TeamLeaderboardEntry } from '@/hooks/rounds';
 import { averageTeamHandicap } from '@/utils/teamHandicap';
+import { getTeamColorHex } from '@/utils/teamColor';
 import type { TeamFormat } from '@/types';
 
-interface TeamLeaderboardTabProps {
-  roundId: string;
+interface TeamLeaderboardViewProps {
+  /** Team entries already filtered/sorted by the caller. Lower team score wins. */
+  teamEntries: TeamLeaderboardEntry[];
   teamFormat: TeamFormat | null;
   currentUserId?: string;
+  isLoading?: boolean;
 }
 
-export function TeamLeaderboardTab({
-  roundId,
+export function TeamLeaderboardView({
+  teamEntries,
   teamFormat,
   currentUserId,
-}: TeamLeaderboardTabProps) {
+  isLoading = false,
+}: TeamLeaderboardViewProps) {
   const colors = useThemeColors();
-  const { data, isLoading } = useRoundLeaderboard(roundId);
-
-  // Extract team entries, sort ascending by team score (stroke convention).
-  const teamEntries = useMemo(() => {
-    if (!data?.entries) return [];
-    return data.entries
-      .filter(isTeamEntry)
-      .filter((e) => isTeamScore(e.scoreData))
-      .slice()
-      .sort((a, b) => {
-        const aScore = isTeamScore(a.scoreData) ? a.scoreData.teamScore : 0;
-        const bScore = isTeamScore(b.scoreData) ? b.scoreData.teamScore : 0;
-        return aScore - bScore;
-      });
-  }, [data?.entries]);
 
   if (isLoading) {
     return (
@@ -88,6 +75,9 @@ export function TeamLeaderboardTab({
         const hasCurrentUser = currentUserId
           ? entry.members.some((m) => m.playerId === currentUserId)
           : false;
+        // Resolve the team's avatar palette to a hex; falls back to the
+        // legacy theme cycle when no colour is stored on the team.
+        const teamColorHex = getTeamColorHex(entry.teamColor, i, colors);
 
         return (
           <View
@@ -104,22 +94,26 @@ export function TeamLeaderboardTab({
           >
             <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
               <View style={styles.positionBlock}>
-                <Text
-                  style={[
-                    styles.positionText,
-                    { color: position === 1 ? colors.primary : colors.textPrimary },
-                  ]}
-                >
-                  {position === 1 ? '🏆' : position}
-                </Text>
+                {position === 1 ? (
+                  <IconTrophy size={22} color={colors.primary} />
+                ) : (
+                  <Text
+                    style={[styles.positionText, { color: colors.textPrimary }]}
+                  >
+                    {position}
+                  </Text>
+                )}
               </View>
               <View style={styles.teamNameBlock}>
-                <Text
-                  style={[styles.teamName, { color: colors.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {entry.teamName}
-                </Text>
+                <View style={styles.teamNameRow}>
+                  <View style={[styles.teamColorDot, { backgroundColor: teamColorHex }]} />
+                  <Text
+                    style={[styles.teamName, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {entry.teamName}
+                  </Text>
+                </View>
                 <Text style={[styles.teamSubLabel, { color: colors.textSecondary }]}>
                   {entry.members.length} {entry.members.length === 1 ? 'player' : 'players'} · HC {averageTeamHandicap(entry.members).toFixed(1)}
                 </Text>
@@ -151,9 +145,19 @@ export function TeamLeaderboardTab({
                   >
                     {m.playerName}
                   </Text>
-                  <Text style={[styles.memberHandicap, { color: colors.textSecondary }]}>
-                    HC {m.handicap}
-                  </Text>
+                  {/* When the entry comes from the live builder, show the
+                   *  per-player points/strokes contributed to the team
+                   *  total. Server-derived entries (no contributedScore)
+                   *  fall back to the player's handicap. */}
+                  {m.contributedScore !== undefined ? (
+                    <Text style={[styles.memberContribution, { color: colors.textPrimary }]}>
+                      {m.contributedScore}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.memberHandicap, { color: colors.textSecondary }]}>
+                      HC {m.handicap}
+                    </Text>
+                  )}
                 </View>
               ))}
             </View>
@@ -210,8 +214,19 @@ const styles = StyleSheet.create({
   teamNameBlock: {
     flex: 1,
   },
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  teamColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: borderRadius.full,
+  },
   teamName: {
     ...typography.bodyBold,
+    flexShrink: 1,
   },
   teamSubLabel: {
     ...typography.caption,
@@ -246,6 +261,9 @@ const styles = StyleSheet.create({
   memberHandicap: {
     ...typography.caption,
   },
+  memberContribution: {
+    ...typography.bodyBold,
+  },
 });
 
-export default TeamLeaderboardTab;
+export default TeamLeaderboardView;

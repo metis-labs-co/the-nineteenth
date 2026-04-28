@@ -76,15 +76,22 @@ export function BottomSheet({
   const effectiveSafeAreaTop = safeAreaTop ?? isFullScreen;
   const effectiveKeyboardBehavior = keyboardBehavior ?? (Platform.OS === 'ios' ? 'padding' : 'height');
 
+  // Stable ref so useBottomSheetAnimation's effect doesn't re-fire (and
+  // restart the open animation) on every parent re-render. Without this,
+  // screens that re-render frequently while the sheet is open (e.g. a
+  // ViewRoundScreen subscribed to scorecards realtime) keep cancelling the
+  // spring mid-flight and the sheet never settles past a few pixels.
+  const handleCloseComplete = useCallback(() => {
+    setIsRendered(false);
+  }, []);
+
   // Animation hook
   const { translateY, backdropOpacity, animateClose, resetAnimation } =
     useBottomSheetAnimation({
       visible,
       sheetHeight,
       animationConfig,
-      onCloseComplete: () => {
-        setIsRendered(false);
-      },
+      onCloseComplete: handleCloseComplete,
     });
 
   // Handle close with animation

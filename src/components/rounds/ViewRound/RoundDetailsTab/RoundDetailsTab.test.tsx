@@ -73,19 +73,6 @@ jest.mock('./components', () => {
         <Text testID="groups-section-round-format">{roundFormat}</Text>
       </View>
     ),
-    TeamsSection: ({
-      roundId,
-      competitionId,
-    }: {
-      roundId: string;
-      competitionId: string | null;
-      cardBackground: string;
-    }) => (
-      <View testID="teams-section">
-        <Text testID="teams-section-round-id">{roundId}</Text>
-        <Text testID="teams-section-competition-id">{competitionId ?? 'none'}</Text>
-      </View>
-    ),
   };
 });
 
@@ -148,8 +135,8 @@ jest.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ player: null, user: null }),
 }));
 
-// Mock useRoundTeams — TeamsSection calls this whenever is_team_round is
-// true. Default to "no teams" so existing non-team-round tests stay green;
+// Mock useRoundTeams — RoundDetailsTab fetches team data for team rounds.
+// Default to "no teams" so existing non-team-round tests stay green;
 // individual tests that exercise the team path override with
 // (useRoundTeams as jest.Mock).mockReturnValueOnce(...).
 jest.mock('@/hooks/scorecard/useRoundTeams', () => ({

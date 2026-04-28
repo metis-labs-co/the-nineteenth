@@ -17,7 +17,7 @@ export function WelcomeSlide2Leagues() {
             { backgroundColor: colors.primaryLighter ?? colors.surfaceVariant },
           ]}
         >
-          <Icon source="earth" size={120} color={colors.primary} />
+          <Icon source="earth" size={72} color={colors.primary} />
         </View>
       }
       headline="Play leagues, anywhere"
@@ -28,8 +28,8 @@ export function WelcomeSlide2Leagues() {
 
 const styles = StyleSheet.create({
   iconBubble: {
-    width: 220,
-    height: 220,
+    width: 140,
+    height: 140,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',

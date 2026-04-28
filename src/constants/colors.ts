@@ -269,9 +269,9 @@ export function generateLightColors(brand: BrandConfig) {
     primaryBackground: adjustLightness(primary.primary, 0.95),
 
     // Backgrounds
-    background: grays.gray50,
+    background: grays.gray100,
     surface: grays.white,
-    surfaceVariant: grays.gray100,
+    surfaceVariant: grays.gray200,
     surfaceElevated: grays.white,
     surfaceSelected: grays.white,
 

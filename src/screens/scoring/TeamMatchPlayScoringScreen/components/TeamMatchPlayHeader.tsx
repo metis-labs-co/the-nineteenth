@@ -10,8 +10,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, Icon } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { PageHeader } from '@/components/common';
 import { SkinsIndicator } from '@/components/skins';
 import { getTeeColor } from '@/components/common/TeeSelector/hooks/useTeeSelector';
@@ -23,7 +23,6 @@ export interface TeamMatchPlayHeaderProps {
   courseName?: string;
   selectedTee?: TeeBox | null;
   onBack: () => void;
-  onDeletePress?: () => void;
   isSuperAdmin: boolean;
   roundId: string;
 }
@@ -32,8 +31,7 @@ export function TeamMatchPlayHeader({
   courseName,
   selectedTee,
   onBack,
-  onDeletePress,
-  isSuperAdmin,
+  isSuperAdmin: _isSuperAdmin,
   roundId,
 }: TeamMatchPlayHeaderProps) {
   const colors = useThemeColors();
@@ -62,24 +60,12 @@ export function TeamMatchPlayHeader({
     return courseName;
   };
 
-  // Custom right content with skins indicator and delete button
+  // Custom right content with skins indicator only — the delete action lived
+  // here historically, dropped now that the action is exposed elsewhere.
   const renderRightContent = () => (
     <View style={styles.rightContent}>
       {/* Skins Indicator - shows when skins game is active, uses built-in popover */}
       <SkinsIndicator roundId={roundId} size="sm" />
-
-      {/* Delete button for super admins */}
-      {isSuperAdmin && onDeletePress && (
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={onDeletePress}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Delete match"
-        >
-          <Icon source="delete-outline" size={24} color={colors.error} />
-        </TouchableOpacity>
-      )}
     </View>
   );
 
@@ -99,13 +85,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
   },
   subtitleContainer: {
     flexDirection: 'row',

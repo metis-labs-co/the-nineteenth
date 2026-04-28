@@ -23,7 +23,8 @@ import {
   transformToLeaderboardEntry,
   sortLeaderboardEntries,
 } from '@/utils/roundLeaderboardFormatters';
-import type { GameType, TeamFormat } from '@/types/database.types';
+import type { GameType, RoundFormat, TeamFormat } from '@/types/database.types';
+import type { RoundRulesOverride } from '@/types/database/roundRules.types';
 import type { RoundResultRow } from '@/utils/roundLeaderboardFormatters';
 
 // Re-export types and type guards from utility for backward compatibility
@@ -58,6 +59,9 @@ export interface RoundMetadata {
   gameType: GameType;
   isTeamRound: boolean;
   teamFormat: TeamFormat | null;
+  roundFormat: RoundFormat;
+  subMatchSize: number | null;
+  rulesOverride: RoundRulesOverride | null;
   roundId: string;
   roundNumber: number;
   courseName?: string;
@@ -92,6 +96,9 @@ interface RoundInfo {
   game_type: GameType;
   is_team_round: boolean;
   team_format: TeamFormat | null;
+  round_format: RoundFormat;
+  sub_match_size: number | null;
+  rules_override: RoundRulesOverride | null;
   date: string | null;
   status: string;
   courses: {
@@ -117,6 +124,9 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
       game_type,
       is_team_round,
       team_format,
+      round_format,
+      sub_match_size,
+      rules_override,
       date,
       status,
       courses (
@@ -220,6 +230,9 @@ async function fetchRoundLeaderboard(roundId: string): Promise<RoundLeaderboardR
     gameType: typedRound.game_type,
     isTeamRound: typedRound.is_team_round,
     teamFormat: typedRound.team_format,
+    roundFormat: typedRound.round_format,
+    subMatchSize: typedRound.sub_match_size,
+    rulesOverride: typedRound.rules_override,
     roundId: typedRound.id,
     roundNumber: typedRound.round_number,
     courseName: typedRound.courses?.name,

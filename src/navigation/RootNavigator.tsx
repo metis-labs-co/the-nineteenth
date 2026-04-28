@@ -19,7 +19,7 @@ import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
 import { useThemeColors } from '@/context/ThemeContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { useBiometricLock } from '@/hooks/useBiometricLock';
-import { BiometricLockScreen } from '@/components/biometric';
+import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
 
@@ -769,6 +769,9 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
           </>
         )}
         </Stack.Navigator>
+        {/* Post-login one-time prompt to enable biometric unlock. Self-gates
+            on availability and per-user "seen" flag — safe to always render. */}
+        <BiometricEnrollPrompt />
       </NotificationProvider>
     </NavigationContainer>
   );

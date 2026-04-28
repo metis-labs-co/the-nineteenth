@@ -25,7 +25,7 @@ export function WelcomeSlide3Skins({
             { backgroundColor: `${skinsColor}22` },
           ]}
         >
-          <Icon source="cash-multiple" size={120} color={skinsColor} />
+          <Icon source="cash-multiple" size={72} color={skinsColor} />
         </View>
       }
       headline="Play for skins, skip the maths"
@@ -64,8 +64,8 @@ export function WelcomeSlide3Skins({
 
 const styles = StyleSheet.create({
   iconBubble: {
-    width: 220,
-    height: 220,
+    width: 140,
+    height: 140,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',

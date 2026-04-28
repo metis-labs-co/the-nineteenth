@@ -375,7 +375,6 @@ export const PAIRS_BETTER_BALL_2V2: RoundPreset = {
     rules_override: PAIRS_BETTER_BALL.override,
   },
   requiresCompetitionTeams: true,
-  comingSoon: true,
 };
 
 export const PAIRS_SCRAMBLE_2V2: RoundPreset = {

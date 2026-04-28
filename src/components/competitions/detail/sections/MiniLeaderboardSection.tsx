@@ -14,7 +14,7 @@ interface MiniRowProps {
 function MiniRow({ entry }: MiniRowProps) {
   const colors = useThemeColors();
   const isDark = useIsDark();
-  const highlightBg = isDark ? colors.primaryBackground : colors.primaryLighter;
+  const highlightBg = colors.primaryBackground;
   const highlightText = isDark ? colors.primaryLight : colors.primaryDark;
   const rowStyle = entry.isCurrent
     ? [

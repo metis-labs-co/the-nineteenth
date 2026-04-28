@@ -33,6 +33,7 @@ import {
   useAutoGeneratePairings,
   useReplacePairings,
   useRoundScorecards,
+  type ScorecardWithPlayer,
 } from '@/hooks/rounds';
 import { regenerateScoringPairsForRound } from '@/services/scoringPairs/regenerateForRound';
 import { useRoundTeams } from '@/hooks/scorecard/useRoundTeams';
@@ -46,7 +47,11 @@ import {
   pickGroupingStrategy,
 } from '@/utils/pairingAlgorithm';
 import { ScoringPairsSection } from '@/components/rounds/ViewRound/RoundDetailsTab/components';
-import type { GameType, RoundStatus, SubMatch, SubMatchResult, TeamFormat } from '@/types';
+import { getTeamColorHex } from '@/utils/teamColor';
+import { calculateStablefordPoints } from '@/utils/scoring';
+import { isSingleBallScore } from '@/types/database/base';
+import { PICKUP_SCORE } from '@/constants/scoring';
+import type { GameType, Hole, RoundStatus, SubMatch, SubMatchResult, TeamFormat } from '@/types';
 import type {
   BracketSeedingStyle,
   PairingSource,
@@ -114,6 +119,10 @@ interface SubMatchesTabProps {
    *  keeps teammates together (one whole team per tee group) instead of
    *  the default cross-team 2+2 balance. */
   teamFormat?: TeamFormat | null;
+  /** Round holes — required to compute live best-ball points contributions
+   *  for split team rounds. Empty array is fine for individual rounds where
+   *  no per-side aggregation is rendered. */
+  holes?: Hole[];
   /** Round-level default tee time (HH:mm:ss) used as the starting point
    *  when shuffling tee groups. */
   roundTeeTime?: string | null;
@@ -170,6 +179,7 @@ export function SubMatchesTab({
   isTeamRound = false,
   gameType,
   teamFormat,
+  holes = [],
   roundTeeTime,
   roundNumber,
   roundFormat,
@@ -256,6 +266,7 @@ export function SubMatchesTab({
   const [groupsSubTab, setGroupsSubTab] = useState<GroupsSubTabKey>('groups');
 
   const isStrokeRound = !!gameType && STROKE_GAME_TYPES.includes(gameType);
+  const isBestBallRound = teamFormat === 'best-ball';
 
   // Team membership by player id — lets us annotate group rows with
   // the player's team (small italic label under the name). Populated
@@ -270,6 +281,22 @@ export function SubMatchesTab({
     });
     return map;
   }, [teams]);
+
+  // Resolved team-colour hex by player id. Each team stores an avatar
+  // palette id in `teams.color`; we resolve it via getTeamColorHex with the
+  // team's index as the legacy fallback. Used by the sub-match card dots
+  // and the mini best-ball header so the colours match what the rest of
+  // the app shows for each competition team.
+  const teamColorByPlayer = useMemo(() => {
+    const map = new Map<string, string>();
+    teams.forEach((t, index) => {
+      const hex = getTeamColorHex(t.color, index, colors);
+      (t.members || []).forEach((m) => {
+        if (m.player_id) map.set(m.player_id, hex);
+      });
+    });
+    return map;
+  }, [teams, colors]);
 
   // Competition position by player id. Driven by the individuals
   // leaderboard so we can render a `#N` pill next to each player's name.
@@ -524,9 +551,9 @@ export function SubMatchesTab({
 
       // Regenerate scoring pairs so markers align with the new groups.
       // Non-blocking: a failure here doesn't undo the pairing shuffle.
-      // Strategy preference (group-aware → cross-team → autogen) lives in
-      // `regenerateScoringPairsForRound`; same helper is used by the
-      // EditPairingConfigSheet save flow so behaviour stays in lockstep.
+      // Strategy preference (sub-match → group-aware → cross-team → autogen)
+      // lives in `regenerateScoringPairsForRound`; same helper is used by
+      // the EditPairingConfigSheet save flow so behaviour stays in lockstep.
       setIsRegeneratingScoringPairs(true);
       try {
         await regenerateScoringPairsForRound({
@@ -534,6 +561,10 @@ export function SubMatchesTab({
           isTeamRound,
           teamsWithMembers,
           pairings: freshPairings,
+          // Shuffle only fires for non-split rounds (the button is hidden
+          // when isSplitRound), so explicitly pass `[]` to skip the
+          // sub-match fetch.
+          subMatches: [],
           players,
           logTag: 'SubMatchesTab.shuffle',
         });
@@ -608,32 +639,78 @@ export function SubMatchesTab({
     ? isSubMatchesLoading || isPlayersLoading
     : isPairingsLoading || isPlayersLoading;
 
-  // Overall team totals for stroke rounds (pairs-aggregate): sum of member
-  // nets per side across every sub-match. Defined before early returns to
-  // keep hook order stable across renders.
-  const pairsAggregateTotals = useMemo(() => {
-    if (!isStrokeRound || !subMatches) return null;
-    let teamA = 0;
-    let teamB = 0;
-    let countedPlayers = 0;
-    subMatches.forEach((sm) => {
-      sm.team_a_player_ids.forEach((id) => {
-        const n = netTotalByPlayer.get(id);
-        if (typeof n === 'number') {
-          teamA += n;
-          countedPlayers += 1;
-        }
-      });
-      sm.team_b_player_ids.forEach((id) => {
-        const n = netTotalByPlayer.get(id);
-        if (typeof n === 'number') {
-          teamB += n;
-          countedPlayers += 1;
-        }
-      });
+  // Per-sub-match best-ball contributions (best-ball rounds only). For each
+  // sub-match we compute, hole-by-hole, the highest stableford points among
+  // each side's players and attribute them to the contributing player.
+  // Returns:
+  //   - bySubMatch: per-sub-match team totals + per-player contribution map
+  //   - aggregate:  team totals summed across every sub-match (drives the
+  //                 mini header at the top of the tab)
+  //   - hasAnyScores: at least one hole has a usable score somewhere
+  const bestBallData = useMemo(() => {
+    if (!isBestBallRound || !subMatches || holes.length === 0) {
+      return null;
+    }
+    const cardByPlayer = new Map<string, ScorecardWithPlayer>();
+    (scorecards || []).forEach((sc) => {
+      if (sc.player_id) cardByPlayer.set(sc.player_id, sc as ScorecardWithPlayer);
     });
-    return { teamA, teamB, hasAnyScores: countedPlayers > 0 };
-  }, [isStrokeRound, subMatches, netTotalByPlayer]);
+
+    const bySubMatch = new Map<
+      string,
+      { teamAPoints: number; teamBPoints: number; perPlayer: Map<string, number> }
+    >();
+    let aggregateA = 0;
+    let aggregateB = 0;
+    let hasAnyScores = false;
+
+    const computeBestForSide = (playerIds: string[], hole: Hole) => {
+      let best: { id: string; pts: number } | null = null;
+      for (const id of playerIds) {
+        const sc = cardByPlayer.get(id);
+        const score = sc?.scores?.[String(hole.number)];
+        if (!score) continue;
+        const strokes = isSingleBallScore(score) ? score.strokes : undefined;
+        if (!strokes || strokes === PICKUP_SCORE) continue;
+        const handicap = sc?.player?.handicap ?? 0;
+        const pts = calculateStablefordPoints(strokes, handicap, hole);
+        // First-equal wins (matches BestBallScoreView convention)
+        if (!best || pts > best.pts) best = { id, pts };
+      }
+      return best;
+    };
+
+    subMatches.forEach((sm) => {
+      let teamAPoints = 0;
+      let teamBPoints = 0;
+      const perPlayer = new Map<string, number>();
+
+      for (const hole of holes) {
+        const aBest = computeBestForSide(sm.team_a_player_ids, hole);
+        if (aBest) {
+          teamAPoints += aBest.pts;
+          perPlayer.set(aBest.id, (perPlayer.get(aBest.id) ?? 0) + aBest.pts);
+          hasAnyScores = true;
+        }
+        const bBest = computeBestForSide(sm.team_b_player_ids, hole);
+        if (bBest) {
+          teamBPoints += bBest.pts;
+          perPlayer.set(bBest.id, (perPlayer.get(bBest.id) ?? 0) + bBest.pts);
+          hasAnyScores = true;
+        }
+      }
+
+      bySubMatch.set(sm.id, { teamAPoints, teamBPoints, perPlayer });
+      aggregateA += teamAPoints;
+      aggregateB += teamBPoints;
+    });
+
+    return {
+      bySubMatch,
+      aggregate: { teamA: aggregateA, teamB: aggregateB },
+      hasAnyScores,
+    };
+  }, [isBestBallRound, subMatches, scorecards, holes]);
 
   // Sub-tab config — memoised above any early returns to keep hook order
   // stable across renders. Only actually rendered when scoring pairs are
@@ -750,12 +827,42 @@ export function SubMatchesTab({
               </View>
             )}
 
-            {hasSplitContent && pairsAggregateTotals?.hasAnyScores && (
-              <PairsAggregateHeader
-                teamATotal={pairsAggregateTotals.teamA}
-                teamBTotal={pairsAggregateTotals.teamB}
-              />
-            )}
+            {hasSplitContent && bestBallData?.hasAnyScores && (() => {
+              const firstSm = subMatches?.[0];
+              const teamADotColor = firstSm
+                ? teamColorByPlayer.get(firstSm.team_a_player_ids[0]) ?? colors.success
+                : colors.success;
+              const teamBDotColor = firstSm
+                ? teamColorByPlayer.get(firstSm.team_b_player_ids[0]) ?? colors.error
+                : colors.error;
+              return (
+                <PairsAggregateHeader
+                  mode="best-ball"
+                  teamATotal={bestBallData.aggregate.teamA}
+                  teamBTotal={bestBallData.aggregate.teamB}
+                  teamALabel={
+                    firstSm
+                      ? labelForSide(
+                          firstSm.team_a_player_ids,
+                          'Team A',
+                          teamNameByPlayer
+                        )
+                      : 'Team A'
+                  }
+                  teamBLabel={
+                    firstSm
+                      ? labelForSide(
+                          firstSm.team_b_player_ids,
+                          'Team B',
+                          teamNameByPlayer
+                        )
+                      : 'Team B'
+                  }
+                  teamADotColor={teamADotColor}
+                  teamBDotColor={teamBDotColor}
+                />
+              );
+            })()}
 
             {hasSplitContent &&
               subMatches!.map((sm, i) => (
@@ -769,7 +876,9 @@ export function SubMatchesTab({
                   onEditTeeTime={handleOpenTeeTimeEditor}
                   strokeMode={isStrokeRound}
                   netTotalByPlayer={netTotalByPlayer}
+                  bestBallContribution={bestBallData?.bySubMatch.get(sm.id)}
                   teamNameByPlayer={teamNameByPlayer}
+                  teamColorByPlayer={teamColorByPlayer}
                 />
               ))}
 
@@ -1144,10 +1253,43 @@ function PositionPill({ position }: { position: number }) {
   );
 }
 
-function PairsAggregateHeader({ teamATotal, teamBTotal }: { teamATotal: number; teamBTotal: number }) {
+interface PairsAggregateHeaderProps {
+  teamATotal: number;
+  teamBTotal: number;
+  /** 'aggregate' for stroke pairs-aggregate (lower is better — net strokes).
+   *  'best-ball' for best-ball stableford (higher is better — points). */
+  mode: 'aggregate' | 'best-ball';
+  teamALabel?: string;
+  teamBLabel?: string;
+  /** Resolved dot colours for each side. When omitted, falls back to the
+   *  legacy success/error theme tokens. */
+  teamADotColor?: string;
+  teamBDotColor?: string;
+}
+
+function PairsAggregateHeader({
+  teamATotal,
+  teamBTotal,
+  mode,
+  teamALabel = 'Team A',
+  teamBLabel = 'Team B',
+  teamADotColor,
+  teamBDotColor,
+}: PairsAggregateHeaderProps) {
   const colors = useThemeColors();
+  const dotA = teamADotColor ?? colors.success;
+  const dotB = teamBDotColor ?? colors.error;
+  const lowerWins = mode === 'aggregate';
   const leader =
-    teamATotal === teamBTotal ? 'tied' : teamATotal < teamBTotal ? 'a' : 'b';
+    teamATotal === teamBTotal
+      ? 'tied'
+      : (lowerWins ? teamATotal < teamBTotal : teamATotal > teamBTotal)
+        ? 'a'
+        : 'b';
+  const headerLabel =
+    mode === 'best-ball'
+      ? 'Best-Ball · sum of best stableford points per sub-match'
+      : 'Pairs Aggregate · sum of all members’ net totals';
   return (
     <View
       style={[
@@ -1157,15 +1299,13 @@ function PairsAggregateHeader({ teamATotal, teamBTotal }: { teamATotal: number; 
       ]}
     >
       <View style={styles.pairsHeader}>
-        <Icon source="sigma" size={16} color={colors.primary} />
+        <Icon source={mode === 'best-ball' ? 'trophy-outline' : 'sigma'} size={16} color={colors.primary} />
         <Text style={[styles.pairsLabel, { color: colors.textSecondary }]}>
-          Pairs Aggregate · sum of all members’ net totals
+          {headerLabel}
         </Text>
       </View>
       <View style={styles.pairsRow}>
         <View style={styles.pairsSide}>
-          <View style={[styles.pairsSideDot, { backgroundColor: colors.success }]} />
-          <Text style={[styles.pairsSideLabel, { color: colors.textSecondary }]}>Team A</Text>
           <Text
             style={[
               styles.pairsPoints,
@@ -1174,6 +1314,12 @@ function PairsAggregateHeader({ teamATotal, teamBTotal }: { teamATotal: number; 
           >
             {teamATotal}
           </Text>
+          <View style={styles.pairsSideHeader}>
+            <View style={[styles.pairsSideDot, { backgroundColor: dotA }]} />
+            <Text style={[styles.pairsSideLabel, { color: colors.textSecondary }]}>
+              {teamALabel}
+            </Text>
+          </View>
         </View>
         <Text style={[styles.pairsDash, { color: colors.textSecondary }]}>vs</Text>
         <View style={styles.pairsSide}>
@@ -1185,8 +1331,12 @@ function PairsAggregateHeader({ teamATotal, teamBTotal }: { teamATotal: number; 
           >
             {teamBTotal}
           </Text>
-          <Text style={[styles.pairsSideLabel, { color: colors.textSecondary }]}>Team B</Text>
-          <View style={[styles.pairsSideDot, { backgroundColor: colors.error }]} />
+          <View style={styles.pairsSideHeader}>
+            <Text style={[styles.pairsSideLabel, { color: colors.textSecondary }]}>
+              {teamBLabel}
+            </Text>
+            <View style={[styles.pairsSideDot, { backgroundColor: dotB }]} />
+          </View>
         </View>
       </View>
     </View>
@@ -1207,9 +1357,21 @@ interface SubMatchCardProps {
   strokeMode?: boolean;
   /** Map of playerId → net stroke total (for stroke-mode display). */
   netTotalByPlayer?: Map<string, number>;
+  /** When provided, render this sub-match in best-ball mode: per-player
+   *  rows show their stableford contribution and the bottom strip shows
+   *  the proper sub-match best-ball totals (not a sum of player totals). */
+  bestBallContribution?: {
+    teamAPoints: number;
+    teamBPoints: number;
+    perPlayer: Map<string, number>;
+  };
   /** Map of playerId → team name. Used to label each side with the actual
    *  competition team rather than the generic "Team A"/"Team B" fallback. */
   teamNameByPlayer?: Map<string, string>;
+  /** Map of playerId → resolved team-colour hex. Drives the per-side dot
+   *  colours so each card matches the team palette assigned at the
+   *  competition level. */
+  teamColorByPlayer?: Map<string, string>;
 }
 
 /**
@@ -1243,7 +1405,9 @@ function SubMatchCard({
   onEditTeeTime,
   strokeMode = false,
   netTotalByPlayer,
+  bestBallContribution,
   teamNameByPlayer,
+  teamColorByPlayer,
 }: SubMatchCardProps) {
   const colors = useThemeColors();
   const teeTimePillBg = useTeeTimePillBackground();
@@ -1266,6 +1430,16 @@ function SubMatchCard({
     'Team B',
     teamNameByPlayer
   );
+
+  // Resolve each side's dot colour from the competition team's palette.
+  // Falls back to the legacy success/error tokens when no map is supplied
+  // (e.g. standalone rounds that don't have stored team colours).
+  const teamADotColor =
+    (teamColorByPlayer && teamColorByPlayer.get(subMatch.team_a_player_ids[0])) ??
+    colors.success;
+  const teamBDotColor =
+    (teamColorByPlayer && teamColorByPlayer.get(subMatch.team_b_player_ids[0])) ??
+    colors.error;
 
   // Sub-team net totals (stroke rounds only). Returns null if no scores yet
   // on that side — falls back to the match-play status display.
@@ -1334,22 +1508,46 @@ function SubMatchCard({
       </View>
 
       <View style={styles.sidesContainer}>
-        <Side label={teamALabel} dotColor={colors.success} players={teamAPlayers} />
+        <Side
+          label={teamALabel}
+          dotColor={teamADotColor}
+          players={teamAPlayers}
+          playerIds={subMatch.team_a_player_ids}
+          contributionByPlayer={bestBallContribution?.perPlayer}
+        />
         <View style={styles.vsDivider}>
           <View style={[styles.vsLine, { backgroundColor: colors.border }]} />
           <Text style={[styles.vsText, { color: colors.textSecondary }]}>VS</Text>
           <View style={[styles.vsLine, { backgroundColor: colors.border }]} />
         </View>
-        <Side label={teamBLabel} dotColor={colors.error} players={teamBPlayers} />
+        <Side
+          label={teamBLabel}
+          dotColor={teamBDotColor}
+          players={teamBPlayers}
+          playerIds={subMatch.team_b_player_ids}
+          contributionByPlayer={bestBallContribution?.perPlayer}
+        />
       </View>
 
-      {strokeMode && teamANet !== null && teamBNet !== null ? (
-        <View style={[styles.statusRow, { backgroundColor: colors.surfaceVariant }]}>
-          <Icon source="sigma" size={16} color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.textPrimary }]}>
-            {teamALabel} {teamANet} · {teamBLabel} {teamBNet}
-          </Text>
-        </View>
+      {bestBallContribution &&
+      (bestBallContribution.teamAPoints > 0 || bestBallContribution.teamBPoints > 0) ? (
+        <SideTotalsStrip
+          icon="trophy-outline"
+          teamALabel={teamALabel}
+          teamBLabel={teamBLabel}
+          teamAValue={bestBallContribution.teamAPoints}
+          teamBValue={bestBallContribution.teamBPoints}
+          unit="pts"
+        />
+      ) : strokeMode && teamANet !== null && teamBNet !== null ? (
+        <SideTotalsStrip
+          icon="sigma"
+          teamALabel={teamALabel}
+          teamBLabel={teamBLabel}
+          teamAValue={teamANet}
+          teamBValue={teamBNet}
+          unit="net"
+        />
       ) : (
         <View style={[styles.statusRow, { backgroundColor: colors.surfaceVariant }]}>
           <Icon source="flag-checkered" size={16} color={statusColor} />
@@ -1395,34 +1593,137 @@ interface SideProps {
   label: string;
   dotColor: string;
   players: PlayerLookupEntry[];
+  /** Player ids paired with `players` (same order). Used to look up the
+   *  per-player contribution when in best-ball mode. Optional — when
+   *  omitted the contribution column is hidden. */
+  playerIds?: string[];
+  /** Per-player best-ball contribution map. When present, renders the
+   *  contributed points on the right side of each row in place of the
+   *  handicap. The handicap moves inline with the player name. */
+  contributionByPlayer?: Map<string, number>;
 }
 
-function Side({ label, dotColor, players }: SideProps) {
+function Side({
+  label,
+  dotColor,
+  players,
+  playerIds,
+  contributionByPlayer,
+}: SideProps) {
   const colors = useThemeColors();
+  const showContributions = !!contributionByPlayer;
   return (
     <View style={styles.side}>
       <View style={styles.sideHeader}>
         <View style={[styles.sideDot, { backgroundColor: dotColor }]} />
         <Text style={[styles.sideLabel, { color: colors.textSecondary }]}>{label}</Text>
       </View>
-      {players.map((p, i) => (
-        <View key={i} style={styles.playerRow}>
-          <View style={styles.playerNameRow}>
-            {typeof p.position === 'number' && (
-              <PositionPill position={p.position} />
+      {players.map((p, i) => {
+        const playerId = playerIds?.[i];
+        const contributed =
+          playerId && contributionByPlayer
+            ? contributionByPlayer.get(playerId) ?? 0
+            : null;
+        return (
+          <View key={i} style={styles.playerRow}>
+            <View style={styles.playerNameRow}>
+              {typeof p.position === 'number' && (
+                <PositionPill position={p.position} />
+              )}
+              <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {p.name}
+              </Text>
+              {p.isCurrentUser && <YouPill />}
+              {/* HC inline with the name when there's a score column on the
+               *  right; otherwise it stays on its own column for a more
+               *  spacious look (the original layout). */}
+              {showContributions && p.handicap !== null && (
+                <Text style={[styles.playerHandicapInline, { color: colors.textSecondary }]}>
+                  HC {p.handicap}
+                </Text>
+              )}
+            </View>
+            {showContributions ? (
+              <Text style={[styles.playerContribution, { color: colors.textPrimary }]}>
+                {contributed}
+              </Text>
+            ) : (
+              p.handicap !== null && (
+                <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
+                  HC {p.handicap}
+                </Text>
+              )
             )}
-            <Text style={[styles.playerName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {p.name}
-            </Text>
-            {p.isCurrentUser && <YouPill />}
           </View>
-          {p.handicap !== null && (
-            <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
-              HC {p.handicap}
-            </Text>
-          )}
-        </View>
-      ))}
+        );
+      })}
+    </View>
+  );
+}
+
+interface SideTotalsStripProps {
+  icon: string;
+  teamALabel: string;
+  teamBLabel: string;
+  teamAValue: number;
+  teamBValue: number;
+  unit: 'pts' | 'net';
+}
+
+/** Bottom-of-card team-vs-team totals strip. Two equal halves separated by
+ *  a vertical divider so each team's value reads as its own block instead
+ *  of running together with a `·` separator. */
+function SideTotalsStrip({
+  icon,
+  teamALabel,
+  teamBLabel,
+  teamAValue,
+  teamBValue,
+  unit,
+}: SideTotalsStripProps) {
+  const colors = useThemeColors();
+  const lowerWins = unit === 'net';
+  const aLeads =
+    teamAValue !== teamBValue && (lowerWins ? teamAValue < teamBValue : teamAValue > teamBValue);
+  const bLeads =
+    teamAValue !== teamBValue && (lowerWins ? teamBValue < teamAValue : teamBValue > teamAValue);
+  return (
+    <View style={[styles.totalsStrip, { backgroundColor: colors.surfaceVariant }]}>
+      <View style={styles.totalsHalf}>
+        <Icon source={icon} size={14} color={colors.primary} />
+        <Text
+          style={[styles.totalsLabel, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {teamALabel}
+        </Text>
+        <Text
+          style={[
+            styles.totalsValue,
+            { color: aLeads ? colors.success : colors.textPrimary },
+          ]}
+        >
+          {teamAValue}
+        </Text>
+      </View>
+      <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
+      <View style={styles.totalsHalf}>
+        <Text
+          style={[
+            styles.totalsValue,
+            { color: bLeads ? colors.success : colors.textPrimary },
+          ]}
+        >
+          {teamBValue}
+        </Text>
+        <Text
+          style={[styles.totalsLabel, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {teamBLabel}
+        </Text>
+        <Icon source={icon} size={14} color={colors.primary} />
+      </View>
     </View>
   );
 }
@@ -1624,6 +1925,39 @@ const styles = StyleSheet.create({
   playerHandicap: {
     ...typography.caption,
   },
+  playerHandicapInline: {
+    ...typography.caption,
+    marginLeft: spacing.xs,
+  },
+  playerContribution: {
+    ...typography.bodyBold,
+  },
+  totalsStrip: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    minHeight: 36,
+  },
+  totalsHalf: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  totalsDivider: {
+    width: StyleSheet.hairlineWidth,
+  },
+  totalsLabel: {
+    ...typography.captionBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flexShrink: 1,
+  },
+  totalsValue: {
+    ...typography.h3,
+  },
   versusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1727,13 +2061,18 @@ const styles = StyleSheet.create({
   pairsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.md,
   },
   pairsSide: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  pairsSideHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 1,
   },
   pairsSideDot: {
     width: 10,
@@ -1744,9 +2083,12 @@ const styles = StyleSheet.create({
     ...typography.captionBold,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   pairsPoints: {
     ...typography.h2,
+    textAlign: 'center',
   },
   pairsDash: {
     ...typography.h3,

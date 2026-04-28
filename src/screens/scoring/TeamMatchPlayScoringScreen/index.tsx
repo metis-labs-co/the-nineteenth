@@ -370,7 +370,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
     handleNextHole,
     handleHolePress,
     handleBackPress,
-    handleDeleteRound,
   } = useTeamMatchPlayNavigation({
     currentHole,
     setCurrentHole,
@@ -704,7 +703,6 @@ export default function TeamMatchPlayScoringScreen({ navigation, route }: Props)
         courseName={courseName}
         selectedTee={selectedTeeBox}
         onBack={handleBackPress}
-        onDeletePress={isSuperAdmin ? handleDeleteRound : undefined}
         isSuperAdmin={isSuperAdmin}
         roundId={roundId}
       />

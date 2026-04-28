@@ -235,6 +235,8 @@ export function useViewRoundScreen({ route, navigation }: Props) {
     isSplitRound,
     isTeamStrokeRound,
     isTeamRound,
+    teams: teamsForCount,
+    subMatches: subMatchesForCount,
     isUserPlaying: permissions.isUserPlaying,
     isOrganizer: permissions.isOrganizer,
     isTeamSkins,

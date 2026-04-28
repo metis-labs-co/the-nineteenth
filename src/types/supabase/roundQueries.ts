@@ -7,6 +7,7 @@
 
 import type { Hole, TeeBox, TeamFormat, Player as DBPlayer } from '@/types/database.types';
 import type { PlayerGender } from '@/types/database/player.types';
+import type { RoundFormat } from '@/types/database/enums';
 import type { BallCount } from '@/types/multiball.types';
 
 // =====================================================
@@ -57,6 +58,7 @@ export interface SupabaseRoundData {
   game_type: string | null;
   is_team_round: boolean | null;
   team_format: TeamFormat | null;
+  round_format: RoundFormat | null;
   scoring_pairs_required: boolean | null;
   ball_count: number | null;
   handicap_source: string | null;
@@ -111,6 +113,7 @@ export const ROUND_METADATA_SELECT = `
   game_type,
   is_team_round,
   team_format,
+  round_format,
   scoring_pairs_required,
   ball_count,
   handicap_source,

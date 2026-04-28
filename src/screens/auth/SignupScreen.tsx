@@ -159,10 +159,13 @@ export default function SignupScreen({ navigation }: Props) {
   };
 
   /**
-   * Navigate back to login screen
+   * Navigate to login screen.
+   * Uses `navigate` (not `goBack`) because Signup can be reached from the
+   * WelcomeCarousel via `navigation.replace('Signup')`, leaving nothing on
+   * the stack to go back to.
    */
   const handleBackToLogin = () => {
-    navigation.goBack();
+    navigation.navigate('Login');
   };
 
   // Show email confirmation success screen

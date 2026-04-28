@@ -17,6 +17,7 @@ import {
   PlayerScoreCard,
   TeamScoreCard,
   BestBallScoreView,
+  BestBallTeamHeader,
   TeamMatchPlayScoreView,
   MultiBallScoreInput,
   StrokePlayScoreCard,
@@ -99,6 +100,10 @@ export interface ScorecardScoreContentProps {
   // Stats visibility (Premium-only)
   showFIR?: boolean;
   showGIR?: boolean;
+  /** True when at least one tier-gated detailed stats field is visible.
+   *  Drives whether the best-ball compact view shows its per-player stats
+   *  button. */
+  anyStatsVisible?: boolean;
   // Playing handicap display info (daily HC for Social+, raw HC for Free)
   playerHandicapMap?: Map<string, PlayerHandicapDisplay>;
   // Tee dot indicators (shown when players play from different tees)
@@ -157,6 +162,7 @@ export function ScorecardScoreContent({
   // Stats visibility
   showFIR = false,
   showGIR = false,
+  anyStatsVisible = false,
   // Playing handicap display info (daily HC for Social+, raw HC for Free)
   playerHandicapMap,
   // Tee dot indicators
@@ -373,14 +379,89 @@ export function ScorecardScoreContent({
   }
 
   // Team round: Best Ball format
-  // Show ALL team members but only allow editing players in playersToScore
   if (isTeamRound && teamFormat === 'best-ball' && teams.length > 0) {
-    // Build set of editable player IDs (players the current user can score)
-    const editablePlayerIds =
-      scoringPairsEnabled && playersToScore.length > 0
-        ? new Set(playersToScore.map((p) => p.id))
-        : undefined; // undefined means all players are editable
+    // Branch A — scoring pairs ON: each scorer is only entering scores for
+    // their pair, so use the full per-player Stableford UI for richer score
+    // entry, with a team-points header card on top per team for context.
+    if (scoringPairsEnabled && playersToScore.length > 0) {
+      const editablePlayerIds = new Set(playersToScore.map((p) => p.id));
+      return (
+        <>
+          {teams.map((team) => {
+            const members = team.members ?? [];
+            // Skip teams where no member is in the user's pair so the user
+            // doesn't see an opposing team's full Stableford layout.
+            const hasEditableMember = members.some((m) =>
+              editablePlayerIds.has(m.player_id)
+            );
+            if (!hasEditableMember) return null;
+            return (
+              <React.Fragment key={team.id}>
+                <BestBallTeamHeader
+                  team={team}
+                  holes={holes}
+                  currentHole={currentHoleData}
+                  getPlayerScore={getPlayerScore}
+                />
+                {members.map((member) => {
+                  const player = member.player;
+                  if (!player) return null;
+                  const isEditable = editablePlayerIds.has(player.id);
+                  const handicapDisplay = getHandicapDisplay(player);
+                  const teeDotColor = showTeeDots && playerTeeMap
+                    ? getTeeColor(
+                        resolvePlayerTee(
+                          player.id,
+                          playerTeeMap,
+                          selectedTeeData ?? null
+                        )?.name ?? ''
+                      )
+                    : undefined;
+                  return (
+                    <PlayerScoreCard
+                      key={player.id}
+                      player={player}
+                      currentHole={currentHoleData}
+                      currentScore={getPlayerScore(player.id, currentHole)}
+                      onScoreSelect={(strokes) =>
+                        handleBestBallScoreSelect(player.id, strokes)
+                      }
+                      onStatsUpdate={(updates) => onStatsUpdate(player.id, updates)}
+                      onPlayerPress={onPlayerPress}
+                      runningTotalPoints={getRunningTotalPoints(
+                        player.id,
+                        getHandicap(player)
+                      )}
+                      showPointsPreview
+                      isOwnScore={
+                        currentUserId ? player.id === currentUserId : undefined
+                      }
+                      teeDotColor={teeDotColor}
+                      onDetailedStatsPress={
+                        onDetailedStatsPress
+                          ? () => onDetailedStatsPress(player.id)
+                          : undefined
+                      }
+                      playingHandicap={handicapDisplay?.playingHandicap}
+                      dailyHandicap={handicapDisplay?.dailyHandicap}
+                      baseHandicap={handicapDisplay?.baseHandicap}
+                      baseLabel={handicapDisplay?.baseLabel}
+                      collapseStatsByDefault={collapseStatsByDefault}
+                      teamName={playerTeamNames.get(player.id)}
+                      disabled={!isEditable}
+                    />
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </>
+      );
+    }
 
+    // Branch B — scoring pairs OFF: keep the compact per-team view with all
+    // players visible. Adds a stats action that opens the detailed stats
+    // sheet at screen level.
     return (
       <>
         {teams.map((team) => (
@@ -390,7 +471,9 @@ export function ScorecardScoreContent({
             currentHole={currentHoleData}
             playerScores={playerScoresMap}
             onScoreSelect={handleBestBallScoreSelect}
-            editablePlayerIds={editablePlayerIds}
+            onPlayerStatsPress={onDetailedStatsPress}
+            anyStatsVisible={anyStatsVisible}
+            onPlayerPress={onPlayerPress}
           />
         ))}
       </>
@@ -438,6 +521,7 @@ export function ScorecardScoreContent({
               editablePlayerIds={editablePlayerIds}
               aggregation="sum"
               formatLabel="Shamble Format"
+              onPlayerPress={onPlayerPress}
             />
           </React.Fragment>
         ))}

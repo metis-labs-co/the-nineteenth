@@ -18,7 +18,7 @@ import {
   borderRadius,
   shadows,
 } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { useThemeColors, useIsDark } from '@/context/ThemeContext';
 import { getStrokesOnHole, calculateNetScore, calculateStablefordPoints } from '@/utils/scoring';
 import type { Player, Hole, HoleScore, MultiBallHoleScore } from '@/types';
 import { isSingleBallScore } from '@/types/database';
@@ -45,6 +45,16 @@ interface BestBallScoreViewProps {
   aggregation?: 'best' | 'sum';
   /** Format label override (e.g., "Shamble Format") */
   formatLabel?: string;
+  /** Optional stats handler. When provided AND a player has a score on the
+   *  current hole, a stats icon button is shown next to the score controls
+   *  that opens the detailed stats sheet for the tapped player. */
+  onPlayerStatsPress?: (playerId: string) => void;
+  /** Whether any tier-gated detailed stats fields are visible. The stats
+   *  button is hidden when false even if onPlayerStatsPress is provided. */
+  anyStatsVisible?: boolean;
+  /** When provided, the player name becomes tappable and invokes this
+   *  handler — typically used to open the player's full scorecard. */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 const MIN_SCORE = 1;
@@ -59,6 +69,9 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
   editablePlayerIds,
   aggregation = 'best',
   formatLabel,
+  onPlayerStatsPress,
+  anyStatsVisible = false,
+  onPlayerPress,
 }: BestBallScoreViewProps) {
   const colors = useThemeColors();
 
@@ -177,6 +190,12 @@ export const BestBallScoreView = React.memo(function BestBallScoreView({
             onScoreSelect={onScoreSelect}
             disabled={isPlayerDisabled}
             isLast={index === playerScoreData.length - 1}
+            onStatsPress={
+              onPlayerStatsPress && anyStatsVisible
+                ? () => onPlayerStatsPress(data.player.id)
+                : undefined
+            }
+            onPlayerPress={onPlayerPress}
           />
         );
       })}
@@ -191,6 +210,12 @@ interface BestBallPlayerRowProps {
   onScoreSelect: (playerId: string, strokes: number) => void;
   disabled: boolean;
   isLast: boolean;
+  /** When provided, render a stats icon button that opens the detailed stats
+   *  sheet. Only shown for players that already have a score on this hole. */
+  onStatsPress?: () => void;
+  /** When provided, the player name becomes tappable and invokes this
+   *  handler with the player id. */
+  onPlayerPress?: (playerId: string) => void;
 }
 
 const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
@@ -199,14 +224,22 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
   onScoreSelect,
   disabled,
   isLast,
+  onStatsPress,
+  onPlayerPress,
 }: BestBallPlayerRowProps) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
+  // Off-white highlight in light mode. In dark mode use a faint warm-tinted
+  // overlay — same off-white hue, low opacity, so it just lifts the row off
+  // the surrounding surface without shouting.
+  const bestRowBackground = isDark ? 'rgba(250, 247, 238, 0.06)' : '#FAF7EE';
   const { player, score, stablefordPoints, isBest } = data;
 
   // Narrow to single-ball score for accessing strokes
   const singleBallScore = score && isSingleBallScore(score) ? score : undefined;
   const selectedScore = singleBallScore?.strokes;
   const isPickedUp = selectedScore === PICKUP_SCORE;
+  const isAtPar = selectedScore === currentHole.par;
   const strokesOnHole = getStrokesOnHole(player.handicap ?? 0, currentHole);
 
   const handleDecrement = useCallback(() => {
@@ -233,21 +266,39 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
     }
   }, [disabled, player.id, onScoreSelect]);
 
+  const handlePar = useCallback(() => {
+    if (!disabled) {
+      onScoreSelect(player.id, currentHole.par);
+    }
+  }, [disabled, player.id, currentHole.par, onScoreSelect]);
+
+  const handlePlayerPress = useCallback(() => {
+    if (onPlayerPress) {
+      onPlayerPress(player.id);
+    }
+  }, [onPlayerPress, player.id]);
+
   return (
     <View
       style={[
         styles.playerRow,
-        isBest && { backgroundColor: colors.successLight },
+        isBest && { backgroundColor: bestRowBackground },
         !isLast && styles.playerRowBorder,
         !isLast && { borderBottomColor: colors.border },
       ]}
     >
-      {/* Player Info */}
-      <View style={styles.playerInfo}>
-        <View style={styles.playerNameRow}>
-          {isBest && (
-            <Icon source="star" size={16} color={colors.success} />
-          )}
+      {/* Top row: name (left) + handicap and shots (right-aligned) */}
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.nameBlock}
+          onPress={handlePlayerPress}
+          disabled={!onPlayerPress}
+          activeOpacity={0.7}
+          accessibilityLabel={onPlayerPress ? `View ${player.name}'s scorecard` : undefined}
+          accessibilityRole={onPlayerPress ? 'button' : undefined}
+          accessibilityHint={onPlayerPress ? "Opens the player's detailed scorecard" : undefined}
+        >
+          {isBest && <Icon source="star" size={16} color={colors.success} />}
           <Text
             style={[
               styles.playerName,
@@ -258,9 +309,9 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
           >
             {player.name}
           </Text>
-        </View>
+        </TouchableOpacity>
         <Text style={[styles.playerHandicap, { color: colors.textSecondary }]}>
-          HC: {player.handicap} • +{strokesOnHole} shot{strokesOnHole !== 1 ? 's' : ''}
+          HC {player.handicap} • +{strokesOnHole} shot{strokesOnHole !== 1 ? 's' : ''}
         </Text>
       </View>
 
@@ -327,6 +378,31 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
           <Text style={[styles.compactButtonText, { color: colors.textPrimary }, isPickedUp && styles.disabledText]}>+</Text>
         </TouchableOpacity>
 
+        {/* Par Button — quick-set score to the hole's par. Shows the par
+         *  value (3 / 4 / 5) so it doubles as a hole-par indicator. */}
+        <TouchableOpacity
+          style={[
+            styles.compactButton,
+            { borderColor: colors.gray300, backgroundColor: colors.surface },
+            isAtPar && { backgroundColor: colors.primary, borderColor: colors.primary },
+            disabled && styles.buttonDisabled,
+          ]}
+          onPress={handlePar}
+          disabled={disabled}
+          activeOpacity={0.7}
+          accessibilityLabel={`Set score to par (${currentHole.par})`}
+        >
+          <Text
+            style={[
+              styles.compactButtonText,
+              { color: colors.textPrimary },
+              isAtPar && { color: colors.white },
+            ]}
+          >
+            {currentHole.par}
+          </Text>
+        </TouchableOpacity>
+
         {/* Points Display */}
         <View style={[styles.pointsDisplay, isBest && { backgroundColor: colors.success }]}>
           <Text
@@ -347,6 +423,21 @@ const BestBallPlayerRow = React.memo(function BestBallPlayerRow({
           </Text>
         </View>
       </View>
+
+      {/* Additional stats link — only when a score has been entered */}
+      {onStatsPress && selectedScore !== undefined && !isPickedUp && (
+        <TouchableOpacity
+          onPress={onStatsPress}
+          activeOpacity={0.7}
+          accessibilityLabel={`Add additional stats for ${player.name}`}
+          accessibilityRole="link"
+          style={styles.statsLinkRow}
+        >
+          <Text style={[styles.statsLinkText, { color: colors.primary }]}>
+            Add additional stats
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
@@ -398,23 +489,25 @@ const styles = StyleSheet.create({
     marginVertical: spacing.lg,
   },
   playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
+    gap: spacing.sm,
   },
   playerRowBorder: {
     borderBottomWidth: 1,
   },
-  playerInfo: {
-    flex: 1,
-    marginRight: spacing.md,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  playerNameRow: {
+  nameBlock: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    flexShrink: 1,
   },
   playerName: {
     ...typography.bodyBold,
@@ -422,12 +515,21 @@ const styles = StyleSheet.create({
   },
   playerHandicap: {
     ...typography.small,
-    marginTop: spacing.xs,
+    textAlign: 'right',
   },
   compactControls: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  statsLinkRow: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+  },
+  statsLinkText: {
+    ...typography.small,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   compactButton: {
     width: 44,
@@ -458,6 +560,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
     minWidth: 44,
+    marginLeft: 'auto',
   },
   pointsText: {
     fontSize: 18,

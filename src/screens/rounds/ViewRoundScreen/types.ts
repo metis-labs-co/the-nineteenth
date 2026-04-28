@@ -8,7 +8,6 @@ export type TabKey =
   | 'wolf'
   | 'payouts'
   | 'teamScores'
-  | 'teams'
   | 'scrambleTeamScore'
   | 'scrambleLeaderboard'
   | 'scrambleContributions'

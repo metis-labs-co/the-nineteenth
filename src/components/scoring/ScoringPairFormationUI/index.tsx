@@ -55,6 +55,7 @@ export const ScoringPairFormationUI = React.memo(function ScoringPairFormationUI
   teamIndexByPlayerId,
   teamColorByPlayerId,
   groupPlayerIds,
+  subMatches,
   onSave,
   onCancel,
   testID,
@@ -86,6 +87,7 @@ export const ScoringPairFormationUI = React.memo(function ScoringPairFormationUI
     teams,
     teamNameByPlayerId,
     groupPlayerIds,
+    subMatches,
     onSave,
   });
 
