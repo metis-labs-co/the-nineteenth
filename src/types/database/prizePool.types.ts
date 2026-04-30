@@ -16,6 +16,9 @@ export type PoolStatus = 'draft' | 'active' | 'settled';
 /** Type of pool transaction */
 export type PoolTransactionType = 'prize_payout' | 'adjustment';
 
+/** Pool target — who receives payouts */
+export type PoolTargetType = 'individual' | 'team';
+
 // =====================================================
 // COMPETITION PRIZE POOL
 // =====================================================
@@ -27,6 +30,9 @@ export type PoolTransactionType = 'prize_payout' | 'adjustment';
 export interface CompetitionPrizePool {
   id: string;
   competition_id: string;
+
+  /** Pool target — individual players or teams */
+  target_type: PoolTargetType;
 
   /** Funding configuration */
   funding_type: PoolFundingType;
@@ -62,7 +68,10 @@ export interface PrizePoolPlacement {
   position: number;
   percent: number;
   payout_amount: number;
+  /** Set on settlement for individual pools */
   player_id: string | null;
+  /** Set on settlement for team pools */
+  team_id: string | null;
   paid_at: string | null;
   created_at: string;
   updated_at: string;
@@ -90,6 +99,12 @@ export interface PoolTransaction {
   /** Running balance after this transaction */
   balance_after: number;
 
+  /** Recipient player (set on prize_payout rows) */
+  player_id: string | null;
+
+  /** Source team (set on team-pool prize_payout rows alongside player_id) */
+  team_id: string | null;
+
   /** Audit fields */
   created_by: string | null;
   created_at: string;
@@ -110,6 +125,7 @@ export interface PlacementInput {
  */
 export interface CreatePrizePoolInput {
   competition_id: string;
+  target_type: PoolTargetType;
   funding_type: PoolFundingType;
   funding_amount: number;
   currency?: string;

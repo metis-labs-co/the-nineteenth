@@ -30,6 +30,11 @@ export interface Round {
   competition_id: string | null; // UUID, references competitions(id) - NULL for standalone rounds
   user_id: string | null; // UUID, references auth.users(id) - Owner for standalone rounds
   round_number: number; // 1 for MVP
+  // Organizer-controlled sort key for the competition Rounds tab. Lower
+  // values render first. Independent of round_number (which stays stable
+  // for notifications/deep links). See migration
+  // 20260429100000_add_round_display_order.sql.
+  display_order: number;
   name: string | null; // Optional user-defined name; NULL falls back to derived titles
   course_id: string; // UUID, references courses(id)
   date: string | null; // ISO date (YYYY-MM-DD)

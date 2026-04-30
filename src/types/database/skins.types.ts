@@ -74,6 +74,12 @@ export interface SkinsGame {
   id: string;
   round_id: string;
   pairing_id: string | null;
+  /**
+   * When set, this skins game is scoped to a single sub-match within the
+   * round. NULL = round-wide game. Mutually exclusive with `pairing_id` in
+   * practice (a sub-match already sits inside a single pairing).
+   */
+  sub_match_id: string | null;
   /** Individual player participants (for individual skins) */
   participant_ids: string[];
   pot_type: SkinsPotType;
@@ -249,6 +255,12 @@ export interface SkinsPayoutWithTeam extends SkinsPayout {
 export interface CreateSkinsGameInput {
   round_id: string;
   pairing_id?: string;
+  /**
+   * Optional sub-match scope. When set, RLS allows any player listed on the
+   * sub-match (in addition to the competition organiser / round owner) to
+   * create the game. Mutually exclusive with `pairing_id`.
+   */
+  sub_match_id?: string | null;
   /** Individual player participants (required for individual skins) */
   participant_ids: string[];
   pot_type: SkinsPotType;

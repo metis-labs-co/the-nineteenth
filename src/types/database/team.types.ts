@@ -14,6 +14,9 @@ export interface Team {
   name: string; // Team name, unique within competition
   color: string | null; // Avatar palette id (e.g. 'avatar-green'); null on legacy rows
 
+  /** Set on team-pool settlement to map placements to teams. NULL pre-settlement. */
+  final_position?: number | null;
+
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }

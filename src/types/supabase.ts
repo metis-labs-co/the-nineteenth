@@ -339,6 +339,7 @@ export type Database = {
           is_locked: boolean
           locked_at: string | null
           status: string
+          target_type: string
           total_pool_amount: number
           updated_at: string
         }
@@ -353,6 +354,7 @@ export type Database = {
           is_locked?: boolean
           locked_at?: string | null
           status?: string
+          target_type?: string
           total_pool_amount: number
           updated_at?: string
         }
@@ -367,6 +369,7 @@ export type Database = {
           is_locked?: boolean
           locked_at?: string | null
           status?: string
+          target_type?: string
           total_pool_amount?: number
           updated_at?: string
         }
@@ -374,7 +377,7 @@ export type Database = {
           {
             foreignKeyName: "competition_prize_pools_competition_id_fkey"
             columns: ["competition_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "competitions"
             referencedColumns: ["id"]
           },
@@ -1985,7 +1988,9 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          player_id: string | null
           pool_id: string
+          team_id: string | null
           transaction_type: string
         }
         Insert: {
@@ -1995,7 +2000,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          player_id?: string | null
           pool_id: string
+          team_id?: string | null
           transaction_type: string
         }
         Update: {
@@ -2005,7 +2012,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          player_id?: string | null
           pool_id?: string
+          team_id?: string | null
           transaction_type?: string
         }
         Relationships: [
@@ -2042,6 +2051,7 @@ export type Database = {
           player_id: string | null
           pool_id: string
           position: number
+          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2053,6 +2063,7 @@ export type Database = {
           player_id?: string | null
           pool_id: string
           position: number
+          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2064,6 +2075,7 @@ export type Database = {
           player_id?: string | null
           pool_id?: string
           position?: number
+          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -3220,6 +3232,7 @@ export type Database = {
           competition_id: string
           created_at: string | null
           deleted_at: string | null
+          final_position: number | null
           id: string
           name: string
           updated_at: string | null
@@ -3228,6 +3241,7 @@ export type Database = {
           competition_id: string
           created_at?: string | null
           deleted_at?: string | null
+          final_position?: number | null
           id?: string
           name: string
           updated_at?: string | null
@@ -3236,6 +3250,7 @@ export type Database = {
           competition_id?: string
           created_at?: string | null
           deleted_at?: string | null
+          final_position?: number | null
           id?: string
           name?: string
           updated_at?: string | null
@@ -5267,6 +5282,7 @@ export type Database = {
         Returns: undefined
       }
       settle_prize_pool: { Args: { p_pool_id: string }; Returns: undefined }
+      settle_team_prize_pool: { Args: { p_pool_id: string }; Returns: undefined }
       should_send_push: {
         Args: { p_notification_type: string; p_user_id: string }
         Returns: boolean
