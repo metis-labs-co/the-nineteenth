@@ -14,6 +14,7 @@ import {
   roundKeys,
   scorecardKeys,
   competitionKeys,
+  competitionDetailsKeys,
   skinsKeys,
   leaderboardKeys,
 } from '@/hooks/queryKeys';
@@ -22,6 +23,7 @@ import { refinalizeRoundResults } from '@/services/rounds/refinalizeRoundResults
 import { getScorecardsByRound, markScorecardsAsSynced } from '@/services/offline/database';
 import { syncScorecard } from '@/services/offline/sync';
 import type { TeeBox } from '@/types';
+import type { CompetitionData, RoundWithCourse } from '@/components/competitions/detail';
 
 // =====================================================
 // TYPES
@@ -290,6 +292,101 @@ export function useRecalculateRoundResults() {
     },
     onError: (error) => {
       console.error('[useRecalculateRoundResults] Failed:', error);
+    },
+  });
+}
+
+// =====================================================
+// REORDER COMPETITION ROUNDS (DRAG-AND-DROP)
+// =====================================================
+
+export interface ReorderCompetitionRoundsInput {
+  /** Competition whose rounds are being reordered. */
+  competitionId: string;
+  /**
+   * The new order, expressed as the full ordered list of round IDs.
+   * Index 0 becomes display_order = 1, index 1 becomes 2, etc. The
+   * server (`reorder_competition_rounds` RPC) verifies every ID belongs
+   * to the competition and that the caller is the organizer.
+   */
+  roundIds: string[];
+}
+
+/**
+ * Mutation hook to manually reorder rounds within a competition.
+ *
+ * Uses an optimistic update against `competitionDetailsKeys.detail()` so
+ * the UI snaps to the new order immediately on drop. On error the cache
+ * is rolled back. On settle we invalidate so any drift between optimistic
+ * and authoritative state is corrected.
+ *
+ * Authorization is enforced server-side: the RPC checks
+ * `auth.uid() = competitions.organizer_id`. The UI should still gate the
+ * gesture on `isOrganizer` so non-organizers don't see drag affordances.
+ */
+export function useReorderCompetitionRounds() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: ReorderCompetitionRoundsInput): Promise<void> => {
+      // RPC types are not in the generated Database types, mirror the
+      // `as never` pattern used elsewhere in the codebase (e.g. prize-pool
+      // and skins RPC calls) to bypass strict typing.
+      const { error } = await supabase.rpc('reorder_competition_rounds' as never, {
+        p_competition_id: input.competitionId,
+        p_round_ids: input.roundIds,
+      } as never);
+      if (error) {
+        throw new Error(`Failed to reorder rounds: ${error.message}`);
+      }
+    },
+
+    onMutate: async (input) => {
+      const detailKey = competitionDetailsKeys.detail(input.competitionId);
+      await queryClient.cancelQueries({ queryKey: detailKey });
+
+      const previous = queryClient.getQueryData<CompetitionData>(detailKey);
+      if (previous) {
+        const byId = new Map(previous.rounds.map((r) => [r.id, r]));
+        const reordered: RoundWithCourse[] = [];
+        input.roundIds.forEach((id, idx) => {
+          const round = byId.get(id);
+          if (round) {
+            reordered.push({ ...round, display_order: idx + 1 });
+          }
+        });
+        // Append any rounds the caller forgot to include so we never drop
+        // data on a partial input.
+        for (const round of previous.rounds) {
+          if (!input.roundIds.includes(round.id)) {
+            reordered.push(round);
+          }
+        }
+        queryClient.setQueryData<CompetitionData>(detailKey, {
+          ...previous,
+          rounds: reordered,
+        });
+      }
+      return { previous };
+    },
+
+    onError: (error, input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          competitionDetailsKeys.detail(input.competitionId),
+          context.previous
+        );
+      }
+      console.error('[useReorderCompetitionRounds] Failed to reorder:', error);
+    },
+
+    onSettled: (_data, _error, input) => {
+      queryClient.invalidateQueries({
+        queryKey: competitionDetailsKeys.detail(input.competitionId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: roundKeys.list(input.competitionId),
+      });
     },
   });
 }

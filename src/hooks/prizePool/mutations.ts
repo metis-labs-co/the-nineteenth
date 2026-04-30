@@ -35,6 +35,7 @@ export function useCreatePrizePool() {
         .from('competition_prize_pools' as never)
         .insert({
           competition_id: poolInput.competition_id,
+          target_type: poolInput.target_type,
           funding_type: poolInput.funding_type,
           funding_amount: poolInput.funding_amount,
           currency: poolInput.currency ?? 'AUD',
@@ -75,7 +76,10 @@ export function useCreatePrizePool() {
 
     onSuccess: (data) => {
       queryClient.invalidateQueries({
-        queryKey: prizePoolKeys.pool(data.competition_id),
+        queryKey: prizePoolKeys.pool(data.competition_id, data.target_type),
+      });
+      queryClient.invalidateQueries({
+        queryKey: prizePoolKeys.pools(data.competition_id),
       });
       queryClient.invalidateQueries({
         queryKey: competitionKeys.detail(data.competition_id),
@@ -292,10 +296,10 @@ export function useSettlePrizePool() {
 }
 
 /**
- * Settle a competition's prize pool by writing final positions from the live
- * leaderboard to `competition_players.final_position`, then invoking the
- * existing `settle_prize_pool` RPC. The RPC itself reads `final_position` to
- * match placements to players — it has no awareness of the leaderboard.
+ * Settle a competition's prize pool by writing final positions and invoking
+ * the matching settle RPC. Dispatches by pool target_type:
+ *   - 'individual': writes competition_players.final_position, calls settle_prize_pool
+ *   - 'team':       writes teams.final_position, calls settle_team_prize_pool
  *
  * Ties at paying positions are broken arbitrarily by the RPC's `LIMIT 1`.
  * Callers should warn the user before invoking when ties exist.
@@ -307,49 +311,79 @@ export function useSettleCompetitionPayouts() {
     mutationFn: async ({
       poolId,
       competitionId,
+      target,
       standings,
     }: {
       poolId: string;
       competitionId: string;
+      target: 'individual' | 'team';
       /**
-       * Individual leaderboard standings. `participantId` is the player id;
-       * team standings should be filtered out before calling.
+       * Standings to commit. `participantId` is the player id (individual)
+       * or team id (team) depending on target.
        */
       standings: { participantId: string; position: number }[];
     }): Promise<void> => {
-      // 1. Write final_position to each competition_player. Update in place
-      //    (we match on competition_id + player_id) — no upsert needed since
-      //    every accepted player already has a row.
-      for (const standing of standings) {
-        const { error: updateError } = await supabase
-          .from('competition_players' as never)
-          // @ts-expect-error - Supabase types don't cover partial updates well
-          .update({ final_position: standing.position })
-          .eq('competition_id', competitionId)
-          .eq('player_id', standing.participantId);
+      if (target === 'individual') {
+        for (const standing of standings) {
+          const { error: updateError } = await supabase
+            .from('competition_players' as never)
+            // @ts-expect-error - Supabase types don't cover partial updates well
+            .update({ final_position: standing.position })
+            .eq('competition_id', competitionId)
+            .eq('player_id', standing.participantId);
 
-        if (updateError) {
+          if (updateError) {
+            throw createError(
+              `Failed to set final position for player: ${updateError.message}`,
+              'DATABASE'
+            );
+          }
+        }
+
+        const { error: rpcError } = await supabase.rpc('settle_prize_pool' as never, {
+          p_pool_id: poolId,
+        } as never);
+
+        if (rpcError) {
+          throw createError(`Failed to settle prize pool: ${rpcError.message}`, 'DATABASE');
+        }
+      } else {
+        for (const standing of standings) {
+          const { error: updateError } = await supabase
+            .from('teams' as never)
+            // @ts-expect-error - Supabase types don't cover partial updates well
+            .update({ final_position: standing.position })
+            .eq('competition_id', competitionId)
+            .eq('id', standing.participantId);
+
+          if (updateError) {
+            throw createError(
+              `Failed to set final position for team: ${updateError.message}`,
+              'DATABASE'
+            );
+          }
+        }
+
+        const { error: rpcError } = await supabase.rpc(
+          'settle_team_prize_pool' as never,
+          { p_pool_id: poolId } as never
+        );
+
+        if (rpcError) {
           throw createError(
-            `Failed to set final position for player: ${updateError.message}`,
+            `Failed to settle team prize pool: ${rpcError.message}`,
             'DATABASE'
           );
         }
-      }
-
-      // 2. Call the existing RPC to map placements → players and record
-      //    pool_transactions rows.
-      const { error: rpcError } = await supabase.rpc('settle_prize_pool' as never, {
-        p_pool_id: poolId,
-      } as never);
-
-      if (rpcError) {
-        throw createError(`Failed to settle prize pool: ${rpcError.message}`, 'DATABASE');
       }
     },
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: prizePoolKeys.pool(variables.competitionId),
+        queryKey: prizePoolKeys.pool(variables.competitionId, variables.target),
+      });
+      queryClient.invalidateQueries({
+        queryKey: prizePoolKeys.pools(variables.competitionId),
       });
       queryClient.invalidateQueries({
         queryKey: prizePoolKeys.placements(variables.poolId),

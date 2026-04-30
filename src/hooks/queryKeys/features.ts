@@ -14,6 +14,10 @@ export const skinsKeys = {
   games: () => [...skinsKeys.all, 'games'] as const,
   game: (id: string) => [...skinsKeys.games(), id] as const,
   gamesByRound: (roundId: string) => [...skinsKeys.games(), 'round', roundId] as const,
+  gamesBySubMatch: (subMatchId: string) =>
+    [...skinsKeys.games(), 'sub-match', subMatchId] as const,
+  activeGameBySubMatch: (subMatchId: string) =>
+    [...skinsKeys.games(), 'sub-match', subMatchId, 'active'] as const,
   gamesByPlayer: (playerId: string) => [...skinsKeys.games(), 'player', playerId] as const,
   results: (gameId: string) => [...skinsKeys.all, 'results', gameId] as const,
   payouts: (gameId: string) => [...skinsKeys.all, 'payouts', gameId] as const,
@@ -54,7 +58,10 @@ export const wolfKeys = {
 
 export const prizePoolKeys = {
   all: ['prizePool'] as const,
-  pool: (competitionId: string) => [...prizePoolKeys.all, competitionId] as const,
+  pool: (competitionId: string, target: 'individual' | 'team' = 'individual') =>
+    [...prizePoolKeys.all, competitionId, target] as const,
+  pools: (competitionId: string) =>
+    [...prizePoolKeys.all, competitionId, 'pools'] as const,
   placements: (poolId: string) => [...prizePoolKeys.all, 'placements', poolId] as const,
   transactions: (poolId: string) =>
     [...prizePoolKeys.all, 'transactions', poolId] as const,

@@ -11,9 +11,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { friendsKeys } from '../queryKeys';
+import { achievementKeys } from '../queryKeys';
 import { useAuth } from '../useAuth';
-import { useCheckAchievements } from '../achievements/useCheckAchievements';
-import { useAchievementToast } from '@/context/AchievementToastContext';
 import type {
   Friendship,
   FriendshipStatus,
@@ -80,14 +79,22 @@ export function useAddFriend() {
 
 /**
  * Hook: useAcceptFriendRequest
- * Accept a pending friend request and check for friend-related achievements
+ *
+ * Accept a pending friend request. Friend-count achievement progress and
+ * tier awards are kept in sync server-side by the `friendships_sync_achievements`
+ * trigger (see migration 20260429000000_fix_friend_achievement_progress.sql),
+ * so this client only needs to invalidate the relevant query caches.
+ *
+ * Note: the previous client-side `checkAndAward('friend_added', ...)` flow
+ * was removed because it double-counted progress (currentValue + friend_count).
+ * As a side effect, friend-tier achievement *toasts* no longer fire in the
+ * moment of acceptance — earned achievements still appear on the Achievements
+ * screen and via any future achievement notification trigger.
  */
 export function useAcceptFriendRequest() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const playerId = user?.id ?? '';
-  const { checkAndAward, isReady: isAchievementReady } = useCheckAchievements(playerId);
-  const { showMultipleToasts } = useAchievementToast();
 
   return useMutation({
     mutationFn: async (friendshipId: string) => {
@@ -105,31 +112,22 @@ export function useAcceptFriendRequest() {
 
       return data as Friendship;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: friendsKeys.all });
 
-      if (!playerId || !isAchievementReady) {
-        return;
-      }
-
-      try {
-        const { count } = await supabase
-          .from('friendships')
-          .select('*', { count: 'exact', head: true })
-          .or(`requester_id.eq.${playerId},addressee_id.eq.${playerId}`)
-          .eq('status', 'accepted');
-
-        const friendCount = count ?? 0;
-
-        const result = await checkAndAward('friend_added', {
-          friend_count: friendCount,
+      if (playerId) {
+        // The DB trigger updates achievement_progress and player_achievements
+        // for the friend-count families. Refetch them so any UI that reads
+        // these tables (Home, AchievementsScreen, etc.) reflects the new state.
+        queryClient.invalidateQueries({
+          queryKey: achievementKeys.progress(playerId),
         });
-
-        if (result.hasNewRewards) {
-          showMultipleToasts(result.newAchievements, result.newCosmetics);
-        }
-      } catch {
-        // Achievement check is non-blocking
+        queryClient.invalidateQueries({
+          queryKey: achievementKeys.playerAchievements(playerId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: achievementKeys.summary(playerId),
+        });
       }
     },
   });

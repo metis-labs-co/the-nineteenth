@@ -215,6 +215,11 @@ export function usePlayerStatistics(
       let totalGrossScoreSum = 0;
       let totalPointsSum = 0;
 
+      // Year-to-date accumulators (current calendar year)
+      const currentYear = new Date().getFullYear();
+      let ytdRoundsCount = 0;
+      let ytdGrossScoreSum = 0;
+
       // Putting, FIR, GIR tracking
       let totalPutts = 0;
       let holesWithPuttsRecorded = 0;
@@ -358,6 +363,17 @@ export function usePlayerStatistics(
         // Sum up totals
         totalGrossScoreSum += scorecard.total_gross || 0;
         totalPointsSum += scorecard.total_points || 0;
+
+        // Accumulate YTD aggregates from rounds dated this calendar year.
+        // `round.date` is the canonical source; falling back to submitted_at
+        // would let undated drafts leak into the YTD slice.
+        if (round.date) {
+          const roundYear = new Date(round.date).getFullYear();
+          if (roundYear === currentYear) {
+            ytdRoundsCount++;
+            ytdGrossScoreSum += scorecard.total_gross || 0;
+          }
+        }
 
         // Track course stats
         const existingCourseStats = courseStatsMap.get(course.id);
@@ -518,6 +534,11 @@ export function usePlayerStatistics(
       const averageGrossScore =
         roundsPlayed > 0 ? Math.round((totalGrossScoreSum / roundsPlayed) * 10) / 10 : 0;
 
+      const averageGrossScoreYtd =
+        ytdRoundsCount > 0
+          ? Math.round((ytdGrossScoreSum / ytdRoundsCount) * 10) / 10
+          : null;
+
       const averageStablefordPoints =
         roundsPlayed > 0 ? Math.round((totalPointsSum / roundsPlayed) * 10) / 10 : 0;
 
@@ -625,6 +646,8 @@ export function usePlayerStatistics(
         averageGrossScore,
         averageStablefordPoints,
         averageScorePerHole,
+        roundsPlayedYtd: ytdRoundsCount,
+        averageGrossScoreYtd,
         bestRound,
         worstRound,
         bestStablefordRound,
@@ -700,6 +723,8 @@ function createEmptyStatistics(): PlayerStatistics {
     averageGrossScore: 0,
     averageStablefordPoints: 0,
     averageScorePerHole: 0,
+    roundsPlayedYtd: 0,
+    averageGrossScoreYtd: null,
     bestRound: null,
     worstRound: null,
     bestStablefordRound: null,

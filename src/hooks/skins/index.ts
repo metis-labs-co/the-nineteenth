@@ -65,8 +65,11 @@ export { processTeamSkins } from './teamSkinsProcessor';
 // Re-export utility hooks
 export { useCanUseSkins } from './useCanUseSkins';
 export { useActiveSkinsGameForRound } from './useActiveSkinsGameForRound';
+export { useActiveSkinsGameForSubMatch } from './useActiveSkinsGameForSubMatch';
+export { useSkinsGamesBySubMatch } from './useSkinsGamesBySubMatch';
 export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
 export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
+export { useFinalizeSkinsForSubMatch } from './useFinalizeSkinsForSubMatch';
 
 // Re-export statistics hooks
 export {

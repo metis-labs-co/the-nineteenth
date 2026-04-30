@@ -29,9 +29,11 @@ export type {
 // Re-export query hooks
 export {
   useCompetitionPrizePool,
+  useCompetitionPrizePools,
   usePrizePoolPlacements,
   usePoolTransactions,
 } from './queries';
+export type { CompetitionPrizePools } from './queries';
 
 // Re-export mutation hooks
 export {

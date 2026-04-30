@@ -10,13 +10,23 @@ import { createError } from './helpers';
 import type { PoolTransactionsOptions } from './types';
 import type {
   CompetitionPrizePool,
+  PoolTargetType,
   PrizePoolPlacement,
   PoolTransaction,
 } from '@/types/database/prizePool.types';
 
-export function useCompetitionPrizePool(competitionId: string | undefined) {
+/** Both pools (individual + team) for a competition */
+export interface CompetitionPrizePools {
+  individual: CompetitionPrizePool | null;
+  team: CompetitionPrizePool | null;
+}
+
+export function useCompetitionPrizePool(
+  competitionId: string | undefined,
+  target: PoolTargetType = 'individual'
+) {
   return useQuery({
-    queryKey: prizePoolKeys.pool(competitionId ?? ''),
+    queryKey: prizePoolKeys.pool(competitionId ?? '', target),
     queryFn: async (): Promise<CompetitionPrizePool | null> => {
       if (!competitionId) return null;
 
@@ -24,14 +34,47 @@ export function useCompetitionPrizePool(competitionId: string | undefined) {
         .from('competition_prize_pools' as never)
         .select('*')
         .eq('competition_id', competitionId)
-        .single();
+        .eq('target_type', target)
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') return null;
         throw createError(`Failed to fetch prize pool: ${error.message}`, 'DATABASE');
       }
 
-      return pool as unknown as CompetitionPrizePool;
+      return (pool as unknown as CompetitionPrizePool) ?? null;
+    },
+    enabled: !!competitionId,
+    staleTime: CACHE_TIMES.FREQUENT,
+    gcTime: GC_TIMES.SHORT,
+    retry: 2,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Fetch both prize pools (individual + team) for a competition.
+ * Either or both may be null.
+ */
+export function useCompetitionPrizePools(competitionId: string | undefined) {
+  return useQuery({
+    queryKey: prizePoolKeys.pools(competitionId ?? ''),
+    queryFn: async (): Promise<CompetitionPrizePools> => {
+      if (!competitionId) return { individual: null, team: null };
+
+      const { data, error } = await supabase
+        .from('competition_prize_pools' as never)
+        .select('*')
+        .eq('competition_id', competitionId);
+
+      if (error) {
+        throw createError(`Failed to fetch prize pools: ${error.message}`, 'DATABASE');
+      }
+
+      const rows = (data ?? []) as unknown as CompetitionPrizePool[];
+      return {
+        individual: rows.find((p) => p.target_type === 'individual') ?? null,
+        team: rows.find((p) => p.target_type === 'team') ?? null,
+      };
     },
     enabled: !!competitionId,
     staleTime: CACHE_TIMES.FREQUENT,

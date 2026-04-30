@@ -90,6 +90,7 @@ export function useCreateSkinsGame() {
       const insertData = {
         round_id: gameInput.round_id,
         pairing_id: gameInput.pairing_id ?? null,
+        sub_match_id: gameInput.sub_match_id ?? null,
         participant_ids: gameInput.participant_ids,
         pot_type: gameInput.pot_type,
         pot_value: gameInput.pot_value,
@@ -120,6 +121,14 @@ export function useCreateSkinsGame() {
       queryClient.invalidateQueries({
         queryKey: skinsKeys.gamesByRound(data.round_id),
       });
+      if (data.sub_match_id) {
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.gamesBySubMatch(data.sub_match_id),
+        });
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.activeGameBySubMatch(data.sub_match_id),
+        });
+      }
     },
 
     onError: (error) => {
@@ -478,6 +487,14 @@ export function useFinalizeSkinsGame() {
       queryClient.invalidateQueries({ queryKey: skinsKeys.payouts(data.id) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.summary(data.id) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.gamesByRound(data.round_id) });
+      if (data.sub_match_id) {
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.gamesBySubMatch(data.sub_match_id),
+        });
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.activeGameBySubMatch(data.sub_match_id),
+        });
+      }
 
       // Fire skins achievement events
       if (!user?.id || !isAchievementReady) return;
@@ -559,6 +576,14 @@ export function useCancelSkinsGame() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: skinsKeys.game(data.id) });
       queryClient.invalidateQueries({ queryKey: skinsKeys.gamesByRound(data.round_id) });
+      if (data.sub_match_id) {
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.gamesBySubMatch(data.sub_match_id),
+        });
+        queryClient.invalidateQueries({
+          queryKey: skinsKeys.activeGameBySubMatch(data.sub_match_id),
+        });
+      }
     },
 
     onError: (error) => {

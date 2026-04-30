@@ -238,6 +238,7 @@ export async function fetchCompetitionDetails(competitionId: string): Promise<Co
       )
     `)
     .eq('competition_id', competitionId)
+    .order('display_order', { ascending: true })
     .order('round_number', { ascending: true });
 
   if (roundsError) {

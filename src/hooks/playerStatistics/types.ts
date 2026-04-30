@@ -182,6 +182,10 @@ export interface PlayerStatistics {
   averageStablefordPoints: number;
   averageScorePerHole: number;
 
+  // Year-to-date subset (current calendar year only)
+  roundsPlayedYtd: number;
+  averageGrossScoreYtd: number | null;
+
   // Best/Worst Performance
   bestRound: RoundSummary | null;
   worstRound: RoundSummary | null;

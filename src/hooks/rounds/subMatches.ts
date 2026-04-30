@@ -15,7 +15,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { subMatchKeys, roundKeys } from '@/hooks/queryKeys';
+import { subMatchKeys, roundKeys, skinsKeys } from '@/hooks/queryKeys';
 import {
   listSubMatchesForRound,
   replaceSubMatches,
@@ -26,6 +26,7 @@ import {
   type UpdateSubMatchResultInput,
   type UpdateSubMatchTeeTimeInput,
 } from '@/services/subMatches';
+import { finalizeSkinsForSubMatch } from '@/services/skins/finalizeForSubMatch';
 import type { SubMatch } from '@/types';
 
 export function useSubMatches(roundId: string | undefined) {
@@ -57,9 +58,27 @@ export function useUpdateSubMatchResult(roundId: string) {
 
   return useMutation({
     mutationFn: (input: UpdateSubMatchResultInput) => updateSubMatchResult(input),
-    onSuccess: () => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: subMatchKeys.list(roundId) });
       queryClient.invalidateQueries({ queryKey: roundKeys.detail(roundId) });
+
+      // When the sub-match is marked complete or forfeit, finalize any
+      // active sub-match skins game so payouts are computed alongside the
+      // match result. Best-effort — failures are logged, not surfaced.
+      if (variables.status === 'completed' || variables.status === 'forfeited') {
+        const result = await finalizeSkinsForSubMatch(variables.subMatchId);
+        if (result.error) {
+          console.warn('[useUpdateSubMatchResult] sub-match skins finalize failed:', result.error);
+        }
+        if (result.finalized) {
+          queryClient.invalidateQueries({
+            queryKey: skinsKeys.gamesBySubMatch(variables.subMatchId),
+          });
+          queryClient.invalidateQueries({
+            queryKey: skinsKeys.activeGameBySubMatch(variables.subMatchId),
+          });
+        }
+      }
     },
   });
 }

@@ -146,3 +146,7 @@ export {
   useUpdateSubMatchTeeTime,
   useDeleteAllSubMatches,
 } from './subMatches';
+export {
+  useSubMatchPermissions,
+  type SubMatchPermissions,
+} from './useSubMatchPermissions';
