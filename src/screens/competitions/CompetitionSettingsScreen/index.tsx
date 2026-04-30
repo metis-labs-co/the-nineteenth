@@ -32,6 +32,22 @@ import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useDeleteCompetition } from '@/screens/competitions/CompetitionDetailScreen/hooks/useDeleteCompetition';
 
 import { useCompetitionData } from './hooks';
+import { useCompetitionPrizePools } from '@/hooks/prizePool';
+import { useCheckFeature } from '@/context/SubscriptionContext';
+import { EditPrizePoolBottomSheet, type PoolTabKey } from '@/components/prizePool';
+import { useTeams } from '@/hooks/rounds/teams';
+
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CompetitionSettings'>;
 
@@ -45,10 +61,26 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
     dismissDialog: dismissAlertDialog,
   } = useConfirmationDialog();
 
-  const { competition, isLoading, error } = useCompetitionData({ competitionId });
+  const {
+    competition,
+    isLoading,
+    error,
+    playerCount,
+    roundCount,
+    hasStartedRound,
+  } = useCompetitionData({ competitionId });
 
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [isEditDescriptionOpen, setIsEditDescriptionOpen] = useState(false);
+
+  // Prize pool section state
+  const { data: pools } = useCompetitionPrizePools(competitionId);
+  const { data: teams } = useTeams(competitionId);
+  const teamCount = teams?.length ?? 0;
+  const checkFeature = useCheckFeature();
+  const isPremium = checkFeature('prize_pool').allowed;
+  const teamModeAllowed = competition?.team_mode === 'fixed';
+  const [poolSheetTab, setPoolSheetTab] = useState<PoolTabKey | null>(null);
 
   const isOrganizer = !!user && !!competition && competition.organizer_id === user.id;
 
@@ -189,6 +221,93 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
 
         <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
+        {/* Prize Pools — organizer only */}
+        {isOrganizer && (
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="Prize Pools" />
+
+              {!isPremium ? (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Subscription' as never)}
+                  style={[styles.poolRow, { backgroundColor: colors.surface }]}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Upgrade to Premium for prize pools"
+                >
+                  <View style={styles.poolRowText}>
+                    <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                      Prize Pools
+                    </Text>
+                    <Text style={[styles.poolSubtitle, { color: colors.textSecondary }]}>
+                      Upgrade to Premium to fund pools and reward top finishers
+                    </Text>
+                  </View>
+                  <Icon source="lock-outline" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setPoolSheetTab('individual')}
+                    style={[styles.poolRow, { backgroundColor: colors.surface }]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit individual prize pool"
+                  >
+                    <View style={styles.poolRowText}>
+                      <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                        Individual Prize Pool
+                      </Text>
+                      <Text
+                        style={[styles.poolSubtitle, { color: colors.textSecondary }]}
+                      >
+                        {pools?.individual
+                          ? `${formatMoney(
+                              pools.individual.total_pool_amount,
+                              pools.individual.currency
+                            )}${pools.individual.is_locked ? ' · locked' : ''}`
+                          : 'Not configured'}
+                      </Text>
+                    </View>
+                    <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  {teamModeAllowed && (
+                    <TouchableOpacity
+                      onPress={() => setPoolSheetTab('team')}
+                      style={[
+                        styles.poolRow,
+                        { backgroundColor: colors.surface, marginTop: spacing.sm },
+                      ]}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit team prize pool"
+                    >
+                      <View style={styles.poolRowText}>
+                        <Text style={[styles.poolLabel, { color: colors.textPrimary }]}>
+                          Team Prize Pool
+                        </Text>
+                        <Text
+                          style={[styles.poolSubtitle, { color: colors.textSecondary }]}
+                        >
+                          {pools?.team
+                            ? `${formatMoney(
+                                pools.team.total_pool_amount,
+                                pools.team.currency
+                              )}${pools.team.is_locked ? ' · locked' : ''}`
+                            : 'Not configured'}
+                        </Text>
+                      </View>
+                      <Icon source="chevron-right" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
+
         {/* Danger Zone */}
         <View style={styles.section}>
           <SectionHeader title="Danger Zone" />
@@ -238,6 +357,17 @@ export default function CompetitionSettingsScreen({ navigation, route }: Props) 
             onDismiss={() => setIsEditDescriptionOpen(false)}
             competitionId={competitionId}
             currentDescription={competition.description}
+          />
+          <EditPrizePoolBottomSheet
+            visible={poolSheetTab !== null}
+            onClose={() => setPoolSheetTab(null)}
+            competitionId={competitionId}
+            playerCount={playerCount}
+            teamCount={teamCount}
+            roundCount={roundCount}
+            hasStartedRound={hasStartedRound}
+            teamModeAllowed={teamModeAllowed}
+            initialTab={poolSheetTab ?? 'individual'}
           />
         </>
       )}
@@ -292,6 +422,24 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
+  },
+  poolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  poolRowText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  poolLabel: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  poolSubtitle: {
+    ...typography.caption,
   },
   inviteCode: {
     ...typography.bodyBold,

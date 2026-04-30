@@ -118,8 +118,6 @@ const competitionDetailsBaseSchema = z.object({
     .optional(),
   // Simplified team toggle - full team config done in EditCompetitionScreen
   enableTeams: z.boolean(),
-  // Prize pool toggle - full config in dedicated step (Premium feature)
-  enablePrizePool: z.boolean().optional(),
 });
 
 // Step 1: Competition Details - Full schema with cross-field validation

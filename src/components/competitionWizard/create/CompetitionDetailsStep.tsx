@@ -70,7 +70,6 @@ export default function CompetitionDetailsStep({
       handicapSource: 'profile', // Default to profile handicap (Social Index is premium)
       inviteCode: '',
       enableTeams: false,
-      enablePrizePool: false,
     },
   });
 
@@ -317,104 +316,6 @@ export default function CompetitionDetailsStep({
             </Text>
           </View>
 
-          {/* Prize Pool Toggle */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Prize Pool</Text>
-            {isPremium ? (
-              <Controller
-                control={control}
-                name="enablePrizePool"
-                render={({ field: { value, onChange } }) => (
-                  <TouchableOpacity
-                    onPress={() => onChange(!value)}
-                    style={[
-                      styles.teamToggle,
-                      {
-                        backgroundColor: value ? `${PRIZE_POOL_COLOR}15` : colors.surface,
-                        borderColor: value ? PRIZE_POOL_COLOR : colors.gray300,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.teamToggleContent}>
-                      <View
-                        style={[
-                          styles.prizePoolIconContainer,
-                          {
-                            backgroundColor: value ? `${PRIZE_POOL_COLOR}20` : colors.gray200,
-                          },
-                        ]}
-                      >
-                        <IconTrophy
-                          size={20}
-                          color={value ? PRIZE_POOL_COLOR : colors.gray500}
-                        />
-                      </View>
-                      <View style={styles.teamToggleText}>
-                        <Text style={[styles.teamToggleLabel, { color: colors.textPrimary }]}>
-                          {value ? 'Prize Pool Enabled' : 'Add Prize Pool'}
-                        </Text>
-                        <Text style={[styles.teamToggleDescription, { color: colors.textSecondary }]}>
-                          {value ? 'Configure in next step' : 'Fund skins games and competition prizes'}
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: value ? PRIZE_POOL_COLOR : colors.surface,
-                          borderColor: value ? PRIZE_POOL_COLOR : colors.gray300,
-                        },
-                      ]}
-                    >
-                      {value && <Icon source="check" size={14} color={colors.white} />}
-                    </View>
-                  </TouchableOpacity>
-                )}
-              />
-            ) : (
-              <TouchableOpacity
-                onPress={onUpgradePress}
-                style={[
-                  styles.teamToggle,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.gray300,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <View style={styles.teamToggleContent}>
-                  <View
-                    style={[
-                      styles.prizePoolIconContainer,
-                      { backgroundColor: colors.gray200 },
-                    ]}
-                  >
-                    <IconLock size={20} color={colors.gray500} />
-                  </View>
-                  <View style={styles.teamToggleText}>
-                    <View style={styles.prizePoolLabelRow}>
-                      <Text style={[styles.teamToggleLabel, { color: colors.textSecondary }]}>
-                        Add Prize Pool
-                      </Text>
-                      <Pill label="Premium" variant="warning" filled size="sm" />
-                    </View>
-                    <Text style={[styles.teamToggleDescription, { color: colors.textTertiary }]}>
-                      Upgrade to Premium for prize pools
-                    </Text>
-                  </View>
-                </View>
-                <Icon source="chevron-right" size={24} color={colors.gray400} />
-              </TouchableOpacity>
-            )}
-            {isPremium && (
-              <Text style={[styles.fieldHint, { color: colors.textSecondary }]}>
-                Prize pool configuration in a dedicated step after rounds
-              </Text>
-            )}
-          </View>
         </FormSection>
       </ScrollView>
 

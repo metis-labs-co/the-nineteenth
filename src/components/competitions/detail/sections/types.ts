@@ -39,18 +39,20 @@ export interface SettingsSectionProps {
 }
 
 export interface PrizePoolSectionProps {
-  /** The prize pool (null if none configured) */
-  pool: CompetitionPrizePool | null;
-  /** Placement breakdown with payout amounts */
-  placements: PrizePoolPlacement[];
+  /** Individual prize pool (null if none configured) */
+  individualPool: CompetitionPrizePool | null;
+  /** Individual pool placements */
+  individualPlacements: PrizePoolPlacement[];
+  /** Team prize pool (null if none configured) */
+  teamPool: CompetitionPrizePool | null;
+  /** Team pool placements */
+  teamPlacements: PrizePoolPlacement[];
   /** Whether the current user is the competition organizer */
   isOrganizer: boolean;
-  /** Whether the pool is locked (any round has started) */
+  /** Whether either pool is locked (any round has started) */
   isLocked: boolean;
-  /** Handler for add pool button (organizers only, when no pool) */
-  onAddPress?: () => void;
-  /** Handler for edit pool button (organizers only, when pool exists and not locked) */
-  onEditPress?: () => void;
+  /** Navigate to CompetitionSettings to manage pools (organizers only) */
+  onManagePress?: () => void;
   /** Handler for view transactions link */
   onViewTransactionsPress?: () => void;
 }

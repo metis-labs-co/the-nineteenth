@@ -18,9 +18,11 @@ const PRIZE_POOL_COLOR = '#059669';
 
 export interface PrizePoolSectionProps {
   prizePoolData: PrizePoolConfigFormData;
+  /** Section title — defaults to "Prize Pool" */
+  title?: string;
 }
 
-export function PrizePoolSection({ prizePoolData }: PrizePoolSectionProps) {
+export function PrizePoolSection({ prizePoolData, title = 'Prize Pool' }: PrizePoolSectionProps) {
   const colors = useThemeColors();
 
   const fundingLabel =
@@ -37,7 +39,7 @@ export function PrizePoolSection({ prizePoolData }: PrizePoolSectionProps) {
           <View style={[styles.prizePoolIcon, { backgroundColor: `${PRIZE_POOL_COLOR}20` }]}>
             <IconTrophy size={18} color={PRIZE_POOL_COLOR} />
           </View>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Prize Pool</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{title}</Text>
         </View>
         <Chip
           mode="flat"

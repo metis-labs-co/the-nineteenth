@@ -44,10 +44,12 @@ export interface DetailsTabProps {
   hasStartedRound?: boolean;
   prizePool?: CompetitionPrizePool | null;
   prizePoolPlacements?: PrizePoolPlacement[];
+  teamPrizePool?: CompetitionPrizePool | null;
+  teamPrizePoolPlacements?: PrizePoolPlacement[];
   isPrizePoolLocked?: boolean;
   onUpdateCompetition?: (updates: Partial<Competition>) => Promise<void>;
-  onAddPrizePool?: () => void;
-  onEditPrizePool?: () => void;
+  /** Open Competition Settings to manage prize pools (organizers only) */
+  onManagePrizePools?: () => void;
   onViewPrizePoolTransactions?: () => void;
   /** Called when the Team Size row is pressed — switches to the Teams tab. */
   onViewTeams?: () => void;
@@ -70,10 +72,11 @@ export const DetailsTab = React.memo(function DetailsTab({
   hasStartedRound = false,
   prizePool,
   prizePoolPlacements,
+  teamPrizePool,
+  teamPrizePoolPlacements,
   isPrizePoolLocked = false,
   onUpdateCompetition: _onUpdateCompetition,
-  onAddPrizePool,
-  onEditPrizePool,
+  onManagePrizePools,
   onViewPrizePoolTransactions,
   onViewTeams,
   onScoreRound,
@@ -131,12 +134,13 @@ export const DetailsTab = React.memo(function DetailsTab({
       />
 
       <PrizePoolSection
-        pool={prizePool ?? null}
-        placements={prizePoolPlacements ?? []}
+        individualPool={prizePool ?? null}
+        individualPlacements={prizePoolPlacements ?? []}
+        teamPool={teamPrizePool ?? null}
+        teamPlacements={teamPrizePoolPlacements ?? []}
         isOrganizer={isOrganizer}
         isLocked={isPrizePoolLocked}
-        onAddPress={onAddPrizePool}
-        onEditPress={onEditPrizePool}
+        onManagePress={onManagePrizePools}
         onViewTransactionsPress={onViewPrizePoolTransactions}
       />
     </View>

@@ -9,24 +9,28 @@ import type {
   PlayerFormData,
 } from '@/schemas/competition';
 
-// Wizard state - simplified 4-step flow (5-step with prize pool)
-export interface WizardState {
-  step1?: CompetitionDetailsFormData; // Competition details + team toggle + prize pool toggle
-  step2?: SimplifiedRoundFormData[]; // Simplified rounds (can be blank)
-  players?: PlayerFormData[]; // Players (optional, skippable)
-  prizePoolConfig?: PrizePoolConfigFormData; // Prize pool config (when enabled)
+/** Configured pools collected during the wizard */
+export interface WizardPrizePoolConfig {
+  individual: PrizePoolConfigFormData | null;
+  team: PrizePoolConfigFormData | null;
 }
 
-// Base steps - prize pool step dynamically inserted when enabled
+// Wizard state — 5-step flow (prize pool step is always shown)
+export interface WizardState {
+  step1?: CompetitionDetailsFormData; // Competition details + team toggle
+  step2?: SimplifiedRoundFormData[]; // Simplified rounds (can be blank)
+  players?: PlayerFormData[]; // Players (optional, skippable)
+  prizePoolConfig?: WizardPrizePoolConfig; // Both pool drafts (either side may be null)
+}
+
+// All wizard steps — prize pool step is always present
 export const BASE_STEPS = [
   { number: 1, title: 'Details', description: 'Name, dates, team toggle' },
   { number: 2, title: 'Rounds', description: 'Configure rounds' },
   { number: 3, title: 'Players', description: 'Add players (optional)' },
-  { number: 4, title: 'Review', description: 'Review and create' },
+  { number: 4, title: 'Prize Pool', description: 'Configure prize pool (optional)' },
+  { number: 5, title: 'Review', description: 'Review and create' },
 ];
-
-// Prize pool step (inserted between Players and Review when enabled)
-export const PRIZE_POOL_STEP = { number: 4, title: 'Prize Pool', description: 'Configure prize pool' };
 
 // Parse DD/MM/YYYY string to Date object
 import { parse, isValid } from 'date-fns';

@@ -18,7 +18,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import AddPlayersBottomSheet from '@/components/competitionWizard/AddPlayersBottomSheet';
-import { EditPrizePoolBottomSheet } from '@/components/prizePool';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useTierLimits, useIsSuperAdmin } from '@/context/SubscriptionContext';
@@ -36,14 +35,15 @@ import {
   LeaderboardTab,
   StatsTab,
   PayoutsTab,
+  SkinsTab,
 } from '@/components/competitions/detail';
+import { useCompetitionSkinsGames } from '@/hooks/skins';
 import { BracketTab } from '@/components/knockout';
 import { PointsBreakdownModal, LeaderboardViewToggle } from '@/components/leaderboard';
 
 import {
   useCompetitionDetailData,
   useCompetitionDetailHandlers,
-  usePrizePoolManagement,
   useDeleteCompetitionRound,
 } from './hooks';
 
@@ -57,7 +57,8 @@ type TabValue =
   | 'leaderboard'
   | 'bracket'
   | 'stats'
-  | 'payouts';
+  | 'payouts'
+  | 'skins';
 
 export default function CompetitionDetailScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
@@ -105,6 +106,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     refetchLeaderboard,
     refetchTeams,
   } = useCompetitionDetailData(id);
+
+  // Skins overview drives both the tab visibility and the tab content. We
+  // fetch it up here so the conditional Tabs entry is in sync with the
+  // payload `SkinsTab` consumes via the same hook below (TanStack dedupes
+  // by query key).
+  const { data: competitionSkinsGames } = useCompetitionSkinsGames(id);
+  const hasSkinsGames = (competitionSkinsGames?.length ?? 0) > 0;
 
   const handleOpenLeaderboardFromMini = useCallback(
     (view: 'individual' | 'team') => {
@@ -176,15 +184,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         .map((sc) => sc.player_id)
     );
   }, [quickScoreScorecards]);
-
-  // Prize pool management
-  const {
-    showPrizePoolSheet,
-    setShowPrizePoolSheet,
-    handleAddPrizePool,
-    handleEditPrizePool,
-    handlePrizePoolSuccess,
-  } = usePrizePoolManagement({ refetchPrizePool });
 
   // Round deletion (swipe-to-delete on Rounds tab)
   const {
@@ -343,6 +342,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
               ]
             : []),
           ...(prizePool || teamPrizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
+          ...(hasSkinsGames
+            ? [
+                {
+                  key: 'skins' as const,
+                  label: 'Skins',
+                  count: competitionSkinsGames?.length,
+                },
+              ]
+            : []),
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
@@ -393,10 +401,15 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             hasStartedRound={hasStartedRound}
             prizePool={prizePool}
             prizePoolPlacements={prizePoolPlacements}
+            teamPrizePool={teamPrizePool}
+            teamPrizePoolPlacements={teamPrizePoolPlacements}
             isPrizePoolLocked={isPrizePoolLocked}
-            onAddPrizePool={handleAddPrizePool}
-            onEditPrizePool={handleEditPrizePool}
-            onViewPrizePoolTransactions={prizePool ? () => setActiveTab('payouts') : undefined}
+            onManagePrizePools={() =>
+              navigation.navigate('CompetitionSettings', { competitionId: id })
+            }
+            onViewPrizePoolTransactions={
+              prizePool || teamPrizePool ? () => setActiveTab('payouts') : undefined
+            }
             onViewTeams={
               competition.team_mode !== 'none' ? () => setActiveTab('teams') : undefined
             }
@@ -497,6 +510,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             isOrganizer={isOrganizer}
           />
         )}
+
+        {activeTab === 'skins' && hasSkinsGames && (
+          <SkinsTab competitionId={id} />
+        )}
       </ScrollView>
 
       {/* Add Players Bottom Sheet */}
@@ -507,17 +524,6 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
         existingPlayerIds={players.map((p) => p.player_id)}
         maxPlayers={tierLimits?.maxPlayersPerCompetition ?? undefined}
         currentPlayerCount={players.length}
-      />
-
-      {/* Edit Prize Pool Bottom Sheet */}
-      <EditPrizePoolBottomSheet
-        visible={showPrizePoolSheet}
-        onClose={() => setShowPrizePoolSheet(false)}
-        competitionId={id}
-        playerCount={players.length}
-        roundCount={rounds.length}
-        hasStartedRound={hasStartedRound}
-        onSuccess={handlePrizePoolSuccess}
       />
 
       {/* Round Limit Upgrade Prompt */}

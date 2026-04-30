@@ -22,9 +22,11 @@ import type { UpgradePromptConfig } from '@/components/subscription/UpgradePromp
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
-  PrizePoolConfigFormData,
 } from '@/schemas/competition';
-import type { WizardPlayerData } from '@/store/competitionWizardStore';
+import type {
+  WizardPlayerData,
+  WizardPrizePoolConfig,
+} from '@/store/competitionWizardStore';
 
 interface UseCompetitionFormSubmitParams {
   showAlert: (title: string, message: string) => void;
@@ -56,16 +58,10 @@ export function useCompetitionFormSubmit({
     step1: CompetitionDetailsFormData | undefined,
     step2: SimplifiedRoundFormData[] | undefined,
     players: WizardPlayerData[] | undefined,
-    prizePoolConfig: PrizePoolConfigFormData | undefined
+    prizePoolConfig: WizardPrizePoolConfig | undefined
   ) => {
     if (!step1 || !step2) {
       showAlert('Error', 'Please complete all steps');
-      return;
-    }
-
-    // If prize pool enabled but not configured, show error
-    if (step1.enablePrizePool && !prizePoolConfig) {
-      showAlert('Error', 'Please configure the prize pool');
       return;
     }
 
@@ -110,23 +106,45 @@ export function useCompetitionFormSubmit({
       };
 
       const result = await createCompetition.mutateAsync(mutationInput);
+      const playerCount = players?.length ?? 0;
 
-      // If prize pool is enabled, create it after competition creation
-      if (step1.enablePrizePool && prizePoolConfig && user) {
+      // Create individual pool if configured
+      if (prizePoolConfig?.individual && user) {
         try {
           await createPrizePool.mutateAsync({
             competition_id: result.competition.id,
             target_type: 'individual',
-            funding_type: prizePoolConfig.fundingType,
-            funding_amount: prizePoolConfig.fundingAmount,
-            placements: prizePoolConfig.placements,
+            funding_type: prizePoolConfig.individual.fundingType,
+            funding_amount: prizePoolConfig.individual.fundingAmount,
+            placements: prizePoolConfig.individual.placements,
             created_by: user.id,
-            player_count: 0,
+            player_count: playerCount,
           });
         } catch {
           showAlert(
             'Warning',
-            'Competition created, but prize pool setup failed. You can configure it later from competition settings.'
+            'Competition created, but individual prize pool setup failed. You can configure it later from competition settings.'
+          );
+        }
+      }
+
+      // Create team pool if configured AND teams enabled
+      if (prizePoolConfig?.team && step1.enableTeams && user) {
+        const teamCount = Math.floor(playerCount / 2);
+        try {
+          await createPrizePool.mutateAsync({
+            competition_id: result.competition.id,
+            target_type: 'team',
+            funding_type: prizePoolConfig.team.fundingType,
+            funding_amount: prizePoolConfig.team.fundingAmount,
+            placements: prizePoolConfig.team.placements,
+            created_by: user.id,
+            player_count: teamCount,
+          });
+        } catch {
+          showAlert(
+            'Warning',
+            'Competition created, but team prize pool setup failed. You can configure it later from competition settings.'
           );
         }
       }

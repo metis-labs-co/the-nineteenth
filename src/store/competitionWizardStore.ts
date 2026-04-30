@@ -31,6 +31,12 @@ export interface WizardPlayerData {
   is_placeholder?: boolean;
 }
 
+/** Both pool drafts collected during the wizard (either side may be null) */
+export interface WizardPrizePoolConfig {
+  individual: PrizePoolConfigFormData | null;
+  team: PrizePoolConfigFormData | null;
+}
+
 /**
  * Wizard data structure matching CreateCompetitionScreen's WizardState
  */
@@ -38,7 +44,7 @@ export interface WizardData {
   step1?: CompetitionDetailsFormData;
   step2?: SimplifiedRoundFormData[];
   players?: WizardPlayerData[];
-  prizePoolConfig?: PrizePoolConfigFormData;
+  prizePoolConfig?: WizardPrizePoolConfig;
 }
 
 interface CompetitionWizardState {
@@ -52,10 +58,19 @@ interface CompetitionWizardState {
   setStep1: (data: CompetitionDetailsFormData) => void;
   setStep2: (data: SimplifiedRoundFormData[]) => void;
   setPlayers: (data: WizardPlayerData[]) => void;
-  setPrizePoolConfig: (data: PrizePoolConfigFormData) => void;
+  setPrizePoolConfig: (data: WizardPrizePoolConfig) => void;
   setCurrentStep: (step: number) => void;
   clearDraft: () => void;
   initializeFromRouteParams: (initialState?: WizardData) => void;
+}
+
+/**
+ * Type-guard for the new dual prizePoolConfig shape. Defends against stale
+ * drafts that still hold the old single-pool shape.
+ */
+function isDualPrizePoolConfig(value: unknown): value is WizardPrizePoolConfig {
+  if (!value || typeof value !== 'object') return false;
+  return 'individual' in value && 'team' in value;
 }
 
 const DEFAULT_STATE = {
@@ -111,22 +126,25 @@ export const useCompetitionWizardStore = create<CompetitionWizardState>((set, ge
     // Only initialize if store is empty and initialState is provided
     if (initialState && !get().hasDraft) {
       // Calculate initial step based on what's provided
-      // Steps: 1=Details, 2=Rounds, 3=Players, 4=PrizePool(optional)/Review, 5=Review(with prize pool)
+      // Steps: 1=Details, 2=Rounds, 3=Players, 4=PrizePool, 5=Review
       let startStep = 1;
       if (initialState.step1 && initialState.step2 && initialState.players) {
-        // All steps provided - go to review
-        const hasPrizePool = initialState.step1?.enablePrizePool;
-        startStep = hasPrizePool ? 5 : 4;
+        startStep = 4;
       } else if (initialState.step1 && initialState.step2) {
-        // Details and rounds provided - go to players
         startStep = 3;
       } else if (initialState.step1) {
         startStep = 2;
       }
 
+      // Discard a stale prizePoolConfig that doesn't match the current shape
+      const sanitized: WizardData = { ...initialState };
+      if (sanitized.prizePoolConfig && !isDualPrizePoolConfig(sanitized.prizePoolConfig)) {
+        delete sanitized.prizePoolConfig;
+      }
+
       set({
         currentStep: startStep,
-        wizardData: initialState,
+        wizardData: sanitized,
         hasDraft: true,
         lastModified: Date.now(),
       });
@@ -174,17 +192,10 @@ export function useWizardPlayersData(): WizardPlayerData[] | undefined {
 }
 
 /**
- * Get prize pool configuration data
+ * Get prize pool configuration data (both targets)
  */
-export function useWizardPrizePoolData(): PrizePoolConfigFormData | undefined {
+export function useWizardPrizePoolData(): WizardPrizePoolConfig | undefined {
   return useCompetitionWizardStore((state) => state.wizardData.prizePoolConfig);
-}
-
-/**
- * Check if prize pool is enabled in wizard
- */
-export function useWizardHasPrizePool(): boolean {
-  return useCompetitionWizardStore((state) => state.wizardData.step1?.enablePrizePool ?? false);
 }
 
 // ============================================

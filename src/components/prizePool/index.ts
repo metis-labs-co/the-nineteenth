@@ -27,3 +27,9 @@ export {
   EditPrizePoolBottomSheet,
   type EditPrizePoolBottomSheetProps,
 } from './EditPrizePoolBottomSheet';
+
+export {
+  PrizePoolDualConfig,
+  type PrizePoolDualConfigProps,
+  type PoolTabKey,
+} from './PrizePoolDualConfig';

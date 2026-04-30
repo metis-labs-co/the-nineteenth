@@ -4,20 +4,18 @@
  * Manages the wizard step flow and data:
  * - Current step tracking
  * - Step completion handlers
- * - Dynamic step list (with/without prize pool)
  * - Back/reset navigation
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useCompetitionWizardStore, clearWizardDraft } from '@/store/competitionWizardStore';
-import type { WizardData } from '@/store/competitionWizardStore';
+import type { WizardData, WizardPrizePoolConfig } from '@/store/competitionWizardStore';
 import { useConfirmationDialog } from '@/hooks';
-import { BASE_STEPS, PRIZE_POOL_STEP } from '../types';
+import { BASE_STEPS } from '../types';
 
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
-  PrizePoolConfigFormData,
   PlayerFormData,
 } from '@/schemas/competition';
 
@@ -52,22 +50,8 @@ export function useCompetitionWizardState({
     }
   }, [initialState, hasDraft, initializeFromRouteParams]);
 
-  // Check if prize pool is enabled to determine step count
-  const hasPrizePool = wizardData.step1?.enablePrizePool ?? false;
-
-  // Build dynamic steps array based on prize pool toggle
-  const STEPS = useMemo(() => {
-    if (hasPrizePool) {
-      return [
-        BASE_STEPS[0], // Details
-        BASE_STEPS[1], // Rounds
-        BASE_STEPS[2], // Players
-        PRIZE_POOL_STEP, // Prize Pool (inserted)
-        { ...BASE_STEPS[3], number: 5 }, // Review (renumbered)
-      ];
-    }
-    return BASE_STEPS;
-  }, [hasPrizePool]);
+  // Steps are static now — the prize pool step is always shown
+  const STEPS = BASE_STEPS;
 
   // Handle step completion
   const handleStep1Complete = (data: CompetitionDetailsFormData) => {
@@ -90,17 +74,15 @@ export function useCompetitionWizardState({
       is_placeholder: false,
     }));
     setPlayers(wizardPlayers);
-    const prizePoolEnabled = wizardData.step1?.enablePrizePool ?? false;
-    setCurrentStep(prizePoolEnabled ? 4 : 4);
+    setCurrentStep(4);
   };
 
   const handlePlayersSkip = () => {
     setPlayers([]);
-    const prizePoolEnabled = wizardData.step1?.enablePrizePool ?? false;
-    setCurrentStep(prizePoolEnabled ? 4 : 4);
+    setCurrentStep(4);
   };
 
-  const handlePrizePoolComplete = (data: PrizePoolConfigFormData) => {
+  const handlePrizePoolComplete = (data: WizardPrizePoolConfig) => {
     setPrizePoolConfig(data);
     setCurrentStep(5);
   };
@@ -109,10 +91,6 @@ export function useCompetitionWizardState({
   const handleBack = () => {
     if (currentStep === 1) {
       onGoBack();
-    } else if (hasPrizePool && currentStep === 5) {
-      setCurrentStep(4);
-    } else if (!hasPrizePool && currentStep === 4) {
-      setCurrentStep(3);
     } else {
       setCurrentStep(currentStep - 1);
     }
@@ -137,7 +115,6 @@ export function useCompetitionWizardState({
   return {
     currentStep,
     wizardData,
-    hasPrizePool,
     STEPS,
     handleStep1Complete,
     handleStep2Complete,

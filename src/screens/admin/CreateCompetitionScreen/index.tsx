@@ -58,7 +58,6 @@ export default function CreateCompetitionScreen() {
   const {
     currentStep,
     wizardData,
-    hasPrizePool,
     STEPS,
     handleStep1Complete,
     handleStep2Complete,
@@ -158,31 +157,19 @@ export default function CreateCompetitionScreen() {
     }
 
     if (currentStep === 4) {
-      if (hasPrizePool) {
-        return (
-          <PrizePoolSetupStep
-            initialData={wizardData.prizePoolConfig}
-            playerCount={wizardData.players?.length ?? 0}
-            roundCount={wizardData.step2?.length ?? 1}
-            onComplete={handlePrizePoolComplete}
-            onBack={handleBack}
-          />
-        );
-      } else {
-        return (
-          <SimplifiedReviewStep
-            competitionData={wizardData.step1!}
-            roundsData={wizardData.step2!}
-            playersData={wizardData.players}
-            onSubmit={handleSubmit}
-            onBack={handleBack}
-            isSubmitting={isSubmitting}
-          />
-        );
-      }
+      return (
+        <PrizePoolSetupStep
+          initialData={wizardData.prizePoolConfig}
+          playerCount={wizardData.players?.length ?? 0}
+          roundCount={wizardData.step2?.length ?? 1}
+          enableTeams={wizardData.step1?.enableTeams ?? false}
+          onComplete={handlePrizePoolComplete}
+          onBack={handleBack}
+        />
+      );
     }
 
-    if (currentStep === 5 && hasPrizePool) {
+    if (currentStep === 5) {
       return (
         <SimplifiedReviewStep
           competitionData={wizardData.step1!}

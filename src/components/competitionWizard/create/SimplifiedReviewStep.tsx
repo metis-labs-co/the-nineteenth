@@ -15,9 +15,11 @@ import { Text } from 'react-native-paper';
 import type {
   CompetitionDetailsFormData,
   SimplifiedRoundFormData,
-  PrizePoolConfigFormData,
 } from '@/schemas/competition';
-import type { WizardPlayerData } from '@/store/competitionWizardStore';
+import type {
+  WizardPlayerData,
+  WizardPrizePoolConfig,
+} from '@/store/competitionWizardStore';
 import { spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import { CompetitionDetailsSection } from './CompetitionDetailsSection';
@@ -31,7 +33,7 @@ export interface SimplifiedReviewStepProps {
   competitionData: CompetitionDetailsFormData;
   roundsData: SimplifiedRoundFormData[];
   playersData?: WizardPlayerData[];
-  prizePoolData?: PrizePoolConfigFormData;
+  prizePoolData?: WizardPrizePoolConfig;
   onSubmit: () => void;
   onBack: () => void;
   isSubmitting: boolean;
@@ -49,7 +51,9 @@ export default function SimplifiedReviewStep({
   const colors = useThemeColors();
 
   const hasPlayers = playersData && playersData.length > 0;
-  const hasPrizePool = !!prizePoolData;
+  const hasIndividualPool = !!prizePoolData?.individual;
+  const hasTeamPool = !!prizePoolData?.team;
+  const hasPrizePool = hasIndividualPool || hasTeamPool;
 
   // Format date for display (DD/MM/YYYY - Australian)
   const formatDate = (dateString?: string) => {
@@ -96,8 +100,17 @@ export default function SimplifiedReviewStep({
 
         <ReviewPlayersSection playersData={playersData} />
 
-        {hasPrizePool && prizePoolData && (
-          <PrizePoolSection prizePoolData={prizePoolData} />
+        {hasIndividualPool && prizePoolData?.individual && (
+          <PrizePoolSection
+            prizePoolData={prizePoolData.individual}
+            title="Individual Prize Pool"
+          />
+        )}
+        {hasTeamPool && prizePoolData?.team && (
+          <PrizePoolSection
+            prizePoolData={prizePoolData.team}
+            title="Team Prize Pool"
+          />
         )}
 
         <ReviewInfoBox

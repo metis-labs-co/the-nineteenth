@@ -14,7 +14,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconTrophy, IconPlus } from '@tabler/icons-react-native';
+import { IconTrophy, IconSettings } from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, featureColors } from '@/constants/theme';
 import { PrizePoolSummaryCard } from '@/components/prizePool';
@@ -31,55 +31,20 @@ const PRIZE_POOL_COLOR = featureColors.prizePool;
 // =====================================================
 
 export function PrizePoolSection({
-  pool,
-  placements,
+  individualPool,
+  individualPlacements,
+  teamPool,
+  teamPlacements,
   isOrganizer,
   isLocked,
-  onAddPress,
-  onEditPress,
+  onManagePress,
   onViewTransactionsPress,
 }: PrizePoolSectionProps) {
   const colors = useThemeColors();
+  const hasAnyPool = !!individualPool || !!teamPool;
 
-  // No pool configured - show empty state
-  if (!pool) {
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionHeaderLeft}>
-            <IconTrophy size={20} color={colors.textPrimary} />
-            <Text style={[styles.sectionTitle, styles.noMargin, { color: colors.textPrimary }]}>
-              Prize Pool
-            </Text>
-          </View>
-        </View>
-
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: `${PRIZE_POOL_COLOR}15` }]}>
-            <IconTrophy size={32} color={PRIZE_POOL_COLOR} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            No Prize Pool Configured
-          </Text>
-          <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
-            Add a prize pool to fund winner prizes and other competition rewards.
-          </Text>
-          {isOrganizer && onAddPress && (
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={onAddPress}
-              accessibilityRole="button"
-              accessibilityLabel="Add prize pool"
-              activeOpacity={0.7}
-            >
-              <IconPlus size={18} color={colors.white} />
-              <Text style={[styles.addButtonText, { color: colors.white }]}>Add Prize Pool</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  }
+  // Non-organizers see nothing when there are no pools
+  if (!hasAnyPool && !isOrganizer) return null;
 
   return (
     <View style={styles.section}>
@@ -87,18 +52,72 @@ export function PrizePoolSection({
         <View style={styles.sectionHeaderLeft}>
           <IconTrophy size={20} color={colors.textPrimary} />
           <Text style={[styles.sectionTitle, styles.noMargin, { color: colors.textPrimary }]}>
-            Prize Pool
+            Prize Pools
           </Text>
         </View>
+        {hasAnyPool && isOrganizer && onManagePress && (
+          <TouchableOpacity
+            onPress={onManagePress}
+            accessibilityRole="button"
+            accessibilityLabel="Manage prize pools"
+            style={[styles.manageButton, { backgroundColor: colors.surfaceVariant }]}
+            activeOpacity={0.7}
+          >
+            <IconSettings size={16} color={colors.textSecondary} />
+            <Text style={[styles.manageButtonText, { color: colors.textSecondary }]}>
+              Manage
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <PrizePoolSummaryCard
-        pool={pool}
-        placements={placements}
-        isLocked={isLocked}
-        onEditPress={isOrganizer && !isLocked ? onEditPress : undefined}
-        onViewTransactionsPress={onViewTransactionsPress}
-      />
+      {!hasAnyPool && isOrganizer && (
+        <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
+          <View style={[styles.emptyIconContainer, { backgroundColor: `${PRIZE_POOL_COLOR}15` }]}>
+            <IconTrophy size={32} color={PRIZE_POOL_COLOR} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+            No Prize Pools Configured
+          </Text>
+          <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
+            Add a prize pool from competition settings to fund winner prizes.
+          </Text>
+          {onManagePress && (
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={onManagePress}
+              accessibilityRole="button"
+              accessibilityLabel="Manage prize pools"
+              activeOpacity={0.7}
+            >
+              <IconSettings size={18} color={colors.white} />
+              <Text style={[styles.addButtonText, { color: colors.white }]}>
+                Manage Prize Pools
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {individualPool && (
+        <View style={hasAnyPool ? styles.poolCard : undefined}>
+          <PrizePoolSummaryCard
+            pool={individualPool}
+            placements={individualPlacements}
+            isLocked={isLocked}
+            onViewTransactionsPress={onViewTransactionsPress}
+          />
+        </View>
+      )}
+      {teamPool && (
+        <View style={styles.poolCard}>
+          <PrizePoolSummaryCard
+            pool={teamPool}
+            placements={teamPlacements}
+            isLocked={isLocked}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -131,6 +150,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  manageButtonText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  poolCard: {
+    marginTop: spacing.md,
   },
 
   // Empty State

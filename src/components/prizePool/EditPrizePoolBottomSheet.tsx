@@ -1,33 +1,35 @@
 /**
- * EditPrizePoolBottomSheet - Dedicated bottom sheet for prize pool configuration
+ * EditPrizePoolBottomSheet - Unified prize pool editor for both targets
  *
- * Allows organizers to create, edit, or delete a competition's prize pool
- * separately from the main competition edit flow.
+ * Hosts a `PrizePoolDualConfig` (Individual / Team tabs) and runs
+ * independent create/update/delete mutations per side on save. Used by
+ * the competition settings screen as the single editor surface.
  *
  * Features:
- * - Create new prize pool (funding type, amount, allocations)
- * - Edit existing prize pool configuration
- * - Delete prize pool (when not locked)
- * - Premium feature gating
- * - Lock status handling (pool locked when round starts)
+ * - Per-side drafts with dirty tracking (Save enabled if either changed)
+ * - Per-side lock state (a locked side renders read-only and is skipped on save)
+ * - Premium feature gating (delegated to `PrizePoolSection`)
+ * - `initialTab` lets callers deep-link to either tab
+ * - `teamModeAllowed` disables the team tab when the competition isn't fixed-teams
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useConfirmationDialog } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { BottomSheet, ConfirmationDialog, FormSection, LoadingSpinner } from '@/components/common';
-import { PrizePoolSection, type PrizePoolConfig } from './PrizePoolSection';
+import { PrizePoolDualConfig, type PoolTabKey } from './PrizePoolDualConfig';
+import type { PrizePoolConfig } from './PrizePoolSection';
 import {
-  useCompetitionPrizePool,
+  useCompetitionPrizePools,
   useCreatePrizePool,
   useUpdatePrizePool,
   useDeletePrizePool,
-} from '@/hooks/usePrizePool';
+} from '@/hooks/prizePool';
 import { useAuth } from '@/hooks/useAuth';
 import type { CompetitionPrizePool, PoolTargetType } from '@/types';
 import {
@@ -41,36 +43,31 @@ import {
 // ============================================================================
 
 export interface EditPrizePoolBottomSheetProps {
-  /** Whether the bottom sheet is visible */
   visible: boolean;
-  /** Callback when the sheet is closed */
   onClose: () => void;
-  /** Competition ID */
   competitionId: string;
-  /** Number of players in the competition (for per-player calculations) */
+  /** Number of competition players (per-player funding math + individual placement cap) */
   playerCount: number;
-  /** Number of teams (required when targetType='team') */
-  teamCount?: number;
-  /** Pool target — defaults to 'individual' */
-  targetType?: PoolTargetType;
-  /** Number of rounds (for auto-split calculations) */
+  /** Number of teams (team placement cap) */
+  teamCount: number;
+  /** Number of rounds — passed through */
   roundCount: number;
-  /** Whether any round has started (for lock status) */
+  /** Lock signal: any round started */
   hasStartedRound: boolean;
-  /** Callback when prize pool is successfully saved */
+  /** False when team_mode !== 'fixed' — disables the Team tab */
+  teamModeAllowed: boolean;
+  /** Tab to land on first */
+  initialTab?: PoolTabKey;
+  /** Refetch trigger after a successful save */
   onSuccess?: () => void;
 }
 
 // ============================================================================
-// Helper Functions
+// Helpers
 // ============================================================================
 
-/**
- * Converts a prize pool database record to form config
- */
-function poolToConfig(pool: CompetitionPrizePool | null | undefined): PrizePoolFormConfig {
+function poolToConfig(pool: CompetitionPrizePool | null): PrizePoolFormConfig {
   if (!pool) return DEFAULT_PRIZE_POOL_CONFIG;
-
   return {
     enabled: true,
     fundingType: pool.funding_type,
@@ -79,13 +76,7 @@ function poolToConfig(pool: CompetitionPrizePool | null | undefined): PrizePoolF
   };
 }
 
-/**
- * Checks if two prize pool configs are equal
- */
-function configsAreEqual(
-  a: PrizePoolFormConfig,
-  b: PrizePoolFormConfig
-): boolean {
+function configsAreEqual(a: PrizePoolFormConfig, b: PrizePoolFormConfig): boolean {
   if (
     a.enabled !== b.enabled ||
     a.fundingType !== b.fundingType ||
@@ -96,9 +87,67 @@ function configsAreEqual(
   }
   return a.placements.every(
     (p, i) =>
-      p.position === b.placements[i].position &&
-      p.percent === b.placements[i].percent
+      p.position === b.placements[i].position && p.percent === b.placements[i].percent
   );
+}
+
+function buildEditState(
+  pool: CompetitionPrizePool | null,
+  hasStartedRound: boolean
+): PrizePoolEditState {
+  const hasExistingPool = !!pool;
+  const isLocked = hasExistingPool && (pool?.is_locked || hasStartedRound);
+  const lockedReason = isLocked
+    ? pool?.is_locked
+      ? 'Prize pool is locked because a round has started'
+      : 'Cannot modify prize pool after a round has started'
+    : null;
+  return {
+    hasExistingPool,
+    isLocked,
+    lockedReason,
+    poolId: pool?.id ?? null,
+  };
+}
+
+function buildDisplayPool(
+  config: PrizePoolFormConfig,
+  pool: CompetitionPrizePool | null,
+  competitionId: string,
+  participantCount: number,
+  targetType: PoolTargetType,
+  userId: string | undefined
+): CompetitionPrizePool | null {
+  if (!config.enabled && !pool) return null;
+  const totalPoolAmount =
+    config.fundingType === 'per_player'
+      ? config.fundingAmount * participantCount
+      : config.fundingAmount;
+
+  if (pool) {
+    return {
+      ...pool,
+      funding_type: config.fundingType,
+      funding_amount: config.fundingAmount,
+      total_pool_amount: totalPoolAmount,
+    };
+  }
+
+  return {
+    id: '',
+    competition_id: competitionId,
+    target_type: targetType,
+    funding_type: config.fundingType,
+    funding_amount: config.fundingAmount,
+    currency: 'AUD',
+    total_pool_amount: totalPoolAmount,
+    is_locked: false,
+    locked_at: null,
+    status: 'draft',
+    created_by: userId ?? '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 }
 
 // ============================================================================
@@ -110,100 +159,119 @@ export function EditPrizePoolBottomSheet({
   onClose,
   competitionId,
   playerCount,
-  teamCount = 0,
-  targetType = 'individual',
+  teamCount,
   roundCount,
   hasStartedRound,
+  teamModeAllowed,
+  initialTab = 'individual',
   onSuccess,
 }: EditPrizePoolBottomSheetProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
-  // Dialog state
   const { dialogConfig, showDialog, showAlert, dismissDialog } = useConfirmationDialog();
 
-  // Fetch existing prize pool
+  // Fetch both pools in one query
   const {
-    data: prizePool,
-    isLoading: isLoadingPool,
-    refetch: refetchPool,
-  } = useCompetitionPrizePool(visible ? competitionId : undefined, targetType);
+    data: pools,
+    isLoading: isLoadingPools,
+    refetch: refetchPools,
+  } = useCompetitionPrizePools(visible ? competitionId : undefined);
 
-  // Mutations
+  const individualPool = pools?.individual ?? null;
+  const teamPool = pools?.team ?? null;
+
   const createPoolMutation = useCreatePrizePool();
   const updatePoolMutation = useUpdatePrizePool();
   const deletePoolMutation = useDeletePrizePool();
 
-  // Form state
-  const [config, setConfig] = useState<PrizePoolFormConfig>(DEFAULT_PRIZE_POOL_CONFIG);
-  const [initialConfig, setInitialConfig] = useState<PrizePoolFormConfig>(DEFAULT_PRIZE_POOL_CONFIG);
+  // Per-side drafts and snapshots
+  const [individualDraft, setIndividualDraft] = useState<PrizePoolFormConfig>(
+    DEFAULT_PRIZE_POOL_CONFIG
+  );
+  const [teamDraft, setTeamDraft] = useState<PrizePoolFormConfig>(
+    DEFAULT_PRIZE_POOL_CONFIG
+  );
+  const [initialIndividual, setInitialIndividual] = useState<PrizePoolFormConfig>(
+    DEFAULT_PRIZE_POOL_CONFIG
+  );
+  const [initialTeam, setInitialTeam] = useState<PrizePoolFormConfig>(
+    DEFAULT_PRIZE_POOL_CONFIG
+  );
 
-  // Edit state
-  const editState = useMemo<PrizePoolEditState>(() => {
-    const hasExistingPool = !!prizePool;
-    const isLocked = hasExistingPool && (prizePool?.is_locked || hasStartedRound);
-    const lockedReason = isLocked
-      ? prizePool?.is_locked
-        ? 'Prize pool is locked because a round has started'
-        : 'Cannot modify prize pool after a round has started'
-      : null;
+  // Sync drafts when the sheet opens / pool data lands
+  useEffect(() => {
+    if (visible) {
+      const i = poolToConfig(individualPool);
+      const t = poolToConfig(teamPool);
+      setIndividualDraft(i);
+      setInitialIndividual(i);
+      setTeamDraft(t);
+      setInitialTeam(t);
+    }
+  }, [individualPool, teamPool, visible]);
 
-    return {
-      hasExistingPool,
-      isLocked,
-      lockedReason,
-      poolId: prizePool?.id ?? null,
-    };
-  }, [prizePool, hasStartedRound]);
+  // Reset on close
+  useEffect(() => {
+    if (!visible) {
+      setIndividualDraft(DEFAULT_PRIZE_POOL_CONFIG);
+      setInitialIndividual(DEFAULT_PRIZE_POOL_CONFIG);
+      setTeamDraft(DEFAULT_PRIZE_POOL_CONFIG);
+      setInitialTeam(DEFAULT_PRIZE_POOL_CONFIG);
+    }
+  }, [visible]);
 
-  // Derived state
-  const isDirty = !configsAreEqual(config, initialConfig);
+  const individualEditState = useMemo(
+    () => buildEditState(individualPool, hasStartedRound),
+    [individualPool, hasStartedRound]
+  );
+  const teamEditState = useMemo(
+    () => buildEditState(teamPool, hasStartedRound),
+    [teamPool, hasStartedRound]
+  );
+
+  const isDirty =
+    !configsAreEqual(individualDraft, initialIndividual) ||
+    !configsAreEqual(teamDraft, initialTeam);
+
   const isSubmitting =
     createPoolMutation.isPending ||
     updatePoolMutation.isPending ||
     deletePoolMutation.isPending;
 
-  // Initialize form when pool data loads
-  useEffect(() => {
-    if (visible) {
-      const poolConfig = poolToConfig(prizePool);
-      setConfig(poolConfig);
-      setInitialConfig(poolConfig);
-    }
-  }, [prizePool, visible]);
-
-  // Reset form when sheet closes
-  useEffect(() => {
-    if (!visible) {
-      setConfig(DEFAULT_PRIZE_POOL_CONFIG);
-      setInitialConfig(DEFAULT_PRIZE_POOL_CONFIG);
-    }
-  }, [visible]);
-
-  // Handle config change from PrizePoolSection
-  const handleConfigChange = useCallback((newConfig: PrizePoolConfig | null) => {
-    if (newConfig === null) {
-      // Pool was disabled
-      setConfig({ ...config, enabled: false });
+  // Map PrizePoolSection's onPoolChange (PrizePoolConfig | null) into the local draft shape
+  const handleIndividualChange = useCallback((next: PrizePoolConfig | null) => {
+    if (next === null) {
+      setIndividualDraft((prev) => ({ ...prev, enabled: false }));
     } else {
-      // Pool config changed
-      setConfig({
+      setIndividualDraft({
         enabled: true,
-        fundingType: newConfig.fundingType,
-        fundingAmount: newConfig.fundingAmount,
-        placements: newConfig.placements,
+        fundingType: next.fundingType,
+        fundingAmount: next.fundingAmount,
+        placements: next.placements,
       });
     }
-  }, [config]);
+  }, []);
 
-  // Handle upgrade press for non-premium users
+  const handleTeamChange = useCallback((next: PrizePoolConfig | null) => {
+    if (next === null) {
+      setTeamDraft((prev) => ({ ...prev, enabled: false }));
+    } else {
+      setTeamDraft({
+        enabled: true,
+        fundingType: next.fundingType,
+        fundingAmount: next.fundingAmount,
+        placements: next.placements,
+      });
+    }
+  }, []);
+
   const handleUpgradePress = useCallback(() => {
     onClose();
     (navigation as { navigate: (screen: string) => void }).navigate('Subscription');
   }, [navigation, onClose]);
 
-  // Handle close with unsaved changes check
   const handleClose = useCallback(() => {
     if (isDirty) {
       showDialog({
@@ -222,136 +290,145 @@ export function EditPrizePoolBottomSheet({
     }
   }, [isDirty, onClose, showDialog, dismissDialog]);
 
-  // Handle save
+  // Save one side. Returns null on no-op, or an error message string on failure.
+  const saveSide = useCallback(
+    async (
+      target: PoolTargetType,
+      draft: PrizePoolFormConfig,
+      initial: PrizePoolFormConfig,
+      editState: PrizePoolEditState,
+      participantCount: number
+    ): Promise<string | null> => {
+      if (configsAreEqual(draft, initial)) return null;
+      if (editState.isLocked) return null; // skip locked sides silently
+      if (!user?.id) return 'You must be logged in';
+
+      try {
+        if (draft.enabled && !editState.hasExistingPool) {
+          await createPoolMutation.mutateAsync({
+            competition_id: competitionId,
+            target_type: target,
+            funding_type: draft.fundingType,
+            funding_amount: draft.fundingAmount,
+            placements: draft.placements,
+            created_by: user.id,
+            player_count: participantCount,
+          });
+        } else if (draft.enabled && editState.hasExistingPool && editState.poolId) {
+          await updatePoolMutation.mutateAsync({
+            poolId: editState.poolId,
+            updates: {
+              funding_type: draft.fundingType,
+              funding_amount: draft.fundingAmount,
+              placements: draft.placements,
+            },
+            player_count: participantCount,
+          });
+        } else if (!draft.enabled && editState.hasExistingPool && editState.poolId) {
+          await deletePoolMutation.mutateAsync({
+            poolId: editState.poolId,
+            competitionId,
+          });
+        }
+        return null;
+      } catch (err) {
+        return err instanceof Error ? err.message : `Failed to save ${target} pool`;
+      }
+    },
+    [
+      user?.id,
+      competitionId,
+      createPoolMutation,
+      updatePoolMutation,
+      deletePoolMutation,
+    ]
+  );
+
   const handleSave = useCallback(async () => {
     if (!user?.id) {
       showAlert('Error', 'You must be logged in to save prize pool');
       return;
     }
 
-    try {
-      const { hasExistingPool, poolId, isLocked } = editState;
-      const poolEnabled = config.enabled;
+    const individualError = await saveSide(
+      'individual',
+      individualDraft,
+      initialIndividual,
+      individualEditState,
+      playerCount
+    );
+    const teamError = teamModeAllowed
+      ? await saveSide('team', teamDraft, initialTeam, teamEditState, teamCount)
+      : null;
 
-      // Don't allow changes to locked pool
-      if (isLocked) {
-        showAlert('Error', 'Prize pool is locked and cannot be modified');
-        return;
-      }
+    await refetchPools();
 
-      // Scenario 1: Create new pool
-      if (poolEnabled && !hasExistingPool) {
-        await createPoolMutation.mutateAsync({
-          competition_id: competitionId,
-          target_type: targetType,
-          funding_type: config.fundingType,
-          funding_amount: config.fundingAmount,
-          placements: config.placements,
-          created_by: user.id,
-          player_count: playerCount,
-        });
-      }
-      // Scenario 2: Update existing pool
-      else if (poolEnabled && hasExistingPool && poolId) {
-        await updatePoolMutation.mutateAsync({
-          poolId,
-          updates: {
-            funding_type: config.fundingType,
-            funding_amount: config.fundingAmount,
-            placements: config.placements,
-          },
-          player_count: playerCount,
-        });
-      }
-      // Scenario 3: Delete pool (user disabled it)
-      else if (!poolEnabled && hasExistingPool && poolId) {
-        await deletePoolMutation.mutateAsync({
-          poolId,
-          competitionId,
-        });
-      }
-
-      // Refresh and close
-      await refetchPool();
-      onSuccess?.();
-      onClose();
-    } catch (error) {
-      showAlert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to save prize pool'
-      );
+    if (individualError || teamError) {
+      const messages = [
+        individualError && `Individual: ${individualError}`,
+        teamError && `Team: ${teamError}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      showAlert('Save partially failed', messages);
+      return;
     }
+
+    onSuccess?.();
+    onClose();
   }, [
     user?.id,
-    editState,
-    config,
-    competitionId,
+    saveSide,
+    individualDraft,
+    initialIndividual,
+    individualEditState,
     playerCount,
-    createPoolMutation,
-    updatePoolMutation,
-    deletePoolMutation,
-    refetchPool,
+    teamModeAllowed,
+    teamDraft,
+    initialTeam,
+    teamEditState,
+    teamCount,
+    refetchPools,
     onSuccess,
     onClose,
     showAlert,
   ]);
 
-  // Build pool object for PrizePoolSection
-  const displayPool = useMemo<CompetitionPrizePool | null>(() => {
-    if (!config.enabled && !editState.hasExistingPool) return null;
-
-    // Use actual pool if exists, otherwise create display object
-    if (prizePool) {
-      return {
-        ...prizePool,
-        funding_type: config.fundingType,
-        funding_amount: config.fundingAmount,
-        total_pool_amount:
-          config.fundingType === 'per_player'
-            ? config.fundingAmount * playerCount
-            : config.fundingAmount,
-      };
-    }
-
-    // Creating new pool - return display object
-    const totalPoolAmount =
-      config.fundingType === 'per_player'
-        ? config.fundingAmount * playerCount
-        : config.fundingAmount;
-
-    return {
-      id: '',
-      competition_id: competitionId,
-      target_type: targetType,
-      funding_type: config.fundingType,
-      funding_amount: config.fundingAmount,
-      currency: 'AUD',
-      total_pool_amount: totalPoolAmount,
-      is_locked: false,
-      locked_at: null,
-      status: 'draft',
-      created_by: user?.id ?? '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-  }, [config, prizePool, editState.hasExistingPool, competitionId, playerCount, targetType, user?.id]);
-
-  // Convert edit state to component format
-  const componentEditState = useMemo(
-    () => ({
-      hasExistingPool: editState.hasExistingPool,
-      isLocked: editState.isLocked,
-      lockedReason: editState.lockedReason,
-    }),
-    [editState]
+  // Display pools (used for PrizePoolSection's `pool` prop — affects placement cap math)
+  const displayIndividualPool = useMemo(
+    () =>
+      buildDisplayPool(
+        individualDraft,
+        individualPool,
+        competitionId,
+        playerCount,
+        'individual',
+        user?.id
+      ),
+    [individualDraft, individualPool, competitionId, playerCount, user?.id]
   );
+  const displayTeamPool = useMemo(
+    () =>
+      buildDisplayPool(
+        teamDraft,
+        teamPool,
+        competitionId,
+        teamCount,
+        'team',
+        user?.id
+      ),
+    [teamDraft, teamPool, competitionId, teamCount, user?.id]
+  );
+
+  const hasAnyExisting =
+    individualEditState.hasExistingPool || teamEditState.hasExistingPool;
 
   return (
     <BottomSheet
       visible={visible}
       onClose={handleClose}
       height="full"
-      title={editState.hasExistingPool ? 'Edit Prize Pool' : 'Add Prize Pool'}
+      title={hasAnyExisting ? 'Edit Prize Pools' : 'Add Prize Pool'}
       showHandle={false}
       safeAreaTop
       showCloseButton
@@ -359,8 +436,8 @@ export function EditPrizePoolBottomSheet({
       closeOnBackdropPress={!isDirty}
       testID="edit-prize-pool-bottom-sheet"
     >
-      {isLoadingPool ? (
-        <LoadingSpinner size="lg" message="Loading prize pool..." />
+      {isLoadingPools ? (
+        <LoadingSpinner size="lg" message="Loading prize pools..." />
       ) : (
         <>
           <ScrollView
@@ -372,36 +449,36 @@ export function EditPrizePoolBottomSheet({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Description */}
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              Configure the prize pool for your competition. Set up funding and distribute prizes to top finishers.
+              Distribute prizes to top finishers. Configure either pool independently.
             </Text>
 
-            {/* Prize Pool Form */}
             <FormSection>
-              <PrizePoolSection
-                pool={displayPool}
+              <PrizePoolDualConfig
                 playerCount={playerCount}
                 teamCount={teamCount}
-                targetType={targetType}
                 roundCount={roundCount}
-                onPoolChange={handleConfigChange}
+                teamModeAllowed={teamModeAllowed}
+                initialTab={initialTab}
+                individualPool={displayIndividualPool}
+                teamPool={displayTeamPool}
+                individualEditState={individualEditState}
+                teamEditState={teamEditState}
+                onIndividualChange={handleIndividualChange}
+                onTeamChange={handleTeamChange}
                 onUpgradePress={handleUpgradePress}
-                editState={componentEditState}
               />
             </FormSection>
 
-            {/* Info Box */}
-            {editState.isLocked && (
+            {(individualEditState.isLocked || teamEditState.isLocked) && (
               <View style={[styles.infoBox, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                  {editState.lockedReason}
+                  {individualEditState.lockedReason ?? teamEditState.lockedReason}
                 </Text>
               </View>
             )}
           </ScrollView>
 
-          {/* Footer */}
           <View
             style={[
               styles.footer,
@@ -426,16 +503,16 @@ export function EditPrizePoolBottomSheet({
                 styles.footerButton,
                 styles.primaryButton,
                 { backgroundColor: colors.primary },
-                (!isDirty || isSubmitting || editState.isLocked) && styles.disabledButton,
+                (!isDirty || isSubmitting) && styles.disabledButton,
               ]}
-              disabled={!isDirty || isSubmitting || editState.isLocked}
+              disabled={!isDirty || isSubmitting}
               activeOpacity={0.7}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
                 <Text style={[styles.buttonText, { color: colors.white }]}>
-                  {editState.hasExistingPool ? 'Save Changes' : 'Create Pool'}
+                  {hasAnyExisting ? 'Save Changes' : 'Create'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -443,15 +520,10 @@ export function EditPrizePoolBottomSheet({
         </>
       )}
 
-      {/* Confirmation/Error Dialog */}
       <ConfirmationDialog {...dialogConfig} onCancel={dismissDialog} />
     </BottomSheet>
   );
 }
-
-// ============================================================================
-// Styles
-// ============================================================================
 
 const styles = StyleSheet.create({
   scrollView: {
@@ -470,6 +542,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     gap: spacing.sm,
+    marginTop: spacing.md,
   },
   infoText: {
     ...typography.small,
@@ -490,9 +563,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryButton: {
-    // backgroundColor set inline
-  },
+  primaryButton: {},
   secondaryButton: {
     borderWidth: 1,
   },

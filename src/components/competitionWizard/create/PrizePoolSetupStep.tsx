@@ -1,43 +1,31 @@
 /**
- * PrizePoolSetupStep - Prize pool configuration step for competition wizard
+ * PrizePoolSetupStep - Prize pool configuration step for the create-competition wizard
  *
- * This step is dynamically inserted after the Rounds step when prize pool is enabled.
- * It uses the PrizePoolSection component for configuration.
- *
- * Features:
- * - Funding type selection (per player / fixed total)
- * - Funding amount input
- * - Placement-based prize distribution
+ * Always-shown step that lets the organizer configure either, both, or
+ * neither prize pool (Individual / Team). Uses `PrizePoolDualConfig`
+ * for the editor surface so the UX matches the post-creation editor.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconTrophy, IconInfoCircle } from '@tabler/icons-react-native';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
 import type { PrizePoolConfigFormData } from '@/schemas/competition';
-import { PrizePoolSection, type PrizePoolConfig } from '@/components/prizePool';
+import { PrizePoolDualConfig, type PrizePoolConfig } from '@/components/prizePool';
+import type { WizardPrizePoolConfig } from '@/screens/admin/CreateCompetitionScreen/types';
 
-// Prize pool color for styling
-const PRIZE_POOL_COLOR = '#059669';
-
-export interface PrizePoolSetupStepProps {
-  /** Initial configuration data */
-  initialData?: PrizePoolConfigFormData;
-  /** Number of players (for per-player calculation) */
-  playerCount?: number;
-  /** Number of rounds (for auto-split calculation) */
-  roundCount: number;
-  /** Handler when step is completed */
-  onComplete: (data: PrizePoolConfigFormData) => void;
-  /** Handler for back navigation */
-  onBack: () => void;
+// Local form shape — mirrors EditPrizePoolBottomSheet's PrizePoolFormConfig
+interface SideDraft {
+  enabled: boolean;
+  fundingType: PrizePoolConfigFormData['fundingType'];
+  fundingAmount: PrizePoolConfigFormData['fundingAmount'];
+  placements: PrizePoolConfigFormData['placements'];
 }
 
-// Default prize pool configuration
-const DEFAULT_CONFIG: PrizePoolConfigFormData = {
+const DEFAULT_DRAFT: SideDraft = {
+  enabled: false,
   fundingType: 'per_player',
   fundingAmount: 50,
   placements: [
@@ -47,60 +35,106 @@ const DEFAULT_CONFIG: PrizePoolConfigFormData = {
   ],
 };
 
+export interface PrizePoolSetupStepProps {
+  /** Existing wizard draft (both sides). Either side may be null. */
+  initialData?: WizardPrizePoolConfig;
+  /** Number of players (per-player funding math + individual placement cap) */
+  playerCount?: number;
+  /** Number of rounds (passed through) */
+  roundCount: number;
+  /** Whether step 1 enabled teams — controls team tab availability */
+  enableTeams: boolean;
+  /** Handler when the step is completed */
+  onComplete: (data: WizardPrizePoolConfig) => void;
+  /** Handler for back navigation */
+  onBack: () => void;
+}
+
+function configFromDraft(draft: SideDraft): PrizePoolConfigFormData {
+  return {
+    fundingType: draft.fundingType,
+    fundingAmount: draft.fundingAmount,
+    placements: draft.placements,
+  };
+}
+
+function draftFromConfig(config: PrizePoolConfigFormData | null): SideDraft {
+  if (!config) return DEFAULT_DRAFT;
+  return {
+    enabled: true,
+    fundingType: config.fundingType,
+    fundingAmount: config.fundingAmount,
+    placements: config.placements,
+  };
+}
+
+function isValidDraft(draft: SideDraft): boolean {
+  if (!draft.enabled) return true; // disabled side is always valid
+  const sum = draft.placements.reduce((acc, p) => acc + p.percent, 0);
+  return Math.abs(sum - 100) < 0.01 && draft.fundingAmount > 0;
+}
+
 export function PrizePoolSetupStep({
   initialData,
   playerCount = 0,
   roundCount,
+  enableTeams,
   onComplete,
   onBack,
 }: PrizePoolSetupStepProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  // Local state for prize pool configuration
-  const [config, setConfig] = useState<PrizePoolConfigFormData>(
-    initialData || DEFAULT_CONFIG
+  const teamCount = enableTeams ? Math.floor(playerCount / 2) : 0;
+
+  const [individualDraft, setIndividualDraft] = useState<SideDraft>(() =>
+    draftFromConfig(initialData?.individual ?? null)
+  );
+  const [teamDraft, setTeamDraft] = useState<SideDraft>(() =>
+    draftFromConfig(initialData?.team ?? null)
   );
 
-  // Calculate derived values for display
-  const calculations = useMemo(() => {
-    const totalPool =
-      config.fundingType === 'per_player'
-        ? config.fundingAmount * playerCount
-        : config.fundingAmount;
-
-    const totalPercent = config.placements.reduce((sum, p) => sum + p.percent, 0);
-    const isValidAllocation = Math.abs(totalPercent - 100) < 0.01;
-
-    return {
-      totalPool,
-      totalPercent,
-      isValidAllocation,
-    };
-  }, [config, playerCount]);
-
-  // Handle pool configuration changes from PrizePoolSection
-  const handlePoolChange = useCallback((poolConfig: PrizePoolConfig | null) => {
-    if (poolConfig) {
-      setConfig({
-        fundingType: poolConfig.fundingType,
-        fundingAmount: poolConfig.fundingAmount,
-        placements: poolConfig.placements,
+  const handleIndividualChange = useCallback((next: PrizePoolConfig | null) => {
+    if (next === null) {
+      setIndividualDraft((prev) => ({ ...prev, enabled: false }));
+    } else {
+      setIndividualDraft({
+        enabled: true,
+        fundingType: next.fundingType,
+        fundingAmount: next.fundingAmount,
+        placements: next.placements,
       });
     }
   }, []);
 
-  // Handle step completion
-  const handleComplete = useCallback(() => {
-    if (calculations.isValidAllocation) {
-      onComplete(config);
+  const handleTeamChange = useCallback((next: PrizePoolConfig | null) => {
+    if (next === null) {
+      setTeamDraft((prev) => ({ ...prev, enabled: false }));
+    } else {
+      setTeamDraft({
+        enabled: true,
+        fundingType: next.fundingType,
+        fundingAmount: next.fundingAmount,
+        placements: next.placements,
+      });
     }
-  }, [config, calculations.isValidAllocation, onComplete]);
+  }, []);
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
+  const isValid = isValidDraft(individualDraft) && isValidDraft(teamDraft);
+
+  const handleComplete = useCallback(() => {
+    if (!isValid) return;
+    onComplete({
+      individual: individualDraft.enabled ? configFromDraft(individualDraft) : null,
+      team: enableTeams && teamDraft.enabled ? configFromDraft(teamDraft) : null,
+    });
+  }, [isValid, onComplete, individualDraft, teamDraft, enableTeams]);
+
+  // PrizePoolDualConfig expects CompetitionPrizePool | null, but we don't have
+  // a real pool here (pre-creation). Pass null so the section renders its
+  // default initial config; PrizePoolSection's local state takes over.
+  const individualPool = useMemo(() => null, []);
+  const teamPool = useMemo(() => null, []);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -109,99 +143,24 @@ export function PrizePoolSetupStep({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Step Description */}
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Configure your competition prize pool. Set up funding and how prizes are distributed.
+          Optionally configure prize pools for top finishers. You can configure
+          either pool, both, or neither.
         </Text>
 
-        {/* Summary Card */}
-        <View style={[styles.summaryCard, { backgroundColor: `${PRIZE_POOL_COLOR}10` }]}>
-          <View style={[styles.summaryIcon, { backgroundColor: `${PRIZE_POOL_COLOR}20` }]}>
-            <IconTrophy size={28} color={PRIZE_POOL_COLOR} />
-          </View>
-          <View style={styles.summaryContent}>
-            <Text style={[styles.summaryTitle, { color: PRIZE_POOL_COLOR }]}>
-              {playerCount > 0 || config.fundingType === 'fixed_total'
-                ? formatCurrency(calculations.totalPool)
-                : 'Pending'}
-            </Text>
-            <Text style={[styles.summarySubtitle, { color: colors.textSecondary }]}>
-              {config.fundingType === 'per_player'
-                ? playerCount > 0
-                  ? `${formatCurrency(config.fundingAmount)} x ${playerCount} players`
-                  : `${formatCurrency(config.fundingAmount)} per player`
-                : 'Fixed total amount'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Configuration Section */}
-        <View style={[styles.configSection, { backgroundColor: colors.surface }]}>
-          <PrizePoolSection
-            pool={null}
-            playerCount={playerCount}
-            roundCount={roundCount}
-            onPoolChange={handlePoolChange}
-            onUpgradePress={() => {}} // Not needed - already premium
-            hideToggle={true} // User already opted in at step 1
-          />
-        </View>
-
-        {/* Info box for players not added yet */}
-        {playerCount === 0 && config.fundingType === 'per_player' && (
-          <View style={[styles.infoBox, { backgroundColor: colors.infoLight }]}>
-            <IconInfoCircle size={20} color={colors.info} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.info }]}>
-                Players not added yet
-              </Text>
-              <Text style={[styles.infoText, { color: colors.infoDark }]}>
-                The total pool amount will be calculated when you add players to the
-                competition after creation.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Distribution Summary */}
-        {config.placements.length > 0 && (
-          <View style={[styles.distributionSummary, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.distributionTitle, { color: colors.textPrimary }]}>
-              Distribution Summary
-            </Text>
-
-            {config.placements.map((placement) => {
-              const amount = (calculations.totalPool * placement.percent) / 100;
-              return (
-                <View key={placement.position} style={styles.summaryRow}>
-                  <View style={styles.summaryLabel}>
-                    <View style={[styles.colorDot, { backgroundColor: PRIZE_POOL_COLOR }]} />
-                    <Text style={[styles.summaryRowText, { color: colors.textPrimary }]}>
-                      {placement.position === 1
-                        ? '1st Place'
-                        : placement.position === 2
-                          ? '2nd Place'
-                          : placement.position === 3
-                            ? '3rd Place'
-                            : `${placement.position}th Place`}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryValues}>
-                    <Text style={[styles.summaryPercent, { color: colors.textSecondary }]}>
-                      {placement.percent}%
-                    </Text>
-                    <Text style={[styles.summaryAmount, { color: PRIZE_POOL_COLOR }]}>
-                      {formatCurrency(amount)}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+        <PrizePoolDualConfig
+          playerCount={playerCount}
+          teamCount={teamCount}
+          roundCount={roundCount}
+          teamModeAllowed={enableTeams}
+          individualPool={individualPool}
+          teamPool={teamPool}
+          onIndividualChange={handleIndividualChange}
+          onTeamChange={handleTeamChange}
+          onUpgradePress={() => {}}
+        />
       </ScrollView>
 
-      {/* Action Buttons - Sticky Footer */}
       <View
         style={[
           styles.footer,
@@ -222,10 +181,14 @@ export function PrizePoolSetupStep({
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleComplete}
-          style={[styles.nextButton, { backgroundColor: PRIZE_POOL_COLOR }, !calculations.isValidAllocation && { opacity: 0.5 }]}
+          style={[
+            styles.nextButton,
+            { backgroundColor: colors.primary },
+            !isValid && { opacity: 0.5 },
+          ]}
           activeOpacity={0.8}
           accessibilityRole="button"
-          disabled={!calculations.isValidAllocation}
+          disabled={!isValid}
         >
           <Text style={[styles.buttonLabel, { color: colors.white }]}>Next: Review</Text>
         </TouchableOpacity>
@@ -235,111 +198,15 @@ export function PrizePoolSetupStep({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
   content: {
     padding: spacing.lg,
     paddingBottom: spacing.xxxl,
+    gap: spacing.lg,
   },
   description: {
     ...typography.body,
-    marginBottom: spacing.lg,
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  summaryIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryContent: {
-    flex: 1,
-  },
-  summaryTitle: {
-    ...typography.h2,
-  },
-  summarySubtitle: {
-    ...typography.body,
-    marginTop: spacing.xs,
-  },
-  configSection: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    ...typography.smallBold,
-    marginBottom: spacing.xs,
-  },
-  infoText: {
-    ...typography.small,
-  },
-  distributionSummary: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    ...shadows.sm,
-  },
-  distributionTitle: {
-    ...typography.bodyBold,
-    marginBottom: spacing.md,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  summaryLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  colorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  summaryRowText: {
-    ...typography.body,
-  },
-  summaryValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  summaryPercent: {
-    ...typography.body,
-    minWidth: 36,
-    textAlign: 'right',
-  },
-  summaryAmount: {
-    ...typography.bodyBold,
-    minWidth: 70,
-    textAlign: 'right',
   },
   footer: {
     flexDirection: 'row',

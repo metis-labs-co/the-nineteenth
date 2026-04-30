@@ -482,7 +482,7 @@ describe('DetailsTab', () => {
 
     it('shows add prize pool button for organizers', () => {
       const mockOnAddPrizePool = jest.fn();
-      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onAddPrizePool={mockOnAddPrizePool} />);
+      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onManagePrizePools={mockOnAddPrizePool} />);
       const addButton = screen.getByLabelText('Add prize pool');
       expect(addButton).toBeTruthy();
     });
@@ -524,7 +524,7 @@ describe('DetailsTab', () => {
 
     it('add prize pool button has accessibility role button', () => {
       const mockOnAddPrizePool = jest.fn();
-      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onAddPrizePool={mockOnAddPrizePool} />);
+      render(<DetailsTab {...defaultProps} isOrganizer={true} prizePool={null} onManagePrizePools={mockOnAddPrizePool} />);
       const addButton = screen.getByLabelText('Add prize pool');
       expect(addButton.props.accessibilityRole).toBe('button');
     });
@@ -616,7 +616,7 @@ describe('DetailsTab', () => {
 
     it('shows add button for organizers when no prize pool', () => {
       const mockOnAddPrizePool = jest.fn();
-      render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={true} onAddPrizePool={mockOnAddPrizePool} />);
+      render(<DetailsTab {...defaultProps} prizePool={null} isOrganizer={true} onManagePrizePools={mockOnAddPrizePool} />);
       const addButton = screen.getByLabelText('Add prize pool');
       expect(addButton).toBeTruthy();
       fireEvent.press(addButton);
