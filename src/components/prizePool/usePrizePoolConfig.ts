@@ -12,6 +12,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import type {
   CompetitionPrizePool,
   PoolFundingType,
+  PoolTargetType,
 } from '@/types';
 
 // ============================================================================
@@ -97,6 +98,10 @@ interface UsePrizePoolConfigOptions {
   pool: CompetitionPrizePool | null;
   /** Number of players in competition */
   playerCount: number;
+  /** Number of teams in competition (required when targetType='team') */
+  teamCount?: number;
+  /** Pool target — defaults to 'individual' */
+  targetType?: PoolTargetType;
   /** Callback when pool config changes */
   onPoolChange: (config: PrizePoolConfig | null) => void;
   /** Whether the entire section is disabled */
@@ -110,6 +115,8 @@ interface UsePrizePoolConfigOptions {
 export function usePrizePoolConfig({
   pool,
   playerCount,
+  teamCount = 0,
+  targetType = 'individual',
   onPoolChange,
   disabled,
   editState,
@@ -175,8 +182,9 @@ export function usePrizePoolConfig({
     };
   }, [config, playerCount]);
 
-  // Max placements capped at player count (minimum 1)
-  const maxPlacements = Math.max(playerCount, 1);
+  // Max placements capped at participant count (minimum 1)
+  const participantCount = targetType === 'team' ? teamCount : playerCount;
+  const maxPlacements = Math.max(participantCount, 1);
 
   // Handle toggle change
   const handleToggle = useCallback(() => {
@@ -252,12 +260,17 @@ export function usePrizePoolConfig({
     [config.placements, updateConfig]
   );
 
-  // Labels based on mode
-  const labelText = hasExistingPool ? 'Prize Pool Configured' : 'Add Prize Pool';
+  // Labels based on target + mode
+  const isTeam = targetType === 'team';
+  const labelText = hasExistingPool
+    ? `${isTeam ? 'Team' : 'Individual'} Prize Pool Configured`
+    : `Add ${isTeam ? 'Team' : 'Individual'} Prize Pool`;
   const descriptionText =
     isLocked && editState?.lockedReason
       ? editState.lockedReason
-      : 'Distribute prizes to top finishers';
+      : isTeam
+        ? 'Distribute prizes to top teams (auto-split among members)'
+        : 'Distribute prizes to top finishers';
 
   return {
     // State
@@ -265,6 +278,7 @@ export function usePrizePoolConfig({
     config,
     calculations,
     maxPlacements,
+    targetType,
 
     // Derived mode flags
     isEditMode,

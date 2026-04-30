@@ -182,6 +182,7 @@ export type {
   // Prize Pool types
   PoolFundingType,
   PoolStatus,
+  PoolTargetType,
   PoolTransactionType,
   CompetitionPrizePool,
   PrizePoolPlacement,

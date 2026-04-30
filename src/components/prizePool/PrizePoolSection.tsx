@@ -44,7 +44,7 @@ import { Pill } from '@/components/common';
 import { PrizePoolFundingSection } from './PrizePoolFundingSection';
 import { PrizePoolPlacements } from './PrizePoolPlacements';
 import { usePrizePoolConfig } from './usePrizePoolConfig';
-import type { CompetitionPrizePool, PoolFundingType } from '@/types';
+import type { CompetitionPrizePool, PoolFundingType, PoolTargetType } from '@/types';
 
 // Re-export types from the hook for backward compatibility
 export type {
@@ -70,6 +70,10 @@ export interface PrizePoolSectionProps {
   pool: CompetitionPrizePool | null;
   /** Number of players in competition */
   playerCount: number;
+  /** Number of teams in competition (required when targetType='team') */
+  teamCount?: number;
+  /** Pool target — defaults to 'individual' */
+  targetType?: PoolTargetType;
   /** Number of rounds in competition */
   roundCount: number;
   /** Callback when pool config changes */
@@ -92,6 +96,8 @@ export const PrizePoolSection = memo(function PrizePoolSection({
   competitionId: _competitionId,
   pool,
   playerCount,
+  teamCount = 0,
+  targetType = 'individual',
   roundCount: _roundCount,
   onPoolChange,
   onUpgradePress,
@@ -121,6 +127,8 @@ export const PrizePoolSection = memo(function PrizePoolSection({
   } = usePrizePoolConfig({
     pool,
     playerCount,
+    teamCount,
+    targetType,
     onPoolChange,
     disabled,
     editState,

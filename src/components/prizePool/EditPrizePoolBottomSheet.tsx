@@ -29,7 +29,7 @@ import {
   useDeletePrizePool,
 } from '@/hooks/usePrizePool';
 import { useAuth } from '@/hooks/useAuth';
-import type { CompetitionPrizePool } from '@/types';
+import type { CompetitionPrizePool, PoolTargetType } from '@/types';
 import {
   PrizePoolFormConfig,
   PrizePoolEditState,
@@ -49,6 +49,10 @@ export interface EditPrizePoolBottomSheetProps {
   competitionId: string;
   /** Number of players in the competition (for per-player calculations) */
   playerCount: number;
+  /** Number of teams (required when targetType='team') */
+  teamCount?: number;
+  /** Pool target — defaults to 'individual' */
+  targetType?: PoolTargetType;
   /** Number of rounds (for auto-split calculations) */
   roundCount: number;
   /** Whether any round has started (for lock status) */
@@ -106,6 +110,8 @@ export function EditPrizePoolBottomSheet({
   onClose,
   competitionId,
   playerCount,
+  teamCount = 0,
+  targetType = 'individual',
   roundCount,
   hasStartedRound,
   onSuccess,
@@ -122,7 +128,7 @@ export function EditPrizePoolBottomSheet({
     data: prizePool,
     isLoading: isLoadingPool,
     refetch: refetchPool,
-  } = useCompetitionPrizePool(visible ? competitionId : undefined);
+  } = useCompetitionPrizePool(visible ? competitionId : undefined, targetType);
 
   // Mutations
   const createPoolMutation = useCreatePrizePool();
@@ -237,6 +243,7 @@ export function EditPrizePoolBottomSheet({
       if (poolEnabled && !hasExistingPool) {
         await createPoolMutation.mutateAsync({
           competition_id: competitionId,
+          target_type: targetType,
           funding_type: config.fundingType,
           funding_amount: config.fundingAmount,
           placements: config.placements,
@@ -315,6 +322,7 @@ export function EditPrizePoolBottomSheet({
     return {
       id: '',
       competition_id: competitionId,
+      target_type: targetType,
       funding_type: config.fundingType,
       funding_amount: config.fundingAmount,
       currency: 'AUD',
@@ -326,7 +334,7 @@ export function EditPrizePoolBottomSheet({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-  }, [config, prizePool, editState.hasExistingPool, competitionId, playerCount, user?.id]);
+  }, [config, prizePool, editState.hasExistingPool, competitionId, playerCount, targetType, user?.id]);
 
   // Convert edit state to component format
   const componentEditState = useMemo(
@@ -374,6 +382,8 @@ export function EditPrizePoolBottomSheet({
               <PrizePoolSection
                 pool={displayPool}
                 playerCount={playerCount}
+                teamCount={teamCount}
+                targetType={targetType}
                 roundCount={roundCount}
                 onPoolChange={handleConfigChange}
                 onUpgradePress={handleUpgradePress}
@@ -395,7 +405,7 @@ export function EditPrizePoolBottomSheet({
           <View
             style={[
               styles.footer,
-              { backgroundColor: colors.surface, borderTopColor: colors.border },
+              { backgroundColor: colors.surfaceElevated, borderTopColor: colors.border },
             ]}
           >
             <TouchableOpacity

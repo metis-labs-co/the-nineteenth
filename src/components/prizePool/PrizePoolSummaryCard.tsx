@@ -45,6 +45,8 @@ export interface PrizePoolSummaryCardProps {
   onEditPress?: () => void;
   /** Handler for view transactions link press (optional) */
   onViewTransactionsPress?: () => void;
+  /** Lookup of team metadata for rendering team payouts (team pools only) */
+  teamLookup?: Map<string, { name: string; memberCount: number }>;
 }
 
 // ============================================================================
@@ -94,6 +96,7 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
   isLocked,
   onEditPress,
   onViewTransactionsPress,
+  teamLookup,
 }: PrizePoolSummaryCardProps) {
   const colors = useThemeColors();
 
@@ -118,7 +121,9 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
             <IconTrophy size={24} color={PRIZE_POOL_COLOR} />
           </View>
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Prize Pool</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              {pool.target_type === 'team' ? 'Team Prize Pool' : 'Prize Pool'}
+            </Text>
             <Text style={[styles.totalAmount, { color: PRIZE_POOL_COLOR }]}>
               {formatCurrency(pool.total_pool_amount)}
             </Text>
@@ -164,6 +169,8 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
               key={placement.id}
               placement={placement}
               colors={colors}
+              isTeamPool={pool.target_type === 'team'}
+              teamLookup={teamLookup}
             />
           ))}
         </View>
@@ -194,15 +201,26 @@ export const PrizePoolSummaryCard = memo(function PrizePoolSummaryCard({
 interface PlacementRowProps {
   placement: PrizePoolPlacement;
   colors: ReturnType<typeof useThemeColors>;
+  isTeamPool: boolean;
+  teamLookup?: Map<string, { name: string; memberCount: number }>;
 }
 
 const PlacementRow = memo(function PlacementRow({
   placement,
   colors,
+  isTeamPool,
+  teamLookup,
 }: PlacementRowProps) {
   const medalColor = getMedalColor(placement.position);
   const isSettled = placement.paid_at !== null;
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+
+  const teamMeta =
+    isTeamPool && placement.team_id ? teamLookup?.get(placement.team_id) : undefined;
+  const perMemberShare =
+    teamMeta && teamMeta.memberCount > 0
+      ? placement.payout_amount / teamMeta.memberCount
+      : null;
 
   return (
     <View style={styles.placementRow}>
@@ -218,9 +236,16 @@ const PlacementRow = memo(function PlacementRow({
         <Text style={[styles.placementAmount, { color: colors.textPrimary }]}>
           {formatCurrency(placement.payout_amount)}
         </Text>
-        <Text style={[styles.placementPercent, { color: colors.textSecondary }]}>
-          {placement.percent}%
-        </Text>
+        {teamMeta ? (
+          <Text style={[styles.placementPercent, { color: colors.textSecondary }]}>
+            {teamMeta.name}
+            {perMemberShare !== null && ` · ${formatCurrency(perMemberShare)} each`}
+          </Text>
+        ) : (
+          <Text style={[styles.placementPercent, { color: colors.textSecondary }]}>
+            {placement.percent}%
+          </Text>
+        )}
       </View>
 
       {/* Settlement status */}

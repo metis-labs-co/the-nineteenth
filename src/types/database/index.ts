@@ -126,6 +126,7 @@ export { WOLF_POINTS } from './wolf.types';
 export type {
   PoolFundingType,
   PoolStatus,
+  PoolTargetType,
   PoolTransactionType,
   CompetitionPrizePool,
   PrizePoolPlacement,
