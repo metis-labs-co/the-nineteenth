@@ -13,11 +13,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Icon, Text } from 'react-native-paper';
 
 import { Tabs, type TabItem } from '@/components/common/Tabs';
-import { useThemeColors } from '@/context/ThemeContext';
-import { borderRadius, spacing, typography } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import {
   PrizePoolSection,
   type PrizePoolConfig,
@@ -82,8 +80,6 @@ export function PrizePoolDualConfig({
   onUpgradePress,
   hideToggles = false,
 }: PrizePoolDualConfigProps) {
-  const colors = useThemeColors();
-
   const [selectedTab, setSelectedTab] = useState<PoolTabKey>(
     initialTab === 'team' && !teamModeAllowed ? 'individual' : initialTab
   );
@@ -97,8 +93,28 @@ export function PrizePoolDualConfig({
 
   const tabs: TabItem<PoolTabKey>[] = [
     { key: 'individual', label: 'Individual' },
-    { key: 'team', label: 'Team', disabled: !teamModeAllowed },
+    { key: 'team', label: 'Team' },
   ];
+
+  // Individual-only competitions hide the tab strip entirely — there's only
+  // one editor to show, so the tabs would be noise.
+  if (!teamModeAllowed) {
+    return (
+      <View style={styles.container}>
+        <PrizePoolSection
+          pool={individualPool}
+          playerCount={playerCount}
+          teamCount={teamCount}
+          targetType="individual"
+          roundCount={roundCount}
+          onPoolChange={onIndividualChange}
+          onUpgradePress={onUpgradePress}
+          editState={individualEditState}
+          hideToggle={hideToggles}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -107,21 +123,6 @@ export function PrizePoolDualConfig({
         selectedTab={selectedTab}
         onTabChange={setSelectedTab}
       />
-
-      {!teamModeAllowed && selectedTab === 'individual' && (
-        <View
-          style={[
-            styles.banner,
-            { backgroundColor: colors.infoLight, borderColor: colors.info },
-          ]}
-        >
-          <Icon source="information-outline" size={18} color={colors.infoDark} />
-          <Text style={[styles.bannerText, { color: colors.infoDark }]}>
-            Team prize pool requires Fixed Teams. Enable teams on the
-            competition to configure one.
-          </Text>
-        </View>
-      )}
 
       {selectedTab === 'individual' && (
         <PrizePoolSection
@@ -137,7 +138,7 @@ export function PrizePoolDualConfig({
         />
       )}
 
-      {selectedTab === 'team' && teamModeAllowed && (
+      {selectedTab === 'team' && (
         <PrizePoolSection
           pool={teamPool}
           playerCount={playerCount}
@@ -161,18 +162,6 @@ export function PrizePoolDualConfig({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
-  },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  bannerText: {
-    ...typography.small,
-    flex: 1,
   },
 });
 
