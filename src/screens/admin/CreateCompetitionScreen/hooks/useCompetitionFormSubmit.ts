@@ -116,6 +116,7 @@ export function useCompetitionFormSubmit({
         try {
           await createPrizePool.mutateAsync({
             competition_id: result.competition.id,
+            target_type: 'individual',
             funding_type: prizePoolConfig.fundingType,
             funding_amount: prizePoolConfig.fundingAmount,
             placements: prizePoolConfig.placements,

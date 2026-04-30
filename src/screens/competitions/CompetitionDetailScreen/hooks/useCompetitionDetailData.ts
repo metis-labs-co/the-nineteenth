@@ -17,7 +17,10 @@ import { useCompetitionDetailsData } from '@/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { useTeams } from '@/hooks/useTeams';
-import { useCompetitionPrizePool, usePrizePoolPlacements } from '@/hooks/prizePool';
+import {
+  useCompetitionPrizePools,
+  usePrizePoolPlacements,
+} from '@/hooks/prizePool';
 import { scoringPairsKeys, scorecardKeys } from '@/hooks/queryKeys';
 import { getRoundScoringPairs } from '@/services/scoringPairs';
 import { supabase } from '@/services/supabase/client';
@@ -57,14 +60,18 @@ export function useCompetitionDetailData(id: string) {
     refetch: refetchTeams,
   } = useTeams(id);
 
-  // Fetch prize pool data
+  // Fetch both prize pools (individual + team)
   const {
-    data: prizePool,
+    data: prizePools,
     refetch: refetchPrizePool,
-  } = useCompetitionPrizePool(id);
+  } = useCompetitionPrizePools(id);
 
-  // Fetch prize pool placements
+  const prizePool = prizePools?.individual ?? null;
+  const teamPrizePool = prizePools?.team ?? null;
+
+  // Fetch placements for each pool
   const { data: prizePoolPlacements } = usePrizePoolPlacements(prizePool?.id);
+  const { data: teamPrizePoolPlacements } = usePrizePoolPlacements(teamPrizePool?.id);
 
   // Get rounds that require scoring pairs (only when user is organizer)
   const roundsRequiringScoringPairs = useMemo(() => {
@@ -144,6 +151,11 @@ export function useCompetitionDetailData(id: string) {
     return !!prizePool?.is_locked || hasStartedRound;
   }, [prizePool?.is_locked, hasStartedRound]);
 
+  // Same lock check for team pool
+  const isTeamPrizePoolLocked = useMemo(() => {
+    return !!teamPrizePool?.is_locked || hasStartedRound;
+  }, [teamPrizePool?.is_locked, hasStartedRound]);
+
   // Derive whether the current user is a player in this competition
   const isPlayer = useMemo(() => {
     if (!user || !competitionData?.players) return false;
@@ -185,13 +197,16 @@ export function useCompetitionDetailData(id: string) {
     isLoadingTeams,
     refetchTeams,
     prizePool,
+    teamPrizePool,
     refetchPrizePool,
     prizePoolPlacements,
+    teamPrizePoolPlacements,
     scoringPairsStatus,
     allScoredStatus,
     isOrganizer,
     hasStartedRound,
     isPrizePoolLocked,
+    isTeamPrizePoolLocked,
     isPlayer,
     userTeamId,
     userTeamName,

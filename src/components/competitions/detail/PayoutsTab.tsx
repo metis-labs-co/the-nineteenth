@@ -1,12 +1,12 @@
 /**
  * PayoutsTab - Prize pool payouts preview and settlement
  *
- * Shown on CompetitionDetailScreen whenever a prize pool exists. Shows:
- * - Pool summary (total, currency, status)
- * - Per-placement cards mapping the live leaderboard to payout slots
- * - For organisers: a "Settle Payouts" action when the competition is
- *   completed and the pool hasn't been settled
- * - Transaction log after settlement (re-uses PoolTransactionsList)
+ * Renders one settlement section per existing pool (individual and/or team).
+ * Each section shows:
+ *   - Summary card with target label and total
+ *   - Per-placement cards mapping the live leaderboard to payout slots
+ *   - Settle action when the competition is completed and the pool is unsettled
+ *   - Transactions log after settlement
  */
 
 import React, { useMemo, useState } from 'react';
@@ -37,8 +37,14 @@ import type {
 
 export interface PayoutsTabProps {
   competition: Competition;
-  prizePool: CompetitionPrizePool;
+  /** Individual pool (or null) */
+  prizePool: CompetitionPrizePool | null;
+  /** Individual pool placements */
   placements: PrizePoolPlacement[];
+  /** Team pool (or null) */
+  teamPrizePool?: CompetitionPrizePool | null;
+  /** Team pool placements */
+  teamPlacements?: PrizePoolPlacement[];
   isOrganizer: boolean;
 }
 
@@ -72,26 +78,70 @@ interface PlacementView {
 }
 
 // ============================================================================
-// Component
+// Top-level component — renders one PoolSection per pool that exists
 // ============================================================================
 
 export function PayoutsTab({
   competition,
   prizePool,
   placements,
+  teamPrizePool,
+  teamPlacements,
   isOrganizer,
 }: PayoutsTabProps) {
+  return (
+    <View style={styles.container}>
+      {prizePool && (
+        <PoolSection
+          competition={competition}
+          pool={prizePool}
+          placements={placements}
+          isOrganizer={isOrganizer}
+        />
+      )}
+      {teamPrizePool && (
+        <PoolSection
+          competition={competition}
+          pool={teamPrizePool}
+          placements={teamPlacements ?? []}
+          isOrganizer={isOrganizer}
+        />
+      )}
+    </View>
+  );
+}
+
+// ============================================================================
+// PoolSection — settlement UI for a single pool
+// ============================================================================
+
+interface PoolSectionProps {
+  competition: Competition;
+  pool: CompetitionPrizePool;
+  placements: PrizePoolPlacement[];
+  isOrganizer: boolean;
+}
+
+function PoolSection({
+  competition,
+  pool,
+  placements,
+  isOrganizer,
+}: PoolSectionProps) {
   const colors = useThemeColors();
+  const isTeamPool = pool.target_type === 'team';
 
   const { data: leaderboard, isLoading: isLoadingLeaderboard } =
-    useCompetitionLeaderboard(competition.id, { filter: 'individuals' });
+    useCompetitionLeaderboard(competition.id, {
+      filter: isTeamPool ? 'teams' : 'individuals',
+    });
 
   const {
     data: transactions,
     isLoading: isLoadingTransactions,
     refetch: refetchTransactions,
     isRefetching: isRefetchingTransactions,
-  } = usePoolTransactions(prizePool.id);
+  } = usePoolTransactions(pool.id);
 
   const { mutate: settle, isPending: isSettling } = useSettleCompetitionPayouts();
 
@@ -127,17 +177,17 @@ export function PayoutsTab({
     (v) => v.placement.paid_at === null && v.tiedAt.length > 1
   );
 
-  const isSettled = prizePool.status === 'settled';
+  const isSettled = pool.status === 'settled';
   const isCompetitionComplete = competition.status === 'completed';
   const canSettle = isOrganizer && !isSettled && isCompetitionComplete;
-  const isTeamCompetition = competition.team_mode !== 'none';
 
   const handleSettleConfirm = () => {
     if (!leaderboard) return;
     setShowConfirm(false);
     settle({
-      poolId: prizePool.id,
+      poolId: pool.id,
       competitionId: competition.id,
+      target: pool.target_type,
       standings: leaderboard.map((e) => ({
         participantId: e.participantId,
         position: e.position,
@@ -146,26 +196,35 @@ export function PayoutsTab({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.poolSection}>
       {/* Pool summary */}
-      <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.summaryCard,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.summaryHeader}>
           <View style={[styles.trophyBadge, { backgroundColor: colors.primaryLighter }]}>
-            <Icon source="trophy-outline" size={24} color={colors.primary} />
+            <Icon
+              source={isTeamPool ? 'account-group' : 'trophy-outline'}
+              size={24}
+              color={colors.primary}
+            />
           </View>
           <View style={styles.summaryText}>
             <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
-              {formatMoney(prizePool.total_pool_amount, prizePool.currency)}
+              {formatMoney(pool.total_pool_amount, pool.currency)}
             </Text>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-              Total prize pool
+              {isTeamPool ? 'Team prize pool' : 'Individual prize pool'}
             </Text>
           </View>
-          <StatusBadge status={prizePool.status as StatusVariant} />
+          <StatusBadge status={pool.status as StatusVariant} />
         </View>
-        {isTeamCompetition && (
+        {isTeamPool && (
           <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-            Prize pool pays individual positions — teams don&apos;t affect payouts.
+            Each placement is split evenly among team members.
           </Text>
         )}
       </View>
@@ -174,11 +233,21 @@ export function PayoutsTab({
       <View style={styles.section}>
         <SectionHeader title="Placements" icon="medal-outline" primaryIcon={false} />
         {isLoadingLeaderboard ? (
-          <View style={[styles.placementCard, { backgroundColor: colors.surface, borderColor: colors.border, alignItems: 'center' }]}>
+          <View
+            style={[
+              styles.placementCard,
+              { backgroundColor: colors.surface, borderColor: colors.border, alignItems: 'center' },
+            ]}
+          >
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : placementViews.length === 0 ? (
-          <View style={[styles.placementCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.placementCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No placements configured for this pool.
             </Text>
@@ -188,7 +257,7 @@ export function PayoutsTab({
             <PlacementCard
               key={view.placement.id}
               view={view}
-              currency={prizePool.currency}
+              currency={pool.currency}
               isSettled={isSettled}
             />
           ))
@@ -212,11 +281,13 @@ export function PayoutsTab({
                 ]}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Settle payouts"
+                accessibilityLabel={`Settle ${isTeamPool ? 'team' : 'individual'} payouts`}
               >
                 <Icon source="cash-multiple" size={20} color={colors.white} />
                 <Text style={[styles.settleButtonText, { color: colors.white }]}>
-                  {isSettling ? 'Settling…' : 'Settle Payouts'}
+                  {isSettling
+                    ? 'Settling…'
+                    : `Settle ${isTeamPool ? 'Team' : 'Individual'} Payouts`}
                 </Text>
               </TouchableOpacity>
               {hasTiesAtPaying && (
@@ -250,7 +321,7 @@ export function PayoutsTab({
             isLoading={isLoadingTransactions}
             onRefresh={refetchTransactions}
             isRefreshing={isRefetchingTransactions}
-            testID="payouts-transactions"
+            testID={`payouts-transactions-${pool.target_type}`}
           />
         </View>
       )}
@@ -258,8 +329,8 @@ export function PayoutsTab({
       {/* Settle confirmation */}
       <ConfirmationDialog
         visible={showConfirm}
-        title="Settle payouts"
-        message={buildConfirmMessage(placementViews, prizePool.currency, hasTiesAtPaying)}
+        title={`Settle ${isTeamPool ? 'team' : 'individual'} payouts`}
+        message={buildConfirmMessage(placementViews, pool.currency, hasTiesAtPaying)}
         confirmLabel={hasTiesAtPaying ? 'Continue anyway' : 'Settle'}
         cancelLabel="Cancel"
         confirmVariant={hasTiesAtPaying ? 'destructive' : 'primary'}
@@ -363,6 +434,9 @@ function PlacementCard({ view, currency, isSettled }: PlacementCardProps) {
 
 const styles = StyleSheet.create({
   container: {
+    gap: spacing.xl,
+  },
+  poolSection: {
     gap: spacing.lg,
   },
   summaryCard: {

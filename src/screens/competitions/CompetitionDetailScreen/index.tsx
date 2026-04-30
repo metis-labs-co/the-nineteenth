@@ -26,6 +26,7 @@ import { UpgradePrompt } from '@/components/subscription';
 import { PageHeader, Tabs, ConfirmationDialog } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { useRoundScorecards } from '@/hooks/useRoundDetails';
+import { useReorderCompetitionRounds } from '@/hooks/rounds/mutations';
 import { ScorecardsRealtimeSubscription } from '@/hooks/scorecard/useScorecardsRealtime';
 import {
   DetailsTab,
@@ -87,8 +88,10 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     teams,
     isLoadingTeams,
     prizePool,
+    teamPrizePool,
     refetchPrizePool,
     prizePoolPlacements,
+    teamPrizePoolPlacements,
     scoringPairsStatus,
     allScoredStatus,
     isOrganizer,
@@ -196,6 +199,18 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
     onDeleted: refetch,
     onError: showAlert,
   });
+
+  // Drag-to-reorder for the Rounds tab. Optimistic update lives inside the
+  // hook against the competition-details cache; we only need to fire the
+  // mutation here. Failures roll back automatically and surface via the
+  // generic error toast pipeline.
+  const { mutate: reorderRounds } = useReorderCompetitionRounds();
+  const handleReorderRounds = useCallback(
+    (roundIds: string[]) => {
+      reorderRounds({ competitionId: id, roundIds });
+    },
+    [reorderRounds, id]
+  );
 
   // Refetch on focus so returning from a round detail/settings screen shows
   // updated round data (name, course, date, status) without a manual pull-to-refresh.
@@ -327,7 +342,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
                   : ({ key: 'leaderboard', label: 'Leaderboard' } as const),
               ]
             : []),
-          ...(prizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
+          ...(prizePool || teamPrizePool ? [{ key: 'payouts' as const, label: 'Payouts' }] : []),
         ]}
         selectedTab={activeTab}
         onTabChange={setActiveTab}
@@ -401,6 +416,7 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
             onQuickScore={isOrganizer && isSuperAdmin ? handleQuickScore : undefined}
             onManageScoringPairs={handleManageScoringPairs}
             onDeleteRound={isOrganizer ? handleDeleteRound : undefined}
+            onReorder={isOrganizer ? handleReorderRounds : undefined}
             scoringPairsStatus={scoringPairsStatus}
             allScoredStatus={allScoredStatus}
             colors={colors}
@@ -471,11 +487,13 @@ export default function CompetitionDetailScreen({ navigation, route }: Props) {
           />
         )}
 
-        {activeTab === 'payouts' && prizePool && (
+        {activeTab === 'payouts' && (prizePool || teamPrizePool) && (
           <PayoutsTab
             competition={competition}
             prizePool={prizePool}
             placements={prizePoolPlacements ?? []}
+            teamPrizePool={teamPrizePool}
+            teamPlacements={teamPrizePoolPlacements ?? []}
             isOrganizer={isOrganizer}
           />
         )}
