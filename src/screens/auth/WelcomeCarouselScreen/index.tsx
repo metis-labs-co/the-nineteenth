@@ -8,10 +8,11 @@ import {
   ViewToken,
 } from 'react-native';
 import { Text } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingDots } from '@/screens/onboarding/components/OnboardingDots';
-import { useThemeColors } from '@/context/ThemeContext';
+import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 import { useHasSeenWelcome } from '@/hooks/useHasSeenWelcome';
 import { spacing, typography } from '@/constants/theme';
 import type { RootStackParamList } from '@/navigation/types';
@@ -46,7 +47,7 @@ const SLIDES: SlideItem[] = [
 
 const LAST_INDEX = SLIDES.length - 1;
 
-export default function WelcomeCarouselScreen({ navigation }: Props) {
+function WelcomeCarouselContent({ navigation }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { markSeen } = useHasSeenWelcome();
@@ -150,6 +151,15 @@ export default function WelcomeCarouselScreen({ navigation }: Props) {
         />
       </View>
     </View>
+  );
+}
+
+export default function WelcomeCarouselScreen(props: Props) {
+  return (
+    <ThemeProvider forceMode="dark">
+      <StatusBar style="light" />
+      <WelcomeCarouselContent {...props} />
+    </ThemeProvider>
   );
 }
 

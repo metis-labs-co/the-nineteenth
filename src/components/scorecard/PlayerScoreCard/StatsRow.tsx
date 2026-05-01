@@ -52,6 +52,11 @@ interface StatsRowProps {
    * Used when scoring 3+ players to reduce vertical density.
    */
   defaultCollapsed?: boolean;
+  /**
+   * Optional element rendered right-aligned alongside the "Add Additional Stats"
+   * button (e.g. an inline log-shot button for shot tracking).
+   */
+  actionAccessory?: React.ReactNode;
 }
 
 export const StatsRow = React.memo(function StatsRow({
@@ -74,6 +79,7 @@ export const StatsRow = React.memo(function StatsRow({
   showBunkerShots,
   showHazards,
   defaultCollapsed = false,
+  actionAccessory,
 }: StatsRowProps) {
   const colors = useThemeColors();
 
@@ -227,30 +233,40 @@ export const StatsRow = React.memo(function StatsRow({
 
     </View>
 
-      {/* Additional Stats Button — full width below the stats row */}
-      {hasAnyDetailedStats && (
-        <TouchableOpacity
-          style={[styles.additionalStatsButton, { borderColor: colors.border }]}
-          onPress={onDetailedStatsPress}
-          disabled={disabled}
-          activeOpacity={0.7}
-          accessibilityLabel="Add additional stats"
-          accessibilityRole="button"
-        >
-          <View style={styles.additionalStatsContent}>
-            <IconPlus size={14} color={colors.primary} />
-            <Text style={[styles.additionalStatsText, { color: colors.primary }]}>
-              Add Additional Stats
-            </Text>
-          </View>
-          <DetailedStatsBadges
-            score={score}
-            showFairwayMissDirection={showFairwayMissDirection ?? false}
-            showGreenMissDirection={showGreenMissDirection ?? false}
-            showBunkerShots={showBunkerShots ?? false}
-            showHazards={showHazards ?? false}
-          />
-        </TouchableOpacity>
+      {/* Additional Stats Button + optional right-aligned action (e.g. Log Shot) */}
+      {(hasAnyDetailedStats || actionAccessory) && (
+        <View style={styles.statsActionRow}>
+          {hasAnyDetailedStats && (
+            <TouchableOpacity
+              style={[
+                styles.additionalStatsButton,
+                { borderColor: colors.border },
+              ]}
+              onPress={onDetailedStatsPress}
+              disabled={disabled}
+              activeOpacity={0.7}
+              accessibilityLabel="Add additional stats"
+              accessibilityRole="button"
+            >
+              <View style={styles.additionalStatsContent}>
+                <IconPlus size={14} color={colors.primary} />
+                <Text style={[styles.additionalStatsText, { color: colors.primary }]}>
+                  Add Additional Stats
+                </Text>
+              </View>
+              <DetailedStatsBadges
+                score={score}
+                showFairwayMissDirection={showFairwayMissDirection ?? false}
+                showGreenMissDirection={showGreenMissDirection ?? false}
+                showBunkerShots={showBunkerShots ?? false}
+                showHazards={showHazards ?? false}
+              />
+            </TouchableOpacity>
+          )}
+          {actionAccessory && (
+            <View style={styles.actionAccessory}>{actionAccessory}</View>
+          )}
+        </View>
       )}
 
       {defaultCollapsed && (
@@ -403,7 +419,14 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.4,
   },
+  statsActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
   additionalStatsButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -412,7 +435,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
+  },
+  actionAccessory: {
+    marginLeft: 'auto',
   },
   additionalStatsContent: {
     flexDirection: 'row',

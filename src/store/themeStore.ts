@@ -51,11 +51,11 @@ function resolveTheme(mode: ThemeMode, systemScheme: ColorSchemeName): 'light' |
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      // Initial state - defaults to system preference
-      themeMode: 'system',
+      // Initial state - defaults to dark theme with solid surfaces and no backdrop image
+      themeMode: 'dark',
       surfaceStyle: 'solid',
-      backdropStyle: 'image',
-      resolvedTheme: resolveTheme('system', Appearance.getColorScheme()),
+      backdropStyle: 'none',
+      resolvedTheme: resolveTheme('dark', Appearance.getColorScheme()),
 
       // Actions
       setThemeMode: (mode) => {
@@ -118,7 +118,7 @@ export const useThemeStore = create<ThemeState>()(
             state.surfaceStyle = 'solid';
           }
           if (!state.backdropStyle) {
-            state.backdropStyle = 'image';
+            state.backdropStyle = 'none';
           }
         }
       },

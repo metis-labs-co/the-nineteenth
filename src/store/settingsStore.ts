@@ -35,7 +35,7 @@ interface SettingsState {
 
   // Phase C2 — auto-track shots on premium solo rounds.
   // Eligibility (premium tier + solo round + auth user) is still enforced
-  // by ShotLoggingOverlay; this is the user-facing master switch.
+  // by the inline log-shot button; this is the user-facing master switch.
   trackShotsAutomatically: boolean;
 
   // Collapse the FIR/GIR/Putts stats row by default when scoring 3+ players

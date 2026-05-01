@@ -125,6 +125,11 @@ export interface ScorecardScoreContentProps {
    * to the signed-in user's pairing.
    */
   playersOverride?: Player[];
+  /**
+   * Round ID — forwarded to PlayerScoreCard so it can render the inline
+   * "Log Shot" action for shot-tracking-eligible rounds.
+   */
+  roundId?: string;
 }
 
 export function ScorecardScoreContent({
@@ -177,6 +182,7 @@ export function ScorecardScoreContent({
   onDetailedStatsPress,
   isSoloRound = false,
   playersOverride,
+  roundId,
 }: ScorecardScoreContentProps) {
   // Map of player_id -> team name, used to render team affiliation under
   // each player's name on individual score cards. Sources, in priority:
@@ -449,6 +455,7 @@ export function ScorecardScoreContent({
                       collapseStatsByDefault={collapseStatsByDefault}
                       teamName={playerTeamNames.get(player.id)}
                       disabled={!isEditable}
+                      roundId={roundId}
                     />
                   );
                 })}
@@ -666,6 +673,7 @@ export function ScorecardScoreContent({
             baseLabel={handicapDisplay?.baseLabel}
             collapseStatsByDefault={collapseStatsByDefault}
             teamName={playerTeamNames.get(player.id)}
+            roundId={roundId}
           />
         );
       })}

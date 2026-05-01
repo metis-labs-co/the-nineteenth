@@ -27,11 +27,12 @@ import {
   ViewToken,
 } from 'react-native';
 import { Text } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useScreenInfoStore } from '@/store/screenInfoStore';
 import { spacing, typography } from '@/constants/theme';
-import { useThemeColors } from '@/context/ThemeContext';
+import { ThemeProvider, useThemeColors } from '@/context/ThemeContext';
 
 // Step components
 import WelcomeStep from './components/WelcomeStep';
@@ -75,7 +76,7 @@ const STEPS: StepItem[] = [
   { key: 'homeClub', component: HomeClubStep },
 ];
 
-export default function OnboardingScreen() {
+function OnboardingContent() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { updateProfile, player } = useAuth();
@@ -256,6 +257,15 @@ export default function OnboardingScreen() {
         />
       </View>
     </View>
+  );
+}
+
+export default function OnboardingScreen() {
+  return (
+    <ThemeProvider forceMode="dark">
+      <StatusBar style="light" />
+      <OnboardingContent />
+    </ThemeProvider>
   );
 }
 

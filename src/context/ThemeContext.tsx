@@ -79,9 +79,17 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 interface ThemeProviderProps {
   children: ReactNode;
+  /**
+   * When set, ignore the user's persisted theme preference for this subtree
+   * and always render the given mode. Used to keep pre-auth screens
+   * (welcome, onboarding) on the brand-dark look regardless of preferences.
+   * Forcing a mode also pins surfaces to `solid` and disables the backdrop
+   * image so the screen renders an opaque branded background.
+   */
+  forceMode?: 'light' | 'dark';
 }
 
-export function ThemeProvider({ children }: ThemeProviderProps) {
+export function ThemeProvider({ children, forceMode }: ThemeProviderProps) {
   const themeMode = useThemeStore((state) => state.themeMode);
   const surfaceStyle = useThemeStore((state) => state.surfaceStyle);
   const backdropStyle = useThemeStore((state) => state.backdropStyle);
@@ -89,17 +97,20 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const setSurfaceStyle = useThemeStore((state) => state.setSurfaceStyle);
   const setBackdropStyle = useThemeStore((state) => state.setBackdropStyle);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
-  const isDark = useIsDarkMode();
+  const userIsDark = useIsDarkMode();
+  const isDark = forceMode ? forceMode === 'dark' : userIsDark;
+  const effectiveSurfaceStyle = forceMode ? 'solid' : surfaceStyle;
+  const effectiveBackdropStyle = forceMode ? 'none' : backdropStyle;
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       colors: isDark
-        ? generateDarkColors(activeBrand, surfaceStyle, backdropStyle)
-        : generateLightColors(activeBrand, surfaceStyle, backdropStyle),
+        ? generateDarkColors(activeBrand, effectiveSurfaceStyle, effectiveBackdropStyle)
+        : generateLightColors(activeBrand, effectiveSurfaceStyle, effectiveBackdropStyle),
       isDark,
       themeMode,
-      surfaceStyle,
-      backdropStyle,
+      surfaceStyle: effectiveSurfaceStyle,
+      backdropStyle: effectiveBackdropStyle,
       setThemeMode,
       setSurfaceStyle,
       setBackdropStyle,
@@ -108,8 +119,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     [
       isDark,
       themeMode,
-      surfaceStyle,
-      backdropStyle,
+      effectiveSurfaceStyle,
+      effectiveBackdropStyle,
       setThemeMode,
       setSurfaceStyle,
       setBackdropStyle,

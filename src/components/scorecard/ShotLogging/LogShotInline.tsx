@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { Icon } from 'react-native-paper';
+import { View, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Icon, Text } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { borderRadius, shadows } from '@/constants/theme';
+import { borderRadius, spacing, typography } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
-import { useLogShot } from '@/hooks/shots';
+import { useLogShot, useShotTrackingEligibility } from '@/hooks/shots';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
+import { useSettingsStore } from '@/store/settingsStore';
+
 /**
  * Map raw supabase / Postgres errors to short, user-facing copy.
- * Falls back to a generic message — never surface DB internals.
  */
 function friendlyShotError(err: unknown): string {
   const code =
@@ -30,26 +31,28 @@ function friendlyShotError(err: unknown): string {
   }
 }
 
-interface LogShotFABProps {
+interface LogShotInlineProps {
   roundId: string;
   holeNumber: number;
-  /** Bottom inset (e.g. tab bar height) so the FAB doesn't sit under chrome. */
-  bottomInset?: number;
+  /** Disable while the parent card is in a non-editable state. */
+  disabled?: boolean;
 }
 
 /**
- * Bottom offset that clears the ~120dp scorecard footer plus 16dp
- * breathing room. Toast lives inline now (see InlineShotToast) so the
- * FAB no longer needs a "lifted" position.
+ * Inline shot-logging pill. Rendered next to the per-player "Add Additional
+ * Stats" button on the score-entry card. Self-gates on tier + settings, so the
+ * parent can mount it unconditionally.
  */
-const FAB_BOTTOM = 136;
-
-export const LogShotFAB = React.memo(function LogShotFAB({
+export const LogShotInline = React.memo(function LogShotInline({
   roundId,
   holeNumber,
-  bottomInset = 0,
-}: LogShotFABProps) {
+  disabled = false,
+}: LogShotInlineProps) {
   const colors = useThemeColors();
+  const eligibility = useShotTrackingEligibility(roundId);
+  const enableHoleMap = useSettingsStore((s) => s.enableHoleMap);
+  const trackShotsAutomatically = useSettingsStore((s) => s.trackShotsAutomatically);
+
   const {
     location,
     permissionStatus,
@@ -61,32 +64,21 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const showToast = useShotLoggingUiStore((s) => s.showToast);
   const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
 
-  // Bootstrap GPS — the FAB is the only entry point in some flows
-  // (e.g. courses without hole_coordinates where DistanceToPin never
-  // mounts), so the FAB itself has to kick off GPS watching.
+  // Bootstrap GPS — this button may be the only entry point on courses without
+  // hole_coordinates (where DistanceToPin never mounts).
   useEffect(() => {
     if (permissionStatus === 'granted' && !isWatching) {
       startWatching();
     }
   }, [permissionStatus, isWatching, startWatching]);
 
-  const disabled = !location || logShot.isPending;
-
   const handlePress = useCallback(async () => {
-    // If permission isn't granted yet, request it on first press.
     if (permissionStatus !== 'granted') {
       const granted = await requestPermission();
       if (granted) startWatching();
       return;
     }
     if (!location) return;
-    // eslint-disable-next-line no-console
-    console.log('[LogShotFAB] mutating', {
-      roundId,
-      holeNumber,
-      lat: location.latitude,
-      lng: location.longitude,
-    });
     logShot.mutate(
       {
         roundId,
@@ -96,8 +88,6 @@ export const LogShotFAB = React.memo(function LogShotFAB({
       },
       {
         onSuccess: (shot) => {
-          // eslint-disable-next-line no-console
-          console.log('[LogShotFAB] success', shot);
           showToast({
             shotId: shot.id,
             sequence: shot.sequence,
@@ -106,8 +96,6 @@ export const LogShotFAB = React.memo(function LogShotFAB({
           });
         },
         onError: (err: unknown) => {
-          // eslint-disable-next-line no-console
-          console.warn('[LogShotFAB] failed', err);
           showErrorToast({ message: friendlyShotError(err) });
         },
       }
@@ -124,20 +112,16 @@ export const LogShotFAB = React.memo(function LogShotFAB({
     showErrorToast,
   ]);
 
-  // Distinguish three visual states:
-  //   - active: GPS lock acquired, ready to log
-  //   - awaiting permission: hasn't been asked or denied — pressable to prompt
-  //   - acquiring: permission granted but no fix yet — show a spinner
+  if (!eligibility.eligible || !enableHoleMap || !trackShotsAutomatically) {
+    return null;
+  }
+
   const isAwaitingPermission =
     permissionStatus === 'undetermined' || permissionStatus === 'denied';
   const isAcquiring = permissionStatus === 'granted' && !location;
   const showSpinner = logShot.isPending || isAcquiring;
-
-  // Allow press when we need to prompt permission, even though location is null.
-  const pressable = !logShot.isPending && (location !== null || isAwaitingPermission);
-  const looksDisabled = !pressable;
-
-  const fabBottom = FAB_BOTTOM + bottomInset;
+  const pressable =
+    !disabled && !logShot.isPending && (location !== null || isAwaitingPermission);
 
   return (
     <Pressable
@@ -152,33 +136,44 @@ export const LogShotFAB = React.memo(function LogShotFAB({
       accessibilityState={{ disabled: !pressable }}
       onPress={handlePress}
       disabled={!pressable}
-      testID="log-shot-fab"
+      testID="log-shot-inline"
       style={[
-        styles.fab,
-        shadows.lg,
-        {
-          backgroundColor: looksDisabled ? colors.gray400 : colors.primary,
-          bottom: fabBottom,
-        },
+        styles.button,
+        { backgroundColor: pressable ? colors.primary : colors.gray400 },
       ]}
     >
       {showSpinner ? (
-        <ActivityIndicator color="white" testID="log-shot-fab-spinner" />
+        <ActivityIndicator color={colors.white} size="small" testID="log-shot-inline-spinner" />
       ) : (
-        <Icon source="plus" size={28} color="white" />
+        <View style={styles.iconRow}>
+          <Icon source="golf-tee" size={16} color={colors.white} />
+          <Icon source="plus" size={12} color={colors.white} />
+        </View>
       )}
+      <Text style={[styles.label, { color: colors.white }]}>Log Shot</Text>
     </Pressable>
   );
 });
+LogShotInline.displayName = 'LogShotInline';
 
 const styles = StyleSheet.create({
-  fab: {
-    position: 'absolute',
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.full,
+  button: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    minHeight: 32,
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
+  label: {
+    ...typography.caption,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

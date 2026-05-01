@@ -35,7 +35,7 @@ import {
   GroupFilterStrip,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
-import { ShotLoggingOverlay, InlineShotToast } from '@/components/scorecard/ShotLogging';
+import { InlineShotToast } from '@/components/scorecard/ShotLogging';
 import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
 import { WolfDecisionModal } from '@/components/wolf';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -494,6 +494,7 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               />
             )}
             <ScorecardScoreContent
+              roundId={roundId}
               currentHoleData={holeData}
               currentHole={holeNumber}
               holes={holes}
@@ -754,9 +755,6 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
       })()}
 
       <ConfirmationDialog {...submissionDialogConfig} onCancel={dismissSubmissionDialog} />
-
-      {/* Phase C2 — Shot logging overlay (Premium tier, solo round, opt-in). */}
-      <ShotLoggingOverlay roundId={roundId} holeNumber={currentHole} />
     </SafeAreaView>
   );
 }

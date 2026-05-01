@@ -32,6 +32,7 @@ import { QuickActionButton } from './QuickActionButton';
 import { ScoreInputStepper } from './ScoreInputStepper';
 import { StatsRow } from './StatsRow';
 import { usePlayerScoreCardLogic } from './usePlayerScoreCardLogic';
+import { LogShotInline } from '@/components/scorecard/ShotLogging';
 
 /**
  * Get the description label for Stableford points
@@ -102,6 +103,13 @@ interface PlayerScoreCardProps {
   collapseStatsByDefault?: boolean;
   /** Team name shown beneath the player's name on team rounds */
   teamName?: string;
+  /**
+   * Round ID — when provided, renders an inline "Log Shot" button next to
+   * "Add Additional Stats" for shot-tracking-eligible rounds. The inline
+   * button self-gates on tier/settings, so passing this is harmless when
+   * the user isn't eligible.
+   */
+  roundId?: string;
 }
 
 export const PlayerScoreCard = React.memo(function PlayerScoreCard({
@@ -123,6 +131,7 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
   baseLabel,
   collapseStatsByDefault = false,
   teamName,
+  roundId,
 }: PlayerScoreCardProps) {
   const colors = useThemeColors();
   const handicap = playingHandicap ?? player.handicap ?? 0;
@@ -312,6 +321,15 @@ export const PlayerScoreCard = React.memo(function PlayerScoreCard({
             showBunkerShots={statsVisibility.showBunkerShots}
             showHazards={statsVisibility.showHazards}
             defaultCollapsed={collapseStatsByDefault}
+            actionAccessory={
+              roundId ? (
+                <LogShotInline
+                  roundId={roundId}
+                  holeNumber={currentHole.number}
+                  disabled={disabled}
+                />
+              ) : undefined
+            }
           />
         </>
       )}

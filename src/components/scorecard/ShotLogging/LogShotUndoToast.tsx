@@ -11,7 +11,6 @@ interface LogShotUndoToastProps {
   bottomInset?: number;
 }
 
-/** Layout constants shared with LogShotFAB so the FAB can shift up cleanly. */
 /**
  * Sits flush on top of the scorecard footer. The footer is:
  *   paddingTop (8) + button content (48) + paddingBottom (64) = 120dp
