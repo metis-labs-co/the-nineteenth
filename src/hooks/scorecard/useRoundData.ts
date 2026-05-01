@@ -14,6 +14,7 @@ import { useScorecardStore } from '@/store/scorecardStore';
 import { supabase } from '@/services/supabase/client';
 import { saveScorecard } from '@/services/offline/database';
 import { roundDataLogger } from '@/utils/debugLogger';
+import { pushDiagnostic } from '@/services/diagnostics';
 import { getDisplayName } from '@/utils/displayHelpers';
 import type { Player, Scorecard, TeamWithMembers } from '@/types';
 import type { HoleScore } from '@/types/database/base';
@@ -128,10 +129,18 @@ export function useRoundData({
       currentRoundId: currentRoundId?.substring(0, 8),
       currentPlayersCount: currentPlayers.length,
     });
+    pushDiagnostic('round_data.initialize_called', {
+      roundId,
+      competitionId,
+      isInitialized,
+      currentRoundId,
+      currentPlayersCount: currentPlayers.length,
+    });
 
     // Skip full initialization if store is already initialized with THIS SPECIFIC round
     if (isInitialized && currentPlayers.length > 0 && currentRoundId === roundId) {
       roundDataLogger.info('Store already initialized for this round, using hook data');
+      pushDiagnostic('round_data.already_initialized', { roundId });
       return;
     }
 
@@ -141,25 +150,50 @@ export function useRoundData({
         from: currentRoundId?.substring(0, 8),
         to: roundId?.substring(0, 8),
       });
+      pushDiagnostic('round_data.reset_different_round', {
+        from: currentRoundId,
+        to: roundId,
+      });
       resetRound();
     }
 
     // Try to load from offline first
     roundDataLogger.debug('Attempting to load from offline storage');
+    pushDiagnostic('round_data.attempting_offline_load', { roundId });
     const loaded = await loadFromOffline(roundId);
 
     if (loaded) {
       roundDataLogger.info('Loaded from offline successfully');
+      pushDiagnostic('round_data.offline_load_success', { roundId });
       return;
     }
+    pushDiagnostic('round_data.offline_load_failed_or_empty', {
+      roundId,
+      metadataLoading: metadata.isLoading,
+      playersLoading: playersHook.isLoading,
+      courseLoading: courseHook.isLoading,
+      metadataError: metadata.error,
+      playersError: playersHook.error,
+      courseError: courseHook.error,
+    });
 
     // Wait for hooks to load data
     if (metadata.isLoading || playersHook.isLoading || courseHook.isLoading) {
+      pushDiagnostic('round_data.waiting_for_hooks', {
+        metadataLoading: metadata.isLoading,
+        playersLoading: playersHook.isLoading,
+        courseLoading: courseHook.isLoading,
+      });
       return;
     }
 
     // Check for errors
     if (metadata.error || playersHook.error || courseHook.error) {
+      pushDiagnostic('round_data.hook_errors', {
+        metadataError: metadata.error,
+        playersError: playersHook.error,
+        courseError: courseHook.error,
+      }, 'error');
       return;
     }
 
@@ -230,6 +264,12 @@ export function useRoundData({
       gameType,
       hasTeeData: !!metadata.data?.selectedTeeData,
     });
+    pushDiagnostic('round_data.calling_initialize_round', {
+      roundId,
+      playerCount: playersToInitialize.length,
+      holeCount: holes.length,
+      gameType,
+    });
     await initializeRound(
       roundId,
       playersToInitialize,
@@ -242,6 +282,7 @@ export function useRoundData({
       metadata.data?.playerTeeMap ?? new Map(), // per-player tee overrides
       metadata.data?.nineType ?? 'full', // nine_type — slice filters holes accordingly
     );
+    pushDiagnostic('round_data.initialize_round_returned', { roundId });
   }, [
     roundId,
     competitionId,

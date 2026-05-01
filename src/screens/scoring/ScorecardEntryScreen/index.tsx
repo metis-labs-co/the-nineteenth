@@ -20,6 +20,7 @@ import { Text } from 'react-native-paper';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import { activeRoundSession } from '@/services/activeRoundSession';
+import { pushDiagnostic } from '@/services/diagnostics';
 import { LoadingSpinner, ConfirmationDialog } from '@/components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScorecardStore } from '@/store/scorecardStore';
@@ -71,6 +72,19 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   const colors = useThemeColors();
   const { user } = useAuth();
   const isStandaloneRound = competitionId === 'standalone';
+
+  // Diagnostic: log every time the screen mounts. Combined with the
+  // `scorecard.spinner_*` events lower down, this gives a timeline of the
+  // resume flow on production builds where console logs aren't visible.
+  useEffect(() => {
+    pushDiagnostic('scorecard.mounted', {
+      roundId,
+      competitionId,
+      isBuildAsYouPlay: isBuildAsYouPlayParam,
+      hasUser: !!user?.id,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only diagnostic
+  }, []);
   const isSuperAdmin = useIsSuperAdmin();
   const [editingHole, setEditingHole] = useState<Hole | null>(null);
   const [detailedStatsPlayerId, setDetailedStatsPlayerId] = useState<string | null>(null);
@@ -584,7 +598,36 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
   // queries refresh data when they resolve and shouldn't block the UI on
   // a slow / hung Supabase request.
   const hasRenderableData = isInitialized && hasHoles;
-  if (!hasRenderableData && !fetchError) {
+  const showSpinner = !hasRenderableData && !fetchError;
+
+  // Diagnostic: fire an event the moment we render the spinner, then again
+  // every 3s while still stuck. This is what shows up in the
+  // `client_diagnostics` Supabase table — query by user_id + event_name to
+  // see which condition is wedged on production builds.
+  useEffect(() => {
+    if (!showSpinner) return;
+    const snapshot = () => ({
+      roundId,
+      competitionId,
+      isLoading,
+      storeLoading,
+      dataLoading,
+      isInitialized,
+      hasHoles,
+      holesCount: holes.length,
+      currentRoundId,
+      currentPlayersCount: currentPlayers.length,
+      fetchError,
+    });
+    pushDiagnostic('scorecard.spinner_visible', snapshot());
+    const interval = setInterval(() => {
+      pushDiagnostic('scorecard.spinner_still_visible', snapshot(), 'warn');
+    }, 3000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot reads everything off the latest render
+  }, [showSpinner]);
+
+  if (showSpinner) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <LoadingSpinner size="lg" message="Loading scorecard..." />

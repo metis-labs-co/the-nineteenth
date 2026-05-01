@@ -22,6 +22,7 @@ import { useBiometricLock } from '@/hooks/useBiometricLock';
 import { BiometricLockScreen, BiometricEnrollPrompt } from '@/components/biometric';
 import { supabase } from '@/services/supabase/client';
 import { activeRoundSession } from '@/services/activeRoundSession';
+import { pushDiagnostic } from '@/services/diagnostics';
 
 // Auth Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -151,6 +152,10 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
     (async () => {
       try {
         const session = await activeRoundSession.get();
+        pushDiagnostic('root_nav.session_check', {
+          hasSession: !!session,
+          userMatches: session ? session.userId === user.id : false,
+        });
         if (cancelled || !session || session.userId !== user.id) return;
 
         // Wait briefly for NavigationContainer to be ready (it usually is by now).
@@ -158,14 +163,28 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
         while (!navigationRef.isReady() && Date.now() - start < 2000) {
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
-        if (cancelled || !navigationRef.isReady()) return;
+        if (cancelled || !navigationRef.isReady()) {
+          pushDiagnostic('root_nav.navigation_not_ready', {
+            cancelled,
+            isReady: navigationRef.isReady(),
+            waitedMs: Date.now() - start,
+          }, 'warn');
+          return;
+        }
 
+        pushDiagnostic('root_nav.navigating_to_scorecard', {
+          roundId: session.roundId,
+          competitionId: session.competitionId,
+        });
         navigate('Scorecard', {
           roundId: session.roundId,
           competitionId: session.competitionId,
           isBuildAsYouPlay: session.isBuildAsYouPlay,
         });
       } catch (err) {
+        pushDiagnostic('root_nav.restore_threw', {
+          error: err instanceof Error ? err.message : String(err),
+        }, 'error');
         if (__DEV__) {
           console.warn('[RootNavigator] Failed to restore active round session', err);
         }

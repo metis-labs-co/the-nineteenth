@@ -14,6 +14,7 @@ import {
 } from '@/services/offline/database';
 import { supabase } from '@/services/supabase/client';
 import { storeLogger } from '@/utils/debugLogger';
+import { pushDiagnostic } from '@/services/diagnostics';
 import { filterHolesByNineType } from '@/utils/holeTransformers';
 import { isValidUUID } from './utils/scorecardCalculations';
 
@@ -53,6 +54,13 @@ export async function initializeRound(
     isStandalone,
     allowedPlayerCount: allowedPlayerIds.length,
     hasTeeData: !!selectedTeeData,
+  });
+  pushDiagnostic('initialize_round.entered', {
+    roundId,
+    playerCount: players.length,
+    holeCount: filteredHoles.length,
+    gameType,
+    nineType,
   });
   set({ isLoading: true, selectedTeeData });
   initSyncListener();
@@ -108,8 +116,17 @@ export async function initializeRound(
       scorecardCount: newScorecards.size,
       allowedPlayers: allowedPlayerIds.length > 0 ? allowedPlayerIds.length : 'all',
     });
+    pushDiagnostic('initialize_round.success', {
+      roundId,
+      scorecardCount: newScorecards.size,
+      holeCount: filteredHoles.length,
+    });
   } catch (error) {
     storeLogger.error('Failed to initialize round', error, { roundId });
+    pushDiagnostic('initialize_round.threw', {
+      roundId,
+      error: error instanceof Error ? error.message : String(error),
+    }, 'error');
     set({ isLoading: false });
     throw error;
   }
@@ -121,6 +138,7 @@ export async function loadFromOffline(
   roundId: string,
 ): Promise<boolean> {
   storeLogger.info('Loading round from offline storage', { roundId });
+  pushDiagnostic('offline_load.entered', { roundId });
   set({ isLoading: true });
   initSyncListener();
 
@@ -130,9 +148,14 @@ export async function loadFromOffline(
       roundId,
       scorecardCount: scorecards.length,
     });
+    pushDiagnostic('offline_load.scorecards_read', {
+      roundId,
+      scorecardCount: scorecards.length,
+    });
 
     if (scorecards.length === 0) {
       storeLogger.info('No cached scorecards found', { roundId });
+      pushDiagnostic('offline_load.no_cached_scorecards', { roundId });
       set({ isLoading: false });
       return false;
     }
@@ -143,15 +166,21 @@ export async function loadFromOffline(
 
     if (hasInvalidData) {
       storeLogger.warn('Cached data has invalid UUIDs (mock data), ignoring', { roundId });
+      pushDiagnostic('offline_load.invalid_uuids', { roundId }, 'warn');
       set({ isLoading: false });
       return false;
     }
 
     const cachedHoles = await getHoles(roundId);
     storeLogger.debug('Loaded holes from SQLite', { roundId, holeCount: cachedHoles.length });
+    pushDiagnostic('offline_load.holes_read', {
+      roundId,
+      holeCount: cachedHoles.length,
+    });
 
     if (cachedHoles.length === 0) {
       storeLogger.warn('No cached holes found, will fetch from network', { roundId });
+      pushDiagnostic('offline_load.no_cached_holes', { roundId }, 'warn');
       set({ isLoading: false });
       return false;
     }
@@ -277,9 +306,22 @@ export async function loadFromOffline(
       gameType,
       nineType,
     });
+    pushDiagnostic('offline_load.success', {
+      roundId,
+      playerCount: players.length,
+      holeCount: holes.length,
+      resumeAtHole: currentHole,
+      hasTeeData: !!selectedTeeData,
+      gameType,
+      nineType,
+    });
     return true;
   } catch (error) {
     storeLogger.error('Failed to load from offline', error, { roundId });
+    pushDiagnostic('offline_load.threw', {
+      roundId,
+      error: error instanceof Error ? error.message : String(error),
+    }, 'error');
     set({ isLoading: false });
     return false;
   }
