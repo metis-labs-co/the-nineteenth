@@ -32,6 +32,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   } = useUserLocation();
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
+  const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
 
   // Bootstrap GPS — the FAB is the only entry point in some flows
   // (e.g. courses without hole_coordinates where DistanceToPin never
@@ -52,6 +53,13 @@ export const LogShotFAB = React.memo(function LogShotFAB({
       return;
     }
     if (!location) return;
+    // eslint-disable-next-line no-console
+    console.log('[LogShotFAB] mutating', {
+      roundId,
+      holeNumber,
+      lat: location.latitude,
+      lng: location.longitude,
+    });
     logShot.mutate(
       {
         roundId,
@@ -61,12 +69,25 @@ export const LogShotFAB = React.memo(function LogShotFAB({
       },
       {
         onSuccess: (shot) => {
+          // eslint-disable-next-line no-console
+          console.log('[LogShotFAB] success', shot);
           showToast({
             shotId: shot.id,
             sequence: shot.sequence,
             roundId,
             holeNumber,
           });
+        },
+        onError: (err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn('[LogShotFAB] failed', err);
+          const message =
+            err instanceof Error
+              ? err.message
+              : typeof err === 'object' && err !== null && 'message' in err
+              ? String((err as { message: unknown }).message)
+              : 'Could not log shot';
+          showErrorToast({ message: `Shot log failed: ${message}` });
         },
       }
     );
@@ -79,6 +100,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
     roundId,
     holeNumber,
     showToast,
+    showErrorToast,
   ]);
 
   // Distinguish three visual states:
