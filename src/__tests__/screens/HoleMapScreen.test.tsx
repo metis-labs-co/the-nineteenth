@@ -31,23 +31,33 @@ jest.mock('@/hooks/useUserLocation', () => ({
   }),
 }));
 
+const buildCoord = (poi_type: string, lat: number, lng: number) => ({
+  id: poi_type,
+  course_id: 'c1',
+  hole_number: 7,
+  poi_type,
+  latitude: lat,
+  longitude: lng,
+  side_of_fairway: null,
+  created_at: '2026-01-01T00:00:00Z',
+});
+
+const PIN_ONLY_SET = {
+  hole_number: 7,
+  green_center: buildCoord('green_center', -37.82, 144.97),
+};
+
+const FULL_SET = {
+  hole_number: 7,
+  tee_back: buildCoord('tee_back', -37.81, 144.96),
+  tee_front: buildCoord('tee_front', -37.811, 144.961),
+  green_front: buildCoord('green_front', -37.82, 144.97),
+  green_center: buildCoord('green_center', -37.821, 144.971),
+  green_back: buildCoord('green_back', -37.822, 144.972),
+};
+
 jest.mock('@/hooks/useHoleCoordinates', () => ({
-  useHoleCoordinatesByHole: () => ({
-    data: {
-      hole_number: 7,
-      green_center: {
-        id: 'gc',
-        course_id: 'c1',
-        hole_number: 7,
-        poi_type: 'green_center',
-        latitude: -37.82,
-        longitude: 144.97,
-        side_of_fairway: null,
-        created_at: '2026-01-01T00:00:00Z',
-      },
-    },
-    isLoading: false,
-  }),
+  useHoleCoordinatesByHole: jest.fn(() => ({ data: undefined, isLoading: false })),
   useHasCoordinates: jest.fn(() => ({ data: true, isLoading: false })),
   useDistanceToGreen: () => ({ data: { yards: 100, meters: 91 }, isLoading: false }),
 }));
@@ -61,7 +71,7 @@ jest.mock('@/hooks/useCoordinateBackfill', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useMapTier', () => ({ useMapTier: () => 'free' }));
+jest.mock('@/hooks/useMapTier', () => ({ useMapTier: jest.fn(() => 'free') }));
 
 jest.mock('@/store/settingsStore', () => ({
   useFormattedDistance: () => ({
@@ -88,10 +98,17 @@ const makeProps = () =>
     },
   } as any);
 
-describe('HoleMapScreen', () => {
+describe('HoleMapScreen — Free tier', () => {
   beforeEach(() => {
     mockGoBack.mockClear();
     mockTriggerBackfill.mockClear();
+    const { useMapTier } = require('@/hooks/useMapTier');
+    (useMapTier as jest.Mock).mockReturnValue('free');
+    const { useHoleCoordinatesByHole } = require('@/hooks/useHoleCoordinates');
+    (useHoleCoordinatesByHole as jest.Mock).mockReturnValue({
+      data: PIN_ONLY_SET,
+      isLoading: false,
+    });
   });
 
   it('renders header, map, user marker, and pin marker', () => {
@@ -113,5 +130,64 @@ describe('HoleMapScreen', () => {
     (useHasCoordinates as jest.Mock).mockReturnValueOnce({ data: false, isLoading: false });
     const { getByText } = render(<HoleMapScreen {...makeProps()} />);
     expect(getByText(/no map data/i)).toBeTruthy();
+  });
+
+  it('does not render any POI markers on free tier', () => {
+    const { useHoleCoordinatesByHole } = require('@/hooks/useHoleCoordinates');
+    (useHoleCoordinatesByHole as jest.Mock).mockReturnValue({
+      data: FULL_SET,
+      isLoading: false,
+    });
+    const { queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(queryByTestId('tee-poi-tee_back')).toBeNull();
+    expect(queryByTestId('green-poi-green_center')).toBeNull();
+  });
+});
+
+describe('HoleMapScreen — Social/Premium tier (Phase B)', () => {
+  beforeEach(() => {
+    mockGoBack.mockClear();
+    const { useMapTier } = require('@/hooks/useMapTier');
+    (useMapTier as jest.Mock).mockReturnValue('social');
+    const { useHoleCoordinatesByHole } = require('@/hooks/useHoleCoordinates');
+    (useHoleCoordinatesByHole as jest.Mock).mockReturnValue({
+      data: FULL_SET,
+      isLoading: false,
+    });
+  });
+
+  it('renders all tee and green POI markers', () => {
+    const { getByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    expect(getByTestId('tee-poi-tee_back')).toBeTruthy();
+    expect(getByTestId('tee-poi-tee_front')).toBeTruthy();
+    expect(getByTestId('green-poi-green_front')).toBeTruthy();
+    expect(getByTestId('green-poi-green_center-selected')).toBeTruthy();
+    expect(getByTestId('green-poi-green_back')).toBeTruthy();
+  });
+
+  it('selecting a different green POI moves the selected indicator', () => {
+    const { getByTestId, queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    fireEvent.press(getByTestId('green-poi-green_front'));
+    expect(getByTestId('green-poi-green_front-selected')).toBeTruthy();
+    expect(queryByTestId('green-poi-green_center-selected')).toBeNull();
+  });
+
+  it('selecting a tee POI marks it selected; tapping again deselects', () => {
+    const { getByTestId, queryByTestId } = render(<HoleMapScreen {...makeProps()} />);
+    fireEvent.press(getByTestId('tee-poi-tee_back'));
+    expect(getByTestId('tee-poi-tee_back-selected')).toBeTruthy();
+    fireEvent.press(getByTestId('tee-poi-tee_back-selected'));
+    expect(queryByTestId('tee-poi-tee_back-selected')).toBeNull();
+  });
+
+  it('reset button clears tee and target selections', () => {
+    const { getByTestId, getByLabelText, queryByTestId } = render(
+      <HoleMapScreen {...makeProps()} />
+    );
+    fireEvent.press(getByTestId('tee-poi-tee_back'));
+    fireEvent.press(getByTestId('green-poi-green_back'));
+    fireEvent.press(getByLabelText(/reset marker/i));
+    expect(queryByTestId('tee-poi-tee_back-selected')).toBeNull();
+    expect(getByTestId('green-poi-green_center-selected')).toBeTruthy();
   });
 });

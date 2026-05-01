@@ -9,7 +9,12 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useHasCoordinates } from '@/hooks/useHoleCoordinates';
 import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import { useMapTier } from '@/hooks/useMapTier';
-import { useHoleMapMarkers, type LatLng } from '@/hooks/useHoleMapMarkers';
+import {
+  useHoleMapMarkers,
+  type LatLng,
+  type TeePoiType,
+  type GreenPoiType,
+} from '@/hooks/useHoleMapMarkers';
 import {
   UserMarker,
   PinMarker,
@@ -25,6 +30,7 @@ import type { RootStackParamList } from '@/navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'HoleMap'>;
 
 const DEFAULT_REGION_DELTA = 0.003;
+const DEFAULT_TARGET: GreenPoiType = 'green_center';
 
 export default function HoleMapScreen({ route, navigation }: Props) {
   const { courseId, holeNumber } = route.params;
@@ -36,21 +42,52 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   const { triggerBackfill } = useCoordinateBackfill(courseId);
 
   const [tap, setTap] = useState<LatLng | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<GreenPoiType>(DEFAULT_TARGET);
+  const [selectedTee, setSelectedTee] = useState<TeePoiType | null>(null);
 
   const userCoord: LatLng | null = location
     ? { latitude: location.latitude, longitude: location.longitude }
     : null;
 
+  const teeCoord = useMemo<LatLng | null>(() => {
+    if (!selectedTee) return null;
+    return markers.tees.find((m) => m.type === selectedTee)?.coordinate ?? null;
+  }, [selectedTee, markers.tees]);
+
+  const targetCoord = useMemo<LatLng | null>(() => {
+    if (tier !== 'free') {
+      const fromGreens = markers.greens.find((m) => m.type === selectedTarget)?.coordinate;
+      if (fromGreens) return fromGreens;
+    }
+    return markers.pin;
+  }, [tier, markers.greens, markers.pin, selectedTarget]);
+
+  // Start anchor for the line: tee POI if selected, else GPS.
+  const startAnchor: LatLng | null = teeCoord ?? userCoord;
+  const startVariant = teeCoord ? 'gps-to-pin' : 'gps-to-pin'; // visual style only — same dashed green
+
   const onMapPress = useCallback((e: MapPressEvent) => {
     setTap(e.nativeEvent.coordinate);
   }, []);
 
-  const onReset = useCallback(() => setTap(null), []);
+  const onTeePress = useCallback((type: TeePoiType) => {
+    setSelectedTee((prev) => (prev === type ? null : type));
+  }, []);
+
+  const onGreenPress = useCallback((type: GreenPoiType) => {
+    setSelectedTarget(type);
+  }, []);
+
+  const onReset = useCallback(() => {
+    setTap(null);
+    setSelectedTee(null);
+    setSelectedTarget(DEFAULT_TARGET);
+  }, []);
+
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
 
   const initialRegion = useMemo(() => {
-    const focus =
-      markers.pin ?? userCoord ?? { latitude: 0, longitude: 0 };
+    const focus = markers.pin ?? userCoord ?? { latitude: 0, longitude: 0 };
     return {
       ...focus,
       latitudeDelta: DEFAULT_REGION_DELTA,
@@ -58,6 +95,8 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     };
   }, [markers.pin, userCoord]);
 
+  const canReset =
+    tap !== null || selectedTee !== null || selectedTarget !== DEFAULT_TARGET;
   const showFallback = hasCoordinates === false;
 
   return (
@@ -67,7 +106,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     >
       <MapHeader
         holeNumber={holeNumber}
-        canReset={tap !== null}
+        canReset={canReset}
         onClose={onClose}
         onReset={onReset}
       />
@@ -83,20 +122,27 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           testID="hole-map-view"
         >
           <UserMarker coordinate={userCoord} />
-          {markers.pin && <PinMarker coordinate={markers.pin} />}
+          {markers.pin && tier === 'free' && <PinMarker coordinate={markers.pin} />}
           <TapMarker coordinate={tap} />
 
-          {tap === null && userCoord && markers.pin && (
-            <DistanceLine from={userCoord} to={markers.pin} variant="gps-to-pin" />
+          {tap === null && startAnchor && targetCoord && (
+            <DistanceLine from={startAnchor} to={targetCoord} variant={startVariant} />
           )}
-          {tap !== null && userCoord && (
-            <DistanceLine from={userCoord} to={tap} variant="gps-to-tap" />
+          {tap !== null && startAnchor && (
+            <DistanceLine from={startAnchor} to={tap} variant="gps-to-tap" />
           )}
-          {tap !== null && markers.pin && (
-            <DistanceLine from={tap} to={markers.pin} variant="tap-to-pin" />
+          {tap !== null && targetCoord && (
+            <DistanceLine from={tap} to={targetCoord} variant="tap-to-pin" />
           )}
 
-          <MapMarkerSet markers={markers} tier={tier} />
+          <MapMarkerSet
+            markers={markers}
+            tier={tier}
+            selectedTee={selectedTee}
+            selectedGreen={tier === 'free' ? null : selectedTarget}
+            onTeePress={onTeePress}
+            onGreenPress={onGreenPress}
+          />
         </MapView>
 
         {showFallback && (

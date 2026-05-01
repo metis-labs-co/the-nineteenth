@@ -1,15 +1,55 @@
 import React from 'react';
-import type { HoleMapMarkers } from '@/hooks/useHoleMapMarkers';
+import type {
+  HoleMapMarkers,
+  TeePoiType,
+  GreenPoiType,
+} from '@/hooks/useHoleMapMarkers';
 import type { MapTier } from '@/hooks/useMapTier';
+import { TeePOIMarker } from './TeePOIMarker';
+import { GreenPOIMarker } from './GreenPOIMarker';
 
 interface MapMarkerSetProps {
   markers: HoleMapMarkers;
   tier: MapTier;
+  selectedTee?: TeePoiType | null;
+  selectedGreen?: GreenPoiType | null;
+  onTeePress: (type: TeePoiType) => void;
+  onGreenPress: (type: GreenPoiType) => void;
 }
 
-// Phase A renders nothing — the contract is fixed so Phase B can
-// render tee/green markers (tier !== 'free') and Phase C can render
-// hazard polygons without changing this component's signature.
-export const MapMarkerSet = React.memo(function MapMarkerSet(_: MapMarkerSetProps) {
-  return null;
+// Phase A: free tier renders nothing.
+// Phase B: social/premium render tee + green POI markers.
+// Phase C will additionally render hazard polygons.
+export const MapMarkerSet = React.memo(function MapMarkerSet({
+  markers,
+  tier,
+  selectedTee,
+  selectedGreen,
+  onTeePress,
+  onGreenPress,
+}: MapMarkerSetProps) {
+  if (tier === 'free') return null;
+
+  return (
+    <>
+      {markers.tees.map((m) => (
+        <TeePOIMarker
+          key={m.type}
+          type={m.type}
+          coordinate={m.coordinate}
+          selected={selectedTee === m.type}
+          onPress={onTeePress}
+        />
+      ))}
+      {markers.greens.map((m) => (
+        <GreenPOIMarker
+          key={m.type}
+          type={m.type}
+          coordinate={m.coordinate}
+          selected={selectedGreen === m.type}
+          onPress={onGreenPress}
+        />
+      ))}
+    </>
+  );
 });
