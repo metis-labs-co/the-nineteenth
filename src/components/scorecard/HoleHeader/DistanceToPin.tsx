@@ -16,6 +16,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import { ConfirmationDialog } from '@/components/common';
 import { spacing, typography, borderRadius } from '@/constants/theme';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -23,6 +25,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useHasCoordinates, useDistanceToGreen } from '@/hooks/useHoleCoordinates';
 import { useCoordinateBackfill } from '@/hooks/useCoordinateBackfill';
 import { useFormattedDistance, useSettingsStore } from '@/store/settingsStore';
+import type { RootStackParamList } from '@/navigation/types';
 
 // =====================================================
 // TYPES
@@ -31,6 +34,11 @@ import { useFormattedDistance, useSettingsStore } from '@/store/settingsStore';
 export interface DistanceToPinProps {
   courseId: string;
   holeNumber: number;
+  /**
+   * When provided AND the `enableHoleMap` feature flag is on, the active
+   * distance badge becomes pressable and navigates to the HoleMap modal.
+   */
+  roundId?: string;
 }
 
 // =====================================================
@@ -77,11 +85,20 @@ const PulsingGpsIcon = React.memo(function PulsingGpsIcon() {
 export const DistanceToPin = React.memo(function DistanceToPin({
   courseId,
   holeNumber,
+  roundId,
 }: DistanceToPinProps) {
   const colors = useThemeColors();
   const showGpsDistance = useSettingsStore((state) => state.showGpsDistance);
+  const enableHoleMap = useSettingsStore((state) => state.enableHoleMap);
   const distanceUnit = useSettingsStore((state) => state.distanceUnit);
   const { formatDistance } = useFormattedDistance();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  const canOpenMap = enableHoleMap && !!roundId;
+  const handleOpenMap = useCallback(() => {
+    if (!canOpenMap || !roundId) return;
+    navigation.navigate('HoleMap', { courseId, holeNumber, roundId });
+  }, [canOpenMap, navigation, courseId, holeNumber, roundId]);
 
   // Modal state for no-GPS info
   const [showNoGpsModal, setShowNoGpsModal] = useState(false);
@@ -222,7 +239,19 @@ export const DistanceToPin = React.memo(function DistanceToPin({
     const formattedValue = formatDistance(distance.yards);
 
     return (
-      <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.container}
+        onPress={handleOpenMap}
+        disabled={!canOpenMap}
+        activeOpacity={canOpenMap ? 0.7 : 1}
+        accessibilityRole="button"
+        accessibilityLabel={
+          canOpenMap
+            ? `Distance to pin ${formattedValue} — open map`
+            : `Distance to pin ${formattedValue}`
+        }
+        accessibilityHint={canOpenMap ? 'Opens a map view of the hole' : undefined}
+      >
         <Icon
           source="map-marker"
           size={16}
@@ -236,7 +265,7 @@ export const DistanceToPin = React.memo(function DistanceToPin({
         >
           {formattedValue}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   }
 

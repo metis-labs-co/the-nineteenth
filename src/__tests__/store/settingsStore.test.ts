@@ -141,6 +141,27 @@ describe('SettingsStore', () => {
     });
   });
 
+  describe('Hole Map feature flag (enableHoleMap)', () => {
+    it('defaults to false', () => {
+      expect(useSettingsStore.getState().enableHoleMap).toBe(false);
+    });
+
+    it('can be toggled via setEnableHoleMap', () => {
+      const store = useSettingsStore.getState();
+      store.setEnableHoleMap(true);
+      expect(useSettingsStore.getState().enableHoleMap).toBe(true);
+      store.setEnableHoleMap(false);
+      expect(useSettingsStore.getState().enableHoleMap).toBe(false);
+    });
+
+    it('returns to default after resetToDefaults', () => {
+      const store = useSettingsStore.getState();
+      store.setEnableHoleMap(true);
+      store.resetToDefaults();
+      expect(useSettingsStore.getState().enableHoleMap).toBe(false);
+    });
+  });
+
   describe('Reset to Defaults', () => {
     it('resets all settings to default values', () => {
       const store = useSettingsStore.getState();

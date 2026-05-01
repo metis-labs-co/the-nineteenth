@@ -42,6 +42,12 @@ export interface UseCoordinateBackfillResult {
   isBackfilling: boolean;
   /** Whether backfill was attempted (regardless of outcome) */
   wasAttempted: boolean;
+  /**
+   * Manually trigger a backfill for the current courseId, bypassing the
+   * auto-trigger guards. Use for explicit user actions (e.g. a "retry"
+   * button when the auto-attempt has already run).
+   */
+  triggerBackfill: () => void;
 }
 
 // =====================================================
@@ -123,6 +129,12 @@ export function useCoordinateBackfill(
   return {
     isBackfilling: backfillMutation.isPending,
     wasAttempted: !!courseId && attemptedCourseIds.has(courseId),
+    triggerBackfill: () => {
+      if (!courseId) return;
+      if (backfillMutation.isPending) return;
+      if (!hasApiQuota()) return;
+      backfillMutation.mutate(courseId);
+    },
   };
 }
 

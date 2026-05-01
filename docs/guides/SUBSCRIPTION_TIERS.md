@@ -50,7 +50,11 @@ Tier hierarchy (low → high): `free < social < premium < enterprise < super_adm
 | Skins side-game | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Wolf side-game | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Prize pools (competition funding) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| GPS distance to pin | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| GPS distance to pin (badge) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — minimal (Phase A) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — POI markers (Phase B) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — hazard overlays (Phase C1) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — shot logging (Phase C2, solo rounds only) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Leagues** | | | | | | |
 | Create leagues | 1 | 3 | 50 | 200 | No limit | No limit |
 | Join leagues | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -514,11 +518,14 @@ type FeatureId =
   | 'achievement_leaderboard' // Achievement leaderboard
   | 'ai_competition'          // AI competition creation
   | 'manage_guests'           // Guest player management
-  | 'gps_distance'            // GPS distance to pin
+  | 'gps_distance'            // GPS distance to pin (deprecated — badge is now Free for everyone)
+  | 'hole_map_poi'            // Phase B — POI-aware hole map (Social+)
   // Premium tier features (side-games)
   | 'skins_game'              // Skins side-game
   | 'wolf_game'               // Wolf side-game
-  | 'prize_pool';             // Prize pool funding
+  | 'prize_pool'              // Prize pool funding
+  | 'hole_map_hazards'        // Phase C1 — bunker/water polygons (Premium+)
+  | 'hole_map_shots';         // Phase C2 — shot logging trail (Premium+, solo rounds only)
 ```
 
 ### Permission Check Result
