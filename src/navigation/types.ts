@@ -55,6 +55,9 @@ export type RootStackParamList = {
     roundId: string;
   };
 
+  // Hole Map (modal — Phase A)
+  HoleMap: { courseId: string; holeNumber: number; roundId: string };
+
   // Quick Score Entry (admin/organizer backfill)
   QuickScoreEntry: {
     roundId: string;
