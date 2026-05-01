@@ -62,7 +62,7 @@ WITH CHECK (
   auth.uid() = player_id
   AND EXISTS (
     SELECT 1 FROM rounds r
-    WHERE r.id = shot_log.round_id AND r.status = 'in_progress'
+    WHERE r.id = shot_log.round_id AND r.status = 'in-progress'
   )
 );
 
@@ -73,7 +73,7 @@ WITH CHECK (
   auth.uid() = player_id
   AND EXISTS (
     SELECT 1 FROM rounds r
-    WHERE r.id = shot_log.round_id AND r.status = 'in_progress'
+    WHERE r.id = shot_log.round_id AND r.status = 'in-progress'
   )
 );
 
@@ -83,7 +83,7 @@ USING (
   auth.uid() = player_id
   AND EXISTS (
     SELECT 1 FROM rounds r
-    WHERE r.id = shot_log.round_id AND r.status = 'in_progress'
+    WHERE r.id = shot_log.round_id AND r.status = 'in-progress'
   )
 );
 
