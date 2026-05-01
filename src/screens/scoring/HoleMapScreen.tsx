@@ -74,7 +74,6 @@ export default function HoleMapScreen({ route, navigation }: Props) {
 
   // Start anchor for the line: tee POI if selected, else GPS.
   const startAnchor: LatLng | null = teeCoord ?? userCoord;
-  const startVariant = teeCoord ? 'gps-to-pin' : 'gps-to-pin'; // visual style only — same dashed green
 
   const onMapPress = useCallback((e: MapPressEvent) => {
     setTap(e.nativeEvent.coordinate);
@@ -139,7 +138,7 @@ export default function HoleMapScreen({ route, navigation }: Props) {
             <DistanceLine
               from={startAnchor}
               to={targetCoord}
-              variant={startVariant}
+              variant="gps-to-pin"
               labelTargets={greenLabelTargets}
             />
           )}
