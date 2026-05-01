@@ -91,6 +91,12 @@ jest.mock('@/hooks/shots', () => ({
   useShotTrackingEligibility: jest.fn(() => ({ eligible: false, reason: 'not-premium' })),
 }));
 
+// Phase C1: mock the hazard hooks so the screen doesn't need a QueryClient.
+jest.mock('@/hooks/hazards', () => ({
+  useHoleHazards: jest.fn(() => ({ data: [], isLoading: false })),
+  useHazardBackfill: jest.fn(() => ({ wasAttempted: false })),
+}));
+
 jest.mock('@/store/shotLoggingPrefStore', () => ({
   useShotLoggingPrefStore: jest.fn((selector: any) =>
     selector({ byRound: {}, isTracking: () => false })

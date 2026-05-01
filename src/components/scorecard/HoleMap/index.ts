@@ -9,3 +9,4 @@ export { NoCoordinatesFallback } from './NoCoordinatesFallback';
 export { MapHeader } from './MapHeader';
 export { ShotTrail } from './ShotTrail';
 export { ShotMarkerActionSheet } from './ShotMarkerActionSheet';
+export { HazardOverlay } from './HazardOverlay';

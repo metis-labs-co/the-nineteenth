@@ -7,6 +7,7 @@ import type {
 import type { MapTier } from '@/hooks/useMapTier';
 import { TeePOIMarker } from './TeePOIMarker';
 import { GreenPOIMarker } from './GreenPOIMarker';
+import { HazardOverlay } from './HazardOverlay';
 
 interface MapMarkerSetProps {
   markers: HoleMapMarkers;
@@ -19,7 +20,8 @@ interface MapMarkerSetProps {
 
 // Phase A: free tier renders nothing.
 // Phase B: social/premium render tee + green POI markers.
-// Phase C will additionally render hazard polygons.
+// Phase C1: premium also renders hazard polygons (rendered before
+// POI markers so the markers appear on top).
 export const MapMarkerSet = React.memo(function MapMarkerSet({
   markers,
   tier,
@@ -32,6 +34,11 @@ export const MapMarkerSet = React.memo(function MapMarkerSet({
 
   return (
     <>
+      {/* Hazards first so POI markers paint above them. */}
+      {tier === 'premium' &&
+        markers.hazards.map((hazard) => (
+          <HazardOverlay key={hazard.externalId ?? hazard.type} hazard={hazard} />
+        ))}
       {markers.tees.map((m) => (
         <TeePOIMarker
           key={m.type}

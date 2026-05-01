@@ -17,6 +17,10 @@ export const Polyline: React.FC<any> = ({ testID, ...rest }) => (
   <View testID={testID ?? 'mock-polyline'} {...rest} />
 );
 
+export const Polygon: React.FC<any> = ({ testID, ...rest }) => (
+  <View testID={testID ?? 'mock-polygon'} {...rest} />
+);
+
 export const Callout: React.FC<any> = ({ children, ...rest }) => (
   <View {...rest}>{children}</View>
 );
