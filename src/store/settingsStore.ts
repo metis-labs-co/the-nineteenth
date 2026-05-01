@@ -30,6 +30,9 @@ interface SettingsState {
   // GPS distance-to-pin feature
   showGpsDistance: boolean;
 
+  // Hole map feature flag (Phase A) — staged rollout
+  enableHoleMap: boolean;
+
   // Collapse the FIR/GIR/Putts stats row by default when scoring 3+ players
   autoCollapseStatsForLargeGroups: boolean;
 
@@ -55,6 +58,7 @@ interface SettingsState {
   setShowBunkerShots: (show: boolean) => void;
   setShowHazards: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
+  setEnableHoleMap: (enable: boolean) => void;
   setAutoCollapseStatsForLargeGroups: (collapse: boolean) => void;
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
@@ -74,6 +78,7 @@ const DEFAULT_SETTINGS = {
   showBunkerShots: false,
   showHazards: false,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
+  enableHoleMap: false, // Hole map feature flag (Phase A) — staged rollout
   autoCollapseStatsForLargeGroups: true,
   countryOverride: null as string | null,
   biometricEnabled: false,
@@ -102,6 +107,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowHazards: (show) => set({ showHazards: show }),
 
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
+
+      setEnableHoleMap: (enable) => set({ enableHoleMap: enable }),
 
       setAutoCollapseStatsForLargeGroups: (collapse) =>
         set({ autoCollapseStatsForLargeGroups: collapse }),
