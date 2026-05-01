@@ -53,6 +53,11 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1f2937"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "__GOOGLE_MAPS_ANDROID_API_KEY__"
+        }
+      },
       "package": "com.the.nineteenth.golf",
       "versionCode": 30,
       "permissions": [
