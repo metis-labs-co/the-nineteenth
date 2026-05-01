@@ -12,12 +12,16 @@ import type { ShotLogEntry } from '@/types/database/shotLog.types';
  * Fetch all shots for a specific (round, hole) sorted by sequence ascending.
  * Returns empty array when no shots exist yet.
  */
+// Until the supabase Database types are regenerated post-migration, the
+// generated client doesn't know about `shot_log`. Cast to bypass.
+const shotLogTable = () =>
+  (supabase as unknown as { from: (table: string) => any }).from('shot_log');
+
 export async function fetchShotLog(
   roundId: string,
   holeNumber: number
 ): Promise<ShotLogEntry[]> {
-  const { data, error } = await supabase
-    .from('shot_log')
+  const { data, error } = await shotLogTable()
     .select('*')
     .eq('round_id', roundId)
     .eq('hole_number', holeNumber)

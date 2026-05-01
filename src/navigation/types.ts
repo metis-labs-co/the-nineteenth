@@ -55,8 +55,14 @@ export type RootStackParamList = {
     roundId: string;
   };
 
-  // Hole Map (modal — Phase A)
-  HoleMap: { courseId: string; holeNumber: number; roundId: string };
+  // Hole Map (modal — Phase A; mode added in Phase C2)
+  HoleMap: {
+    courseId: string;
+    holeNumber: number;
+    roundId: string;
+    /** 'live' (default) shows shot-logging affordances; 'review' is read-only. */
+    mode?: 'live' | 'review';
+  };
 
   // Quick Score Entry (admin/organizer backfill)
   QuickScoreEntry: {

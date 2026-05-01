@@ -19,6 +19,12 @@ import {
 } from './sequence';
 import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
+// Until the supabase Database types are regenerated post-migration, the
+// generated client doesn't know about `shot_log`. Cast to bypass the
+// `never` table type here. Drop the cast once `pnpm gen:db-types` (or
+// equivalent) has been run against the migrated schema.
+const shotLogTable = () => (supabase as unknown as { from: (table: string) => any }).from('shot_log');
+
 interface LogShotInput {
   roundId: string;
   holeNumber: number;
@@ -52,8 +58,7 @@ export function useLogShot() {
       const existing = queryClient.getQueryData<ShotLogEntry[]>(cacheKey);
       const sequence = nextSequence(existing);
 
-      const { data, error } = await supabase
-        .from('shot_log')
+      const { data, error } = await shotLogTable()
         .insert({
           round_id: input.roundId,
           hole_number: input.holeNumber,
@@ -82,8 +87,7 @@ export function useUpdateShot() {
 
   return useMutation({
     mutationFn: async (input: UpdateShotInput): Promise<ShotLogEntry> => {
-      const { data, error } = await supabase
-        .from('shot_log')
+      const { data, error } = await shotLogTable()
         .update({
           latitude: input.latitude,
           longitude: input.longitude,
@@ -109,7 +113,7 @@ export function useDeleteShot() {
 
   return useMutation({
     mutationFn: async (input: DeleteShotInput): Promise<void> => {
-      const { error } = await supabase.from('shot_log').delete().eq('id', input.shotId);
+      const { error } = await shotLogTable().delete().eq('id', input.shotId);
       if (error) throw error;
     },
     onSuccess: (_void, input) => {

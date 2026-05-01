@@ -60,7 +60,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
         styles.fab,
         shadows.lg,
         {
-          backgroundColor: disabled ? colors.textMuted ?? '#9ca3af' : colors.primary,
+          backgroundColor: disabled ? colors.gray400 : colors.primary,
           bottom: 16 + bottomInset,
         },
       ]}

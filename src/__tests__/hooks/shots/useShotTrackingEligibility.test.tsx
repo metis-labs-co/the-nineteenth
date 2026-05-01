@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react-native';
 import { useShotTrackingEligibility } from '@/hooks/shots/useShotTrackingEligibility';
 import { useMapTier } from '@/hooks/useMapTier';
-import { useRoundPlayers } from '@/hooks/rounds';
+import { useRoundPlayers } from '@/hooks/rounds/queries';
 import { useAuth } from '@/hooks/useAuth';
 
 jest.mock('@/hooks/useMapTier', () => ({ useMapTier: jest.fn() }));
-jest.mock('@/hooks/rounds', () => ({ useRoundPlayers: jest.fn() }));
+jest.mock('@/hooks/rounds/queries', () => ({ useRoundPlayers: jest.fn() }));
 jest.mock('@/hooks/useAuth', () => ({ useAuth: jest.fn() }));
 
 const mockedUseMapTier = useMapTier as jest.MockedFunction<typeof useMapTier>;

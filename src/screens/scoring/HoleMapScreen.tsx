@@ -16,6 +16,13 @@ import {
   type GreenPoiType,
 } from '@/hooks/useHoleMapMarkers';
 import {
+  useShotLog,
+  useUpdateShot,
+  useDeleteShot,
+  useShotTrackingEligibility,
+} from '@/hooks/shots';
+import { useShotLoggingPrefStore } from '@/store/shotLoggingPrefStore';
+import {
   UserMarker,
   PinMarker,
   TapMarker,
@@ -23,7 +30,10 @@ import {
   MapMarkerSet,
   MapHeader,
   NoCoordinatesFallback,
+  ShotTrail,
+  ShotMarkerActionSheet,
 } from '@/components/scorecard/HoleMap';
+import type { ShotLogEntry } from '@/types/database/shotLog.types';
 
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -33,17 +43,24 @@ const DEFAULT_REGION_DELTA = 0.003;
 const DEFAULT_TARGET: GreenPoiType = 'green_center';
 
 export default function HoleMapScreen({ route, navigation }: Props) {
-  const { courseId, holeNumber } = route.params;
+  const { courseId, holeNumber, roundId, mode = 'live' } = route.params;
   const colors = useThemeColors();
   const tier = useMapTier();
   const { location } = useUserLocation();
   const { data: hasCoordinates } = useHasCoordinates(courseId);
   const markers = useHoleMapMarkers(courseId, holeNumber, tier);
   const { triggerBackfill } = useCoordinateBackfill(courseId);
+  const { data: shots = [] } = useShotLog(roundId, holeNumber);
+  const eligibility = useShotTrackingEligibility(roundId);
+  const trackShots = useShotLoggingPrefStore((s) => s.byRound[roundId] === true);
+  const updateShot = useUpdateShot();
+  const deleteShot = useDeleteShot();
 
   const [tap, setTap] = useState<LatLng | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<GreenPoiType>(DEFAULT_TARGET);
   const [selectedTee, setSelectedTee] = useState<TeePoiType | null>(null);
+  const [activeShot, setActiveShot] = useState<ShotLogEntry | null>(null);
+  const [movingShotId, setMovingShotId] = useState<string | null>(null);
 
   const userCoord: LatLng | null = location
     ? { latitude: location.latitude, longitude: location.longitude }
@@ -62,7 +79,6 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     return markers.pin;
   }, [tier, markers.greens, markers.pin, selectedTarget]);
 
-  // F·C·B triple distances for non-free tiers when we have all three greens.
   const greenLabelTargets = useMemo<LatLng[] | undefined>(() => {
     if (tier === 'free') return undefined;
     const front = markers.greens.find((m) => m.type === 'green_front')?.coordinate;
@@ -72,12 +88,35 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     return triple.length > 1 ? triple : undefined;
   }, [tier, markers.greens]);
 
-  // Start anchor for the line: tee POI if selected, else GPS.
   const startAnchor: LatLng | null = teeCoord ?? userCoord;
 
-  const onMapPress = useCallback((e: MapPressEvent) => {
-    setTap(e.nativeEvent.coordinate);
-  }, []);
+  const isLive = mode === 'live';
+  const showShotTrail = eligibility.eligible && trackShots && shots.length > 0;
+  // Read-only mode shows the trail if any shots exist on the round (regardless of toggle/eligibility).
+  const showShotTrailReview = !isLive && shots.length > 0;
+  const trailVisible = showShotTrail || showShotTrailReview;
+
+  const onMapPress = useCallback(
+    (e: MapPressEvent) => {
+      // If currently in shot-move mode, treat the press as the new position.
+      if (movingShotId) {
+        const coord = e.nativeEvent.coordinate;
+        updateShot.mutate(
+          {
+            shotId: movingShotId,
+            roundId,
+            holeNumber,
+            latitude: coord.latitude,
+            longitude: coord.longitude,
+          },
+          { onSettled: () => setMovingShotId(null) }
+        );
+        return;
+      }
+      setTap(e.nativeEvent.coordinate);
+    },
+    [movingShotId, updateShot, roundId, holeNumber]
+  );
 
   const onTeePress = useCallback((type: TeePoiType) => {
     setSelectedTee((prev) => (prev === type ? null : type));
@@ -91,9 +130,33 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     setTap(null);
     setSelectedTee(null);
     setSelectedTarget(DEFAULT_TARGET);
+    setMovingShotId(null);
   }, []);
 
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
+
+  const onShotPress = useCallback(
+    (shot: ShotLogEntry) => {
+      if (!isLive) return;
+      setActiveShot(shot);
+    },
+    [isLive]
+  );
+
+  const closeActionSheet = useCallback(() => setActiveShot(null), []);
+
+  const onActionDelete = useCallback(
+    (shot: ShotLogEntry) => {
+      deleteShot.mutate({ shotId: shot.id, roundId, holeNumber });
+      setActiveShot(null);
+    },
+    [deleteShot, roundId, holeNumber]
+  );
+
+  const onActionMove = useCallback((shot: ShotLogEntry) => {
+    setMovingShotId(shot.id);
+    setActiveShot(null);
+  }, []);
 
   const initialRegion = useMemo(() => {
     const focus = markers.pin ?? userCoord ?? { latitude: 0, longitude: 0 };
@@ -105,7 +168,10 @@ export default function HoleMapScreen({ route, navigation }: Props) {
   }, [markers.pin, userCoord]);
 
   const canReset =
-    tap !== null || selectedTee !== null || selectedTarget !== DEFAULT_TARGET;
+    tap !== null ||
+    selectedTee !== null ||
+    selectedTarget !== DEFAULT_TARGET ||
+    movingShotId !== null;
   const showFallback = hasCoordinates === false;
 
   return (
@@ -162,11 +228,27 @@ export default function HoleMapScreen({ route, navigation }: Props) {
             onTeePress={onTeePress}
             onGreenPress={onGreenPress}
           />
+
+          {trailVisible && (
+            <ShotTrail
+              shots={shots}
+              target={targetCoord}
+              onShotPress={isLive ? onShotPress : undefined}
+            />
+          )}
         </MapView>
 
         {showFallback && (
           <NoCoordinatesFallback onRequestBackfill={triggerBackfill} />
         )}
+
+        <ShotMarkerActionSheet
+          visible={activeShot !== null}
+          shot={activeShot}
+          onClose={closeActionSheet}
+          onDelete={onActionDelete}
+          onMoveOnMap={onActionMove}
+        />
       </View>
     </SafeAreaView>
   );

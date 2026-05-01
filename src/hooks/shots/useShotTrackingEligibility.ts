@@ -1,5 +1,5 @@
 import { useMapTier } from '@/hooks/useMapTier';
-import { useRoundPlayers } from '@/hooks/rounds';
+import { useRoundPlayers } from '@/hooks/rounds/queries';
 import { useAuth } from '@/hooks/useAuth';
 
 export type ShotTrackingIneligibilityReason =

@@ -81,6 +81,22 @@ jest.mock('@/store/settingsStore', () => ({
   }),
 }));
 
+// Phase C2: mock shot hooks so the screen doesn't pull in the broken
+// skins-via-rounds transitive imports.
+jest.mock('@/hooks/shots', () => ({
+  useShotLog: jest.fn(() => ({ data: [], isLoading: false })),
+  useLogShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useUpdateShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useDeleteShot: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useShotTrackingEligibility: jest.fn(() => ({ eligible: false, reason: 'not-premium' })),
+}));
+
+jest.mock('@/store/shotLoggingPrefStore', () => ({
+  useShotLoggingPrefStore: jest.fn((selector: any) =>
+    selector({ byRound: {}, isTracking: () => false })
+  ),
+}));
+
 const mockGoBack = jest.fn();
 
 const makeProps = () =>
