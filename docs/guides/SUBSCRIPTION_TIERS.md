@@ -53,7 +53,8 @@ Tier hierarchy (low → high): `free < social < premium < enterprise < super_adm
 | GPS distance to pin (badge) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Hole map — minimal (Phase A) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Hole map — POI markers (Phase B) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Hole map — hazards & shot logging (Phase C) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — hazard overlays (Phase C1) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hole map — shot logging (Phase C2, solo rounds only) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Leagues** | | | | | | |
 | Create leagues | 1 | 3 | 50 | 200 | No limit | No limit |
 | Join leagues | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -523,7 +524,8 @@ type FeatureId =
   | 'skins_game'              // Skins side-game
   | 'wolf_game'               // Wolf side-game
   | 'prize_pool'              // Prize pool funding
-  | 'hole_map_shots';         // Phase C — hazards & shot logging on hole map (Premium+)
+  | 'hole_map_hazards'        // Phase C1 — bunker/water polygons (Premium+)
+  | 'hole_map_shots';         // Phase C2 — shot logging trail (Premium+, solo rounds only)
 ```
 
 ### Permission Check Result
