@@ -15,6 +15,7 @@ import { roundKeys, subMatchKeys } from './round';
 import { scorecardKeys, leaderboardKeys, scoringPairsKeys, statisticsKeys, scoreMismatchKeys } from './scoring';
 import { friendsKeys, notificationKeys, pushKeys, placeholderPlayersKeys } from './social';
 import { skinsKeys, wolfKeys, prizePoolKeys, achievementKeys, cosmeticKeys, leagueKeys, subscriptionKeys, aiKeys } from './features';
+import { shotLogKeys } from './shots';
 
 // Domain-specific query key exports
 export { authKeys };
@@ -63,6 +64,8 @@ export {
   subscriptionKeys,
   aiKeys,
 };
+
+export { shotLogKeys };
 
 // =====================================================
 // HELPER TYPES
@@ -115,4 +118,5 @@ export const allQueryKeys = [
   scoreMismatchKeys.all,
   knockoutKeys.all,
   leagueKeys.all,
+  shotLogKeys.all,
 ] as const;
