@@ -12,8 +12,14 @@ interface LogShotUndoToastProps {
 }
 
 /** Layout constants shared with LogShotFAB so the FAB can shift up cleanly. */
-/** Sits flush on top of the scorecard footer (~80dp tall). */
-export const TOAST_BASE_BOTTOM = 80;
+/**
+ * Sits flush on top of the scorecard footer. The footer is roughly the
+ * height of the nav-button content (48dp) plus its vertical padding plus
+ * the screen's safe-area inset. The bottomInset prop adds the safe-area
+ * separately, so this constant only needs to cover the visible footer
+ * chrome above the safe area.
+ */
+export const TOAST_BASE_BOTTOM = 88;
 export const TOAST_HEIGHT = 56;
 export const TOAST_FAB_GAP = 16;
 

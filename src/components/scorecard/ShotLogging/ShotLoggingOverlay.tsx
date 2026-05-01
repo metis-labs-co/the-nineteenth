@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShotTrackingEligibility } from '@/hooks/shots';
 import { useSettingsStore } from '@/store/settingsStore';
 import { LogShotFAB } from './LogShotFAB';
@@ -8,7 +9,10 @@ import { LogShotUndoToast } from './LogShotUndoToast';
 interface ShotLoggingOverlayProps {
   roundId: string;
   holeNumber: number;
-  /** Bottom inset for tab/safe area chrome. */
+  /**
+   * Extra bottom inset on top of the device safe-area bottom, e.g. the
+   * scorecard footer height. Defaults to 0.
+   */
   bottomInset?: number;
 }
 
@@ -29,15 +33,20 @@ export function ShotLoggingOverlay({
   const eligibility = useShotTrackingEligibility(roundId);
   const enableHoleMap = useSettingsStore((s) => s.enableHoleMap);
   const trackShotsAutomatically = useSettingsStore((s) => s.trackShotsAutomatically);
+  const safeAreaInsets = useSafeAreaInsets();
 
   if (!eligibility.eligible || !enableHoleMap || !trackShotsAutomatically) {
     return null;
   }
 
+  // Combine the device safe-area with whatever extra chrome the caller
+  // knows about (e.g. scorecard footer height).
+  const totalBottomInset = safeAreaInsets.bottom + bottomInset;
+
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill} testID="shot-logging-overlay">
-      <LogShotFAB roundId={roundId} holeNumber={holeNumber} bottomInset={bottomInset} />
-      <LogShotUndoToast bottomInset={bottomInset} />
+      <LogShotFAB roundId={roundId} holeNumber={holeNumber} bottomInset={totalBottomInset} />
+      <LogShotUndoToast bottomInset={totalBottomInset} />
     </View>
   );
 }
