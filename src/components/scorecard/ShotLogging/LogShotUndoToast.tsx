@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { useDeleteShot } from '@/hooks/shots';
 
@@ -12,9 +12,10 @@ interface LogShotUndoToastProps {
 }
 
 /** Layout constants shared with LogShotFAB so the FAB can shift up cleanly. */
-export const TOAST_BASE_BOTTOM = 16;
+/** Sits flush on top of the scorecard footer (~80dp tall). */
+export const TOAST_BASE_BOTTOM = 80;
 export const TOAST_HEIGHT = 56;
-export const TOAST_FAB_GAP = 12;
+export const TOAST_FAB_GAP = 16;
 
 export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   bottomInset = 0,
@@ -55,10 +56,10 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   if (variant === 'error' && !errorMessage) return null;
 
   const isError = variant === 'error';
-  // Solid surface — slightly elevated grey for success, error tone for error.
-  const surface = isError ? colors.error : (colors.gray900 ?? colors.textPrimary);
+  // Solid surface — primary green for success, solid error red for error.
+  const surface = isError ? colors.error : colors.primary;
   const textColor = colors.white;
-  const actionColor = isError ? colors.white : (colors.primaryLight ?? colors.white);
+  const actionColor = colors.white;
 
   return (
     <View
@@ -68,7 +69,6 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
       <View
         style={[
           styles.toast,
-          shadows.lg,
           { backgroundColor: surface, height: TOAST_HEIGHT },
         ]}
       >
@@ -108,14 +108,13 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
+    left: 0,
+    right: 0,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
     gap: spacing.md,
   },
   message: {

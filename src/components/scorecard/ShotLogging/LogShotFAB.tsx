@@ -20,10 +20,11 @@ interface LogShotFABProps {
 }
 
 /**
- * Resting bottom offset (no toast visible). Clears the scorecard footer.
- * When a toast is visible the FAB shifts up to clear the toast strip.
+ * Resting bottom offset (no toast visible). Clears the scorecard footer
+ * with breathing room. When a toast is visible the FAB shifts up further
+ * to clear the toast strip.
  */
-const FAB_RESTING_BOTTOM = 96;
+const FAB_RESTING_BOTTOM = 112;
 
 export const LogShotFAB = React.memo(function LogShotFAB({
   roundId,
@@ -126,10 +127,10 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const pressable = !logShot.isPending && (location !== null || isAwaitingPermission);
   const looksDisabled = !pressable;
 
-  // FAB resting position; bumps up by toast height + gap when toast visible.
+  // FAB resting position; lifts above the toast strip when toast visible.
   const restingBottom = FAB_RESTING_BOTTOM + bottomInset;
   const liftedBottom =
-    TOAST_BASE_BOTTOM + bottomInset + TOAST_HEIGHT + TOAST_FAB_GAP + 24;
+    TOAST_BASE_BOTTOM + TOAST_HEIGHT + TOAST_FAB_GAP + bottomInset;
   const fabBottom = toastVisible ? liftedBottom : restingBottom;
 
   return (
