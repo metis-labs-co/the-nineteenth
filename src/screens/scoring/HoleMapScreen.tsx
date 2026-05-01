@@ -62,6 +62,16 @@ export default function HoleMapScreen({ route, navigation }: Props) {
     return markers.pin;
   }, [tier, markers.greens, markers.pin, selectedTarget]);
 
+  // F·C·B triple distances for non-free tiers when we have all three greens.
+  const greenLabelTargets = useMemo<LatLng[] | undefined>(() => {
+    if (tier === 'free') return undefined;
+    const front = markers.greens.find((m) => m.type === 'green_front')?.coordinate;
+    const center = markers.greens.find((m) => m.type === 'green_center')?.coordinate;
+    const back = markers.greens.find((m) => m.type === 'green_back')?.coordinate;
+    const triple = [front, center, back].filter((c): c is LatLng => !!c);
+    return triple.length > 1 ? triple : undefined;
+  }, [tier, markers.greens]);
+
   // Start anchor for the line: tee POI if selected, else GPS.
   const startAnchor: LatLng | null = teeCoord ?? userCoord;
   const startVariant = teeCoord ? 'gps-to-pin' : 'gps-to-pin'; // visual style only — same dashed green
@@ -126,13 +136,23 @@ export default function HoleMapScreen({ route, navigation }: Props) {
           <TapMarker coordinate={tap} />
 
           {tap === null && startAnchor && targetCoord && (
-            <DistanceLine from={startAnchor} to={targetCoord} variant={startVariant} />
+            <DistanceLine
+              from={startAnchor}
+              to={targetCoord}
+              variant={startVariant}
+              labelTargets={greenLabelTargets}
+            />
           )}
           {tap !== null && startAnchor && (
             <DistanceLine from={startAnchor} to={tap} variant="gps-to-tap" />
           )}
           {tap !== null && targetCoord && (
-            <DistanceLine from={tap} to={targetCoord} variant="tap-to-pin" />
+            <DistanceLine
+              from={tap}
+              to={targetCoord}
+              variant="tap-to-pin"
+              labelTargets={greenLabelTargets}
+            />
           )}
 
           <MapMarkerSet

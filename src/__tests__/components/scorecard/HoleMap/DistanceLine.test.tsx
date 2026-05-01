@@ -42,4 +42,26 @@ describe('DistanceLine', () => {
     const { queryByTestId } = render(<DistanceLine from={start} to={null} testID="line-3" />);
     expect(queryByTestId('line-3')).toBeNull();
   });
+
+  it('renders triple-distance callout when labelTargets is provided', () => {
+    // Three close-by points so the distances are predictably ordered.
+    const targets = [
+      { latitude: -37.82, longitude: 144.97 }, // ~1374 yd
+      { latitude: -37.821, longitude: 144.971 }, // slightly further
+      { latitude: -37.822, longitude: 144.972 }, // even further
+    ];
+    const { getByText } = render(
+      <DistanceLine from={start} to={targets[1]} labelTargets={targets} testID="triple" />
+    );
+    // Expect a label like "Xyd · Yyd · Zyd" — three numbers separated by "·".
+    const matches = getByText(/^\d+yd · \d+yd · \d+yd$/);
+    expect(matches).toBeTruthy();
+  });
+
+  it('falls back to single-distance label when labelTargets is empty array', () => {
+    const { getByText } = render(
+      <DistanceLine from={start} to={end} labelTargets={[]} testID="single" />
+    );
+    expect(getByText(/^\d+yd$/)).toBeTruthy();
+  });
 });

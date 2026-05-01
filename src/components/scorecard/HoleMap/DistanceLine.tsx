@@ -14,6 +14,12 @@ interface DistanceLineProps {
   to: LatLng | null;
   variant?: DistanceLineVariant;
   testID?: string;
+  /**
+   * When provided, the callout shows multiple distances joined with "·"
+   * (one per entry, in order). The polyline itself is still drawn
+   * `from → to`. Use this for the F·C·B green-distance triple in Phase B.
+   */
+  labelTargets?: LatLng[];
 }
 
 const VARIANT_COLOR_KEYS: Record<DistanceLineVariant, 'warning' | 'info' | 'success'> = {
@@ -22,21 +28,27 @@ const VARIANT_COLOR_KEYS: Record<DistanceLineVariant, 'warning' | 'info' | 'succ
   'gps-to-pin': 'success',
 };
 
+const distanceYardsBetween = (from: LatLng, to: LatLng): number =>
+  metersToYards(calculateDistance(from.latitude, from.longitude, to.latitude, to.longitude));
+
 export const DistanceLine = React.memo(function DistanceLine({
   from,
   to,
   variant = 'gps-to-pin',
   testID,
+  labelTargets,
 }: DistanceLineProps) {
   const colors = useThemeColors();
   const { formatDistance } = useFormattedDistance();
 
-  const distanceYards = useMemo(() => {
-    if (!from || !to) return 0;
-    return metersToYards(
-      calculateDistance(from.latitude, from.longitude, to.latitude, to.longitude)
-    );
-  }, [from, to]);
+  const labelText = useMemo(() => {
+    if (!from) return '';
+    if (labelTargets && labelTargets.length > 0) {
+      return labelTargets.map((t) => formatDistance(distanceYardsBetween(from, t))).join(' · ');
+    }
+    if (!to) return '';
+    return formatDistance(distanceYardsBetween(from, to));
+  }, [from, to, labelTargets, formatDistance]);
 
   const midpoint = useMemo(() => {
     if (!from || !to) return null;
@@ -66,9 +78,7 @@ export const DistanceLine = React.memo(function DistanceLine({
             { backgroundColor: colors.surface, borderColor: strokeColor },
           ]}
         >
-          <Text style={[styles.text, { color: colors.textPrimary }]}>
-            {formatDistance(distanceYards)}
-          </Text>
+          <Text style={[styles.text, { color: colors.textPrimary }]}>{labelText}</Text>
         </View>
       </Marker>
     </>
