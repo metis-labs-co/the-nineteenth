@@ -144,6 +144,29 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      // Persist only data fields. Actions are recreated by the factory on
+      // every store instantiation; if we let `persist` serialize them they
+      // round-trip through JSON.stringify as `undefined` and then overwrite
+      // the real actions on rehydration, breaking every onValueChange in
+      // the app's settings UI.
+      partialize: (state) => ({
+        distanceUnit: state.distanceUnit,
+        showPutts: state.showPutts,
+        showFairwayHit: state.showFairwayHit,
+        showGreenInRegulation: state.showGreenInRegulation,
+        showFairwayMissDirection: state.showFairwayMissDirection,
+        showGreenMissDirection: state.showGreenMissDirection,
+        showBunkerShots: state.showBunkerShots,
+        showHazards: state.showHazards,
+        showGpsDistance: state.showGpsDistance,
+        enableHoleMap: state.enableHoleMap,
+        trackShotsAutomatically: state.trackShotsAutomatically,
+        autoCollapseStatsForLargeGroups: state.autoCollapseStatsForLargeGroups,
+        countryOverride: state.countryOverride,
+        biometricEnabled: state.biometricEnabled,
+        debugModeEnabled: state.debugModeEnabled,
+        pendingLeagueTags: state.pendingLeagueTags,
+      }),
     }
   )
 );
