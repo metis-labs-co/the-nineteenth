@@ -129,7 +129,7 @@ export function ScorecardHeader({
     <View style={styles.rightContent}>
       {/* GPS Distance to Pin */}
       {courseId && (
-        <DistanceToPin courseId={courseId} holeNumber={currentHole} />
+        <DistanceToPin courseId={courseId} holeNumber={currentHole} roundId={roundId} />
       )}
 
       {/* Skins Indicator - shows when skins game is active (minimal variant = no background) */}
