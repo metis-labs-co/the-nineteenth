@@ -16,6 +16,7 @@ import { roundDataLogger } from '@/utils/debugLogger';
 import { transformHolesIfNeeded, hydrateHolesWithTeeYardages } from '@/utils/holeTransformers';
 import type { Hole, TeeBox, Tee } from '@/types/database.types';
 import { DEFAULT_HOLES } from '@/types/supabase/roundQueries';
+import { scheduleFetchTimeout } from './fetchTimeout';
 
 interface CourseData {
   id: string;
@@ -49,6 +50,11 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
 
     setIsLoading(true);
     setError(null);
+
+    const cancelTimeout = scheduleFetchTimeout('course data', (msg) => {
+      setError(msg);
+      setIsLoading(false);
+    });
 
     try {
       roundDataLogger.debug('Fetching course data', { roundId: roundId.substring(0, 8) });
@@ -153,6 +159,8 @@ export function useRoundCourse(roundId: string | undefined): UseRoundCourseResul
       roundDataLogger.error('Error fetching course', err);
       setError(err instanceof Error ? err.message : 'Failed to load course');
       setIsLoading(false);
+    } finally {
+      cancelTimeout();
     }
   }, [roundId]);
 

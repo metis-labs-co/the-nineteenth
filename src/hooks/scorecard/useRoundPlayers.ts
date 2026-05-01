@@ -14,6 +14,7 @@ import {
   COMPETITION_PLAYERS_SELECT,
   type SupabaseCompetitionPlayerData,
 } from '@/types/supabase/roundQueries';
+import { scheduleFetchTimeout } from './fetchTimeout';
 
 interface UseRoundPlayersResult {
   players: Player[];
@@ -44,6 +45,11 @@ export function useRoundPlayers(
 
     setIsLoading(true);
     setError(null);
+
+    const cancelTimeout = scheduleFetchTimeout('players', (msg) => {
+      setError(msg);
+      setIsLoading(false);
+    });
 
     try {
       let competitionPlayers: SupabaseCompetitionPlayerData[] = [];
@@ -129,6 +135,8 @@ export function useRoundPlayers(
       roundDataLogger.error('Error fetching players', err);
       setError(err instanceof Error ? err.message : 'Failed to load players');
       setIsLoading(false);
+    } finally {
+      cancelTimeout();
     }
   }, [roundId, competitionId, isStandaloneRound]);
 

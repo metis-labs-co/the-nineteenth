@@ -578,8 +578,13 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
     ]
   );
 
-  // Loading state
-  if (isLoading || (!isInitialized && !fetchError) || (isInitialized && !hasHoles && !fetchError)) {
+  // Loading state — show the spinner only until we have data we can paint.
+  // Once the offline store has been initialized with holes, fall through and
+  // render the screen even if background queries are still pending; those
+  // queries refresh data when they resolve and shouldn't block the UI on
+  // a slow / hung Supabase request.
+  const hasRenderableData = isInitialized && hasHoles;
+  if (!hasRenderableData && !fetchError) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <LoadingSpinner size="lg" message="Loading scorecard..." />

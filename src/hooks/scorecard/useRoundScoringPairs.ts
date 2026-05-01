@@ -14,6 +14,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { getPlayersToScore, getScoringPartner, hasScoringPairs } from '@/services/scoringPairs';
 import { roundDataLogger } from '@/utils/debugLogger';
 import type { Player } from '@/types';
+import { scheduleFetchTimeout } from './fetchTimeout';
 
 interface UseRoundScoringPairsResult {
   /** Players the current user can score: [self, ...partners] */
@@ -73,6 +74,11 @@ export function useRoundScoringPairs(
 
     setIsLoading(true);
     setError(null);
+
+    const cancelTimeout = scheduleFetchTimeout('scoring pairs', (msg) => {
+      setError(msg);
+      setIsLoading(false);
+    });
 
     try {
       roundDataLogger.debug('Checking scoring pairs', {
@@ -137,6 +143,8 @@ export function useRoundScoringPairs(
       roundDataLogger.error('Error checking scoring pairs', err);
       setError(err instanceof Error ? err.message : 'Failed to check scoring pairs');
       setIsLoading(false);
+    } finally {
+      cancelTimeout();
     }
   }, [roundId, currentUserId, scoringPairsRequired, isTeamRound]);
 

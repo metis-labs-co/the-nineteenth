@@ -197,11 +197,23 @@ export async function loadFromOffline(
     let nineType: NineType = 'full';
 
     try {
+      // Race the metadata fetch against a 15s timeout. Without this, a
+      // hung Supabase request (no response, no error) blocks loadFromOffline
+      // from ever returning, which leaves `isInitialized` false and the
+      // score-entry screen stuck on "Loading scorecard…" forever.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase typed query workaround
-      const { data: roundData } = await (supabase.from('rounds') as any)
+      const fetchMetadata = (supabase.from('rounds') as any)
         .select('game_type, handicap_source, nine_type, selected_tee')
         .eq('id', roundId)
         .maybeSingle();
+
+      const { data: roundData } = (await Promise.race([
+        fetchMetadata,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Round metadata fetch timed out after 15s')), 15_000)
+        ),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- result shape from Supabase race
+      ])) as { data: any };
 
       if (roundData) {
         if (roundData.game_type) gameType = roundData.game_type as GameType;

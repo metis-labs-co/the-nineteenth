@@ -18,6 +18,7 @@ import {
   type SupabaseRoundData,
   type StandaloneTeamConfig,
 } from '@/types/supabase/roundQueries';
+import { scheduleFetchTimeout } from './fetchTimeout';
 
 export interface RoundMetadata {
   id: string;
@@ -72,6 +73,11 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
 
     setIsLoading(true);
     setError(null);
+
+    const cancelTimeout = scheduleFetchTimeout('round metadata', (msg) => {
+      setError(msg);
+      setIsLoading(false);
+    });
 
     try {
       roundDataLogger.debug('Fetching round metadata', { roundId: roundId.substring(0, 8) });
@@ -211,6 +217,8 @@ export function useRoundMetadata(roundId: string | undefined): UseRoundMetadataR
       roundDataLogger.error('Error fetching round metadata', err);
       setError(err instanceof Error ? err.message : 'Failed to load round metadata');
       setIsLoading(false);
+    } finally {
+      cancelTimeout();
     }
   }, [roundId]);
 

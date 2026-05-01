@@ -19,6 +19,7 @@ import {
   type SupabasePlayerData,
   type StandaloneTeamConfig,
 } from '@/types/supabase/roundQueries';
+import { scheduleFetchTimeout } from './fetchTimeout';
 
 interface UseRoundTeamsResult {
   teams: TeamWithMembers[];
@@ -55,6 +56,11 @@ export function useRoundTeams(
 
     setIsLoading(true);
     setError(null);
+
+    const cancelTimeout = scheduleFetchTimeout('team data', (msg) => {
+      setError(msg);
+      setIsLoading(false);
+    });
 
     try {
       // Standalone rounds: build teams from rounds.team_config
@@ -193,6 +199,8 @@ export function useRoundTeams(
       setError(err instanceof Error ? err.message : 'Failed to load teams');
       setTeams([]);
       setIsLoading(false);
+    } finally {
+      cancelTimeout();
     }
   }, [competitionId, isTeamRound, isStandaloneRound, roundId]);
 
