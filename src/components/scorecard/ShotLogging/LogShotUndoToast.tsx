@@ -126,6 +126,8 @@ const styles = StyleSheet.create({
   message: {
     ...typography.body,
     fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 18,
     flex: 1,
   },
   action: {

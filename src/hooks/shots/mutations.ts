@@ -12,7 +12,6 @@ import { supabase } from '@/services/supabase/client';
 import { shotLogKeys } from '@/hooks/queryKeys';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  nextSequence,
   applyOptimisticInsert,
   applyOptimisticUpdate,
   applyOptimisticDelete,
@@ -46,6 +45,30 @@ interface DeleteShotInput {
   holeNumber: number;
 }
 
+/**
+ * Fetch the current max sequence for a (round, hole, player) directly
+ * from the DB. Avoids the stale-cache race that bites when the user
+ * navigates to a hole and taps the FAB before useShotLog has populated
+ * the cache: optimistic next-sequence-from-cache returns 1, but the
+ * server already has sequence-1 rows from a previous session.
+ */
+async function fetchMaxSequence(
+  roundId: string,
+  holeNumber: number,
+  playerId: string
+): Promise<number> {
+  const { data, error } = await shotLogTable()
+    .select('sequence')
+    .eq('round_id', roundId)
+    .eq('hole_number', holeNumber)
+    .eq('player_id', playerId)
+    .order('sequence', { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+  return (data as { sequence: number }[] | null)?.[0]?.sequence ?? 0;
+}
+
 export function useLogShot() {
   const queryClient = useQueryClient();
   const { player } = useAuth();
@@ -54,24 +77,37 @@ export function useLogShot() {
     mutationFn: async (input: LogShotInput): Promise<ShotLogEntry> => {
       if (!player) throw new Error('Not authenticated');
 
-      const cacheKey = shotLogKeys.byHole(input.roundId, input.holeNumber);
-      const existing = queryClient.getQueryData<ShotLogEntry[]>(cacheKey);
-      const sequence = nextSequence(existing);
+      // Always source the next sequence from the DB, with one retry on
+      // 23505 unique-violation in case two clients race or a previous
+      // optimistic insert left an inconsistent cache.
+      const attemptInsert = async (sequence: number) => {
+        const result = await shotLogTable()
+          .insert({
+            round_id: input.roundId,
+            hole_number: input.holeNumber,
+            player_id: player.id,
+            sequence,
+            latitude: input.latitude,
+            longitude: input.longitude,
+          })
+          .select()
+          .single();
+        return result as { data: ShotLogEntry | null; error: { code?: string } | null };
+      };
 
-      const { data, error } = await shotLogTable()
-        .insert({
-          round_id: input.roundId,
-          hole_number: input.holeNumber,
-          player_id: player.id,
-          sequence,
-          latitude: input.latitude,
-          longitude: input.longitude,
-        })
-        .select()
-        .single();
+      const baseSequence =
+        (await fetchMaxSequence(input.roundId, input.holeNumber, player.id)) + 1;
+      let { data, error } = await attemptInsert(baseSequence);
+
+      if (error?.code === '23505') {
+        const retrySequence =
+          (await fetchMaxSequence(input.roundId, input.holeNumber, player.id)) + 1;
+        ({ data, error } = await attemptInsert(retrySequence));
+      }
 
       if (error) throw error;
-      return data as ShotLogEntry;
+      if (!data) throw new Error('Shot insert returned no row');
+      return data;
     },
     onSuccess: (newShot, input) => {
       const cacheKey = shotLogKeys.byHole(input.roundId, input.holeNumber);

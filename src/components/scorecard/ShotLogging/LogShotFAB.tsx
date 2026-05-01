@@ -12,6 +12,30 @@ import {
   TOAST_FAB_GAP,
 } from './LogShotUndoToast';
 
+/**
+ * Map raw supabase / Postgres errors to short, user-facing copy.
+ * Falls back to a generic message — never surface DB internals.
+ */
+function friendlyShotError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as { code: unknown }).code ?? '')
+      : '';
+  switch (code) {
+    case '23505':
+      return 'Couldn’t save that shot. Try again.';
+    case '42501':
+      return 'You don’t have permission to log shots on this round.';
+    case 'PGRST116':
+      return 'Round not found. Try reopening the scorecard.';
+    case 'PGRST301':
+    case '401':
+      return 'Sign in expired. Reopen the app to continue logging.';
+    default:
+      return 'Couldn’t log that shot. Check your connection and try again.';
+  }
+}
+
 interface LogShotFABProps {
   roundId: string;
   holeNumber: number;
@@ -92,13 +116,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
         onError: (err: unknown) => {
           // eslint-disable-next-line no-console
           console.warn('[LogShotFAB] failed', err);
-          const message =
-            err instanceof Error
-              ? err.message
-              : typeof err === 'object' && err !== null && 'message' in err
-              ? String((err as { message: unknown }).message)
-              : 'Could not log shot';
-          showErrorToast({ message: `Shot log failed: ${message}` });
+          showErrorToast({ message: friendlyShotError(err) });
         },
       }
     );
