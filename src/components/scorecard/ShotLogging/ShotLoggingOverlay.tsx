@@ -3,7 +3,6 @@ import { View, StyleSheet } from 'react-native';
 import { useShotTrackingEligibility } from '@/hooks/shots';
 import { useSettingsStore } from '@/store/settingsStore';
 import { LogShotFAB } from './LogShotFAB';
-import { LogShotUndoToast } from './LogShotUndoToast';
 
 interface ShotLoggingOverlayProps {
   roundId: string;
@@ -18,8 +17,11 @@ interface ShotLoggingOverlayProps {
 }
 
 /**
- * Composite overlay for the score-entry screen. Renders the floating
- * shot-log button and the undo toast when ALL of:
+ * Floating-FAB overlay for the score-entry screen. The undo /
+ * error toast lives inline as a banner under the hole header
+ * (see InlineShotToast) — only the FAB needs absolute positioning.
+ *
+ * Renders only when ALL of:
  *   - User is eligible (premium tier + solo round + auth user is the player)
  *   - `enableHoleMap` setting is on (master Hole Map gate)
  *   - `trackShotsAutomatically` setting is on (Phase C2 master switch)
@@ -42,7 +44,6 @@ export function ShotLoggingOverlay({
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill} testID="shot-logging-overlay">
       <LogShotFAB roundId={roundId} holeNumber={holeNumber} bottomInset={bottomInset} />
-      <LogShotUndoToast bottomInset={bottomInset} />
     </View>
   );
 }

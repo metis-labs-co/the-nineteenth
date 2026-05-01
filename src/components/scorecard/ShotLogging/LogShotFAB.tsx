@@ -6,12 +6,6 @@ import { borderRadius, shadows } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useLogShot } from '@/hooks/shots';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
-import {
-  TOAST_BASE_BOTTOM,
-  TOAST_HEIGHT,
-  TOAST_FAB_GAP,
-} from './LogShotUndoToast';
-
 /**
  * Map raw supabase / Postgres errors to short, user-facing copy.
  * Falls back to a generic message — never surface DB internals.
@@ -44,11 +38,11 @@ interface LogShotFABProps {
 }
 
 /**
- * Resting bottom offset (no toast visible). Clears the ~120dp scorecard
- * footer plus 16dp breathing room. When a toast is visible the FAB
- * shifts up further to clear the toast strip.
+ * Bottom offset that clears the ~120dp scorecard footer plus 16dp
+ * breathing room. Toast lives inline now (see InlineShotToast) so the
+ * FAB no longer needs a "lifted" position.
  */
-const FAB_RESTING_BOTTOM = 136;
+const FAB_BOTTOM = 136;
 
 export const LogShotFAB = React.memo(function LogShotFAB({
   roundId,
@@ -66,8 +60,6 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
   const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
-  // When a toast is visible the FAB shifts up so it clears the toast strip.
-  const toastVisible = useShotLoggingUiStore((s) => s.dismissAt !== null);
 
   // Bootstrap GPS — the FAB is the only entry point in some flows
   // (e.g. courses without hole_coordinates where DistanceToPin never
@@ -145,11 +137,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const pressable = !logShot.isPending && (location !== null || isAwaitingPermission);
   const looksDisabled = !pressable;
 
-  // FAB resting position; lifts above the toast strip when toast visible.
-  const restingBottom = FAB_RESTING_BOTTOM + bottomInset;
-  const liftedBottom =
-    TOAST_BASE_BOTTOM + TOAST_HEIGHT + TOAST_FAB_GAP + bottomInset;
-  const fabBottom = toastVisible ? liftedBottom : restingBottom;
+  const fabBottom = FAB_BOTTOM + bottomInset;
 
   return (
     <Pressable

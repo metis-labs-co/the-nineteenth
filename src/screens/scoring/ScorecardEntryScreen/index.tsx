@@ -35,7 +35,7 @@ import {
   GroupFilterStrip,
 } from '@/components/scorecard';
 import { EditHoleBottomSheet, BuildCourseHoleModal } from '@/components/courses';
-import { ShotLoggingOverlay } from '@/components/scorecard/ShotLogging';
+import { ShotLoggingOverlay, InlineShotToast } from '@/components/scorecard/ShotLogging';
 import { DetailedStatsSheet } from '@/components/scorecard/DetailedStatsSheet';
 import { WolfDecisionModal } from '@/components/wolf';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -476,6 +476,9 @@ export default function ScorecardEntryScreen({ navigation, route }: Props) {
               if (hole) setEditingHole(hole);
             }}
           />
+
+          {/* Phase C2 — Shot logging banner stuck to the bottom of the hole header. */}
+          <InlineShotToast />
 
           <ScrollView
             style={styles.playersContainer}
