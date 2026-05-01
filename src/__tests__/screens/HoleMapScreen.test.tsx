@@ -10,7 +10,7 @@ jest.mock('@/context/ThemeContext', () => ({
     textPrimary: '#111827',
     textSecondary: '#6b7280',
     primary: '#16a34a',
-    onPrimary: '#ffffff',
+    white: '#ffffff',
     info: '#3b82f6',
     warning: '#f59e0b',
     success: '#22c55e',

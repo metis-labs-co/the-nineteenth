@@ -26,7 +26,7 @@ export function NoCoordinatesFallback({ onRequestBackfill }: NoCoordinatesFallba
         onPress={onRequestBackfill}
         style={[styles.cta, { backgroundColor: colors.primary }]}
       >
-        <Text style={[styles.ctaText, { color: colors.onPrimary }]}>
+        <Text style={[styles.ctaText, { color: colors.white }]}>
           Try fetching coordinates
         </Text>
       </Pressable>

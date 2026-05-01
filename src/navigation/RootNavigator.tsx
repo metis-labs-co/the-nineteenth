@@ -52,6 +52,7 @@ import JoinCompetitionScreen from '@/screens/competitions/JoinCompetitionScreen'
 
 // Scoring Screens
 import ScorecardEntryScreen from '@/screens/scoring/ScorecardEntryScreen';
+import HoleMapScreen from '@/screens/scoring/HoleMapScreen';
 import ReviewScorecardScreen from '@/screens/scoring/ReviewScorecardScreen';
 import PlayerScorecardScreen from '@/screens/scoring/PlayerScorecardScreen';
 import MatchPlayScoringScreen from '@/screens/scoring/MatchPlayScoringScreen';
@@ -425,6 +426,17 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               options={{
                 title: 'Player Scorecard',
                 headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="HoleMap"
+              component={HoleMapScreen}
+              options={{
+                title: 'Hole Map',
+                headerShown: false,
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
               }}
             />
 
