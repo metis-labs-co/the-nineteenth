@@ -7,3 +7,5 @@ export { DistanceLine } from './DistanceLine';
 export { MapMarkerSet } from './MapMarkerSet';
 export { NoCoordinatesFallback } from './NoCoordinatesFallback';
 export { MapHeader } from './MapHeader';
+export { ShotTrail } from './ShotTrail';
+export { ShotMarkerActionSheet } from './ShotMarkerActionSheet';
