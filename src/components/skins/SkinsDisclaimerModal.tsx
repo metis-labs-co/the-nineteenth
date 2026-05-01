@@ -216,7 +216,7 @@ export function SkinsDisclaimerModal({
           style={[
             styles.container,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surfaceElevated,
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
             },

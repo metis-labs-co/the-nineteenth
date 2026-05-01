@@ -200,14 +200,14 @@ export function BottomSheet({
                 top: 0,
                 bottom: 0,
                 paddingTop: topPadding,
-                backgroundColor: colors.surface,
+                backgroundColor: colors.surfaceElevated,
                 transform: [{ translateY }],
               }
             : {
                 // Partial: use fixed height from bottom
                 height: sheetHeight,
                 paddingTop: topPadding,
-                backgroundColor: colors.surface,
+                backgroundColor: colors.surfaceElevated,
                 borderTopLeftRadius: SHEET_BORDER_RADIUS,
                 borderTopRightRadius: SHEET_BORDER_RADIUS,
                 transform: [{ translateY }],

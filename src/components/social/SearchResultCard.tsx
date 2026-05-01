@@ -1,8 +1,10 @@
 /**
  * SearchResultCard - Displays a player search result with add friend action
  *
- * Shows player info (avatar, name, email, handicap) with appropriate status
- * or action button based on friendship state.
+ * Shows player info (avatar, name, handicap) with appropriate status
+ * or action button based on friendship state. Email is intentionally not
+ * shown — search matches against email server-side, but exposing other
+ * users' addresses on the result card is a privacy concern.
  */
 
 import React from 'react';
@@ -91,9 +93,6 @@ export const SearchResultCard = React.memo(function SearchResultCard({
         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
           {player.name}
         </Text>
-        <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
-          {player.email}
-        </Text>
         {player.handicap !== null && player.handicap !== undefined && (
           <Text style={[styles.handicap, { color: colors.primary }]}>
             HC: {player.handicap}
@@ -142,9 +141,6 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.bodyBold,
-  },
-  email: {
-    ...typography.caption,
   },
   handicap: {
     ...typography.caption,

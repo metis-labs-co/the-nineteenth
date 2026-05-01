@@ -9,6 +9,7 @@
  */
 
 import type { BrandConfig } from '@/config/brand.types';
+import type { SurfaceStyle, BackdropStyle } from './theme';
 
 // ============================================================================
 // STATIC ACCENT COLORS (consistent across all brands)
@@ -205,9 +206,55 @@ function darkenColor(hex: string, amount: number): string {
  *
  * This produces a palette that matches the original lightColors structure
  * in theme.ts, ensuring backwards compatibility with all components.
+ *
+ * When `surfaceStyle === 'translucent'`, surface and border tokens are
+ * overridden with rgba tints derived from the brand primary, while
+ * `surfaceElevated` stays solid so modals/sheets remain legible.
+ *
+ * When `backdropStyle === 'image'`, `background` becomes transparent so the
+ * app-level image backdrop in App.tsx shows through every screen.
  */
-export function generateLightColors(brand: BrandConfig) {
+export function generateLightColors(
+  brand: BrandConfig,
+  surfaceStyle: SurfaceStyle = 'solid',
+  backdropStyle: BackdropStyle = 'none'
+) {
   const { primary, semantic, golf, grays } = brand;
+
+  const translucent = surfaceStyle === 'translucent';
+  // When an image backdrop is showing, light translucent surfaces use a
+  // higher-alpha WHITE tint for a frosted-glass effect that reads cleanly
+  // against the photograph. Without the image, we keep the subtle lime wash
+  // because cards sit on a near-white screen background and a hint of brand
+  // colour gives them definition.
+  const imageBackdrop = backdropStyle === 'image';
+  const tintColor = imageBackdrop ? grays.white : primary.primary;
+  const surfaceAlpha = imageBackdrop ? 0.55 : 0.06;
+  const surfaceVariantAlpha = imageBackdrop ? 0.7 : 0.12;
+  const surfaceSelectedAlpha = imageBackdrop ? 0.85 : 0.18;
+  const borderAlpha = imageBackdrop ? 0.6 : 0.14;
+  const borderStrongAlpha = imageBackdrop ? 0.8 : 0.24;
+  const borderLightAlpha = imageBackdrop ? 0.4 : 0.06;
+  const tinted = {
+    surface: translucent
+      ? withOpacity(tintColor, surfaceAlpha)
+      : grays.white,
+    surfaceVariant: translucent
+      ? withOpacity(tintColor, surfaceVariantAlpha)
+      : grays.gray200,
+    surfaceSelected: translucent
+      ? withOpacity(tintColor, surfaceSelectedAlpha)
+      : grays.white,
+    border: translucent
+      ? withOpacity(tintColor, borderAlpha)
+      : grays.gray200,
+    borderStrong: translucent
+      ? withOpacity(tintColor, borderStrongAlpha)
+      : grays.gray300,
+    borderLight: translucent
+      ? withOpacity(tintColor, borderLightAlpha)
+      : grays.gray100,
+  };
 
   return {
     // Primary colors
@@ -269,16 +316,16 @@ export function generateLightColors(brand: BrandConfig) {
     primaryBackground: adjustLightness(primary.primary, 0.95),
 
     // Backgrounds
-    background: grays.gray100,
-    surface: grays.white,
-    surfaceVariant: grays.gray200,
+    background: backdropStyle === 'image' ? 'transparent' : grays.gray100,
+    surface: tinted.surface,
+    surfaceVariant: tinted.surfaceVariant,
     surfaceElevated: grays.white,
-    surfaceSelected: grays.white,
+    surfaceSelected: tinted.surfaceSelected,
 
     // Borders
-    border: grays.gray200,
-    borderStrong: grays.gray300,
-    borderLight: grays.gray100,
+    border: tinted.border,
+    borderStrong: tinted.borderStrong,
+    borderLight: tinted.borderLight,
 
     // Text
     textPrimary: grays.gray900,
@@ -304,9 +351,44 @@ export function generateLightColors(brand: BrandConfig) {
  *
  * This produces a palette that matches the original darkColors structure
  * in theme.ts, with appropriate adjustments for dark backgrounds.
+ *
+ * When `surfaceStyle === 'translucent'`, surface and border tokens are
+ * overridden with rgba tints derived from the dark-mode brand primary,
+ * while `surfaceElevated` stays solid so modals/sheets remain legible
+ * on top of dimmed overlays.
+ *
+ * When `backdropStyle === 'image'`, `background` becomes transparent so the
+ * app-level image backdrop in App.tsx shows through every screen — works
+ * for both solid and translucent surfaces.
  */
-export function generateDarkColors(brand: BrandConfig) {
+export function generateDarkColors(
+  brand: BrandConfig,
+  surfaceStyle: SurfaceStyle = 'solid',
+  backdropStyle: BackdropStyle = 'none'
+) {
   const { primary, semantic, golf, grays, darkMode } = brand;
+
+  const translucent = surfaceStyle === 'translucent';
+  const tinted = {
+    surface: translucent
+      ? withOpacity(darkMode.primary, 0.08)
+      : darkMode.surface,
+    surfaceVariant: translucent
+      ? withOpacity(darkMode.primary, 0.14)
+      : darkMode.surfaceVariant,
+    surfaceSelected: translucent
+      ? withOpacity(darkMode.primary, 0.2)
+      : darkenColor(darkMode.surface, 0.3),
+    border: translucent
+      ? withOpacity(darkMode.primary, 0.18)
+      : darkMode.surfaceVariant,
+    borderStrong: translucent
+      ? withOpacity(darkMode.primary, 0.3)
+      : brightenColor(darkMode.surfaceVariant, 0.15),
+    borderLight: translucent
+      ? withOpacity(darkMode.primary, 0.1)
+      : darkMode.surface,
+  };
 
   // Brighten semantic colors for dark backgrounds
   const brightenedSuccess = brightenColor(semantic.success.base, 0.15);
@@ -373,16 +455,19 @@ export function generateDarkColors(brand: BrandConfig) {
     primaryBackground: darkenColor(primary.primary, 0.8),
 
     // Backgrounds
-    background: darkMode.background,
-    surface: darkMode.surface,
-    surfaceVariant: darkMode.surfaceVariant,
+    // Background is transparent whenever the photographic backdrop is on,
+    // so the app-level image in App.tsx shows through every screen
+    // regardless of whether surfaces are solid or translucent.
+    background: backdropStyle === 'image' ? 'transparent' : darkMode.background,
+    surface: tinted.surface,
+    surfaceVariant: tinted.surfaceVariant,
     surfaceElevated: darkMode.surface,
-    surfaceSelected: darkenColor(darkMode.surface, 0.3),
+    surfaceSelected: tinted.surfaceSelected,
 
     // Borders
-    border: darkMode.surfaceVariant,
-    borderStrong: brightenColor(darkMode.surfaceVariant, 0.15),
-    borderLight: darkMode.surface,
+    border: tinted.border,
+    borderStrong: tinted.borderStrong,
+    borderLight: tinted.borderLight,
 
     // Text
     textPrimary: '#f1f5f9', // Slate 100

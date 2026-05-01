@@ -25,7 +25,7 @@ const meta: Meta<typeof BottomNavigation> = {
   argTypes: {
     activeTab: {
       control: { type: 'select' },
-      options: ['rounds', 'competitions', 'courses', 'leagues', 'profile'],
+      options: ['home', 'competitions', 'courses', 'leagues', 'profile'],
     },
     onTabPress: { action: 'tab pressed' },
   },
@@ -113,7 +113,7 @@ const wrapperStyles = StyleSheet.create({
 
 export const Default: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -125,7 +125,7 @@ export const Default: Story = {
 
 export const RoundsActive: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -189,7 +189,7 @@ export const ProfileActive: Story = {
 
 export const WithSingleBadge: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: { leagues: 3 },
   },
   render: (args) => (
@@ -202,7 +202,7 @@ export const WithSingleBadge: Story = {
 
 export const WithMultipleBadges: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
       competitions: 2,
       leagues: 5,
@@ -218,9 +218,9 @@ export const WithMultipleBadges: Story = {
 
 export const WithAllBadges: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
-      rounds: 1,
+      home: 1,
       competitions: 2,
       courses: 3,
       leagues: 4,
@@ -237,7 +237,7 @@ export const WithAllBadges: Story = {
 
 export const WithLargeBadgeCount: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: { leagues: 150 },
   },
   render: (args) => (
@@ -250,7 +250,7 @@ export const WithLargeBadgeCount: Story = {
 
 export const WithStringBadge: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: { leagues: 'NEW' },
   },
   render: (args) => (
@@ -263,7 +263,7 @@ export const WithStringBadge: Story = {
 
 export const WithZeroBadge: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: { leagues: 0 },
   },
   render: (args) => (
@@ -279,27 +279,27 @@ export const BadgeVariations: Story = {
     <ScrollView style={{ flex: 1 }}>
       <Section title="Single Digit">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" badges={{ leagues: 5 }} />
+          <BottomNavigation activeTab="home" badges={{ leagues: 5 }} />
         </View>
       </Section>
       <Section title="Double Digit">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" badges={{ leagues: 42 }} />
+          <BottomNavigation activeTab="home" badges={{ leagues: 42 }} />
         </View>
       </Section>
       <Section title="Exactly 99">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" badges={{ leagues: 99 }} />
+          <BottomNavigation activeTab="home" badges={{ leagues: 99 }} />
         </View>
       </Section>
       <Section title="Over 99 (99+)">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" badges={{ leagues: 100 }} />
+          <BottomNavigation activeTab="home" badges={{ leagues: 100 }} />
         </View>
       </Section>
       <Section title="String Badge">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" badges={{ competitions: '!' }} />
+          <BottomNavigation activeTab="home" badges={{ competitions: '!' }} />
         </View>
       </Section>
     </ScrollView>
@@ -312,7 +312,7 @@ export const BadgeVariations: Story = {
 
 export const Interactive: Story = {
   render: () => {
-    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('rounds');
+    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('home');
 
     const handleTabPress = (tab: NavigationTab) => {
       setActiveTab(tab.key);
@@ -332,7 +332,7 @@ export const Interactive: Story = {
 
 export const InteractiveWithBadges: Story = {
   render: () => {
-    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('rounds');
+    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('home');
     const [badges, setBadges] = useState({
       leagues: 3,
       competitions: 1,
@@ -375,7 +375,7 @@ export const AllTabStates: Story = {
     <ScrollView style={{ flex: 1 }}>
       <Section title="Rounds Active">
         <View style={{ height: 80 }}>
-          <BottomNavigation activeTab="rounds" />
+          <BottomNavigation activeTab="home" />
         </View>
       </Section>
       <Section title="Competitions Active">
@@ -408,7 +408,7 @@ export const AllTabStates: Story = {
 
 export const NewUserExperience: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
       leagues: 'NEW',
       profile: '!',
@@ -429,7 +429,7 @@ export const NewUserExperience: Story = {
 
 export const NotificationsState: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
       leagues: 5,
       competitions: 2,
@@ -452,7 +452,7 @@ export const BusyState: Story = {
   args: {
     activeTab: 'competitions',
     badges: {
-      rounds: 3,
+      home: 3,
       competitions: 8,
       leagues: 12,
     },
@@ -472,7 +472,7 @@ export const BusyState: Story = {
 
 export const QuietState: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {},
   },
   render: (args) => (
@@ -494,10 +494,10 @@ export const QuietState: Story = {
 
 export const InFullAppContext: Story = {
   render: () => {
-    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('rounds');
+    const [activeTab, setActiveTab] = useState<NavigationTab['key']>('home');
 
     const screenContent = {
-      rounds: 'Your upcoming and past rounds',
+      home: 'Your upcoming and past rounds',
       competitions: 'Manage your golf competitions',
       courses: 'Browse golf courses',
       leagues: 'Manage your golf leagues',
@@ -532,7 +532,7 @@ export const InFullAppContext: Story = {
 
 export const EmptyBadges: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {},
   },
   render: (args) => (
@@ -545,7 +545,7 @@ export const EmptyBadges: Story = {
 
 export const UndefinedBadges: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
   },
   render: (args) => (
     <View style={{ flex: 1 }}>
@@ -557,9 +557,9 @@ export const UndefinedBadges: Story = {
 
 export const MixedBadgeTypes: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
-      rounds: 1,
+      home: 1,
       competitions: 'NEW',
       leagues: 99,
       profile: '!',
@@ -600,7 +600,7 @@ export const AccessibilityDemo: Story = {
           • Touch targets are 48x48 minimum
         </Text>
       </View>
-      <BottomNavigation activeTab="rounds" badges={{ leagues: 5 }} />
+      <BottomNavigation activeTab="home" badges={{ leagues: 5 }} />
     </View>
   ),
 };
@@ -611,7 +611,7 @@ export const AccessibilityDemo: Story = {
 
 export const Playground: Story = {
   args: {
-    activeTab: 'rounds',
+    activeTab: 'home',
     badges: {
       leagues: 3,
     },

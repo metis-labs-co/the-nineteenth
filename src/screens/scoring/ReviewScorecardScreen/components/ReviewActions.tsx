@@ -34,7 +34,10 @@ export function ReviewActions({
         styles.actionBar,
         {
           paddingBottom: insets.bottom + spacing.md,
-          backgroundColor: colors.surface,
+          // Always solid — `colors.surface` can be translucent (or transparent
+          // on image backdrops), which makes the Edit Scores label hard to
+          // read against scorecard rows underneath.
+          backgroundColor: colors.surfaceElevated,
           borderTopColor: colors.border,
         },
       ]}

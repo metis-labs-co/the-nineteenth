@@ -60,7 +60,7 @@ export const ExtendedScorePickerModal = React.memo(function ExtendedScorePickerM
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
             Select Score
           </Text>

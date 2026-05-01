@@ -44,7 +44,7 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
           style={[
             styles.modalHeader,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surfaceElevated,
               borderBottomColor: colors.border,
             },
           ]}
@@ -68,7 +68,7 @@ export const CourseSelectionModal = React.memo(function CourseSelectionModal({
             style={[
               styles.favoritesSection,
               {
-                backgroundColor: colors.surface,
+                backgroundColor: colors.surfaceElevated,
                 borderBottomColor: colors.border,
               },
             ]}

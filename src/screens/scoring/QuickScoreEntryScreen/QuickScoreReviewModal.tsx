@@ -42,7 +42,7 @@ export const QuickScoreReviewModal = React.memo(function QuickScoreReviewModal({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <View style={[styles.content, { backgroundColor: colors.surface }]}>
+        <View style={[styles.content, { backgroundColor: colors.surfaceElevated }]}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Review Scores</Text>
 
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>

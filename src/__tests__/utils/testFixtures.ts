@@ -213,6 +213,7 @@ export function createTestRound(overrides: Partial<Round> = {}): Round {
     competition_id: 'comp-1',
     user_id: null,
     round_number: 1,
+    display_order: 1,
     name: null,
     course_id: 'course-1',
     date: '2025-01-15',

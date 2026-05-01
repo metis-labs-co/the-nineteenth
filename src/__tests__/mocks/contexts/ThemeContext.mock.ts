@@ -19,7 +19,11 @@ export function createMockThemeContext(isDark = false) {
     colors: isDark ? darkColors : lightColors,
     isDark,
     themeMode: isDark ? ('dark' as const) : ('light' as const),
+    surfaceStyle: 'solid' as const,
+    backdropStyle: 'image' as const,
     setThemeMode: jest.fn(),
+    setSurfaceStyle: jest.fn(),
+    setBackdropStyle: jest.fn(),
     toggleTheme: jest.fn(),
   };
 }

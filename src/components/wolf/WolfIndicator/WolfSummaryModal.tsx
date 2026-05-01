@@ -189,7 +189,7 @@ export const WolfSummaryModal = React.memo(function WolfSummaryModal({
         <Pressable
           style={[
             styles.popoverContainer,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surfaceElevated },
             shadows.lg,
           ]}
           onPress={(e) => e.stopPropagation()}

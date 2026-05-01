@@ -81,7 +81,7 @@ export const CourseSelectionModal = memo(function CourseSelectionModal({
     >
       <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         {/* Modal Header */}
-        <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.modalHeader, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Course</Text>
           <TouchableOpacity
             onPress={handleClose}

@@ -25,7 +25,7 @@ export const TeeSelectionModal = React.memo(function TeeSelectionModal({
         <View
           style={[
             styles.modalContent,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surfaceElevated },
           ]}
         >
           <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>

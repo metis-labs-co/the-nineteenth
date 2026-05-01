@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, shadows, borderRadius, typography } from '@/constants/theme';
 
@@ -45,20 +45,6 @@ export function TeamMatchPlayFooter({
         { backgroundColor: colors.surface, borderTopColor: colors.border },
       ]}
     >
-      {/* View Full Scorecard Link */}
-      <View style={styles.viewScorecardRow}>
-        <TouchableOpacity
-          onPress={onViewScorecard}
-          style={styles.viewScorecardButton}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.viewScorecardLabel, { color: colors.primary }]}>
-            View Full Scorecard
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Navigation Buttons */}
       <View style={styles.navButtonsRow}>
         <TouchableOpacity
@@ -74,6 +60,20 @@ export function TeamMatchPlayFooter({
           accessibilityRole="button"
         >
           <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onViewScorecard}
+          style={[
+            styles.iconNavButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
+          ]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="View full scorecard"
+        >
+          <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         {isMatchComplete ? (
@@ -135,24 +135,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     ...shadows.sm,
   },
-  viewScorecardRow: {
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  viewScorecardButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  viewScorecardLabel: {
-    ...typography.small,
-    textDecorationLine: 'underline',
-  },
   navButtonsRow: {
     flexDirection: 'row',
     gap: spacing.md,
   },
   navButton: {
     flex: 1,
+    borderRadius: borderRadius.lg,
+  },
+  iconNavButton: {
+    width: 56,
     borderRadius: borderRadius.lg,
   },
   navButtonContent: {

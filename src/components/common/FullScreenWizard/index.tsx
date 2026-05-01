@@ -55,7 +55,7 @@ export function FullScreenWizard({
   const handleClose = onClose ?? (wizard.isFirstStep ? wizard.goBack : undefined);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceElevated }]}>
       <PageHeader
         variant="centered"
         title={title}

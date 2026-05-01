@@ -25,6 +25,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCheckAchievements } from '@/hooks/achievements/useCheckAchievements';
 import { useAchievementToast } from '@/context/AchievementToastContext';
 import { createError } from './helpers';
+import { backfillSkinsResults } from './backfillSkins';
 import type { ProcessSkinsHoleInput, ProcessTeamSkinsHoleInput } from './types';
 import type {
   SkinsGame,
@@ -78,10 +79,16 @@ export interface CreateSkinsGameWithDisclaimerInput extends CreateSkinsGameInput
 // =====================================================
 
 /**
- * Mutation hook to create a new skins game
+ * Mutation hook to create a new skins game.
+ *
+ * On success, backfills skins results for any holes that were already scored
+ * before the game was created. Without this, a game created mid-round only
+ * processes subsequent holes — prior holes would silently produce no result.
  */
 export function useCreateSkinsGame() {
   const queryClient = useQueryClient();
+  const processSkinsHoleMutation = useProcessSkinsHole();
+  const processTeamSkinsHoleMutation = useProcessTeamSkinsHole();
 
   return useMutation({
     mutationFn: async (input: CreateSkinsGameWithDisclaimerInput): Promise<SkinsGame> => {
@@ -129,6 +136,15 @@ export function useCreateSkinsGame() {
           queryKey: skinsKeys.activeGameBySubMatch(data.sub_match_id),
         });
       }
+
+      // Fire-and-forget: process any holes that were scored before the game existed.
+      // Each per-hole mutation invalidates its own caches, so the UI updates as
+      // results stream in.
+      backfillSkinsResults(data, processSkinsHoleMutation, processTeamSkinsHoleMutation).catch(
+        (error) => {
+          console.warn('[useCreateSkinsGame] Skins backfill failed (non-blocking):', error);
+        }
+      );
     },
 
     onError: (error) => {

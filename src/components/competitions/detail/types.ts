@@ -28,6 +28,25 @@ export interface RoundWithCourse extends Round {
   has_skins?: boolean;
   /** Skins configuration if enabled */
   skins_config?: SkinsConfig | null;
+  /** Whether this round has an active wolf game */
+  has_wolf?: boolean;
+  /**
+   * Optional joined competition info — present when the parent screen needs
+   * to display the comp name on the round card (e.g. cross-competition lists
+   * like Home). Not populated by the CompetitionDetail query because the
+   * comp context is already shown in that screen's page header.
+   */
+  competition?: {
+    id: string;
+    name: string;
+  } | null;
+  /**
+   * Optional roster — populated for standalone rounds shown in cross-context
+   * lists (e.g. Home's in-progress carousel) so the card can list the
+   * playing group. Empty/undefined for competition rounds, which surface
+   * players via the dedicated competition Players tab.
+   */
+  players?: { id: string; name: string }[];
 }
 
 /**

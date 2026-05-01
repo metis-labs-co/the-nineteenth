@@ -2,14 +2,13 @@
  * ScorecardFooter Component
  *
  * Renders the footer navigation section:
- * - View Full Scorecard link
- * - Previous/Next hole navigation buttons
+ * - Previous / View Full Scorecard / Next hole controls
  * - Review & Submit button on hole 18 OR when all holes are complete
  */
 
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
 import { spacing, typography, shadows, borderRadius } from '@/constants/theme';
 
@@ -45,18 +44,6 @@ export function ScorecardFooter({
         { backgroundColor: colors.surface, borderTopColor: colors.border },
       ]}
     >
-      <View style={styles.viewScorecardRow}>
-        <TouchableOpacity
-          onPress={onViewScorecard}
-          style={styles.viewScorecardButton}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.viewScorecardLabel, { color: colors.primary }]}>
-            View Full Scorecard
-          </Text>
-        </TouchableOpacity>
-      </View>
       <View style={styles.navButtonsRow}>
         <TouchableOpacity
           onPress={onPreviousHole}
@@ -73,14 +60,30 @@ export function ScorecardFooter({
           <Text style={[styles.navButtonLabel, { color: colors.textPrimary }]}>Previous</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={onViewScorecard}
+          style={[
+            styles.iconNavButton,
+            styles.navButtonContent,
+            { borderWidth: 1, borderColor: colors.border },
+          ]}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="View full scorecard"
+        >
+          <Icon source="clipboard-list-outline" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+
         {showReviewButton ? (
-          <>
-            {/* Show Next Hole button if not on last hole */}
+          // Wrap right-side buttons in a flex:1 group so Previous and the
+          // group are equal width — keeps the icon button visually centred
+          // even when both Next Hole and Review Scores are shown.
+          <View style={styles.navRightGroup}>
             {canGoNext && (
               <TouchableOpacity
                 onPress={onNextHole}
                 style={[
-                  styles.navButton,
+                  styles.navGroupButton,
                   styles.navButtonContent,
                   { borderWidth: 1, borderColor: colors.border },
                 ]}
@@ -93,7 +96,7 @@ export function ScorecardFooter({
             <TouchableOpacity
               onPress={onViewScorecard}
               style={[
-                styles.navButton,
+                styles.navGroupButton,
                 styles.navButtonContent,
                 { backgroundColor: colors.success },
               ]}
@@ -102,7 +105,7 @@ export function ScorecardFooter({
             >
               <Text style={[styles.navButtonLabelPrimary, { color: colors.white }]}>Review Scores</Text>
             </TouchableOpacity>
-          </>
+          </View>
         ) : (
           <TouchableOpacity
             onPress={onNextHole}
@@ -130,23 +133,24 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     ...shadows.sm,
   },
-  viewScorecardRow: {
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  viewScorecardButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  viewScorecardLabel: {
-    ...typography.small,
-    textDecorationLine: 'underline',
-  },
   navButtonsRow: {
     flexDirection: 'row',
     gap: spacing.md,
   },
   navButton: {
+    flex: 1,
+    borderRadius: borderRadius.lg,
+  },
+  iconNavButton: {
+    width: 56,
+    borderRadius: borderRadius.lg,
+  },
+  navRightGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  navGroupButton: {
     flex: 1,
     borderRadius: borderRadius.lg,
   },

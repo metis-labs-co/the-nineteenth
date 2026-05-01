@@ -1,5 +1,5 @@
 // src/screens/competitions/hooks/useCompetitionsList.ts
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -232,6 +232,18 @@ export function useCompetitionsList() {
     [checkCanCreateCompetition, myCompetitionCount]
   );
   const canCreateCompetition = canCreateAccess.allowed;
+
+  // Default to "Joined" tab on first load if user has no created comps but has joined comps
+  const hasInitializedTab = useRef(false);
+  useEffect(() => {
+    if (hasInitializedTab.current) return;
+    if (isLoadingMy || isLoadingJoined) return;
+
+    if ((myCompetitions?.length ?? 0) === 0 && (joinedCompetitions?.length ?? 0) > 0) {
+      setActiveTab('joined');
+    }
+    hasInitializedTab.current = true;
+  }, [isLoadingMy, isLoadingJoined, myCompetitions, joinedCompetitions]);
 
   // Fetch grandfathered (legacy) competition IDs when limits or competitions change
   useEffect(() => {

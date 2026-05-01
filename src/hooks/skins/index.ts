@@ -62,11 +62,18 @@ export type { CreateSkinsGameWithDisclaimerInput } from './mutations';
 // Re-export team skins processor
 export { processTeamSkins } from './teamSkinsProcessor';
 
+// Re-export the standalone skins backfill helper
+export { backfillSkinsResults } from './backfillSkins';
+
 // Re-export utility hooks
 export { useCanUseSkins } from './useCanUseSkins';
 export { useActiveSkinsGameForRound } from './useActiveSkinsGameForRound';
 export { useActiveSkinsGameForSubMatch } from './useActiveSkinsGameForSubMatch';
 export { useSkinsGamesBySubMatch } from './useSkinsGamesBySubMatch';
+export {
+  useCompetitionSkinsGames,
+  type CompetitionSkinsCard,
+} from './useCompetitionSkinsGames';
 export { useProcessSkinsIfNeeded } from './useProcessSkinsIfNeeded';
 export { useFinalizeSkinsForRound } from './useFinalizeSkinsForRound';
 export { useFinalizeSkinsForSubMatch } from './useFinalizeSkinsForSubMatch';

@@ -9,9 +9,22 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { IconBolt } from '@tabler/icons-react-native';
+import {
+  IconBolt,
+  IconDice,
+  IconDog,
+  IconTrophy,
+  IconUsers,
+} from '@tabler/icons-react-native';
 import { useThemeColors } from '@/context/ThemeContext';
-import { spacing, typography, borderRadius, shadows } from '@/constants/theme';
+import {
+  spacing,
+  typography,
+  borderRadius,
+  shadows,
+  skinsColor,
+  wolfColor,
+} from '@/constants/theme';
 import { Pill, StatusBadge } from '@/components/common';
 import type { GameType } from '@/types/database.types';
 import { inferPresetIdFromRound, ROUND_PRESETS } from '@/constants/roundPresets';
@@ -54,6 +67,16 @@ function RoundCard({
 
   const courseName = round.course?.name ?? 'Course TBD';
   const clubName = round.course?.clubs?.name;
+  const competitionName = round.competition?.name;
+  const isStandalone = !round.competition_id;
+  const standaloneRoundName =
+    isStandalone && round.name?.trim() ? round.name.trim() : null;
+  const playerNames =
+    isStandalone && round.players?.length
+      ? round.players.map((p) => p.name).join(', ')
+      : null;
+  const hasSkins = round.has_skins ?? false;
+  const hasWolf = round.has_wolf ?? false;
 
   const presetId = inferPresetIdFromRound({
     game_type: round.game_type,
@@ -84,9 +107,66 @@ function RoundCard({
         activeOpacity={0.7}
       >
         <View style={styles.topRow}>
-          <StatusBadge status="in-progress" size="sm" />
+          <View style={styles.topRowLeft}>
+            <StatusBadge status="in-progress" size="sm" />
+            <StatusBadge
+              status="custom"
+              label={formatLabel}
+              size="sm"
+              backgroundColor={colors.gray100}
+            />
+            {hasSkins && (
+              <View
+                style={[
+                  styles.featureBadge,
+                  { backgroundColor: `${skinsColor}20` },
+                ]}
+                accessibilityLabel="Skins game enabled"
+              >
+                <IconDice size={12} color={skinsColor} />
+                <Text style={[styles.featureBadgeText, { color: skinsColor }]}>
+                  Skins
+                </Text>
+              </View>
+            )}
+            {hasWolf && (
+              <View
+                style={[
+                  styles.featureBadge,
+                  { backgroundColor: `${wolfColor}20` },
+                ]}
+                accessibilityLabel="Wolf game enabled"
+              >
+                <IconDog size={12} color={wolfColor} />
+                <Text style={[styles.featureBadgeText, { color: wolfColor }]}>
+                  Wolf
+                </Text>
+              </View>
+            )}
+          </View>
           <Pill label={`Round ${number}`} size="sm" />
         </View>
+
+        {competitionName && (
+          <View style={styles.competitionRow}>
+            <IconTrophy size={14} color={colors.textSecondary} />
+            <Text
+              style={[styles.competitionName, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {competitionName}
+            </Text>
+          </View>
+        )}
+
+        {standaloneRoundName && (
+          <Text
+            style={[styles.roundName, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {standaloneRoundName}
+          </Text>
+        )}
 
         <View style={styles.titleRow}>
           <Text
@@ -105,14 +185,17 @@ function RoundCard({
           )}
         </View>
 
-        <View style={styles.formatRow}>
-          <StatusBadge
-            status="custom"
-            label={formatLabel}
-            size="sm"
-            backgroundColor={colors.gray100}
-          />
-        </View>
+        {playerNames && (
+          <View style={styles.playersRow}>
+            <IconUsers size={14} color={colors.textSecondary} />
+            <Text
+              style={[styles.playersText, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {playerNames}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -242,8 +325,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.md,
     gap: spacing.sm,
+    // Fixed min height keeps the Continue Scoring button bottom-aligned
+    // across cards regardless of optional content (competition row, etc.).
+    minHeight: 180,
   },
   body: {
+    flex: 1,
     gap: spacing.xs,
   },
   topRow: {
@@ -252,13 +339,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  formatRow: {
+  topRowLeft: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+  },
+  featureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  featureBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  competitionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  competitionName: {
+    ...typography.smallBold,
+    flexShrink: 1,
+  },
+  roundName: {
+    ...typography.smallBold,
     marginTop: spacing.xs,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+  },
+  playersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  playersText: {
+    ...typography.small,
+    flexShrink: 1,
+    minWidth: 0,
   },
   title: {
     ...typography.bodyBold,

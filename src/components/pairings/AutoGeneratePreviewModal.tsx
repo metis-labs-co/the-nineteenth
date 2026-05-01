@@ -174,7 +174,7 @@ export const AutoGeneratePreviewModal = React.memo(
           <View
             style={[
               styles.header,
-              { borderBottomColor: colors.border, backgroundColor: colors.surface },
+              { borderBottomColor: colors.border, backgroundColor: colors.surfaceElevated },
             ]}
           >
             <View style={styles.headerLeft}>
@@ -255,7 +255,7 @@ export const AutoGeneratePreviewModal = React.memo(
           <View
             style={[
               styles.footer,
-              { borderTopColor: colors.border, backgroundColor: colors.surface },
+              { borderTopColor: colors.border, backgroundColor: colors.surfaceElevated },
             ]}
           >
             {/* Secondary Actions */}

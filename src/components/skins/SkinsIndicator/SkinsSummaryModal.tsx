@@ -81,7 +81,7 @@ export const SkinsSummaryModal = React.memo(function SkinsSummaryModal({
         <Pressable
           style={[
             styles.popoverContainer,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surfaceElevated },
             shadows.lg,
           ]}
           onPress={(e) => e.stopPropagation()}

@@ -47,6 +47,8 @@ import CompetitionSettingsScreen from '@/screens/competitions/CompetitionSetting
 // Competition Screens (Player View)
 import ViewRoundScreen from '@/screens/rounds/ViewRoundScreen';
 import RoundSettingsScreen from '@/screens/rounds/RoundSettingsScreen';
+import SubMatchDetailScreen from '@/screens/rounds/SubMatchDetailScreen';
+import { RoundListScreen } from '@/screens/rounds';
 import LeaderboardScreen from '@/screens/competitions/LeaderboardScreen';
 import JoinCompetitionScreen from '@/screens/competitions/JoinCompetitionScreen';
 
@@ -294,6 +296,29 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
               }}
             />
 
+            {/* Dev-only: preview the auth/onboarding screens from inside
+                the authenticated app via the dev tools section on Home. */}
+            {__DEV__ && (
+              <>
+                <Stack.Screen
+                  name="WelcomeCarousel"
+                  component={WelcomeCarouselScreen}
+                  options={{
+                    headerShown: false,
+                    presentation: 'modal',
+                  }}
+                />
+                <Stack.Screen
+                  name="Onboarding"
+                  component={OnboardingScreen}
+                  options={{
+                    headerShown: false,
+                    presentation: 'modal',
+                  }}
+                />
+              </>
+            )}
+
             {/* Competition Screens */}
             <Stack.Screen
               name="CreateCompetition"
@@ -363,10 +388,28 @@ export default function RootNavigator({ theme }: RootNavigatorProps) {
             />
 
             <Stack.Screen
+              name="AllRounds"
+              component={RoundListScreen}
+              options={{
+                title: 'All Rounds',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
               name="RoundSettings"
               component={RoundSettingsScreen}
               options={{
                 title: 'Round Settings',
+                headerShown: false,
+              }}
+            />
+
+            <Stack.Screen
+              name="SubMatchDetail"
+              component={SubMatchDetailScreen}
+              options={{
+                title: 'Sub-match',
                 headerShown: false,
               }}
             />

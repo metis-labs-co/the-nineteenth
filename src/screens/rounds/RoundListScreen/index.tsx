@@ -15,18 +15,22 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '@/context/ThemeContext';
 import { useSubscriptionContext, useIsSuperAdmin } from '@/context/SubscriptionContext';
+import { useNotificationContext } from '@/context/NotificationContext';
 import { ConfirmationDialog, LoadingSpinner } from '@/components/common';
 import { SelectionModal, SelectionItemRow } from '@/components/common/SelectionModal';
 import { ScreenWelcomeModal } from '@/components/common/ScreenWelcomeModal';
+import { BottomNavigation, type NavigationTab } from '@/components/layout';
 import { RoundListCard } from '@/components/rounds';
 import { useAuth } from '@/hooks/useAuth';
 import { useScreenWelcome } from '@/hooks/useScreenWelcome';
 import { isUnlimited, isNoLimit } from '@/types/subscription.types';
 import { spacing } from '@/constants/theme';
 import { formatDateWithWeekday } from '@/utils/formatting';
+import type { RootStackParamList, TabParamList } from '@/navigation/types';
 import CreateRoundBottomSheet from '../CreateRoundBottomSheet';
 
 import { useRoundList, useRoundFilters, useRoundActions, useStartNewRound, useQuickScoreFlow } from './hooks';
@@ -35,9 +39,11 @@ import type { RoundItem, RoundPlayerInfo } from './types';
 
 export default function RoundsScreen() {
   const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { limits } = useSubscriptionContext();
   const isSuperAdmin = useIsSuperAdmin();
+  const { unreadCount } = useNotificationContext();
 
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
 
@@ -96,6 +102,28 @@ export default function RoundsScreen() {
     setIsBottomSheetVisible(false);
   }, []);
 
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  }, [navigation]);
+
+  const handleTabPress = useCallback(
+    (tab: NavigationTab) => {
+      navigation.navigate('MainTabs', {
+        screen: tab.route as keyof TabParamList,
+      });
+    },
+    [navigation]
+  );
+
+  const tabBadges = useMemo(
+    () => (unreadCount > 0 ? { profile: unreadCount } : undefined),
+    [unreadCount]
+  );
+
   const renderRoundItem = ({ item }: { item: RoundItem }) => (
     <RoundListCard
       round={item}
@@ -123,6 +151,8 @@ export default function RoundsScreen() {
         showInfoIcon={!isFirstVisit}
         onInfoPress={showModal}
         onQuickScore={isSuperAdmin ? quickScore.openRoundPicker : undefined}
+        showBack
+        onBack={handleBack}
       />
 
       {/* Scrollable Rounds List */}
@@ -227,6 +257,8 @@ export default function RoundsScreen() {
         emptyMessage="No players found"
         testID="quick-score-player-picker"
       />
+
+      <BottomNavigation onTabPress={handleTabPress} badges={tabBadges} />
     </View>
   );
 }

@@ -9,7 +9,7 @@ import React, { useCallback, useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-import { RoundListScreen } from '@/screens/rounds';
+import HomeScreen from '@/screens/home/HomeScreen';
 import CompetitionsListScreen from '@/screens/competitions/CompetitionsListScreen';
 import CourseListScreen from '@/screens/courses/CourseListScreen';
 import LeagueListScreen from '@/screens/leagues/LeagueListScreen';
@@ -26,7 +26,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
  * Map route names to tab keys
  */
 const routeToTabKey: Record<string, NavigationTab['key']> = {
-  RoundsTab: 'rounds',
+  HomeTab: 'home',
   CompetitionsTab: 'competitions',
   CoursesTab: 'courses',
   LeaguesTab: 'leagues',
@@ -38,7 +38,7 @@ const routeToTabKey: Record<string, NavigationTab['key']> = {
  */
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const currentRoute = state.routes[state.index];
-  const activeTab = routeToTabKey[currentRoute.name] || 'rounds';
+  const activeTab = routeToTabKey[currentRoute.name] || 'home';
   const { unreadCount } = useNotificationContext();
 
   const handleTabPress = useCallback(
@@ -85,13 +85,13 @@ export default function MainTabNavigator() {
         // Lazy load screens for better performance
         lazy: true,
       }}
-      initialRouteName="RoundsTab"
+      initialRouteName="HomeTab"
     >
       <Tab.Screen
-        name="RoundsTab"
-        component={RoundListScreen}
+        name="HomeTab"
+        component={HomeScreen}
         options={{
-          title: 'Rounds',
+          title: 'Home',
         }}
       />
       <Tab.Screen

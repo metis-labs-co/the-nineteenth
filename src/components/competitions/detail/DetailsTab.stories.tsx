@@ -117,6 +117,7 @@ function createRound(roundNumber: number, course: Course | null, date: string): 
     competition_id: 'comp-1',
     user_id: null,
     round_number: roundNumber,
+    display_order: roundNumber,
     name: null,
     course_id: course?.id ?? 'course-default',
     date,

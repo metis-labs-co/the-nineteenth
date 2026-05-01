@@ -17,7 +17,7 @@ import { BottomNavigation } from './BottomNavigation';
 jest.mock('@tabler/icons-react-native', () => {
   const { View } = require('react-native');
   return {
-    IconGolf: (props: any) => <View testID="icon-golf" {...props} />,
+    IconHome: (props: any) => <View testID="icon-home" {...props} />,
     IconTrophy: (props: any) => <View testID="icon-trophy" {...props} />,
     IconUser: (props: any) => <View testID="icon-user" {...props} />,
     IconTournament: (props: any) => <View testID="icon-tournament" {...props} />,
@@ -72,7 +72,7 @@ jest.mock('react-native-paper', () => {
 
 describe('BottomNavigation', () => {
   const defaultProps = {
-    activeTab: 'rounds' as const,
+    activeTab: 'home' as const,
   };
 
   const mockOnTabPress = jest.fn();
@@ -89,13 +89,13 @@ describe('BottomNavigation', () => {
     it('renders without crashing', () => {
       render(<BottomNavigation {...defaultProps} />);
       // Check that all tabs are rendered
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
     });
 
     it('renders all five navigation tabs', () => {
       render(<BottomNavigation {...defaultProps} />);
 
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
       expect(screen.getByText('Comps')).toBeTruthy();
       expect(screen.getByText('Courses')).toBeTruthy();
       expect(screen.getByText('Leagues')).toBeTruthy();
@@ -105,7 +105,7 @@ describe('BottomNavigation', () => {
     it('renders all tab icons', () => {
       render(<BottomNavigation {...defaultProps} />);
 
-      expect(screen.getByTestId('icon-golf')).toBeTruthy();
+      expect(screen.getByTestId('icon-home')).toBeTruthy();
       expect(screen.getByTestId('icon-trophy')).toBeTruthy();
       expect(screen.getByTestId('icon-map')).toBeTruthy();
       expect(screen.getByTestId('icon-tournament')).toBeTruthy();
@@ -126,9 +126,9 @@ describe('BottomNavigation', () => {
 
   describe('Active Tab', () => {
     it('highlights rounds tab when active', () => {
-      render(<BottomNavigation activeTab="rounds" />);
+      render(<BottomNavigation activeTab="home" />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       expect(roundsTab.props.accessibilityState.selected).toBe(true);
     });
 
@@ -161,7 +161,7 @@ describe('BottomNavigation', () => {
     });
 
     it('non-active tabs are not selected', () => {
-      render(<BottomNavigation activeTab="rounds" />);
+      render(<BottomNavigation activeTab="home" />);
 
       const compsTab = screen.getByLabelText('Navigate to competitions list');
       expect(compsTab.props.accessibilityState.selected).toBe(false);
@@ -170,7 +170,7 @@ describe('BottomNavigation', () => {
     it('only one tab is active at a time', () => {
       render(<BottomNavigation activeTab="competitions" />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       const compsTab = screen.getByLabelText('Navigate to competitions list');
       const coursesTab = screen.getByLabelText('Navigate to courses list');
       const leaguesTab = screen.getByLabelText('Navigate to leagues');
@@ -192,15 +192,15 @@ describe('BottomNavigation', () => {
     it('calls onTabPress when rounds tab is pressed', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       fireEvent.press(roundsTab);
 
       expect(mockOnTabPress).toHaveBeenCalledTimes(1);
       expect(mockOnTabPress).toHaveBeenCalledWith(
         expect.objectContaining({
-          key: 'rounds',
-          label: 'Rounds',
-          route: 'RoundsTab',
+          key: 'home',
+          label: 'Home',
+          route: 'HomeTab',
         })
       );
     });
@@ -270,9 +270,9 @@ describe('BottomNavigation', () => {
     });
 
     it('handles undefined onTabPress gracefully', () => {
-      render(<BottomNavigation activeTab="rounds" />);
+      render(<BottomNavigation activeTab="home" />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
 
       // Should not throw
       expect(() => fireEvent.press(roundsTab)).not.toThrow();
@@ -281,7 +281,7 @@ describe('BottomNavigation', () => {
     it('can press multiple tabs sequentially', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
       fireEvent.press(roundsTab);
@@ -301,7 +301,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ rounds: 5 }}
+          badges={{ home: 5 }}
         />
       );
 
@@ -334,7 +334,7 @@ describe('BottomNavigation', () => {
       render(
         <BottomNavigation
           {...defaultProps}
-          badges={{ rounds: 2, leagues: 7 }}
+          badges={{ home: 2, leagues: 7 }}
         />
       );
 
@@ -402,7 +402,7 @@ describe('BottomNavigation', () => {
       render(<BottomNavigation {...defaultProps} />);
 
       // No numbers should appear as badges - check tab labels are still there
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
       expect(screen.queryByText('99+')).toBeNull();
     });
 
@@ -415,7 +415,7 @@ describe('BottomNavigation', () => {
       );
 
       // Verify component renders properly with empty badges
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
       expect(screen.getAllByRole('tab').length).toBe(5);
     });
   });
@@ -428,7 +428,7 @@ describe('BottomNavigation', () => {
     it('all tabs have accessibility labels', () => {
       render(<BottomNavigation {...defaultProps} />);
 
-      expect(screen.getByLabelText('Navigate to rounds screen')).toBeTruthy();
+      expect(screen.getByLabelText('Navigate to home screen')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to competitions list')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to courses list')).toBeTruthy();
       expect(screen.getByLabelText('Navigate to leagues')).toBeTruthy();
@@ -452,7 +452,7 @@ describe('BottomNavigation', () => {
     it('inactive tabs have selected state false', () => {
       render(<BottomNavigation activeTab="profile" />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       expect(roundsTab.props.accessibilityState.selected).toBe(false);
     });
 
@@ -472,12 +472,12 @@ describe('BottomNavigation', () => {
     it('passes correct route for rounds tab', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       fireEvent.press(roundsTab);
 
       expect(mockOnTabPress).toHaveBeenCalledWith(
         expect.objectContaining({
-          route: 'RoundsTab',
+          route: 'HomeTab',
         })
       );
     });
@@ -557,7 +557,7 @@ describe('BottomNavigation', () => {
     it('handles rapid tab switching', () => {
       render(<BottomNavigation {...defaultProps} onTabPress={mockOnTabPress} />);
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       const compsTab = screen.getByLabelText('Navigate to competitions list');
       const profileTab = screen.getByLabelText('Navigate to your profile');
 
@@ -576,7 +576,7 @@ describe('BottomNavigation', () => {
         <BottomNavigation
           {...defaultProps}
           badges={{
-            rounds: 1,
+            home: 1,
             competitions: 2,
             courses: 3,
             leagues: 4,
@@ -609,7 +609,7 @@ describe('BottomNavigation', () => {
       const tabs = screen.getAllByRole('tab');
 
       // Verify order by checking accessibility labels
-      expect(tabs[0].props.accessibilityLabel).toBe('Navigate to rounds screen');
+      expect(tabs[0].props.accessibilityLabel).toBe('Navigate to home screen');
       expect(tabs[1].props.accessibilityLabel).toBe('Navigate to competitions list');
       expect(tabs[2].props.accessibilityLabel).toBe('Navigate to courses list');
       expect(tabs[3].props.accessibilityLabel).toBe('Navigate to leagues');
@@ -624,26 +624,26 @@ describe('BottomNavigation', () => {
   describe('Memoization', () => {
     it('renders the same with identical props', () => {
       const { rerender } = render(
-        <BottomNavigation activeTab="rounds" onTabPress={mockOnTabPress} />
+        <BottomNavigation activeTab="home" onTabPress={mockOnTabPress} />
       );
 
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
       expect(screen.getAllByRole('tab').length).toBe(5);
 
       rerender(
-        <BottomNavigation activeTab="rounds" onTabPress={mockOnTabPress} />
+        <BottomNavigation activeTab="home" onTabPress={mockOnTabPress} />
       );
 
-      expect(screen.getByText('Rounds')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
       expect(screen.getAllByRole('tab').length).toBe(5);
     });
 
     it('updates when activeTab changes', () => {
       const { rerender } = render(
-        <BottomNavigation activeTab="rounds" />
+        <BottomNavigation activeTab="home" />
       );
 
-      const roundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const roundsTab = screen.getByLabelText('Navigate to home screen');
       expect(roundsTab.props.accessibilityState.selected).toBe(true);
 
       rerender(<BottomNavigation activeTab="profile" />);
@@ -652,19 +652,19 @@ describe('BottomNavigation', () => {
       expect(profileTab.props.accessibilityState.selected).toBe(true);
 
       // Rounds should no longer be selected
-      const updatedRoundsTab = screen.getByLabelText('Navigate to rounds screen');
+      const updatedRoundsTab = screen.getByLabelText('Navigate to home screen');
       expect(updatedRoundsTab.props.accessibilityState.selected).toBe(false);
     });
 
     it('updates when badges change', () => {
       const { rerender } = render(
-        <BottomNavigation activeTab="rounds" badges={{ leagues: 5 }} />
+        <BottomNavigation activeTab="home" badges={{ leagues: 5 }} />
       );
 
       expect(screen.getByText('5')).toBeTruthy();
 
       rerender(
-        <BottomNavigation activeTab="rounds" badges={{ leagues: 10 }} />
+        <BottomNavigation activeTab="home" badges={{ leagues: 10 }} />
       );
 
       expect(screen.getByText('10')).toBeTruthy();

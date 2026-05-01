@@ -41,7 +41,7 @@ export const GameTypeModal = React.memo(function GameTypeModal({
         onPress={onClose}
         activeOpacity={1}
       >
-        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.gray200 }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
               Select Game Type

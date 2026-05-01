@@ -14,10 +14,16 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/types';
+import {
+  SubMatchTeeTimePicker,
+  parseTeeTimeToDate,
+  formatDateToTeeTime,
+} from '@/components/rounds/SubMatchTeeTimePicker';
 import { EmptyState } from '@/components/common/EmptyState';
 import { GolfBallLoader, ConfirmationDialog } from '@/components/common';
 import { Tabs, type TabItem } from '@/components/common/Tabs';
@@ -59,30 +65,6 @@ import type {
   RoundFormat,
 } from '@/types/database/enums';
 import { EditPairingConfigSheet } from '@/components/rounds/EditPairingConfigSheet';
-
-/** Parse an HH:MM(:SS) sub-match tee time into a Date for the picker. */
-function parseTeeTimeToDate(teeTime: string | null): Date {
-  const date = new Date();
-  if (!teeTime) {
-    date.setHours(7, 0, 0, 0);
-    return date;
-  }
-  const [h, m] = teeTime.split(':').map(Number);
-  date.setHours(
-    Number.isFinite(h) ? h : 7,
-    Number.isFinite(m) ? m : 0,
-    0,
-    0
-  );
-  return date;
-}
-
-/** Format a Date as HH:MM:SS for persistence. */
-function formatDateToTeeTime(date: Date): string {
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}:00`;
-}
 
 /**
  * Theme-aware background for the tee-time pill. In light mode the
@@ -191,6 +173,17 @@ export function SubMatchesTab({
   const colors = useThemeColors();
   const { user } = useAuth();
   const currentUserId = user?.id;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const handleSubMatchPress = useCallback(
+    (sm: SubMatch) => {
+      navigation.navigate('SubMatchDetail', {
+        subMatchId: sm.id,
+        roundId,
+        competitionId: competitionId ?? undefined,
+      });
+    },
+    [navigation, roundId, competitionId]
+  );
   const {
     data: subMatches,
     isLoading: isSubMatchesLoading,
@@ -873,7 +866,10 @@ export function SubMatchesTab({
                   playerLookup={playerLookup}
                   isOrganizer={isOrganizer}
                   onForfeit={handleForfeit}
-                  onEditTeeTime={handleOpenTeeTimeEditor}
+                  onPress={handleSubMatchPress}
+                  onEditTeeTime={
+                    roundStatus === 'upcoming' ? handleOpenTeeTimeEditor : undefined
+                  }
                   strokeMode={isStrokeRound}
                   netTotalByPlayer={netTotalByPlayer}
                   bestBallContribution={bestBallData?.bySubMatch.get(sm.id)}
@@ -923,14 +919,14 @@ export function SubMatchesTab({
           </View>
         )}
       </ScrollView>
-      <InlineTimePicker
+      <SubMatchTeeTimePicker
         visible={!!editingTeeTimeFor}
         initialTime={parseTeeTimeToDate(editingTeeTimeFor?.tee_time ?? null)}
         onCommit={handleTeeTimeCommit}
         onCancel={() => setEditingTeeTimeFor(null)}
         testID="sub-match-tee-time-picker"
       />
-      <InlineTimePicker
+      <SubMatchTeeTimePicker
         visible={!!editingPairingTeeTimeFor}
         initialTime={parseTeeTimeToDate(editingPairingTeeTimeFor?.teeTime ?? null)}
         onCommit={handlePairingTeeTimeCommit}
@@ -965,147 +961,6 @@ export function SubMatchesTab({
     </>
   );
 }
-
-interface InlineTimePickerProps {
-  visible: boolean;
-  initialTime: Date;
-  onCommit: (date: Date) => void;
-  onCancel: () => void;
-  testID?: string;
-}
-
-/**
- * Cross-platform time picker presented in a modal.
- *
- * iOS: A bare `DateTimePicker` renders inline at its position in the React
- * tree, so without a wrapper it's effectively invisible — wrap it in a
- * `Modal` with a Done button (matches `DateTimeFieldGroup`). The spinner
- * fires `onChange` continuously, so we accumulate the latest value in
- * local state and commit on Done.
- *
- * Android: The `default` display already presents a system dialog; commit
- * fires once with `event.type === 'set'`.
- */
-function InlineTimePicker({
-  visible,
-  initialTime,
-  onCommit,
-  onCancel,
-  testID,
-}: InlineTimePickerProps) {
-  const colors = useThemeColors();
-  const isDark = useIsDark();
-  const [draft, setDraft] = useState<Date>(initialTime);
-
-  // Reset the draft each time the picker (re)opens so a previous edit
-  // doesn't leak between opens if the user cancels.
-  useEffect(() => {
-    if (visible) setDraft(initialTime);
-    // initialTime is a fresh Date instance per parent render, so depend on
-    // its time value rather than identity to avoid unnecessary resets.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initialTime.getTime()]);
-
-  if (!visible) return null;
-
-  if (Platform.OS === 'android') {
-    return (
-      <DateTimePicker
-        testID={testID}
-        value={initialTime}
-        mode="time"
-        is24Hour={false}
-        display="default"
-        onChange={(event, selectedDate) => {
-          if (event.type === 'set' && selectedDate) {
-            onCommit(selectedDate);
-          } else {
-            onCancel();
-          }
-        }}
-      />
-    );
-  }
-
-  return (
-    <Modal transparent animationType="fade" visible onRequestClose={onCancel}>
-      <View style={[pickerStyles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[pickerStyles.sheet, { backgroundColor: colors.surface }]}>
-          <View style={[pickerStyles.header, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity
-              onPress={onCancel}
-              style={pickerStyles.headerButton}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel time selection"
-            >
-              <Text style={[pickerStyles.headerText, { color: colors.textSecondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => onCommit(draft)}
-              style={pickerStyles.headerButton}
-              accessibilityRole="button"
-              accessibilityLabel="Confirm tee time"
-              testID={testID ? `${testID}-done` : undefined}
-            >
-              <Text style={[pickerStyles.headerTextBold, { color: colors.primary }]}>
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <DateTimePicker
-            testID={testID}
-            value={draft}
-            mode="time"
-            is24Hour={false}
-            display="spinner"
-            minuteInterval={1}
-            onChange={(_event, selectedDate) => {
-              if (selectedDate) setDraft(selectedDate);
-            }}
-            textColor={isDark ? '#ffffff' : colors.textPrimary}
-            themeVariant={isDark ? 'dark' : 'light'}
-          />
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const pickerStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    overflow: 'hidden',
-    ...shadows.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    ...typography.body,
-  },
-  headerTextBold: {
-    ...typography.bodyBold,
-  },
-});
 
 interface GroupCardProps {
   group: GroupViewModel;
@@ -1349,9 +1204,13 @@ interface SubMatchCardProps {
   playerLookup: Map<string, PlayerLookupEntry>;
   isOrganizer: boolean;
   onForfeit: (sm: SubMatch, forfeitingSide: 'a' | 'b') => void;
-  /** Tapping the tee-time pill calls this. Wired up for any organizer —
-   *  pro-shop changes can land mid-round, so the pill stays editable even
-   *  after a sub-match has started. */
+  /** Tapping the card body (anywhere outside an inner button) navigates
+   *  to the SubMatchDetail screen. Inner touchables (forfeit, tee-time
+   *  edit) handle their own taps and don't bubble up. */
+  onPress?: (sm: SubMatch) => void;
+  /** Tapping the tee-time pill calls this. Only passed by the parent when
+   *  the round is still `upcoming` — once the round is in-progress or
+   *  completed the pill renders as a static badge. */
   onEditTeeTime?: (sm: SubMatch) => void;
   /** When true, render this card as a stroke-play pairs aggregate instead of match-play result. */
   strokeMode?: boolean;
@@ -1402,6 +1261,7 @@ function SubMatchCard({
   playerLookup,
   isOrganizer,
   onForfeit,
+  onPress,
   onEditTeeTime,
   strokeMode = false,
   netTotalByPlayer,
@@ -1454,14 +1314,14 @@ function SubMatchCard({
   const resultText = formatResult(subMatch, teamALabel, teamBLabel);
   const statusColor = resultToColor(subMatch.result, colors);
 
-  return (
-    <View
-      style={[
-        styles.card,
-        shadows.sm,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
+  const cardStyle = [
+    styles.card,
+    shadows.sm,
+    { backgroundColor: colors.surface, borderColor: colors.border },
+  ];
+
+  const cardBody = (
+    <>
       <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
         <View style={styles.cardHeaderLeft}>
           <Icon source="trophy-outline" size={18} color={colors.primary} />
@@ -1557,36 +1417,57 @@ function SubMatchCard({
         </View>
       )}
 
-      {isOrganizer && subMatch.status !== 'completed' && subMatch.status !== 'forfeited' && (
-        <View style={[styles.forfeitRow, { borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.forfeitButton, { borderColor: colors.border }]}
-            onPress={() => onForfeit(subMatch, 'a')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`Forfeit ${teamALabel}`}
-          >
-            <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
-            <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
-              Forfeit {teamALabel}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.forfeitButton, { borderColor: colors.border }]}
-            onPress={() => onForfeit(subMatch, 'b')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`Forfeit ${teamBLabel}`}
-          >
-            <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
-            <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
-              Forfeit {teamBLabel}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+      {isOrganizer &&
+        subMatch.status !== 'completed' &&
+        subMatch.status !== 'forfeited' &&
+        subMatch.team_a_player_ids.length > 1 &&
+        subMatch.team_b_player_ids.length > 1 && (
+          <View style={[styles.forfeitRow, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.forfeitButton, { borderColor: colors.border }]}
+              onPress={() => onForfeit(subMatch, 'a')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Forfeit ${teamALabel}`}
+            >
+              <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
+                Forfeit {teamALabel}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.forfeitButton, { borderColor: colors.border }]}
+              onPress={() => onForfeit(subMatch, 'b')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Forfeit ${teamBLabel}`}
+            >
+              <Icon source="flag-remove-outline" size={14} color={colors.textSecondary} />
+              <Text style={[styles.forfeitText, { color: colors.textSecondary }]}>
+                Forfeit {teamBLabel}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+    </>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={cardStyle}
+        onPress={() => onPress(subMatch)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Open Sub-Match ${index + 1} details`}
+        testID={`sub-match-${subMatch.id}-card`}
+      >
+        {cardBody}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={cardStyle}>{cardBody}</View>;
 }
 
 interface SideProps {

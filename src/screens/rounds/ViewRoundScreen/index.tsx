@@ -322,6 +322,7 @@ export default function ViewRoundScreen(props: Props) {
         )}
         {vm.activeTab === 'skins' && vm.hasSkinsGame && vm.activeSkinsGame && (
           <SkinsTab
+            roundId={round.id}
             results={vm.skinsResults || []}
             potType={vm.activeSkinsGame.pot_type}
             potValue={vm.activeSkinsGame.pot_value}

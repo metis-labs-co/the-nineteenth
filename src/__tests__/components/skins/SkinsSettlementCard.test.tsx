@@ -53,6 +53,7 @@ const createMockGame = (overrides: Partial<SkinsGame> = {}): SkinsGame => ({
   id: 'game-1',
   round_id: 'round-1',
   pairing_id: null,
+  sub_match_id: null,
   participant_ids: ['player-1', 'player-2', 'player-3', 'player-4'],
   pot_type: 'per_hole',
   pot_value: 5,

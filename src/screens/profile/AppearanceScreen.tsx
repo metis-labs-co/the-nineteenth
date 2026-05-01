@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
-import { spacing, typography, borderRadius, ThemeMode } from '@/constants/theme';
+import { spacing, typography, borderRadius, ThemeMode, SurfaceStyle, BackdropStyle } from '@/constants/theme';
 import { useTheme, useThemeColors } from '@/context/ThemeContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/common';
@@ -13,23 +13,23 @@ import type { ColorPalette } from '@/constants/theme';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-interface ThemeModeOptionProps {
-  mode: ThemeMode;
+interface AppearanceOptionProps {
   label: string;
+  accessibilityLabel: string;
   icon: string;
   isSelected: boolean;
   onSelect: () => void;
   colors: ColorPalette;
 }
 
-const ThemeModeOption = React.memo(function ThemeModeOption({
-  mode: _mode,
+const AppearanceOption = React.memo(function AppearanceOption({
   label,
+  accessibilityLabel,
   icon,
   isSelected,
   onSelect,
   colors,
-}: ThemeModeOptionProps) {
+}: AppearanceOptionProps) {
   return (
     <TouchableOpacity
       style={[
@@ -41,7 +41,7 @@ const ThemeModeOption = React.memo(function ThemeModeOption({
       onPress={onSelect}
       accessibilityRole="radio"
       accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`Use ${label} theme`}
+      accessibilityLabel={accessibilityLabel}
     >
       <Icon source={icon} size={24} color={isSelected ? colors.primary : colors.textSecondary} />
       <Text
@@ -62,11 +62,34 @@ const ThemeModeOption = React.memo(function ThemeModeOption({
   );
 });
 
+const THEME_MODES: { mode: ThemeMode; label: string; icon: string }[] = [
+  { mode: 'light', label: 'Light', icon: 'white-balance-sunny' },
+  { mode: 'dark', label: 'Dark', icon: 'moon-waning-crescent' },
+  { mode: 'system', label: 'System', icon: 'cellphone-cog' },
+];
+
+const SURFACE_STYLES: { style: SurfaceStyle; label: string; icon: string }[] = [
+  { style: 'solid', label: 'Solid', icon: 'circle' },
+  { style: 'translucent', label: 'Translucent', icon: 'circle-half-full' },
+];
+
+const BACKDROP_STYLES: { style: BackdropStyle; label: string; icon: string }[] = [
+  { style: 'image', label: 'Image', icon: 'image-outline' },
+  { style: 'none', label: 'None', icon: 'image-off-outline' },
+];
+
 export default function AppearanceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const colors = useThemeColors();
-  const { themeMode, setThemeMode } = useTheme();
+  const {
+    themeMode,
+    setThemeMode,
+    surfaceStyle,
+    setSurfaceStyle,
+    backdropStyle,
+    setBackdropStyle,
+  } = useTheme();
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -90,37 +113,64 @@ export default function AppearanceScreen() {
         <View style={styles.section}>
           <SectionHeader title="Theme" description="Choose your preferred theme" />
           <View style={styles.themeModeOptions}>
-            <ThemeModeOption
-              mode="light"
-              label="Light"
-              icon="white-balance-sunny"
-              isSelected={themeMode === 'light'}
-              onSelect={() => setThemeMode('light')}
-              colors={colors}
-            />
-            <ThemeModeOption
-              mode="dark"
-              label="Dark"
-              icon="moon-waning-crescent"
-              isSelected={themeMode === 'dark'}
-              onSelect={() => setThemeMode('dark')}
-              colors={colors}
-            />
-            <ThemeModeOption
-              mode="system"
-              label="System"
-              icon="cellphone-cog"
-              isSelected={themeMode === 'system'}
-              onSelect={() => setThemeMode('system')}
-              colors={colors}
-            />
+            {THEME_MODES.map(({ mode, label, icon }) => (
+              <AppearanceOption
+                key={mode}
+                label={label}
+                accessibilityLabel={`Use ${label} theme`}
+                icon={icon}
+                isSelected={themeMode === mode}
+                onSelect={() => setThemeMode(mode)}
+                colors={colors}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader
+            title="Surface style"
+            description="Solid card backgrounds, or a translucent brand-tinted wash"
+          />
+          <View style={styles.themeModeOptions}>
+            {SURFACE_STYLES.map(({ style, label, icon }) => (
+              <AppearanceOption
+                key={style}
+                label={label}
+                accessibilityLabel={`Use ${label} surface style`}
+                icon={icon}
+                isSelected={surfaceStyle === style}
+                onSelect={() => setSurfaceStyle(style)}
+                colors={colors}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader
+            title="Backdrop"
+            description="Photographic backdrop behind every screen"
+          />
+          <View style={styles.themeModeOptions}>
+            {BACKDROP_STYLES.map(({ style, label, icon }) => (
+              <AppearanceOption
+                key={style}
+                label={label}
+                accessibilityLabel={`Use ${label} backdrop`}
+                icon={icon}
+                isSelected={backdropStyle === style}
+                onSelect={() => setBackdropStyle(style)}
+                colors={colors}
+              />
+            ))}
           </View>
         </View>
 
         <View style={[styles.infoFooter, { backgroundColor: colors.gray100 }]}>
           <Icon source="information-outline" size={16} color={colors.textSecondary} />
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            System mode automatically switches between light and dark themes based on your device settings.
+            System mode automatically switches between light and dark themes based on your device settings. Modals and sheets stay solid in either surface style for legibility.
           </Text>
         </View>
       </ScrollView>

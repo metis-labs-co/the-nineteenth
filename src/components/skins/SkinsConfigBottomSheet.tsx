@@ -75,6 +75,19 @@ export interface SkinsConfigBottomSheetProps {
   isTeamSkins?: boolean;
   /** Available teams for team skins (shows team info instead of players) */
   teams?: SkinsTeamInfo[];
+  /**
+   * Optional override for the bottom-sheet title — defaults to
+   * "Skins Configuration". Sub-match wrappers use this to brand the sheet.
+   */
+  titleOverride?: string;
+  /**
+   * Optional content rendered in place of the default participants info
+   * card / team list. Wrappers use this to inject an interactive
+   * participant picker (e.g. "Individual" vs "Team A vs Team B" radios for
+   * a sub-match). When provided, the default participants section is
+   * suppressed entirely.
+   */
+  participantsSlot?: React.ReactNode;
 }
 
 // ============================================================================
@@ -89,6 +102,8 @@ export function SkinsConfigBottomSheet({
   showBackdrop: _showBackdrop = true,
   isTeamSkins = false,
   teams,
+  titleOverride,
+  participantsSlot,
 }: SkinsConfigBottomSheetProps) {
   const colors = useThemeColors();
 
@@ -162,7 +177,7 @@ export function SkinsConfigBottomSheet({
       visible={visible}
       onClose={onDismiss}
       height={0.85}
-      title="Skins Configuration"
+      title={titleOverride ?? 'Skins Configuration'}
       showCloseButton
       showBackdrop
       useModal
@@ -284,8 +299,10 @@ export function SkinsConfigBottomSheet({
           />
         </View>
 
-        {/* PARTICIPANTS INFO */}
-        {isTeamSkins && teams && teams.length > 0 ? (
+        {/* PARTICIPANTS INFO — wrapper-supplied slot, or default copy */}
+        {participantsSlot ? (
+          <View style={styles.section}>{participantsSlot}</View>
+        ) : isTeamSkins && teams && teams.length > 0 ? (
           <View style={styles.teamInfoSection}>
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
               PARTICIPATING TEAMS

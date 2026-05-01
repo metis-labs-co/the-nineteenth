@@ -223,7 +223,7 @@ export const ShotContributionSheet = React.memo(function ShotContributionSheet({
           <Animated.View
             style={[
               styles.modalContent,
-              { backgroundColor: colors.surface },
+              { backgroundColor: colors.surfaceElevated },
               { transform: [{ translateY: slideAnim }] },
             ]}
           >

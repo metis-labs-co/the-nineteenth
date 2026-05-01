@@ -16,7 +16,7 @@ import type { SubMatch } from '@/types';
 // Hook mocks
 // ---------------------------------------------------------------------------
 
-const mockUseSubMatches = jest.fn<unknown, [string | undefined]>();
+const mockUseSubMatches = jest.fn<Record<string, unknown>, [string | undefined]>();
 const mockUseRoundScorecards = jest.fn<unknown, [string | undefined]>();
 const mockUseUpdateSubMatchResult = jest.fn<unknown, [string | undefined]>(() => ({
   mutateAsync: jest.fn(),
@@ -396,6 +396,59 @@ describe('SubMatchesTab', () => {
       expect(screen.queryByTestId('scoring-pairs-section-inline')).toBeNull();
       // Groups view renders directly — shuffle button still visible.
       expect(screen.getByTestId('groups-shuffle-button')).toBeTruthy();
+    });
+
+    it('renders the tee-time pill as non-editable once the round is in-progress', () => {
+      mockUseSubMatches.mockReturnValue({
+        data: [makeSubMatch()],
+        isLoading: false,
+      });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          isSplitRound
+          isOrganizer
+          roundStatus="in-progress"
+        />
+      );
+
+      expect(screen.queryByLabelText('Edit tee time for Sub-Match 1')).toBeNull();
+    });
+
+    it('keeps the tee-time pill editable for organizers while the round is upcoming', () => {
+      mockUseSubMatches.mockReturnValue({
+        data: [makeSubMatch()],
+        isLoading: false,
+      });
+
+      render(
+        <SubMatchesTab
+          roundId="round-1"
+          isSplitRound
+          isOrganizer
+          roundStatus="upcoming"
+        />
+      );
+
+      expect(screen.getByLabelText('Edit tee time for Sub-Match 1')).toBeTruthy();
+    });
+
+    it('hides forfeit buttons on 1v1 (singles) sub-matches', () => {
+      mockUseSubMatches.mockReturnValue({
+        data: [
+          makeSubMatch({
+            team_a_player_ids: ['p1'],
+            team_b_player_ids: ['p3'],
+          }),
+        ],
+        isLoading: false,
+      });
+
+      render(<SubMatchesTab roundId="round-1" isSplitRound isOrganizer={true} />);
+
+      expect(screen.queryByLabelText('Forfeit Team A')).toBeNull();
+      expect(screen.queryByLabelText('Forfeit Team B')).toBeNull();
     });
 
     it('hides forfeit buttons on completed sub-matches even for organizers', () => {

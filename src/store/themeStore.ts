@@ -11,17 +11,27 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance, ColorSchemeName } from 'react-native';
-import { ThemeMode } from '@/constants/theme';
+import { ThemeMode, SurfaceStyle, BackdropStyle } from '@/constants/theme';
 
 interface ThemeState {
   // Theme mode preference
   themeMode: ThemeMode;
+
+  // Surface treatment preference (solid vs brand-tinted translucent)
+  surfaceStyle: SurfaceStyle;
+
+  // Backdrop preference for the dark + translucent combination
+  // (the photographic image only renders when both dark mode and translucent
+  // surfaces are active; this toggle lets users opt out of the image alone)
+  backdropStyle: BackdropStyle;
 
   // Resolved theme (light or dark) based on mode and system preference
   resolvedTheme: 'light' | 'dark';
 
   // Actions
   setThemeMode: (mode: ThemeMode) => void;
+  setSurfaceStyle: (style: SurfaceStyle) => void;
+  setBackdropStyle: (style: BackdropStyle) => void;
   toggleTheme: () => void;
 
   // Internal: Update resolved theme based on system changes
@@ -43,6 +53,8 @@ export const useThemeStore = create<ThemeState>()(
     (set, get) => ({
       // Initial state - defaults to system preference
       themeMode: 'system',
+      surfaceStyle: 'solid',
+      backdropStyle: 'image',
       resolvedTheme: resolveTheme('system', Appearance.getColorScheme()),
 
       // Actions
@@ -52,6 +64,14 @@ export const useThemeStore = create<ThemeState>()(
           themeMode: mode,
           resolvedTheme: resolveTheme(mode, systemScheme),
         });
+      },
+
+      setSurfaceStyle: (style) => {
+        set({ surfaceStyle: style });
+      },
+
+      setBackdropStyle: (style) => {
+        set({ backdropStyle: style });
       },
 
       toggleTheme: () => {
@@ -82,13 +102,24 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: 'theme-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist themeMode, not resolvedTheme (which is computed)
-      partialize: (state) => ({ themeMode: state.themeMode }),
+      // Only persist user preferences, not resolvedTheme (which is computed)
+      partialize: (state) => ({
+        themeMode: state.themeMode,
+        surfaceStyle: state.surfaceStyle,
+        backdropStyle: state.backdropStyle,
+      }),
       onRehydrateStorage: () => (state) => {
         // After rehydration, resolve the theme based on persisted mode
         if (state) {
           const systemScheme = Appearance.getColorScheme();
           state.resolvedTheme = resolveTheme(state.themeMode, systemScheme);
+          // Existing users may not have these persisted yet
+          if (!state.surfaceStyle) {
+            state.surfaceStyle = 'solid';
+          }
+          if (!state.backdropStyle) {
+            state.backdropStyle = 'image';
+          }
         }
       },
     }
@@ -112,4 +143,18 @@ export function useIsDarkMode(): boolean {
  */
 export function useThemeMode(): ThemeMode {
   return useThemeStore((state) => state.themeMode);
+}
+
+/**
+ * Hook to get current surface style setting
+ */
+export function useSurfaceStyle(): SurfaceStyle {
+  return useThemeStore((state) => state.surfaceStyle);
+}
+
+/**
+ * Hook to get current backdrop style setting
+ */
+export function useBackdropStyle(): BackdropStyle {
+  return useThemeStore((state) => state.backdropStyle);
 }

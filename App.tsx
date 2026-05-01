@@ -12,7 +12,8 @@
  * GestureHandlerRootView > SafeAreaProvider > QueryClientProvider > SubscriptionProvider > ThemeProvider > AppContent
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
   Provider as PaperProvider,
@@ -36,6 +37,10 @@ import { ToastProvider } from '@/context/ToastContext';
 import { AchievementToastProvider } from '@/context/AchievementToastContext';
 import { UnifiedToastDisplay } from '@/components/common/Toast';
 import { lightColors, darkColors } from '@/constants/theme';
+import { activeBrand } from '@/config/brands';
+
+const darkBackdrop = require('./assets/images/dark-backdrop-bg.png');
+const lightBackdrop = require('./assets/images/light-backdrop-bg.png');
 
 // ============================================================================
 // PAPER THEME CONFIGURATION
@@ -161,23 +166,81 @@ const CombinedDarkTheme = {
 // ============================================================================
 
 function AppContent() {
-  const { isDark } = useTheme();
+  const { isDark, backdropStyle } = useTheme();
+  const showBackgroundImage = backdropStyle === 'image';
+  const backdropSource = isDark ? darkBackdrop : lightBackdrop;
+  const fallbackBackground = isDark
+    ? activeBrand.darkMode.background
+    : activeBrand.grays.gray100;
 
-  const paperTheme = isDark ? customDarkTheme : customLightTheme;
-  const navigationTheme = isDark ? CombinedDarkTheme : CombinedLightTheme;
+  const paperTheme = useMemo(() => {
+    const base = isDark ? customDarkTheme : customLightTheme;
+    if (!showBackgroundImage) return base;
+    return {
+      ...base,
+      colors: { ...base.colors, background: 'transparent' },
+    };
+  }, [isDark, showBackgroundImage]);
+
+  const navigationTheme = useMemo(() => {
+    const base = isDark ? CombinedDarkTheme : CombinedLightTheme;
+    if (!showBackgroundImage) return base;
+    return {
+      ...base,
+      colors: { ...base.colors, background: 'transparent' },
+    };
+  }, [isDark, showBackgroundImage]);
 
   return (
     <PaperProvider theme={paperTheme}>
       <ToastProvider>
         <AchievementToastProvider>
-          <RootNavigator theme={navigationTheme} />
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <UnifiedToastDisplay />
+          <View
+            style={[styles.appRoot, { backgroundColor: fallbackBackground }]}
+          >
+            {showBackgroundImage && (
+              <Image
+                source={backdropSource}
+                style={[
+                  styles.backdropImage,
+                  isDark ? styles.backdropImageDark : styles.backdropImageLight,
+                ]}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+            )}
+            <RootNavigator theme={navigationTheme} />
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <UnifiedToastDisplay />
+          </View>
         </AchievementToastProvider>
       </ToastProvider>
     </PaperProvider>
   );
 }
+
+const screen = Dimensions.get('screen');
+
+const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+  },
+  backdropImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: screen.width,
+    height: screen.height,
+  },
+  // Dark image is moody to begin with; keep it muted so it reads as backdrop.
+  backdropImageDark: {
+    opacity: 0.15,
+  },
+  // Light image is bright/airy; gets more presence so it doesn't wash out.
+  backdropImageLight: {
+    opacity: 0.45,
+  },
+});
 
 // ============================================================================
 // MAIN APP

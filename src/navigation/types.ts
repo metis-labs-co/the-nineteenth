@@ -7,7 +7,10 @@
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { CompositeScreenProps } from '@react-navigation/native';
+import type {
+  CompositeScreenProps,
+  NavigatorScreenParams,
+} from '@react-navigation/native';
 
 /**
  * Root Stack - Top-level navigation
@@ -26,7 +29,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
 
   // Main Tabs Navigator
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
 
   // Competitions
   Competitions: undefined;
@@ -38,10 +41,34 @@ export type RootStackParamList = {
   // Rounds
   Rounds: { competitionId: string };
   RoundDetail: { id: string };
+  AllRounds: undefined; // Full standalone-rounds list (formerly the Rounds tab)
   AddRound: { competitionId: string };
   EditRound: { roundId: string; competitionId?: string }; // Edit round details (organizers only)
-  ViewRound: { roundId: string; competitionId?: string }; // For standalone or competition rounds
+  ViewRound: {
+    roundId: string;
+    competitionId?: string;
+    /**
+     * Optional initial tab focus on mount. Used by deep-links such as the
+     * competition Skins tab cards which open the round on its skins
+     * sub-tab. Falls back to 'details' when omitted.
+     */
+    initialTab?:
+      | 'details'
+      | 'scorecard'
+      | 'stats'
+      | 'match'
+      | 'subMatches'
+      | 'skins'
+      | 'wolf'
+      | 'payouts'
+      | 'teamScores'
+      | 'scrambleTeamScore'
+      | 'scrambleLeaderboard'
+      | 'scrambleContributions'
+      | 'leaderboard';
+  }; // For standalone or competition rounds
   RoundSettings: { roundId: string; competitionId?: string }; // Round settings (organizers only)
+  SubMatchDetail: { subMatchId: string; roundId: string; competitionId?: string }; // Sub-match details + skins setup
 
   // Scorecard
   Scorecard: { roundId: string; competitionId: string; isBuildAsYouPlay?: boolean };
@@ -174,7 +201,7 @@ export type RootStackParamList = {
  * Bottom Tab Navigation - Main app tabs
  */
 export type TabParamList = {
-  RoundsTab: undefined;
+  HomeTab: undefined;
   CompetitionsTab: undefined;
   CoursesTab: undefined;
   LeaguesTab: undefined;

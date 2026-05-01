@@ -33,6 +33,8 @@ interface RoundListHeaderProps {
   showInfoIcon?: boolean;
   onInfoPress?: () => void;
   onQuickScore?: () => void;
+  showBack?: boolean;
+  onBack?: () => void;
 }
 
 export function RoundListHeader({
@@ -49,6 +51,8 @@ export function RoundListHeader({
   showInfoIcon,
   onInfoPress,
   onQuickScore,
+  showBack,
+  onBack,
 }: RoundListHeaderProps) {
   const colors = useThemeColors();
 
@@ -64,6 +68,8 @@ export function RoundListHeader({
     <>
       <PageHeader
         title="Rounds"
+        showBack={showBack}
+        onBack={onBack}
         rightActions={rightActions}
       />
 

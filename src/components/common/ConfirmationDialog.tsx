@@ -104,7 +104,7 @@ export function ConfirmationDialog({
             <View
               style={[
                 styles.dialogContainer,
-                { backgroundColor: colors.surface },
+                { backgroundColor: colors.surfaceElevated },
                 shadows.lg,
               ]}
             >

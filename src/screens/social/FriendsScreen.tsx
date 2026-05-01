@@ -16,7 +16,7 @@ import { LoadingSpinner } from '@/components/common';
 import { Text, Badge, Icon } from 'react-native-paper';
 import { createModuleLogger } from '@/utils/debugLogger';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { spacing, typography, borderRadius } from '@/constants/theme';
@@ -46,8 +46,6 @@ import {
 
 const logger = createModuleLogger('FriendsScreen');
 
-type FriendsScreenRouteProp = RouteProp<RootStackParamList, 'Friends'>;
-
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type TabType = 'friends' | 'requests';
@@ -56,8 +54,11 @@ export default function FriendsScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<FriendsScreenRouteProp>();
-  const showBackButton = route.params?.fromProfile ?? false;
+  // Friends is always pushed from another screen (Profile, Home, etc.) — show
+  // a back button unconditionally so the user can return to where they came
+  // from. The `fromProfile` route param is retained for compatibility but no
+  // longer gates the back button.
+  const showBackButton = true;
 
   const [activeTab, setActiveTab] = useState<TabType>('friends');
   const [showAddModal, setShowAddModal] = useState(false);

@@ -100,7 +100,7 @@ export function EditTeamModal({
               <View
                 style={[
                   styles.dialogContainer,
-                  { backgroundColor: colors.surface },
+                  { backgroundColor: colors.surfaceElevated },
                   shadows.lg,
                 ]}
               >

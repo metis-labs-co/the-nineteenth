@@ -197,7 +197,7 @@ export function AddPlaceholderModal({
               <View
                 style={[
                   styles.modalContainer,
-                  { backgroundColor: colors.surface },
+                  { backgroundColor: colors.surfaceElevated },
                   shadows.lg,
                 ]}
                 accessibilityRole="none"

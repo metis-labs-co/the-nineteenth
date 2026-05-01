@@ -124,7 +124,7 @@ export function GenerateBracketSheet({
           style={[
             styles.sheet,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surfaceElevated,
               paddingBottom: insets.bottom + spacing.lg,
             },
           ]}

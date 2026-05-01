@@ -217,7 +217,7 @@ export function WolfDisclaimerModal({
           style={[
             styles.container,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surfaceElevated,
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
             },

@@ -220,7 +220,7 @@ export const AchievementToast = React.memo(function AchievementToast({
       <View
         style={[
           styles.toast,
-          { backgroundColor: colors.surface },
+          { backgroundColor: colors.surfaceElevated },
           Platform.OS === 'ios' ? shadows.lg : { elevation: 8 },
         ]}
       >

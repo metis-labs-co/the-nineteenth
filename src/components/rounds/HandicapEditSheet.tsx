@@ -140,7 +140,7 @@ export function HandicapEditSheet({
               <View
                 style={[
                   styles.modalContainer,
-                  { backgroundColor: colors.surface },
+                  { backgroundColor: colors.surfaceElevated },
                   shadows.lg,
                 ]}
                 accessibilityRole="none"

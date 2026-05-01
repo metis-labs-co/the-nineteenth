@@ -15,7 +15,7 @@ import React, { useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconGolf, IconTrophy, IconUser, IconTournament, IconMap } from '@tabler/icons-react-native';
+import { IconHome, IconTrophy, IconUser, IconTournament, IconMap } from '@tabler/icons-react-native';
 import { spacing, typography, shadows, layout } from '@/constants/theme';
 import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
 
@@ -24,7 +24,7 @@ import { useThemeColors, type ColorPalette } from '@/context/ThemeContext';
  */
 export interface NavigationTab {
   /** Unique identifier for the tab */
-  key: 'rounds' | 'competitions' | 'courses' | 'leagues' | 'profile';
+  key: 'home' | 'competitions' | 'courses' | 'leagues' | 'profile';
   /** Display label */
   label: string;
   /** Route name for navigation */
@@ -38,9 +38,10 @@ export interface NavigationTab {
  */
 interface BottomNavigationProps {
   /**
-   * Currently active tab key
+   * Currently active tab key. Omit (or pass undefined) when rendered on
+   * a screen that isn't itself a tab — no item will be highlighted.
    */
-  activeTab: NavigationTab['key'];
+  activeTab?: NavigationTab['key'];
   /**
    * Callback when a tab is pressed
    */
@@ -56,10 +57,10 @@ interface BottomNavigationProps {
  */
 const NAVIGATION_TABS: NavigationTab[] = [
   {
-    key: 'rounds',
-    label: 'Rounds',
-    route: 'RoundsTab',
-    accessibilityLabel: 'Navigate to rounds screen',
+    key: 'home',
+    label: 'Home',
+    route: 'HomeTab',
+    accessibilityLabel: 'Navigate to home screen',
   },
   {
     key: 'competitions',
@@ -99,8 +100,8 @@ const getTabIcon = (
   const iconSize = 24;
 
   switch (key) {
-    case 'rounds':
-      return <IconGolf size={iconSize} color={iconColor} />;
+    case 'home':
+      return <IconHome size={iconSize} color={iconColor} />;
     case 'competitions':
       return <IconTrophy size={iconSize} color={iconColor} />;
     case 'courses':

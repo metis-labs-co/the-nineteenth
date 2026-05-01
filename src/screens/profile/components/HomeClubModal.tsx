@@ -106,7 +106,7 @@ export const HomeClubModal = React.memo(function HomeClubModal({
         <View
           style={[
             styles.header,
-            { backgroundColor: colors.surface, borderBottomColor: colors.border },
+            { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border },
           ]}
         >
           <Text style={[styles.title, { color: colors.textPrimary }]}>

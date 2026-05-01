@@ -290,6 +290,8 @@ export const theme = {
 // Type for the theme
 export type Theme = typeof theme;
 export type ThemeMode = 'light' | 'dark' | 'system';
+export type SurfaceStyle = 'solid' | 'translucent';
+export type BackdropStyle = 'image' | 'none';
 
 // Export individual items as default as well
 export default theme;

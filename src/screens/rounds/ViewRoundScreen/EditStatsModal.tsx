@@ -543,7 +543,7 @@ export function EditStatsModal({
         </ScrollView>
 
         {/* Sticky Save Button */}
-        <View style={[styles.saveFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+        <View style={[styles.saveFooter, { borderTopColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
           <TouchableOpacity
             style={[
               styles.saveButton,

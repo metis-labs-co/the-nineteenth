@@ -341,7 +341,7 @@ export const PlayerSelectionBottomSheet = React.memo(
           <View
             style={[
               styles.footer,
-              { borderTopColor: colors.border, backgroundColor: colors.surface },
+              { borderTopColor: colors.border, backgroundColor: colors.surfaceElevated },
             ]}
           >
             <TouchableOpacity

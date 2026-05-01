@@ -7,6 +7,12 @@
 // Configuration
 export { SkinsConfigBottomSheet } from './SkinsConfigBottomSheet';
 export type { SkinsConfigBottomSheetProps } from './SkinsConfigBottomSheet';
+export { SubMatchSkinsConfigSheet } from './SubMatchSkinsConfigSheet';
+export type {
+  SubMatchSkinsConfigSheetProps,
+  SubMatchSkinsPlayer,
+  SubMatchSkinsTeam,
+} from './SubMatchSkinsConfigSheet';
 
 // Disclaimer
 export {

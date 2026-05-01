@@ -104,7 +104,7 @@ export default function AddLeaguePlayersBottomSheet({
       <View
         style={[
           styles.footer,
-          { backgroundColor: colors.surface, borderTopColor: colors.gray200 },
+          { backgroundColor: colors.surfaceElevated, borderTopColor: colors.gray200 },
         ]}
       >
         <TouchableOpacity

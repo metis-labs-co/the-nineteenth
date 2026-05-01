@@ -5,9 +5,17 @@
  * Includes action buttons for viewing and scoring rounds.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Icon, Divider } from 'react-native-paper';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { IconMapPin, IconCheck, IconAlertTriangle, IconDice, IconBolt } from '@tabler/icons-react-native';
 import { spacing, typography, borderRadius, shadows, skinsColor } from '@/constants/theme';
 import { useIsDark, type ColorPalette } from '@/context/ThemeContext';
@@ -38,6 +46,13 @@ export interface CompetitionRoundCardProps {
   hasSkins?: boolean;
   /** Skins configuration (overrides round.skins_config) */
   skinsConfig?: SkinsConfig | null;
+  /**
+   * True while this card is the actively-dragged item in the rounds list.
+   * Triggers a wiggle animation, elevated shadow, and slight scale-up.
+   * Drag activation itself lives on the parent row wrapper (RoundsTab's
+   * DraggableRow), which owns the long-press + pan gesture composition.
+   */
+  isDragging?: boolean;
   colors: ColorPalette;
 }
 
@@ -79,9 +94,39 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
   allPlayersScored,
   hasSkins: hasSkinsOverride,
   skinsConfig: skinsConfigOverride,
+  isDragging = false,
   colors,
 }: CompetitionRoundCardProps) {
   const isDark = useIsDark();
+
+  // One-shot wiggle on drag start to acknowledge the long-press, then the
+  // card settles into a stable elevated state (scale + drop shadow) for
+  // the rest of the drag. Total wiggle duration ~420ms, ending back at 0
+  // rotation so the card sits straight while the user moves it.
+  const rotation = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const easing = Easing.inOut(Easing.quad);
+
+  useEffect(() => {
+    if (isDragging) {
+      rotation.value = withSequence(
+        withTiming(-1.6, { duration: 70, easing }),
+        withTiming(1.6, { duration: 90, easing }),
+        withTiming(-1.2, { duration: 90, easing }),
+        withTiming(1.2, { duration: 90, easing }),
+        withTiming(0, { duration: 80, easing })
+      );
+      scale.value = withTiming(1.03, { duration: 140 });
+    } else {
+      cancelAnimation(rotation);
+      rotation.value = withTiming(0, { duration: 140 });
+      scale.value = withTiming(1, { duration: 140 });
+    }
+  }, [isDragging, rotation, scale, easing]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }, { scale: scale.value }],
+  }));
 
   // Determine skins status (props override round data)
   const hasSkins = hasSkinsOverride ?? round.has_skins ?? false;
@@ -221,89 +266,93 @@ export const CompetitionRoundCard = React.memo(function CompetitionRoundCard({
     </View>
   );
 
+  const cardContainerStyle = [
+    styles.card,
+    { backgroundColor: colors.surface, borderColor: colors.border },
+    isDragging && styles.cardDragging,
+  ];
+
   // Once a round is completed, scoring is no-op so the action row adds noise.
   // Make the whole card a single tap target to view the round details instead.
   if (isCompleted) {
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        onPress={() => onViewRound(round.id)}
-        accessibilityLabel={`View round ${roundNumber}`}
-        accessibilityRole="button"
-        activeOpacity={0.7}
-      >
-        {cardContent}
-      </TouchableOpacity>
-    );
-  }
-
-  return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      {cardContent}
-
-      {/* Divider */}
-      <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
-
-      {/* Action Buttons */}
-      <View style={styles.actions}>
+      <Animated.View style={animatedStyle}>
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDark
-              ? [styles.viewButtonOutline, { borderColor: colors.primary }]
-              : { backgroundColor: colors.primaryLighter },
-          ]}
+          style={cardContainerStyle}
           onPress={() => onViewRound(round.id)}
           accessibilityLabel={`View round ${roundNumber}`}
           accessibilityRole="button"
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionButtonLabel, { color: colors.primary }]}>View</Text>
+          {cardContent}
         </TouchableOpacity>
-        {onQuickScore && (
+      </Animated.View>
+    );
+  }
+
+  // Non-completed cards stay as a plain View — drag activation is handled
+  // at the row wrapper level (RoundsTab's DraggableRow) via gesture-handler.
+  // Keeping this a non-touchable View means short vertical scrolls pass
+  // straight through to the parent ScrollView with no gesture-fight.
+  return (
+    <Animated.View style={animatedStyle}>
+      <View style={cardContainerStyle}>
+        {cardContent}
+
+        {/* Divider */}
+        <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
           <TouchableOpacity
             style={[
               styles.actionButton,
-              styles.quickScoreButton,
-              {
-                borderColor: isScoringDisabled ? colors.gray300 : colors.primary,
-              },
+              isDark
+                ? [styles.viewButtonOutline, { borderColor: colors.primary }]
+                : { backgroundColor: colors.primaryLighter },
             ]}
-            onPress={() => onQuickScore(round.id)}
-            accessibilityLabel={`Quick score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
+            onPress={() => onViewRound(round.id)}
+            accessibilityLabel={`View round ${roundNumber}`}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.actionButtonLabel, { color: colors.primary }]}>View</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: isScoringDisabled ? colors.gray300 : colors.primary },
+            ]}
+            onPress={() => onScoreRound(round.id, round.game_type, round.is_team_round)}
+            accessibilityLabel={`Score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
             accessibilityRole="button"
             accessibilityState={{ disabled: isScoringDisabled }}
             activeOpacity={0.7}
             disabled={isScoringDisabled}
           >
-            <IconBolt size={16} color={isScoringDisabled ? colors.gray400 : colors.primary} />
-            <Text
-              style={[
-                styles.actionButtonLabel,
-                { color: isScoringDisabled ? colors.gray400 : colors.primary },
-              ]}
-              numberOfLines={1}
-            >
-              Quick Score
-            </Text>
+            <Text style={[styles.actionButtonLabelPrimary, { color: colors.white }]}>Score</Text>
           </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            { backgroundColor: isScoringDisabled ? colors.gray300 : colors.primary },
-          ]}
-          onPress={() => onScoreRound(round.id, round.game_type, round.is_team_round)}
-          accessibilityLabel={`Score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isScoringDisabled }}
-          activeOpacity={0.7}
-          disabled={isScoringDisabled}
-        >
-          <Text style={[styles.actionButtonLabelPrimary, { color: colors.white }]}>Score</Text>
-        </TouchableOpacity>
+          {onQuickScore && (
+            <TouchableOpacity
+              style={[
+                styles.quickScoreIconButton,
+                {
+                  borderColor: isScoringDisabled ? colors.gray300 : colors.primary,
+                },
+              ]}
+              onPress={() => onQuickScore(round.id)}
+              accessibilityLabel={`Quick score round ${roundNumber}${getDisabledReason() ? ` - ${getDisabledReason()}` : ''}`}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isScoringDisabled }}
+              activeOpacity={0.7}
+              disabled={isScoringDisabled}
+            >
+              <IconBolt size={18} color={isScoringDisabled ? colors.gray400 : colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -314,6 +363,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.lg,
     ...shadows.sm,
+  },
+  // Layered on top of the static `card` shadow when this card is the
+  // actively-dragged item. The wiggle + scale come from the Animated.View
+  // wrapper; this just gives the lifted card a more prominent drop shadow.
+  cardDragging: {
+    ...shadows.lg,
   },
   content: {
     flex: 1,
@@ -420,11 +475,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  quickScoreButton: {
-    flexDirection: 'row',
-    gap: spacing.xs,
+  quickScoreIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewButtonOutline: {
     borderWidth: 1,

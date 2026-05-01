@@ -103,8 +103,6 @@ export const HoleDetailsSection = React.memo(function HoleDetailsSection({
   canEdit = false,
   onEditHole,
 }: HoleDetailsSectionProps) {
-  const colors = useThemeColors();
-
   const content = (
     <>
       <ParBadge par={hole.par} />
@@ -120,7 +118,7 @@ export const HoleDetailsSection = React.memo(function HoleDetailsSection({
   if (canEdit && onEditHole) {
     return (
       <TouchableOpacity
-        style={[styles.container, { backgroundColor: colors.surface }]}
+        style={styles.container}
         onPress={onEditHole}
         activeOpacity={0.7}
         accessibilityLabel={`Edit hole ${hole.number} data`}
@@ -133,7 +131,7 @@ export const HoleDetailsSection = React.memo(function HoleDetailsSection({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
+    <View style={styles.container}>
       {content}
     </View>
   );

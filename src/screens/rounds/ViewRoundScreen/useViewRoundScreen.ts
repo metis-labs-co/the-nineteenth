@@ -29,13 +29,14 @@ export type { TabKey } from './types';
 type Props = NativeStackScreenProps<RootStackParamList, 'ViewRound'>;
 
 export function useViewRoundScreen({ route, navigation }: Props) {
-  const { roundId, competitionId } = route.params;
+  const { roundId, competitionId, initialTab } = route.params;
   const { user } = useAuth();
   const colors = useThemeColors();
   const isStandalone = !competitionId;
 
-  // Local UI state
-  const [activeTab, setActiveTab] = useState<TabKey>('details');
+  // Local UI state. Honour the optional `initialTab` deep-link param on
+  // first mount, falling back to 'details' for the normal case.
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'details');
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [showTagLeagueSheet, setShowTagLeagueSheet] = useState(false);
