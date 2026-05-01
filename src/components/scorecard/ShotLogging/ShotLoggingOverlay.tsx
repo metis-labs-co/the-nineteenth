@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useShotTrackingEligibility } from '@/hooks/shots';
-import { useShotLoggingPrefStore } from '@/store/shotLoggingPrefStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { LogShotFAB } from './LogShotFAB';
 import { LogShotUndoToast } from './LogShotUndoToast';
 
@@ -14,13 +14,12 @@ interface ShotLoggingOverlayProps {
 
 /**
  * Composite overlay for the score-entry screen. Renders the floating
- * shot-log button and the undo toast when both:
- *   - The user is eligible (premium, solo round, auth user matches)
- *   - The user has flipped on `Track my shots` for this round
+ * shot-log button and the undo toast when ALL of:
+ *   - User is eligible (premium tier + solo round + auth user is the player)
+ *   - `enableHoleMap` setting is on (master Hole Map gate)
+ *   - `trackShotsAutomatically` setting is on (Phase C2 master switch)
  *
- * Mount once near the screen root. The toggle itself is rendered
- * separately (`<TrackShotsToggle />`) since it lives in the scorecard
- * header / settings area where it's discoverable.
+ * Mount once near the screen root.
  */
 export function ShotLoggingOverlay({
   roundId,
@@ -28,9 +27,12 @@ export function ShotLoggingOverlay({
   bottomInset = 0,
 }: ShotLoggingOverlayProps) {
   const eligibility = useShotTrackingEligibility(roundId);
-  const trackShots = useShotLoggingPrefStore((s) => s.byRound[roundId] === true);
+  const enableHoleMap = useSettingsStore((s) => s.enableHoleMap);
+  const trackShotsAutomatically = useSettingsStore((s) => s.trackShotsAutomatically);
 
-  if (!eligibility.eligible || !trackShots) return null;
+  if (!eligibility.eligible || !enableHoleMap || !trackShotsAutomatically) {
+    return null;
+  }
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill} testID="shot-logging-overlay">

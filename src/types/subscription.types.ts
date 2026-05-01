@@ -110,6 +110,10 @@ export type FeatureId =
   | 'ai_competition'
   | 'manage_guests'
   | 'gps_distance'
+  // Hole map features
+  | 'hole_map_poi' // Phase B — POI markers (Social+)
+  | 'hole_map_hazards' // Phase C1 — bunker/water polygons (Premium+)
+  | 'hole_map_shots' // Phase C2 — shot logging trail (Premium+, solo rounds only)
   // League features
   | 'create_league'
   | 'create_premium_league' // Ladder/Eclectic (Premium-only creation)

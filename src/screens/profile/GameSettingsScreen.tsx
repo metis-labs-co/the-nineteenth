@@ -11,7 +11,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SectionHeader } from '@/components/common';
 import { FeatureLockToggle } from '@/components/subscription/FeatureLockToggle';
-import { IconArrowsLeftRight, IconTarget, IconShovel, IconAlertTriangle } from '@tabler/icons-react-native';
+import { IconArrowsLeftRight, IconTarget, IconShovel, IconAlertTriangle, IconMap, IconCrosshair } from '@tabler/icons-react-native';
 import { RadioButtonOption, SettingRow } from './components';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -33,6 +33,8 @@ export default function GameSettingsScreen() {
   const autoCollapseStatsForLargeGroups = useSettingsStore(
     (state) => state.autoCollapseStatsForLargeGroups
   );
+  const enableHoleMap = useSettingsStore((state) => state.enableHoleMap);
+  const trackShotsAutomatically = useSettingsStore((state) => state.trackShotsAutomatically);
 
   // Get actions from store
   const setDistanceUnit = useSettingsStore((state) => state.setDistanceUnit);
@@ -45,6 +47,10 @@ export default function GameSettingsScreen() {
   const setShowHazards = useSettingsStore((state) => state.setShowHazards);
   const setAutoCollapseStatsForLargeGroups = useSettingsStore(
     (state) => state.setAutoCollapseStatsForLargeGroups
+  );
+  const setEnableHoleMap = useSettingsStore((state) => state.setEnableHoleMap);
+  const setTrackShotsAutomatically = useSettingsStore(
+    (state) => state.setTrackShotsAutomatically
   );
 
   const handleBack = useCallback(() => {
@@ -191,6 +197,34 @@ export default function GameSettingsScreen() {
               description="When scoring 3 or more players, hide FIR/GIR/Putts behind a tap to keep cards compact"
               value={autoCollapseStatsForLargeGroups}
               onValueChange={setAutoCollapseStatsForLargeGroups}
+              colors={colors}
+            />
+          </View>
+        </View>
+
+        <Divider style={[styles.divider, { backgroundColor: colors.gray200 }]} />
+
+        {/* Hole Map Section */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Hole Map"
+            description="Visualise the current hole on a satellite map and (Premium) track each shot's position. Requires GPS permission."
+          />
+          <View style={[styles.settingsGroup, { backgroundColor: colors.surface }]}>
+            <SettingRow
+              icon={<IconMap size={20} color={colors.gray600} />}
+              label="Show hole map"
+              description="Tap the distance-to-pin badge during scoring to open a satellite map of the current hole."
+              value={enableHoleMap}
+              onValueChange={setEnableHoleMap}
+              colors={colors}
+            />
+            <SettingRow
+              icon={<IconCrosshair size={20} color={colors.gray600} />}
+              label="Track my shots (Premium, solo rounds)"
+              description="Automatically log shot positions on solo rounds. A floating shot button appears during scoring; tap it to drop a marker at your current GPS."
+              value={trackShotsAutomatically}
+              onValueChange={setTrackShotsAutomatically}
               colors={colors}
             />
           </View>

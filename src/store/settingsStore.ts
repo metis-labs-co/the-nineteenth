@@ -33,6 +33,11 @@ interface SettingsState {
   // Hole map feature flag (Phase A) — staged rollout
   enableHoleMap: boolean;
 
+  // Phase C2 — auto-track shots on premium solo rounds.
+  // Eligibility (premium tier + solo round + auth user) is still enforced
+  // by ShotLoggingOverlay; this is the user-facing master switch.
+  trackShotsAutomatically: boolean;
+
   // Collapse the FIR/GIR/Putts stats row by default when scoring 3+ players
   autoCollapseStatsForLargeGroups: boolean;
 
@@ -59,6 +64,7 @@ interface SettingsState {
   setShowHazards: (show: boolean) => void;
   setShowGpsDistance: (show: boolean) => void;
   setEnableHoleMap: (enable: boolean) => void;
+  setTrackShotsAutomatically: (enable: boolean) => void;
   setAutoCollapseStatsForLargeGroups: (collapse: boolean) => void;
   setCountryOverride: (country: string | null) => void;
   setBiometricEnabled: (enabled: boolean) => void;
@@ -79,6 +85,7 @@ const DEFAULT_SETTINGS = {
   showHazards: false,
   showGpsDistance: false, // GPS distance-to-pin disabled by default (feature not yet available)
   enableHoleMap: false, // Hole map feature flag (Phase A) — staged rollout
+  trackShotsAutomatically: false, // Phase C2 — premium solo-round shot logging
   autoCollapseStatsForLargeGroups: true,
   countryOverride: null as string | null,
   biometricEnabled: false,
@@ -109,6 +116,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowGpsDistance: (show) => set({ showGpsDistance: show }),
 
       setEnableHoleMap: (enable) => set({ enableHoleMap: enable }),
+
+      setTrackShotsAutomatically: (enable) => set({ trackShotsAutomatically: enable }),
 
       setAutoCollapseStatsForLargeGroups: (collapse) =>
         set({ autoCollapseStatsForLargeGroups: collapse }),
