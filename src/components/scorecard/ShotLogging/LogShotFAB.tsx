@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { useThemeColors } from '@/context/ThemeContext';
@@ -14,19 +14,43 @@ interface LogShotFABProps {
   bottomInset?: number;
 }
 
+/** Default bottom offset clears the scorecard footer (~80px) plus breathing room. */
+const DEFAULT_BOTTOM = 96;
+
 export const LogShotFAB = React.memo(function LogShotFAB({
   roundId,
   holeNumber,
   bottomInset = 0,
 }: LogShotFABProps) {
   const colors = useThemeColors();
-  const { location } = useUserLocation();
+  const {
+    location,
+    permissionStatus,
+    isWatching,
+    requestPermission,
+    startWatching,
+  } = useUserLocation();
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
 
+  // Bootstrap GPS — the FAB is the only entry point in some flows
+  // (e.g. courses without hole_coordinates where DistanceToPin never
+  // mounts), so the FAB itself has to kick off GPS watching.
+  useEffect(() => {
+    if (permissionStatus === 'granted' && !isWatching) {
+      startWatching();
+    }
+  }, [permissionStatus, isWatching, startWatching]);
+
   const disabled = !location || logShot.isPending;
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
+    // If permission isn't granted yet, request it on first press.
+    if (permissionStatus !== 'granted') {
+      const granted = await requestPermission();
+      if (granted) startWatching();
+      return;
+    }
     if (!location) return;
     logShot.mutate(
       {
@@ -46,26 +70,54 @@ export const LogShotFAB = React.memo(function LogShotFAB({
         },
       }
     );
-  }, [location, logShot, roundId, holeNumber, showToast]);
+  }, [
+    permissionStatus,
+    requestPermission,
+    startWatching,
+    location,
+    logShot,
+    roundId,
+    holeNumber,
+    showToast,
+  ]);
+
+  // Distinguish three visual states:
+  //   - active: GPS lock acquired, ready to log
+  //   - awaiting permission: hasn't been asked or denied — pressable to prompt
+  //   - acquiring: permission granted but no fix yet — show a spinner
+  const isAwaitingPermission =
+    permissionStatus === 'undetermined' || permissionStatus === 'denied';
+  const isAcquiring = permissionStatus === 'granted' && !location;
+  const showSpinner = logShot.isPending || isAcquiring;
+
+  // Allow press when we need to prompt permission, even though location is null.
+  const pressable = !logShot.isPending && (location !== null || isAwaitingPermission);
+  const looksDisabled = !pressable;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Log shot at current GPS"
-      accessibilityState={{ disabled }}
+      accessibilityLabel={
+        isAwaitingPermission
+          ? 'Enable GPS to log shots'
+          : isAcquiring
+          ? 'Acquiring GPS — log shot when ready'
+          : 'Log shot at current GPS'
+      }
+      accessibilityState={{ disabled: !pressable }}
       onPress={handlePress}
-      disabled={disabled}
+      disabled={!pressable}
       testID="log-shot-fab"
       style={[
         styles.fab,
         shadows.lg,
         {
-          backgroundColor: disabled ? colors.gray400 : colors.primary,
-          bottom: 16 + bottomInset,
+          backgroundColor: looksDisabled ? colors.gray400 : colors.primary,
+          bottom: DEFAULT_BOTTOM + bottomInset,
         },
       ]}
     >
-      {logShot.isPending ? (
+      {showSpinner ? (
         <ActivityIndicator color="white" testID="log-shot-fab-spinner" />
       ) : (
         <Icon source="plus" size={28} color="white" />

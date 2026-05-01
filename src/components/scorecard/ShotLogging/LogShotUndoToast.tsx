@@ -44,7 +44,7 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { bottom: 80 + bottomInset }]}
+      style={[styles.wrap, { bottom: 168 + bottomInset }]}
     >
       <View style={[styles.toast, shadows.lg, { backgroundColor: colors.surface }]}>
         <Text style={[styles.message, { color: colors.textPrimary }]}>
