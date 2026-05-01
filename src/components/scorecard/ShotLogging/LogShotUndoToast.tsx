@@ -7,8 +7,14 @@ import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
 import { useDeleteShot } from '@/hooks/shots';
 
 interface LogShotUndoToastProps {
+  /** Bottom safe-area / chrome inset. The toast sits 16dp above this. */
   bottomInset?: number;
 }
+
+/** Layout constants shared with LogShotFAB so the FAB can shift up cleanly. */
+export const TOAST_BASE_BOTTOM = 16;
+export const TOAST_HEIGHT = 56;
+export const TOAST_FAB_GAP = 12;
 
 export const LogShotUndoToast = React.memo(function LogShotUndoToast({
   bottomInset = 0,
@@ -44,25 +50,32 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
     clearToast();
   }, [lastShotId, lastShotContext, deleteShot, clearToast]);
 
-  // Nothing to show.
   if (!dismissAt) return null;
   if (variant === 'success' && (!lastShotId || lastSequence === null)) return null;
   if (variant === 'error' && !errorMessage) return null;
 
   const isError = variant === 'error';
-  const surface = isError ? (colors.errorLight ?? colors.surface) : colors.surface;
-  const textColor = isError ? (colors.errorDark ?? colors.textPrimary) : colors.textPrimary;
+  // Solid surface — slightly elevated grey for success, error tone for error.
+  const surface = isError ? colors.error : (colors.gray900 ?? colors.textPrimary);
+  const textColor = colors.white;
+  const actionColor = isError ? colors.white : (colors.primaryLight ?? colors.white);
 
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { bottom: 168 + bottomInset }]}
+      style={[styles.wrap, { bottom: TOAST_BASE_BOTTOM + bottomInset }]}
     >
-      <View style={[styles.toast, shadows.lg, { backgroundColor: surface }]}>
+      <View
+        style={[
+          styles.toast,
+          shadows.lg,
+          { backgroundColor: surface, height: TOAST_HEIGHT },
+        ]}
+      >
         {isError && (
-          <Icon source="alert-circle-outline" size={18} color={colors.error} />
+          <Icon source="alert-circle-outline" size={20} color={textColor} />
         )}
-        <Text style={[styles.message, { color: textColor }]}>
+        <Text style={[styles.message, { color: textColor }]} numberOfLines={2}>
           {isError ? errorMessage : `Shot ${lastSequence} logged`}
         </Text>
         {!isError && (
@@ -71,8 +84,9 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
             accessibilityLabel={`Undo shot ${lastSequence}`}
             onPress={handleUndo}
             testID="log-shot-undo-button"
+            hitSlop={8}
           >
-            <Text style={[styles.action, { color: colors.primary }]}>Undo</Text>
+            <Text style={[styles.action, { color: actionColor }]}>Undo</Text>
           </Pressable>
         )}
         {isError && (
@@ -81,8 +95,9 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
             accessibilityLabel="Dismiss"
             onPress={clearToast}
             testID="log-shot-error-dismiss"
+            hitSlop={8}
           >
-            <Text style={[styles.action, { color: colors.textSecondary }]}>Dismiss</Text>
+            <Text style={[styles.action, { color: actionColor }]}>Dismiss</Text>
           </Pressable>
         )}
       </View>
@@ -93,26 +108,26 @@ export const LogShotUndoToast = React.memo(function LogShotUndoToast({
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    alignItems: 'center',
+    left: spacing.md,
+    right: spacing.md,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    minWidth: 220,
+    borderRadius: borderRadius.lg,
     gap: spacing.md,
   },
   message: {
     ...typography.body,
+    fontWeight: '500',
     flex: 1,
   },
   action: {
     ...typography.body,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
 });

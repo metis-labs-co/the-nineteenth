@@ -6,6 +6,11 @@ import { borderRadius, shadows } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useLogShot } from '@/hooks/shots';
 import { useShotLoggingUiStore } from '@/store/shotLoggingUiStore';
+import {
+  TOAST_BASE_BOTTOM,
+  TOAST_HEIGHT,
+  TOAST_FAB_GAP,
+} from './LogShotUndoToast';
 
 interface LogShotFABProps {
   roundId: string;
@@ -14,8 +19,11 @@ interface LogShotFABProps {
   bottomInset?: number;
 }
 
-/** Default bottom offset clears the scorecard footer (~80px) plus breathing room. */
-const DEFAULT_BOTTOM = 96;
+/**
+ * Resting bottom offset (no toast visible). Clears the scorecard footer.
+ * When a toast is visible the FAB shifts up to clear the toast strip.
+ */
+const FAB_RESTING_BOTTOM = 96;
 
 export const LogShotFAB = React.memo(function LogShotFAB({
   roundId,
@@ -33,6 +41,8 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const logShot = useLogShot();
   const showToast = useShotLoggingUiStore((s) => s.showToast);
   const showErrorToast = useShotLoggingUiStore((s) => s.showErrorToast);
+  // When a toast is visible the FAB shifts up so it clears the toast strip.
+  const toastVisible = useShotLoggingUiStore((s) => s.dismissAt !== null);
 
   // Bootstrap GPS — the FAB is the only entry point in some flows
   // (e.g. courses without hole_coordinates where DistanceToPin never
@@ -116,6 +126,12 @@ export const LogShotFAB = React.memo(function LogShotFAB({
   const pressable = !logShot.isPending && (location !== null || isAwaitingPermission);
   const looksDisabled = !pressable;
 
+  // FAB resting position; bumps up by toast height + gap when toast visible.
+  const restingBottom = FAB_RESTING_BOTTOM + bottomInset;
+  const liftedBottom =
+    TOAST_BASE_BOTTOM + bottomInset + TOAST_HEIGHT + TOAST_FAB_GAP + 24;
+  const fabBottom = toastVisible ? liftedBottom : restingBottom;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -135,7 +151,7 @@ export const LogShotFAB = React.memo(function LogShotFAB({
         shadows.lg,
         {
           backgroundColor: looksDisabled ? colors.gray400 : colors.primary,
-          bottom: DEFAULT_BOTTOM + bottomInset,
+          bottom: fabBottom,
         },
       ]}
     >
