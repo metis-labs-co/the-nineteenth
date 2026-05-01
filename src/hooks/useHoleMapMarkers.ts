@@ -9,11 +9,20 @@ export interface LatLng {
   longitude: number;
 }
 
+export type TeePoiType = 'tee_back' | 'tee_front';
+export type GreenPoiType = 'green_front' | 'green_center' | 'green_back';
+
+export interface PoiMarker<T extends string> {
+  type: T;
+  coordinate: LatLng;
+}
+
 export interface HoleMapMarkers {
+  /** Legacy single-anchor pin used by Phase A. green_center → green_front fallback. */
   pin: LatLng | null;
-  tees: LatLng[];
-  greens: LatLng[];
-  hazards: LatLng[];
+  tees: PoiMarker<TeePoiType>[];
+  greens: PoiMarker<GreenPoiType>[];
+  hazards: PoiMarker<string>[];
 }
 
 const toLatLng = (c: HoleCoordinate): LatLng => ({
@@ -21,9 +30,12 @@ const toLatLng = (c: HoleCoordinate): LatLng => ({
   longitude: c.longitude,
 });
 
+const TEE_ORDER: TeePoiType[] = ['tee_back', 'tee_front'];
+const GREEN_ORDER: GreenPoiType[] = ['green_front', 'green_center', 'green_back'];
+
 export function selectHoleMapMarkers(
   set: HoleCoordinateSet | undefined,
-  _tier: MapTier
+  tier: MapTier
 ): HoleMapMarkers {
   if (!set) {
     return { pin: null, tees: [], greens: [], hazards: [] };
@@ -33,7 +45,21 @@ export function selectHoleMapMarkers(
   const front = set.green_front;
   const pin = center ? toLatLng(center) : front ? toLatLng(front) : null;
 
-  return { pin, tees: [], greens: [], hazards: [] };
+  if (tier === 'free') {
+    return { pin, tees: [], greens: [], hazards: [] };
+  }
+
+  const tees: PoiMarker<TeePoiType>[] = TEE_ORDER.flatMap((type) => {
+    const c = set[type];
+    return c ? [{ type, coordinate: toLatLng(c) }] : [];
+  });
+
+  const greens: PoiMarker<GreenPoiType>[] = GREEN_ORDER.flatMap((type) => {
+    const c = set[type];
+    return c ? [{ type, coordinate: toLatLng(c) }] : [];
+  });
+
+  return { pin, tees, greens, hazards: [] };
 }
 
 export function useHoleMapMarkers(
