@@ -20,11 +20,11 @@ interface LogShotFABProps {
 }
 
 /**
- * Resting bottom offset (no toast visible). Clears the scorecard footer
- * with breathing room. When a toast is visible the FAB shifts up further
- * to clear the toast strip.
+ * Resting bottom offset (no toast visible). Clears the ~120dp scorecard
+ * footer plus 16dp breathing room. When a toast is visible the FAB
+ * shifts up further to clear the toast strip.
  */
-const FAB_RESTING_BOTTOM = 112;
+const FAB_RESTING_BOTTOM = 136;
 
 export const LogShotFAB = React.memo(function LogShotFAB({
   roundId,
